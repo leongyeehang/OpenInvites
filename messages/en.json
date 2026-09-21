@@ -2,7 +2,9 @@
   "Home": {
     "title": "OpenInvites",
     "status": "This instance is up.",
-    "tagline": "An open source, self-hostable service for event invitations."
+    "tagline": "An open source, self-hostable service for event invitations.",
+    "signIn": "Sign in",
+    "signUp": "Create an account"
   },
   "LocaleSwitcher": {
     "label": "Language"
@@ -11,5 +13,136 @@
     "en": "English",
     "zh-Hans": "简体中文",
     "zh-Hant": "繁體中文"
+  },
+  "Auth": {
+    "signUp": {
+      "title": "Create your host account",
+      "description": "Host events and share them with one link.",
+      "displayName": "Display name",
+      "displayNameHint": "Guests see it as “Hosted by”.",
+      "email": "Email",
+      "password": "Password",
+      "passwordHint": "At least 8 characters.",
+      "submit": "Create account",
+      "haveAccount": "Already have an account?",
+      "signIn": "Sign in"
+    },
+    "signIn": {
+      "title": "Sign in",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Sign in",
+      "forgotPassword": "Forgot your password?",
+      "noAccount": "New here?",
+      "signUp": "Create an account",
+      "passwordChanged": "Your password has been changed. Sign in with the new one.",
+      "accountDeleted": "Your account has been deleted."
+    },
+    "forgotPassword": {
+      "title": "Reset your password",
+      "description": "Enter your email and we will send you a link to choose a new password.",
+      "email": "Email",
+      "submit": "Send reset link",
+      "sent": "If an account exists for that email, a reset link is on its way. It is valid for one hour.",
+      "noMail": "This instance cannot send email, so the operator resets passwords by hand.",
+      "contactOperator": "Contact the operator at <link>{email}</link> to reset your password.",
+      "contactOperatorUnknown": "Contact the operator of this instance to reset your password.",
+      "backToSignIn": "Back to sign in"
+    },
+    "resetPassword": {
+      "title": "Choose a new password",
+      "password": "New password",
+      "passwordHint": "At least 8 characters.",
+      "submit": "Change password",
+      "missingToken": "This reset link is not valid or has expired.",
+      "requestAgain": "Request a new link"
+    },
+    "verifyEmail": {
+      "verifiedTitle": "Email verified",
+      "verified": "Thanks, your email address is confirmed.",
+      "toDashboard": "Go to your dashboard",
+      "failedTitle": "That link did not work",
+      "failed": "This verification link is not valid or has expired. Sign in and ask for a new one from the banner on your dashboard.",
+      "toSignIn": "Sign in"
+    },
+    "banner": {
+      "title": "Verify your email",
+      "text": "We sent a link to {email}. Until you open it, you cannot create events.",
+      "resend": "Resend email",
+      "sent": "Sent. Check your inbox."
+    },
+    "errors": {
+      "displayNameRequired": "Enter a display name.",
+      "unknown": "Something went wrong. Please try again.",
+      "INVALID_EMAIL": "Enter a valid email address.",
+      "INVALID_EMAIL_OR_PASSWORD": "That email and password do not match.",
+      "USER_ALREADY_EXISTS": "An account with that email already exists.",
+      "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL": "An account with that email already exists.",
+      "PASSWORD_TOO_SHORT": "Use at least 8 characters.",
+      "PASSWORD_TOO_LONG": "Use at most 128 characters.",
+      "INVALID_PASSWORD": "That password is not correct.",
+      "INVALID_TOKEN": "This link is not valid or has expired.",
+      "TOKEN_EXPIRED": "This link has expired.",
+      "EMAIL_ALREADY_VERIFIED": "Your email is already verified.",
+      "VERIFICATION_EMAIL_NOT_ENABLED": "This instance cannot send email.",
+      "SESSION_EXPIRED": "Your session has ended. Sign in again.",
+      "CREDENTIAL_ACCOUNT_NOT_FOUND": "This account has no password to check."
+    }
+  },
+  "Host": {
+    "header": {
+      "account": "Account",
+      "signOut": "Sign out"
+    },
+    "dashboard": {
+      "title": "Your events",
+      "empty": "You have no events yet."
+    }
+  },
+  "Account": {
+    "title": "Account settings",
+    "displayName": {
+      "title": "Display name",
+      "description": "Guests see it as “Hosted by”.",
+      "label": "Display name",
+      "submit": "Save",
+      "saved": "Display name saved."
+    },
+    "email": {
+      "title": "Email",
+      "current": "Signed in as {email}.",
+      "label": "New email",
+      "submit": "Change email",
+      "verificationSent": "Check {email} for a link that confirms the change.",
+      "changed": "Email changed."
+    },
+    "password": {
+      "title": "Password",
+      "current": "Current password",
+      "new": "New password",
+      "newHint": "At least 8 characters.",
+      "submit": "Change password",
+      "changed": "Password changed."
+    },
+    "delete": {
+      "title": "Delete account",
+      "description": "Removes your account, your events, and every guest’s data. This cannot be undone.",
+      "button": "Delete account",
+      "confirmTitle": "Delete your account?",
+      "confirmDescription": "Your events and every RSVP go with it. Enter your password to confirm.",
+      "password": "Password",
+      "cancel": "Cancel",
+      "confirm": "Delete my account"
+    }
+  },
+  "Mail": {
+    "verifyEmail": {
+      "subject": "Verify your email for OpenInvites",
+      "body": "Hi {name},\n\nOpen the link below to confirm this is your email address. It is valid for one hour.\n\n{url}\n\nIf you did not sign up for OpenInvites, you can ignore this message."
+    },
+    "resetPassword": {
+      "subject": "Reset your OpenInvites password",
+      "body": "Hi {name},\n\nOpen the link below to choose a new password. It is valid for one hour.\n\n{url}\n\nIf you did not ask for this, you can ignore this message and your password stays as it is."
+    }
   }
 }

@@ -6,4 +6,9 @@ export async function register(): Promise<void> {
   const { databaseUrl } = await import("./db/client");
   const { runMigrations } = await import("./db/migrate");
   await runMigrations(databaseUrl());
+  // Settings the first sign-up would otherwise trip over: fail at start instead.
+  const { baseUrl } = await import("./instance/env");
+  const { mailConfig } = await import("./mail/config");
+  baseUrl();
+  mailConfig();
 }

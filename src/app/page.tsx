@@ -1,4 +1,6 @@
 import { getTranslations } from "next-intl/server";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { LocaleSwitcher } from "@/locale/locale-switcher";
 
 export default async function HomePage() {
@@ -9,6 +11,14 @@ export default async function HomePage() {
         <h1 className="text-4xl font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-lg">{t("status")}</p>
         <p className="text-muted-foreground">{t("tagline")}</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild>
+          <Link href="/sign-in">{t("signIn")}</Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/sign-up">{t("signUp")}</Link>
+        </Button>
       </div>
       <LocaleSwitcher />
     </main>

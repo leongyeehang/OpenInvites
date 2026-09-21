@@ -24,6 +24,11 @@ WORKDIR /app
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
 COPY --from=build --chown=node:node /app/drizzle ./drizzle
+COPY --from=build --chown=node:node /app/scripts ./scripts
+# The standalone output keeps postgres under pnpm's store path only (next.config.ts lists it as
+# external). Link it where Node resolves bare imports, so the operator commands in scripts/ run.
+RUN cd node_modules && ln -s "$(find .pnpm -maxdepth 3 -type d -path '*/node_modules/postgres')" postgres \
+  && test -f postgres/package.json
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=6 \

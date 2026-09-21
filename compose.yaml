@@ -23,6 +23,11 @@ services:
     profiles: [test]
     environment:
       DATABASE_URL: postgres://openinvites:openinvites@db:5432/openinvites
+      BASE_URL: http://localhost:3000
+      AUTH_SECRET: test-profile-only-secret-change-me-0123456789abcdef
+      SMTP_URL: smtp://mail:1025
+      MAIL_FROM: OpenInvites <no-reply@openinvites.test>
+      OPERATOR_CONTACT_EMAIL: operator@openinvites.test
     ports:
       - "3000:3000"
     depends_on:
@@ -31,11 +36,16 @@ services:
       mail:
         condition: service_started
 
+  # Fake mail server: catches every email the app sends. Web UI on 8025, SMTP on 1025.
   mail:
     image: axllent/mailpit
-    profiles: [test]
+    profiles: [dev, test]
+    environment:
+      # Reverse DNS on each connection is slow behind Docker's port proxy and buys nothing here.
+      MP_SMTP_DISABLE_RDNS: "true"
     ports:
       - "8025:8025"
+      - "1025:1025"
 
 volumes:
   db-data:

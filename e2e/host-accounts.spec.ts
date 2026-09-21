@@ -1,0 +1,223 @@
+import { execFileSync } from "node:child_process";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+
+// Mailpit, the fake mail server of the Compose test profile, exposes its API on 8025.
+const MAILPIT = "http://localhost:8025";
+const PASSWORD = "correct horse battery";
+
+function newHost(label: string) {
+  const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+  return { name: `Ada ${suffix}`, email: `${label}-${suffix}@example.test` };
+}
+
+async function signUp(page: Page, host: { name: string; email: string }) {
+  await page.goto("/sign-up");
+  await page.getByLabel("Display name").fill(host.name);
+  await page.getByLabel("Email").fill(host.email);
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByRole("banner").getByText(host.name)).toBeVisible();
+}
+
+async function signIn(page: Page, email: string, password: string) {
+  await page.goto("/sign-in");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+}
+
+async function signOut(page: Page) {
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL("/");
+}
+
+// The newest email Mailpit holds for this address, as plain text.
+async function latestMailTo(request: APIRequestContext, email: string): Promise<string> {
+  let id = "";
+  await expect
+    .poll(
+      async () => {
+        const response = await request.get(`${MAILPIT}/api/v1/search`, { params: { query: `to:${email}` } });
+        const body = (await response.json()) as { messages: { ID: string }[] };
+        id = body.messages[0]?.ID ?? "";
+        return body.messages.length;
+      },
+      { timeout: 15_000, message: `an email to ${email}` },
+    )
+    .toBeGreaterThan(0);
+  const message = (await (await request.get(`${MAILPIT}/api/v1/message/${id}`)).json()) as { Text: string };
+  return message.Text;
+}
+
+async function mailCountTo(request: APIRequestContext, email: string): Promise<number> {
+  const response = await request.get(`${MAILPIT}/api/v1/search`, { params: { query: `to:${email}` } });
+  return ((await response.json()) as { messages: unknown[] }).messages.length;
+}
+
+// Asks for a reset link and returns it once it has arrived.
+async function requestResetLink(page: Page, request: APIRequestContext, email: string): Promise<string> {
+  await page.goto("/forgot-password");
+  await page.getByLabel("Email").fill(email);
+  await page.getByRole("button", { name: "Send reset link" }).click();
+  await expect(page.getByText("a reset link is on its way")).toBeVisible();
+  await expect.poll(async () => (await latestMailTo(request, email)).includes("choose a new password")).toBe(true);
+  return linkIn(await latestMailTo(request, email));
+}
+
+function linkIn(text: string): string {
+  const match = text.match(/https?:\/\/\S+/);
+  if (!match) throw new Error(`No link in:\n${text}`);
+  return match[0];
+}
+
+test("a person signs up, verifies their email through the fake mail server, and the banner goes away", async ({
+  page,
+  request,
+}) => {
+  const host = newHost("verify");
+  await signUp(page, host);
+  await expect(page.getByText("Verify your email")).toBeVisible();
+  await expect(page.getByText(`We sent a link to ${host.email}`)).toBeVisible();
+
+  await page.goto(linkIn(await latestMailTo(request, host.email)));
+  await expect(page.getByRole("heading", { name: "Email verified" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Go to your dashboard" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByText("Verify your email")).toHaveCount(0);
+});
+
+test("the banner resends the verification email", async ({ page, request }) => {
+  const host = newHost("resend");
+  await signUp(page, host);
+  await page.getByRole("button", { name: "Resend email" }).click();
+  await expect(page.getByText("Sent. Check your inbox.")).toBeVisible();
+  await expect.poll(() => mailCountTo(request, host.email)).toBe(2);
+});
+
+test("sessions on two devices are independent: signing out of one keeps the other signed in", async ({
+  page,
+  browser,
+}) => {
+  const host = newHost("devices");
+  await signUp(page, host);
+
+  const otherDevice = await browser.newContext();
+  const otherPage = await otherDevice.newPage();
+  await signIn(otherPage, host.email, PASSWORD);
+  await expect(otherPage).toHaveURL(/\/dashboard$/);
+
+  await signOut(page);
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/sign-in$/);
+
+  await otherPage.reload();
+  await expect(otherPage).toHaveURL(/\/dashboard$/);
+  await expect(otherPage.getByRole("banner").getByText(host.name)).toBeVisible();
+  await otherDevice.close();
+});
+
+test("a host changes their display name and sees it in the header", async ({ page }) => {
+  const host = newHost("rename");
+  await signUp(page, host);
+  await page.getByRole("banner").getByRole("link", { name: host.name }).click();
+  await expect(page).toHaveURL(/\/account$/);
+
+  await page.getByLabel("Display name").fill("Grace Hopper");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Display name saved.")).toBeVisible();
+  await expect(page.getByRole("banner").getByText("Grace Hopper")).toBeVisible();
+
+  await page.goto("/dashboard");
+  await expect(page.getByRole("banner").getByText("Grace Hopper")).toBeVisible();
+});
+
+test("a host changes their password and signs in with the new one", async ({ page }) => {
+  const host = newHost("password");
+  await signUp(page, host);
+  await page.goto("/account");
+  await page.getByLabel("Current password").fill(PASSWORD);
+  await page.getByLabel("New password").fill("a brand new passphrase");
+  await page.getByRole("button", { name: "Change password" }).click();
+  await expect(page.getByText("Password changed.")).toBeVisible();
+
+  await signOut(page);
+  await signIn(page, host.email, "a brand new passphrase");
+  await expect(page).toHaveURL(/\/dashboard$/);
+});
+
+test("a host resets a forgotten password by email", async ({ page, request }) => {
+  const host = newHost("reset");
+  await signUp(page, host);
+  await signOut(page);
+
+  await page.goto(await requestResetLink(page, request, host.email));
+  await page.getByLabel("New password").fill("another passphrase");
+  await page.getByRole("button", { name: "Change password" }).click();
+  await expect(page.getByText("Your password has been changed.")).toBeVisible();
+
+  await signIn(page, host.email, PASSWORD);
+  await expect(page.getByText("That email and password do not match.")).toBeVisible();
+  await signIn(page, host.email, "another passphrase");
+  await expect(page).toHaveURL(/\/dashboard$/);
+});
+
+test("a reset link cannot be used twice", async ({ page, request }) => {
+  const host = newHost("reuse");
+  await signUp(page, host);
+  await signOut(page);
+  const link = await requestResetLink(page, request, host.email);
+
+  await page.goto(link);
+  await page.getByLabel("New password").fill("first new passphrase");
+  await page.getByRole("button", { name: "Change password" }).click();
+  await expect(page).toHaveURL(/\/sign-in/);
+
+  await page.goto(link);
+  await page.getByLabel("New password").fill("second new passphrase");
+  await page.getByRole("button", { name: "Change password" }).click();
+  await expect(page.getByText("This link is not valid or has expired.")).toBeVisible();
+});
+
+test("the operator resets a host's password with the command inside the container", async ({ page }) => {
+  const host = newHost("operator");
+  await signUp(page, host);
+  await signOut(page);
+
+  const output = execFileSync(
+    "docker",
+    ["compose", "--profile", "test", "exec", "-T", "app", "node", "scripts/reset-password.mjs", host.email],
+    { encoding: "utf8" },
+  );
+  const temporaryPassword = output.match(/Temporary password for .*: (\S+)/)?.[1];
+  expect(temporaryPassword, output).toBeTruthy();
+
+  await signIn(page, host.email, temporaryPassword!);
+  await expect(page).toHaveURL(/\/dashboard$/);
+});
+
+test("a host deletes their account after confirming with their password", async ({ page }) => {
+  const host = newHost("delete");
+  await signUp(page, host);
+  await page.goto("/account");
+  await page.getByRole("button", { name: "Delete account" }).click();
+
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog.getByText("Delete your account?")).toBeVisible();
+  await dialog.getByLabel("Password").fill(PASSWORD);
+  await dialog.getByRole("button", { name: "Delete my account" }).click();
+
+  await expect(page).toHaveURL(/\/sign-in/);
+  await expect(page.getByText("Your account has been deleted.")).toBeVisible();
+
+  await signIn(page, host.email, PASSWORD);
+  await expect(page.getByText("That email and password do not match.")).toBeVisible();
+});
+
+test("a visitor who is not signed in is sent to sign in", async ({ page }) => {
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await page.goto("/account");
+  await expect(page).toHaveURL(/\/sign-in$/);
+});
