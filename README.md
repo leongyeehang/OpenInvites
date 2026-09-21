@@ -9,7 +9,7 @@ This repository is at the walking-skeleton stage: the application runs, migrates
 You need Node.js 22, pnpm (`corepack enable` gives you the pinned version), and Docker with Compose.
 
 ```sh
-git clone git@github.com:openinvites/openinvites.git && cd openinvites
+git clone git@github.com:leongyeehang/OpenInvites.git && cd OpenInvites
 pnpm install
 pnpm dev
 ```
