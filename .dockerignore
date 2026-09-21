@@ -1,0 +1,17 @@
+.git
+.claude
+.scratch
+docs
+node_modules
+.next
+out
+coverage
+test-results
+playwright-report
+e2e
+*.md
+.env
+.env*.local
+Dockerfile
+compose.yaml
+.github

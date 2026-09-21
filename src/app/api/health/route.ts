@@ -1,0 +1,14 @@
+import { sql } from "drizzle-orm";
+import { getDb } from "@/db/client";
+
+export const dynamic = "force-dynamic";
+
+// Ready only when the database answers. Compose health checks and uptime monitors poll this.
+export async function GET(): Promise<Response> {
+  try {
+    await getDb().execute(sql`select 1`);
+    return Response.json({ status: "ok" });
+  } catch {
+    return Response.json({ status: "unavailable" }, { status: 503 });
+  }
+}

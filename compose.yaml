@@ -1,0 +1,43 @@
+name: openinvites
+
+services:
+  db:
+    image: postgres:18-alpine
+    profiles: [dev, test]
+    environment:
+      POSTGRES_USER: openinvites
+      POSTGRES_PASSWORD: openinvites
+      POSTGRES_DB: openinvites
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openinvites -d openinvites"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  app:
+    build: .
+    profiles: [test]
+    environment:
+      DATABASE_URL: postgres://openinvites:openinvites@db:5432/openinvites
+      SMTP_HOST: mail
+      SMTP_PORT: 1025
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      mail:
+        condition: service_started
+
+  mail:
+    image: axllent/mailpit
+    profiles: [test]
+    ports:
+      - "${MAILPIT_PORT:-8025}:8025"
+
+volumes:
+  db-data:

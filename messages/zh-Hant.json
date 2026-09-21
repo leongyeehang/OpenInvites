@@ -1,0 +1,15 @@
+{
+  "Home": {
+    "title": "OpenInvites",
+    "status": "此實例正在運行。",
+    "tagline": "開源、可自行架設的活動邀請服務。"
+  },
+  "LocaleSwitcher": {
+    "label": "語言"
+  },
+  "Locales": {
+    "en": "English",
+    "zh-Hans": "简体中文",
+    "zh-Hant": "繁體中文"
+  }
+}
