@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { getLocale, getTranslations } from "next-intl/server";
-import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { getSession } from "@/auth/session";
-import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { findEventBySlug } from "@/events/repository";
 import { isSlug } from "@/events/slug";
-import { formatWhen } from "@/events/time";
+import { PosterLayout } from "@/themes/poster-layout";
+import { resolveTheme } from "@/themes/resolve";
+import { ThemedPage } from "@/themes/themed-page";
+import { DraftNotice } from "./draft-notice";
 
 // Event pages are never indexed (ADR-0004). The header carries the same signal (next.config.ts).
 const noindex: Metadata["robots"] = { index: false, follow: false };
@@ -20,18 +20,20 @@ export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Prom
   return { title, robots: noindex };
 }
 
-// The event page: the invitation itself. Ticket 06 gives it the theme; this is the bare page.
+// The event page: the invitation itself, rendered on the server in the event's theme so the
+// first paint is the finished look. M1 ships the Poster layout; resolveTheme maps every stored
+// layout to it.
 export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const { slug } = await params;
   if (!isSlug(slug)) notFound();
   const event = await findEventBySlug(slug);
   if (!event) notFound();
-  const [t, locale] = await Promise.all([getTranslations("EventPage"), getLocale()]);
 
   const isDraft = event.state === "draft";
   if (isDraft) {
     const session = await getSession();
     if (session?.user.id !== event.hostId) {
+      const t = await getTranslations("EventPage");
       return (
         <main className="mx-auto flex min-h-svh w-full max-w-xl flex-col justify-center gap-3 px-4 py-12">
           <h1 className="text-3xl font-semibold tracking-tight">{t("notReadyTitle")}</h1>
@@ -41,40 +43,10 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     }
   }
 
+  const theme = resolveTheme(event.theme);
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-xl flex-col gap-8 px-4 py-12">
-      {isDraft && (
-        <Alert>
-          <AlertDescription>{t("draftBanner")}</AlertDescription>
-          <AlertAction>
-            <Button asChild size="sm" variant="outline">
-              <Link href={`/events/${event.id}`}>{t("edit")}</Link>
-            </Button>
-          </AlertAction>
-        </Alert>
-      )}
-      <header className="flex flex-col gap-2">
-        <h1 className="text-4xl font-semibold tracking-tight">{event.title}</h1>
-        <p className="text-muted-foreground">{t("hostedBy", { name: event.hostName })}</p>
-      </header>
-      <dl className="flex flex-col gap-4">
-        <div>
-          <dt className="text-sm text-muted-foreground">{t("when")}</dt>
-          <dd className="text-lg">{formatWhen(event, locale)}</dd>
-        </div>
-        {event.location && (
-          <div>
-            <dt className="text-sm text-muted-foreground">{t("where")}</dt>
-            <dd className="text-lg">{event.location}</dd>
-          </div>
-        )}
-        {event.description && (
-          <div>
-            <dt className="text-sm text-muted-foreground">{t("about")}</dt>
-            <dd className="whitespace-pre-line">{event.description}</dd>
-          </div>
-        )}
-      </dl>
-    </main>
+    <ThemedPage theme={theme}>
+      <PosterLayout event={event} theme={theme} notice={isDraft ? <DraftNotice eventId={event.id} /> : undefined} />
+    </ThemedPage>
   );
 }

@@ -202,6 +202,7 @@
     }
   },
   "EventPage": {
+    "eyebrow": "You’re invited to",
     "hostedBy": "Hosted by {name}",
     "when": "When",
     "where": "Where",

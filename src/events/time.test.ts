@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eventEnd, formatWhen, isTimeZone, partitionByEnd, timeZones, toInstant, toWallTime } from "./time";
+import { eventEnd, formatDateSticker, formatWhen, isTimeZone, partitionByEnd, timeZones, toInstant, toWallTime } from "./time";
 
 describe("toInstant", () => {
   it("reads a wall-clock time in the event's zone", () => {
@@ -105,5 +105,18 @@ describe("partitionByEnd", () => {
     const { upcoming, past } = partitionByEnd([longAgo, ended, endsLater, later], now);
     expect(upcoming.map((event) => event.id)).toEqual(["b", "c"]);
     expect(past.map((event) => event.id)).toEqual(["a", "d"]);
+  });
+});
+
+describe("formatDateSticker", () => {
+  const startsAt = new Date("2027-03-06T11:00:00Z"); // 7 PM on Saturday 6 March in Singapore
+
+  it("gives the weekday, day, and month in the event's zone and the guest's language", () => {
+    expect(formatDateSticker({ startsAt, timeZone: "Asia/Singapore" }, "en")).toEqual({ weekday: "Sat", day: "6", month: "Mar" });
+    // The same instant is still Saturday morning in Los Angeles.
+    expect(formatDateSticker({ startsAt, timeZone: "America/Los_Angeles" }, "en")).toEqual({ weekday: "Sat", day: "6", month: "Mar" });
+    // In New Zealand it is already Sunday.
+    expect(formatDateSticker({ startsAt, timeZone: "Pacific/Auckland" }, "en")).toEqual({ weekday: "Sun", day: "7", month: "Mar" });
+    expect(formatDateSticker({ startsAt, timeZone: "Asia/Singapore" }, "zh-Hans")).toEqual({ weekday: "周六", day: "6日", month: "3月" });
   });
 });

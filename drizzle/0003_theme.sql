@@ -1,0 +1,1 @@
+ALTER TABLE "event" ADD COLUMN "theme" jsonb DEFAULT '{}'::jsonb NOT NULL;

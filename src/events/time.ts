@@ -74,6 +74,17 @@ export function formatWhen(time: EventTime, locale: string): string {
   return time.endsAt ? times.formatRange(time.startsAt, time.endsAt) : times.format(time.startsAt);
 }
 
+// The poster's date sticker: weekday, day, and month of the start, in the event's zone.
+// Each piece is formatted on its own so a language's month marker (3月) stays with the month.
+export function formatDateSticker(
+  time: Pick<EventTime, "startsAt" | "timeZone">,
+  locale: string,
+): { weekday: string; day: string; month: string } {
+  const piece = (options: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat(locale, { timeZone: time.timeZone, ...options }).format(time.startsAt);
+  return { weekday: piece({ weekday: "short" }), day: piece({ day: "numeric" }), month: piece({ month: "short" }) };
+}
+
 // When the event is over: its end, else its start; an all-day event lasts through its last day,
 // until the next local midnight, so a clock change on that day does not shift it by an hour.
 export function eventEnd(time: EventTime): Date {

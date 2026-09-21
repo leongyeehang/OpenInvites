@@ -2,11 +2,18 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { cache } from "react";
 import { getDb } from "@/db/client";
 import { event, user } from "@/db/schema";
+import { DEFAULT_THEME, parseTheme } from "@/themes/theme";
 import type { EventInput } from "./form";
 import { SLUG_TAKEN, withFreshSlug } from "./slug";
 
 export type Event = typeof event.$inferSelect;
 export type EventState = Event["state"];
+
+// Every read goes through here: the stored theme is completed by parseTheme, so rows from before
+// themes existed, or from a newer version, come back as a whole Theme.
+function withTheme<T extends { theme: unknown }>(row: T): T {
+  return { ...row, theme: parseTheme(row.theme) };
+}
 
 const UNIQUE_VIOLATION = "23505";
 
@@ -18,11 +25,12 @@ function isSlugCollision(error: unknown): boolean {
   return code === UNIQUE_VIOLATION && String(constraint_name).includes("slug");
 }
 
+// A new event starts with the Birthday template's theme (ticket 06).
 export async function createEvent(hostId: string, input: EventInput): Promise<Event> {
   return withFreshSlug(async (slug) => {
     try {
-      const [created] = await getDb().insert(event).values({ hostId, slug, ...input }).returning();
-      return created;
+      const [created] = await getDb().insert(event).values({ hostId, slug, theme: DEFAULT_THEME, ...input }).returning();
+      return withTheme(created);
     } catch (error) {
       if (isSlugCollision(error)) return SLUG_TAKEN;
       throw error;
@@ -33,7 +41,8 @@ export async function createEvent(hostId: string, input: EventInput): Promise<Ev
 // Scoped to the host: a host can only ever load or change their own events. Cached per
 // request, as generateMetadata and the page both ask.
 export const findHostEvent = cache(async (hostId: string, id: string): Promise<Event | undefined> => {
-  return getDb().query.event.findFirst({ where: and(eq(event.id, id), eq(event.hostId, hostId)) });
+  const found = await getDb().query.event.findFirst({ where: and(eq(event.id, id), eq(event.hostId, hostId)) });
+  return found && withTheme(found);
 });
 
 export async function updateEvent(hostId: string, id: string, input: EventInput): Promise<Event | undefined> {
@@ -42,7 +51,7 @@ export async function updateEvent(hostId: string, id: string, input: EventInput)
     .set({ ...input, updatedAt: new Date() })
     .where(and(eq(event.id, id), eq(event.hostId, hostId)))
     .returning();
-  return updated;
+  return updated && withTheme(updated);
 }
 
 export async function publishEvent(hostId: string, id: string): Promise<Event | undefined> {
@@ -51,11 +60,12 @@ export async function publishEvent(hostId: string, id: string): Promise<Event | 
     .set({ state: "published", updatedAt: new Date() })
     .where(and(eq(event.id, id), eq(event.hostId, hostId)))
     .returning();
-  return published;
+  return published && withTheme(published);
 }
 
 export async function listHostEvents(hostId: string): Promise<Event[]> {
-  return getDb().query.event.findMany({ where: eq(event.hostId, hostId), orderBy: [asc(event.startsAt), desc(event.createdAt)] });
+  const events = await getDb().query.event.findMany({ where: eq(event.hostId, hostId), orderBy: [asc(event.startsAt), desc(event.createdAt)] });
+  return events.map(withTheme);
 }
 
 export type EventWithHost = Event & { hostName: string };
@@ -68,5 +78,5 @@ export const findEventBySlug = cache(async (slug: string): Promise<EventWithHost
     .innerJoin(user, eq(user.id, event.hostId))
     .where(eq(event.slug, slug))
     .limit(1);
-  return row ? { ...row.event, hostName: row.hostName } : undefined;
+  return row ? { ...withTheme(row.event), hostName: row.hostName } : undefined;
 });

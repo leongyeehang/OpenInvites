@@ -180,6 +180,44 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Event page theme tokens (section 4 below), as utilities: bg-theme-glass, text-theme-accent... */
+  --color-theme-accent: var(--theme-accent);
+  --color-theme-on-accent: var(--theme-on-accent);
+  --color-theme-base: var(--theme-base);
+  --color-theme-text: var(--theme-text);
+  --color-theme-text-muted: var(--theme-text-muted);
+  --color-theme-text-faint: var(--theme-text-faint);
+  --color-theme-glass: var(--theme-glass);
+  --color-theme-glass-strong: var(--theme-glass-strong);
+  --color-theme-glass-border: var(--theme-glass-border);
+  --color-theme-scrim: var(--theme-scrim);
+  --color-theme-glow: var(--theme-glow);
+  --font-title: var(--theme-title-font, var(--font-family-sans));
+  --tracking-label: 0.2em;
+  --shadow-glass: 0 8px 40px -16px rgb(0 0 0 / 0.35);
+  --shadow-poster: 0 30px 80px -30px rgb(0 0 0 / 0.6);
+  --drop-shadow-title: 0 2px 24px rgb(0 0 0 / 0.2);
+  /* Poster title sizes: the serif can go bigger than the heavy sans faces; long titles step down. */
+  --text-poster-serif: clamp(3.4rem, 14vw, 5.75rem);
+  --text-poster-serif--line-height: 0.92;
+  --text-poster-serif-long: clamp(2.25rem, 9vw, 3.5rem);
+  --text-poster-serif-long--line-height: 0.92;
+  --text-poster-sans: clamp(2.75rem, 11.5vw, 4.75rem);
+  --text-poster-sans--line-height: 0.92;
+  --text-poster-sans-long: clamp(1.85rem, 7.5vw, 2.75rem);
+  --text-poster-sans-long--line-height: 0.92;
+  --animate-theme-drift: theme-drift 24s ease-in-out infinite;
+
+  @keyframes theme-drift {
+    0%,
+    100% {
+      translate: 0 0;
+    }
+    50% {
+      translate: 3rem -2rem;
+    }
+  }
 }
 
 @layer base {
@@ -191,5 +229,53 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* === 4. EVENT PAGE THEME === */
+/*
+  The event page paints its own theme and ignores the dashboard's light or dark setting (spec,
+  "Themes and templates"). The server resolves the accent into --theme-accent and --theme-on-accent
+  inline on .event-page and picks the text tone as data-tone; the tone's tokens live here, so the
+  first paint carries the finished look. The title font arrives through --theme-title-font, set by
+  the chosen font's class (src/themes/title-fonts.ts).
+*/
+.event-page {
+  /* The second backdrop blob, a warm pink in either tone (from the prototype). */
+  --theme-glow: #ff5c8a;
+}
+
+.event-page[data-tone="light"] {
+  --theme-base: #1b0f2b;
+  --theme-text: #ffffff;
+  --theme-text-muted: rgb(255 255 255 / 0.75);
+  --theme-text-faint: rgb(255 255 255 / 0.55);
+  --theme-glass: rgb(255 255 255 / 0.1);
+  --theme-glass-strong: rgb(255 255 255 / 0.14);
+  --theme-glass-border: rgb(255 255 255 / 0.15);
+  --theme-scrim: rgb(0 0 0 / 0.25);
+}
+
+.event-page[data-tone="dark"] {
+  --theme-base: #f4f1ea;
+  --theme-text: #1a1030;
+  --theme-text-muted: rgb(26 16 48 / 0.75);
+  --theme-text-faint: rgb(26 16 48 / 0.55);
+  --theme-glass: rgb(255 255 255 / 0.55);
+  --theme-glass-strong: rgb(255 255 255 / 0.7);
+  --theme-glass-border: rgb(0 0 0 / 0.1);
+  --theme-scrim: rgb(255 255 255 / 0.25);
+}
+
+@layer components {
+  /* Film grain over the backdrop: a tiled SVG noise texture, blended so it reads on any background. */
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.22;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.7 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 }
