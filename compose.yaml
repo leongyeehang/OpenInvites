@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: openinvites
       POSTGRES_DB: openinvites
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql
     healthcheck:
@@ -23,10 +23,8 @@ services:
     profiles: [test]
     environment:
       DATABASE_URL: postgres://openinvites:openinvites@db:5432/openinvites
-      SMTP_HOST: mail
-      SMTP_PORT: 1025
     ports:
-      - "${APP_PORT:-3000}:3000"
+      - "3000:3000"
     depends_on:
       db:
         condition: service_healthy
@@ -37,7 +35,7 @@ services:
     image: axllent/mailpit
     profiles: [test]
     ports:
-      - "${MAILPIT_PORT:-8025}:8025"
+      - "8025:8025"
 
 volumes:
   db-data:

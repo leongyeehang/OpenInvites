@@ -30,7 +30,7 @@ Two seams, and nothing in between:
 | `pnpm test` | Vitest unit tests for pure rules, such as locale resolution. |
 | `pnpm test:e2e` | Builds the production image, starts the `test` profile (app, Postgres 18, [Mailpit](https://mailpit.axllent.org/) as a fake mail server), then runs Playwright at a 390px phone width and at desktop width against it. |
 
-After browser tests, `docker compose --profile test down -v` stops the stack. Set `BASE_URL` to point Playwright at another instance.
+After browser tests, `docker compose --profile test down -v` stops the stack.
 
 Also useful: `pnpm lint`, `pnpm typecheck`, and `pnpm db:generate` after changing `src/db/schema.ts` (migrations live in `drizzle/` and are applied automatically at start).
 

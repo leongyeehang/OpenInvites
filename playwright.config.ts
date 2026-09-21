@@ -9,7 +9,7 @@ export default defineConfig({
   retries: isCI ? 1 : 0,
   reporter: isCI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
-    baseURL: process.env.BASE_URL ?? "http://localhost:3000",
+    baseURL: "http://localhost:3000",
     trace: "on-first-retry",
   },
   projects: [
