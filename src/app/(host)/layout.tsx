@@ -3,9 +3,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { signOut } from "@/auth/actions";
 import { requireHost } from "@/auth/session";
-import { needsEmailVerification } from "@/auth/verification";
+import { hostNeedsVerification } from "@/auth/verification";
 import { Button } from "@/components/ui/button";
-import { isMailConfigured } from "@/mail/config";
 import { VerificationBanner } from "./verification-banner";
 
 // The host area: a header with the host's display name on every page. Pages call
@@ -33,9 +32,7 @@ export default async function HostLayout({ children }: { children: ReactNode }) 
           </nav>
         </div>
       </header>
-      {needsEmailVerification({ mailConfigured: isMailConfigured(), emailVerified: host.emailVerified }) && (
-        <VerificationBanner email={host.email} />
-      )}
+      {hostNeedsVerification(host) && <VerificationBanner email={host.email} />}
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8">{children}</main>
     </>
   );

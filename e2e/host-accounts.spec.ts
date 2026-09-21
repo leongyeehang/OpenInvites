@@ -1,75 +1,16 @@
 import { execFileSync } from "node:child_process";
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-
-// Mailpit, the fake mail server of the Compose test profile, exposes its API on 8025.
-const MAILPIT = "http://localhost:8025";
-const PASSWORD = "correct horse battery";
-
-function newHost(label: string) {
-  const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-  return { name: `Ada ${suffix}`, email: `${label}-${suffix}@example.test` };
-}
-
-async function signUp(page: Page, host: { name: string; email: string }) {
-  await page.goto("/sign-up");
-  await page.getByLabel("Display name").fill(host.name);
-  await page.getByLabel("Email").fill(host.email);
-  await page.getByLabel("Password").fill(PASSWORD);
-  await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole("banner").getByText(host.name)).toBeVisible();
-}
-
-async function signIn(page: Page, email: string, password: string) {
-  await page.goto("/sign-in");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-}
-
-async function signOut(page: Page) {
-  await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page).toHaveURL("/");
-}
-
-// The newest email Mailpit holds for this address, as plain text.
-async function latestMailTo(request: APIRequestContext, email: string): Promise<string> {
-  let id = "";
-  await expect
-    .poll(
-      async () => {
-        const response = await request.get(`${MAILPIT}/api/v1/search`, { params: { query: `to:${email}` } });
-        const body = (await response.json()) as { messages: { ID: string }[] };
-        id = body.messages[0]?.ID ?? "";
-        return body.messages.length;
-      },
-      { timeout: 15_000, message: `an email to ${email}` },
-    )
-    .toBeGreaterThan(0);
-  const message = (await (await request.get(`${MAILPIT}/api/v1/message/${id}`)).json()) as { Text: string };
-  return message.Text;
-}
-
-async function mailCountTo(request: APIRequestContext, email: string): Promise<number> {
-  const response = await request.get(`${MAILPIT}/api/v1/search`, { params: { query: `to:${email}` } });
-  return ((await response.json()) as { messages: unknown[] }).messages.length;
-}
-
-// Asks for a reset link and returns it once it has arrived.
-async function requestResetLink(page: Page, request: APIRequestContext, email: string): Promise<string> {
-  await page.goto("/forgot-password");
-  await page.getByLabel("Email").fill(email);
-  await page.getByRole("button", { name: "Send reset link" }).click();
-  await expect(page.getByText("a reset link is on its way")).toBeVisible();
-  await expect.poll(async () => (await latestMailTo(request, email)).includes("choose a new password")).toBe(true);
-  return linkIn(await latestMailTo(request, email));
-}
-
-function linkIn(text: string): string {
-  const match = text.match(/https?:\/\/\S+/);
-  if (!match) throw new Error(`No link in:\n${text}`);
-  return match[0];
-}
+import { expect, test } from "@playwright/test";
+import {
+  latestMailTo,
+  linkIn,
+  mailCountTo,
+  newHost,
+  PASSWORD,
+  requestResetLink,
+  signIn,
+  signOut,
+  signUp,
+} from "./hosts";
 
 test("a person signs up, verifies their email through the fake mail server, and the banner goes away", async ({
   page,

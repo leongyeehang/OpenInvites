@@ -1,4 +1,4 @@
-import type { FormState } from "@/auth/actions";
+import type { FormState } from "@/lib/form-state";
 import { FieldError } from "@/components/ui/field";
 
 // One line of feedback under a form: the error, or the confirmation.

@@ -96,7 +96,13 @@
     },
     "dashboard": {
       "title": "Your events",
-      "empty": "You have no events yet."
+      "new": "New event",
+      "upcoming": "Upcoming",
+      "past": "Past",
+      "empty": "You have no events yet. Create one and share its link.",
+      "emptyUpcoming": "Nothing coming up.",
+      "emptyPast": "Nothing has happened yet.",
+      "counts": "{going} going · {maybe} maybe · {declined} can’t go"
     }
   },
   "Account": {
@@ -144,5 +150,70 @@
       "subject": "Reset your OpenInvites password",
       "body": "Hi {name},\n\nOpen the link below to choose a new password. It is valid for one hour.\n\n{url}\n\nIf you did not ask for this, you can ignore this message and your password stays as it is."
     }
+  },
+  "Events": {
+    "state": {
+      "draft": "Draft",
+      "published": "Published"
+    },
+    "new": {
+      "title": "New event",
+      "submit": "Save draft"
+    },
+    "edit": {
+      "title": "Event",
+      "submit": "Save changes",
+      "saved": "Saved. Guests who open the link see the change straight away."
+    },
+    "form": {
+      "title": "Title",
+      "allDay": "All day",
+      "start": "Starts",
+      "end": "Ends",
+      "endHint": "Optional.",
+      "timeZone": "Time zone",
+      "timeZoneHint": "Guests elsewhere will see the time in this zone.",
+      "location": "Where",
+      "locationHint": "An address, or “Ah Ma’s house, 3rd floor”. Optional.",
+      "description": "Description",
+      "descriptionHint": "Plain text for now. Optional."
+    },
+    "errors": {
+      "titleRequired": "Give the event a title.",
+      "startRequired": "Choose when it starts.",
+      "startInvalid": "That start is not a valid date and time.",
+      "endInvalid": "That end is not a valid date and time.",
+      "endBeforeStart": "The end must come after the start.",
+      "timeZoneInvalid": "Choose a time zone from the list.",
+      "notFound": "This event no longer exists."
+    },
+    "manage": {
+      "link": "Event link",
+      "view": "Open the event page",
+      "publish": "Publish",
+      "publishHint": "Publishing makes the event link work for anyone who has it.",
+      "publishedHint": "Anyone with the link can open the event page. Edits show up there straight away.",
+      "draftHint": "Only you can open the link while the event is a draft."
+    },
+    "verify": {
+      "title": "Verify your email first",
+      "text": "Before you create an event, open the link we sent to {email}. Then come back here.",
+      "resend": "Resend email"
+    }
+  },
+  "EventPage": {
+    "hostedBy": "Hosted by {name}",
+    "when": "When",
+    "where": "Where",
+    "about": "About",
+    "draftBanner": "Draft. Only you can see this page until you publish it.",
+    "edit": "Edit event",
+    "notReadyTitle": "This invitation isn’t ready yet",
+    "notReady": "The host is still preparing it. Try the link again later."
+  },
+  "NotFound": {
+    "title": "Page not found",
+    "text": "Nothing lives at this address. Check the link you were given.",
+    "home": "Go to the home page"
   }
 }

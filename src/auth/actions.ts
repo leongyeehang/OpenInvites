@@ -7,13 +7,11 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/client";
 import { user } from "@/db/schema";
+import type { FormState } from "@/lib/form-state";
 import { isMailConfigured } from "@/mail/config";
 import { getAuth } from "./auth";
 import { authErrorMessage } from "./errors";
 import { type Host, requireHost } from "./session";
-
-// What a form gets back: nothing on success (the action redirects), or one message.
-export type FormState = { error?: string; success?: string } | undefined;
 
 // The Next.js guide's caveat: redirect() throws, so it stays outside every try/catch below.
 

@@ -2,7 +2,7 @@
 
 An open source, self-hostable service where a host creates an event page and shares its link, and guests respond without needing an account. OpenInvites is the working name until the first public release.
 
-The application runs, migrates its own database, reports health, speaks English, Simplified Chinese, and Traditional Chinese, and lets a person become a host: sign up with email and password, verify their email, sign in on several devices, manage their account, and delete it. The host account screens are English only until the translation pass. Features arrive ticket by ticket under `.scratch/openinvites/issues/`.
+The application runs, migrates its own database, reports health, speaks English, Simplified Chinese, and Traditional Chinese, and lets a person become a host: sign up with email and password, verify their email, sign in on several devices, manage their account, and delete it. A host creates an event, saves it as a draft, publishes it, and shares a link to a bare event page; the themed look arrives next. The host screens are English only until the translation pass. Features arrive ticket by ticket under `.scratch/openinvites/issues/`.
 
 ## Run it locally
 
@@ -28,7 +28,7 @@ Two seams, and nothing in between:
 
 | Command | What it runs |
 | --- | --- |
-| `pnpm test` | Vitest unit tests for pure rules, such as locale resolution. |
+| `pnpm test` | Vitest unit tests for pure rules, such as locale resolution, the event link slug, and time zones. |
 | `pnpm test:e2e` | Builds the production image, starts the `test` profile (app, Postgres 18, [Mailpit](https://mailpit.axllent.org/) as a fake mail server), then runs Playwright at a 390px phone width and at desktop width against it. |
 
 After browser tests, `docker compose --profile test down -v` stops the stack.
@@ -69,11 +69,13 @@ In development: `node --env-file=.env.development scripts/reset-password.mjs hos
 
 ```
 src/app/            Next.js App Router pages and route handlers; (auth) is everything before
-                    sign-in, (host) is the signed-in host area
+                    sign-in, (host) is the signed-in host area, e/[slug] is the public event page
 src/auth/           Auth module: Better Auth instance, session helpers, server actions, emails
 src/components/ui/  shadcn/ui primitives, themed from the tokens in src/app/globals.css
 src/db/             Drizzle client, schema, and the migrator run at start
+src/events/         Events module: slug, time rules, form rules, repository, server actions
 src/instance/       Instance-wide settings read from the environment
+src/lib/            Small shared types and helpers
 src/locale/         Locale resolution, translation loading, language switcher
 src/mail/           Mail module: SMTP configuration and sending
 messages/           Translation files, one per locale
