@@ -1,6 +1,13 @@
 import { expect, type APIRequestContext, type Browser, type Page } from "@playwright/test";
 import { signUpVerified } from "./hosts";
 
+export type QuestionFields = {
+  prompt: string;
+  type?: "text" | "choice" | "yesNo";
+  required?: boolean;
+  choices?: string;
+};
+
 export type DraftFields = {
   title: string;
   start: string;
@@ -10,7 +17,20 @@ export type DraftFields = {
   plusOnes?: string;
   requirePlusOneNames?: boolean;
   askEmail?: boolean;
+  questions?: QuestionFields[];
 };
+
+// Fills the questions editor, which is a list the host builds before saving the event.
+export async function addQuestions(page: Page, questions: QuestionFields[]) {
+  for (const [index, question] of questions.entries()) {
+    await page.getByRole("button", { name: "Add a question" }).click();
+    const row = page.locator("form ol > li").nth(index);
+    await page.getByLabel(`Question ${index + 1}`, { exact: true }).fill(question.prompt);
+    if (question.type) await page.getByLabel(`Question ${index + 1} type`).selectOption(question.type);
+    if (question.required) await row.getByRole("checkbox").check();
+    if (question.choices) await page.getByLabel(`Question ${index + 1} choices`).fill(question.choices);
+  }
+}
 
 // Shared steps for tests that need an event. The host must already be signed in and verified.
 export async function createDraft(page: Page, fields: DraftFields) {
@@ -24,6 +44,7 @@ export async function createDraft(page: Page, fields: DraftFields) {
   if (fields.plusOnes) await page.getByLabel("Plus-ones per guest").selectOption(fields.plusOnes);
   if (fields.requirePlusOneNames) await page.getByLabel("Ask for each plus-one’s name").check();
   if (fields.askEmail) await page.getByLabel("Ask guests for an email address").check();
+  if (fields.questions) await addQuestions(page, fields.questions);
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page).toHaveURL(/\/events\/[0-9a-f-]{36}$/, { timeout: 15_000 });
   return (await page.getByText(/^https?:\/\/\S+\/e\/[A-Za-z0-9]{10}$/).textContent())!.trim();

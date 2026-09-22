@@ -4,7 +4,10 @@ import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { requireHost } from "@/auth/session";
+import { acceptsRsvps } from "@/events/access";
 import { findEventBySlug, findHostEvent } from "@/events/repository";
+import { parseAnswers, type AnswerFields } from "@/questions/answers";
+import { listQuestions, saveAnswers } from "@/questions/repository";
 import type { FormState } from "@/lib/form-state";
 import { parseHostEdit, parseRsvpForm, type RsvpFormFields } from "./form";
 import { findRsvpOnThisDevice, guestRsvp, type SaveRsvpResult } from "./guest";
@@ -25,17 +28,30 @@ function fields(formData: FormData): RsvpFormFields {
   };
 }
 
+// The questions step posts an answer against each question's id.
+function answersFrom(formData: FormData): AnswerFields {
+  const given: AnswerFields = {};
+  for (const [key, value] of formData.entries()) {
+    if (key.startsWith("answer:") && typeof value === "string") given[key.slice("answer:".length)] = value;
+  }
+  return given;
+}
+
 export async function saveRsvpAction(slug: string, formData: FormData): Promise<SaveRsvpResult> {
   const event = await findEventBySlug(slug);
-  // Only a published event takes answers. A draft's page is the host's alone, and ticket 16
-  // closes a cancelled event the same way.
-  if (!event || event.state !== "published") return { error: "closed" };
+  if (!event || !acceptsRsvps(event.state)) return { error: "closed" };
 
   const parsed = parseRsvpForm(fields(formData), event);
   if (!parsed.ok) return { error: parsed.error };
 
+  const answers = parseAnswers(answersFrom(formData), await listQuestions(event.id), parsed.input.status);
+  if (!answers.ok) return { error: answers.error };
+
   const mine = await findRsvpOnThisDevice(event.id);
+  // Two writes rather than one transaction: a failure between them leaves the RSVP saved with
+  // its previous answers, which the guest can put right by answering again.
   const saved = await saveRsvp(event.id, parsed.input, mine);
+  await saveAnswers(saved.rsvp.id, answers.answers);
   if (!mine) {
     // A new RSVP: this device now remembers the guest, so the link finds their answer next time.
     (await cookies()).set(rsvpCookieName(event.id), saved.token, rsvpCookieOptions());

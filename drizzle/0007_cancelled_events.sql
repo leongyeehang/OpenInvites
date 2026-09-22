@@ -1,0 +1,1 @@
+ALTER TYPE "public"."event_state" ADD VALUE 'cancelled';

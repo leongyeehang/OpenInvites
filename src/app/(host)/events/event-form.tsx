@@ -10,7 +10,9 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { MAX_PLUS_ONES } from "@/events/form";
+import type { QuestionDraft } from "@/questions/question";
 import { GUEST_LIST_VISIBILITIES } from "@/rsvps/visibility";
+import { QuestionsEditor } from "./questions-editor";
 import type { Event } from "@/events/repository";
 import { toWallTime } from "@/events/time";
 import type { FormState } from "@/lib/form-state";
@@ -27,10 +29,12 @@ type Props = {
   event?: Event;
   timeZones: string[];
   submitLabel: string;
+  questions: QuestionDraft[];
+  answerCounts: Record<string, number>;
 };
 
 // One form for creating and editing. Times are typed in the event's zone; the action converts them.
-export function EventForm({ action, event, timeZones, submitLabel }: Props) {
+export function EventForm({ action, event, timeZones, submitLabel, questions, answerCounts }: Props) {
   const t = useTranslations("Events.form");
   const [state, formAction, pending] = useActionState(action, undefined);
   const [allDay, setAllDay] = useState(event?.allDay ?? false);
@@ -112,6 +116,7 @@ export function EventForm({ action, event, timeZones, submitLabel }: Props) {
           <Checkbox id="ask-email" name="askEmail" defaultChecked={event?.askEmail} />
           <FieldLabel htmlFor="ask-email">{t("askEmail")}</FieldLabel>
         </Field>
+        <QuestionsEditor questions={questions} answerCounts={answerCounts} />
         <Field>
           <FieldLabel htmlFor="guest-list-visibility">{t("guestListVisibility")}</FieldLabel>
           <NativeSelect

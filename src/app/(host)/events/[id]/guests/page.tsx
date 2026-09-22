@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { requireHost } from "@/auth/session";
 import { findHostEvent } from "@/events/repository";
 import { formatMoment } from "@/events/time";
+import { listAnswersByGuest } from "@/questions/repository";
 import { asTally, countRsvps, groupByStatus } from "@/rsvps/counts";
 import { listGuestList } from "@/rsvps/repository";
 import { GuestRow } from "./guest-row";
@@ -27,7 +28,7 @@ export default async function GuestListPage({ params }: PageProps<"/events/[id]/
   const event = await findHostEvent(host.id, id);
   if (!event) notFound();
 
-  const guests = await listGuestList(event.id);
+  const [guests, answers] = await Promise.all([listGuestList(event.id), listAnswersByGuest(event.id)]);
   const counts = countRsvps(guests.map(asTally));
 
   return (
@@ -67,6 +68,7 @@ export default async function GuestListPage({ params }: PageProps<"/events/[id]/
                           ? formatMoment(guest.updatedAt, event.timeZone, locale)
                           : undefined
                       }
+                      answers={answers[guest.id] ?? []}
                       savedAt={guest.updatedAt.toISOString()}
                       plusOnesAllowed={event.plusOnesAllowed}
                     />

@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { useRef, useState, useTransition, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { removeRsvpAction, saveRsvpAction } from "@/rsvps/actions";
+import { offeredBy } from "@/questions/answers";
+import type { Question } from "@/questions/question";
 import { RSVP_STATUSES, type RsvpSettings, type RsvpStatus } from "@/rsvps/form";
 import type { GuestRsvp, RsvpRefusal } from "@/rsvps/guest";
 import { Glass } from "@/themes/glass";
@@ -13,7 +15,7 @@ import type { ButtonStyle } from "@/themes/theme";
 
 // Where the guest is in the flow (PROTOTYPE.md): the three buttons, then their name, then who
 // they are bringing, then the confirmation. Ticket 09 puts the host's questions before the end.
-type Step = "idle" | "name" | "plusones" | "done";
+type Step = "idle" | "name" | "plusones" | "questions" | "done";
 
 // Which step holds the field a refusal is about, so a guest is never shown "fix your email"
 // with the email field hidden two steps back. A refusal about no field in particular leaves the
@@ -25,20 +27,30 @@ const STEP_OF: Partial<Record<RsvpRefusal, Step>> = {
   plusOnesInvalid: "plusones",
   plusOneNameRequired: "plusones",
   plusOneNameTooLong: "plusones",
+  answerRequired: "questions",
+  answerNotOffered: "questions",
+  answerTooLong: "questions",
 };
 
-type Draft = { status: RsvpStatus; name: string; plusOnes: number; plusOneNames: string[]; email: string };
+type Draft = {
+  status: RsvpStatus;
+  name: string;
+  plusOnes: number;
+  plusOneNames: string[];
+  email: string;
+  answers: Record<string, string>;
+};
 
-const BLANK: Draft = { status: "going", name: "", plusOnes: 0, plusOneNames: [], email: "" };
+const BLANK: Draft = { status: "going", name: "", plusOnes: 0, plusOneNames: [], email: "", answers: {} };
 
 // Coming back to change an answer starts from the answer that is already there, except that a
 // host who has since lowered the plus-ones allowance wins: otherwise the guest would carry an
 // impossible number into every attempt to save, and never be able to change their RSVP again.
-function draftFrom(mine: GuestRsvp | undefined, settings: RsvpSettings): Draft {
-  if (!mine) return BLANK;
+function draftFrom(mine: GuestRsvp | undefined, settings: RsvpSettings, answers: Record<string, string>): Draft {
+  if (!mine) return { ...BLANK, answers };
   const { status, name, plusOneNames, email } = mine;
   const plusOnes = Math.min(mine.plusOnes, settings.plusOnesAllowed);
-  return { status, name, plusOnes, plusOneNames: plusOneNames.slice(0, plusOnes), email: email ?? "" };
+  return { status, name, plusOnes, plusOneNames: plusOneNames.slice(0, plusOnes), email: email ?? "", answers };
 }
 
 type Props = {
@@ -47,27 +59,40 @@ type Props = {
   mine: GuestRsvp | undefined;
   buttonStyle: ButtonStyle;
   open: boolean;
+  questions: Question[];
+  answers: Record<string, string>;
 };
 
 // The guest's whole RSVP, inline under the poster: the three buttons, the stepper that expands
 // beneath them, and, once they have answered, their confirmation. The Sheet style, where the
 // same steps rise over the invitation instead, is ticket 11.
-export function RsvpFlow({ slug, settings, mine, buttonStyle, open }: Props) {
+export function RsvpFlow({ slug, settings, mine, buttonStyle, open, questions, answers }: Props) {
   const t = useTranslations("Rsvp");
   const [step, setStep] = useState<Step>(mine ? "done" : "idle");
   const [answer, setAnswer] = useState(mine);
-  const [draft, setDraft] = useState<Draft>(() => draftFrom(mine, settings));
+  const [draft, setDraft] = useState<Draft>(() => draftFrom(mine, settings, answers));
   const [error, setError] = useState<RsvpRefusal>();
   const [working, startWorking] = useTransition();
   const form = useRef<HTMLFormElement>(null);
 
-  // A guest who can't go brings nobody, and neither does anyone at an event that allows no
-  // plus-ones, so for them the name is the whole form.
-  const steps: Step[] = draft.status === "cant" || settings.plusOnesAllowed === 0 ? ["name"] : ["name", "plusones"];
+  // Declining takes two taps, so a guest who can't go is asked nothing else. Everyone else is
+  // asked only what this event has to ask.
+  const steps: Step[] =
+    draft.status === "cant"
+      ? ["name"]
+      : ["name", ...(settings.plusOnesAllowed > 0 ? (["plusones"] as const) : []), ...(questions.length > 0 ? (["questions"] as const) : [])];
   const position = Math.max(0, steps.indexOf(step));
   const last = position === steps.length - 1;
 
   const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
+  const recordAnswer = (questionId: string, value: string) =>
+    setDraft((current) => ({ ...current, answers: { ...current.answers, [questionId]: value } }));
+
+  const headings: Partial<Record<Step, string>> = {
+    name: t(draft.status === "cant" ? "name.cantTitle" : "name.title"),
+    plusones: t("plusOnes.title"),
+    questions: t("questions.title"),
+  };
   const forward = () => setStep(steps[position + 1]);
   const back = () => setStep(position === 0 ? "idle" : steps[position - 1]);
 
@@ -164,9 +189,7 @@ export function RsvpFlow({ slug, settings, mine, buttonStyle, open }: Props) {
                     />
                   ))}
                 </div>
-                <p className="font-title text-2xl leading-tight">
-                  {step === "plusones" ? t("plusOnes.title") : t(draft.status === "cant" ? "name.cantTitle" : "name.title")}
-                </p>
+                <p className="font-title text-2xl leading-tight">{headings[step] ?? t("name.title")}</p>
               </div>
             </div>
 
@@ -234,6 +257,58 @@ export function RsvpFlow({ slug, settings, mine, buttonStyle, open }: Props) {
               ))}
             </div>
 
+            <div hidden={step !== "questions"}>
+              <ol data-slot="questions" className="flex flex-col gap-4">
+                {questions.map((question) => (
+                  <li key={question.id}>
+                    {question.type === "text" ? (
+                      <label className="block">
+                        <span className="mb-1.5 block text-sm text-theme-text-muted">
+                          <Asked question={question} optional={t("questions.optional")} />
+                        </span>
+                        <textarea
+                          name={`answer:${question.id}`}
+                          rows={2}
+                          value={draft.answers[question.id] ?? ""}
+                          onChange={(typed) => recordAnswer(question.id, typed.target.value)}
+                          className={cn(FIELD, "h-auto py-3")}
+                        />
+                      </label>
+                    ) : (
+                      <fieldset>
+                        <legend className="mb-1.5 text-sm text-theme-text-muted">
+                          <Asked question={question} optional={t("questions.optional")} />
+                        </legend>
+                        <input type="hidden" name={`answer:${question.id}`} value={draft.answers[question.id] ?? ""} />
+                        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={question.prompt}>
+                          {(offeredBy(question) ?? []).map((option) => {
+                            const chosen = draft.answers[question.id] === option;
+                            return (
+                              <button
+                                key={option}
+                                type="button"
+                                role="radio"
+                                aria-checked={chosen}
+                                // Tapping the chosen answer again takes it back, which is the
+                                // only way to leave an optional question unanswered.
+                                onClick={() => recordAnswer(question.id, chosen && !question.required ? "" : option)}
+                                className={cn(
+                                  "h-10 cursor-pointer rounded-full px-4 text-sm font-medium transition-colors",
+                                  chosen ? "bg-theme-accent text-theme-on-accent" : "bg-theme-glass-strong hover:bg-theme-glass",
+                                )}
+                              >
+                                {question.type === "yesNo" ? t(`questions.${option as "yes" | "no"}`) : option}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </fieldset>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </div>
+
             {error && (
               <p role="alert" className="text-sm font-medium">
                 {t(`errors.${error}`)}
@@ -254,6 +329,20 @@ export function RsvpFlow({ slug, settings, mine, buttonStyle, open }: Props) {
         </Glass>
       )}
     </div>
+  );
+}
+
+// The prompt, and whether the host insists on an answer.
+function Asked({ question, optional }: { question: Question; optional: string }) {
+  return (
+    <>
+      {question.prompt}
+      {question.required ? (
+        <span className="text-theme-accent"> *</span>
+      ) : (
+        <span className="text-theme-text-faint"> · {optional}</span>
+      )}
+    </>
   );
 }
 

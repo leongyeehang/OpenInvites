@@ -20,6 +20,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import type { FormState } from "@/lib/form-state";
 import { editGuestAction, removeGuestAction } from "@/rsvps/actions";
 import { RSVP_STATUSES } from "@/rsvps/form";
+import type { GuestAnswer } from "@/questions/repository";
 import type { HostGuest } from "@/rsvps/repository";
 
 // One guest on the host's list: who they are and what they answered, and, when the host opens
@@ -29,6 +30,7 @@ export function GuestRow({
   guest,
   replied,
   changed,
+  answers,
   savedAt,
   plusOnesAllowed,
 }: {
@@ -36,6 +38,7 @@ export function GuestRow({
   guest: HostGuest;
   replied: string;
   changed?: string;
+  answers: GuestAnswer[];
   savedAt: string;
   plusOnesAllowed: number;
 }) {
@@ -56,6 +59,16 @@ export function GuestRow({
           </p>
           {named.length > 0 && <p className="text-sm text-muted-foreground">{t("bringing", { names: named.join(", ") })}</p>}
           {guest.email && <p className="text-sm break-all text-muted-foreground">{guest.email}</p>}
+          {answers.length > 0 && (
+            <dl className="mt-2 flex flex-col gap-1 text-sm">
+              {answers.map((given) => (
+                <div key={given.questionId} className="flex flex-wrap gap-x-2">
+                  <dt className="text-muted-foreground">{given.prompt}</dt>
+                  <dd className="font-medium">{given.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </div>
         <Button variant="ghost" size="sm" aria-expanded={open} onClick={() => setOpen(!open)}>
           {open ? t("close") : t("edit")}

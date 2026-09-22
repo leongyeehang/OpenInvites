@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { QUESTION_TYPES } from "../questions/question";
 import { RSVP_STATUSES } from "../rsvps/form";
 import { DEFAULT_GUEST_LIST_VISIBILITY, GUEST_LIST_VISIBILITIES } from "../rsvps/visibility";
 import type { Theme } from "../themes/theme";
@@ -73,7 +74,7 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
-export const eventState = pgEnum("event_state", ["draft", "published"]);
+export const eventState = pgEnum("event_state", ["draft", "published", "cancelled"]);
 
 export const guestListVisibility = pgEnum("guest_list_visibility", GUEST_LIST_VISIBILITIES);
 
@@ -133,4 +134,41 @@ export const rsvp = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("rsvp_event_id_idx").on(table.eventId)],
+);
+
+export const questionType = pgEnum("question_type", QUESTION_TYPES);
+
+// A prompt the host adds to an event, answered while a guest responds. Ordered by `position`,
+// which is where the host put it in the editor. Only a choice question carries options.
+export const question = pgTable(
+  "question",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    type: questionType("type").notNull(),
+    prompt: text("prompt").notNull(),
+    options: text("options").array().notNull().default(sql`'{}'::text[]`),
+    required: boolean("required").notNull().default(false),
+  },
+  (table) => [index("question_event_id_idx").on(table.eventId)],
+);
+
+// One guest's answer to one question, belonging to their RSVP and visible only to the host.
+// Removing the question takes its answers with it, as does removing the RSVP.
+export const answer = pgTable(
+  "answer",
+  {
+    id: id(),
+    rsvpId: uuid("rsvp_id")
+      .notNull()
+      .references(() => rsvp.id, { onDelete: "cascade" }),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => question.id, { onDelete: "cascade" }),
+    value: text("value").notNull(),
+  },
+  (table) => [index("answer_rsvp_id_idx").on(table.rsvpId), unique("answer_rsvp_question_unique").on(table.rsvpId, table.questionId)],
 );

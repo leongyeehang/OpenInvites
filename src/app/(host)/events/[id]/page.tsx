@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { publishEventAction, updateEventAction } from "@/events/actions";
 import { findHostEvent } from "@/events/repository";
+import { countAnswersByQuestion, listQuestions } from "@/questions/repository";
+import { countRsvpsByEvent } from "@/rsvps/repository";
 import { timeZones } from "@/events/time";
 import { baseUrl } from "@/instance/env";
 import { EventForm } from "../event-form";
+import { DangerZone } from "../danger-zone";
 import { EventStateBadge } from "../event-state-badge";
 
 export async function generateMetadata({ params }: PageProps<"/events/[id]">): Promise<Metadata> {
@@ -24,6 +27,12 @@ export default async function ManageEventPage({ params }: PageProps<"/events/[id
   const event = await findHostEvent(host.id, id);
   if (!event) notFound();
   const link = `${baseUrl()}/e/${event.slug}`;
+  const [questions, answerCounts, counts] = await Promise.all([
+    listQuestions(event.id),
+    countAnswersByQuestion(event.id),
+    countRsvpsByEvent([event.id]),
+  ]);
+  const replies = counts.get(event.id);
 
   return (
     <>
@@ -36,7 +45,13 @@ export default async function ManageEventPage({ params }: PageProps<"/events/[id
           <CardTitle>
             <h2>{t("manage.link")}</h2>
           </CardTitle>
-          <CardDescription>{event.state === "published" ? t("manage.publishedHint") : t("manage.draftHint")}</CardDescription>
+          <CardDescription>
+            {event.state === "cancelled"
+              ? t("manage.cancelledHint")
+              : event.state === "published"
+                ? t("manage.publishedHint")
+                : t("manage.draftHint")}
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p className="break-all font-mono text-sm">{link}</p>
@@ -64,8 +79,16 @@ export default async function ManageEventPage({ params }: PageProps<"/events/[id
           event={event}
           timeZones={timeZones()}
           submitLabel={t("edit.submit")}
+          questions={questions}
+          answerCounts={answerCounts}
         />
       </section>
+      <DangerZone
+        eventId={event.id}
+        title={event.title}
+        cancellable={event.state === "published"}
+        rsvps={(replies?.going ?? 0) + (replies?.maybe ?? 0) + (replies?.cant ?? 0)}
+      />
     </>
   );
 }

@@ -155,7 +155,8 @@
   "Events": {
     "state": {
       "draft": "Draft",
-      "published": "Published"
+      "published": "Published",
+      "cancelled": "Cancelled"
     },
     "new": {
       "title": "New event",
@@ -187,7 +188,25 @@
       "guestListAlways": "Everyone who opens the link",
       "guestListAfterReply": "Guests who have replied",
       "guestListHidden": "Only me",
-      "guestListVisibilityHint": "You always see the whole list."
+      "guestListVisibilityHint": "You always see the whole list.",
+      "questions": "Questions",
+      "questionsHint": "Asked while a guest replies. Their answers are yours alone.",
+      "questionAdd": "Add a question",
+      "questionPrompt": "Question {number}",
+      "questionPromptHint": "e.g. Any dietary needs?",
+      "questionType": "Question {number} type",
+      "questionText": "Free text",
+      "questionChoice": "One of a list",
+      "questionYesNo": "Yes or no",
+      "questionRequired": "Required",
+      "questionChoices": "Question {number} choices",
+      "questionChoicesHint": "Soup, Salad, Neither",
+      "questionUp": "Move up",
+      "questionDown": "Move down",
+      "questionRemove": "Remove question",
+      "questionRemoveTitle": "Remove “{prompt}”?",
+      "questionRemoveText": "{count, plural, =1 {One guest has answered it, and that answer goes too.} other {# guests have answered it, and their answers go too.}}",
+      "questionRemoveCancel": "Keep it"
     },
     "errors": {
       "titleRequired": "Give the event a title.",
@@ -198,7 +217,14 @@
       "timeZoneInvalid": "Choose a time zone from the list.",
       "notFound": "This event no longer exists.",
       "plusOnesAllowedInvalid": "Choose a number of plus-ones between none and ten.",
-      "guestListVisibilityInvalid": "Choose who can see the guest list."
+      "guestListVisibilityInvalid": "Choose who can see the guest list.",
+      "questionsInvalid": "Those questions could not be read. Try again.",
+      "questionTypeInvalid": "Choose a kind for every question.",
+      "questionPromptRequired": "Give every question something to ask.",
+      "questionPromptTooLong": "That question is too long.",
+      "questionChoicesRequired": "A question with a list needs between two and ten choices.",
+      "questionChoiceTooLong": "That choice is too long.",
+      "tooManyQuestions": "Ten questions is the most an invitation can carry."
     },
     "manage": {
       "link": "Event link",
@@ -207,7 +233,19 @@
       "publishHint": "Publishing makes the event link work for anyone who has it.",
       "publishedHint": "Anyone with the link can open the event page. Edits show up there straight away.",
       "draftHint": "Only you can open the link while the event is a draft.",
-      "guests": "Guest list"
+      "guests": "Guest list",
+      "cancel": "Cancel event",
+      "cancelHint": "The page stays up with a notice, and no more RSVPs are taken.",
+      "cancelTitle": "Cancel “{title}”?",
+      "cancelText": "Guests who open the link will see that it is called off. Your guest list stays, but nobody can reply any more.",
+      "cancelConfirm": "Cancel the event",
+      "keep": "Never mind",
+      "cancelledHint": "Cancelled. Guests see the notice on the page and cannot reply.",
+      "delete": "Delete event",
+      "deleteHint": "Removes the event and everything guests told you. This cannot be undone.",
+      "deleteTitle": "Delete “{title}”?",
+      "deleteText": "{count, plural, =0 {Nobody has replied, so nothing else goes with it. The link stops working.} =1 {One RSVP, and the answers with it, are deleted. The link stops working.} other {# RSVPs, and the answers with them, are deleted. The link stops working.}}",
+      "deleteConfirm": "Delete it"
     },
     "verify": {
       "title": "Verify your email first",
@@ -234,7 +272,9 @@
       "going": "Going",
       "maybe": "Maybe",
       "cant": "Can’t go"
-    }
+    },
+    "cancelledTitle": "This event is cancelled",
+    "cancelled": "The host has called it off, so there is nothing to reply to."
   },
   "Guests": {
     "title": "Guest list",
@@ -328,7 +368,16 @@
       "plusOnesInvalid": "That is more people than the host allows.",
       "plusOneNameRequired": "The host would like every guest’s name.",
       "plusOneNameTooLong": "That name is too long.",
-      "emailInvalid": "That does not look like an email address."
+      "emailInvalid": "That does not look like an email address.",
+      "answerRequired": "The host would like an answer to this one.",
+      "answerNotOffered": "Choose one of the answers offered.",
+      "answerTooLong": "That answer is too long."
+    },
+    "questions": {
+      "title": "A couple of questions",
+      "optional": "Optional",
+      "yes": "Yes",
+      "no": "No"
     }
   },
   "NotFound": {

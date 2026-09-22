@@ -33,7 +33,7 @@ export default async function NewEventPage() {
   return (
     <>
       <h1 className="text-2xl font-semibold tracking-tight">{t("new.title")}</h1>
-      <EventForm action={createEventAction} timeZones={timeZones()} submitLabel={t("new.submit")} />
+      <EventForm action={createEventAction} timeZones={timeZones()} submitLabel={t("new.submit")} questions={[]} answerCounts={{}} />
     </>
   );
 }

@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { baseUrl } from "@/instance/env";
+import type { AnswerError } from "@/questions/answers";
 import type { RsvpFormError, RsvpStatus } from "./form";
 import { findRsvpByToken, type MyRsvp } from "./repository";
 import { rsvpCookieName } from "./token";
@@ -17,7 +18,7 @@ export type GuestRsvp = {
 
 // Why an answer was refused. The guest's own browser turns it into a sentence, and uses it to
 // send them back to the step holding the field that needs them.
-export type RsvpRefusal = RsvpFormError | "closed";
+export type RsvpRefusal = RsvpFormError | AnswerError | "closed";
 
 export type SaveRsvpResult = { error?: RsvpRefusal; saved?: GuestRsvp };
 

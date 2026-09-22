@@ -43,6 +43,20 @@
       "when": 1790047315756,
       "tag": "0005_guest_list_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790057637547,
+      "tag": "0006_questions",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790058366034,
+      "tag": "0007_cancelled_events",
+      "breakpoints": true
     }
   ]
 }

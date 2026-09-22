@@ -63,6 +63,21 @@ export async function publishEvent(hostId: string, id: string): Promise<Event | 
   return published && withTheme(published);
 }
 
+// Calling it off: the page stays up with its notice and takes no more answers (spec, story 28).
+export async function cancelEvent(hostId: string, id: string): Promise<Event | undefined> {
+  const [cancelled] = await getDb()
+    .update(event)
+    .set({ state: "cancelled", updatedAt: new Date() })
+    .where(and(eq(event.id, id), eq(event.hostId, hostId)))
+    .returning();
+  return cancelled && withTheme(cancelled);
+}
+
+// Leaves no trace: the event's RSVPs, their answers and its questions all cascade with it.
+export async function deleteEvent(hostId: string, id: string): Promise<void> {
+  await getDb().delete(event).where(and(eq(event.id, id), eq(event.hostId, hostId)));
+}
+
 export async function listHostEvents(hostId: string): Promise<Event[]> {
   const events = await getDb().query.event.findMany({ where: eq(event.hostId, hostId), orderBy: [asc(event.startsAt), desc(event.createdAt)] });
   return events.map(withTheme);
