@@ -9,6 +9,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import { MAX_PLUS_ONES } from "@/events/form";
 import type { Event } from "@/events/repository";
 import { toWallTime } from "@/events/time";
 import type { FormState } from "@/lib/form-state";
@@ -83,6 +84,25 @@ export function EventForm({ action, event, timeZones, submitLabel }: Props) {
           <FieldLabel htmlFor="description">{t("description")}</FieldLabel>
           <Textarea id="description" name="description" defaultValue={event?.description} rows={6} />
           <FieldDescription>{t("descriptionHint")}</FieldDescription>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="plus-ones-allowed">{t("plusOnesAllowed")}</FieldLabel>
+          <NativeSelect id="plus-ones-allowed" name="plusOnesAllowed" defaultValue={String(event?.plusOnesAllowed ?? 1)}>
+            {Array.from({ length: MAX_PLUS_ONES + 1 }, (_, allowed) => (
+              <NativeSelectOption key={allowed} value={String(allowed)}>
+                {allowed === 0 ? t("plusOnesNone") : allowed}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+          <FieldDescription>{t("plusOnesAllowedHint")}</FieldDescription>
+        </Field>
+        <Field orientation="horizontal">
+          <Checkbox id="require-plus-one-names" name="requirePlusOneNames" defaultChecked={event?.requirePlusOneNames} />
+          <FieldLabel htmlFor="require-plus-one-names">{t("requirePlusOneNames")}</FieldLabel>
+        </Field>
+        <Field orientation="horizontal">
+          <Checkbox id="ask-email" name="askEmail" defaultChecked={event?.askEmail} />
+          <FieldLabel htmlFor="ask-email">{t("askEmail")}</FieldLabel>
         </Field>
         <FormOutcome state={state} />
         <Button type="submit" disabled={pending} className="self-start">

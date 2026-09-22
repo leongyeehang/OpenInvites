@@ -102,7 +102,8 @@
       "empty": "You have no events yet. Create one and share its link.",
       "emptyUpcoming": "Nothing coming up.",
       "emptyPast": "Nothing has happened yet.",
-      "counts": "{going} going · {maybe} maybe · {declined} can’t go"
+      "counts": "{going} going · {maybe} maybe · {declined} can’t go",
+      "headcount": "{count, plural, =0 {no one expected yet} =1 {1 person expected} other {# people expected}}"
     }
   },
   "Account": {
@@ -176,7 +177,12 @@
       "location": "Where",
       "locationHint": "An address, or “Ah Ma’s house, 3rd floor”. Optional.",
       "description": "Description",
-      "descriptionHint": "Plain text for now. Optional."
+      "descriptionHint": "Plain text for now. Optional.",
+      "plusOnesAllowed": "Plus-ones per guest",
+      "plusOnesNone": "None",
+      "plusOnesAllowedHint": "How many people one guest may bring.",
+      "requirePlusOneNames": "Ask for each plus-one’s name",
+      "askEmail": "Ask guests for an email address"
     },
     "errors": {
       "titleRequired": "Give the event a title.",
@@ -185,7 +191,8 @@
       "endInvalid": "That end is not a valid date and time.",
       "endBeforeStart": "The end must come after the start.",
       "timeZoneInvalid": "Choose a time zone from the list.",
-      "notFound": "This event no longer exists."
+      "notFound": "This event no longer exists.",
+      "plusOnesAllowedInvalid": "Choose a number of plus-ones between none and ten."
     },
     "manage": {
       "link": "Event link",
@@ -211,6 +218,60 @@
     "edit": "Edit event",
     "notReadyTitle": "This invitation isn’t ready yet",
     "notReady": "The host is still preparing it. Try the link again later."
+  },
+  "Rsvp": {
+    "going": "Going",
+    "maybe": "Maybe",
+    "cant": "Can’t go",
+    "step": "Step {step} of {total}",
+    "back": "Back",
+    "continue": "Continue",
+    "send": "Send RSVP",
+    "name": {
+      "title": "Lovely. What’s your name?",
+      "cantTitle": "Sorry to miss you. Who’s this?",
+      "label": "Your name",
+      "placeholder": "e.g. Priya Nair",
+      "email": "Email",
+      "emailHint": "Optional. The host can reach you here."
+    },
+    "plusOnes": {
+      "title": "Bringing anyone?",
+      "hint": "{count, plural, =1 {You can bring one person.} other {You can bring up to # people.}}",
+      "justMe": "Just me",
+      "guestName": "Guest {number}",
+      "optional": "Optional"
+    },
+    "done": {
+      "going": "You’re going!",
+      "maybe": "You’re a maybe.",
+      "cant": "We’ll miss you."
+    },
+    "summary": {
+      "coming": "{count, plural, =0 {{name}, just you.} =1 {{name}, plus one more.} other {{name}, plus # more.}}",
+      "cant": "{name}, marked as can’t go.",
+      "bringing": "Bringing {names}.",
+      "email": "We’ll reach you at {email}."
+    },
+    "editLink": {
+      "label": "Your private edit link",
+      "copy": "Copy",
+      "copied": "Copied",
+      "hint": "Also saved in this browser."
+    },
+    "change": "Change my answer",
+    "edit": "Edit details",
+    "remove": "Remove my RSVP",
+    "errors": {
+      "closed": "This invitation is not taking RSVPs.",
+      "statusInvalid": "Choose Going, Maybe, or Can’t go.",
+      "nameRequired": "Tell the host who you are.",
+      "nameTooLong": "That name is too long.",
+      "plusOnesInvalid": "That is more people than the host allows.",
+      "plusOneNameRequired": "The host would like every guest’s name.",
+      "plusOneNameTooLong": "That name is too long.",
+      "emailInvalid": "That does not look like an email address."
+    }
   },
   "NotFound": {
     "title": "Page not found",

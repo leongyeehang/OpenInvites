@@ -9,6 +9,9 @@ const valid = {
   timeZone: "Asia/Singapore",
   location: "Ah Ma’s house, 3rd floor",
   description: "Bring nothing.",
+  plusOnesAllowed: "1",
+  requirePlusOneNames: false,
+  askEmail: false,
 };
 
 describe("parseEventForm", () => {
@@ -23,6 +26,9 @@ describe("parseEventForm", () => {
         timeZone: "Asia/Singapore",
         location: "Ah Ma’s house, 3rd floor",
         description: "Bring nothing.",
+        plusOnesAllowed: 1,
+        requirePlusOneNames: false,
+        askEmail: false,
       },
     });
   });
@@ -53,6 +59,14 @@ describe("parseEventForm", () => {
 
   it("rejects a time zone that is not on the list", () => {
     expect(parseEventForm({ ...valid, timeZone: "Mars/Olympus" })).toEqual({ ok: false, error: "timeZoneInvalid" });
+  });
+
+  it("allows between no plus-ones and ten", () => {
+    expect(parseEventForm({ ...valid, plusOnesAllowed: "0" }).ok).toBe(true);
+    expect(parseEventForm({ ...valid, plusOnesAllowed: "10" }).ok).toBe(true);
+    expect(parseEventForm({ ...valid, plusOnesAllowed: "11" })).toEqual({ ok: false, error: "plusOnesAllowedInvalid" });
+    expect(parseEventForm({ ...valid, plusOnesAllowed: "-1" })).toEqual({ ok: false, error: "plusOnesAllowedInvalid" });
+    expect(parseEventForm({ ...valid, plusOnesAllowed: "lots" })).toEqual({ ok: false, error: "plusOnesAllowedInvalid" });
   });
 });
 

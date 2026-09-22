@@ -22,6 +22,9 @@ function fields(formData: FormData) {
     timeZone: text("timeZone"),
     location: text("location"),
     description: text("description"),
+    plusOnesAllowed: text("plusOnesAllowed"),
+    requirePlusOneNames: formData.get("requirePlusOneNames") === "on",
+    askEmail: formData.get("askEmail") === "on",
   };
 }
 

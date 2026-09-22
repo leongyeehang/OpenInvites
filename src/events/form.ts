@@ -10,6 +10,9 @@ export type EventInput = {
   timeZone: string;
   location: string;
   description: string;
+  plusOnesAllowed: number;
+  requirePlusOneNames: boolean;
+  askEmail: boolean;
 };
 
 // What the event form posts, as strings, before any of it is trusted.
@@ -21,7 +24,13 @@ export type EventFormFields = {
   timeZone: string;
   location: string;
   description: string;
+  plusOnesAllowed: string;
+  requirePlusOneNames: boolean;
+  askEmail: boolean;
 };
+
+// How many people one guest may bring at most (spec, "Per-event settings").
+export const MAX_PLUS_ONES = 10;
 
 export type EventFormError =
   | "titleRequired"
@@ -29,7 +38,8 @@ export type EventFormError =
   | "startInvalid"
   | "endInvalid"
   | "endBeforeStart"
-  | "timeZoneInvalid";
+  | "timeZoneInvalid"
+  | "plusOnesAllowedInvalid";
 
 export type ParsedEventForm = { ok: true; input: EventInput } | { ok: false; error: EventFormError };
 
@@ -65,6 +75,11 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
     else endsAt = end;
   }
 
+  const plusOnesAllowed = Number(fields.plusOnesAllowed);
+  if (!Number.isInteger(plusOnesAllowed) || plusOnesAllowed < 0 || plusOnesAllowed > MAX_PLUS_ONES) {
+    return { ok: false, error: "plusOnesAllowedInvalid" };
+  }
+
   return {
     ok: true,
     input: {
@@ -75,6 +90,9 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
       timeZone: fields.timeZone,
       location: fields.location.trim(),
       description: fields.description.trim(),
+      plusOnesAllowed,
+      requirePlusOneNames: fields.requirePlusOneNames,
+      askEmail: fields.askEmail,
     },
   };
 }

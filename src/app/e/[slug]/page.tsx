@@ -4,10 +4,12 @@ import { notFound } from "next/navigation";
 import { getSession } from "@/auth/session";
 import { findEventBySlug } from "@/events/repository";
 import { isSlug } from "@/events/slug";
+import { findRsvpOnThisDevice, guestRsvp } from "@/rsvps/guest";
 import { PosterLayout } from "@/themes/poster-layout";
 import { resolveTheme } from "@/themes/resolve";
 import { ThemedPage } from "@/themes/themed-page";
 import { DraftNotice } from "./draft-notice";
+import { RsvpFlow } from "./rsvp-flow";
 
 // Event pages are never indexed (ADR-0004). The header carries the same signal (next.config.ts).
 const noindex: Metadata["robots"] = { index: false, follow: false };
@@ -44,9 +46,25 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   }
 
   const theme = resolveTheme(event.theme);
+  // The cookie tells us whether the guest in front of us has already replied on this device.
+  const mine = await findRsvpOnThisDevice(event.id);
   return (
     <ThemedPage theme={theme}>
-      <PosterLayout event={event} theme={theme} notice={isDraft ? <DraftNotice eventId={event.id} /> : undefined} />
+      <PosterLayout
+        event={event}
+        theme={theme}
+        notice={isDraft ? <DraftNotice eventId={event.id} /> : undefined}
+        rsvp={
+          <RsvpFlow
+            slug={event.slug}
+            settings={event}
+            mine={mine && guestRsvp(mine)}
+            buttonStyle={theme.buttonStyle}
+            // Only a published event takes answers (ticket 16 closes a cancelled one too).
+            open={event.state === "published"}
+          />
+        }
+      />
     </ThemedPage>
   );
 }
