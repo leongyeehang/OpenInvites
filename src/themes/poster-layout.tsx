@@ -84,7 +84,7 @@ const entrance = "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-i
 // The small spaced capitals used for the eyebrow, the tile headings, and the sticker.
 const label = "text-xs font-medium tracking-label uppercase";
 
-function SectionLabel({ icon: Icon, children }: { icon?: React.ComponentType<{ className?: string }>; children: ReactNode }) {
+export function SectionLabel({ icon: Icon, children }: { icon?: React.ComponentType<{ className?: string }>; children: ReactNode }) {
   return (
     <h2 className={cn(label, "mb-3 flex items-center gap-2 text-theme-text-faint")}>
       {Icon && <Icon className="size-3.5" aria-hidden />}
@@ -105,7 +105,7 @@ function DateSticker({ weekday, day, month }: { weekday: string; day: string; mo
   );
 }
 
-function initialsOf(name: string): string {
+export function initialsOf(name: string): string {
   return name
     .trim()
     .split(/\s+/)

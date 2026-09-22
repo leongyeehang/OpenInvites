@@ -36,6 +36,13 @@
       "when": 1790041642817,
       "tag": "0004_rsvps",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790047315756,
+      "tag": "0005_guest_list_visibility",
+      "breakpoints": true
     }
   ]
 }

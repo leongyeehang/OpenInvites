@@ -182,7 +182,12 @@
       "plusOnesNone": "None",
       "plusOnesAllowedHint": "How many people one guest may bring.",
       "requirePlusOneNames": "Ask for each plus-one’s name",
-      "askEmail": "Ask guests for an email address"
+      "askEmail": "Ask guests for an email address",
+      "guestListVisibility": "Who can see the guest list",
+      "guestListAlways": "Everyone who opens the link",
+      "guestListAfterReply": "Guests who have replied",
+      "guestListHidden": "Only me",
+      "guestListVisibilityHint": "You always see the whole list."
     },
     "errors": {
       "titleRequired": "Give the event a title.",
@@ -192,7 +197,8 @@
       "endBeforeStart": "The end must come after the start.",
       "timeZoneInvalid": "Choose a time zone from the list.",
       "notFound": "This event no longer exists.",
-      "plusOnesAllowedInvalid": "Choose a number of plus-ones between none and ten."
+      "plusOnesAllowedInvalid": "Choose a number of plus-ones between none and ten.",
+      "guestListVisibilityInvalid": "Choose who can see the guest list."
     },
     "manage": {
       "link": "Event link",
@@ -200,7 +206,8 @@
       "publish": "Publish",
       "publishHint": "Publishing makes the event link work for anyone who has it.",
       "publishedHint": "Anyone with the link can open the event page. Edits show up there straight away.",
-      "draftHint": "Only you can open the link while the event is a draft."
+      "draftHint": "Only you can open the link while the event is a draft.",
+      "guests": "Guest list"
     },
     "verify": {
       "title": "Verify your email first",
@@ -217,7 +224,58 @@
     "draftBanner": "Draft. Only you can see this page until you publish it.",
     "edit": "Edit event",
     "notReadyTitle": "This invitation isn’t ready yet",
-    "notReady": "The host is still preparing it. Try the link again later."
+    "notReady": "The host is still preparing it. Try the link again later.",
+    "guests": "Guests",
+    "headcount": "{count, plural, =0 {No one yet} =1 {1 person expected} other {# people expected}}",
+    "alsoMaybe": "{count, plural, =1 {1 maybe} other {# maybes}}",
+    "locked": "RSVP to see who’s coming",
+    "nobodyYet": "Nobody has replied yet. Be the first.",
+    "status": {
+      "going": "Going",
+      "maybe": "Maybe",
+      "cant": "Can’t go"
+    }
+  },
+  "Guests": {
+    "title": "Guest list",
+    "backToEvent": "Back to the event",
+    "headcount": "{count, plural, =0 {No one expected yet} =1 {1 person expected} other {# people expected}}",
+    "counts": "{going} going · {maybe} maybe · {declined} can’t go",
+    "empty": "Nobody has replied yet. Share the event link and your guests will appear here.",
+    "group": {
+      "going": "Going",
+      "maybe": "Maybe",
+      "cant": "Can’t go"
+    },
+    "nobody": "Nobody.",
+    "bringing": "Bringing {names}.",
+    "plusOnes": "{count, plural, =1 {1 plus-one} other {# plus-ones}}",
+    "replied": "Replied {when}",
+    "changed": "Changed {when}",
+    "edit": "Edit",
+    "close": "Close",
+    "status": "Status",
+    "plusOnesLabel": "Plus-ones",
+    "nameLabel": "Name",
+    "guestName": "Guest {number}",
+    "save": "Save",
+    "saved": "Saved.",
+    "remove": "Remove",
+    "removeTitle": "Remove {name}?",
+    "removeText": "Their RSVP goes and their edit link stops working. This cannot be undone.",
+    "cancel": "Cancel",
+    "confirmRemove": "Remove guest",
+    "live": "This list updates on its own as guests reply.",
+    "errors": {
+      "notFound": "This event no longer exists.",
+      "statusInvalid": "Choose Going, Maybe, or Can’t go.",
+      "nameRequired": "A guest needs a name.",
+      "nameTooLong": "That name is too long.",
+      "plusOnesInvalid": "That is more people than this event allows.",
+      "plusOneNameRequired": "Every guest needs a name.",
+      "plusOneNameTooLong": "That name is too long.",
+      "emailInvalid": "That does not look like an email address."
+    }
   },
   "Rsvp": {
     "going": "Going",

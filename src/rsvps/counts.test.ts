@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countRsvps } from "./counts";
+import { countRsvps, groupByStatus } from "./counts";
 
 describe("countRsvps", () => {
   it("counts every status, and the headcount from Going guests and the people they bring", () => {
@@ -15,5 +15,25 @@ describe("countRsvps", () => {
 
   it("counts nobody when nobody has replied", () => {
     expect(countRsvps([])).toEqual({ going: 0, maybe: 0, cant: 0, headcount: 0 });
+  });
+});
+
+describe("groupByStatus", () => {
+  const priya = { status: "going", plusOnes: 1, name: "Priya Nair" } as const;
+  const arjun = { status: "going", plusOnes: 0, name: "Arjun Rao" } as const;
+  const mei = { status: "cant", plusOnes: 0, name: "Mei Lin" } as const;
+
+  it("returns all three groups, in the order the RSVP buttons show them", () => {
+    // Nobody is a maybe, and that group still comes back so the host sees the empty column.
+    expect(groupByStatus([mei, priya, arjun])).toEqual([
+      { status: "going", rsvps: [priya, arjun] },
+      { status: "maybe", rsvps: [] },
+      { status: "cant", rsvps: [mei] },
+    ]);
+  });
+
+  it("keeps guests in the order they arrived within a group", () => {
+    const [going] = groupByStatus([arjun, priya]);
+    expect(going.rsvps).toEqual([arjun, priya]);
   });
 });

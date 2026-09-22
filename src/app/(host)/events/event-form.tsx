@@ -10,9 +10,17 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { MAX_PLUS_ONES } from "@/events/form";
+import { GUEST_LIST_VISIBILITIES } from "@/rsvps/visibility";
 import type { Event } from "@/events/repository";
 import { toWallTime } from "@/events/time";
 import type { FormState } from "@/lib/form-state";
+
+// The visibility values as the form words them for a host.
+const GUEST_LIST_LABELS = {
+  always: "guestListAlways",
+  afterReply: "guestListAfterReply",
+  hidden: "guestListHidden",
+} as const;
 
 type Props = {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
@@ -103,6 +111,21 @@ export function EventForm({ action, event, timeZones, submitLabel }: Props) {
         <Field orientation="horizontal">
           <Checkbox id="ask-email" name="askEmail" defaultChecked={event?.askEmail} />
           <FieldLabel htmlFor="ask-email">{t("askEmail")}</FieldLabel>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="guest-list-visibility">{t("guestListVisibility")}</FieldLabel>
+          <NativeSelect
+            id="guest-list-visibility"
+            name="guestListVisibility"
+            defaultValue={event?.guestListVisibility ?? "afterReply"}
+          >
+            {GUEST_LIST_VISIBILITIES.map((visibility) => (
+              <NativeSelectOption key={visibility} value={visibility}>
+                {t(GUEST_LIST_LABELS[visibility])}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+          <FieldDescription>{t("guestListVisibilityHint")}</FieldDescription>
         </Field>
         <FormOutcome state={state} />
         <Button type="submit" disabled={pending} className="self-start">

@@ -1,3 +1,4 @@
+import { GUEST_LIST_VISIBILITIES, type GuestListVisibility } from "@/rsvps/visibility";
 import { isTimeZone, toInstant, toWallTime } from "./time";
 
 // What a host fills in, once trusted. Times are instants; the form's wall-clock values are
@@ -13,6 +14,7 @@ export type EventInput = {
   plusOnesAllowed: number;
   requirePlusOneNames: boolean;
   askEmail: boolean;
+  guestListVisibility: GuestListVisibility;
 };
 
 // What the event form posts, as strings, before any of it is trusted.
@@ -27,6 +29,7 @@ export type EventFormFields = {
   plusOnesAllowed: string;
   requirePlusOneNames: boolean;
   askEmail: boolean;
+  guestListVisibility: string;
 };
 
 // How many people one guest may bring at most (spec, "Per-event settings").
@@ -39,7 +42,8 @@ export type EventFormError =
   | "endInvalid"
   | "endBeforeStart"
   | "timeZoneInvalid"
-  | "plusOnesAllowedInvalid";
+  | "plusOnesAllowedInvalid"
+  | "guestListVisibilityInvalid";
 
 export type ParsedEventForm = { ok: true; input: EventInput } | { ok: false; error: EventFormError };
 
@@ -80,6 +84,9 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
     return { ok: false, error: "plusOnesAllowedInvalid" };
   }
 
+  const guestListVisibility = GUEST_LIST_VISIBILITIES.find((each) => each === fields.guestListVisibility);
+  if (!guestListVisibility) return { ok: false, error: "guestListVisibilityInvalid" };
+
   return {
     ok: true,
     input: {
@@ -93,6 +100,7 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
       plusOnesAllowed,
       requirePlusOneNames: fields.requirePlusOneNames,
       askEmail: fields.askEmail,
+      guestListVisibility,
     },
   };
 }

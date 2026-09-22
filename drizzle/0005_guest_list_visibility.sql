@@ -1,0 +1,2 @@
+CREATE TYPE "public"."guest_list_visibility" AS ENUM('always', 'afterReply', 'hidden');--> statement-breakpoint
+ALTER TABLE "event" ADD COLUMN "guest_list_visibility" "guest_list_visibility" DEFAULT 'afterReply' NOT NULL;

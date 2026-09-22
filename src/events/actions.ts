@@ -25,6 +25,7 @@ function fields(formData: FormData) {
     plusOnesAllowed: text("plusOnesAllowed"),
     requirePlusOneNames: formData.get("requirePlusOneNames") === "on",
     askEmail: formData.get("askEmail") === "on",
+    guestListVisibility: text("guestListVisibility"),
   };
 }
 

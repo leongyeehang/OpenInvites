@@ -103,3 +103,15 @@ export function partitionByEnd<T extends EventTime>(events: T[], now: Date): { u
     past: events.filter((event) => eventEnd(event) < now).sort((a, b) => byStart(b, a)),
   };
 }
+
+// A moment on the host's guest list, shown in the event's own zone so every time on the page
+// belongs to the same clock: "3 Oct, 19:04".
+export function formatMoment(instant: Date, timeZone: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    timeZone,
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(instant);
+}

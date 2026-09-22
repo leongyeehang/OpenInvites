@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRsvpForm, type RsvpSettings } from "./form";
+import { parseHostEdit, parseRsvpForm, type RsvpSettings } from "./form";
 
 const settings: RsvpSettings = { plusOnesAllowed: 2, requirePlusOneNames: false, askEmail: false };
 
@@ -63,5 +63,34 @@ describe("parseRsvpForm", () => {
     expect(emailOf({ ...going, email: "priya at example" }, asking)).toBe("emailInvalid");
     // The host is not asking, so an address posted anyway is ignored.
     expect(emailOf({ ...going, email: "priya@example.com" }, settings)).toBe(null);
+  });
+});
+
+describe("parseHostEdit", () => {
+  const strict: RsvpSettings = { plusOnesAllowed: 2, requirePlusOneNames: true, askEmail: true };
+  const edit = { status: "maybe", name: "Priya Nair", plusOnes: "0", plusOneNames: [] };
+
+  it("takes the status, the guest's name, and who they are bringing", () => {
+    expect(parseHostEdit({ ...edit, name: " Priya Nair ", plusOnes: "1", plusOneNames: ["Arjun", "Mei"] }, strict)).toEqual({
+      ok: true,
+      edit: { status: "maybe", name: "Priya Nair", plusOnes: 1, plusOneNames: ["Arjun"] },
+    });
+  });
+
+  it("carries no email, so a host's edit can never wipe the address a guest gave", () => {
+    const parsed = parseHostEdit(edit, strict);
+    expect(parsed.ok && parsed.edit).not.toHaveProperty("email");
+  });
+
+  it("does not make the host invent names for someone else's plus-ones", () => {
+    expect(parseHostEdit({ ...edit, plusOnes: "2", plusOneNames: [] }, strict)).toEqual({
+      ok: true,
+      edit: { status: "maybe", name: "Priya Nair", plusOnes: 2, plusOneNames: ["", ""] },
+    });
+  });
+
+  it("holds the host to the allowance they set, and still wants a name", () => {
+    expect(parseHostEdit({ ...edit, plusOnes: "3" }, strict)).toEqual({ ok: false, error: "plusOnesInvalid" });
+    expect(parseHostEdit({ ...edit, name: "   " }, strict)).toEqual({ ok: false, error: "nameRequired" });
   });
 });

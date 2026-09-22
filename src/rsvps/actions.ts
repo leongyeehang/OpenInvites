@@ -1,10 +1,14 @@
 "use server";
 
+import { getTranslations } from "next-intl/server";
+import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
-import { findEventBySlug } from "@/events/repository";
-import { parseRsvpForm, type RsvpFormFields } from "./form";
+import { requireHost } from "@/auth/session";
+import { findEventBySlug, findHostEvent } from "@/events/repository";
+import type { FormState } from "@/lib/form-state";
+import { parseHostEdit, parseRsvpForm, type RsvpFormFields } from "./form";
 import { findRsvpOnThisDevice, guestRsvp, type SaveRsvpResult } from "./guest";
-import { deleteRsvp, saveRsvp } from "./repository";
+import { deleteRsvp, editRsvpAsHost, saveRsvp } from "./repository";
 import { rsvpCookieName, rsvpCookieOptions } from "./token";
 
 function fields(formData: FormData): RsvpFormFields {
@@ -36,6 +40,8 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
     // A new RSVP: this device now remembers the guest, so the link finds their answer next time.
     (await cookies()).set(rsvpCookieName(event.id), saved.token, rsvpCookieOptions());
   }
+  // The guest list is a reward for answering, so it unlocks without waiting for a reload.
+  revalidatePath(`/e/${slug}`);
   return { saved: guestRsvp(saved) };
 }
 
@@ -45,6 +51,35 @@ export async function removeRsvpAction(slug: string): Promise<void> {
   const event = await findEventBySlug(slug);
   if (!event) return;
   const mine = await findRsvpOnThisDevice(event.id);
-  if (mine) await deleteRsvp(mine.rsvp.id);
+  if (mine) await deleteRsvp(event.id, mine.rsvp.id);
   (await cookies()).delete(rsvpCookieName(event.id));
+  revalidatePath(`/e/${slug}`);
+}
+
+// A host changing a guest's RSVP on their own guest list. The host's form carries no email
+// field, and parseHostEdit ignores the one fields() reads, so the guest's address survives.
+export async function editGuestAction(
+  eventId: string,
+  rsvpId: string,
+  _: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const [host, t] = await Promise.all([requireHost(), getTranslations("Guests")]);
+  const event = await findHostEvent(host.id, eventId);
+  if (!event) return { error: t("errors.notFound") };
+
+  const parsed = parseHostEdit(fields(formData), event);
+  if (!parsed.ok) return { error: t(`errors.${parsed.error}`) };
+
+  await editRsvpAsHost(event.id, rsvpId, parsed.edit);
+  revalidatePath(`/events/${eventId}/guests`);
+  return { success: t("saved") };
+}
+
+export async function removeGuestAction(eventId: string, rsvpId: string): Promise<void> {
+  const host = await requireHost();
+  const event = await findHostEvent(host.id, eventId);
+  if (!event) return;
+  await deleteRsvp(event.id, rsvpId);
+  revalidatePath(`/events/${eventId}/guests`);
 }

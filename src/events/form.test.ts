@@ -12,6 +12,7 @@ const valid = {
   plusOnesAllowed: "1",
   requirePlusOneNames: false,
   askEmail: false,
+  guestListVisibility: "afterReply",
 };
 
 describe("parseEventForm", () => {
@@ -29,6 +30,7 @@ describe("parseEventForm", () => {
         plusOnesAllowed: 1,
         requirePlusOneNames: false,
         askEmail: false,
+        guestListVisibility: "afterReply",
       },
     });
   });
@@ -59,6 +61,13 @@ describe("parseEventForm", () => {
 
   it("rejects a time zone that is not on the list", () => {
     expect(parseEventForm({ ...valid, timeZone: "Mars/Olympus" })).toEqual({ ok: false, error: "timeZoneInvalid" });
+  });
+
+  it("only takes a guest list visibility it knows", () => {
+    expect(parseEventForm({ ...valid, guestListVisibility: "sometimes" })).toEqual({
+      ok: false,
+      error: "guestListVisibilityInvalid",
+    });
   });
 
   it("allows between no plus-ones and ten", () => {
