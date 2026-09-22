@@ -16,12 +16,19 @@ export async function PosterLayout({
   notice,
   rsvp,
   guestList,
+  underWhen,
+  underWhere,
+  calendar,
 }: {
   event: EventWithHost;
   theme: ResolvedTheme;
   notice?: ReactNode;
   rsvp?: ReactNode;
   guestList?: ReactNode;
+  // What the guest's own device adds: their clock, their maps app, their calendar.
+  underWhen?: ReactNode;
+  underWhere?: ReactNode;
+  calendar?: ReactNode;
 }) {
   const [t, locale] = await Promise.all([getTranslations("EventPage"), getLocale()]);
   const sticker = formatDateSticker(event, locale);
@@ -53,11 +60,13 @@ export async function PosterLayout({
         <Glass className={cn("p-5", entrance, "motion-safe:delay-200")}>
           <SectionLabel icon={Clock}>{t("when")}</SectionLabel>
           <p className="text-lg leading-tight font-medium">{formatWhen(event, locale)}</p>
+          {underWhen}
         </Glass>
         {event.location && (
           <Glass className={cn("p-5", entrance, "motion-safe:delay-300")}>
             <SectionLabel icon={MapPin}>{t("where")}</SectionLabel>
             <p className="text-lg leading-tight font-medium">{event.location}</p>
+            {underWhere}
           </Glass>
         )}
       </div>
@@ -68,6 +77,8 @@ export async function PosterLayout({
           <p className="leading-relaxed whitespace-pre-line text-theme-text-muted">{event.description}</p>
         </Glass>
       )}
+
+      {calendar && <Glass className={cn("mt-3 p-5", entrance, "motion-safe:delay-400")}>{calendar}</Glass>}
 
       {guestList && <Glass className={cn("mt-3 p-5", entrance, "motion-safe:delay-500")}>{guestList}</Glass>}
     </main>

@@ -61,12 +61,13 @@ type Props = {
   open: boolean;
   questions: Question[];
   answers: Record<string, string>;
+  calendar?: ReactNode;
 };
 
 // The guest's whole RSVP, inline under the poster: the three buttons, the stepper that expands
 // beneath them, and, once they have answered, their confirmation. The Sheet style, where the
 // same steps rise over the invitation instead, is ticket 11.
-export function RsvpFlow({ slug, settings, mine, buttonStyle, open, questions, answers }: Props) {
+export function RsvpFlow({ slug, settings, mine, buttonStyle, open, questions, answers, calendar }: Props) {
   const t = useTranslations("Rsvp");
   const [step, setStep] = useState<Step>(mine ? "done" : "idle");
   const [answer, setAnswer] = useState(mine);
@@ -131,6 +132,7 @@ export function RsvpFlow({ slug, settings, mine, buttonStyle, open, questions, a
         onEditDetails={() => setStep("name")}
         onRemove={remove}
         removing={working}
+        calendar={calendar}
       />
     );
   }
@@ -367,12 +369,14 @@ function Confirmation({
   onEditDetails,
   onRemove,
   removing,
+  calendar,
 }: {
   answer: GuestRsvp;
   onChangeAnswer: () => void;
   onEditDetails: () => void;
   onRemove: () => void;
   removing: boolean;
+  calendar?: ReactNode;
 }) {
   const t = useTranslations("Rsvp");
   const [copied, setCopied] = useState(false);
@@ -395,6 +399,8 @@ function Confirmation({
           {answer.email && <p className="text-sm text-theme-text-faint">{t("summary.email", { email: answer.email })}</p>}
         </div>
       </div>
+
+      {calendar && answer.status !== "cant" && <div className="mt-4">{calendar}</div>}
 
       <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-theme-glass-strong px-3 py-2.5">
         <div className="min-w-0">

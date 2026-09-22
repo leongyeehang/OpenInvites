@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { getSession } from "@/auth/session";
 import { acceptsRsvps, eventPageFor } from "@/events/access";
 import { findEventBySlug } from "@/events/repository";
+import { baseUrl } from "@/instance/env";
 import { isSlug } from "@/events/slug";
 import { answersStillOffered } from "@/questions/answers";
 import { findAnswers, listQuestions } from "@/questions/repository";
@@ -14,10 +15,12 @@ import { guestListView } from "@/rsvps/visibility";
 import { PosterLayout } from "@/themes/poster-layout";
 import { resolveTheme } from "@/themes/resolve";
 import { ThemedPage } from "@/themes/themed-page";
+import { AddToCalendar } from "./add-to-calendar";
 import { CancelledNotice } from "./cancelled-notice";
 import { DraftNotice } from "./draft-notice";
 import { GuestList } from "./guest-list";
 import { RsvpFlow } from "./rsvp-flow";
+import { Countdown, MapLink, ViewerTime } from "./viewer";
 
 // Event pages are never indexed (ADR-0004). The header carries the same signal (next.config.ts).
 const noindex: Metadata["robots"] = { index: false, follow: false };
@@ -53,6 +56,11 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   }
 
   const theme = resolveTheme(event.theme);
+  const locale = await getLocale();
+  const link = `${baseUrl()}/e/${event.slug}`;
+  // The same rule the file itself follows: there is nothing to put in a calendar until an event
+  // is published, and nothing worth keeping there once it is called off.
+  const calendar = acceptsRsvps(event.state) ? <AddToCalendar event={event} link={link} /> : undefined;
   // The cookie tells us whether the guest in front of us has already replied on this device.
   const mine = await findRsvpOnThisDevice(event.id);
   // Whether this guest may see the list decides whether it is even loaded.
@@ -79,8 +87,17 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             open={acceptsRsvps(event.state)}
             questions={questions}
             answers={answersStillOffered(answers, questions)}
+            calendar={calendar}
           />
         }
+        underWhen={
+          <>
+            <ViewerTime event={event} locale={locale} />
+            <Countdown event={event} />
+          </>
+        }
+        underWhere={event.location ? <MapLink location={event.location} /> : undefined}
+        calendar={calendar}
         guestList={
           view === "hidden" ? undefined : <GuestList view={view} guests={guests} counts={countRsvps(guests.map(asTally))} />
         }

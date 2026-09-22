@@ -274,7 +274,17 @@
       "cant": "Can’t go"
     },
     "cancelledTitle": "This event is cancelled",
-    "cancelled": "The host has called it off, so there is nothing to reply to."
+    "cancelled": "The host has called it off, so there is nothing to reply to.",
+    "addToCalendar": "Add to calendar",
+    "googleCalendar": "Google Calendar",
+    "outlook": "Outlook",
+    "startsInDays": "{count, plural, one {Starts in 1 day} other {Starts in # days}}",
+    "startsInHours": "{count, plural, one {Starts in 1 hour} other {Starts in # hours}}",
+    "startsInMinutes": "{count, plural, =0 {Starting now} one {Starts in 1 minute} other {Starts in # minutes}}",
+    "happeningNow": "Happening now",
+    "ended": "This has ended",
+    "yourTime": "That’s {time} where you are.",
+    "openInMaps": "Open in Maps"
   },
   "Guests": {
     "title": "Guest list",
