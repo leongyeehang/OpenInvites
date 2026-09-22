@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { EventWithHost } from "@/events/repository";
 import { formatDateSticker, formatWhen } from "@/events/time";
 import { cn } from "@/lib/utils";
+import { RichTextView } from "@/rich-text/rich-text-view";
 import { Glass } from "./glass";
 import type { ResolvedTheme } from "./resolve";
 
@@ -71,10 +72,10 @@ export async function PosterLayout({
         )}
       </div>
 
-      {event.description && (
-        <Glass className={cn("mt-3 p-5", entrance, "motion-safe:delay-300")}>
+      {event.descriptionRich.blocks.length > 0 && (
+        <Glass data-slot="description" className={cn("mt-3 p-5", entrance, "motion-safe:delay-300")}>
           <SectionLabel>{t("about")}</SectionLabel>
-          <p className="leading-relaxed whitespace-pre-line text-theme-text-muted">{event.description}</p>
+          <RichTextView doc={event.descriptionRich} className="leading-relaxed text-theme-text-muted" />
         </Glass>
       )}
 

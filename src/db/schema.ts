@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { QUESTION_TYPES } from "../questions/question";
+import { EMPTY_RICH_TEXT, type RichText } from "../rich-text/rich-text";
 import { RSVP_STATUSES } from "../rsvps/form";
 import { DEFAULT_GUEST_LIST_VISIBILITY, GUEST_LIST_VISIBILITIES } from "../rsvps/visibility";
 import type { Theme } from "../themes/theme";
@@ -97,7 +98,10 @@ export const event = pgTable(
     allDay: boolean("all_day").notNull().default(false),
     timeZone: text("time_zone").notNull(),
     location: text("location").notNull().default(""),
+    // The description twice over: the document the host wrote, and the plain words derived from
+    // it for the calendar file and the preview card.
     description: text("description").notNull().default(""),
+    descriptionRich: jsonb("description_rich").$type<RichText>().notNull().default(EMPTY_RICH_TEXT),
     theme: jsonb("theme").$type<Theme>().notNull().default(sql`'{}'::jsonb`),
     // What the host asks of guests on the RSVP form (spec, "Per-event settings").
     plusOnesAllowed: integer("plus_ones_allowed").notNull().default(1),

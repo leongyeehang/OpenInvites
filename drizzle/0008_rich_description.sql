@@ -1,0 +1,1 @@
+ALTER TABLE "event" ADD COLUMN "description_rich" jsonb DEFAULT '{"blocks":[]}'::jsonb NOT NULL;

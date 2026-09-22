@@ -8,7 +8,7 @@ const valid = {
   end: "",
   timeZone: "Asia/Singapore",
   location: "Ah Ma’s house, 3rd floor",
-  description: "Bring nothing.",
+  description: { blocks: [{ type: "paragraph" as const, spans: [{ text: "Bring nothing." }] }] },
   plusOnesAllowed: "1",
   requirePlusOneNames: false,
   askEmail: false,
@@ -26,7 +26,9 @@ describe("parseEventForm", () => {
         endsAt: null,
         timeZone: "Asia/Singapore",
         location: "Ah Ma’s house, 3rd floor",
+        // The document the host wrote, and the plain words derived from it.
         description: "Bring nothing.",
+        descriptionRich: valid.description,
         plusOnesAllowed: 1,
         requirePlusOneNames: false,
         askEmail: false,

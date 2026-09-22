@@ -7,9 +7,25 @@ import { requireHost } from "@/auth/session";
 import { hostNeedsVerification } from "@/auth/verification";
 import type { FormState } from "@/lib/form-state";
 import { parseQuestions } from "@/questions/question";
+import { parseRichText } from "@/rich-text/rich-text";
 import { saveQuestions } from "@/questions/repository";
 import { parseEventForm } from "./form";
 import { cancelEvent, createEvent, deleteEvent, publishEvent, updateEvent } from "./repository";
+
+// The editor writes its document into one field, as the questions editor does. An empty field
+// is an empty description; a field that will not parse is a mistake worth saying out loud,
+// because treating it as empty would quietly throw the host's words away.
+const UNREADABLE = Symbol("unreadable description");
+
+function postedDescription(formData: FormData): unknown {
+  const raw = formData.get("description");
+  if (typeof raw !== "string" || !raw) return { blocks: [] };
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return UNREADABLE;
+  }
+}
 
 function fields(formData: FormData) {
   const text = (name: string) => {
@@ -23,7 +39,6 @@ function fields(formData: FormData) {
     end: text("end"),
     timeZone: text("timeZone"),
     location: text("location"),
-    description: text("description"),
     plusOnesAllowed: text("plusOnesAllowed"),
     requirePlusOneNames: formData.get("requirePlusOneNames") === "on",
     askEmail: formData.get("askEmail") === "on",
@@ -49,7 +64,11 @@ export async function createEventAction(_: FormState, formData: FormData): Promi
   const host = await requireHost();
   const t = await getTranslations("Events");
   if (hostNeedsVerification(host)) return { error: t("verify.text", { email: host.email }) };
-  const parsed = parseEventForm(fields(formData));
+  const posted = postedDescription(formData);
+  if (posted === UNREADABLE) return { error: t("errors.descriptionUnreadable") };
+  const description = parseRichText(posted);
+  if (!description.ok) return { error: t(`errors.${description.error}`) };
+  const parsed = parseEventForm({ ...fields(formData), description: description.doc });
   if (!parsed.ok) return { error: t(`errors.${parsed.error}`) };
   const questions = parseQuestions(postedQuestions(formData));
   if (!questions.ok) return { error: t(`errors.${questions.error}`) };
@@ -62,7 +81,11 @@ export async function createEventAction(_: FormState, formData: FormData): Promi
 export async function updateEventAction(id: string, _: FormState, formData: FormData): Promise<FormState> {
   const host = await requireHost();
   const t = await getTranslations("Events");
-  const parsed = parseEventForm(fields(formData));
+  const posted = postedDescription(formData);
+  if (posted === UNREADABLE) return { error: t("errors.descriptionUnreadable") };
+  const description = parseRichText(posted);
+  if (!description.ok) return { error: t(`errors.${description.error}`) };
+  const parsed = parseEventForm({ ...fields(formData), description: description.doc });
   if (!parsed.ok) return { error: t(`errors.${parsed.error}`) };
   const questions = parseQuestions(postedQuestions(formData));
   if (!questions.ok) return { error: t(`errors.${questions.error}`) };

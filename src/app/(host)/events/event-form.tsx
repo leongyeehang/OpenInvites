@@ -8,10 +8,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { Textarea } from "@/components/ui/textarea";
 import { MAX_PLUS_ONES } from "@/events/form";
 import type { QuestionDraft } from "@/questions/question";
+import { EMPTY_RICH_TEXT } from "@/rich-text/rich-text";
 import { GUEST_LIST_VISIBILITIES } from "@/rsvps/visibility";
+import { DescriptionEditor } from "./description-editor";
 import { QuestionsEditor } from "./questions-editor";
 import type { Event } from "@/events/repository";
 import { toWallTime } from "@/events/time";
@@ -92,11 +93,7 @@ export function EventForm({ action, event, timeZones, submitLabel, questions, an
           <Input id="location" name="location" defaultValue={event?.location} />
           <FieldDescription>{t("locationHint")}</FieldDescription>
         </Field>
-        <Field>
-          <FieldLabel htmlFor="description">{t("description")}</FieldLabel>
-          <Textarea id="description" name="description" defaultValue={event?.description} rows={6} />
-          <FieldDescription>{t("descriptionHint")}</FieldDescription>
-        </Field>
+        <DescriptionEditor doc={event?.descriptionRich ?? EMPTY_RICH_TEXT} />
         <Field>
           <FieldLabel htmlFor="plus-ones-allowed">{t("plusOnesAllowed")}</FieldLabel>
           <NativeSelect id="plus-ones-allowed" name="plusOnesAllowed" defaultValue={String(event?.plusOnesAllowed ?? 1)}>

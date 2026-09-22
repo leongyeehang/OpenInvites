@@ -1,3 +1,4 @@
+import { richTextToPlain, type RichText } from "@/rich-text/rich-text";
 import { GUEST_LIST_VISIBILITIES, type GuestListVisibility } from "@/rsvps/visibility";
 import { isTimeZone, toInstant, toWallTime } from "./time";
 
@@ -11,6 +12,7 @@ export type EventInput = {
   timeZone: string;
   location: string;
   description: string;
+  descriptionRich: RichText;
   plusOnesAllowed: number;
   requirePlusOneNames: boolean;
   askEmail: boolean;
@@ -25,7 +27,7 @@ export type EventFormFields = {
   end: string;
   timeZone: string;
   location: string;
-  description: string;
+  description: RichText;
   plusOnesAllowed: string;
   requirePlusOneNames: boolean;
   askEmail: boolean;
@@ -96,7 +98,8 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
       endsAt,
       timeZone: fields.timeZone,
       location: fields.location.trim(),
-      description: fields.description.trim(),
+      description: richTextToPlain(fields.description),
+      descriptionRich: fields.description,
       plusOnesAllowed,
       requirePlusOneNames: fields.requirePlusOneNames,
       askEmail: fields.askEmail,

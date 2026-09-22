@@ -178,7 +178,7 @@
       "location": "Where",
       "locationHint": "An address, or “Ah Ma’s house, 3rd floor”. Optional.",
       "description": "Description",
-      "descriptionHint": "Plain text for now. Optional.",
+      "descriptionHint": "Bold, italic, links, bullets and emoji. Optional.",
       "plusOnesAllowed": "Plus-ones per guest",
       "plusOnesNone": "None",
       "plusOnesAllowedHint": "How many people one guest may bring.",
@@ -206,7 +206,12 @@
       "questionRemove": "Remove question",
       "questionRemoveTitle": "Remove “{prompt}”?",
       "questionRemoveText": "{count, plural, =1 {One guest has answered it, and that answer goes too.} other {# guests have answered it, and their answers go too.}}",
-      "questionRemoveCancel": "Keep it"
+      "questionRemoveCancel": "Keep it",
+      "descriptionBold": "Bold",
+      "descriptionItalic": "Italic",
+      "descriptionLink": "Add a link",
+      "descriptionBullets": "Bullet list",
+      "descriptionLinkPrompt": "Where should the link go?"
     },
     "errors": {
       "titleRequired": "Give the event a title.",
@@ -224,7 +229,9 @@
       "questionPromptTooLong": "That question is too long.",
       "questionChoicesRequired": "A question with a list needs between two and ten choices.",
       "questionChoiceTooLong": "That choice is too long.",
-      "tooManyQuestions": "Ten questions is the most an invitation can carry."
+      "tooManyQuestions": "Ten questions is the most an invitation can carry.",
+      "descriptionTooLong": "That description is longer than an invitation can carry.",
+      "descriptionUnreadable": "The description could not be read. Copy it somewhere safe and try again."
     },
     "manage": {
       "link": "Event link",
