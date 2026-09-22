@@ -71,6 +71,13 @@
       "when": 1790060301255,
       "tag": "0009_backfill_descriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790061715393,
+      "tag": "0010_retired_slugs",
+      "breakpoints": true
     }
   ]
 }

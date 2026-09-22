@@ -3,7 +3,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { getSession } from "@/auth/session";
 import { acceptsRsvps, eventPageFor } from "@/events/access";
-import { findEventBySlug } from "@/events/repository";
+import { findEventBySlug, isRetiredSlug } from "@/events/repository";
 import { baseUrl } from "@/instance/env";
 import { isSlug } from "@/events/slug";
 import { answersStillOffered } from "@/questions/answers";
@@ -17,6 +17,7 @@ import { resolveTheme } from "@/themes/resolve";
 import { ThemedPage } from "@/themes/themed-page";
 import { AddToCalendar } from "./add-to-calendar";
 import { CancelledNotice } from "./cancelled-notice";
+import { RetiredLink } from "./retired-link";
 import { DraftNotice } from "./draft-notice";
 import { GuestList } from "./guest-list";
 import { RsvpFlow } from "./rsvp-flow";
@@ -29,8 +30,29 @@ export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Prom
   const { slug } = await params;
   const event = isSlug(slug) ? await findEventBySlug(slug) : undefined;
   const [t, notFound] = await Promise.all([getTranslations("EventPage"), getTranslations("NotFound")]);
-  const title = !event ? notFound("title") : event.state === "published" ? event.title : t("notReadyTitle");
-  return { title, robots: noindex };
+  if (!event) {
+    const retired = isSlug(slug) && (await isRetiredSlug(slug));
+    return { title: retired ? t("retiredTitle") : notFound("title"), robots: noindex };
+  }
+  // A draft unfurls as nothing: its title is not public until the host says so.
+  if (eventPageFor(event.state, { isHost: false }) === "notReady") return { title: t("notReadyTitle"), robots: noindex };
+
+  const link = `${baseUrl()}/e/${event.slug}`;
+  // The version in the URL is what makes the card change when the event or its theme does,
+  // while each version stays cacheable forever.
+  const preview = `${link}/preview.png?v=${event.updatedAt.getTime()}`;
+  return {
+    title: event.title,
+    robots: noindex,
+    openGraph: {
+      type: "website",
+      url: link,
+      title: event.title,
+      description: event.description || undefined,
+      images: [{ url: preview, width: 1200, height: 630 }],
+    },
+    twitter: { card: "summary_large_image", title: event.title, images: [preview] },
+  };
 }
 
 // The event page: the invitation itself, rendered on the server in the event's theme so the
@@ -40,7 +62,10 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const { slug } = await params;
   if (!isSlug(slug)) notFound();
   const event = await findEventBySlug(slug);
-  if (!event) notFound();
+  if (!event) {
+    if (await isRetiredSlug(slug)) return <RetiredLink />;
+    notFound();
+  }
 
   // Only a draft needs to know who is looking, so only a draft pays for the session lookup.
   const isDraft = event.state === "draft";

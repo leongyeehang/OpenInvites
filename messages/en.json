@@ -252,12 +252,28 @@
       "deleteHint": "Removes the event and everything guests told you. This cannot be undone.",
       "deleteTitle": "Delete “{title}”?",
       "deleteText": "{count, plural, =0 {Nobody has replied, so nothing else goes with it. The link stops working.} =1 {One RSVP, and the answers with it, are deleted. The link stops working.} other {# RSVPs, and the answers with them, are deleted. The link stops working.}}",
-      "deleteConfirm": "Delete it"
+      "deleteConfirm": "Delete it",
+      "share": "Share"
     },
     "verify": {
       "title": "Verify your email first",
       "text": "Before you create an event, open the link we sent to {email}. Then come back here.",
       "resend": "Resend email"
+    },
+    "share": {
+      "title": "Share this event",
+      "backToEvent": "Back to the event",
+      "copy": "Copy link",
+      "copied": "Copied",
+      "share": "Share…",
+      "qr": "QR code",
+      "qrHint": "Print it, or hold it up at the door.",
+      "qrLabel": "QR code for the event link",
+      "reset": "Reset the link",
+      "resetHint": "Issues a new link and stops the old one working. Anyone who already replied keeps their RSVP.",
+      "resetTitle": "Reset this event's link?",
+      "resetText": "The link you have shared stops working, and anyone who opens it is told so. You will need to send the new one out.",
+      "resetConfirm": "Reset it"
     }
   },
   "EventPage": {
@@ -291,7 +307,9 @@
     "happeningNow": "Happening now",
     "ended": "This has ended",
     "yourTime": "That’s {time} where you are.",
-    "openInMaps": "Open in Maps"
+    "openInMaps": "Open in Maps",
+    "retiredTitle": "This link is no longer valid",
+    "retired": "The host has issued a new link for this event. Ask them for it."
   },
   "Guests": {
     "title": "Guest list",

@@ -10,7 +10,7 @@ import { parseQuestions } from "@/questions/question";
 import { parseRichText } from "@/rich-text/rich-text";
 import { saveQuestions } from "@/questions/repository";
 import { parseEventForm } from "./form";
-import { cancelEvent, createEvent, deleteEvent, publishEvent, updateEvent } from "./repository";
+import { cancelEvent, createEvent, deleteEvent, publishEvent, resetEventLink, updateEvent } from "./repository";
 
 // The editor writes its document into one field, as the questions editor does. An empty field
 // is an empty description; a field that will not parse is a mistake worth saying out loud,
@@ -115,4 +115,13 @@ export async function deleteEventAction(id: string): Promise<void> {
   const host = await requireHost();
   await deleteEvent(host.id, id);
   redirect("/dashboard");
+}
+
+export async function resetLinkAction(id: string): Promise<void> {
+  const host = await requireHost();
+  await resetEventLink(host.id, id);
+  // The manage page shows the link too, so it must not keep showing the retired one.
+  revalidatePath(`/events/${id}`);
+  revalidatePath(`/events/${id}/share`);
+  redirect(`/events/${id}/share`);
 }

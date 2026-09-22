@@ -1,7 +1,7 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { cache } from "react";
 import { getDb } from "@/db/client";
-import { event, user } from "@/db/schema";
+import { event, retiredSlug, user } from "@/db/schema";
 import { DEFAULT_THEME, parseTheme } from "@/themes/theme";
 import type { EventInput } from "./form";
 import { SLUG_TAKEN, withFreshSlug } from "./slug";
@@ -17,12 +17,15 @@ function withTheme<T extends { theme: unknown }>(row: T): T {
 
 const UNIQUE_VIOLATION = "23505";
 
-// Drizzle wraps the driver's error; the Postgres fields are on its cause.
+// Drizzle wraps the driver's error; the Postgres fields are on its cause. Named exactly, because
+// the retired slugs table has a unique constraint with "slug" in its name too.
+const EVENT_SLUG_UNIQUE = "event_slug_unique";
+
 function isSlugCollision(error: unknown): boolean {
   const cause = (error as { cause?: unknown })?.cause ?? error;
   if (typeof cause !== "object" || cause === null) return false;
   const { code, constraint_name } = cause as { code?: string; constraint_name?: string };
-  return code === UNIQUE_VIOLATION && String(constraint_name).includes("slug");
+  return code === UNIQUE_VIOLATION && constraint_name === EVENT_SLUG_UNIQUE;
 }
 
 // A new event starts with the Birthday template's theme (ticket 06).
@@ -61,6 +64,41 @@ export async function publishEvent(hostId: string, id: string): Promise<Event | 
     .where(and(eq(event.id, id), eq(event.hostId, hostId)))
     .returning();
   return published && withTheme(published);
+}
+
+// A link that leaked stops working, and a fresh one takes its place. The old slug is kept so
+// that whoever still has it learns what happened.
+export async function resetEventLink(hostId: string, id: string): Promise<Event | undefined> {
+  return withFreshSlug(async (slug) => {
+    try {
+      return await getDb().transaction(async (tx) => {
+        const current = await tx.query.event.findFirst({ where: and(eq(event.id, id), eq(event.hostId, hostId)) });
+        if (!current) return undefined;
+
+        // Retiring a slug twice is not a collision worth retrying: both unique constraints
+        // carry "slug" in their names, so without this a second reset of the same link would
+        // look like a slug clash and retry until it gave up.
+        await tx.insert(retiredSlug).values({ slug: current.slug, eventId: current.id }).onConflictDoNothing();
+        // Keyed on the slug this reset actually read, so two resets at once cannot both retire
+        // the same link and leave the second's new one unretired: the loser changes nothing.
+        const [reset] = await tx
+          .update(event)
+          .set({ slug, updatedAt: new Date() })
+          .where(and(eq(event.id, current.id), eq(event.hostId, hostId), eq(event.slug, current.slug)))
+          .returning();
+        return reset && withTheme(reset);
+      });
+    } catch (error) {
+      if (isSlugCollision(error)) return SLUG_TAKEN;
+      throw error;
+    }
+  });
+}
+
+// Whether this link used to work, which is a different thing from never having existed.
+export async function isRetiredSlug(slug: string): Promise<boolean> {
+  const found = await getDb().query.retiredSlug.findFirst({ where: eq(retiredSlug.slug, slug) });
+  return found !== undefined;
 }
 
 // Calling it off: the page stays up with its notice and takes no more answers (spec, story 28).

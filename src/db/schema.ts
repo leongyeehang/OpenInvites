@@ -176,3 +176,18 @@ export const answer = pgTable(
   },
   (table) => [index("answer_rsvp_id_idx").on(table.rsvpId), unique("answer_rsvp_question_unique").on(table.rsvpId, table.questionId)],
 );
+
+// A link a host has reset. The old slug is kept so that whoever still has it is told the link
+// is no longer valid, rather than being shown a page that looks like a mistake (ADR-0004).
+export const retiredSlug = pgTable(
+  "retired_slug",
+  {
+    id: id(),
+    slug: text("slug").notNull().unique(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    retiredAt: timestamp("retired_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("retired_slug_event_id_idx").on(table.eventId)],
+);

@@ -17,6 +17,11 @@ export type ResolvedTheme = {
   buttonStyle: ButtonStyle;
 };
 
+// The colour the page settles to behind its backdrop, per tone. globals.css sets the same two
+// as --theme-base; they are repeated here for the preview card, which is painted without CSS.
+export const TONE_BASE = { light: "#1b0f2b", dark: "#f4f1ea" } as const;
+export const TONE_TEXT = { light: "#ffffff", dark: "#1a1030" } as const;
+
 // Above this average luminance a background counts as light, so the text goes dark.
 const LIGHT_BACKGROUND = 0.6;
 
