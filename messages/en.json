@@ -100,7 +100,8 @@
       "SESSION_EXPIRED": "Your session has ended. Sign in again.",
       "CREDENTIAL_ACCOUNT_NOT_FOUND": "This account has no password to check.",
       "HOST_INVITATION_REQUIRED": "This instance is invitation only. You need a host invitation from its operator to create an account.",
-      "HOST_INVITATION_UNUSABLE": "This host invitation can no longer be used. Ask the operator of this instance for a new one."
+      "HOST_INVITATION_UNUSABLE": "This host invitation can no longer be used. Ask the operator of this instance for a new one.",
+      "TOO_MANY_REQUESTS": "You’re going too fast. Try again shortly."
     }
   },
   "Host": {
@@ -387,7 +388,8 @@
       "tooLarge": "That picture is larger than {max, number} MB, the largest that can be uploaded here. Choose a smaller one.",
       "unsupported": "That file isn’t a picture that can be used here. Choose a JPEG, PNG, WebP or AVIF picture.",
       "tooManyPixels": "That picture has too many pixels to work with. Choose one under 50 megapixels.",
-      "failed": "The picture didn’t upload. Try it again."
+      "failed": "The picture didn’t upload. Try it again.",
+      "tooFast": "You’re going too fast. Try again shortly."
     },
     "useAs": "Use it as",
     "useAsBackground": "Background",
@@ -565,7 +567,8 @@
       "emailInvalid": "That does not look like an email address.",
       "answerRequired": "The host would like an answer to this one.",
       "answerNotOffered": "Choose one of the answers offered.",
-      "answerTooLong": "That answer is too long."
+      "answerTooLong": "That answer is too long.",
+      "tooFast": "You’re going too fast. Try again shortly."
     },
     "questions": {
       "title": "A couple of questions",
@@ -578,5 +581,19 @@
     "title": "Page not found",
     "text": "Nothing lives at this address. Check the link you were given.",
     "home": "Go to the home page"
+  },
+  "TooFast": {
+    "title": "You’re going too fast",
+    "text": "Try again shortly."
+  },
+  "Footer": {
+    "privacy": "Privacy policy",
+    "terms": "Terms of use"
+  },
+  "Legal": {
+    "privacy": "Privacy policy",
+    "terms": "Terms of use",
+    "contact": "Questions? Contact the operator of this instance at <link>{email}</link>.",
+    "contactUnknown": "The operator of this instance has not given a contact address."
   }
 }

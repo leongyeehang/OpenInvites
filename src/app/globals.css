@@ -7,6 +7,8 @@
 @custom-variant designing (body:has([data-slot="design-panel"]) &);
 /* A guest's RSVP sheet is open (src/app/e/[slug]/rsvp-flow.tsx): the Design button steps aside. */
 @custom-variant rsvp-sheet-open (body:has([data-slot="rsvp-sheet"]) &);
+/* A themed event page is showing (src/themes/themed-page.tsx): it carries its own footer, so the plain one steps aside. */
+@custom-variant themed (body:has(.event-page) &);
 
 /*
   Design tokens, defined once. Three layers:

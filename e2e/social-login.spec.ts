@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 
 // `app` (the default baseURL, port 3000) has no Google or GitHub credentials configured.
 // `app-social` (port 3001) is the same image with dummy credentials for both, started by the

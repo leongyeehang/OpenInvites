@@ -1,4 +1,4 @@
-import { expect, test as setup } from "@playwright/test";
+import { expect, test as setup } from "./test";
 import { mailCountTo, OPERATOR, PASSWORD, signIn, signUp, verifyEmail } from "./hosts";
 
 // Every other spec signs up hosts of its own, so `app` runs with registration open. Its operator

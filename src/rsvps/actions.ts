@@ -2,13 +2,14 @@
 
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { requireHost } from "@/auth/session";
 import { acceptsRsvps } from "@/events/access";
 import { findEventBySlug, findHostEvent } from "@/events/repository";
 import { parseAnswers, type AnswerFields } from "@/questions/answers";
 import { listQuestions, saveAnswers } from "@/questions/repository";
 import type { FormState } from "@/lib/form-state";
+import { consume } from "@/rate-limit/rate-limit";
 import { parseHostEdit, parseRsvpForm, type RsvpFormFields } from "./form";
 import { findRsvpOnThisDevice, guestRsvp, type SaveRsvpResult } from "./guest";
 import { deleteRsvp, editRsvpAsHost, saveRsvp } from "./repository";
@@ -37,7 +38,10 @@ function answersFrom(formData: FormData): AnswerFields {
   return given;
 }
 
+// Every answer counts against the RSVP limit before anything is looked up, so that neither a
+// flood of RSVPs nor a search for event links gets far through here.
 export async function saveRsvpAction(slug: string, formData: FormData): Promise<SaveRsvpResult> {
+  if (!(await consume("rsvp", await headers())).allowed) return { error: "tooFast" };
   const event = await findEventBySlug(slug);
   if (!event || !acceptsRsvps(event.state)) return { error: "closed" };
 

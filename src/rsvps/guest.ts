@@ -17,8 +17,8 @@ export type GuestRsvp = {
 };
 
 // Why an answer was refused. The guest's own browser turns it into a sentence, and uses it to
-// send them back to the step holding the field that needs them.
-export type RsvpRefusal = RsvpFormError | AnswerError | "closed";
+// send them back to the step holding the field that needs them. Too fast is the rate limit.
+export type RsvpRefusal = RsvpFormError | AnswerError | "closed" | "tooFast";
 
 export type SaveRsvpResult = { error?: RsvpRefusal; saved?: GuestRsvp };
 

@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator, type Page } from "./test";
 import { createPublished } from "./events";
 
 // Ticket 10: the host's Design drawer. A template sets the whole theme, any knob after it makes

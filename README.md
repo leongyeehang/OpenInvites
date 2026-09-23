@@ -102,7 +102,7 @@ No automated test can sign in against the real providers, so verify by hand afte
 | Profile | Services | Use |
 | --- | --- | --- |
 | `dev` | `db`, `mail` | `pnpm dev` runs Next.js on your machine against them. |
-| `test` | `app`, `app-social`, `app-fresh`, `app-no-mail`, `db`, `db-fresh`, `db-no-mail`, `mail` | The image an operator will run, exercised by the browser tests and CI. `app` runs with registration open, which the browser tests' operator (`OPERATOR_EMAIL`) sets on the instance settings page before the other specs run. `app-social` is the same image with dummy Google and GitHub credentials, for the one spec that checks the social sign-in buttons. `app-fresh` (port 3002) is the same image on its own database, held in memory by `db-fresh`; `e2e/registration.spec.ts` recreates both before it runs, so the first account and the registration modes are tested on an instance nobody has used. `app-no-mail` (port 3003, on `db-no-mail`) is the same again without mail, for `e2e/registration-without-mail.spec.ts`. |
+| `test` | `app`, `app-social`, `app-fresh`, `app-no-mail`, `db`, `db-fresh`, `db-no-mail`, `mail` | The image an operator will run, exercised by the browser tests and CI. `app` runs with registration open, which the browser tests' operator (`OPERATOR_EMAIL`) sets on the instance settings page before the other specs run, and with rate limits low enough for a test to reach (`.env.development` sets the same); each test sends an `X-Forwarded-For` address of its own (`e2e/test.ts`), as a reverse proxy would, so none uses up another's allowance. `app-social` is the same image with dummy Google and GitHub credentials, for the one spec that checks the social sign-in buttons, and with an analytics snippet and legal pages of the operator's own (one from the environment, one from `e2e/legal/terms.md` mounted as a file). `app-fresh` (port 3002) is the same image on its own database, held in memory by `db-fresh`; `e2e/registration.spec.ts` recreates both before it runs, so the first account and the registration modes are tested on an instance nobody has used. `app-no-mail` (port 3003, on `db-no-mail`) is the same again without mail, for `e2e/registration-without-mail.spec.ts`. |
 
 ## Layout
 
@@ -116,9 +116,11 @@ src/db/             Drizzle client, schema, and the migrator run at start
 src/events/         Events module: slug, time rules, form rules, repository, server actions
 src/instance/       The instance: settings from the environment and the database, the operator,
                     the registration mode, and host invitations
+src/legal/          The privacy policy and terms of use: the operator's Markdown or the placeholders
 src/lib/            Small shared types and helpers
 src/locale/         Locale resolution, translation loading, language switcher
 src/mail/           Mail module: SMTP configuration and sending
+src/rate-limit/     RateLimit module: the client address, the limits, and their in-memory counts
 messages/           Translation files, one per locale
 drizzle/            SQL migrations
 scripts/            Commands an operator runs inside the container

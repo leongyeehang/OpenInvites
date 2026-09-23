@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "./test";
 import { createPublished } from "./events";
 
 // Ticket 11: the Sheet RSVP style, which Birthday (where every new event starts) uses. It is the

@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, type SQL } from "drizzle-orm";
 import { cache } from "react";
 import { getDb } from "@/db/client";
 import { event, retiredSlug, upload, user } from "@/db/schema";
+import { isUuid } from "@/lib/uuid";
 import { DEFAULT_THEME, parseTheme, type Theme } from "@/themes/theme";
 import { removeRenditions } from "@/uploads/files";
 import type { EventInput } from "./form";
@@ -43,8 +44,10 @@ export async function createEvent(hostId: string, input: EventInput): Promise<Ev
 }
 
 // Scoped to the host: a host can only ever load or change their own events. Cached per
-// request, as generateMetadata and the page both ask.
+// request, as generateMetadata and the page both ask. An id from the address bar that is not a
+// UUID finds nothing, as Postgres would refuse it, so the host's pages show not-found for it.
 export const findHostEvent = cache(async (hostId: string, id: string): Promise<Event | undefined> => {
+  if (!isUuid(id)) return undefined;
   const found = await getDb().query.event.findFirst({ where: and(eq(event.id, id), eq(event.hostId, hostId)) });
   return found && withTheme(found);
 });

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 import { newHost, OPERATOR, PASSWORD, signIn, signUp } from "./hosts";
 
 // What depends on the registration mode runs on an instance of its own (registration.spec.ts).

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 import { createDraft } from "./events";
 import { newHost, signUp, signUpVerified, verifyEmail } from "./hosts";
 
@@ -113,6 +113,15 @@ test("an unknown link is not found", async ({ page, request }) => {
   expect(response.status()).toBe(404);
   await page.goto("/e/abcdefghij");
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+});
+
+test("an event address a host mistypes is not found, on each of the event's pages", async ({ page }) => {
+  await signUp(page, newHost("mistyped"));
+  for (const path of ["/events/not-an-event", "/events/not-an-event/share", "/events/not-an-event/guests", "/events/0192a7b8-0000-7000-8000-00000000000"]) {
+    const response = await page.goto(path);
+    expect(response?.status(), path).toBe(404);
+    await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+  }
 });
 
 test("a host cannot open another host's event settings", async ({ page, request, browser }) => {

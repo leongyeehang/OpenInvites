@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 
 test("the home page says the instance is up and remembers the chosen language", async ({ page }) => {
   await page.goto("/");

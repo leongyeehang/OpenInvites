@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { getSession } from "@/auth/session";
+import { PageFooter } from "@/components/page-footer";
 import { acceptsRsvps, eventPageFor } from "@/events/access";
 import { findEventBySlug, isRetiredSlug } from "@/events/repository";
 import { baseUrl, maxUploadBytes } from "@/instance/env";
@@ -139,6 +140,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
           view === "hidden" ? undefined : <GuestList view={view} guests={guests} counts={countRsvps(guests.map(asTally))} />
         }
       />
+      <PageFooter themed />
     </ThemedPage>
   );
 }

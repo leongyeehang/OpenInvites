@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "./test";
 import { createPublished } from "./events";
 
 // The guest drives the test's own page; the host watches from a context of their own, so both

@@ -18,6 +18,12 @@ export function operatorEmail(): string | undefined {
   return process.env.OPERATOR_EMAIL?.trim().toLowerCase() || undefined;
 }
 
+// The operator's own analytics snippet (ANALYTICS_SNIPPET): HTML that goes into every page's head
+// as given. Unset, nothing is added and nothing loads (ADR-0005).
+export function analyticsSnippet(): string | undefined {
+  return process.env.ANALYTICS_SNIPPET?.trim() || undefined;
+}
+
 const MEGABYTE = 1024 * 1024;
 
 // The largest picture a host may upload, in megabytes (MAX_UPLOAD_MB, default 10).

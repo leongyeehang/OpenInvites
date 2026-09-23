@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
@@ -9,9 +9,29 @@ import { admitNewHost, seatAdmittedHost, seatVerifiedHost } from "@/instance/adm
 import { baseUrl } from "@/instance/env";
 import { HOST_INVITATION_COOKIE } from "@/instance/host-invitation-token";
 import { isMailConfigured } from "@/mail/config";
+import { consume, retryAfter, type LimitName } from "@/rate-limit/rate-limit";
 import { fallbackDisplayName } from "./display-name";
 import { sendPasswordResetEmail, sendVerificationEmail } from "./emails";
 import { socialProviders } from "./providers";
+
+// The Better Auth endpoints the rate limits count, whether a form's server action calls them
+// (actions.ts) or a request reaches them at /api/auth directly. A refusal is an error with its
+// code, which the forms turn into the same sentence as their other errors (errors.ts).
+const LIMITED: Record<string, LimitName> = {
+  "/sign-up/email": "signUp",
+  "/sign-in/email": "signIn",
+  "/request-password-reset": "passwordReset",
+  "/reset-password": "passwordReset",
+};
+
+const countAgainstLimits = createAuthMiddleware(async (context) => {
+  const limit = LIMITED[context.path];
+  if (!limit) return;
+  const verdict = await consume(limit, context.headers ?? new Headers());
+  if (!verdict.allowed) {
+    throw new APIError("TOO_MANY_REQUESTS", { code: "TOO_MANY_REQUESTS", message: "Too many requests. Try again shortly." }, retryAfter(verdict));
+  }
+});
 
 // Hosts are Better Auth users. Email and password is always on; Google and GitHub join only
 // when the operator has configured them (src/auth/providers.ts). What mail changes is decided
@@ -68,8 +88,14 @@ function createAuth() {
         },
       },
     },
+    hooks: { before: countAgainstLimits },
+    // The app's RateLimit module keeps every limit and is the one reader of the client address
+    // (rate-limit/). Better Auth's own limiter would count requests to /api/auth apart, and
+    // would believe a client's own X-Forwarded-For; with it off, Better Auth reads no address at
+    // all, so sessions record none.
+    rateLimit: { enabled: false },
     // Postgres generates UUIDv7 ids (ADR-0004); Better Auth must not generate its own.
-    advanced: { database: { generateId: false } },
+    advanced: { database: { generateId: false }, ipAddress: { disableIpTracking: true } },
     // Nothing leaves the instance (ADR-0005). Better Auth's telemetry is off by default; said explicitly.
     telemetry: { enabled: false },
     plugins: [nextCookies()],

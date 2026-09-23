@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 import { createPublished } from "./events";
 
 test("formatting survives saving, reopening, and the guest's page", async ({ page, browser, request }) => {

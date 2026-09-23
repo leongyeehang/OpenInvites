@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "./test";
 import { latestMailTo, linkIn, mailCountTo, newHost, PASSWORD, signIn, signUp, submitSignUp, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
 

@@ -36,7 +36,7 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
   const [saving, startSaving] = useTransition();
   const [outcome, setOutcome] = useState<"saved" | "failed">();
   const [uploading, setUploading] = useState(false);
-  const [problem, setProblem] = useState<UploadProblem | "failed">();
+  const [problem, setProblem] = useState<UploadProblem | "failed" | "tooFast">();
   const panel = useRef<HTMLElement>(null);
   const id = useId();
 
@@ -60,6 +60,7 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
     setUploading(true);
     try {
       const response = await fetch(`/api/events/${eventId}/upload`, { method: "POST", body: file });
+      if (response.status === 429) return setProblem("tooFast");
       if (!response.ok) {
         const { problem: refused } = (await response.json().catch(() => ({}))) as { problem?: UploadProblem };
         return setProblem(refused && UPLOAD_PROBLEMS.includes(refused) ? refused : "failed");

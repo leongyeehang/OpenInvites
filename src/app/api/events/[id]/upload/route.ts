@@ -2,6 +2,7 @@ import { getSession } from "@/auth/session";
 import { findHostEvent } from "@/events/repository";
 import { baseUrl, maxUploadBytes } from "@/instance/env";
 import { isUuid } from "@/lib/uuid";
+import { consume, retryAfter } from "@/rate-limit/rate-limit";
 import { uploadPicture, type UploadOutcome } from "@/uploads/uploads";
 
 // The Design drawer's upload: the request's body is the picture's bytes, and the answer is the
@@ -13,6 +14,9 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
   // Only the instance's own pages may send one, as Next.js checks for its server actions: the
   // session cookie would otherwise ride along with a request made from anywhere.
   if (request.headers.get("origin") !== new URL(baseUrl()).origin) return new Response(null, { status: 403 });
+  // Counted before the body is read: a picture is held in memory while it is processed.
+  const verdict = await consume("upload", request.headers);
+  if (!verdict.allowed) return Response.json({ problem: "tooFast" }, { status: 429, headers: retryAfter(verdict) });
   const session = await getSession();
   if (!session) return new Response(null, { status: 401 });
   const { id } = await context.params;
