@@ -25,7 +25,10 @@
       "passwordHint": "At least 8 characters.",
       "submit": "Create account",
       "haveAccount": "Already have an account?",
-      "signIn": "Sign in"
+      "signIn": "Sign in",
+      "orContinueWith": "or continue with",
+      "continueWithGoogle": "Continue with Google",
+      "continueWithGithub": "Continue with GitHub"
     },
     "signIn": {
       "title": "Sign in",
@@ -36,7 +39,11 @@
       "noAccount": "New here?",
       "signUp": "Create an account",
       "passwordChanged": "Your password has been changed. Sign in with the new one.",
-      "accountDeleted": "Your account has been deleted."
+      "accountDeleted": "Your account has been deleted.",
+      "socialError": "That didn’t work. Try again, or sign in with your email and password.",
+      "orContinueWith": "or continue with",
+      "continueWithGoogle": "Continue with Google",
+      "continueWithGithub": "Continue with GitHub"
     },
     "forgotPassword": {
       "title": "Reset your password",

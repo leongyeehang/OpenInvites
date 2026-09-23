@@ -39,6 +39,32 @@ services:
       mail:
         condition: service_started
 
+  # Same image as `app`, with dummy Google and GitHub credentials, on its own port. Backs the one
+  # spec that checks the sign-in and sign-up buttons appear once the operator has configured a
+  # provider (`app` above has none configured, so it covers the buttons-absent case). No test
+  # ever calls Google or GitHub with these credentials.
+  app-social:
+    build: .
+    profiles: [test]
+    environment:
+      DATABASE_URL: postgres://openinvites:openinvites@db:5432/openinvites
+      BASE_URL: http://localhost:3001
+      AUTH_SECRET: test-profile-only-secret-change-me-0123456789abcdef
+      SMTP_URL: smtp://mail:1025
+      MAIL_FROM: OpenInvites <no-reply@openinvites.test>
+      OPERATOR_CONTACT_EMAIL: operator@openinvites.test
+      GOOGLE_CLIENT_ID: dummy-google-client-id
+      GOOGLE_CLIENT_SECRET: dummy-google-client-secret
+      GITHUB_CLIENT_ID: dummy-github-client-id
+      GITHUB_CLIENT_SECRET: dummy-github-client-secret
+    ports:
+      - "3001:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      mail:
+        condition: service_started
+
   # Fake mail server: catches every email the app sends. Web UI on 8025, SMTP on 1025.
   mail:
     image: axllent/mailpit

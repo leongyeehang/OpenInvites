@@ -47,6 +47,8 @@ Every setting is an environment variable. Development defaults live in the commi
 | `SMTP_URL` | SMTP server for outgoing mail, such as `smtp://user:pass@mail.example.org:587`. Unset means the instance has no mail: hosts are not asked to verify their email and password reset goes through the operator command below. |
 | `MAIL_FROM` | Sender of outgoing mail, such as `OpenInvites <no-reply@example.org>`. Required when `SMTP_URL` is set. |
 | `OPERATOR_CONTACT_EMAIL` | Shown to hosts when they need the operator, such as to reset a password on an instance without mail. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | OAuth credentials for "Continue with Google". The button appears only when both are set. |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | OAuth credentials for "Continue with GitHub". The button appears only when both are set. |
 
 ### Resetting a host's password
 
@@ -58,12 +60,30 @@ docker compose exec app node scripts/reset-password.mjs host@example.org
 
 In development: `node --env-file=.env.development scripts/reset-password.mjs host@example.org`.
 
+### Google and GitHub sign-in
+
+Set both variables for a provider to add its button to the sign-in and sign-up pages; either one left unset keeps the button off. Register the redirect URL built from `BASE_URL`:
+
+| Provider | Where to create the OAuth client | Redirect URL to register |
+| --- | --- | --- |
+| Google | [Google Cloud Console](https://console.cloud.google.com/apis/credentials), OAuth client ID, type Web application | `{BASE_URL}/api/auth/callback/google` |
+| GitHub | [GitHub Developer settings](https://github.com/settings/developers), New OAuth App | `{BASE_URL}/api/auth/callback/github` |
+
+Put each client ID and secret in the matching environment variable above.
+
+No automated test can sign in against the real providers, so verify by hand after configuring them:
+
+1. Restart the instance and confirm both buttons appear on `/sign-in` and `/sign-up`.
+2. Sign in with Google using an address that has not signed up before: a host is created and signed in, with no "verify your email" banner, and the display name matches the Google profile's name.
+3. Sign in with GitHub the same way: the display name matches the GitHub profile's name, or the GitHub username when the profile has none.
+4. Sign up with email and password using an address you also control on Google or GitHub with a verified email there, then sign in with that provider using the same address: it signs in to the same account rather than creating a second one. A provider address that does not match, or is not verified there, does not link.
+
 ## Compose profiles
 
 | Profile | Services | Use |
 | --- | --- | --- |
 | `dev` | `db`, `mail` | `pnpm dev` runs Next.js on your machine against them. |
-| `test` | `app`, `db`, `mail` | The image an operator will run, exercised by the browser tests and CI. |
+| `test` | `app`, `app-social`, `db`, `mail` | The image an operator will run, exercised by the browser tests and CI. `app-social` is the same image with dummy Google and GitHub credentials, for the one spec that checks the social sign-in buttons. |
 
 ## Layout
 

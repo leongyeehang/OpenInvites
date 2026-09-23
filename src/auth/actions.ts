@@ -11,6 +11,7 @@ import type { FormState } from "@/lib/form-state";
 import { isMailConfigured } from "@/mail/config";
 import { getAuth } from "./auth";
 import { authErrorMessage } from "./errors";
+import type { SocialProviderId } from "./providers";
 import { type Host, requireHost } from "./session";
 
 // The Next.js guide's caveat: redirect() throws, so it stays outside every try/catch below.
@@ -54,6 +55,16 @@ export async function signIn(_: FormState, formData: FormData): Promise<FormStat
     return { error: await authErrorMessage(error) };
   }
   redirect("/dashboard");
+}
+
+// A first-time click creates the host (auth.ts's databaseHooks); a returning one signs them in.
+// Better Auth builds the provider's authorization URL; we just send the browser there.
+export async function signInSocial(provider: SocialProviderId): Promise<void> {
+  const result = await getAuth().api.signInSocial({
+    body: { provider, callbackURL: "/dashboard", errorCallbackURL: "/sign-in?socialError=1" },
+    headers: await headers(),
+  });
+  if (result.url) redirect(result.url);
 }
 
 // Signs out this device only; sessions on other devices stay valid.

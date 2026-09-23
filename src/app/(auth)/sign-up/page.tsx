@@ -3,7 +3,9 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/auth/session";
+import { enabledSocialProviders } from "@/auth/providers";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { SocialSignIn } from "../social-sign-in";
 import { SignUpForm } from "./sign-up-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -22,8 +24,9 @@ export default async function SignUpPage() {
         </CardTitle>
         <CardDescription>{t("description")}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-4">
         <SignUpForm />
+        <SocialSignIn providers={enabledSocialProviders()} namespace="Auth.signUp" />
       </CardContent>
       <CardFooter className="text-sm text-muted-foreground">
         <p>
