@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
+import { isOperator } from "@/instance/repository";
 import { getAuth } from "./auth";
 
 // One session lookup per request, however many components ask.
@@ -13,5 +14,13 @@ export type Host = NonNullable<Awaited<ReturnType<typeof getSession>>>["user"];
 export async function requireHost(): Promise<Host> {
   const session = await getSession();
   if (!session) redirect("/sign-in");
+  return session.user;
+}
+
+// The instance settings page and its actions call this. Anyone but the operator, signed in or
+// not, gets the not-found page any unknown address gets: the page does not exist for them.
+export async function requireOperator(): Promise<Host> {
+  const session = await getSession();
+  if (!session || !(await isOperator(session.user.id))) notFound();
   return session.user;
 }

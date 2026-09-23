@@ -5,17 +5,25 @@ import { expect, type APIRequestContext, type Page } from "@playwright/test";
 export const MAILPIT = "http://localhost:8025";
 export const PASSWORD = "correct horse battery";
 
+// The operator of `app`: the account OPERATOR_EMAIL names in compose.yaml and .env.development.
+export const OPERATOR = { name: "Olive Operator", email: "operator@openinvites.test" };
+
 export function newHost(label: string) {
   const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
   return { name: `Ada ${suffix}`, email: `${label}-${suffix}@example.test` };
 }
 
-export async function signUp(page: Page, host: { name: string; email: string }) {
-  await page.goto("/sign-up");
+// Fills in the sign-up form on the page already open, and sends it.
+export async function submitSignUp(page: Page, host: { name: string; email: string }) {
   await page.getByLabel("Display name").fill(host.name);
   await page.getByLabel("Email").fill(host.email);
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
+}
+
+export async function signUp(page: Page, host: { name: string; email: string }) {
+  await page.goto("/sign-up");
+  await submitSignUp(page, host);
   // Sign-up hashes the password and sends the verification email before it redirects.
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
   await expect(page.getByRole("banner").getByText(host.name)).toBeVisible();

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
-import { boolean, doublePrecision, index, integer, jsonb, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, doublePrecision, index, integer, jsonb, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { DEFAULT_REGISTRATION_MODE, REGISTRATION_MODES } from "../instance/registration";
 import { QUESTION_TYPES } from "../questions/question";
 import { EMPTY_RICH_TEXT, type RichText } from "../rich-text/rich-text";
 import { RSVP_STATUSES } from "../rsvps/form";
@@ -74,6 +75,41 @@ export const verification = pgTable(
   },
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
+
+export const registrationMode = pgEnum("registration_mode", REGISTRATION_MODES);
+
+// The instance's own settings, which its operator edits on the instance settings page (spec,
+// "Operator configuration"). Exactly one row, always: its key can only be true. The operator is
+// held here rather than as a flag on each host, so two operators cannot exist.
+export const instanceSettings = pgTable(
+  "instance_settings",
+  {
+    id: boolean("id").primaryKey().default(true),
+    registrationMode: registrationMode("registration_mode").notNull().default(DEFAULT_REGISTRATION_MODE),
+    // Nobody once the operator deletes their account; OPERATOR_EMAIL names the next one.
+    operatorId: uuid("operator_id").references(() => user.id, { onDelete: "set null" }),
+    // The email of a sign-up that found the instance empty, from the moment it is let in until its
+    // account exists and becomes the operator. Two first sign-ups at once cannot both hold it.
+    firstAccountEmail: text("first_account_email"),
+  },
+  (table) => [check("instance_settings_one_row", sql`${table.id}`)],
+);
+
+// A host invitation (CONTEXT.md): the operator's permission for one person to become a host,
+// carried by a single-use link. Only the hash of the link's token is kept, so a copy of the
+// database hands out no invitations; the operator sees the link once, when it is made.
+export const hostInvitation = pgTable("host_invitation", {
+  id: id(),
+  tokenHash: text("token_hash").notNull().unique(),
+  // Who it is for, when the operator said: it fills in the sign-up form and restricts nothing.
+  email: text("email"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  // The email of the account that was created with it.
+  usedByEmail: text("used_by_email"),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+});
 
 export const eventState = pgEnum("event_state", ["draft", "published", "cancelled"]);
 

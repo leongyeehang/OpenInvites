@@ -17,12 +17,14 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function SignInPage({ searchParams }: PageProps<"/sign-in">) {
   if (await getSession()) redirect("/dashboard");
   const [t, params] = await Promise.all([getTranslations("Auth.signIn"), searchParams]);
+  // A Google or GitHub sign-up the registration mode refused comes back with its code as `error`.
+  const refusal = params.error === "HOST_INVITATION_REQUIRED" || params.error === "HOST_INVITATION_UNUSABLE" ? params.error : undefined;
   const notice = params.passwordChanged
     ? t("passwordChanged")
     : params.accountDeleted
       ? t("accountDeleted")
       : params.socialError
-        ? t("socialError")
+        ? t(refusal ?? "socialError")
         : undefined;
   return (
     <>

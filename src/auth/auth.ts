@@ -1,10 +1,13 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
 import { deleteHostEvents } from "@/events/repository";
+import { admitNewHost, seatAdmittedHost } from "@/instance/admission";
 import { baseUrl } from "@/instance/env";
+import { HOST_INVITATION_COOKIE } from "@/instance/host-invitation-token";
 import { isMailConfigured } from "@/mail/config";
 import { fallbackDisplayName } from "./display-name";
 import { sendPasswordResetEmail, sendVerificationEmail } from "./emails";
@@ -43,14 +46,22 @@ function createAuth() {
       deleteUser: { enabled: true, beforeDelete: (host) => deleteHostEvents(host.id) },
     },
     // Every new host is created here, whichever way they signed up: email and password, Google,
-    // or GitHub. For ticket 04: this is the one place to gate new sign-ups by registration mode
-    // (Open vs Invitation only) — return `false` from `before` to refuse creation. This ticket
-    // adds no such gating. The hook also fills in a display name when the provider profile had
-    // none (GitHub already falls back to the login; this covers the rest, such as Google).
+    // or GitHub. `before` lets them in or refuses them by the registration mode (instance/
+    // admission.ts), reading the host invitation from the cookie its link left, which survives
+    // the round trip to Google or GitHub. A refusal is thrown with its code, so the sign-up form
+    // and the sign-in page (where a refused social sign-up lands) can each say why. It also fills
+    // in a display name when the provider profile had none (GitHub already falls back to the
+    // login; this covers the rest, such as Google). `after` makes the first account, or the one
+    // OPERATOR_EMAIL names, the operator.
     databaseHooks: {
       user: {
         create: {
-          before: async (user) => ({ data: { ...user, name: fallbackDisplayName({ name: user.name, email: user.email }) } }),
+          before: async (user, context) => {
+            const refusal = await admitNewHost(user.email, context?.getCookie(HOST_INVITATION_COOKIE) ?? null);
+            if (refusal) throw new APIError("FORBIDDEN", { code: refusal, message: "Signing up here needs a host invitation" });
+            return { data: { ...user, name: fallbackDisplayName({ name: user.name, email: user.email }) } };
+          },
+          after: (user) => seatAdmittedHost(user),
         },
       },
     },

@@ -28,6 +28,9 @@ services:
       SMTP_URL: smtp://mail:1025
       MAIL_FROM: OpenInvites <no-reply@openinvites.test>
       OPERATOR_CONTACT_EMAIL: operator@openinvites.test
+      # The browser tests' operator (e2e/operator.setup.ts), who opens registration to everyone
+      # before the other specs run, since each of them signs up hosts of its own.
+      OPERATOR_EMAIL: operator@openinvites.test
     ports:
       - "3000:3000"
     # Uploaded pictures on local disk, the default storage, in a named volume as an operator keeps them.
@@ -61,6 +64,44 @@ services:
       - "3001:3000"
     depends_on:
       db:
+        condition: service_healthy
+      mail:
+        condition: service_started
+
+  # A second instance of the same image, for what depends on the whole instance being in one
+  # state: who the first account is, and the registration mode. `app` cannot offer that, as every
+  # other spec shares its database and it persists between runs. This one's database lives in
+  # memory, so it is empty whenever db-fresh starts, and e2e/registration.spec.ts recreates both
+  # containers before it runs: every run starts from nothing, on CI and on a laptop alike.
+  db-fresh:
+    image: postgres:18-alpine
+    profiles: [test]
+    environment:
+      POSTGRES_USER: openinvites
+      POSTGRES_PASSWORD: openinvites
+      POSTGRES_DB: openinvites
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openinvites -d openinvites"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  app-fresh:
+    build: .
+    profiles: [test]
+    environment:
+      DATABASE_URL: postgres://openinvites:openinvites@db-fresh:5432/openinvites
+      BASE_URL: http://localhost:3002
+      AUTH_SECRET: test-profile-only-secret-change-me-0123456789abcdef
+      SMTP_URL: smtp://mail:1025
+      MAIL_FROM: OpenInvites <no-reply@openinvites.test>
+      OPERATOR_EMAIL: operator@fresh.openinvites.test
+    ports:
+      - "3002:3000"
+    depends_on:
+      db-fresh:
         condition: service_healthy
       mail:
         condition: service_started

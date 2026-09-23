@@ -8,7 +8,8 @@ import { FormOutcome } from "@/components/form-outcome";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
-export function SignUpForm() {
+// A host invitation addressed to someone fills in their email, which they may still change.
+export function SignUpForm({ email }: { email?: string }) {
   const t = useTranslations("Auth.signUp");
   const [state, action, pending] = useActionState(signUp, undefined);
   return (
@@ -21,7 +22,7 @@ export function SignUpForm() {
         </Field>
         <Field>
           <FieldLabel htmlFor="email">{t("email")}</FieldLabel>
-          <Input id="email" name="email" type="email" autoComplete="email" required />
+          <Input id="email" name="email" type="email" autoComplete="email" required defaultValue={email} />
         </Field>
         <Field>
           <FieldLabel htmlFor="password">{t("password")}</FieldLabel>

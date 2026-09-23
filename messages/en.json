@@ -28,7 +28,10 @@
       "signIn": "Sign in",
       "orContinueWith": "or continue with",
       "continueWithGoogle": "Continue with Google",
-      "continueWithGithub": "Continue with GitHub"
+      "continueWithGithub": "Continue with GitHub",
+      "invitationPending": "You have a host invitation. Create your account below.",
+      "invitationRequired": "This instance is invitation only. To create an account, you need a host invitation from its operator.",
+      "invitationUnusable": "This host invitation can no longer be used: it has been used, revoked, or it has expired. Ask the operator of this instance for a new one."
     },
     "signIn": {
       "title": "Sign in",
@@ -43,7 +46,9 @@
       "socialError": "That didn’t work. Try again, or sign in with your email and password.",
       "orContinueWith": "or continue with",
       "continueWithGoogle": "Continue with Google",
-      "continueWithGithub": "Continue with GitHub"
+      "continueWithGithub": "Continue with GitHub",
+      "HOST_INVITATION_REQUIRED": "This instance is invitation only. To create an account with Google or GitHub, open your host invitation link first, then continue.",
+      "HOST_INVITATION_UNUSABLE": "This host invitation can no longer be used. Ask the operator of this instance for a new one."
     },
     "forgotPassword": {
       "title": "Reset your password",
@@ -93,13 +98,16 @@
       "EMAIL_ALREADY_VERIFIED": "Your email is already verified.",
       "VERIFICATION_EMAIL_NOT_ENABLED": "This instance cannot send email.",
       "SESSION_EXPIRED": "Your session has ended. Sign in again.",
-      "CREDENTIAL_ACCOUNT_NOT_FOUND": "This account has no password to check."
+      "CREDENTIAL_ACCOUNT_NOT_FOUND": "This account has no password to check.",
+      "HOST_INVITATION_REQUIRED": "This instance is invitation only. You need a host invitation from its operator to create an account.",
+      "HOST_INVITATION_UNUSABLE": "This host invitation can no longer be used. Ask the operator of this instance for a new one."
     }
   },
   "Host": {
     "header": {
       "account": "Account",
-      "signOut": "Sign out"
+      "signOut": "Sign out",
+      "instanceSettings": "Instance settings"
     },
     "dashboard": {
       "title": "Your events",
@@ -149,6 +157,48 @@
       "confirm": "Delete my account"
     }
   },
+  "Instance": {
+    "title": "Instance settings",
+    "registration": {
+      "title": "Registration",
+      "description": "Who can create a host account on this instance. A change takes effect at once.",
+      "invitationOnly": "Invitation only",
+      "invitationOnlyHint": "Only people you give a host invitation to can create an account.",
+      "open": "Open",
+      "openHint": "Anyone who finds this instance can create an account.",
+      "submit": "Save",
+      "saved": "Saved.",
+      "unknown": "Choose Invitation only or Open."
+    },
+    "invitations": {
+      "title": "Host invitations",
+      "description": "A host invitation lets one person create a host account, even while registration is invitation only. Its link works once and expires after {days} days.",
+      "email": "Email (optional)",
+      "emailHint": "Fills in the sign-up form for them. Anyone who has the link can still use it.",
+      "send": "Email the link to this address",
+      "submit": "Create host invitation",
+      "invalidEmail": "Enter a valid email address.",
+      "emailToSend": "Enter the email address to send the host invitation to.",
+      "created": "Host invitation created. Copy the link now: it is not shown again.",
+      "sent": "Sent to {email}.",
+      "notSent": "The email could not be sent. Copy the link and send it yourself.",
+      "link": "Host invitation link",
+      "copy": "Copy link",
+      "copied": "Copied",
+      "listTitle": "All host invitations",
+      "empty": "No host invitations yet.",
+      "anyone": "Anyone with the link",
+      "expiresIn": "Expires in {days, plural, one {# day} other {# days}}",
+      "usedBy": "Used by {email}",
+      "revoke": "Revoke",
+      "state": {
+        "pending": "Pending",
+        "used": "Used",
+        "revoked": "Revoked",
+        "expired": "Expired"
+      }
+    }
+  },
   "Mail": {
     "verifyEmail": {
       "subject": "Verify your email for OpenInvites",
@@ -157,6 +207,10 @@
     "resetPassword": {
       "subject": "Reset your OpenInvites password",
       "body": "Hi {name},\n\nOpen the link below to choose a new password. It is valid for one hour.\n\n{url}\n\nIf you did not ask for this, you can ignore this message and your password stays as it is."
+    },
+    "hostInvitation": {
+      "subject": "Your host invitation for OpenInvites",
+      "body": "Hello,\n\nHere is your host invitation for OpenInvites. Open the link below to create your host account and start making event pages.\n\n{url}\n\nThe link works for one account and expires in {days} days. If you were not expecting this, you can ignore this message."
     }
   },
   "Events": {

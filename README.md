@@ -47,8 +47,18 @@ Every setting is an environment variable. Development defaults live in the commi
 | `SMTP_URL` | SMTP server for outgoing mail, such as `smtp://user:pass@mail.example.org:587`. Unset means the instance has no mail: hosts are not asked to verify their email and password reset goes through the operator command below. |
 | `MAIL_FROM` | Sender of outgoing mail, such as `OpenInvites <no-reply@example.org>`. Required when `SMTP_URL` is set. |
 | `OPERATOR_CONTACT_EMAIL` | Shown to hosts when they need the operator, such as to reset a password on an instance without mail. |
+| `OPERATOR_EMAIL` | The operator's own account. At every start, the account with this email, if it exists, becomes the operator in place of whoever was. This email may always sign up, whatever the registration mode, and its account is the operator the moment it is created. Optional: without it, the first account created on the instance is the operator. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | OAuth credentials for "Continue with Google". The button appears only when both are set. |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | OAuth credentials for "Continue with GitHub". The button appears only when both are set. |
+
+### The operator, registration, and host invitations
+
+The first account created on a fresh instance is its operator; there is only ever one. The operator finds **Instance settings** in the header of the host area (`/instance`); for anyone else that address is a page that does not exist.
+
+- **Registration** is Invitation only on a fresh instance: only someone holding a host invitation can create an account, by email, Google, or GitHub alike. Open lets anyone sign up. A change takes effect at once.
+- **Host invitations** are single-use links the operator makes on the same page, optionally addressed to an email, which then fills in the sign-up form (anyone with the link can still use it). The link is shown once, to copy; with mail configured, the operator can have it emailed instead. A link works for one account and expires after 14 days, and can be revoked while it is pending. The page lists every invitation as Pending, Used, Revoked, or Expired.
+
+If someone else created the first account before you did, set `OPERATOR_EMAIL` to your own address and restart: sign up with it (or, if the account exists, just sign in) and it is the operator. An instance upgraded from before there was an operator makes its earliest account the operator and starts Invitation only.
 
 ### Resetting a host's password
 
@@ -83,18 +93,20 @@ No automated test can sign in against the real providers, so verify by hand afte
 | Profile | Services | Use |
 | --- | --- | --- |
 | `dev` | `db`, `mail` | `pnpm dev` runs Next.js on your machine against them. |
-| `test` | `app`, `app-social`, `db`, `mail` | The image an operator will run, exercised by the browser tests and CI. `app-social` is the same image with dummy Google and GitHub credentials, for the one spec that checks the social sign-in buttons. |
+| `test` | `app`, `app-social`, `app-fresh`, `db`, `db-fresh`, `mail` | The image an operator will run, exercised by the browser tests and CI. `app` runs with registration open, which the browser tests' operator (`OPERATOR_EMAIL`) sets on the instance settings page before the other specs run. `app-social` is the same image with dummy Google and GitHub credentials, for the one spec that checks the social sign-in buttons. `app-fresh` (port 3002) is the same image on its own database, held in memory by `db-fresh`; `e2e/registration.spec.ts` recreates both before it runs, so the first account and the registration modes are tested on an instance nobody has used. |
 
 ## Layout
 
 ```
 src/app/            Next.js App Router pages and route handlers; (auth) is everything before
-                    sign-in, (host) is the signed-in host area, e/[slug] is the public event page
+                    sign-in, (host) is the signed-in host area, e/[slug] is the public event page,
+                    instance is the operator's settings page
 src/auth/           Auth module: Better Auth instance, session helpers, server actions, emails
 src/components/ui/  shadcn/ui primitives, themed from the tokens in src/app/globals.css
 src/db/             Drizzle client, schema, and the migrator run at start
 src/events/         Events module: slug, time rules, form rules, repository, server actions
-src/instance/       Instance-wide settings read from the environment
+src/instance/       The instance: settings from the environment and the database, the operator,
+                    the registration mode, and host invitations
 src/lib/            Small shared types and helpers
 src/locale/         Locale resolution, translation loading, language switcher
 src/mail/           Mail module: SMTP configuration and sending

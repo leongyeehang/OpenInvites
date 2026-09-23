@@ -12,6 +12,13 @@ export function operatorContactEmail(): string | undefined {
   return process.env.OPERATOR_CONTACT_EMAIL?.trim() || undefined;
 }
 
+// The account that is the operator (OPERATOR_EMAIL): promoted at start if it exists, let in
+// whatever the registration mode, and made the operator the moment it is created. The operator's
+// way back in, should someone else have created the first account on a fresh instance.
+export function operatorEmail(): string | undefined {
+  return process.env.OPERATOR_EMAIL?.trim().toLowerCase() || undefined;
+}
+
 const MEGABYTE = 1024 * 1024;
 
 // The largest picture a host may upload, in megabytes (MAX_UPLOAD_MB, default 10).
