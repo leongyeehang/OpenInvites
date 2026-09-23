@@ -143,6 +143,9 @@ test("switching back to the background keeps the same picture, its description a
   await useAs.getByRole("radio", { name: "Poster" }).check();
   await expect(drawer.getByRole("group", { name: "Title placement" })).toBeVisible();
   await expectProportions(host.page.locator('[data-slot="poster-card"] img'), 1600, 900);
+  // Saved before switching back: until then a guest's page still shows the background, and the
+  // wait for the background below would be over before either change had reached the server.
+  await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain(posterCopy(id));
 
   // Back to the background: the same picture, still described, still with dark text.
   await useAs.getByRole("radio", { name: "Background" }).check();
