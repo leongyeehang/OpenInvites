@@ -14,6 +14,7 @@ describe("rateLimitConfigFromEnv", () => {
         signUp: { limit: 10, windowMs: 60 * MINUTE },
         signIn: { limit: 10, windowMs: 15 * MINUTE },
         passwordReset: { limit: 10, windowMs: 60 * MINUTE },
+        mail: { limit: 10, windowMs: 60 * MINUTE },
       },
     });
   });
@@ -26,6 +27,7 @@ describe("rateLimitConfigFromEnv", () => {
       RATE_LIMIT_SIGN_UP: "3/1h",
       RATE_LIMIT_SIGN_IN: "4/10m",
       RATE_LIMIT_PASSWORD_RESET: "1/30s",
+      RATE_LIMIT_MAIL: "6/1h",
     });
     expect(rules).toEqual({
       eventPage: { limit: 30, windowMs: MINUTE },
@@ -34,6 +36,7 @@ describe("rateLimitConfigFromEnv", () => {
       signUp: { limit: 3, windowMs: 60 * MINUTE },
       signIn: { limit: 4, windowMs: 10 * MINUTE },
       passwordReset: { limit: 1, windowMs: 30_000 },
+      mail: { limit: 6, windowMs: 60 * MINUTE },
     });
   });
 
@@ -44,6 +47,7 @@ describe("rateLimitConfigFromEnv", () => {
   it("refuses a limit it cannot read, naming the setting, so the operator finds out at start", () => {
     for (const setting of ["20", "20/10", "/10m", "0/10m", "20/0m", "20/10d", "-5/10m", "2.5/10m", "twenty/10m"]) {
       expect(() => rateLimitConfigFromEnv({ RATE_LIMIT_SIGN_IN: setting })).toThrow(/RATE_LIMIT_SIGN_IN/);
+      expect(() => rateLimitConfigFromEnv({ RATE_LIMIT_MAIL: setting })).toThrow(/RATE_LIMIT_MAIL/);
     }
   });
 

@@ -14,11 +14,14 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("title") };
 }
 
+const REFUSALS = ["HOST_INVITATION_REQUIRED", "HOST_INVITATION_UNUSABLE", "TOO_MANY_REQUESTS"] as const;
+
 export default async function SignInPage({ searchParams }: PageProps<"/sign-in">) {
   if (await getSession()) redirect("/dashboard");
   const [t, params] = await Promise.all([getTranslations("Auth.signIn"), searchParams]);
-  // A Google or GitHub sign-up the registration mode refused comes back with its code as `error`.
-  const refusal = params.error === "HOST_INVITATION_REQUIRED" || params.error === "HOST_INVITATION_UNUSABLE" ? params.error : undefined;
+  // A Google or GitHub sign-up the registration mode refused, or a click the rate limits refused,
+  // comes back with its code as `error`.
+  const refusal = REFUSALS.find((code) => code === params.error);
   const notice = params.passwordChanged
     ? t("passwordChanged")
     : params.accountDeleted

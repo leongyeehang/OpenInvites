@@ -2,10 +2,12 @@
 
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { requireOperator } from "@/auth/session";
 import type { FormState } from "@/lib/form-state";
 import { isUuid } from "@/lib/uuid";
 import { isMailConfigured } from "@/mail/config";
+import { consume } from "@/rate-limit/rate-limit";
 import { sendHostInvitationEmail } from "./emails";
 import { generateHostInvitationToken, hashHostInvitationToken, hostInvitationLink } from "./host-invitation-token";
 import { isRegistrationMode } from "./registration";
@@ -36,6 +38,8 @@ export async function createHostInvitationAction(_: HostInvitationFormState, for
   const send = formData.get("send") === "on" && isMailConfigured();
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: t("invalidEmail") };
   if (send && !email) return { error: t("emailToSend") };
+  // Sending it is mail like any other, counted before the invitation is made.
+  if (send && !(await consume("mail", await headers())).allowed) return { error: t("tooFast") };
 
   const token = generateHostInvitationToken();
   await createHostInvitation(hashHostInvitationToken(token), email || null, new Date());

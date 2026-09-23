@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import { createPublished } from "./events";
+import { mailCountTo, newHost, signUp } from "./hosts";
 import { clientAddress, expect, test } from "./test";
 
 // Ticket 18: the rate limits, at the low values the Compose test profile and .env.development
@@ -9,6 +10,7 @@ const EVENT_PAGE_LIMIT = 40; // RATE_LIMIT_EVENT_PAGE=40/1m
 const RSVP_LIMIT = 5; // RATE_LIMIT_RSVP=5/1m
 const SIGN_IN_LIMIT = 5; // RATE_LIMIT_SIGN_IN=5/1m
 const UPLOAD_LIMIT = 3; // RATE_LIMIT_UPLOAD=3/1m
+const MAIL_LIMIT = 5; // RATE_LIMIT_MAIL=5/1m
 
 const TOO_FAST = "You’re going too fast. Try again shortly.";
 
@@ -110,6 +112,29 @@ test("a guest who sends RSVP after RSVP is told to slow down where the flow's ot
   // The RSVP they had already sent still stands.
   await page.reload();
   await expect(page.getByText("You replied as Priya Nair.")).toBeVisible();
+});
+
+test("someone asking for verification emails to another person's address is held up, so that inbox is not flooded", async ({ page, request }) => {
+  // Anyone can sign up with an address that is not theirs, and then, signed in or not, ask
+  // again and again for the email that verifies it.
+  const victim = newHost("mail-flood");
+  await signUp(page, victim);
+  const asked: number[] = [];
+  for (let tried = 0; tried < MAIL_LIMIT + 1; tried++) {
+    const response = await request.post("/api/auth/send-verification-email", {
+      data: { email: victim.email, callbackURL: "/verify-email" },
+      headers: { origin: "http://localhost:3000" },
+    });
+    asked.push(response.status());
+  }
+  // The sign-up's own email was the first of the five this address may cause.
+  expect(asked).toEqual([200, 200, 200, 200, 429, 429]);
+  await expect.poll(() => mailCountTo(request, victim.email), { timeout: 15_000 }).toBe(MAIL_LIMIT);
+
+  // The host's own resend button says so too, in its place.
+  await page.getByRole("button", { name: "Resend email" }).first().click();
+  await expect(page.getByText(TOO_FAST)).toBeVisible();
+  expect(await mailCountTo(request, victim.email)).toBe(MAIL_LIMIT);
 });
 
 test("someone trying password after password is told to slow down in the sign-in form", async ({ page }) => {

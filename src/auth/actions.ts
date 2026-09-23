@@ -1,5 +1,6 @@
 "use server";
 
+import { APIError } from "better-auth/api";
 import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
@@ -58,13 +59,20 @@ export async function signIn(_: FormState, formData: FormData): Promise<FormStat
 }
 
 // A first-time click creates the host (auth.ts's databaseHooks); a returning one signs them in.
-// Better Auth builds the provider's authorization URL; we just send the browser there.
+// Better Auth builds the provider's authorization URL; we just send the browser there. A click
+// the rate limits refuse comes back to the sign-in page, which says so, as a refused social
+// sign-up does.
 export async function signInSocial(provider: SocialProviderId): Promise<void> {
-  const result = await getAuth().api.signInSocial({
-    body: { provider, callbackURL: "/dashboard", errorCallbackURL: "/sign-in?socialError=1" },
-    headers: await headers(),
-  });
-  if (result.url) redirect(result.url);
+  let url: string | undefined;
+  try {
+    ({ url } = await getAuth().api.signInSocial({
+      body: { provider, callbackURL: "/dashboard", errorCallbackURL: "/sign-in?socialError=1" },
+      headers: await headers(),
+    }));
+  } catch (error) {
+    if (!(error instanceof APIError) || error.body?.code !== "TOO_MANY_REQUESTS") throw error;
+  }
+  redirect(url ?? "/sign-in?socialError=1&error=TOO_MANY_REQUESTS");
 }
 
 // Signs out this device only; sessions on other devices stay valid.

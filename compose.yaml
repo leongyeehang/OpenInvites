@@ -40,6 +40,7 @@ services:
       RATE_LIMIT_SIGN_UP: 5/1m
       RATE_LIMIT_SIGN_IN: 5/1m
       RATE_LIMIT_PASSWORD_RESET: 5/1m
+      RATE_LIMIT_MAIL: 5/1m
     ports:
       - "3000:3000"
     # Uploaded pictures on local disk, the default storage, in a named volume as an operator keeps them.
@@ -54,8 +55,9 @@ services:
   # Same image as `app`, with dummy Google and GitHub credentials, on its own port. Backs the one
   # spec that checks the sign-in and sign-up buttons appear once the operator has configured a
   # provider (`app` above has none configured, so it covers the buttons-absent case). No test
-  # ever calls Google or GitHub with these credentials. It also has the operator's own analytics
-  # snippet and legal pages, one from the environment and one from a mounted file, for
+  # ever calls Google or GitHub with these credentials. It counts sign-ins as low as `app`, for
+  # the spec's refused Google sign-in. It also has the operator's own analytics snippet and legal
+  # pages, one from the environment and one from a mounted file, for
   # e2e/legal-and-analytics.spec.ts; `app` has neither, and shows the shipped placeholders.
   app-social:
     build: .
@@ -71,6 +73,7 @@ services:
       GOOGLE_CLIENT_SECRET: dummy-google-client-secret
       GITHUB_CLIENT_ID: dummy-github-client-id
       GITHUB_CLIENT_SECRET: dummy-github-client-secret
+      RATE_LIMIT_SIGN_IN: 5/1m
       ANALYTICS_SNIPPET: <script data-analytics="operator">window.operatorAnalytics = (window.operatorAnalytics || 0) + 1</script>
       PRIVACY_POLICY_MARKDOWN: |
         ## What this instance keeps

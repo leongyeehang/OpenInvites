@@ -51,6 +51,15 @@ export async function consume(limit: LimitName, headers: Headers): Promise<Verdi
   return store.hit(limit, client, config.rules[limit], Date.now());
 }
 
+// Counts one request against several limits in turn, and stops at the first that refuses it.
+export async function consumeAll(limits: readonly LimitName[], headers: Headers): Promise<Verdict> {
+  for (const limit of limits) {
+    const verdict = await consume(limit, headers);
+    if (!verdict.allowed) return verdict;
+  }
+  return { allowed: true };
+}
+
 // A request whose client cannot be told apart counts together with every other such request.
 // With no trusted proxy that is every request, which the log says once at start
 // (checkRateLimitsAtStart); otherwise the first one says so.

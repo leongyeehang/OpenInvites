@@ -29,3 +29,23 @@ test("anyone else, signed in or not, finds the page an unknown address gives, an
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
   expect(await page.title()).toBe(unknownTitle);
 });
+
+// Emailing a host invitation is mail like any other (RATE_LIMIT_MAIL=5/1m in the Compose test
+// profile and .env.development).
+test("the operator emailing host invitation after host invitation is told to slow down in the form", async ({ page }) => {
+  await signIn(page, OPERATOR.email, PASSWORD);
+  await page.getByRole("link", { name: "Instance settings" }).click();
+  const invite = async (email: string) => {
+    await page.getByLabel("Email (optional)").fill(email);
+    await page.getByLabel("Email the link to this address").check();
+    await page.getByRole("button", { name: "Create host invitation" }).click();
+  };
+  for (let sent = 0; sent < 5; sent++) {
+    const email = newHost(`invited-${sent}`).email;
+    await invite(email);
+    await expect(page.getByText(`Sent to ${email}.`)).toBeVisible();
+  }
+  await invite(newHost("invited-too-many").email);
+  await expect(page.getByText("You’re going too fast. Try again shortly.")).toBeVisible();
+});
+

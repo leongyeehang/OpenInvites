@@ -9,29 +9,45 @@ import { admitNewHost, seatAdmittedHost, seatVerifiedHost } from "@/instance/adm
 import { baseUrl } from "@/instance/env";
 import { HOST_INVITATION_COOKIE } from "@/instance/host-invitation-token";
 import { isMailConfigured } from "@/mail/config";
-import { consume, retryAfter, type LimitName } from "@/rate-limit/rate-limit";
+import { consumeAll, retryAfter, type LimitName } from "@/rate-limit/rate-limit";
 import { fallbackDisplayName } from "./display-name";
 import { sendPasswordResetEmail, sendVerificationEmail } from "./emails";
 import { socialProviders } from "./providers";
 
 // The Better Auth endpoints the rate limits count, whether a form's server action calls them
-// (actions.ts) or a request reaches them at /api/auth directly. A refusal is an error with its
-// code, which the forms turn into the same sentence as their other errors (errors.ts).
-const LIMITED: Record<string, LimitName> = {
-  "/sign-up/email": "signUp",
-  "/sign-in/email": "signIn",
-  "/request-password-reset": "passwordReset",
-  "/reset-password": "passwordReset",
-};
+// (actions.ts) or a request reaches them at /api/auth directly: signing up; anything that checks
+// a password, or starts a sign-in with Google or GitHub; a password reset; and everything that
+// sends an email, to whatever address the request names. Signing up sends one only with mail.
+// The endpoints left out need no limit of their own: the links in emails carry a single-use
+// token nobody can guess, a provider's answer needs the state its (counted) sign-in started, and
+// the rest either give nothing away (the session check, the ok and error pages) or need a
+// signed-in host and neither check a password nor send mail. A refusal is an error with its code,
+// which the forms turn into the same sentence as their other errors (errors.ts).
+function limitsByEndpoint(mail: boolean): Record<string, readonly LimitName[]> {
+  return {
+    "/sign-up/email": mail ? ["signUp", "mail"] : ["signUp"],
+    "/sign-in/email": ["signIn"],
+    "/sign-in/social": ["signIn"],
+    "/change-password": ["signIn"],
+    "/verify-password": ["signIn"],
+    "/delete-user": ["signIn"],
+    "/request-password-reset": ["passwordReset", "mail"],
+    "/reset-password": ["passwordReset"],
+    "/send-verification-email": ["mail"],
+    "/change-email": ["mail"],
+  };
+}
 
-const countAgainstLimits = createAuthMiddleware(async (context) => {
-  const limit = LIMITED[context.path];
-  if (!limit) return;
-  const verdict = await consume(limit, context.headers ?? new Headers());
-  if (!verdict.allowed) {
-    throw new APIError("TOO_MANY_REQUESTS", { code: "TOO_MANY_REQUESTS", message: "Too many requests. Try again shortly." }, retryAfter(verdict));
-  }
-});
+function countAgainstLimits(limits: Record<string, readonly LimitName[]>) {
+  return createAuthMiddleware(async (context) => {
+    const counted = limits[context.path];
+    if (!counted) return;
+    const verdict = await consumeAll(counted, context.headers ?? new Headers());
+    if (!verdict.allowed) {
+      throw new APIError("TOO_MANY_REQUESTS", { code: "TOO_MANY_REQUESTS", message: "Too many requests. Try again shortly." }, retryAfter(verdict));
+    }
+  });
+}
 
 // Hosts are Better Auth users. Email and password is always on; Google and GitHub join only
 // when the operator has configured them (src/auth/providers.ts). What mail changes is decided
@@ -88,7 +104,7 @@ function createAuth() {
         },
       },
     },
-    hooks: { before: countAgainstLimits },
+    hooks: { before: countAgainstLimits(limitsByEndpoint(mail)) },
     // The app's RateLimit module keeps every limit and is the one reader of the client address
     // (rate-limit/). Better Auth's own limiter would count requests to /api/auth apart, and
     // would believe a client's own X-Forwarded-For; with it off, Better Auth reads no address at

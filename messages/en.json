@@ -48,7 +48,8 @@
       "continueWithGoogle": "Continue with Google",
       "continueWithGithub": "Continue with GitHub",
       "HOST_INVITATION_REQUIRED": "This instance is invitation only. To create an account with Google or GitHub, open your host invitation link first, then continue.",
-      "HOST_INVITATION_UNUSABLE": "This host invitation can no longer be used. Ask the operator of this instance for a new one."
+      "HOST_INVITATION_UNUSABLE": "This host invitation can no longer be used. Ask the operator of this instance for a new one.",
+      "TOO_MANY_REQUESTS": "You’re going too fast. Try again shortly."
     },
     "forgotPassword": {
       "title": "Reset your password",
@@ -197,7 +198,8 @@
         "used": "Used",
         "revoked": "Revoked",
         "expired": "Expired"
-      }
+      },
+      "tooFast": "You’re going too fast. Try again shortly."
     }
   },
   "Mail": {
