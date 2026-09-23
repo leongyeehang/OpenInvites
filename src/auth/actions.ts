@@ -176,8 +176,8 @@ export async function changePassword(_: FormState, formData: FormData): Promise<
   return { success: t("changed") };
 }
 
-// Better Auth removes the account and every session with it. Events and RSVPs cascade
-// through the database once they exist (ticket 16 verifies it).
+// Better Auth removes the account and every session with it, once the password checks out. The
+// host's events, with their RSVPs and uploaded pictures, go first (auth.ts).
 export async function deleteAccount(_: FormState, formData: FormData): Promise<FormState> {
   await requireHost();
   try {

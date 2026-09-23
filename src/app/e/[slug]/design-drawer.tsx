@@ -12,7 +12,7 @@ const DesignPanel = dynamic(() => import("./design-panel").then((loaded) => load
 
 // The host's Design drawer (spec, "Host: the look"): a Design button on their own event page,
 // which opens the panel beside the invitation.
-export function DesignDrawer({ eventId, title }: { eventId: string; title: string }) {
+export function DesignDrawer({ eventId, title, maxUploadBytes }: { eventId: string; title: string; maxUploadBytes: number }) {
   const t = useTranslations("DesignDrawer");
   const { accent } = useTheme().resolved;
   const [open, setOpen] = useState(false);
@@ -26,7 +26,7 @@ export function DesignDrawer({ eventId, title }: { eventId: string; title: strin
   }, [open]);
 
   return open ? (
-    <DesignPanel eventId={eventId} title={title} onClose={() => setOpen(false)} />
+    <DesignPanel eventId={eventId} title={title} maxUploadBytes={maxUploadBytes} onClose={() => setOpen(false)} />
   ) : (
     <button
       ref={opener}

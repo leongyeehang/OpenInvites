@@ -34,6 +34,11 @@ jobs:
 
       - run: pnpm test
 
+      - name: S3 storage smoke test against a local S3-compatible server
+        run: |
+          docker compose --profile s3 up -d --wait
+          pnpm test:s3
+
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
@@ -56,4 +61,4 @@ jobs:
 
       - name: Stop the test stack
         if: always()
-        run: docker compose --profile test down -v
+        run: docker compose --profile test --profile s3 down -v

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { getSession } from "@/auth/session";
 import { acceptsRsvps, eventPageFor } from "@/events/access";
 import { findEventBySlug, isRetiredSlug } from "@/events/repository";
-import { baseUrl } from "@/instance/env";
+import { baseUrl, maxUploadBytes } from "@/instance/env";
 import { isSlug } from "@/events/slug";
 import { answersStillOffered } from "@/questions/answers";
 import { findAnswers, listQuestions } from "@/questions/repository";
@@ -13,7 +13,10 @@ import { findRsvpOnThisDevice, guestRsvp } from "@/rsvps/guest";
 import { listPublicGuestList } from "@/rsvps/repository";
 import { guestListView } from "@/rsvps/visibility";
 import { PosterLayout } from "@/themes/poster-layout";
+import { resolveTheme } from "@/themes/resolve";
 import { ThemedPage } from "@/themes/themed-page";
+import { findEventUpload } from "@/uploads/repository";
+import { themeUpload } from "@/uploads/uploads";
 import { AddToCalendar } from "./add-to-calendar";
 import { CancelledNotice } from "./cancelled-notice";
 import { DesignDrawer } from "./design-drawer";
@@ -91,14 +94,25 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // Whether this guest may see the list decides whether it is even loaded.
   const view = guestListView(event.guestListVisibility, { hasRsvp: mine !== undefined });
   const guests = view === "open" ? await listPublicGuestList(event.id) : [];
-  // What this event asks, and what this guest has already said, so coming back prefills.
-  const [questions, answers] = await Promise.all([
+  // What this event asks, what this guest has already said, so coming back prefills, and the
+  // host's own picture if there is one.
+  const [questions, answers, upload] = await Promise.all([
     listQuestions(event.id),
     mine ? findAnswers(mine.rsvp.id) : Promise.resolve({}),
+    findEventUpload(event.id),
   ]);
 
+  // Guests are sent the host's picture only while the page shows it: one the host put aside
+  // stays in the host's gallery, not in anyone else's hands.
+  const picture = upload ? themeUpload(upload) : null;
+  const shown = resolveTheme(event.theme, picture).upload !== null;
+
   return (
-    <ThemedPage theme={event.theme} designer={isHost ? <DesignDrawer eventId={event.id} title={event.title} /> : undefined}>
+    <ThemedPage
+      theme={event.theme}
+      upload={isHost || shown ? picture : null}
+      designer={isHost ? <DesignDrawer eventId={event.id} title={event.title} maxUploadBytes={maxUploadBytes()} /> : undefined}
+    >
       <PosterLayout
         event={event}
         notice={isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined}

@@ -6,9 +6,12 @@ export async function register(): Promise<void> {
   const { databaseUrl } = await import("./db/client");
   const { runMigrations } = await import("./db/migrate");
   await runMigrations(databaseUrl());
-  // Settings the first sign-up would otherwise trip over: fail at start instead.
-  const { baseUrl } = await import("./instance/env");
+  // Settings the first sign-up or upload would otherwise trip over: fail at start instead.
+  const { baseUrl, maxUploadBytes } = await import("./instance/env");
   const { mailConfig } = await import("./mail/config");
+  const { storageConfig } = await import("./storage/config");
   baseUrl();
   mailConfig();
+  storageConfig();
+  maxUploadBytes();
 }

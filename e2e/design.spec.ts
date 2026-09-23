@@ -85,9 +85,8 @@ test("the drawer keeps its order, offers only the Poster layout for now, and get
   await host.page.goto(host.link);
   const drawer = await openDrawer(host.page);
 
-  // Upload first (it arrives with a later ticket), then templates, layout, background, and the
-  // finer knobs tucked under Details.
-  await expect(drawer.getByRole("button", { name: /Upload your photo or poster/ })).toBeDisabled();
+  // Upload first, then templates, layout, background, and the finer knobs tucked under Details.
+  await expect(drawer.getByLabel("Upload your photo or poster")).toBeEnabled();
   const order = await drawer.locator("h3, legend, button[aria-expanded]").allTextContents();
   expect(order.slice(0, 4)).toEqual(["Templates", "Layout", "Background", "Details"]);
   await expect(drawer.getByRole("button", { name: "Details" })).toHaveAttribute("aria-expanded", "false");

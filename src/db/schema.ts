@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, doublePrecision, index, integer, jsonb, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { QUESTION_TYPES } from "../questions/question";
 import { EMPTY_RICH_TEXT, type RichText } from "../rich-text/rich-text";
 import { RSVP_STATUSES } from "../rsvps/form";
@@ -191,3 +191,25 @@ export const retiredSlug = pgTable(
   },
   (table) => [index("retired_slug_event_id_idx").on(table.eventId)],
 );
+
+// A host's own picture for an event, shown as its background. An event has at most one:
+// uploading again replaces it. The picture itself is kept in storage (ADR-0003), in the sizes
+// uploads/renditions.ts names; what the server sampled from it for the theme is kept here
+// (uploads/sample.ts). Deleting the event takes the row with it, and whatever deletes the event
+// removes the files (events/repository.ts).
+export const upload = pgTable("upload", {
+  id: id(),
+  eventId: uuid("event_id")
+    .notNull()
+    .unique()
+    .references(() => event.id, { onDelete: "cascade" }),
+  // What the picture shows, for guests who use a screen reader. Empty when it is decoration.
+  altText: text("alt_text").notNull().default(""),
+  // Its average luminance (0 dark to 1 light), its accent (#rrggbb), and its brightest and
+  // darkest points as the glass sees them (#rrggbb).
+  luminance: doublePrecision("luminance").notNull(),
+  accent: text("accent").notNull(),
+  lightest: text("lightest").notNull(),
+  darkest: text("darkest").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

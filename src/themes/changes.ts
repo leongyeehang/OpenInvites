@@ -15,10 +15,11 @@ import {
 } from "./theme";
 
 // What the Design drawer asks for: a template, or one knob set to one value. The layout row has
-// nothing to change while Poster is the only layout offered, and the title placement and upload
-// rows arrive with tickets 13 and 12.
+// nothing to change while Poster is the only layout offered, and the title placement row
+// arrives with ticket 13. Choosing the upload shows the host's own picture as the background.
 export type KnobChange =
   | { knob: "backgroundId"; value: string }
+  | { knob: "uploadId"; value: string }
   | { knob: "font"; value: FontKey }
   | { knob: "accentOverride"; value: string | null }
   | { knob: "textTone"; value: TextTone }
@@ -36,13 +37,25 @@ export function applyChange(theme: Theme, change: ThemeChange): Theme {
     const applied = template && applyTemplate(theme, template);
     return applied && !sameTheme(applied, theme) ? applied : theme;
   }
+  const changed = changeKnob(theme, change);
+  if (changed === theme) return theme;
+  return { ...changed, template: theme.template && { ...theme.template, dirty: true } };
+}
+
+function changeKnob(theme: Theme, change: KnobChange): Theme {
+  // The upload shown as the background puts the curated one aside; the upload stays in the
+  // host's gallery whichever is shown, so they can go back and forth.
+  if (change.knob === "uploadId") {
+    if (theme.backgroundId === null && theme.uploadId === change.value && theme.uploadMode === "background") return theme;
+    return { ...theme, backgroundId: null, uploadId: change.value, uploadMode: "background", accentOverride: null };
+  }
   if (theme[change.knob] === change.value) return theme;
 
   const changed: Theme = { ...theme, [change.knob]: change.value };
   // A new background brings its own accent: an override picked against the old picture may not
-  // suit the new one (PROTOTYPE.md, the drawer).
+  // suit the new one (PROTOTYPE.md, the drawer). The upload's does the same, above.
   if (change.knob === "backgroundId") changed.accentOverride = null;
-  return { ...changed, template: theme.template && { ...theme.template, dirty: true } };
+  return changed;
 }
 
 function sameTheme(a: Theme, b: Theme): boolean {
@@ -66,8 +79,9 @@ function oneOf<T extends string>(options: readonly T[], value: unknown): value i
 
 // A change as the drawer sent it, checked like any other input from a browser. Only what the
 // drawer offers is accepted: the accent must be auto or one of the six swatches, so every
-// colour a page can wear is one legibility.ts has checked.
-export function parseThemeChange(raw: unknown): ThemeChange | undefined {
+// colour a page can wear is one legibility.ts has checked, and the only upload is the event's
+// own (`upload`, its id, or null when it has none).
+export function parseThemeChange(raw: unknown, upload: string | null = null): ThemeChange | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
   const { template, knob, value } = raw as { template?: unknown; knob?: unknown; value?: unknown };
   if (template !== undefined) return typeof template === "string" && findTemplate(template) ? { template } : undefined;
@@ -75,6 +89,8 @@ export function parseThemeChange(raw: unknown): ThemeChange | undefined {
   switch (knob) {
     case "backgroundId":
       return typeof value === "string" && findBackground(value) ? { knob, value } : undefined;
+    case "uploadId":
+      return upload !== null && value === upload ? { knob, value: upload } : undefined;
     case "font":
       return oneOf(FONTS, value) ? { knob, value } : undefined;
     case "accentOverride":

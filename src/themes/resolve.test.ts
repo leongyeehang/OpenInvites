@@ -1,19 +1,32 @@
 import { describe, expect, it } from "vitest";
 import { css } from "./legibility";
-import { resolveTheme, sheetVariables, themeVariables } from "./resolve";
+import { resolveTheme, sheetVariables, themeVariables, type ThemeUpload } from "./resolve";
 import { DEFAULT_THEME, type Theme } from "./theme";
 
-const onUpload: Theme = { ...DEFAULT_THEME, backgroundId: null, uploadId: "0192f0a1-7b3c-7d4e-8f00-123456789abc" };
+const UPLOAD = "0192f0a1-7b3c-7d4e-8f00-123456789abc";
+const onUpload: Theme = { ...DEFAULT_THEME, backgroundId: null, uploadId: UPLOAD };
+
+// The event's upload as the server sampled it: a dark photo unless a test says otherwise.
+const upload = (sampled: Partial<ThemeUpload> = {}): ThemeUpload => ({
+  id: UPLOAD,
+  src: `/uploads/${UPLOAD}/background.webp`,
+  accent: "#3aa885",
+  luminance: 0.2,
+  lightest: "#303030",
+  darkest: "#505050",
+  altText: "",
+  ...sampled,
+});
 
 describe("resolveTheme", () => {
   describe("accent", () => {
     it("takes the host's override first", () => {
       expect(resolveTheme({ ...DEFAULT_THEME, accentOverride: "#ff7a59" }).accent).toBe("#ff7a59");
-      expect(resolveTheme({ ...onUpload, accentOverride: "#ff7a59" }, { accent: "#3aa885", luminance: 0.2 }).accent).toBe("#ff7a59");
+      expect(resolveTheme({ ...onUpload, accentOverride: "#ff7a59" }, upload()).accent).toBe("#ff7a59");
     });
 
     it("else the upload's sampled accent when an upload is in use", () => {
-      expect(resolveTheme(onUpload, { accent: "#3aa885", luminance: 0.2 }).accent).toBe("#3aa885");
+      expect(resolveTheme(onUpload, upload()).accent).toBe("#3aa885");
     });
 
     it("else the curated background's pre-chosen accent", () => {
@@ -23,14 +36,15 @@ describe("resolveTheme", () => {
 
     it("leaves a kept upload alone once the host picks a curated background again", () => {
       const backToSlate: Theme = { ...onUpload, backgroundId: "slate" };
-      expect(resolveTheme(backToSlate, { accent: "#3aa885", luminance: 0.9 }).accent).toBe("#d9d9e3");
-      expect(resolveTheme(backToSlate, { accent: "#3aa885", luminance: 0.9 }).textTone).toBe("light");
+      expect(resolveTheme(backToSlate, upload({ luminance: 0.9 })).accent).toBe("#d9d9e3");
+      expect(resolveTheme(backToSlate, upload({ luminance: 0.9 })).textTone).toBe("light");
     });
 
     it("falls back to the default background when the theme's own is unknown or the upload is missing", () => {
       expect(resolveTheme({ ...DEFAULT_THEME, backgroundId: "nope" }).accent).toBe("#ffc36b");
       expect(resolveTheme(onUpload).accent).toBe("#ffc36b");
-      expect(resolveTheme(onUpload, { accent: null, luminance: 0.2 }).accent).toBe("#ffc36b");
+      // An upload other than the one the theme names is not the one to show.
+      expect(resolveTheme(onUpload, upload({ id: "0192f0a1-7b3c-7d4e-8f00-000000000000" })).accent).toBe("#ffc36b");
     });
 
     it("pairs the accent with a text colour that reads on it", () => {
@@ -42,14 +56,14 @@ describe("resolveTheme", () => {
   describe("text tone", () => {
     it("takes the host's override first", () => {
       expect(resolveTheme({ ...DEFAULT_THEME, textTone: "dark" }).textTone).toBe("dark");
-      expect(resolveTheme({ ...onUpload, textTone: "light" }, { accent: null, luminance: 0.9 }).textTone).toBe("light");
+      expect(resolveTheme({ ...onUpload, textTone: "light" }, upload({ luminance: 0.9 })).textTone).toBe("light");
     });
 
     it("is light on a dark background and dark on a light one", () => {
       expect(resolveTheme(DEFAULT_THEME).textTone).toBe("light");
-      expect(resolveTheme(onUpload, { accent: null, luminance: 0.9 }).textTone).toBe("dark");
-      expect(resolveTheme(onUpload, { accent: null, luminance: 0.6 }).textTone).toBe("light");
-      expect(resolveTheme(onUpload, { accent: null, luminance: 0.61 }).textTone).toBe("dark");
+      expect(resolveTheme(onUpload, upload({ luminance: 0.9 })).textTone).toBe("dark");
+      expect(resolveTheme(onUpload, upload({ luminance: 0.6 })).textTone).toBe("light");
+      expect(resolveTheme(onUpload, upload({ luminance: 0.61 })).textTone).toBe("dark");
     });
   });
 
@@ -63,6 +77,20 @@ describe("resolveTheme", () => {
     expect(resolveTheme({ ...DEFAULT_THEME, backgroundId: "aurora" }).background).toMatchObject({ kind: "photo", src: "/backgrounds/aurora.svg" });
     expect(resolveTheme(DEFAULT_THEME).font).toMatchObject({ key: "serif", name: "Instrument Serif" });
     expect(resolveTheme({ ...DEFAULT_THEME, font: "rounded" }).font.name).toBe("Fredoka");
+  });
+
+  it("paints the host's upload as a photo background, and says which upload it is", () => {
+    const resolved = resolveTheme(onUpload, upload());
+    expect(resolved.background).toMatchObject({ kind: "photo", src: `/uploads/${UPLOAD}/background.webp` });
+    expect(resolved.upload).toEqual(upload());
+    expect(resolveTheme({ ...onUpload, backgroundId: "dusk" }, upload()).upload).toBeNull();
+  });
+
+  it("solves the page against the upload's own light and dark, so a dark photo keeps the light frost", () => {
+    // Measured, a dark photo reads under the settled 10% white frost; assumed to be anything, it
+    // would have been smoked.
+    expect(css(resolveTheme(onUpload, upload()).tokens.glass)).toBe("rgb(255 255 255 / 0.1)");
+    expect(css(resolveTheme(onUpload, upload({ lightest: "#bfbfbf" })).tokens.glass)).not.toBe("rgb(255 255 255 / 0.1)");
   });
 
   it("expresses the accent and the tone's colours as CSS variables for first paint", () => {

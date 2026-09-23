@@ -8,6 +8,7 @@ out
 coverage
 test-results
 playwright-report
+uploads
 e2e
 *.md
 .env

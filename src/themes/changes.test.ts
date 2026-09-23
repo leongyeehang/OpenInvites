@@ -4,7 +4,8 @@ import { findTemplate } from "./templates";
 import { applyTemplate, DEFAULT_THEME, type Theme } from "./theme";
 
 const template = (id: string) => findTemplate(id)!;
-const withUpload: Theme = { ...DEFAULT_THEME, backgroundId: null, uploadId: "0192f0a1-7b3c-7d4e-8f00-123456789abc", uploadMode: "poster" };
+const UPLOAD = "0192f0a1-7b3c-7d4e-8f00-123456789abc";
+const withUpload: Theme = { ...DEFAULT_THEME, backgroundId: null, uploadId: UPLOAD, uploadMode: "poster" };
 
 describe("applying a template", () => {
   it("gives a new event the Birthday template, not yet changed", () => {
@@ -73,10 +74,29 @@ describe("changing a knob", () => {
     expect(applyChange(withUpload, { knob: "backgroundId", value: "golden" })).toMatchObject({ backgroundId: "golden", uploadId: withUpload.uploadId });
   });
 
+  it("shows the host's upload as the background, with the accent back on auto to match it", () => {
+    const vows = applyTemplate(DEFAULT_THEME, template("vows"));
+    expect(applyChange(vows, { knob: "uploadId", value: UPLOAD })).toEqual({
+      ...vows,
+      backgroundId: null,
+      uploadId: UPLOAD,
+      uploadMode: "background",
+      accentOverride: null,
+      template: { id: "vows", dirty: true },
+    });
+    // Its tile stays in the gallery after a curated background is chosen, and choosing it again
+    // brings it back.
+    const onDusk = applyChange(applyChange(DEFAULT_THEME, { knob: "uploadId", value: UPLOAD }), { knob: "backgroundId", value: "dusk" });
+    expect(onDusk).toMatchObject({ backgroundId: "dusk", uploadId: UPLOAD });
+    expect(applyChange(onDusk, { knob: "uploadId", value: UPLOAD })).toMatchObject({ backgroundId: null, uploadId: UPLOAD, uploadMode: "background" });
+  });
+
   it("changes nothing, dirty flag included, when the host picks what is already chosen", () => {
     expect(applyChange(DEFAULT_THEME, { knob: "font", value: "serif" })).toBe(DEFAULT_THEME);
     expect(applyChange(DEFAULT_THEME, { knob: "backgroundId", value: "golden" })).toBe(DEFAULT_THEME);
     expect(applyChange(DEFAULT_THEME, { knob: "accentOverride", value: null })).toBe(DEFAULT_THEME);
+    const onUpload = applyChange(DEFAULT_THEME, { knob: "uploadId", value: UPLOAD });
+    expect(applyChange(onUpload, { knob: "uploadId", value: UPLOAD })).toBe(onUpload);
   });
 
   it("leaves a theme that started from no template without one", () => {
@@ -114,6 +134,14 @@ describe("reading a change the drawer sent", () => {
       { knob: "rsvpStyle", value: "inline" },
     ];
     for (const change of offered) expect(parseThemeChange(JSON.parse(JSON.stringify(change)))).toEqual(change);
+  });
+
+  it("accepts the event's own upload, and no other", () => {
+    expect(parseThemeChange({ knob: "uploadId", value: UPLOAD }, UPLOAD)).toEqual({ knob: "uploadId", value: UPLOAD });
+    expect(parseThemeChange({ knob: "uploadId", value: "0192f0a1-7b3c-7d4e-8f00-000000000000" }, UPLOAD)).toBeUndefined();
+    // An event without an upload has none to show.
+    expect(parseThemeChange({ knob: "uploadId", value: UPLOAD }, null)).toBeUndefined();
+    expect(parseThemeChange({ knob: "uploadId", value: null }, null)).toBeUndefined();
   });
 
   it("refuses anything else", () => {

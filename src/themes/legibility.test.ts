@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BACKGROUNDS } from "./backgrounds";
-import { AA, contrast, hexToRgb, over, SHEET_SURFACES, SURFACES, toneTokens, worstBackdrop, type Rgb, type Rgba, type Tone } from "./legibility";
+import { AA, contrast, hexToRgb, over, SHEET_SURFACES, SURFACES, toneTokens, worstBackdrop, type Backdrop, type Rgb, type Rgba, type Tone } from "./legibility";
 import { SWATCHES } from "./swatches";
 
 const TONES: Tone[] = ["light", "dark"];
@@ -43,46 +43,67 @@ describe("text on the accent", () => {
   });
 });
 
+// All text on every surface of the Poster layout and the RSVP sheet reads at AA, on this
+// backdrop in this tone with this accent.
+function expectEveryTextReads(tone: Tone, backdrop: Backdrop, accent: string) {
+  const tokens = toneTokens(tone, backdrop, accent);
+  const behind = worstBackdrop(tone, backdrop);
+  // Body text in its three strengths, the label of a glass button (strong glass) or an
+  // outline button (the page's veil), which is the tone's own text, and the accent as text.
+  for (const [surface, { layers, carries }] of Object.entries(SURFACES(tokens))) {
+    const colour = stack(layers, behind);
+    const label = `${accent} accent, on ${surface}`;
+    if (carries === "accent") {
+      expect(contrast(tokens.accentInk, colour), `accent ink, ${label}`).toBeGreaterThanOrEqual(AA);
+      continue;
+    }
+    expect(contrast(tokens.text, colour), `text, ${label}`).toBeGreaterThanOrEqual(AA);
+    if (carries === "full strength") continue;
+    expect(contrast(ink(tokens.textMuted, colour), colour), `muted, ${label}`).toBeGreaterThanOrEqual(AA);
+    expect(contrast(ink(tokens.textFaint, colour), colour), `faint, ${label}`).toBeGreaterThanOrEqual(AA);
+  }
+  // The RSVP sheet, which carries its own secondary strengths and accent ink.
+  const { sheet } = tokens;
+  for (const [surface, { layers, carries }] of Object.entries(SHEET_SURFACES(tone, tokens))) {
+    const colour = stack(layers, behind);
+    const label = `${accent} accent, on ${surface}`;
+    if (carries === "accent") {
+      expect(contrast(sheet.accentInk, colour), `accent ink, ${label}`).toBeGreaterThanOrEqual(AA);
+      continue;
+    }
+    expect(contrast(tokens.text, colour), `text, ${label}`).toBeGreaterThanOrEqual(AA);
+    if (carries === "full strength") continue;
+    expect(contrast(ink(sheet.textMuted, colour), colour), `muted, ${label}`).toBeGreaterThanOrEqual(AA);
+    expect(contrast(ink(sheet.textFaint, colour), colour), `faint, ${label}`).toBeGreaterThanOrEqual(AA);
+  }
+}
+
 // Nothing the Design drawer offers can make the page unreadable (spec, story 44): every
 // background, in both text tones, with every accent, and so every button style.
 describe("every combination the drawer offers", () => {
   for (const background of BACKGROUNDS) {
     for (const tone of TONES) {
       it(`reads at AA on ${background.name} in the ${tone} tone`, () => {
-        for (const accent of ACCENTS) {
-          const tokens = toneTokens(tone, background, accent);
-          const behind = worstBackdrop(tone, background);
-          // Body text in its three strengths, the label of a glass button (strong glass) or an
-          // outline button (the page's veil), which is the tone's own text, and the accent as text.
-          for (const [surface, { layers, carries }] of Object.entries(SURFACES(tokens))) {
-            const colour = stack(layers, behind);
-            const label = `${accent} accent, on ${surface}`;
-            if (carries === "accent") {
-              expect(contrast(tokens.accentInk, colour), `accent ink, ${label}`).toBeGreaterThanOrEqual(AA);
-              continue;
-            }
-            expect(contrast(tokens.text, colour), `text, ${label}`).toBeGreaterThanOrEqual(AA);
-            if (carries === "full strength") continue;
-            expect(contrast(ink(tokens.textMuted, colour), colour), `muted, ${label}`).toBeGreaterThanOrEqual(AA);
-            expect(contrast(ink(tokens.textFaint, colour), colour), `faint, ${label}`).toBeGreaterThanOrEqual(AA);
-          }
-          // The RSVP sheet, which carries its own secondary strengths and accent ink.
-          const { sheet } = tokens;
-          for (const [surface, { layers, carries }] of Object.entries(SHEET_SURFACES(tone, tokens))) {
-            const colour = stack(layers, behind);
-            const label = `${accent} accent, on ${surface}`;
-            if (carries === "accent") {
-              expect(contrast(sheet.accentInk, colour), `accent ink, ${label}`).toBeGreaterThanOrEqual(AA);
-              continue;
-            }
-            expect(contrast(tokens.text, colour), `text, ${label}`).toBeGreaterThanOrEqual(AA);
-            if (carries === "full strength") continue;
-            expect(contrast(ink(sheet.textMuted, colour), colour), `muted, ${label}`).toBeGreaterThanOrEqual(AA);
-            expect(contrast(ink(sheet.textFaint, colour), colour), `faint, ${label}`).toBeGreaterThanOrEqual(AA);
-          }
-        }
+        for (const accent of ACCENTS) expectEveryTextReads(tone, background, accent);
       });
     }
+  }
+});
+
+// A host's upload can be any picture, measured by the server (uploads/sample.ts), with any
+// accent sampled from it: from a black picture to a white one, under each tone's scrim.
+describe("an upload", () => {
+  const grey = (value: number) => `#${value.toString(16).padStart(2, "0").repeat(3)}`;
+  const UPLOAD_ACCENTS = [...ACCENTS, "#b3b3b3", "#4d6b8a", "#c97a2e", "#1f3a1f", "#e8d0ff"];
+  for (const tone of TONES) {
+    it(`reads at AA in the ${tone} tone however bright or dark the picture is`, () => {
+      for (let value = 0; value <= 255; value += 15) {
+        // The light tone meets the picture's brightest point under its 25% black scrim, and the
+        // dark tone its darkest under 25% white.
+        const backdrop = { lightest: grey(Math.round(value * 0.75)), darkest: grey(Math.round(value * 0.75 + 63.75)) };
+        for (const accent of UPLOAD_ACCENTS) expectEveryTextReads(tone, backdrop, accent);
+      }
+    });
   }
 });
 

@@ -29,6 +29,9 @@ COPY --from=build --chown=node:node /app/scripts ./scripts
 # external). Link it where Node resolves bare imports, so the operator commands in scripts/ run.
 RUN cd node_modules && ln -s "$(find .pnpm -maxdepth 3 -type d -path '*/node_modules/postgres')" postgres \
   && test -f postgres/package.json
+# Hosts' uploaded pictures, on local disk unless the operator configures S3 (ADR-0003). Owned by
+# the app's user, so a named volume mounted here starts out writable.
+RUN mkdir uploads && chown node:node uploads
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=6 \

@@ -2,34 +2,41 @@
 
 import { Check, ChevronDown, Upload, X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, useTransition, type CSSProperties, type ReactNode } from "react";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { changeThemeAction } from "@/themes/actions";
 import { BACKGROUNDS, type Background } from "@/themes/backgrounds";
 import { themeReadout, type ThemeChange } from "@/themes/changes";
 import { TITLE_FONTS } from "@/themes/fonts";
-import { resolveTheme, themeVariables } from "@/themes/resolve";
+import { resolveTheme, themeVariables, type ThemeUpload } from "@/themes/resolve";
 import { SWATCHES } from "@/themes/swatches";
 import { TEMPLATES } from "@/themes/templates";
 import { applyTemplate, BUTTON_STYLES, FONTS, LAYOUTS, OFFERED_LAYOUTS, RSVP_STYLES, TEXT_TONES, type Layout } from "@/themes/theme";
 import { useTheme } from "@/themes/themed-page";
 import { TITLE_FONT_CLASSES } from "@/themes/title-fonts";
+import { describeUploadAction } from "@/uploads/actions";
+import { ALT_TEXT_MAX, UPLOAD_PROBLEMS, UPLOAD_TYPES, type UploadProblem } from "@/uploads/validate";
 
 // Each template as it would look, for its thumbnail. Templates are fixed data, so once is enough.
 const TEMPLATE_LOOKS = new Map(TEMPLATES.map((template) => [template.id, resolveTheme(applyTemplate(null, template))]));
 
 // The Design drawer's panel (spec, "Host: the look"): beside the invitation, which keeps changing
-// as the host chooses. Top to bottom: upload (ticket 12), templates, layout, background, and the
-// finer knobs under Details. Every choice shows at once and is saved as it is made; guests see
+// as the host chooses. Top to bottom: the host's own picture, templates, layout, background, and
+// the finer knobs under Details. Every choice shows at once and is saved as it is made; guests see
 // what was saved. The viewport decides its form, in CSS alone (story 43): a bottom sheet under
 // the md breakpoint, with the page scrolling above it, and a side panel from md up, with the page
 // moved over beside it (ThemedPage makes the room). It is not modal: the page stays live.
-export function DesignPanel({ eventId, title, onClose }: { eventId: string; title: string; onClose: () => void }) {
+export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { eventId: string; title: string; maxUploadBytes: number; onClose: () => void }) {
   const t = useTranslations("DesignDrawer");
-  const { theme, resolved, change } = useTheme();
+  const { theme, resolved, change, upload } = useTheme();
+  const router = useRouter();
   const [details, setDetails] = useState(false);
   const [saving, startSaving] = useTransition();
   const [outcome, setOutcome] = useState<"saved" | "failed">();
+  const [uploading, setUploading] = useState(false);
+  const [problem, setProblem] = useState<UploadProblem | "failed">();
   const panel = useRef<HTMLElement>(null);
   const id = useId();
 
@@ -45,10 +52,43 @@ export function DesignPanel({ eventId, title, onClose }: { eventId: string; titl
       setOutcome(saved ? "saved" : "failed");
     });
 
+  // The picture goes to the server as it is; the page then settles on it, and on the theme that
+  // shows it, as saved. Too large is said at once, without sending it.
+  const send = async (file: File) => {
+    setProblem(undefined);
+    if (file.size > maxUploadBytes) return setProblem("tooLarge");
+    setUploading(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/upload`, { method: "POST", body: file });
+      if (!response.ok) {
+        const { problem: refused } = (await response.json().catch(() => ({}))) as { problem?: UploadProblem };
+        return setProblem(refused && UPLOAD_PROBLEMS.includes(refused) ? refused : "failed");
+      }
+      startSaving(() => {
+        router.refresh();
+        setOutcome("saved");
+      });
+    } catch {
+      setProblem("failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const describe = (altText: string) =>
+    startSaving(async () => {
+      const { saved } = await describeUploadAction(eventId, altText);
+      setOutcome(saved ? "saved" : "failed");
+    });
+
   const readout = themeReadout(theme);
   const themeName = !readout.custom ? readout.template : readout.template ? t("customFrom", { template: readout.template }) : t("custom");
   // What Auto would pick, shown in its swatch whatever is chosen now.
-  const autoAccent = resolveTheme({ ...theme, accentOverride: null }).accent;
+  const autoAccent = resolveTheme({ ...theme, accentOverride: null }, upload).accent;
+  // The host's picture is the background now (the Poster use of it arrives with ticket 13).
+  const showingUpload = resolved.upload !== null && theme.uploadMode === "background";
+  const chooseUpload = (picture: ThemeUpload) => choose({ knob: "uploadId", value: picture.id });
+  const max = maxUploadBytes / MEGABYTE;
 
   return (
     <section
@@ -67,7 +107,7 @@ export function DesignPanel({ eventId, title, onClose }: { eventId: string; titl
             {t("title")}
           </h2>
           <p aria-live="polite" className={cn("text-xs", outcome === "failed" && !saving ? "text-destructive" : "text-muted-foreground")}>
-            {saving ? t("saving") : outcome === "failed" ? t("failed") : outcome === "saved" ? t("saved") : t("autosave")}
+            {uploading ? t("uploading") : saving ? t("saving") : outcome === "failed" ? t("failed") : outcome === "saved" ? t("saved") : t("autosave")}
           </p>
         </div>
         <button
@@ -81,16 +121,56 @@ export function DesignPanel({ eventId, title, onClose }: { eventId: string; titl
       </header>
 
       <div className="flex-1 space-y-7 overflow-y-auto overscroll-contain px-5 pt-5 pb-[max(env(safe-area-inset-bottom),1.25rem)]">
-        {/* Uploads arrive with ticket 12; the button holds their place at the top. */}
-        <button
-          type="button"
-          disabled
-          className="flex h-16 w-full cursor-not-allowed items-center justify-center gap-3 rounded-2xl border-2 border-dashed text-sm font-medium text-muted-foreground"
-        >
-          <Upload className="size-5" aria-hidden />
-          {t("upload")}
-          <Badge>{t("comingSoon")}</Badge>
-        </button>
+        <section className="space-y-4">
+          {upload ? (
+            <div className="flex gap-3">
+              <span aria-hidden className="h-28 w-21 shrink-0 rounded-xl ring-1 ring-border" style={fillWith(upload.src)} />
+              <div className="min-w-0 flex-1 space-y-3">
+                <Choices legend={t("useAs")}>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Choice name="uploadMode" checked={showingUpload} onSelect={() => chooseUpload(upload)} className="flex-col items-start gap-1 bg-accent/40 p-2.5">
+                      <span className="text-sm font-medium">{t("useAsBackground")}</span>
+                    </Choice>
+                    {/* Ticket 13 turns this on. */}
+                    <Choice name="uploadMode" checked={false} disabled onSelect={() => undefined} className="flex-col items-start gap-1 bg-accent/40 p-2.5">
+                      <span className="text-sm font-medium">{t("useAsPoster")}</span>
+                      <Badge>{t("comingSoon")}</Badge>
+                    </Choice>
+                  </div>
+                </Choices>
+                <label
+                  className={cn(
+                    "inline-flex h-9 items-center gap-2 rounded-full bg-accent/60 px-3.5 text-xs font-medium has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring",
+                    uploading ? "cursor-wait text-muted-foreground" : "cursor-pointer hover:bg-accent",
+                  )}
+                >
+                  <Upload className="size-4" aria-hidden />
+                  {uploading ? t("uploading") : t("replace")}
+                  <PictureInput disabled={uploading} onPick={send} />
+                </label>
+              </div>
+            </div>
+          ) : (
+            <label
+              className={cn(
+                "flex h-16 w-full items-center justify-center gap-3 rounded-2xl border-2 border-dashed text-sm font-medium has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-4 has-[:focus-visible]:outline-ring",
+                uploading ? "cursor-wait text-muted-foreground" : "cursor-pointer hover:bg-accent/40",
+              )}
+            >
+              <Upload className="size-5" aria-hidden />
+              {uploading ? t("uploading") : t("upload")}
+              <PictureInput disabled={uploading} onPick={send} />
+            </label>
+          )}
+          {problem ? (
+            <p role="alert" className="text-sm text-destructive">
+              {t(`uploadProblems.${problem}`, { max })}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">{t("uploadHint", { max })}</p>
+          )}
+          {upload && <AltText key={upload.id} upload={upload} onSave={describe} />}
+        </section>
 
         <section aria-labelledby={`${id}-templates`}>
           <Heading id={`${id}-templates`} hint={t("templatesHint")}>
@@ -159,12 +239,17 @@ export function DesignPanel({ eventId, title, onClose }: { eventId: string; titl
                   style={fill(background)}
                 >
                   {checked && <Tick />}
-                  <span className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 to-transparent px-1.5 pt-4 pb-1 text-[10px] leading-tight font-medium text-white">
-                    {background.name}
-                  </span>
+                  <TileName>{background.name}</TileName>
                 </Choice>
               );
             })}
+            {/* The host's picture stays here whichever background is shown, to go back to. */}
+            {upload && (
+              <Choice name="background" checked={showingUpload} onSelect={() => chooseUpload(upload)} className="aspect-[3/4]" style={fillWith(upload.src)}>
+                {showingUpload && <Tick />}
+                <TileName>{t("yourPicture")}</TileName>
+              </Choice>
+            )}
           </div>
         </Choices>
 
@@ -260,10 +345,76 @@ export function DesignPanel({ eventId, title, onClose }: { eventId: string; titl
   );
 }
 
+const MEGABYTE = 1024 * 1024;
+
 function fill(background: Background): CSSProperties {
-  return background.kind === "gradient"
-    ? { background: background.css }
-    : { backgroundImage: `url(${background.src})`, backgroundSize: "cover", backgroundPosition: "center" };
+  return background.kind === "gradient" ? { background: background.css } : fillWith(background.src);
+}
+
+function fillWith(src: string): CSSProperties {
+  return { backgroundImage: `url(${src})`, backgroundSize: "cover", backgroundPosition: "center" };
+}
+
+// A hidden file picker inside the label that opens it. Only the kinds of picture the server
+// takes are offered, which also has Safari send an iPhone's HEIC photo as a JPEG.
+function PictureInput({ disabled, onPick }: { disabled: boolean; onPick: (file: File) => void }) {
+  return (
+    <input
+      type="file"
+      accept={UPLOAD_TYPES.map((type) => `image/${type}`).join(",")}
+      disabled={disabled}
+      className="sr-only"
+      onChange={(event) => {
+        const file = event.currentTarget.files?.[0];
+        // Cleared, so choosing the same file again still counts.
+        event.currentTarget.value = "";
+        if (file) onPick(file);
+      }}
+    />
+  );
+}
+
+// The host's description of their picture, saved when they leave the field (or press Enter, or
+// close the panel with Escape).
+function AltText({ upload, onSave }: { upload: ThemeUpload; onSave: (altText: string) => void }) {
+  const t = useTranslations("DesignDrawer");
+  const id = useId();
+  const saved = useRef(upload.altText);
+  const save = (value: string) => {
+    const altText = value.trim();
+    if (altText === saved.current) return;
+    saved.current = altText;
+    onSave(altText);
+  };
+  return (
+    <div>
+      <label htmlFor={id} className={cn(HEADING, "mb-2.5 block")}>
+        {t("altText")}
+      </label>
+      <p id={`${id}-hint`} className={HINT}>
+        {t("altTextHint")}
+      </p>
+      <Input
+        id={id}
+        defaultValue={upload.altText}
+        maxLength={ALT_TEXT_MAX}
+        aria-describedby={`${id}-hint`}
+        onBlur={(event) => save(event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === "Escape") save(event.currentTarget.value);
+        }}
+        className="h-10"
+      />
+    </div>
+  );
+}
+
+function TileName({ children }: { children: ReactNode }) {
+  return (
+    <span className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 to-transparent px-1.5 pt-4 pb-1 text-[10px] leading-tight font-medium text-white">
+      {children}
+    </span>
+  );
 }
 
 // A tiny poster in the template's own theme: its background, a pane of its glass, the event's

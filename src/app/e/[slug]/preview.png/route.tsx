@@ -6,6 +6,9 @@ import { isSlug } from "@/events/slug";
 import { formatWhen } from "@/events/time";
 import { PREVIEW_SIZE, previewCard } from "@/sharing/preview-card";
 import { resolveTheme } from "@/themes/resolve";
+import { readRendition } from "@/uploads/files";
+import { findEventUpload } from "@/uploads/repository";
+import { themeUpload } from "@/uploads/uploads";
 
 // A crawler brings no language of its own, so the card is written in the source one. The card is
 // drawn in the face next/og bundles: the theme's title fonts ship as woff2, which Satori cannot
@@ -24,7 +27,13 @@ export async function GET(_request: Request, context: RouteContext<"/e/[slug]/pr
   // request without it may be any version, so it is only cached briefly.
   const versioned = url.searchParams.has("v");
 
-  return new ImageResponse(previewCard(event, resolveTheme(event.theme), formatWhen(event, CARD_LOCALE)), {
+  // A host's upload is drawn from its own rendition at the card's size.
+  const upload = await findEventUpload(event.id);
+  const theme = resolveTheme(event.theme, upload ? themeUpload(upload) : null);
+  const card = theme.upload && (await readRendition(theme.upload.id, "card"));
+  const picture = card ? `data:image/jpeg;base64,${Buffer.from(card).toString("base64")}` : undefined;
+
+  return new ImageResponse(previewCard(event, theme, formatWhen(event, CARD_LOCALE), picture), {
     ...PREVIEW_SIZE,
     headers: {
       "Cache-Control": versioned ? "public, max-age=31536000, immutable" : "public, max-age=300",

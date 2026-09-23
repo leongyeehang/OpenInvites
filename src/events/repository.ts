@@ -1,8 +1,9 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, type SQL } from "drizzle-orm";
 import { cache } from "react";
 import { getDb } from "@/db/client";
-import { event, retiredSlug, user } from "@/db/schema";
+import { event, retiredSlug, upload, user } from "@/db/schema";
 import { DEFAULT_THEME, parseTheme, type Theme } from "@/themes/theme";
+import { removeRenditions } from "@/uploads/files";
 import type { EventInput } from "./form";
 import { SLUG_TAKEN, withFreshSlug } from "./slug";
 
@@ -131,9 +132,30 @@ export async function cancelEvent(hostId: string, id: string): Promise<Event | u
   return cancelled && withTheme(cancelled);
 }
 
-// Leaves no trace: the event's RSVPs, their answers and its questions all cascade with it.
+// Leaves no trace: the event's RSVPs, their answers, its questions, its retired slugs and its
+// upload all cascade with it, and the upload's stored files go too.
 export async function deleteEvent(hostId: string, id: string): Promise<void> {
-  await getDb().delete(event).where(and(eq(event.id, id), eq(event.hostId, hostId)));
+  await removeEvents(and(eq(event.id, id), eq(event.hostId, hostId)));
+}
+
+// Every event of a host who is deleting their account (auth.ts), before the account itself goes.
+export async function deleteHostEvents(hostId: string): Promise<void> {
+  await removeEvents(eq(event.hostId, hostId));
+}
+
+// Every way an event is deleted comes through here, so its upload's files never outlive it. The
+// events are locked first, so an upload arriving meanwhile either lands before and is found here,
+// or finds its event gone. The files are removed once the rows are, so no page is ever shown
+// whose picture is missing.
+async function removeEvents(which: SQL | undefined): Promise<void> {
+  const uploads = await getDb().transaction(async (tx) => {
+    const doomed = (await tx.select({ id: event.id }).from(event).where(which).for("update")).map(({ id }) => id);
+    if (doomed.length === 0) return [];
+    const removed = await tx.delete(upload).where(inArray(upload.eventId, doomed)).returning({ id: upload.id });
+    await tx.delete(event).where(inArray(event.id, doomed));
+    return removed.map(({ id }) => id);
+  });
+  await removeRenditions(uploads);
 }
 
 export async function listHostEvents(hostId: string): Promise<Event[]> {

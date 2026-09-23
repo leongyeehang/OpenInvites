@@ -5,6 +5,7 @@ import type { EventWithHost } from "@/events/repository";
 import { formatDateSticker, formatWhen } from "@/events/time";
 import { cn } from "@/lib/utils";
 import { RichTextView } from "@/rich-text/rich-text-view";
+import { BackgroundDescription } from "./background-description";
 import { Glass } from "./glass";
 import { PosterTitle } from "./poster-title";
 
@@ -48,6 +49,7 @@ export async function PosterLayout({
           </span>
           <p className="text-sm text-theme-text-muted">{t("hostedBy", { name: event.hostName })}</p>
         </div>
+        <BackgroundDescription />
       </Glass>
 
       {rsvp && <div className={cn("mt-3", entrance, "motion-safe:delay-100")}>{rsvp}</div>}

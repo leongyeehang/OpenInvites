@@ -3,7 +3,7 @@
 import { createContext, use, useOptimistic, useState, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { applyChange, type ThemeChange } from "./changes";
-import { resolveTheme, themeVariables, type ResolvedTheme, type SampledUpload } from "./resolve";
+import { resolveTheme, themeVariables, type ResolvedTheme, type ThemeUpload } from "./resolve";
 import type { Theme } from "./theme";
 import { TITLE_FONT_CLASSES } from "./title-fonts";
 
@@ -11,8 +11,14 @@ import { TITLE_FONT_CLASSES } from "./title-fonts";
 // host with the Design drawer open it runs ahead of the save: `change` shows a change at once,
 // inside the transition that saves it, and the page settles on the saved theme once it returns.
 // `root` is the page's own element, where anything that rises over the page (the RSVP sheet) is
-// put, so that it wears the theme too.
-type ThemeState = { theme: Theme; resolved: ResolvedTheme; change: (change: ThemeChange) => void; root: HTMLElement | null };
+// put, so that it wears the theme too. `upload` is the event's upload, shown or not.
+type ThemeState = {
+  theme: Theme;
+  resolved: ResolvedTheme;
+  change: (change: ThemeChange) => void;
+  root: HTMLElement | null;
+  upload: ThemeUpload | null;
+};
 
 const ThemeContext = createContext<ThemeState | null>(null);
 
@@ -33,7 +39,7 @@ export function ThemedPage({
   children,
 }: {
   theme: Theme;
-  upload?: SampledUpload | null;
+  upload?: ThemeUpload | null;
   designer?: ReactNode;
   children: ReactNode;
 }) {
@@ -41,7 +47,7 @@ export function ThemedPage({
   const [root, setRoot] = useState<HTMLElement | null>(null);
   const resolved = resolveTheme(theme, upload);
   return (
-    <ThemeContext value={{ theme, resolved, change, root }}>
+    <ThemeContext value={{ theme, resolved, change, root, upload }}>
       <div
         ref={setRoot}
         data-tone={resolved.textTone}
@@ -64,9 +70,10 @@ export function ThemedPage({
 }
 
 // The warm layered background with grain: the gradient or scene, two soft blobs of colour that
-// drift when motion is welcome, and a fade into the base colour at the foot of the page. The
-// lightest and darkest points of each background are measured with all of this in place
-// (backgrounds.ts), so change them together.
+// drift when motion is welcome, and a fade into the base colour at the foot of the page. A host's
+// upload is painted as a scene is. The lightest and darkest points of each background are
+// measured with all of this in place (backgrounds.ts, and uploads/sample.ts for an upload), so
+// change them together.
 function Backdrop({ theme }: { theme: ResolvedTheme }) {
   const { background } = theme;
   return (
@@ -81,7 +88,7 @@ function Backdrop({ theme }: { theme: ResolvedTheme }) {
       ) : (
         <>
           <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${background.src})` }} />
-          {/* Scenes get a scrim so the text tone always reads. */}
+          {/* Scenes and uploads get a scrim so the text tone always reads. */}
           <div className="absolute inset-0 bg-theme-scrim" />
         </>
       )}

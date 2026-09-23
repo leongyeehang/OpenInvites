@@ -30,6 +30,9 @@ services:
       OPERATOR_CONTACT_EMAIL: operator@openinvites.test
     ports:
       - "3000:3000"
+    # Uploaded pictures on local disk, the default storage, in a named volume as an operator keeps them.
+    volumes:
+      - uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -47,5 +50,23 @@ services:
       - "8025:8025"
       - "1025:1025"
 
+  # S3-compatible storage for the smoke test of the S3 implementation (pnpm test:s3): Versity
+  # Gateway (Apache-2.0), serving a directory. Its one bucket is a directory made as it starts.
+  s3:
+    image: versity/versitygw:v1.8.0
+    profiles: [s3]
+    environment:
+      ROOT_ACCESS_KEY: openinvites
+      ROOT_SECRET_KEY: s3-profile-only-secret
+    entrypoint: ["sh", "-c", "mkdir -p /data/openinvites && exec versitygw --health /health posix /data"]
+    ports:
+      - "7070:7070"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:7070/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
 volumes:
   db-data:
+  uploads:

@@ -11,3 +11,14 @@ export function baseUrl(): string {
 export function operatorContactEmail(): string | undefined {
   return process.env.OPERATOR_CONTACT_EMAIL?.trim() || undefined;
 }
+
+const MEGABYTE = 1024 * 1024;
+
+// The largest picture a host may upload, in megabytes (MAX_UPLOAD_MB, default 10).
+export function maxUploadBytes(): number {
+  const setting = process.env.MAX_UPLOAD_MB?.trim();
+  if (!setting) return 10 * MEGABYTE;
+  const megabytes = Number(setting);
+  if (!Number.isFinite(megabytes) || megabytes <= 0) throw new Error(`MAX_UPLOAD_MB must be a number of megabytes, not "${setting}"`);
+  return Math.floor(megabytes * MEGABYTE);
+}

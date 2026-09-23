@@ -18,6 +18,9 @@ next-env.d.ts
 .env
 .env*.local
 
+# uploaded pictures in development (local-disk storage)
+/uploads/
+
 # misc
 .DS_Store
 *.pem

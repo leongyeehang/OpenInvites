@@ -81,12 +81,8 @@ export const GLOW = hexToRgb("#ff5c8a");
 
 // What a backdrop is, for this rule: the brightest point light text can meet on it and the
 // darkest point dark text can meet, as a glass pane sees them (backgrounds.ts says how they are
-// measured).
+// measured for the curated ones, uploads/sample.ts for a host's upload).
 export type Backdrop = Pick<Background, "lightest" | "darkest">;
-
-// An upload has not been measured (ticket 12 samples it): assume the worst, a white or a black
-// picture under the tone's scrim.
-export const UNMEASURED: Backdrop = { lightest: "#bfbfbf", darkest: "#404040" };
 
 // The point of the backdrop where the tone's text is hardest to read.
 export function worstBackdrop(tone: Tone, backdrop: Backdrop): Rgb {
