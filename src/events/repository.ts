@@ -2,7 +2,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { cache } from "react";
 import { getDb } from "@/db/client";
 import { event, retiredSlug, user } from "@/db/schema";
-import { DEFAULT_THEME, parseTheme } from "@/themes/theme";
+import { DEFAULT_THEME, parseTheme, type Theme } from "@/themes/theme";
 import type { EventInput } from "./form";
 import { SLUG_TAKEN, withFreshSlug } from "./slug";
 
@@ -55,6 +55,26 @@ export async function updateEvent(hostId: string, id: string, input: EventInput)
     .where(and(eq(event.id, id), eq(event.hostId, hostId)))
     .returning();
   return updated && withTheme(updated);
+}
+
+// The host changing the look. The theme is read and written under a row lock, so two changes
+// sent close together apply one after the other instead of one overwriting the other. Every
+// write moves updatedAt, which is what makes the link's preview card redraw (ticket 14); a
+// change that changes nothing writes nothing.
+export async function changeEventTheme(hostId: string, id: string, change: (theme: Theme) => Theme): Promise<Theme | undefined> {
+  return getDb().transaction(async (tx) => {
+    const [row] = await tx
+      .select({ theme: event.theme })
+      .from(event)
+      .where(and(eq(event.id, id), eq(event.hostId, hostId)))
+      .for("update");
+    if (!row) return undefined;
+    const current = parseTheme(row.theme);
+    const changed = change(current);
+    if (changed === current) return current;
+    await tx.update(event).set({ theme: changed, updatedAt: new Date() }).where(eq(event.id, id));
+    return changed;
+  });
 }
 
 export async function publishEvent(hostId: string, id: string): Promise<Event | undefined> {

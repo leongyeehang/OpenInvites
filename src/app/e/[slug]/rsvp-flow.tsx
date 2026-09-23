@@ -11,7 +11,7 @@ import { RSVP_STATUSES, type RsvpSettings, type RsvpStatus } from "@/rsvps/form"
 import type { GuestRsvp, RsvpRefusal } from "@/rsvps/guest";
 import { Glass } from "@/themes/glass";
 import { rsvpButtonClasses } from "@/themes/rsvp-buttons";
-import type { ButtonStyle } from "@/themes/theme";
+import { useTheme } from "@/themes/themed-page";
 
 // Where the guest is in the flow (PROTOTYPE.md): the three buttons, then their name, then who
 // they are bringing, then the confirmation. Ticket 09 puts the host's questions before the end.
@@ -57,7 +57,6 @@ type Props = {
   slug: string;
   settings: RsvpSettings;
   mine: GuestRsvp | undefined;
-  buttonStyle: ButtonStyle;
   open: boolean;
   questions: Question[];
   answers: Record<string, string>;
@@ -66,9 +65,11 @@ type Props = {
 
 // The guest's whole RSVP, inline under the poster: the three buttons, the stepper that expands
 // beneath them, and, once they have answered, their confirmation. The Sheet style, where the
-// same steps rise over the invitation instead, is ticket 11.
-export function RsvpFlow({ slug, settings, mine, buttonStyle, open, questions, answers, calendar }: Props) {
+// same steps rise over the invitation instead, is ticket 11. The buttons wear the page's theme,
+// which the host may be changing as the guest would see it.
+export function RsvpFlow({ slug, settings, mine, open, questions, answers, calendar }: Props) {
   const t = useTranslations("Rsvp");
+  const { buttonStyle } = useTheme().resolved;
   const [step, setStep] = useState<Step>(mine ? "done" : "idle");
   const [answer, setAnswer] = useState(mine);
   const [draft, setDraft] = useState<Draft>(() => draftFrom(mine, settings, answers));
@@ -146,16 +147,14 @@ export function RsvpFlow({ slug, settings, mine, buttonStyle, open, questions, a
             type="button"
             disabled={!open}
             onClick={() => pick(status)}
-            className={rsvpButtonClasses(buttonStyle, {
-              selected: step !== "idle" && draft.status === status,
-              dimmed: step !== "idle" && draft.status !== status,
-            })}
+            className={rsvpButtonClasses(buttonStyle, { selected: step !== "idle" && draft.status === status })}
           >
             {t(status)}
           </button>
         ))}
       </div>
-      {!open && <p className="mt-2 text-center text-xs text-theme-text-faint">{t("errors.closed")}</p>}
+      {/* Set on the page itself, so on the veil that keeps bare text readable. */}
+      {!open && <p className="mx-auto mt-2 w-fit rounded-full bg-theme-veil px-3 py-1 text-center text-xs text-theme-text-faint backdrop-blur-xl">{t("errors.closed")}</p>}
 
       {step !== "idle" && (
         <Glass className="mt-3 p-5">
@@ -340,7 +339,7 @@ function Asked({ question, optional }: { question: Question; optional: string })
     <>
       {question.prompt}
       {question.required ? (
-        <span className="text-theme-accent"> *</span>
+        <span className="text-theme-accent-ink"> *</span>
       ) : (
         <span className="text-theme-text-faint"> · {optional}</span>
       )}
@@ -428,7 +427,7 @@ function Confirmation({
           type="button"
           onClick={onRemove}
           disabled={removing}
-          className="cursor-pointer text-theme-accent underline underline-offset-2 hover:opacity-80 disabled:opacity-50"
+          className="cursor-pointer text-theme-accent-ink underline underline-offset-2 hover:opacity-80 disabled:opacity-50"
         >
           {t("remove")}
         </button>

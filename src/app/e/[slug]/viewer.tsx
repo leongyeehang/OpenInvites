@@ -57,7 +57,7 @@ export function Countdown({ event }: { event: EventTime }) {
             : t("startsInMinutes", { count: countdown.minutes });
 
   return (
-    <p className="mt-3 inline-flex rounded-full bg-theme-accent/20 px-3 py-1 text-sm font-medium text-theme-accent">{says}</p>
+    <p className="mt-3 inline-flex rounded-full bg-theme-accent px-3 py-1 text-sm font-medium text-theme-on-accent">{says}</p>
   );
 }
 

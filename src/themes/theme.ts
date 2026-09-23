@@ -1,6 +1,9 @@
+import { birthday } from "./templates/birthday";
+import type { Template } from "./templates/template";
+
 // The theme: the look of one event page, stored on the event (spec, "Themes and templates").
 // The shape was settled by the prototype on branch prototype/event-page. M1 stores every knob
-// and renders the Poster layout; the drawer that changes knobs is ticket 10.
+// and renders the Poster layout; the host changes knobs in the Design drawer.
 
 export const LAYOUTS = ["poster", "broadsheet", "thread"] as const;
 export const UPLOAD_MODES = ["background", "poster"] as const;
@@ -31,22 +34,26 @@ export type Theme = {
   template: { id: string; dirty: boolean } | null; // where the host started, and whether they changed a knob
 };
 
-// The Birthday template's knobs (PROTOTYPE.md: round one's A, Golden hour). Every new event
-// starts here. Ticket 10 moves these values into the template's own data file.
-export const DEFAULT_THEME: Theme = {
-  layout: "poster",
-  backgroundId: "golden",
-  uploadId: null,
-  uploadMode: "background",
-  titlePlacement: "below",
-  font: "serif",
-  accentOverride: null,
-  textTone: "auto",
-  buttonStyle: "glass",
-  rsvpStyle: "sheet",
-  effect: "sparkles",
-  template: { id: "birthday", dirty: false },
-};
+// The layouts a host can use today. Broadsheet and Thread ship in M2; a template made for one of
+// them applies with the Poster layout until then, so nothing changes under the host when it lands.
+export const OFFERED_LAYOUTS: readonly Layout[] = ["poster"];
+
+// Applying a template copies every knob it sets onto the theme and records the template as not
+// yet changed (spec, "Themes and templates"). The host's own upload is theirs, not the
+// template's: it stays in their gallery, and the template's background shows instead.
+export function applyTemplate(theme: Theme | null, template: Template): Theme {
+  const { layout, ...knobs } = template.theme;
+  return {
+    uploadId: theme?.uploadId ?? null,
+    uploadMode: theme?.uploadMode ?? "background",
+    ...knobs,
+    layout: OFFERED_LAYOUTS.includes(layout) ? layout : "poster",
+    template: { id: template.id, dirty: false },
+  };
+}
+
+// Every new event starts from the Birthday template (PROTOTYPE.md: round one's A, Golden hour).
+export const DEFAULT_THEME: Theme = applyTemplate(null, birthday);
 
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i;
 

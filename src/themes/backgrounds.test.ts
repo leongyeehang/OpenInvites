@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { BACKGROUNDS, findBackground } from "./backgrounds";
+import { hexToRgb, luminance } from "./legibility";
 
 // The gallery is data contributors edit; these checks catch a slip before it reaches a page.
 describe("curated backgrounds", () => {
@@ -15,6 +16,14 @@ describe("curated backgrounds", () => {
       expect(background.luminance, background.id).toBeGreaterThanOrEqual(0);
       expect(background.luminance, background.id).toBeLessThanOrEqual(1);
       expect(background.name.length, background.id).toBeGreaterThan(0);
+    }
+  });
+
+  it("carries the lightest and darkest points the legibility rule reads", () => {
+    for (const background of BACKGROUNDS) {
+      expect(background.lightest, background.id).toMatch(/^#[0-9a-f]{6}$/);
+      expect(background.darkest, background.id).toMatch(/^#[0-9a-f]{6}$/);
+      expect(luminance(hexToRgb(background.lightest)), background.id).toBeGreaterThanOrEqual(luminance(hexToRgb(background.darkest)));
     }
   });
 

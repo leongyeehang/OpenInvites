@@ -13,10 +13,10 @@ import { findRsvpOnThisDevice, guestRsvp } from "@/rsvps/guest";
 import { listPublicGuestList } from "@/rsvps/repository";
 import { guestListView } from "@/rsvps/visibility";
 import { PosterLayout } from "@/themes/poster-layout";
-import { resolveTheme } from "@/themes/resolve";
 import { ThemedPage } from "@/themes/themed-page";
 import { AddToCalendar } from "./add-to-calendar";
 import { CancelledNotice } from "./cancelled-notice";
+import { DesignDrawer } from "./design-drawer";
 import { RetiredLink } from "./retired-link";
 import { DraftNotice } from "./draft-notice";
 import { GuestList } from "./guest-list";
@@ -57,7 +57,7 @@ export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Prom
 
 // The event page: the invitation itself, rendered on the server in the event's theme so the
 // first paint is the finished look. M1 ships the Poster layout; resolveTheme maps every stored
-// layout to it.
+// layout to it. The host also gets the Design drawer on their own page.
 export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const { slug } = await params;
   if (!isSlug(slug)) notFound();
@@ -67,9 +67,10 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     notFound();
   }
 
-  // Only a draft needs to know who is looking, so only a draft pays for the session lookup.
+  // Who is looking decides whether a draft shows at all, and whether the Design drawer is here.
+  // A guest has no session cookie, and the lookup returns without touching the database.
   const isDraft = event.state === "draft";
-  const isHost = isDraft && (await getSession())?.user.id === event.hostId;
+  const isHost = (await getSession())?.user.id === event.hostId;
   if (eventPageFor(event.state, { isHost }) === "notReady") {
     const t = await getTranslations("EventPage");
     return (
@@ -80,7 +81,6 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     );
   }
 
-  const theme = resolveTheme(event.theme);
   const locale = await getLocale();
   const link = `${baseUrl()}/e/${event.slug}`;
   // The same rule the file itself follows: there is nothing to put in a calendar until an event
@@ -98,17 +98,15 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   ]);
 
   return (
-    <ThemedPage theme={theme}>
+    <ThemedPage theme={event.theme} designer={isHost ? <DesignDrawer eventId={event.id} title={event.title} /> : undefined}>
       <PosterLayout
         event={event}
-        theme={theme}
         notice={isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined}
         rsvp={
           <RsvpFlow
             slug={event.slug}
             settings={event}
             mine={mine && guestRsvp(mine)}
-            buttonStyle={theme.buttonStyle}
             open={acceptsRsvps(event.state)}
             questions={questions}
             answers={answersStillOffered(answers, questions)}

@@ -6,14 +6,13 @@ import { formatDateSticker, formatWhen } from "@/events/time";
 import { cn } from "@/lib/utils";
 import { RichTextView } from "@/rich-text/rich-text-view";
 import { Glass } from "./glass";
-import type { ResolvedTheme } from "./resolve";
+import { PosterTitle } from "./poster-title";
 
 // The Poster layout (PROTOTYPE.md, the verdict): a frosted poster card with the title in the
-// theme's font, the RSVP buttons beneath it, then the details in glass tiles. The RSVP buttons
-// (ticket 07) and the guest list (ticket 08) render into their slots when they arrive.
+// theme's font, the RSVP buttons beneath it, then the details in glass tiles. It renders inside a
+// ThemedPage, which carries the theme.
 export async function PosterLayout({
   event,
-  theme,
   notice,
   rsvp,
   guestList,
@@ -22,7 +21,6 @@ export async function PosterLayout({
   calendar,
 }: {
   event: EventWithHost;
-  theme: ResolvedTheme;
   notice?: ReactNode;
   rsvp?: ReactNode;
   guestList?: ReactNode;
@@ -33,7 +31,6 @@ export async function PosterLayout({
 }) {
   const [t, locale] = await Promise.all([getTranslations("EventPage"), getLocale()]);
   const sticker = formatDateSticker(event, locale);
-  const long = event.title.length > LONG_TITLE;
 
   return (
     <main className="mx-auto max-w-xl px-4 pt-6 pb-16 sm:pt-10">
@@ -44,9 +41,7 @@ export async function PosterLayout({
           <DateSticker {...sticker} />
         </div>
         <p className={cn(label, "text-theme-text-muted")}>{t("eyebrow")}</p>
-        <h1 className={cn("font-title mt-12 text-balance break-words drop-shadow-title sm:mt-14", theme.font.className, long ? theme.font.sizes.long : theme.font.sizes.short)}>
-          {event.title}
-        </h1>
+        <PosterTitle title={event.title} className="mt-12 sm:mt-14" />
         <div className="mt-6 flex items-center gap-3">
           <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-theme-accent text-xs font-semibold text-theme-on-accent">
             {initialsOf(event.hostName)}
@@ -85,9 +80,6 @@ export async function PosterLayout({
     </main>
   );
 }
-
-// Past this many characters a title takes the smaller size (see TitleFont.sizes).
-const LONG_TITLE = 28;
 
 // Each piece rises into place on load. Under reduced motion none of these classes apply, so
 // nothing moves.

@@ -184,6 +184,8 @@
   /* Event page theme tokens (section 4 below), as utilities: bg-theme-glass, text-theme-accent... */
   --color-theme-accent: var(--theme-accent);
   --color-theme-on-accent: var(--theme-on-accent);
+  --color-theme-accent-ink: var(--theme-accent-ink);
+  --color-theme-veil: var(--theme-veil);
   --color-theme-base: var(--theme-base);
   --color-theme-text: var(--theme-text);
   --color-theme-text-muted: var(--theme-text-muted);
@@ -235,37 +237,12 @@
 /* === 4. EVENT PAGE THEME === */
 /*
   The event page paints its own theme and ignores the dashboard's light or dark setting (spec,
-  "Themes and templates"). The server resolves the accent into --theme-accent and --theme-on-accent
-  inline on .event-page and picks the text tone as data-tone; the tone's tokens live here, so the
-  first paint carries the finished look. The title font arrives through --theme-title-font, set by
-  the chosen font's class (src/themes/title-fonts.ts).
+  "Themes and templates"). Every theme colour arrives inline on .event-page as a --theme-*
+  variable (src/themes/resolve.ts, themeVariables): the accent, the text tone's colours, and the
+  glass, tinted just enough that all text reads (src/themes/legibility.ts). The text tone is also
+  there as data-tone. The title font arrives through --theme-title-font, set by the chosen font's
+  class (src/themes/title-fonts.ts).
 */
-.event-page {
-  /* The second backdrop blob, a warm pink in either tone (from the prototype). */
-  --theme-glow: #ff5c8a;
-}
-
-.event-page[data-tone="light"] {
-  --theme-base: #1b0f2b;
-  --theme-text: #ffffff;
-  --theme-text-muted: rgb(255 255 255 / 0.75);
-  --theme-text-faint: rgb(255 255 255 / 0.55);
-  --theme-glass: rgb(255 255 255 / 0.1);
-  --theme-glass-strong: rgb(255 255 255 / 0.14);
-  --theme-glass-border: rgb(255 255 255 / 0.15);
-  --theme-scrim: rgb(0 0 0 / 0.25);
-}
-
-.event-page[data-tone="dark"] {
-  --theme-base: #f4f1ea;
-  --theme-text: #1a1030;
-  --theme-text-muted: rgb(26 16 48 / 0.75);
-  --theme-text-faint: rgb(26 16 48 / 0.55);
-  --theme-glass: rgb(255 255 255 / 0.55);
-  --theme-glass-strong: rgb(255 255 255 / 0.7);
-  --theme-glass-border: rgb(0 0 0 / 0.1);
-  --theme-scrim: rgb(255 255 255 / 0.25);
-}
 
 @layer components {
   /* Film grain over the backdrop: a tiled SVG noise texture, blended so it reads on any background. */

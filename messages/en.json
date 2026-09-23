@@ -311,6 +311,64 @@
     "retiredTitle": "This link is no longer valid",
     "retired": "The host has issued a new link for this event. Ask them for it."
   },
+  "DesignDrawer": {
+    "open": "Design",
+    "title": "Design",
+    "close": "Close the design panel",
+    "autosave": "Changes are saved as you make them.",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "failed": "That change didn’t save. Try it again.",
+    "upload": "Upload your photo or poster",
+    "comingSoon": "Coming soon",
+    "templates": "Templates",
+    "templatesHint": "Each sets the whole theme. Change any part after.",
+    "theme": "Theme: {name}",
+    "custom": "Custom",
+    "customFrom": "Custom, started from {template}",
+    "layout": "Layout",
+    "layouts": {
+      "poster": {
+        "name": "Poster",
+        "note": "A card, three buttons, the details."
+      },
+      "broadsheet": {
+        "name": "Broadsheet",
+        "note": "An editorial page with one reply form."
+      },
+      "thread": {
+        "name": "Thread",
+        "note": "The invitation reads like a chat."
+      }
+    },
+    "background": "Background",
+    "details": "Details",
+    "font": "Title font",
+    "accent": "Accent colour",
+    "accentHint": "Auto takes it from the background.",
+    "auto": "Auto",
+    "swatches": {
+      "marigold": "Marigold",
+      "pink": "Pink",
+      "mint": "Mint",
+      "periwinkle": "Periwinkle",
+      "coral": "Coral",
+      "white": "White"
+    },
+    "textTone": "Text tone",
+    "textToneHint": "Auto reads the background’s brightness.",
+    "tones": {
+      "auto": "Auto",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "buttons": "RSVP buttons",
+    "buttonStyles": {
+      "glass": "Glass",
+      "solid": "Solid accent",
+      "outline": "Outline"
+    }
+  },
   "Guests": {
     "title": "Guest list",
     "backToEvent": "Back to the event",

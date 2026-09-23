@@ -1,33 +1,30 @@
 import { DEFAULT_BACKGROUND, findBackground, type Background } from "./backgrounds";
 import { TITLE_FONTS, type TitleFont } from "./fonts";
+import { css, GLOW, TONES, toneTokens, UNMEASURED, type ToneTokens } from "./legibility";
 import type { ButtonStyle, Theme } from "./theme";
 
 // What the server samples from a host's upload (ticket 12). Until then no event has one.
 export type SampledUpload = { accent: string | null; luminance: number };
 
 // A theme with every "auto" decided, ready to paint (spec, "Themes and templates"). Computed on
-// the server so the first paint carries the finished look.
+// the server for the first paint, and again in the host's browser while they change it.
 export type ResolvedTheme = {
   layout: "poster"; // M1 ships the Poster layout; other stored layouts render as Poster
   background: Background; // uploads as backgrounds arrive with ticket 12
   accent: string;
-  onAccent: string; // text that reads on the accent
   textTone: "light" | "dark";
   font: TitleFont;
   buttonStyle: ButtonStyle;
+  // Every colour the page paints text with and on, chosen together so that all of it reads.
+  tokens: ToneTokens;
 };
 
-// The colour the page settles to behind its backdrop, per tone. globals.css sets the same two
-// as --theme-base; they are repeated here for the preview card, which is painted without CSS.
-export const TONE_BASE = { light: "#1b0f2b", dark: "#f4f1ea" } as const;
-export const TONE_TEXT = { light: "#ffffff", dark: "#1a1030" } as const;
+// The colours the preview card paints with, which it cannot take from the page's stylesheet.
+export const TONE_BASE = { light: css(TONES.light.base), dark: css(TONES.dark.base) };
+export const TONE_TEXT = { light: css(TONES.light.text), dark: css(TONES.dark.text) };
 
 // Above this average luminance a background counts as light, so the text goes dark.
 const LIGHT_BACKGROUND = 0.6;
-
-// Text on the accent: dark plum on light accents, white on dark ones (from the prototype).
-const ON_LIGHT_ACCENT = "#2a1540";
-const ON_DARK_ACCENT = "#ffffff";
 
 export function resolveTheme(theme: Theme, upload: SampledUpload | null = null): ResolvedTheme {
   const background = findBackground(theme.backgroundId) ?? DEFAULT_BACKGROUND;
@@ -36,25 +33,34 @@ export function resolveTheme(theme: Theme, upload: SampledUpload | null = null):
   const uploadInUse = theme.backgroundId === null && theme.uploadId !== null ? upload : null;
   const accent = theme.accentOverride ?? uploadInUse?.accent ?? background.accent;
   const luminance = uploadInUse ? uploadInUse.luminance : background.luminance;
+  const textTone = theme.textTone === "auto" ? (luminance > LIGHT_BACKGROUND ? "dark" : "light") : theme.textTone;
   return {
     layout: "poster",
     background,
     accent,
-    onAccent: readsOn(accent),
-    textTone: theme.textTone === "auto" ? (luminance > LIGHT_BACKGROUND ? "dark" : "light") : theme.textTone,
+    textTone,
     font: TITLE_FONTS[theme.font],
     buttonStyle: theme.buttonStyle,
+    tokens: toneTokens(textTone, uploadInUse ? UNMEASURED : background, accent),
   };
 }
 
-// The resolved colours as CSS custom properties for the page's root element. The tone's own
-// tokens (text, glass, scrim) live in globals.css under [data-tone].
-export function themeVariables(resolved: ResolvedTheme): Record<string, string> {
-  return { "--theme-accent": resolved.accent, "--theme-on-accent": resolved.onAccent };
-}
-
-function readsOn(hex: string): string {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-  return luminance > 0.5 ? ON_LIGHT_ACCENT : ON_DARK_ACCENT;
+// The resolved theme as CSS custom properties for the page's root element (see globals.css,
+// "Event page theme"), so the first paint carries the finished look.
+export function themeVariables({ accent, tokens }: ResolvedTheme): Record<string, string> {
+  return {
+    "--theme-accent": accent,
+    "--theme-on-accent": css(tokens.onAccent),
+    "--theme-accent-ink": css(tokens.accentInk),
+    "--theme-base": css(tokens.base),
+    "--theme-text": css(tokens.text),
+    "--theme-text-muted": css(tokens.textMuted),
+    "--theme-text-faint": css(tokens.textFaint),
+    "--theme-glass": css(tokens.glass),
+    "--theme-glass-strong": css(tokens.glassStrong),
+    "--theme-glass-border": css(tokens.glassBorder),
+    "--theme-veil": css(tokens.veil),
+    "--theme-scrim": css(tokens.scrim),
+    "--theme-glow": css(GLOW),
+  };
 }

@@ -1,28 +1,63 @@
-import type { CSSProperties, ReactNode } from "react";
+"use client";
+
+import { createContext, use, useOptimistic, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { themeVariables, type ResolvedTheme } from "./resolve";
+import { applyChange, type ThemeChange } from "./changes";
+import { resolveTheme, themeVariables, type ResolvedTheme, type SampledUpload } from "./resolve";
+import type { Theme } from "./theme";
 import { TITLE_FONT_CLASSES } from "./title-fonts";
+
+// The theme the page is wearing right now. For a guest that is the saved theme, always. For the
+// host with the Design drawer open it runs ahead of the save: `change` shows a change at once,
+// inside the transition that saves it, and the page settles on the saved theme once it returns.
+type ThemeState = { theme: Theme; resolved: ResolvedTheme; change: (change: ThemeChange) => void };
+
+const ThemeContext = createContext<ThemeState | null>(null);
+
+export function useTheme(): ThemeState {
+  const state = use(ThemeContext);
+  if (!state) throw new Error("useTheme outside a ThemedPage");
+  return state;
+}
 
 // The root of a themed event page: carries the resolved theme as CSS variables and data
 // attributes (see globals.css, "Event page theme"), the chosen title font, and the backdrop every
-// layout shares. The layout renders inside it.
-export function ThemedPage({ theme, children }: { theme: ResolvedTheme; children: ReactNode }) {
+// layout shares. It renders on the server like any other, so the first paint is the finished
+// look. The layout renders inside it; `designer` is the host's Design drawer, beside it.
+export function ThemedPage({
+  theme: saved,
+  upload = null,
+  designer,
+  children,
+}: {
+  theme: Theme;
+  upload?: SampledUpload | null;
+  designer?: ReactNode;
+  children: ReactNode;
+}) {
+  const [theme, change] = useOptimistic(saved, applyChange);
+  const resolved = resolveTheme(theme, upload);
   return (
-    <div
-      data-tone={theme.textTone}
-      data-layout={theme.layout}
-      // No background of its own: a positioned box would paint over the fixed backdrop below.
-      className={cn("event-page relative min-h-dvh font-sans text-theme-text", TITLE_FONT_CLASSES[theme.font.key])}
-      style={themeVariables(theme) as CSSProperties}
-    >
-      <Backdrop theme={theme} />
-      {children}
-    </div>
+    <ThemeContext value={{ theme, resolved, change }}>
+      <div
+        data-tone={resolved.textTone}
+        data-layout={resolved.layout}
+        // No background of its own: a positioned box would paint over the fixed backdrop below.
+        className={cn("event-page relative min-h-dvh font-sans text-theme-text", TITLE_FONT_CLASSES[resolved.font.key])}
+        style={themeVariables(resolved) as CSSProperties}
+      >
+        <Backdrop theme={resolved} />
+        {children}
+      </div>
+      {designer}
+    </ThemeContext>
   );
 }
 
 // The warm layered background with grain: the gradient or scene, two soft blobs of colour that
-// drift when motion is welcome, and a fade into the base colour at the foot of the page.
+// drift when motion is welcome, and a fade into the base colour at the foot of the page. The
+// lightest and darkest points of each background are measured with all of this in place
+// (backgrounds.ts), so change them together.
 function Backdrop({ theme }: { theme: ResolvedTheme }) {
   const { background } = theme;
   return (

@@ -71,7 +71,7 @@ export async function GuestList({
               >
                 <span aria-hidden className={cn("size-2 rounded-full", DOT[guest.status])} />
                 {guest.name}
-                {guest.plusOnes > 0 && <span className="opacity-60">+{guest.plusOnes}</span>}
+                {guest.plusOnes > 0 && <span className="text-theme-text-faint">+{guest.plusOnes}</span>}
                 {/* The dot carries the status for the eye; the word carries it for everyone
                     else, and shows plainly for the two a guest cannot guess from a colour. */}
                 {guest.status === "going" ? (

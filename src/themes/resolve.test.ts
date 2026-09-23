@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { css } from "./legibility";
 import { resolveTheme, themeVariables } from "./resolve";
 import { DEFAULT_THEME, type Theme } from "./theme";
 
@@ -33,8 +34,8 @@ describe("resolveTheme", () => {
     });
 
     it("pairs the accent with a text colour that reads on it", () => {
-      expect(resolveTheme(DEFAULT_THEME).onAccent).toBe("#2a1540");
-      expect(resolveTheme({ ...DEFAULT_THEME, accentOverride: "#3a1b5c" }).onAccent).toBe("#ffffff");
+      expect(css(resolveTheme(DEFAULT_THEME).tokens.onAccent)).toBe("#2a1540");
+      expect(css(resolveTheme({ ...DEFAULT_THEME, accentOverride: "#3a1b5c" }).tokens.onAccent)).toBe("#ffffff");
     });
   });
 
@@ -64,7 +65,12 @@ describe("resolveTheme", () => {
     expect(resolveTheme({ ...DEFAULT_THEME, font: "rounded" }).font.name).toBe("Fredoka");
   });
 
-  it("expresses the accent as CSS variables for first paint", () => {
-    expect(themeVariables(resolveTheme(DEFAULT_THEME))).toEqual({ "--theme-accent": "#ffc36b", "--theme-on-accent": "#2a1540" });
+  it("expresses the accent and the tone's colours as CSS variables for first paint", () => {
+    const variables = themeVariables(resolveTheme(DEFAULT_THEME));
+    expect(variables).toMatchObject({ "--theme-accent": "#ffc36b", "--theme-on-accent": "#2a1540", "--theme-text": "#ffffff", "--theme-base": "#1b0f2b" });
+    for (const name of ["--theme-text-muted", "--theme-text-faint", "--theme-glass", "--theme-glass-strong", "--theme-veil", "--theme-accent-ink"]) {
+      expect(variables[name], name).toMatch(/^(#[0-9a-f]{6}|rgb\(\d+ \d+ \d+ \/ [0-9.]+\))$/);
+    }
+    expect(themeVariables(resolveTheme({ ...DEFAULT_THEME, textTone: "dark" }))["--theme-text"]).toBe("#1a1030");
   });
 });
