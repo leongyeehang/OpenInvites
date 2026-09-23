@@ -5,7 +5,7 @@ import { nextCookies } from "better-auth/next-js";
 import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
 import { deleteHostEvents } from "@/events/repository";
-import { admitNewHost, seatAdmittedHost } from "@/instance/admission";
+import { admitNewHost, seatAdmittedHost, seatVerifiedHost } from "@/instance/admission";
 import { baseUrl } from "@/instance/env";
 import { HOST_INVITATION_COOKIE } from "@/instance/host-invitation-token";
 import { isMailConfigured } from "@/mail/config";
@@ -28,8 +28,10 @@ function createAuth() {
       enabled: true,
       sendResetPassword: mail ? sendPasswordResetEmail : undefined,
     },
+    // A verified email is what makes the account OPERATOR_EMAIL names the operator (instance/
+    // admission.ts); this is where an email and password account gets one.
     emailVerification: mail
-      ? { sendVerificationEmail, sendOnSignUp: true, autoSignInAfterVerification: true }
+      ? { sendVerificationEmail, sendOnSignUp: true, autoSignInAfterVerification: true, afterEmailVerification: seatVerifiedHost }
       : undefined,
     // Better Auth's own default account linking applies unmodified: a provider's email links
     // to an existing host only when the provider reports it verified and the host's own email
@@ -51,8 +53,9 @@ function createAuth() {
     // the round trip to Google or GitHub. A refusal is thrown with its code, so the sign-up form
     // and the sign-in page (where a refused social sign-up lands) can each say why. It also fills
     // in a display name when the provider profile had none (GitHub already falls back to the
-    // login; this covers the rest, such as Google). `after` makes the first account, or the one
-    // OPERATOR_EMAIL names, the operator.
+    // login; this covers the rest, such as Google). `after` makes the first account the operator,
+    // and the one OPERATOR_EMAIL names too when its email is verified or, without mail, when there
+    // is no operator yet.
     databaseHooks: {
       user: {
         create: {

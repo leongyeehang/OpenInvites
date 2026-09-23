@@ -2,8 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 const isCI = !!process.env.CI;
 
-// The spec that needs an instance to itself: `app-fresh` of the Compose test profile.
-const FRESH_INSTANCE = /registration\.spec\.ts/;
+// The specs that need an instance to themselves: `app-fresh` and `app-no-mail` of the Compose
+// test profile.
+const FRESH_INSTANCE = /registration(-without-mail)?\.spec\.ts/;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -34,8 +35,8 @@ export default defineConfig({
       testIgnore: FRESH_INSTANCE,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } },
     },
-    // One instance, so one project: its scenarios run in order and change what the instance is.
-    // The operator works at desktop width and the people signing up at 390px (the spec says so).
+    // One instance per spec, so one project: each spec's scenarios run in order and change what
+    // its instance is. The operator works at desktop width and the people signing up at 390px.
     {
       name: "fresh-instance",
       testMatch: FRESH_INSTANCE,

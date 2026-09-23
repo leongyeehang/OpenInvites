@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isOperatorEmail, signUpNotice, signUpRefusal, type SignUpFacts } from "./registration";
+import { isOperatorEmail, operatorEmailSeat, signUpNotice, signUpRefusal, type SignUpFacts } from "./registration";
 
 describe("signUpRefusal", () => {
   const closed: SignUpFacts = { byOperatorEmail: false, firstAccount: false, mode: "invitationOnly", invitation: "none" };
@@ -71,5 +71,28 @@ describe("isOperatorEmail", () => {
     expect(isOperatorEmail("olive@example.org", undefined)).toBe(false);
     expect(isOperatorEmail("", "")).toBe(false);
     expect(isOperatorEmail("", "   ")).toBe(false);
+  });
+});
+
+describe("operatorEmailSeat", () => {
+  const verified = { emailVerified: true };
+  const unverified = { emailVerified: false };
+
+  it("with mail, never seats an account whose email is not verified, whenever it is asked", () => {
+    expect(operatorEmailSeat("account", unverified, true)).toBe("none");
+    expect(operatorEmailSeat("start", unverified, true)).toBe("none");
+  });
+
+  it("with mail, seats a verified account in place of whoever is the operator", () => {
+    expect(operatorEmailSeat("account", verified, true)).toBe("take");
+    expect(operatorEmailSeat("start", verified, true)).toBe("take");
+  });
+
+  it("without mail, seats a new account only while nobody is the operator", () => {
+    expect(operatorEmailSeat("account", unverified, false)).toBe("takeIfEmpty");
+  });
+
+  it("without mail, hands the seat over only at start, the restart the operator controls", () => {
+    expect(operatorEmailSeat("start", unverified, false)).toBe("take");
   });
 });

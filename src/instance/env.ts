@@ -12,9 +12,8 @@ export function operatorContactEmail(): string | undefined {
   return process.env.OPERATOR_CONTACT_EMAIL?.trim() || undefined;
 }
 
-// The account that is the operator (OPERATOR_EMAIL): promoted at start if it exists, let in
-// whatever the registration mode, and made the operator the moment it is created. The operator's
-// way back in, should someone else have created the first account on a fresh instance.
+// The operator's own account (OPERATOR_EMAIL): let in to sign up whatever the registration mode,
+// and made the operator once it proves it holds the address, or at start (instance/admission.ts).
 export function operatorEmail(): string | undefined {
   return process.env.OPERATOR_EMAIL?.trim().toLowerCase() || undefined;
 }

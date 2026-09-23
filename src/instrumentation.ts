@@ -7,15 +7,15 @@ export async function register(): Promise<void> {
   const { runMigrations } = await import("./db/migrate");
   await runMigrations(databaseUrl());
   // Settings the first sign-up or upload would otherwise trip over: fail at start instead.
-  const { baseUrl, maxUploadBytes, operatorEmail } = await import("./instance/env");
+  const { baseUrl, maxUploadBytes } = await import("./instance/env");
   const { mailConfig } = await import("./mail/config");
   const { storageConfig } = await import("./storage/config");
   baseUrl();
   mailConfig();
   storageConfig();
   maxUploadBytes();
-  // The account OPERATOR_EMAIL names becomes the operator at every start, if it exists yet.
-  const { promoteOperator } = await import("./instance/repository");
-  const email = operatorEmail();
-  if (email) await promoteOperator(email);
+  // The account OPERATOR_EMAIL names becomes the operator at every start, if it exists yet and,
+  // with mail, has verified its email.
+  const { promoteOperatorAtStart } = await import("./instance/admission");
+  await promoteOperatorAtStart();
 }

@@ -1,6 +1,6 @@
-import { execFileSync } from "node:child_process";
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { latestMailTo, linkIn, newHost, PASSWORD, signIn, signUp, submitSignUp } from "./hosts";
+import { latestMailTo, linkIn, mailCountTo, newHost, PASSWORD, signIn, signUp, submitSignUp, verifyEmail } from "./hosts";
+import { recreate } from "./instances";
 
 // Runs against `app-fresh` (compose.yaml), an instance of its own whose database starts empty:
 // who creates the first account, and which registration mode is on, belong to the whole instance.
@@ -18,14 +18,10 @@ const UNUSABLE = "This host invitation can no longer be used. Ask the operator o
 let firstHost: Page;
 let operator: Page;
 
-// Its database lives in memory, so recreating both containers gives an instance nobody has used.
+// Recreating the database container as well gives an instance nobody has used.
 test.beforeAll(() => {
   test.setTimeout(180_000);
-  execFileSync(
-    "docker",
-    ["compose", "--profile", "test", "up", "-d", "--force-recreate", "--no-deps", "--wait", "db-fresh", "app-fresh"],
-    { stdio: "pipe" },
-  );
+  recreate("db-fresh", "app-fresh");
 });
 
 test.afterAll(async () => {
@@ -60,9 +56,31 @@ test("the sign-up page says a host invitation is needed, and a sign-up without o
   await page.context().close();
 });
 
-test("the email OPERATOR_EMAIL names signs up anyway, and takes over as the operator", async ({ browser }) => {
+// Anyone may type the OPERATOR_EMAIL address into the sign-up form; only its verification link,
+// sent to that address, shows the account is the operator's.
+test("the email OPERATOR_EMAIL names signs up anyway, and takes over as the operator once it is verified", async ({
+  browser,
+  request,
+}) => {
+  test.slow();
   operator = await (await browser.newContext()).newPage();
+  const mails = await mailCountTo(request, OPERATOR.email);
   await signUp(operator, OPERATOR);
+  await expect(operator.getByText("Verify your email")).toBeVisible();
+  await expect(operator.getByRole("link", { name: "Instance settings" })).toHaveCount(0);
+  await operator.goto("/instance");
+  await expect(operator.getByRole("heading", { name: "Page not found" })).toBeVisible();
+
+  // Nor does a restart make an account the operator before its email is verified.
+  recreate("app-fresh");
+  await operator.goto("/dashboard");
+  await expect(operator.getByRole("banner").getByText(OPERATOR.name)).toBeVisible();
+  await expect(operator.getByRole("link", { name: "Instance settings" })).toHaveCount(0);
+  await firstHost.goto("/dashboard");
+  await expect(firstHost.getByRole("link", { name: "Instance settings" })).toBeVisible();
+
+  await verifyEmail(operator, request, OPERATOR.email, mails);
+  await operator.goto("/dashboard");
   await expect(operator.getByRole("link", { name: "Instance settings" })).toBeVisible();
 
   await firstHost.goto("/dashboard");

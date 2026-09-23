@@ -16,7 +16,8 @@ export function isRegistrationMode(value: unknown): value is RegistrationMode {
 export type InvitationOutcome = "none" | "accepted" | "unusable";
 
 export type SignUpFacts = {
-  // The email is the one OPERATOR_EMAIL names: the operator's way back in, in any mode.
+  // The email is the one OPERATOR_EMAIL names, which may always sign up: the operator's own
+  // account can be made in any mode. Becoming the operator is operatorEmailSeat's to decide.
   byOperatorEmail: boolean;
   // This sign-up found the instance empty and took it: nobody was there to give it a host invitation.
   firstAccount: boolean;
@@ -56,4 +57,17 @@ function normalizedEmail(email: string | undefined): string {
 export function isOperatorEmail(email: string, setting: string | undefined): boolean {
   const operator = normalizedEmail(setting);
   return operator !== "" && normalizedEmail(email) === operator;
+}
+
+export type OperatorSeat = "take" | "takeIfEmpty" | "none";
+
+// Whether the account OPERATOR_EMAIL names becomes the operator: when it is created or verifies its
+// email ("account"), or when the instance starts. Letting that email sign up proves nothing, since
+// anyone may type it. With mail, only a verified email does: Google or GitHub saying so at creation,
+// the verification link opened, or a verified account at start. Without mail there is no verifying,
+// so a new account takes only an empty seat, and only a start, the restart the operator controls,
+// hands the seat over from whoever holds it.
+export function operatorEmailSeat(moment: "account" | "start", account: { emailVerified: boolean }, mailConfigured: boolean): OperatorSeat {
+  if (mailConfigured) return account.emailVerified ? "take" : "none";
+  return moment === "start" ? "take" : "takeIfEmpty";
 }

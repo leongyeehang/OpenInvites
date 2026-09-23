@@ -50,7 +50,7 @@ jobs:
 
       - name: App logs
         if: failure()
-        run: docker compose --profile test logs app app-fresh
+        run: docker compose --profile test logs app app-fresh app-no-mail
 
       - uses: actions/upload-artifact@v4
         if: failure()

@@ -46,8 +46,9 @@ export async function mailCountTo(request: APIRequestContext, email: string): Pr
   return ((await response.json()) as { messages: unknown[] }).messages.length;
 }
 
-// The newest email Mailpit holds for this address, as plain text.
-export async function latestMailTo(request: APIRequestContext, email: string): Promise<string> {
+// The newest email Mailpit holds for this address, as plain text. `after` waits for one that
+// arrived once there were that many, for an address that has had mail before.
+export async function latestMailTo(request: APIRequestContext, email: string, after = 0): Promise<string> {
   let id = "";
   await expect
     .poll(
@@ -59,7 +60,7 @@ export async function latestMailTo(request: APIRequestContext, email: string): P
       },
       { timeout: 15_000, message: `an email to ${email}` },
     )
-    .toBeGreaterThan(0);
+    .toBeGreaterThan(after);
   const message = (await (await request.get(`${MAILPIT}/api/v1/message/${id}`)).json()) as { Text: string };
   return message.Text;
 }
@@ -78,8 +79,8 @@ export function linkIn(text: string): string {
 // profile has none, so every host in the run would count as one client, and the suite would be
 // refused after its hundredth host. Each host here is someone on their own device, so the page
 // says so, the way the proxy would (X-Forwarded-For, which Better Auth reads).
-export async function verifyEmail(page: Page, request: APIRequestContext, email: string) {
-  const link = linkIn(await latestMailTo(request, email));
+export async function verifyEmail(page: Page, request: APIRequestContext, email: string, after = 0) {
+  const link = linkIn(await latestMailTo(request, email, after));
   await page.setExtraHTTPHeaders({ "x-forwarded-for": clientAddress() });
   await page.goto(link);
   await expect(page.getByRole("heading", { name: "Email verified" })).toBeVisible();

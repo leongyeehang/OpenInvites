@@ -28,8 +28,8 @@ services:
       SMTP_URL: smtp://mail:1025
       MAIL_FROM: OpenInvites <no-reply@openinvites.test>
       OPERATOR_CONTACT_EMAIL: operator@openinvites.test
-      # The browser tests' operator (e2e/operator.setup.ts), who opens registration to everyone
-      # before the other specs run, since each of them signs up hosts of its own.
+      # The browser tests' operator (e2e/operator.setup.ts), who verifies their email and opens
+      # registration to everyone before the other specs run, since each signs up hosts of its own.
       OPERATOR_EMAIL: operator@openinvites.test
     ports:
       - "3000:3000"
@@ -105,6 +105,38 @@ services:
         condition: service_healthy
       mail:
         condition: service_started
+
+  # The same again without mail, where no email can be verified: there the account OPERATOR_EMAIL
+  # names takes over from an operator only at a restart. e2e/registration-without-mail.spec.ts
+  # recreates both containers before it runs, as registration.spec.ts does for app-fresh.
+  db-no-mail:
+    image: postgres:18-alpine
+    profiles: [test]
+    environment:
+      POSTGRES_USER: openinvites
+      POSTGRES_PASSWORD: openinvites
+      POSTGRES_DB: openinvites
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openinvites -d openinvites"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  app-no-mail:
+    build: .
+    profiles: [test]
+    environment:
+      DATABASE_URL: postgres://openinvites:openinvites@db-no-mail:5432/openinvites
+      BASE_URL: http://localhost:3003
+      AUTH_SECRET: test-profile-only-secret-change-me-0123456789abcdef
+      OPERATOR_EMAIL: operator@no-mail.openinvites.test
+    ports:
+      - "3003:3000"
+    depends_on:
+      db-no-mail:
+        condition: service_healthy
 
   # Fake mail server: catches every email the app sends. Web UI on 8025, SMTP on 1025.
   mail:

@@ -4,7 +4,7 @@ import { getDb } from "@/db/client";
 import { hostInvitation, instanceSettings, user } from "@/db/schema";
 import { hostInvitationExpiry } from "./host-invitation";
 import { hashHostInvitationToken } from "./host-invitation-token";
-import type { RegistrationMode } from "./registration";
+import type { OperatorSeat, RegistrationMode } from "./registration";
 
 // The instance settings row always exists: the migration that made the table put it there.
 
@@ -46,22 +46,29 @@ export async function claimEmptyInstance(email: string): Promise<boolean> {
   return claimed.length > 0;
 }
 
-// Once a new host's account exists. The first account becomes the operator, unless the one
-// OPERATOR_EMAIL names got there in the meantime; the one OPERATOR_EMAIL names always becomes the
-// operator, in place of whoever was. Either way there is one operator: it is one column.
-export async function seatNewHost(host: { id: string; email: string }, byOperatorEmail: boolean): Promise<void> {
-  const db = getDb();
-  await db
+// Once a new host's account exists: if it took the empty instance, it becomes the operator,
+// unless the account OPERATOR_EMAIL names was seated in the meantime. There is one operator
+// whatever happens: it is one column.
+export async function seatFirstAccount(host: { id: string; email: string }): Promise<void> {
+  await getDb()
     .update(instanceSettings)
     .set({ operatorId: sql`coalesce(${instanceSettings.operatorId}, ${host.id}::uuid)`, firstAccountEmail: null })
     .where(eq(instanceSettings.firstAccountEmail, host.email));
-  if (byOperatorEmail) await db.update(instanceSettings).set({ operatorId: host.id });
 }
 
-// At start: the account OPERATOR_EMAIL names, if it exists, is the operator from now on.
-export async function promoteOperator(email: string): Promise<void> {
-  const [host] = await getDb().select({ id: user.id }).from(user).where(eq(user.email, email));
-  if (host) await getDb().update(instanceSettings).set({ operatorId: host.id });
+// The account OPERATOR_EMAIL names takes the operator's seat as operatorEmailSeat allows: in place
+// of whoever holds it, or only while nobody does, which the statement itself checks.
+export async function takeOperatorSeat(hostId: string, seat: OperatorSeat): Promise<void> {
+  if (seat === "none") return;
+  await getDb()
+    .update(instanceSettings)
+    .set({ operatorId: hostId })
+    .where(seat === "takeIfEmpty" ? isNull(instanceSettings.operatorId) : undefined);
+}
+
+export async function findAccountByEmail(email: string): Promise<{ id: string; emailVerified: boolean } | undefined> {
+  const [found] = await getDb().select({ id: user.id, emailVerified: user.emailVerified }).from(user).where(eq(user.email, email));
+  return found;
 }
 
 export type HostInvitation = typeof hostInvitation.$inferSelect;
