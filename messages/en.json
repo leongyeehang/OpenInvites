@@ -323,7 +323,7 @@
     "uploading": "Uploading…",
     "uploadHint": "A JPEG, PNG, WebP or AVIF picture, up to {max, number} MB.",
     "uploadProblems": {
-      "tooLarge": "That picture is larger than {max, number} MB, the most this site takes. Choose a smaller one.",
+      "tooLarge": "That picture is larger than {max, number} MB, the largest that can be uploaded here. Choose a smaller one.",
       "unsupported": "That file isn’t a picture that can be used here. Choose a JPEG, PNG, WebP or AVIF picture.",
       "tooManyPixels": "That picture has too many pixels to work with. Choose one under 50 megapixels.",
       "failed": "The picture didn’t upload. Try it again."

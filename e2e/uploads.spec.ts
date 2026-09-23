@@ -145,7 +145,7 @@ test("a picture over the size limit, or a file that is not a picture, is refused
 
   // The instance takes pictures up to 10 MB unless its operator says otherwise.
   await control.setInputFiles({ name: "huge.jpg", mimeType: "image/jpeg", buffer: Buffer.alloc(11 * 1024 * 1024) });
-  await expect(drawer.getByRole("alert")).toHaveText("That picture is larger than 10 MB, the most this site takes. Choose a smaller one.");
+  await expect(drawer.getByRole("alert")).toHaveText("That picture is larger than 10 MB, the largest that can be uploaded here. Choose a smaller one.");
 
   // Named and typed as a JPEG, but it is not one: the server reads the file itself.
   await control.setInputFiles({ name: "photo.jpg", mimeType: "image/jpeg", buffer: Buffer.from("These are the directions to the garden, not a photo.") });
