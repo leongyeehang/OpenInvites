@@ -1,6 +1,6 @@
-import { clientAddress } from "./client-address";
+import { clientKey } from "./client-key";
 import { rateLimitConfig, type LimitName, type RateLimitConfig } from "./config";
-import { countRequest, isOver, type Rule, type Window } from "./window";
+import { WindowTable, type Rule } from "./window";
 
 export type { LimitName } from "./config";
 
@@ -10,28 +10,23 @@ export type Verdict = { allowed: true } | { allowed: false; retryAfterSeconds: n
 // (spec, "Operator configuration"); a store shared by several containers would take its place
 // behind this interface.
 export interface RateLimitStore {
-  hit(key: string, rule: Rule, now: number): Promise<Verdict>;
+  hit(limit: LimitName, client: string, rule: Rule, now: number): Promise<Verdict>;
 }
 
-const SWEEP_EVERY_MS = 60_000;
+// The most clients one limit keeps a count for: a window costs about 200 bytes, so this is about
+// 4 MB a limit at worst. Past it, the oldest windows are forgotten first (window.ts), so a flood
+// of addresses can only make the limit forget older clients sooner, never exhaust the memory.
+const MAX_CLIENTS_PER_LIMIT = 20_000;
 
 class MemoryStore implements RateLimitStore {
-  private readonly windows = new Map<string, { window: Window; rule: Rule }>();
-  private sweptAt = 0;
+  private readonly tables = new Map<LimitName, WindowTable>();
 
-  async hit(key: string, rule: Rule, now: number): Promise<Verdict> {
-    this.sweep(now);
-    const outcome = countRequest(this.windows.get(key)?.window, rule, now);
-    this.windows.set(key, { window: outcome.window, rule });
+  async hit(limit: LimitName, client: string, rule: Rule, now: number): Promise<Verdict> {
+    let table = this.tables.get(limit);
+    if (!table) this.tables.set(limit, (table = new WindowTable(rule, MAX_CLIENTS_PER_LIMIT)));
+    const outcome = table.count(client, now);
     if (outcome.allowed) return { allowed: true };
     return { allowed: false, retryAfterSeconds: Math.max(1, Math.ceil(outcome.retryAfterMs / 1000)) };
-  }
-
-  // Windows that are over are forgotten once a minute, so memory follows the clients seen lately.
-  private sweep(now: number) {
-    if (now - this.sweptAt < SWEEP_EVERY_MS) return;
-    this.sweptAt = now;
-    for (const [key, { window, rule }] of this.windows) if (isOver(window, rule, now)) this.windows.delete(key);
   }
 }
 
@@ -49,12 +44,11 @@ function shared(): Shared {
 }
 
 // Counts one request against a limit, for the client the request's headers say it comes from,
-// and says whether it may go ahead. Every limit is counted this way, by client address
-// (client-address.ts).
+// and says whether it may go ahead. Every limit is counted this way, by client (client-key.ts).
 export async function consume(limit: LimitName, headers: Headers): Promise<Verdict> {
   const { store, config } = shared();
-  const address = clientAddress(headers.get("x-forwarded-for"), config.trustedProxyHops) ?? everyone(config.trustedProxyHops);
-  return store.hit(`${limit} ${address}`, config.rules[limit], Date.now());
+  const client = clientKey(headers.get("x-forwarded-for"), config.trustedProxyHops) ?? everyone(config.trustedProxyHops);
+  return store.hit(limit, client, config.rules[limit], Date.now());
 }
 
 // A request whose client cannot be told apart counts together with every other such request.

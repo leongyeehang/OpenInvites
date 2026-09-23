@@ -45,7 +45,7 @@ function parseRule(variable: string, setting: string): Rule {
 }
 
 // How many reverse proxies stand in front of the app, each appending to X-Forwarded-For
-// (client-address.ts). One by default: the Caddy of the deployment package.
+// (client-key.ts). One by default: the Caddy of the deployment package.
 function parseHops(setting: string | undefined): number {
   if (!setting) return 1;
   if (!/^\d+$/.test(setting)) throw new Error(`TRUSTED_PROXY_HOPS must be the number of reverse proxies in front of the app, such as 1, not "${setting}"`);

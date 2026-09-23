@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countRequest, isOver, type Rule, type Window } from "./window";
+import { countRequest, isOver, WindowTable, type Rule, type Window } from "./window";
 
 const RULE: Rule = { limit: 3, windowMs: 60_000 };
 const START = 1_000_000;
@@ -51,5 +51,58 @@ describe("isOver", () => {
     const window = { startedAt: START, count: 3 };
     expect(isOver(window, RULE, START + 59_999)).toBe(false);
     expect(isOver(window, RULE, START + 60_000)).toBe(true);
+  });
+});
+
+describe("WindowTable", () => {
+  const MINUTE = 60_000;
+  const ONE: Rule = { limit: 1, windowMs: MINUTE };
+
+  it("counts each client apart", () => {
+    const table = new WindowTable(RULE, 100);
+    expect([1, 2, 3, 4].map(() => table.count("a", START).allowed)).toEqual([true, true, true, false]);
+    expect(table.count("b", START).allowed).toBe(true);
+  });
+
+  it("forgets the windows that are over as requests arrive, oldest first", () => {
+    const table = new WindowTable(ONE, 100);
+    table.count("a", START);
+    table.count("b", START + 10_000);
+    table.count("c", START + 30_000);
+    expect(table.size).toBe(3);
+    // a's window ended at START + 60 s and b's at START + 70 s; c's is still open.
+    table.count("d", START + 70_000);
+    expect(table.size).toBe(2);
+  });
+
+  it("puts a window that opens again behind the others, so it is not forgotten early", () => {
+    const table = new WindowTable(ONE, 100);
+    table.count("a", START);
+    table.count("b", START + 30_000);
+    table.count("a", START + 61_000);
+    // b's window is over at START + 90 s; a's second one is not.
+    table.count("c", START + 91_000);
+    expect(table.size).toBe(2);
+    expect(table.count("a", START + 91_000).allowed).toBe(false);
+  });
+
+  it("holds no more clients than it may, forgetting the oldest windows first", () => {
+    const table = new WindowTable(ONE, 3);
+    for (const [at, client] of ["a", "b", "c", "d"].entries()) table.count(client, START + at);
+    expect(table.size).toBe(3);
+    // a was pushed out, so it starts again; b, c and d are still counted.
+    expect(table.count("b", START + 10).allowed).toBe(false);
+    expect(table.count("a", START + 10).allowed).toBe(true);
+    expect(table.size).toBe(3);
+  });
+
+  it("does not grow or reorder on a refused request", () => {
+    const table = new WindowTable(ONE, 2);
+    table.count("a", START);
+    table.count("b", START + 1);
+    expect(table.count("a", START + 2).allowed).toBe(false);
+    // Had a moved behind b, the next client would push b out rather than a.
+    table.count("c", START + 3);
+    expect(table.count("a", START + 4).allowed).toBe(true);
   });
 });

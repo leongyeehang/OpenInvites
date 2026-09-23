@@ -20,3 +20,37 @@ export function countRequest(current: Window | undefined, rule: Rule, now: numbe
 export function isOver(window: Window, rule: Rule, now: number): boolean {
   return now >= window.startedAt + rule.windowMs;
 }
+
+// One limit's windows, one per client, in the order they opened: a Map keeps its keys in the order
+// they were added, a count within a window is updated in place, and a window that is over is
+// forgotten before its client's next one is added at the back. With one rule for all of them,
+// the windows that are over are always at the front, and each request forgets just those, which
+// costs nothing when none are over. Past `maxClients` the oldest windows are forgotten first, so a
+// flood of new clients can push counts out but never grow the table.
+export class WindowTable {
+  private readonly windows = new Map<string, Window>();
+
+  constructor(
+    private readonly rule: Rule,
+    private readonly maxClients: number,
+  ) {}
+
+  count(client: string, now: number): Outcome {
+    for (const [oldest, window] of this.windows) {
+      if (!isOver(window, this.rule, now)) break;
+      this.windows.delete(oldest);
+    }
+    const current = this.windows.get(client);
+    const outcome = countRequest(current, this.rule, now);
+    if (outcome.window !== current) this.windows.set(client, outcome.window);
+    for (const oldest of this.windows.keys()) {
+      if (this.windows.size <= this.maxClients) break;
+      this.windows.delete(oldest);
+    }
+    return outcome;
+  }
+
+  get size(): number {
+    return this.windows.size;
+  }
+}
