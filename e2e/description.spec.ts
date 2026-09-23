@@ -64,13 +64,17 @@ test("a hostile paste leaves nothing but words behind", async ({ page, request, 
   });
 
   // What a paste from a hostile page would leave in the editable area.
-  await host.page.getByLabel("Description").evaluate((element) => {
+  const editor = host.page.getByLabel("Description");
+  await editor.evaluate((element) => {
     element.innerHTML =
       '<p>Safe <b>bold</b> <a href="javascript:alert(1)">tap me</a></p>' +
       '<script>alert(2)</script><iframe src="https://evil.test"></iframe>' +
       '<img src=x onerror="alert(3)"><h1>Shouty</h1>';
     element.dispatchEvent(new Event("input", { bubbles: true }));
   });
+  // The browser tries the picture, gives up, and draws a broken icon in its place, which moves
+  // the rest of the form down. The host saves once the editor has settled.
+  await expect(editor.locator("img")).toHaveJSProperty("complete", true);
   await host.page.getByRole("button", { name: "Save changes" }).click();
   await expect(host.page.getByText("Saved.")).toBeVisible({ timeout: 15_000 });
 
