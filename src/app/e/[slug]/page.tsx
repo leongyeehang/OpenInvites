@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { getLocale, getTranslations } from "next-intl/server";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getSession } from "@/auth/session";
 import { PageFooter } from "@/components/page-footer";
+import { TooFast } from "@/components/too-fast";
 import { acceptsRsvps, eventPageFor } from "@/events/access";
 import { findEventBySlug, isRetiredSlug } from "@/events/repository";
 import { baseUrl, maxUploadBytes } from "@/instance/env";
@@ -10,6 +13,7 @@ import { isSlug } from "@/events/slug";
 import { answersStillOffered } from "@/questions/answers";
 import { findAnswers, listQuestions } from "@/questions/repository";
 import { asTally, countRsvps } from "@/rsvps/counts";
+import { consume } from "@/rate-limit/rate-limit";
 import { findRsvpOnThisDevice, guestRsvp } from "@/rsvps/guest";
 import { listPublicGuestList } from "@/rsvps/repository";
 import { guestListView } from "@/rsvps/visibility";
@@ -30,8 +34,26 @@ import { Countdown, MapLink, ViewerTime } from "./viewer";
 // Event pages are never indexed (ADR-0004). The header carries the same signal (next.config.ts).
 const noindex: Metadata["robots"] = { index: false, follow: false };
 
+// One of this page's own server actions (a guest's RSVP, the host's Design drawer) that changed
+// something (revalidated, refreshed, or set a cookie) is answered with the page it was posted to,
+// drawn again, whatever slug that page's address names. So such an action posted to an event link
+// asks for that page as surely as a visit does, and would tell whether its slug exists. (Next.js
+// hands any other action to a page it belongs to, which never draws this one.) The proxy lets
+// actions through, as they are forms with limits and messages of their own (src/proxy.ts); the
+// page counts its own redrawing instead, against the event page limit, for anyone but the event's
+// host, whose Design drawer redraws it at every change. Past the limit it is drawn as "too fast"
+// whatever the slug. Cached, so the page and its metadata count once.
+const redrawAllowed = cache(async (slug: string): Promise<boolean> => {
+  const requestHeaders = await headers();
+  if (!requestHeaders.has("next-action")) return true;
+  const event = isSlug(slug) ? await findEventBySlug(slug) : undefined;
+  if (event && (await getSession())?.user.id === event.hostId) return true;
+  return (await consume("eventPage", requestHeaders)).allowed;
+});
+
 export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Promise<Metadata> {
   const { slug } = await params;
+  if (!(await redrawAllowed(slug))) return { title: (await getTranslations("TooFast"))("title"), robots: noindex };
   const event = isSlug(slug) ? await findEventBySlug(slug) : undefined;
   const [t, notFound] = await Promise.all([getTranslations("EventPage"), getTranslations("NotFound")]);
   if (!event) {
@@ -64,6 +86,7 @@ export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Prom
 // layout to it. The host also gets the Design drawer on their own page.
 export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const { slug } = await params;
+  if (!(await redrawAllowed(slug))) return <TooFast />;
   if (!isSlug(slug)) notFound();
   const event = await findEventBySlug(slug);
   if (!event) {

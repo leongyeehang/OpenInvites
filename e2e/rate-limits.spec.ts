@@ -19,6 +19,7 @@ function unknownSlug() {
 }
 
 test("someone guessing at event links is held up like anyone asking for event pages too often", async ({ page, request, extraHTTPHeaders }) => {
+  test.slow();
   for (let tried = 0; tried < EVENT_PAGE_LIMIT; tried++) {
     expect((await request.get(`/e/${unknownSlug()}`)).status()).toBe(404);
   }
@@ -45,6 +46,37 @@ test("someone guessing at event links is held up like anyone asking for event pa
   expect((await request.get(`/e/${unknownSlug()}`, { headers: { "x-forwarded-for": clientAddress() } })).status()).toBe(404);
 });
 
+test("posting to event links is held up like asking for them, so a guess cannot be posted instead", async ({ page, request }) => {
+  test.slow();
+  // A post that is not a server action is drawn as the page would be, so it would tell a real
+  // link from a guess.
+  for (let tried = 0; tried < EVENT_PAGE_LIMIT; tried++) {
+    const posted = tried % 2 ? { form: { guess: "yes" } } : { data: { guess: "yes" } };
+    expect((await request.post(`/e/${unknownSlug()}`, posted)).status()).toBe(404);
+  }
+  expect((await request.post(`/e/${unknownSlug()}`, { form: { guess: "yes" } })).status()).toBe(429);
+  // Posts and visits share one allowance.
+  expect((await page.goto(`/e/${unknownSlug()}`))?.status()).toBe(429);
+  await expect(page.getByRole("heading", { name: "You’re going too fast" })).toBeVisible();
+});
+
+test("a guest who has asked for event pages too often is told so when their answer redraws the page", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "rate-redraw", { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0" });
+  await page.goto(host.link);
+  // The guest's address uses up the rest of its allowance elsewhere, until it is refused.
+  let refusedAfter = 0;
+  while ((await request.get(`/e/${unknownSlug()}`)).status() !== 429) expect(++refusedAfter).toBeLessThan(EVENT_PAGE_LIMIT);
+
+  // Answering is the page's own form, so it goes through, but the page it answers with is one
+  // more request for an event page: it says so rather than showing the invitation.
+  await page.getByRole("button", { name: "Going" }).click();
+  await page.getByRole("dialog", { name: "Your RSVP" }).getByLabel("Your name").fill("Priya Nair");
+  await page.getByRole("dialog", { name: "Your RSVP" }).getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByRole("heading", { name: "You’re going too fast" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ada’s birthday" })).toBeHidden();
+});
+
 test("a guest who sends RSVP after RSVP is told to slow down where the flow's other messages appear", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "rate-rsvp", { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0" });
@@ -67,6 +99,13 @@ test("a guest who sends RSVP after RSVP is told to slow down where the flow's ot
   await sheet.getByRole("button", { name: "Send RSVP" }).click();
   await expect(sheet.getByRole("alert")).toHaveText(TOO_FAST);
   await expect(sheet.getByLabel("Your name")).toHaveValue("Priya N.");
+
+  // Removing it counts as an RSVP too, and is refused the same way, with the confirmation.
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Show my RSVP" }).click();
+  await sheet.getByRole("button", { name: "Remove my RSVP" }).click();
+  await expect(sheet.getByRole("alert")).toHaveText(TOO_FAST);
+  await expect(sheet.getByText("You’re going!")).toBeVisible();
 
   // The RSVP they had already sent still stands.
   await page.reload();

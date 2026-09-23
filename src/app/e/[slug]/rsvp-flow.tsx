@@ -79,6 +79,8 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
   const [answer, setAnswer] = useState(mine);
   const [draft, setDraft] = useState<Draft>(() => draftFrom(mine, settings, answers));
   const [error, setError] = useState<RsvpRefusal>();
+  // Why the guest's RSVP could not be removed just now, shown with their confirmation.
+  const [withdrawRefusal, setWithdrawRefusal] = useState<"tooFast">();
   const [working, startWorking] = useTransition();
   const form = useRef<HTMLFormElement>(null);
   // The sheet opens when the guest chooses a status or asks to see their RSVP, and hands focus
@@ -160,7 +162,9 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
 
   const remove = () =>
     startWorking(async () => {
-      await removeRsvpAction(slug);
+      const result = await removeRsvpAction(slug);
+      setWithdrawRefusal(result.error);
+      if (result.error) return;
       setAnswer(undefined);
       setDraft(BLANK);
       setStep("idle");
@@ -169,10 +173,17 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
   const confirmation = confirmed && (
     <Confirmation
       answer={answer}
-      onChangeAnswer={() => setStep("idle")}
-      onEditDetails={() => setStep("name")}
+      onChangeAnswer={() => {
+        setWithdrawRefusal(undefined);
+        setStep("idle");
+      }}
+      onEditDetails={() => {
+        setWithdrawRefusal(undefined);
+        setStep("name");
+      }}
       onRemove={remove}
       removing={working}
+      refusal={withdrawRefusal && t(`errors.${withdrawRefusal}`)}
       calendar={calendar}
       dismiss={
         sheet && (
@@ -505,6 +516,7 @@ function Confirmation({
   onEditDetails,
   onRemove,
   removing,
+  refusal,
   calendar,
   dismiss,
 }: {
@@ -513,6 +525,8 @@ function Confirmation({
   onEditDetails: () => void;
   onRemove: () => void;
   removing: boolean;
+  // Why removing it was just refused.
+  refusal?: string;
   calendar?: ReactNode;
   // The sheet's close button, beside the heading.
   dismiss?: ReactNode;
@@ -573,6 +587,11 @@ function Confirmation({
           {t("remove")}
         </button>
       </div>
+      {refusal && (
+        <p role="alert" className="mt-3 text-sm font-medium">
+          {refusal}
+        </p>
+      )}
     </>
   );
 }

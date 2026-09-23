@@ -66,14 +66,17 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
 }
 
 // Withdrawing: the RSVP goes, and so does this device's memory of it. A guest may withdraw from
-// an event that no longer takes answers.
-export async function removeRsvpAction(slug: string): Promise<void> {
+// an event that no longer takes answers. Counted against the RSVP limit before anything is
+// looked up, as an answer is.
+export async function removeRsvpAction(slug: string): Promise<{ error?: "tooFast" }> {
+  if (!(await consume("rsvp", await headers())).allowed) return { error: "tooFast" };
   const event = await findEventBySlug(slug);
-  if (!event) return;
+  if (!event) return {};
   const mine = await findRsvpOnThisDevice(event.id);
   if (mine) await deleteRsvp(event.id, mine.rsvp.id);
   (await cookies()).delete(rsvpCookieName(event.id));
   revalidatePath(`/e/${slug}`);
+  return {};
 }
 
 // A host changing a guest's RSVP on their own guest list. The host's form carries no email
