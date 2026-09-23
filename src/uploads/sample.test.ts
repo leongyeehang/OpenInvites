@@ -96,8 +96,9 @@ describe("a picture's accent", () => {
 });
 
 describe("the backdrop the glass sees on a picture", () => {
-  // `measureBackdrop` is handed the picture already blurred as the glass blurs it; what it adds
-  // is the tone's scrim, which every picture wears (themed-page.tsx), and the choice of extremes.
+  // `measureBackdrop` is handed the picture already blurred, as the glass blurs a background or
+  // as the page blurs the copy behind a poster; what it adds is the tone's scrim, which every
+  // picture wears there (themed-page.tsx), and the choice of extremes.
   const rgb = (hex: string): Rgb => hexToRgb(hex);
 
   it("is white and black under their scrims on a picture with both", () => {
@@ -107,6 +108,12 @@ describe("the backdrop the glass sees on a picture", () => {
 
   it("is the picture's own colour under each tone's scrim when it is all one colour", () => {
     expect(measureBackdrop(picture(["#808080", 1]))).toEqual({ lightest: "#606060", darkest: "#a0a0a0" });
+  });
+
+  it("is taken under the stronger poster scrim for the blurred copy behind a poster", () => {
+    // White under 45% black, and black under 45% white.
+    expect(measureBackdrop(picture(["#ffffff", 0.5], ["#000000", 0.5]), "poster")).toEqual({ lightest: "#8c8c8c", darkest: "#737373" });
+    expect(measureBackdrop(picture(["#808080", 1]), "poster")).toEqual({ lightest: "#464646", darkest: "#b9b9b9" });
   });
 
   it("is the brightest and darkest pixel as the eye sees them, not the brightest channel", () => {

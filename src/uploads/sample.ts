@@ -1,4 +1,4 @@
-import { css, luminance as relativeLuminance, over, TONES, type Backdrop, type Rgb } from "@/themes/legibility";
+import { css, luminance as relativeLuminance, over, TONES, type Backdrop, type BackdropUse, type Rgb } from "@/themes/legibility";
 
 // What the server reads from a host's picture (spec, "Uploads and images"), so the theme's auto
 // accent and auto text tone follow it, and every surface on the page is solved against it
@@ -70,12 +70,14 @@ export function sampleColours(raster: Raster): { luminance: number; accent: stri
   return { luminance, accent: css(accent) };
 }
 
-// The picture's brightest and darkest points as a glass pane sees them, from the picture blurred
-// as the glass blurs it (process.ts): the brightest pixel under the light tone's scrim, which is
-// where light text is hardest to read, and the darkest under the dark tone's. The fade into the
-// base colour at the foot of the page only darkens under light text and lightens under dark, so
-// it can only make these easier.
-export function measureBackdrop(blurred: Raster): Backdrop {
+// The picture's brightest and darkest points as text on the page meets them, from the picture
+// blurred as the page blurs it (process.ts): the brightest pixel under the light tone's scrim,
+// which is where light text is hardest to read, and the darkest under the dark tone's. As the
+// background, that is under the glass's blur and a scene's scrim; as the blurred copy behind a
+// poster, under the copy's own blur and the stronger poster scrim. The fade into the base colour
+// at the foot of the page only darkens under light text and lightens under dark, so it can only
+// make these easier.
+export function measureBackdrop(blurred: Raster, use: BackdropUse = "background"): Backdrop {
   let lightest = { pixel: [0, 0, 0] as Rgb, luminance: 0 };
   let darkest = { pixel: [255, 255, 255] as Rgb, luminance: 1 };
   for (const pixel of pixels(blurred)) {
@@ -83,7 +85,8 @@ export function measureBackdrop(blurred: Raster): Backdrop {
     if (luminance > lightest.luminance) lightest = { pixel, luminance };
     if (luminance < darkest.luminance) darkest = { pixel, luminance };
   }
-  return { lightest: css(over(TONES.light.scrim, lightest.pixel)), darkest: css(over(TONES.dark.scrim, darkest.pixel)) };
+  const scrim = use === "poster" ? "posterScrim" : "scrim";
+  return { lightest: css(over(TONES.light[scrim], lightest.pixel)), darkest: css(over(TONES.dark[scrim], darkest.pixel)) };
 }
 
 // Hue in degrees, saturation and lightness from 0 to 1.

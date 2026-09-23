@@ -31,10 +31,11 @@ export async function findHostUploadId(hostId: string, eventId: string): Promise
   return row?.id ?? null;
 }
 
-// The new picture takes the old one's place and becomes the background, in one step: the event
-// is locked while it happens, so two uploads at once apply one after the other, and deleting the
-// event meanwhile waits for it or finds it gone. The description does not carry over, as the
-// new picture shows something else. Returns the id of the upload it replaced, whose files the
+// The new picture takes the old one's place and is shown, in one step: as the background, or as
+// the poster when the host chose that for the old one (themes/changes.ts). The event is locked
+// while it happens, so two uploads at once apply one after the other, and deleting the event
+// meanwhile waits for it or finds it gone. The description does not carry over, as the new
+// picture shows something else. Returns the id of the upload it replaced, whose files the
 // caller removes, or undefined when the event is not the host's.
 export async function replaceUpload(hostId: string, eventId: string, id: string, sample: Sample): Promise<{ replaced: string | null } | undefined> {
   return getDb().transaction(async (tx) => {

@@ -5,6 +5,7 @@ import { applyTemplate, DEFAULT_THEME, type Theme } from "./theme";
 
 const template = (id: string) => findTemplate(id)!;
 const UPLOAD = "0192f0a1-7b3c-7d4e-8f00-123456789abc";
+const OTHER_UPLOAD = "0192f0a1-7b3c-7d4e-8f00-000000000000";
 const withUpload: Theme = { ...DEFAULT_THEME, backgroundId: null, uploadId: UPLOAD, uploadMode: "poster" };
 
 describe("applying a template", () => {
@@ -59,6 +60,7 @@ describe("changing a knob", () => {
     [{ knob: "textTone", value: "dark" }, { textTone: "dark" }],
     [{ knob: "buttonStyle", value: "outline" }, { buttonStyle: "outline" }],
     [{ knob: "rsvpStyle", value: "inline" }, { rsvpStyle: "inline" }],
+    [{ knob: "titlePlacement", value: "on" }, { titlePlacement: "on" }],
   ];
 
   it.each(changes)("sets the knob and marks the template dirty: %j", (change, knob) => {
@@ -88,7 +90,50 @@ describe("changing a knob", () => {
     // brings it back.
     const onDusk = applyChange(applyChange(DEFAULT_THEME, { knob: "uploadId", value: UPLOAD }), { knob: "backgroundId", value: "dusk" });
     expect(onDusk).toMatchObject({ backgroundId: "dusk", uploadId: UPLOAD });
-    expect(applyChange(onDusk, { knob: "uploadId", value: UPLOAD })).toMatchObject({ backgroundId: null, uploadId: UPLOAD, uploadMode: "background" });
+    expect(applyChange(onDusk, { knob: "uploadMode", value: "background" })).toMatchObject({ backgroundId: null, uploadId: UPLOAD, uploadMode: "background" });
+  });
+
+  describe("the host's picture as the poster", () => {
+    // The picture as the background, with the host's own accent and text tone on it.
+    const asBackground = [
+      { knob: "uploadId", value: UPLOAD },
+      { knob: "accentOverride", value: "#8fe6c2" },
+      { knob: "textTone", value: "dark" },
+    ].reduce<Theme>((theme, change) => applyChange(theme, change as ThemeChange), DEFAULT_THEME);
+
+    it("shows it as the poster, and back as the background, with nothing else changed either way", () => {
+      const asPoster = applyChange(asBackground, { knob: "uploadMode", value: "poster" });
+      expect(asPoster).toEqual({ ...asBackground, uploadMode: "poster" });
+      expect(applyChange(asPoster, { knob: "uploadMode", value: "background" })).toEqual(asBackground);
+    });
+
+    it("brings the picture back from the gallery as the poster, with the accent back on auto to match it", () => {
+      const onDusk = applyChange(applyChange(asBackground, { knob: "backgroundId", value: "dusk" }), { knob: "accentOverride", value: "#ff7a59" });
+      expect(applyChange(onDusk, { knob: "uploadMode", value: "poster" })).toEqual({
+        ...onDusk,
+        backgroundId: null,
+        uploadMode: "poster",
+        accentOverride: null,
+      });
+    });
+
+    it("has nothing to show on an event without an upload", () => {
+      expect(applyChange(DEFAULT_THEME, { knob: "uploadMode", value: "poster" })).toBe(DEFAULT_THEME);
+      expect(applyChange(DEFAULT_THEME, { knob: "uploadMode", value: "background" })).toBe(DEFAULT_THEME);
+    });
+
+    it("keeps a new picture in the use the host chose for the one it replaces", () => {
+      const asPoster = applyChange(asBackground, { knob: "uploadMode", value: "poster" });
+      const replaced = applyChange(asPoster, { knob: "uploadId", value: OTHER_UPLOAD });
+      expect(replaced).toEqual({ ...asPoster, uploadId: OTHER_UPLOAD, accentOverride: null });
+    });
+
+    it("changes nothing when the picture is already used that way", () => {
+      const asPoster = applyChange(asBackground, { knob: "uploadMode", value: "poster" });
+      expect(applyChange(asPoster, { knob: "uploadMode", value: "poster" })).toBe(asPoster);
+      expect(applyChange(asBackground, { knob: "uploadMode", value: "background" })).toBe(asBackground);
+      expect(applyChange(asPoster, { knob: "uploadId", value: UPLOAD })).toBe(asPoster);
+    });
   });
 
   it("changes nothing, dirty flag included, when the host picks what is already chosen", () => {
@@ -132,16 +177,23 @@ describe("reading a change the drawer sent", () => {
       { knob: "buttonStyle", value: "solid" },
       { knob: "rsvpStyle", value: "sheet" },
       { knob: "rsvpStyle", value: "inline" },
+      { knob: "titlePlacement", value: "on" },
+      { knob: "titlePlacement", value: "below" },
     ];
     for (const change of offered) expect(parseThemeChange(JSON.parse(JSON.stringify(change)))).toEqual(change);
   });
 
-  it("accepts the event's own upload, and no other", () => {
-    expect(parseThemeChange({ knob: "uploadId", value: UPLOAD }, UPLOAD)).toEqual({ knob: "uploadId", value: UPLOAD });
-    expect(parseThemeChange({ knob: "uploadId", value: "0192f0a1-7b3c-7d4e-8f00-000000000000" }, UPLOAD)).toBeUndefined();
+  it("accepts using the event's upload as the background or the poster, only when it has one", () => {
+    expect(parseThemeChange({ knob: "uploadMode", value: "poster" }, UPLOAD)).toEqual({ knob: "uploadMode", value: "poster" });
+    expect(parseThemeChange({ knob: "uploadMode", value: "background" }, UPLOAD)).toEqual({ knob: "uploadMode", value: "background" });
+    expect(parseThemeChange({ knob: "uploadMode", value: "wallpaper" }, UPLOAD)).toBeUndefined();
     // An event without an upload has none to show.
-    expect(parseThemeChange({ knob: "uploadId", value: UPLOAD }, null)).toBeUndefined();
-    expect(parseThemeChange({ knob: "uploadId", value: null }, null)).toBeUndefined();
+    expect(parseThemeChange({ knob: "uploadMode", value: "poster" }, null)).toBeUndefined();
+  });
+
+  it("takes a new picture only from an upload, never from the drawer", () => {
+    expect(parseThemeChange({ knob: "uploadId", value: UPLOAD }, UPLOAD)).toBeUndefined();
+    expect(parseThemeChange({ knob: "uploadId", value: OTHER_UPLOAD }, UPLOAD)).toBeUndefined();
   });
 
   it("refuses anything else", () => {
@@ -159,6 +211,8 @@ describe("reading a change the drawer sent", () => {
       { knob: "buttonStyle", value: "neon" },
       { knob: "rsvpStyle", value: "modal" },
       { knob: "rsvpStyle", value: null },
+      { knob: "titlePlacement", value: "above" },
+      { knob: "titlePlacement", value: null },
       { knob: "layout", value: "broadsheet" },
       { knob: "uploadId", value: "0192f0a1-7b3c-7d4e-8f00-123456789abc" },
       { knob: "template", value: { id: "birthday", dirty: false } },

@@ -1,6 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { BACKGROUNDS } from "./backgrounds";
-import { AA, contrast, hexToRgb, over, SHEET_SURFACES, SURFACES, toneTokens, worstBackdrop, type Backdrop, type Rgb, type Rgba, type Tone } from "./legibility";
+import {
+  AA,
+  contrast,
+  hexToRgb,
+  over,
+  POSTER_SURFACES,
+  SHEET_SURFACES,
+  SURFACES,
+  TONES as TONE_COLOURS,
+  toneTokens,
+  worstBackdrop,
+  type Backdrop,
+  type Rgb,
+  type Rgba,
+  type Tone,
+} from "./legibility";
 import { SWATCHES } from "./swatches";
 
 const TONES: Tone[] = ["light", "dark"];
@@ -43,10 +58,10 @@ describe("text on the accent", () => {
   });
 });
 
-// All text on every surface of the Poster layout and the RSVP sheet reads at AA, on this
-// backdrop in this tone with this accent.
-function expectEveryTextReads(tone: Tone, backdrop: Backdrop, accent: string) {
-  const tokens = toneTokens(tone, backdrop, accent);
+// All text on every surface of the Poster layout, the RSVP sheet and the title on a poster reads
+// at AA, on this backdrop in this tone with this accent.
+function expectEveryTextReads(tone: Tone, backdrop: Backdrop, accent: string, use: "background" | "poster" = "background") {
+  const tokens = toneTokens(tone, backdrop, accent, use);
   const behind = worstBackdrop(tone, backdrop);
   // Body text in its three strengths, the label of a glass button (strong glass) or an
   // outline button (the page's veil), which is the tone's own text, and the accent as text.
@@ -75,6 +90,15 @@ function expectEveryTextReads(tone: Tone, backdrop: Backdrop, accent: string) {
     if (carries === "full strength") continue;
     expect(contrast(ink(sheet.textMuted, colour), colour), `muted, ${label}`).toBeGreaterThanOrEqual(AA);
     expect(contrast(ink(sheet.textFaint, colour), colour), `faint, ${label}`).toBeGreaterThanOrEqual(AA);
+  }
+  // The title on the poster, over its scrim, which carries its own secondary strengths.
+  const { titleOnPoster } = tokens;
+  for (const [surface, { layers }] of Object.entries(POSTER_SURFACES(tone, tokens))) {
+    const colour = stack(layers, behind);
+    const label = `${accent} accent, on ${surface}`;
+    expect(contrast(tokens.text, colour), `text, ${label}`).toBeGreaterThanOrEqual(AA);
+    expect(contrast(ink(titleOnPoster.textMuted, colour), colour), `muted, ${label}`).toBeGreaterThanOrEqual(AA);
+    expect(contrast(ink(titleOnPoster.textFaint, colour), colour), `faint, ${label}`).toBeGreaterThanOrEqual(AA);
   }
 }
 
@@ -105,6 +129,74 @@ describe("an upload", () => {
       }
     });
   }
+});
+
+// In poster mode the host's picture is the invitation itself, and the page behind it is a
+// blurred copy of it under a stronger scrim, measured by the server as the picture is
+// (uploads/sample.ts), so it too can be anything from black to white.
+describe("a poster", () => {
+  const grey = (value: number) => `#${value.toString(16).padStart(2, "0").repeat(3)}`;
+  const UPLOAD_ACCENTS = [...ACCENTS, "#b3b3b3", "#4d6b8a", "#c97a2e", "#1f3a1f", "#e8d0ff"];
+  for (const tone of TONES) {
+    it(`reads at AA in the ${tone} tone on the page behind it however bright or dark the poster is`, () => {
+      for (let value = 0; value <= 255; value += 15) {
+        // The light tone meets the blurred copy's brightest point under its 45% black scrim, and
+        // the dark tone its darkest under 45% white.
+        const backdrop = { lightest: grey(Math.round(value * 0.55)), darkest: grey(Math.round(value * 0.55 + 114.75)) };
+        for (const accent of UPLOAD_ACCENTS) expectEveryTextReads(tone, backdrop, accent, "poster");
+      }
+    });
+  }
+
+  it("darkens the copy behind a poster under light text and lightens it under dark, more than a background's", () => {
+    for (const tone of TONES) {
+      const { scrim, posterScrim } = TONE_COLOURS[tone];
+      expect(toneTokens(tone, BACKGROUNDS[0], "#ffc36b", "poster").scrim, tone).toEqual(posterScrim);
+      expect(toneTokens(tone, BACKGROUNDS[0], "#ffc36b").scrim, tone).toEqual(scrim);
+      expect(posterScrim.slice(0, 3), tone).toEqual(scrim.slice(0, 3));
+      expect(posterScrim[3], tone).toBeGreaterThan(scrim[3]);
+    }
+  });
+});
+
+// With the title on the poster, what is under it is whatever the host's poster holds there: any
+// colour at all. The scrim is solved against all of them, not sampled from the picture.
+describe("the title on the poster", () => {
+  const LEVELS = [0, 64, 128, 192, 255];
+  const UNDER: Rgb[] = LEVELS.flatMap((r) => LEVELS.flatMap((g) => LEVELS.map((b): Rgb => [r, g, b])));
+
+  for (const tone of TONES) {
+    it(`reads at AA in the ${tone} tone over any colour the poster holds under it`, () => {
+      for (const background of BACKGROUNDS) {
+        const { text, titleOnPoster } = toneTokens(tone, background, background.accent, "poster");
+        for (const under of UNDER) {
+          const colour = over(titleOnPoster.scrim, under);
+          const label = `${background.name}, over ${under}`;
+          expect(contrast(text, colour), `title, ${label}`).toBeGreaterThanOrEqual(AA);
+          expect(contrast(ink(titleOnPoster.textMuted, colour), colour), `muted, ${label}`).toBeGreaterThanOrEqual(AA);
+          expect(contrast(ink(titleOnPoster.textFaint, colour), colour), `faint, ${label}`).toBeGreaterThanOrEqual(AA);
+        }
+      }
+    });
+  }
+
+  it("is a shade of the tone over the poster, never a solid bar, whatever the page behind it", () => {
+    for (const tone of TONES) {
+      const scrims = BACKGROUNDS.map((background) => toneTokens(tone, background, background.accent, "poster").titleOnPoster.scrim);
+      for (const scrim of scrims) expect(scrim).toEqual(scrims[0]);
+      expect(scrims[0].slice(0, 3), tone).toEqual([...TONE_COLOURS[tone].shade]);
+      expect(scrims[0][3], tone).toBeGreaterThan(0);
+      expect(scrims[0][3], tone).toBeLessThanOrEqual(0.9);
+    }
+  });
+
+  it("keeps a hierarchy: secondary text on it is never closer than 80% to full strength", () => {
+    for (const tone of TONES) {
+      const { titleOnPoster } = toneTokens(tone, BACKGROUNDS[0], BACKGROUNDS[0].accent, "poster");
+      expect(titleOnPoster.textMuted[3], tone).toBeLessThanOrEqual(0.8);
+      expect(titleOnPoster.textFaint[3], tone).toBeLessThanOrEqual(0.8);
+    }
+  });
 });
 
 // The RSVP sheet rises over the page itself, so what is behind it is not the backdrop but

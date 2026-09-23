@@ -85,6 +85,13 @@
       "when": 1790170583121,
       "tag": "0011_uploads",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790175672430,
+      "tag": "0012_poster_uploads",
+      "breakpoints": true
     }
   ]
 }

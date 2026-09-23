@@ -331,6 +331,7 @@
     "useAs": "Use it as",
     "useAsBackground": "Background",
     "useAsPoster": "Poster",
+    "useAsPosterHint": "Your picture is the invitation, at its own shape. Choose where the title goes under Details.",
     "replace": "Replace",
     "yourPicture": "Your picture",
     "altText": "Describe your picture",
@@ -391,6 +392,15 @@
     "rsvpStyleHints": {
       "inline": "The steps open under the three buttons.",
       "sheet": "Choosing a button opens a frosted sheet over the invitation, which grows through the steps."
+    },
+    "titlePlacement": "Title placement",
+    "titlePlacements": {
+      "on": "On the poster",
+      "below": "Below the poster"
+    },
+    "titlePlacementHints": {
+      "on": "The title sits across the foot of your poster, on a shade that keeps it readable.",
+      "below": "The title sits under your poster, so all of it stays in view."
     }
   },
   "Guests": {

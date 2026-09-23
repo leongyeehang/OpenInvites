@@ -7,19 +7,26 @@ import {
   FONTS,
   RSVP_STYLES,
   TEXT_TONES,
+  TITLE_PLACEMENTS,
+  UPLOAD_MODES,
   type ButtonStyle,
   type FontKey,
   type RsvpStyle,
   type TextTone,
   type Theme,
+  type TitlePlacement,
+  type UploadMode,
 } from "./theme";
 
 // What the Design drawer asks for: a template, or one knob set to one value. The layout row has
-// nothing to change while Poster is the only layout offered, and the title placement row
-// arrives with ticket 13. Choosing the upload shows the host's own picture as the background.
+// nothing to change while Poster is the only layout offered. The upload mode shows the host's
+// own picture as the background or as the poster. A new upload is not the drawer's to set: the
+// server applies `uploadId` once it has stored the picture (uploads/repository.ts).
 export type KnobChange =
   | { knob: "backgroundId"; value: string }
   | { knob: "uploadId"; value: string }
+  | { knob: "uploadMode"; value: UploadMode }
+  | { knob: "titlePlacement"; value: TitlePlacement }
   | { knob: "font"; value: FontKey }
   | { knob: "accentOverride"; value: string | null }
   | { knob: "textTone"; value: TextTone }
@@ -43,11 +50,19 @@ export function applyChange(theme: Theme, change: ThemeChange): Theme {
 }
 
 function changeKnob(theme: Theme, change: KnobChange): Theme {
-  // The upload shown as the background puts the curated one aside; the upload stays in the
-  // host's gallery whichever is shown, so they can go back and forth.
-  if (change.knob === "uploadId") {
-    if (theme.backgroundId === null && theme.uploadId === change.value && theme.uploadMode === "background") return theme;
-    return { ...theme, backgroundId: null, uploadId: change.value, uploadMode: "background", accentOverride: null };
+  // The host's picture in use, as the background or as the poster, puts the curated background
+  // aside; the picture stays in the host's gallery whichever is shown, so they can go back and
+  // forth. A new picture is shown at once, in the use the host chose for the one it replaces
+  // (the background, until they choose the poster).
+  if (change.knob === "uploadId" || change.knob === "uploadMode") {
+    const uploadId = change.knob === "uploadId" ? change.value : theme.uploadId;
+    const uploadMode = change.knob === "uploadMode" ? change.value : theme.uploadMode;
+    if (uploadId === null) return theme;
+    const inUse = theme.backgroundId === null && theme.uploadId === uploadId;
+    if (inUse && theme.uploadMode === uploadMode) return theme;
+    // A picture newly in use brings its own accent, as a new background does (below); the same
+    // picture used the other way keeps the host's.
+    return { ...theme, backgroundId: null, uploadId, uploadMode, accentOverride: inUse ? theme.accentOverride : null };
   }
   if (theme[change.knob] === change.value) return theme;
 
@@ -79,8 +94,8 @@ function oneOf<T extends string>(options: readonly T[], value: unknown): value i
 
 // A change as the drawer sent it, checked like any other input from a browser. Only what the
 // drawer offers is accepted: the accent must be auto or one of the six swatches, so every
-// colour a page can wear is one legibility.ts has checked, and the only upload is the event's
-// own (`upload`, its id, or null when it has none).
+// colour a page can wear is one legibility.ts has checked, and the host's picture can be used
+// only on an event that has one (`upload`, its id, or null when it has none).
 export function parseThemeChange(raw: unknown, upload: string | null = null): ThemeChange | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
   const { template, knob, value } = raw as { template?: unknown; knob?: unknown; value?: unknown };
@@ -89,8 +104,10 @@ export function parseThemeChange(raw: unknown, upload: string | null = null): Th
   switch (knob) {
     case "backgroundId":
       return typeof value === "string" && findBackground(value) ? { knob, value } : undefined;
-    case "uploadId":
-      return upload !== null && value === upload ? { knob, value: upload } : undefined;
+    case "uploadMode":
+      return upload !== null && oneOf(UPLOAD_MODES, value) ? { knob, value } : undefined;
+    case "titlePlacement":
+      return oneOf(TITLE_PLACEMENTS, value) ? { knob, value } : undefined;
     case "font":
       return oneOf(FONTS, value) ? { knob, value } : undefined;
     case "accentOverride":

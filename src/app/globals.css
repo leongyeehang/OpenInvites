@@ -200,6 +200,7 @@
   --color-theme-scrim: var(--theme-scrim);
   --color-theme-glow: var(--theme-glow);
   --color-theme-sheet: var(--theme-sheet);
+  --color-theme-title-scrim: var(--theme-title-scrim);
   --font-title: var(--theme-title-font, var(--font-family-sans));
   --tracking-label: 0.2em;
   --shadow-glass: 0 8px 40px -16px rgb(0 0 0 / 0.35);
@@ -215,6 +216,12 @@
   --text-poster-sans--line-height: 0.92;
   --text-poster-sans-long: clamp(1.85rem, 7.5vw, 2.75rem);
   --text-poster-sans-long--line-height: 0.92;
+  /* Beside the host's poster the title follows the poster's width (the card is a container), as
+     the long sizes follow a phone's, so it fits on a narrow poster too. */
+  --text-poster-serif-compact: clamp(1.75rem, 10cqi, 3.5rem);
+  --text-poster-serif-compact--line-height: 0.92;
+  --text-poster-sans-compact: clamp(1.5rem, 8cqi, 2.75rem);
+  --text-poster-sans-compact--line-height: 0.92;
   --animate-theme-drift: theme-drift 24s ease-in-out infinite;
 
   @keyframes theme-drift {
@@ -246,7 +253,8 @@
   "Themes and templates"). Every theme colour arrives inline on .event-page as a --theme-*
   variable (src/themes/resolve.ts, themeVariables): the accent, the text tone's colours, and the
   glass, tinted just enough that all text reads (src/themes/legibility.ts). The RSVP sheet sets
-  its own tint, secondary text and accent ink on itself (resolve.ts, sheetVariables). The text
+  its own tint, secondary text and accent ink on itself (resolve.ts, sheetVariables), and a title
+  set on the host's poster its scrim and secondary text (posterTitleVariables). The text
   tone is also there as data-tone. The title font arrives through --theme-title-font, set by the
   chosen font's class (src/themes/title-fonts.ts).
 */

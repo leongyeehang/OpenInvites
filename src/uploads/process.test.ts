@@ -60,6 +60,22 @@ describe("processing an upload", () => {
     expect(await sharp(small.renditions.card).metadata()).toMatchObject({ width: 1200, height: 630 });
   });
 
+  it("makes a poster at the picture's own proportions, sharp on a high-density screen and never enlarged", async () => {
+    const sizes: [picture: [number, number], poster: [number, number]][] = [
+      [[3000, 2000], [1200, 800]],
+      [[2000, 3000], [1200, 1800]],
+      // Taller than twice its width, it stops at the poster's greatest height.
+      [[1000, 4000], [600, 2400]],
+      [[800, 600], [800, 600]],
+    ];
+    for (const [[width, height], [posterWidth, posterHeight]] of sizes) {
+      const picture = await processed(await sharp({ create: { width, height, channels: 3, background: "#1d2340" } }).png().toBuffer());
+      expect(await sharp(picture.renditions.poster).metadata(), `${width}x${height}`).toMatchObject({ format: "webp", width: posterWidth, height: posterHeight });
+      // The page is told its size, so the poster has its place before it arrives.
+      expect(picture.sample, `${width}x${height}`).toMatchObject({ posterWidth, posterHeight });
+    }
+  });
+
   it("paints a transparent picture onto white, the page it was most likely made on", async () => {
     const logo = await sharp({ create: { width: 100, height: 100, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).png().toBuffer();
     const { renditions, sample } = await processed(logo);
@@ -85,6 +101,18 @@ describe("processing an upload", () => {
     // An 8-pixel star under a 24-pixel blur is a faint glow.
     expect(parseInt(spot.sample.lightest.slice(1, 3), 16)).toBeLessThan(40);
     expect(spot.sample.darkest).toBe("#404040");
+  });
+
+  it("measures the blurred copy behind a poster under its own heavier blur and stronger scrim", async () => {
+    const wide = await processed(await darkWithWhite({ left: 0, top: 0, width: 960, height: 1080 }));
+    // White under 45% black, and black under 45% white.
+    expect(wide.sample).toMatchObject({ posterLightest: "#8c8c8c", posterDarkest: "#737373" });
+    // A white patch the glass's blur leaves nearly white, the copy's 64-pixel blur spreads thin:
+    // well under the 140 a wide white area measures there.
+    const patch = await processed(await darkWithWhite({ left: 900, top: 480, width: 120, height: 120 }));
+    const channel = (hex: string) => parseInt(hex.slice(1, 3), 16);
+    expect(channel(patch.sample.lightest)).toBeGreaterThan(170);
+    expect(channel(patch.sample.posterLightest)).toBeLessThan(110);
   });
 
   it("refuses a file that only starts like a picture", async () => {

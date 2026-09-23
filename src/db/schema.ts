@@ -192,8 +192,8 @@ export const retiredSlug = pgTable(
   (table) => [index("retired_slug_event_id_idx").on(table.eventId)],
 );
 
-// A host's own picture for an event, shown as its background. An event has at most one:
-// uploading again replaces it. The picture itself is kept in storage (ADR-0003), in the sizes
+// A host's own picture for an event, shown as its background or as the poster. An event has at
+// most one: uploading again replaces it. The picture itself is kept in storage (ADR-0003), in the sizes
 // uploads/renditions.ts names; what the server sampled from it for the theme is kept here
 // (uploads/sample.ts). Deleting the event takes the row with it, and whatever deletes the event
 // removes the files (events/repository.ts).
@@ -211,5 +211,11 @@ export const upload = pgTable("upload", {
   accent: text("accent").notNull(),
   lightest: text("lightest").notNull(),
   darkest: text("darkest").notNull(),
+  // As the poster: the brightest and darkest points of its blurred copy behind it (#rrggbb), and
+  // the poster rendition's size in pixels, so the page gives it its place before it arrives.
+  posterLightest: text("poster_lightest").notNull(),
+  posterDarkest: text("poster_darkest").notNull(),
+  posterWidth: integer("poster_width").notNull(),
+  posterHeight: integer("poster_height").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

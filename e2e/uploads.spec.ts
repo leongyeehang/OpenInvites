@@ -69,11 +69,12 @@ test("a light photo turns the text dark by itself, and guests get the picture wi
   await expect(host.page.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
   await expect(drawer.getByText("Theme: Custom, started from Birthday")).toBeVisible();
 
-  // Beside the thumbnail: use it as the background, which it now is, or as the poster, which is coming.
+  // Beside the thumbnail: use it as the background, which it now is, or as the poster
+  // (poster.spec.ts).
   const useAs = drawer.getByRole("group", { name: "Use it as" });
   await expect(useAs.getByRole("radio", { name: "Background" })).toBeChecked();
-  await expect(useAs.getByRole("radio", { name: /Poster/ })).toBeDisabled();
-  await expect(useAs.getByRole("radio", { name: /Poster/ }).locator("..")).toContainText("Coming soon");
+  await expect(useAs.getByRole("radio", { name: "Poster" })).toBeEnabled();
+  await expect(useAs.getByRole("radio", { name: "Poster" })).not.toBeChecked();
 
   // Guests see the same page: the picture, with dark text.
   await page.goto(host.link);

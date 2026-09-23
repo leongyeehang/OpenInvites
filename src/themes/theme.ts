@@ -15,6 +15,8 @@ export const RSVP_STYLES = ["inline", "sheet"] as const;
 export const EFFECTS = ["none", "confetti", "sparkles", "doodles"] as const;
 
 export type Layout = (typeof LAYOUTS)[number];
+export type UploadMode = (typeof UPLOAD_MODES)[number];
+export type TitlePlacement = (typeof TITLE_PLACEMENTS)[number];
 export type FontKey = (typeof FONTS)[number];
 export type TextTone = (typeof TEXT_TONES)[number];
 export type ButtonStyle = (typeof BUTTON_STYLES)[number];
@@ -24,8 +26,8 @@ export type Theme = {
   layout: Layout; // stored from day one; M1 renders only "poster"
   backgroundId: string | null; // a curated background, or null when an upload is in use
   uploadId: string | null; // the host's own image (ticket 12)
-  uploadMode: (typeof UPLOAD_MODES)[number];
-  titlePlacement: (typeof TITLE_PLACEMENTS)[number]; // poster mode only
+  uploadMode: UploadMode;
+  titlePlacement: TitlePlacement; // poster mode only
   font: FontKey;
   accentOverride: string | null; // "#rrggbb", or null to derive from the background
   textTone: TextTone;

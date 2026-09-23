@@ -5,13 +5,12 @@ import type { EventWithHost } from "@/events/repository";
 import { formatDateSticker, formatWhen } from "@/events/time";
 import { cn } from "@/lib/utils";
 import { RichTextView } from "@/rich-text/rich-text-view";
-import { BackgroundDescription } from "./background-description";
 import { Glass } from "./glass";
-import { PosterTitle } from "./poster-title";
+import { PosterCard } from "./poster-card";
 
 // The Poster layout (PROTOTYPE.md, the verdict): a frosted poster card with the title in the
-// theme's font, the RSVP buttons beneath it, then the details in glass tiles. It renders inside a
-// ThemedPage, which carries the theme.
+// theme's font (or the host's own poster), the RSVP buttons beneath it, then the details in
+// glass tiles. It renders inside a ThemedPage, which carries the theme.
 export async function PosterLayout({
   event,
   notice,
@@ -37,20 +36,20 @@ export async function PosterLayout({
     <main className="mx-auto max-w-xl px-4 pt-6 pb-16 sm:pt-10">
       {notice && <div className="mb-4">{notice}</div>}
 
-      <Glass data-slot="poster-card" className={cn("relative overflow-hidden rounded-4xl p-6 shadow-poster sm:p-8", entrance, "motion-safe:delay-0")}>
-        <div className="absolute top-5 right-5 sm:top-7 sm:right-7">
-          <DateSticker {...sticker} />
-        </div>
-        <p className={cn(label, "text-theme-text-muted")}>{t("eyebrow")}</p>
-        <PosterTitle title={event.title} className="mt-12 sm:mt-14" />
-        <div className="mt-6 flex items-center gap-3">
-          <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-theme-accent text-xs font-semibold text-theme-on-accent">
-            {initialsOf(event.hostName)}
-          </span>
-          <p className="text-sm text-theme-text-muted">{t("hostedBy", { name: event.hostName })}</p>
-        </div>
-        <BackgroundDescription />
-      </Glass>
+      <PosterCard
+        title={event.title}
+        eyebrow={<p className={cn(label, "text-theme-text-muted")}>{t("eyebrow")}</p>}
+        sticker={<DateSticker {...sticker} />}
+        host={
+          <div className="flex items-center gap-3">
+            <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-theme-accent text-xs font-semibold text-theme-on-accent">
+              {initialsOf(event.hostName)}
+            </span>
+            <p className="text-sm text-theme-text-muted">{t("hostedBy", { name: event.hostName })}</p>
+          </div>
+        }
+        className={cn(entrance, "motion-safe:delay-0")}
+      />
 
       {rsvp && <div className={cn("mt-3", entrance, "motion-safe:delay-100")}>{rsvp}</div>}
 
@@ -99,7 +98,8 @@ export function SectionLabel({ icon: Icon, children }: { icon?: React.ComponentT
   );
 }
 
-// The date at a glance, top right of the poster card. The When tile carries the full date for
+// The date at a glance, top right of the poster card, or beside the title below a host's poster
+// (a title set on the poster goes without it). The When tile carries the full date for
 // assistive technology, so this one is decorative.
 function DateSticker({ weekday, day, month }: { weekday: string; day: string; month: string }) {
   return (

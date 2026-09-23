@@ -51,6 +51,8 @@ const PLUM = hexToRgb("#2a1540");
 
 // The two text tones. `shade` is the colour that pulls a surface away from the text: glass is a
 // frost of white laid over a tint of it, and the tint stays 0 wherever the settled frost reads.
+// `posterScrim` is laid over the blurred copy of a poster that fills the page behind it (poster
+// mode, from the prototype): stronger than a scene's, so the poster stands out from its own colours.
 export const TONES = {
   light: {
     text: WHITE,
@@ -59,6 +61,7 @@ export const TONES = {
     frost: 0.1,
     frostStrong: 0.14,
     scrim: [0, 0, 0, 0.25] as Rgba, // over scenes
+    posterScrim: [0, 0, 0, 0.45] as Rgba,
     glassBorder: [255, 255, 255, 0.15] as Rgba,
     muted: 0.75,
     faint: 0.55,
@@ -70,6 +73,7 @@ export const TONES = {
     frost: 0.55,
     frostStrong: 0.7,
     scrim: [255, 255, 255, 0.25] as Rgba,
+    posterScrim: [255, 255, 255, 0.45] as Rgba,
     glassBorder: [0, 0, 0, 0.1] as Rgba,
     muted: 0.75,
     faint: 0.55,
@@ -81,8 +85,13 @@ export const GLOW = hexToRgb("#ff5c8a");
 
 // What a backdrop is, for this rule: the brightest point light text can meet on it and the
 // darkest point dark text can meet, as a glass pane sees them (backgrounds.ts says how they are
-// measured for the curated ones, uploads/sample.ts for a host's upload).
+// measured for the curated ones, uploads/sample.ts for a host's upload, as the background or as
+// the blurred copy behind a poster).
 export type Backdrop = Pick<Background, "lightest" | "darkest">;
+
+// What the backdrop is: a background (curated, or the host's upload), or the blurred copy of the
+// host's poster behind it, which wears the poster scrim.
+export type BackdropUse = "background" | "poster";
 
 // The point of the backdrop where the tone's text is hardest to read.
 export function worstBackdrop(tone: Tone, backdrop: Backdrop): Rgb {
@@ -106,6 +115,9 @@ export type ToneTokens = {
   // The RSVP sheet: its tint, and the secondary text and accent ink that read on it, which the
   // sheet sets for everything inside it.
   sheet: { tint: Rgba; textMuted: Rgba; textFaint: Rgba; accentInk: Rgb };
+  // The title on the poster (poster mode): the scrim it sits on at its strongest, and the
+  // secondary text that reads there, which the title's block sets for itself.
+  titleOnPoster: { scrim: Rgba; textMuted: Rgba; textFaint: Rgba };
 };
 
 // A surface text is set on, as its layers over the backdrop (bottom first), and what it carries:
@@ -152,6 +164,19 @@ export function SHEET_SURFACES(tone: Tone, { glass, glassStrong, sheet }: Pick<T
   } satisfies Record<string, Surface>;
 }
 
+// With the title on the poster, what is under it is whatever the host's poster holds there, which
+// is not known: so its scrim is solved against the far end of the scale outright, as the sheet's
+// is, rather than sampled from the picture. The poster is frosted under it too, which only blends
+// the colours already there. The scrim fades out above the title's block and is at this strength
+// everywhere under it (poster-card.tsx). Keep this in step with that markup.
+export function POSTER_SURFACES(tone: Tone, { titleOnPoster }: { titleOnPoster: Pick<ToneTokens["titleOnPoster"], "scrim"> }) {
+  const anything: Rgba = [...(tone === "light" ? WHITE : BLACK), 1];
+  return {
+    // The eyebrow and the title.
+    titleOnPoster: { layers: [anything, titleOnPoster.scrim], carries: "every strength" },
+  } satisfies Record<string, Surface>;
+}
+
 // A frost of white at `frost` over a tint of `shade` at `tint`, as one translucent colour.
 function frosted(shade: Rgb, tint: number, frost: number): Rgba {
   const alpha = 1 - (1 - frost) * (1 - tint);
@@ -165,7 +190,7 @@ function least(from: number, reads: (value: number) => boolean): number {
   return 1;
 }
 
-export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string): ToneTokens {
+export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string, use: BackdropUse = "background"): ToneTokens {
   const t = TONES[tone];
   const behind = worstBackdrop(tone, backdrop);
   const on = (layers: Rgba[]) => layers.reduce<Rgb>((colour, layer) => over(layer, colour), behind);
@@ -211,6 +236,11 @@ export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string): Tone
   const sheetAt = (tint: number): Surface[] => Object.values(SHEET_SURFACES(tone, { glass, glassStrong, sheet: { tint: [...t.shade, tint] } }));
   const sheetTint: Rgba = [...t.shade, least(0, (tint) => sheetAt(tint).every(fits))];
 
+  // The title's scrim on a poster is the tone's shade, as light as reading over anything allows.
+  const titleAt = (tint: number): Surface[] => Object.values(POSTER_SURFACES(tone, { titleOnPoster: { scrim: [...t.shade, tint] } }));
+  const titleScrim: Rgba = [...t.shade, least(0, (tint) => titleAt(tint).every(fits))];
+  const onTitle = strengthsOn(titleAt(titleScrim[3]));
+
   return {
     base: t.base,
     text,
@@ -220,10 +250,11 @@ export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string): Tone
     glassStrong,
     glassBorder: t.glassBorder,
     veil,
-    scrim: t.scrim,
+    scrim: use === "poster" ? t.posterScrim : t.scrim,
     onAccent: onAccent(accentRgb),
     accentInk: page.accentInk,
     sheet: { tint: sheetTint, ...strengthsOn(sheetAt(sheetTint[3])) },
+    titleOnPoster: { scrim: titleScrim, textMuted: onTitle.textMuted, textFaint: onTitle.textFaint },
   };
 }
 

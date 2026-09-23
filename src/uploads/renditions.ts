@@ -3,6 +3,9 @@
 export const RENDITIONS = {
   // The full-page background, large enough for a wide screen, in a format every browser shows.
   background: { file: "background.webp", type: "image/webp" },
+  // The picture as the invitation itself (poster mode), at its own proportions, sized for the
+  // poster card; its blurred copy fills the page behind it.
+  poster: { file: "poster.webp", type: "image/webp" },
   // The link's preview card, at the card's own size (sharing/preview-card.tsx), as a JPEG:
   // next/og draws PNG, JPEG and GIF, not WebP.
   card: { file: "card.jpg", type: "image/jpeg" },

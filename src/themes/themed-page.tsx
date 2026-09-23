@@ -71,14 +71,20 @@ export function ThemedPage({
 
 // The warm layered background with grain: the gradient or scene, two soft blobs of colour that
 // drift when motion is welcome, and a fade into the base colour at the foot of the page. A host's
-// upload is painted as a scene is. The lightest and darkest points of each background are
-// measured with all of this in place (backgrounds.ts, and uploads/sample.ts for an upload), so
-// change them together.
+// upload is painted as a scene is; behind the host's poster, a copy of it blurred to a wash of its
+// own colours, far enough past the screen's edges that they stay full, under a stronger scrim. The
+// lightest and darkest points of each background are measured with all of this in place
+// (backgrounds.ts, and uploads/process.ts for an upload and its copy), so change them together.
 function Backdrop({ theme }: { theme: ResolvedTheme }) {
-  const { background } = theme;
+  const { background, poster } = theme;
   return (
     <div aria-hidden className="grain fixed inset-0 -z-10 overflow-hidden bg-theme-base">
-      {background.kind === "gradient" ? (
+      {poster ? (
+        <>
+          <div className="absolute -inset-32 bg-cover bg-center blur-3xl" style={{ backgroundImage: `url(${poster.src})` }} />
+          <div className="absolute inset-0 bg-theme-scrim" />
+        </>
+      ) : background.kind === "gradient" ? (
         <>
           <div className="absolute inset-0" style={{ background: background.css }} />
           <div className="absolute top-[28%] -left-1/4 size-[70vmin] rounded-full bg-theme-accent opacity-25 blur-3xl motion-safe:animate-theme-drift" />

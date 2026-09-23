@@ -9,12 +9,13 @@ export type TitleFont = {
   name: string;
   // Weight and tracking that suit the face at display sizes.
   className: string;
-  // Title size classes (globals.css, --text-poster-*): the everyday one and the one for long titles.
-  sizes: { short: string; long: string };
+  // Title size classes (globals.css, --text-poster-*): the everyday one, the one for long titles,
+  // and the one beside the host's poster, which follows the poster's width.
+  sizes: { short: string; long: string; compact: string };
 };
 
-const SERIF_SIZES = { short: "text-poster-serif", long: "text-poster-serif-long" };
-const SANS_SIZES = { short: "text-poster-sans", long: "text-poster-sans-long" };
+const SERIF_SIZES = { short: "text-poster-serif", long: "text-poster-serif-long", compact: "text-poster-serif-compact" };
+const SANS_SIZES = { short: "text-poster-sans", long: "text-poster-sans-long", compact: "text-poster-sans-compact" };
 
 export const TITLE_FONTS: Record<FontKey, TitleFont> = {
   serif: { key: "serif", name: "Instrument Serif", className: "font-normal tracking-[-0.01em]", sizes: SERIF_SIZES },

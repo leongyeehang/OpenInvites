@@ -34,6 +34,22 @@ export async function uploadPicture(hostId: string, eventId: string, bytes: Uint
 }
 
 // The upload as the theme and the page need it.
-export function themeUpload({ id, accent, luminance, lightest, darkest, altText }: Upload): ThemeUpload {
-  return { id, src: renditionUrl(id, "background"), accent, luminance, lightest, darkest, altText };
+export function themeUpload(upload: Upload): ThemeUpload {
+  const { id, accent, luminance, lightest, darkest, altText } = upload;
+  return {
+    id,
+    src: renditionUrl(id, "background"),
+    accent,
+    luminance,
+    lightest,
+    darkest,
+    altText,
+    poster: {
+      src: renditionUrl(id, "poster"),
+      width: upload.posterWidth,
+      height: upload.posterHeight,
+      lightest: upload.posterLightest,
+      darkest: upload.posterDarkest,
+    },
+  };
 }

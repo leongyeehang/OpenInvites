@@ -13,7 +13,7 @@ import { TITLE_FONTS } from "@/themes/fonts";
 import { resolveTheme, themeVariables, type ThemeUpload } from "@/themes/resolve";
 import { SWATCHES } from "@/themes/swatches";
 import { TEMPLATES } from "@/themes/templates";
-import { applyTemplate, BUTTON_STYLES, FONTS, LAYOUTS, OFFERED_LAYOUTS, RSVP_STYLES, TEXT_TONES, type Layout } from "@/themes/theme";
+import { applyTemplate, BUTTON_STYLES, FONTS, LAYOUTS, OFFERED_LAYOUTS, RSVP_STYLES, TEXT_TONES, TITLE_PLACEMENTS, type Layout, type UploadMode } from "@/themes/theme";
 import { useTheme } from "@/themes/themed-page";
 import { TITLE_FONT_CLASSES } from "@/themes/title-fonts";
 import { describeUploadAction } from "@/uploads/actions";
@@ -85,9 +85,10 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
   const themeName = !readout.custom ? readout.template : readout.template ? t("customFrom", { template: readout.template }) : t("custom");
   // What Auto would pick, shown in its swatch whatever is chosen now.
   const autoAccent = resolveTheme({ ...theme, accentOverride: null }, upload).accent;
-  // The host's picture is the background now (the Poster use of it arrives with ticket 13).
-  const showingUpload = resolved.upload !== null && theme.uploadMode === "background";
-  const chooseUpload = (picture: ThemeUpload) => choose({ knob: "uploadId", value: picture.id });
+  // How the host's picture is shown now: as the background, as the poster, or not at all while
+  // a curated background is.
+  const shownAs = resolved.upload ? theme.uploadMode : null;
+  const showUploadAs = (mode: UploadMode) => choose({ knob: "uploadMode", value: mode });
   const max = maxUploadBytes / MEGABYTE;
 
   return (
@@ -126,15 +127,13 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
             <div className="flex gap-3">
               <span aria-hidden className="h-28 w-21 shrink-0 rounded-xl ring-1 ring-border" style={fillWith(upload.src)} />
               <div className="min-w-0 flex-1 space-y-3">
-                <Choices legend={t("useAs")}>
+                <Choices legend={t("useAs")} hint={shownAs === "poster" ? t("useAsPosterHint") : undefined}>
                   <div className="grid grid-cols-2 gap-2">
-                    <Choice name="uploadMode" checked={showingUpload} onSelect={() => chooseUpload(upload)} className="flex-col items-start gap-1 bg-accent/40 p-2.5">
+                    <Choice name="uploadMode" checked={shownAs === "background"} onSelect={() => showUploadAs("background")} className="flex-col items-start gap-1 bg-accent/40 p-2.5">
                       <span className="text-sm font-medium">{t("useAsBackground")}</span>
                     </Choice>
-                    {/* Ticket 13 turns this on. */}
-                    <Choice name="uploadMode" checked={false} disabled onSelect={() => undefined} className="flex-col items-start gap-1 bg-accent/40 p-2.5">
+                    <Choice name="uploadMode" checked={shownAs === "poster"} onSelect={() => showUploadAs("poster")} className="flex-col items-start gap-1 bg-accent/40 p-2.5">
                       <span className="text-sm font-medium">{t("useAsPoster")}</span>
-                      <Badge>{t("comingSoon")}</Badge>
                     </Choice>
                   </div>
                 </Choices>
@@ -245,8 +244,8 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
             })}
             {/* The host's picture stays here whichever background is shown, to go back to. */}
             {upload && (
-              <Choice name="background" checked={showingUpload} onSelect={() => chooseUpload(upload)} className="aspect-[3/4]" style={fillWith(upload.src)}>
-                {showingUpload && <Tick />}
+              <Choice name="background" checked={shownAs === "background"} onSelect={() => showUploadAs("background")} className="aspect-[3/4]" style={fillWith(upload.src)}>
+                {shownAs === "background" && <Tick />}
                 <TileName>{t("yourPicture")}</TileName>
               </Choice>
             )}
@@ -338,6 +337,18 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
               options={RSVP_STYLES.map((style) => ({ value: style, label: t(`rsvpStyles.${style}`) }))}
               onSelect={(value) => choose({ knob: "rsvpStyle", value })}
             />
+
+            {/* Only a poster has a title placement: on its foot, or below it. */}
+            {resolved.poster && (
+              <Segmented
+                legend={t("titlePlacement")}
+                hint={t(`titlePlacementHints.${theme.titlePlacement}`)}
+                name="titlePlacement"
+                value={theme.titlePlacement}
+                options={TITLE_PLACEMENTS.map((placement) => ({ value: placement, label: t(`titlePlacements.${placement}`) }))}
+                onSelect={(value) => choose({ knob: "titlePlacement", value })}
+              />
+            )}
           </div>
         </section>
       </div>

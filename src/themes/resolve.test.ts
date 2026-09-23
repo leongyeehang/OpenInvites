@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { css } from "./legibility";
-import { resolveTheme, sheetVariables, themeVariables, type ThemeUpload } from "./resolve";
+import { css, TONES } from "./legibility";
+import { posterTitleVariables, resolveTheme, sheetVariables, themeVariables, type ThemeUpload } from "./resolve";
 import { DEFAULT_THEME, type Theme } from "./theme";
 
 const UPLOAD = "0192f0a1-7b3c-7d4e-8f00-123456789abc";
 const onUpload: Theme = { ...DEFAULT_THEME, backgroundId: null, uploadId: UPLOAD };
+
+// The same picture as a portrait poster, and its blurred copy behind it: dark.
+const POSTER: ThemeUpload["poster"] = { src: `/uploads/${UPLOAD}/poster.webp`, width: 1200, height: 1800, lightest: "#202020", darkest: "#707070" };
 
 // The event's upload as the server sampled it: a dark photo unless a test says otherwise.
 const upload = (sampled: Partial<ThemeUpload> = {}): ThemeUpload => ({
@@ -15,6 +18,7 @@ const upload = (sampled: Partial<ThemeUpload> = {}): ThemeUpload => ({
   lightest: "#303030",
   darkest: "#505050",
   altText: "",
+  poster: POSTER,
   ...sampled,
 });
 
@@ -91,6 +95,58 @@ describe("resolveTheme", () => {
     // would have been smoked.
     expect(css(resolveTheme(onUpload, upload()).tokens.glass)).toBe("rgb(255 255 255 / 0.1)");
     expect(css(resolveTheme(onUpload, upload({ lightest: "#bfbfbf" })).tokens.glass)).not.toBe("rgb(255 255 255 / 0.1)");
+  });
+
+  describe("poster mode", () => {
+    const asPoster: Theme = { ...onUpload, uploadMode: "poster", titlePlacement: "on" };
+
+    it("shows the host's upload as the invitation itself: the poster at its size, with what it shows and the title where the host put it", () => {
+      expect(resolveTheme(asPoster, upload({ altText: "Our summer fair poster" })).poster).toEqual({
+        src: `/uploads/${UPLOAD}/poster.webp`,
+        width: 1200,
+        height: 1800,
+        altText: "Our summer fair poster",
+        titlePlacement: "on",
+      });
+      expect(resolveTheme({ ...asPoster, titlePlacement: "below" }, upload()).poster?.titlePlacement).toBe("below");
+      // It is the upload in use, so guests are sent it.
+      expect(resolveTheme(asPoster, upload()).upload).toEqual(upload());
+    });
+
+    it("shows no poster when the upload is the background, is put aside, or is missing", () => {
+      expect(resolveTheme(onUpload, upload()).poster).toBeNull();
+      expect(resolveTheme({ ...asPoster, backgroundId: "dusk" }, upload()).poster).toBeNull();
+      expect(resolveTheme({ ...asPoster, backgroundId: "dusk" }, upload()).upload).toBeNull();
+      expect(resolveTheme(asPoster).poster).toBeNull();
+      expect(resolveTheme(DEFAULT_THEME).poster).toBeNull();
+    });
+
+    it("takes the accent and the text tone from the picture, as the background does", () => {
+      expect(resolveTheme(asPoster, upload()).accent).toBe("#3aa885");
+      expect(resolveTheme(asPoster, upload({ luminance: 0.9 })).textTone).toBe("dark");
+      expect(resolveTheme({ ...asPoster, accentOverride: "#ff7a59" }, upload()).accent).toBe("#ff7a59");
+    });
+
+    it("solves the page against the blurred copy behind the poster, under its own stronger scrim", () => {
+      expect(resolveTheme(asPoster, upload()).tokens.scrim).toEqual(TONES.light.posterScrim);
+      expect(resolveTheme(onUpload, upload()).tokens.scrim).toEqual(TONES.light.scrim);
+      // The copy's own measurements decide: a bright copy smokes the glass, though the same
+      // picture's darker background measurement would not.
+      const brightCopy = upload({ poster: { ...POSTER, lightest: "#8c8c8c" } });
+      expect(css(resolveTheme(asPoster, brightCopy).tokens.glass)).not.toBe("rgb(255 255 255 / 0.1)");
+      expect(css(resolveTheme(onUpload, brightCopy).tokens.glass)).toBe("rgb(255 255 255 / 0.1)");
+    });
+
+    it("gives the title on the poster its scrim and the secondary text that reads on it, to set on itself", () => {
+      const resolved = resolveTheme(asPoster, upload());
+      const variables = posterTitleVariables(resolved);
+      expect(variables).toEqual({
+        "--theme-title-scrim": css(resolved.tokens.titleOnPoster.scrim),
+        "--theme-text-muted": css(resolved.tokens.titleOnPoster.textMuted),
+        "--theme-text-faint": css(resolved.tokens.titleOnPoster.textFaint),
+      });
+      for (const [name, value] of Object.entries(variables)) expect(value, name).toMatch(/^(#[0-9a-f]{6}|rgb\(\d+ \d+ \d+ \/ [0-9.]+\))$/);
+    });
   });
 
   it("expresses the accent and the tone's colours as CSS variables for first paint", () => {
