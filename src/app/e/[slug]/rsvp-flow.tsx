@@ -450,9 +450,11 @@ function RsvpSheet({ open, onClose, onClosed, children }: { open: boolean; onClo
           }}
           style={{ ...(sheetVariables(resolved) as CSSProperties), height }}
           // Beside the host's side panel, it centres in the room left for the page.
-          className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-60 mx-auto box-content max-w-[34rem] overflow-hidden rounded-[28px] border border-theme-glass-border bg-theme-sheet text-theme-text shadow-sheet backdrop-blur-2xl outline-none transition-[height] duration-300 ease-out designing:md:right-101 motion-reduce:transition-none motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:fade-out motion-safe:data-[state=closed]:slide-out-to-bottom-8 motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:fade-in motion-safe:data-[state=open]:slide-in-from-bottom-8"
+          className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-60 mx-auto box-content flex max-w-[34rem] flex-col justify-end overflow-hidden rounded-[28px] border border-theme-glass-border bg-theme-sheet text-theme-text shadow-sheet backdrop-blur-2xl outline-none transition-[height] duration-300 ease-out designing:md:right-101 motion-reduce:transition-none motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:fade-out motion-safe:data-[state=closed]:slide-out-to-bottom-8 motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:fade-in motion-safe:data-[state=open]:slide-in-from-bottom-8"
         >
-          <div ref={measure} className="max-h-[80dvh] overflow-y-auto overscroll-contain p-5">
+          {/* Held to the sheet's foot, so as the sheet grows or shrinks only its top edge moves:
+              each control is drawn where it stays, and a tap as soon as it shows lands on it. */}
+          <div ref={measure} className="max-h-[80dvh] shrink-0 overflow-y-auto overscroll-contain p-5">
             <Dialog.Title className="sr-only">{t("sheet.title")}</Dialog.Title>
             {children}
           </div>

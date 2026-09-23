@@ -49,7 +49,12 @@ test("a guest answers in a sheet that rises over the invitation and grows throug
   await sheet.getByLabel("Your name").fill("Priya Nair");
   await sheet.getByRole("button", { name: "Continue" }).click();
   await expect(sheet.getByText("You can bring up to 2 people.")).toBeVisible();
+  // The sheet grows and shrinks from its top edge only: the Send button stays under the guest's
+  // finger as fields come and go, so a tap as soon as they see it lands on it.
+  const send = sheet.getByRole("button", { name: "Send RSVP" });
+  const sendAt = await box(send);
   await sheet.getByRole("radio", { name: "+2" }).click();
+  expect(await box(send)).toEqual(sendAt);
   await sheet.getByLabel("Guest 1").fill("Arjun");
   await sheet.getByLabel("Guest 2").fill("Mei");
   // More to answer, so a taller sheet.
@@ -85,9 +90,13 @@ test("a guest answers in a sheet that rises over the invitation and grows throug
   await expect(sheet).toBeHidden();
   await page.getByRole("button", { name: "Maybe" }).click();
   await expect(sheet.getByLabel("Your name")).toHaveValue("Priya Nair");
+  await settled(sheet);
   await sheet.getByRole("button", { name: "Continue" }).click();
+  // Fewer to name, so a shorter sheet, and Send is still where the guest saw it.
+  const sendAgainAt = await box(send);
   await sheet.getByRole("radio", { name: "Just me" }).click();
-  await sheet.getByRole("button", { name: "Send RSVP" }).click();
+  expect(await box(send)).toEqual(sendAgainAt);
+  await send.click();
   await expect(sheet.getByText("You’re a maybe.")).toBeVisible();
   await expect((await counts(host.page)).getByText("0 going · 1 maybe · 0 can’t go · no one expected yet")).toBeVisible();
 
