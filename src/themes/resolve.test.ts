@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { css } from "./legibility";
-import { resolveTheme, themeVariables } from "./resolve";
+import { resolveTheme, sheetVariables, themeVariables } from "./resolve";
 import { DEFAULT_THEME, type Theme } from "./theme";
 
 const onUpload: Theme = { ...DEFAULT_THEME, backgroundId: null, uploadId: "0192f0a1-7b3c-7d4e-8f00-123456789abc" };
@@ -72,5 +72,22 @@ describe("resolveTheme", () => {
       expect(variables[name], name).toMatch(/^(#[0-9a-f]{6}|rgb\(\d+ \d+ \d+ \/ [0-9.]+\))$/);
     }
     expect(themeVariables(resolveTheme({ ...DEFAULT_THEME, textTone: "dark" }))["--theme-text"]).toBe("#1a1030");
+  });
+
+  it("carries how guests answer: in the sheet or inline", () => {
+    expect(resolveTheme(DEFAULT_THEME).rsvpStyle).toBe("sheet");
+    expect(resolveTheme({ ...DEFAULT_THEME, rsvpStyle: "inline" }).rsvpStyle).toBe("inline");
+  });
+
+  it("gives the RSVP sheet its own tint, secondary text and accent ink, to set on itself", () => {
+    const resolved = resolveTheme(DEFAULT_THEME);
+    const variables = sheetVariables(resolved);
+    expect(variables).toEqual({
+      "--theme-sheet": css(resolved.tokens.sheet.tint),
+      "--theme-text-muted": css(resolved.tokens.sheet.textMuted),
+      "--theme-text-faint": css(resolved.tokens.sheet.textFaint),
+      "--theme-accent-ink": css(resolved.tokens.sheet.accentInk),
+    });
+    for (const [name, value] of Object.entries(variables)) expect(value, name).toMatch(/^(#[0-9a-f]{6}|rgb\(\d+ \d+ \d+ \/ [0-9.]+\))$/);
   });
 });

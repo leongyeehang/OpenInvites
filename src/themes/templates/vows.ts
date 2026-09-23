@@ -1,5 +1,7 @@
 import type { Template } from "./template";
 
+// Guests answer in the sheet, like a reply card laid over the invitation, so the invitation
+// itself is never pushed down the page. (The prototype had it inline.)
 export const vows: Template = {
   id: "vows",
   name: "Vows",
@@ -12,7 +14,7 @@ export const vows: Template = {
     accentOverride: "#ffffff",
     textTone: "auto",
     buttonStyle: "outline",
-    rsvpStyle: "inline",
+    rsvpStyle: "sheet",
     effect: "sparkles",
   },
 };

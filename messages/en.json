@@ -367,6 +367,15 @@
       "glass": "Glass",
       "solid": "Solid accent",
       "outline": "Outline"
+    },
+    "rsvpStyle": "RSVP style",
+    "rsvpStyles": {
+      "inline": "Inline",
+      "sheet": "Sheet"
+    },
+    "rsvpStyleHints": {
+      "inline": "The steps open under the three buttons.",
+      "sheet": "Choosing a button opens a frosted sheet over the invitation, which grows through the steps."
     }
   },
   "Guests": {
@@ -453,6 +462,12 @@
     "change": "Change my answer",
     "edit": "Edit details",
     "remove": "Remove my RSVP",
+    "replied": "You replied as {name}.",
+    "showMine": "Show my RSVP",
+    "sheet": {
+      "title": "Your RSVP",
+      "close": "Close"
+    },
     "errors": {
       "closed": "This invitation is not taking RSVPs.",
       "statusInvalid": "Choose Going, Maybe, or Can’t go.",

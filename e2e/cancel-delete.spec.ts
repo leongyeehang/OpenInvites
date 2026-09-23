@@ -13,6 +13,8 @@ async function rsvp(page: Page, link: string, name: string) {
 test("a cancelled event keeps its page, with the news and no way to reply", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "cancel", {
+    // Inline, so the confirmation is in place of the buttons when the guest comes back.
+    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "0",

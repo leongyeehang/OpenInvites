@@ -1,17 +1,29 @@
 import { findBackground } from "./backgrounds";
 import { isSwatch } from "./swatches";
 import { findTemplate } from "./templates";
-import { applyTemplate, BUTTON_STYLES, FONTS, TEXT_TONES, type ButtonStyle, type FontKey, type TextTone, type Theme } from "./theme";
+import {
+  applyTemplate,
+  BUTTON_STYLES,
+  FONTS,
+  RSVP_STYLES,
+  TEXT_TONES,
+  type ButtonStyle,
+  type FontKey,
+  type RsvpStyle,
+  type TextTone,
+  type Theme,
+} from "./theme";
 
 // What the Design drawer asks for: a template, or one knob set to one value. The layout row has
-// nothing to change while Poster is the only layout offered, and the RSVP style, title placement
-// and upload rows arrive with tickets 11, 13 and 12.
+// nothing to change while Poster is the only layout offered, and the title placement and upload
+// rows arrive with tickets 13 and 12.
 export type KnobChange =
   | { knob: "backgroundId"; value: string }
   | { knob: "font"; value: FontKey }
   | { knob: "accentOverride"; value: string | null }
   | { knob: "textTone"; value: TextTone }
-  | { knob: "buttonStyle"; value: ButtonStyle };
+  | { knob: "buttonStyle"; value: ButtonStyle }
+  | { knob: "rsvpStyle"; value: RsvpStyle };
 
 export type ThemeChange = { template: string } | KnobChange;
 
@@ -71,6 +83,8 @@ export function parseThemeChange(raw: unknown): ThemeChange | undefined {
       return oneOf(TEXT_TONES, value) ? { knob, value } : undefined;
     case "buttonStyle":
       return oneOf(BUTTON_STYLES, value) ? { knob, value } : undefined;
+    case "rsvpStyle":
+      return oneOf(RSVP_STYLES, value) ? { knob, value } : undefined;
     default:
       return undefined;
   }

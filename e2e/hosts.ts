@@ -63,9 +63,24 @@ export function linkIn(text: string): string {
 }
 
 // Opens the verification link from the sign-up email on this page.
+//
+// Better Auth limits how often one client opens verification links, and its count only starts
+// again after a quiet ten seconds, which a whole suite run never has. A real instance sits
+// behind a reverse proxy that tells the app which client each request comes from; the test
+// profile has none, so every host in the run would count as one client, and the suite would be
+// refused after its hundredth host. Each host here is someone on their own device, so the page
+// says so, the way the proxy would (X-Forwarded-For, which Better Auth reads).
 export async function verifyEmail(page: Page, request: APIRequestContext, email: string) {
-  await page.goto(linkIn(await latestMailTo(request, email)));
+  const link = linkIn(await latestMailTo(request, email));
+  await page.setExtraHTTPHeaders({ "x-forwarded-for": clientAddress() });
+  await page.goto(link);
   await expect(page.getByRole("heading", { name: "Email verified" })).toBeVisible();
+}
+
+// An address from a private range, different for every host in the run.
+function clientAddress() {
+  const byte = () => Math.floor(Math.random() * 254) + 1;
+  return `10.${byte()}.${byte()}.${byte()}`;
 }
 
 // A host who is signed up and verified, ready to create events.

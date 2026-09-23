@@ -2,8 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { createDraft, createPublished } from "./events";
 import { signUpVerified } from "./hosts";
 
-// The guest drives the test's own page, so the whole flow runs at 390 pixels in the mobile
-// project and at desktop width in the other.
+// The Inline RSVP style: the steps open under the three buttons, and the confirmation takes the
+// buttons' place. (The Sheet style, the same flow in a sheet, is rsvp-sheet.spec.ts.) The guest
+// drives the test's own page, so the whole flow runs at 390 pixels in the mobile project and at
+// desktop width in the other.
 
 const EDIT_LINK = /^https?:\/\/\S+\/r\/\S+$/;
 
@@ -15,6 +17,7 @@ async function counts(hostPage: Page) {
 test("a guest goes, brings someone, and lands on a confirmation with an edit link", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "rsvp-going", {
+    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "2",
@@ -64,6 +67,7 @@ test("a guest goes, brings someone, and lands on a confirmation with an edit lin
 test("a guest who can’t go answers in one step and is never asked who they are bringing", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "rsvp-cant", {
+    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "2",
@@ -87,6 +91,7 @@ test("a guest who can’t go answers in one step and is never asked who they are
 test("answering again from the same device replaces the earlier RSVP", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "rsvp-again", {
+    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "2",
@@ -119,6 +124,7 @@ test("answering again from the same device replaces the earlier RSVP", async ({ 
 test("the edit link opens the RSVP on a device that has never seen the invitation", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "rsvp-editlink", {
+    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "0",
@@ -154,6 +160,7 @@ test("the edit link opens the RSVP on a device that has never seen the invitatio
 test("a guest removes their RSVP and the event forgets them", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "rsvp-remove", {
+    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "0",
@@ -179,6 +186,7 @@ test("a guest removes their RSVP and the event forgets them", async ({ page, bro
 test("the host's plus-one settings decide what the guest is asked", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "rsvp-settings", {
+    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "1",

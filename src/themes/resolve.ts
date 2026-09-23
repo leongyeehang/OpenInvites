@@ -1,7 +1,7 @@
 import { DEFAULT_BACKGROUND, findBackground, type Background } from "./backgrounds";
 import { TITLE_FONTS, type TitleFont } from "./fonts";
 import { css, GLOW, TONES, toneTokens, UNMEASURED, type ToneTokens } from "./legibility";
-import type { ButtonStyle, Theme } from "./theme";
+import type { ButtonStyle, RsvpStyle, Theme } from "./theme";
 
 // What the server samples from a host's upload (ticket 12). Until then no event has one.
 export type SampledUpload = { accent: string | null; luminance: number };
@@ -15,6 +15,7 @@ export type ResolvedTheme = {
   textTone: "light" | "dark";
   font: TitleFont;
   buttonStyle: ButtonStyle;
+  rsvpStyle: RsvpStyle; // the Poster layout's, which is every layout in M1
   // Every colour the page paints text with and on, chosen together so that all of it reads.
   tokens: ToneTokens;
 };
@@ -41,6 +42,7 @@ export function resolveTheme(theme: Theme, upload: SampledUpload | null = null):
     textTone,
     font: TITLE_FONTS[theme.font],
     buttonStyle: theme.buttonStyle,
+    rsvpStyle: theme.rsvpStyle,
     tokens: toneTokens(textTone, uploadInUse ? UNMEASURED : background, accent),
   };
 }
@@ -62,5 +64,17 @@ export function themeVariables({ accent, tokens }: ResolvedTheme): Record<string
     "--theme-veil": css(tokens.veil),
     "--theme-scrim": css(tokens.scrim),
     "--theme-glow": css(GLOW),
+  };
+}
+
+// The RSVP sheet is a surface of its own (legibility.ts, SHEET_SURFACES): it sets its tint, and
+// the secondary text and accent ink that read on it, on itself, so the flow inside it takes them
+// with the classes it wears on the inline card.
+export function sheetVariables({ tokens: { sheet } }: ResolvedTheme): Record<string, string> {
+  return {
+    "--theme-sheet": css(sheet.tint),
+    "--theme-text-muted": css(sheet.textMuted),
+    "--theme-text-faint": css(sheet.textFaint),
+    "--theme-accent-ink": css(sheet.accentInk),
   };
 }

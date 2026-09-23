@@ -103,7 +103,8 @@ test("a guest in another zone is told what the time is where they are", async ({
 
 test("a guest who has just replied is offered the calendar there and then", async ({ page, browser, request }) => {
   test.slow();
-  const host = await createPublished(browser, request, "calendar-done", EVENT);
+  // Inline, so the offer in the confirmation and the calendar tile below it are counted together.
+  const host = await createPublished(browser, request, "calendar-done", { ...EVENT, rsvpStyle: "Inline" });
 
   await page.goto(host.link);
   await page.getByRole("button", { name: "Going" }).click();

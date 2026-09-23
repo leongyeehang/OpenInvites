@@ -107,6 +107,9 @@ export type ToneTokens = {
   onAccent: Rgb;
   // The accent where it is set as text, moved towards the tone's text until it reads.
   accentInk: Rgb;
+  // The RSVP sheet: its tint, and the secondary text and accent ink that read on it, which the
+  // sheet sets for everything inside it.
+  sheet: { tint: Rgba; textMuted: Rgba; textFaint: Rgba; accentInk: Rgb };
 };
 
 // A surface text is set on, as its layers over the backdrop (bottom first), and what it carries:
@@ -130,6 +133,26 @@ export function SURFACES({ glass, glassStrong, veil }: Pick<ToneTokens, "glass" 
     // "Remove my RSVP", the asterisk on a required question. Anything bigger that wants the
     // accent (the countdown, avatars, the chosen answer) is filled with it and set in onAccent.
     accentOnCard: { layers: [glass], carries: "accent" },
+  } satisfies Record<string, Surface>;
+}
+
+// The RSVP sheet rises over the page itself, so what is behind it is whatever part of the
+// invitation it covers: cards, text, a button filled with the accent. That is not known in
+// advance, so the sheet is solved against the far end of the scale outright, white under light
+// text and black under dark, which the first, opaque layer stands for. Its content is the RSVP
+// flow's, as on the inline card; keep this in step with that markup (rsvp-flow.tsx).
+export function SHEET_SURFACES(tone: Tone, { glass, glassStrong, sheet }: Pick<ToneTokens, "glass" | "glassStrong"> & { sheet: Pick<ToneTokens["sheet"], "tint"> }) {
+  const anything: Rgba = [...(tone === "light" ? WHITE : BLACK), 1];
+  return {
+    // Step headings, labels and hints, the confirmation's summary, error messages.
+    sheet: { layers: [anything, sheet.tint], carries: "every strength" },
+    // Fields and their placeholders, the plus-one and answer chips, the calendar links, the edit
+    // link's pill.
+    sheetInset: { layers: [anything, sheet.tint, glassStrong], carries: "every strength" },
+    // The copy button on the edit link's pill.
+    sheetInsetButton: { layers: [anything, sheet.tint, glassStrong, glass], carries: "full strength" },
+    // "Remove my RSVP", the asterisk on a required question.
+    accentOnSheet: { layers: [anything, sheet.tint], carries: "accent" },
   } satisfies Record<string, Surface>;
 }
 
@@ -172,26 +195,39 @@ export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string): Tone
   // The veil is solved on its own: on most backdrops bare text reads with none.
   const veil: Rgba = [...t.shade, least(0, (value) => fits(SURFACES({ glass, glassStrong, veil: [...t.shade, value] }).page))];
 
-  const surfaces: Surface[] = Object.values(SURFACES({ glass, glassStrong, veil }));
-  const everyStrength = surfaces.filter((surface) => surface.carries === "every strength");
-  const fadedReads = (alpha: number) => everyStrength.every(({ layers }) => reads([...text, alpha], layers));
-
-  const accentSurfaces = surfaces.filter((surface) => surface.carries === "accent");
+  // How far secondary text may fade on a set of surfaces, and how far the accent ink must move
+  // towards the text to read on them.
   const inkAt = (amount: number) => over([...text, amount], accentRgb).map(Math.round) as unknown as Rgb;
-  const accentInk = inkAt(least(0, (amount) => accentSurfaces.every(({ layers }) => reads(inkAt(amount), layers))));
+  const strengthsOn = (surfaces: Surface[]) => {
+    const everyStrength = surfaces.filter((surface) => surface.carries === "every strength");
+    const fadedReads = (alpha: number) => everyStrength.every(({ layers }) => reads([...text, alpha], layers));
+    const accentSurfaces = surfaces.filter((surface) => surface.carries === "accent");
+    return {
+      textMuted: [...text, least(t.muted, fadedReads)] as Rgba,
+      textFaint: [...text, least(t.faint, fadedReads)] as Rgba,
+      accentInk: inkAt(least(0, (amount) => accentSurfaces.every(({ layers }) => reads(inkAt(amount), layers)))),
+    };
+  };
+  const page = strengthsOn(Object.values(SURFACES({ glass, glassStrong, veil })));
+
+  // The sheet is tinted with the tone's shade as little as reading over anything allows. Its
+  // secondary text and accent ink are its own, so the page keeps its lighter ones.
+  const sheetAt = (tint: number): Surface[] => Object.values(SHEET_SURFACES(tone, { glass, glassStrong, sheet: { tint: [...t.shade, tint] } }));
+  const sheetTint: Rgba = [...t.shade, least(0, (tint) => sheetAt(tint).every(fits))];
 
   return {
     base: t.base,
     text,
-    textMuted: [...text, least(t.muted, fadedReads)],
-    textFaint: [...text, least(t.faint, fadedReads)],
+    textMuted: page.textMuted,
+    textFaint: page.textFaint,
     glass,
     glassStrong,
     glassBorder: t.glassBorder,
     veil,
     scrim: t.scrim,
     onAccent: onAccent(accentRgb),
-    accentInk,
+    accentInk: page.accentInk,
+    sheet: { tint: sheetTint, ...strengthsOn(sheetAt(sheetTint[3])) },
   };
 }
 

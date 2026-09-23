@@ -109,6 +109,8 @@ test("the host changes a guest's answer, and that guest's edit link still works"
 }) => {
   test.slow();
   const host = await createPublished(browser, request, "guests-edit", {
+    // Inline, so the confirmation is in place of the buttons when the guest comes back.
+    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "2",

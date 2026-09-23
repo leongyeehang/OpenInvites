@@ -11,18 +11,19 @@ import { TITLE_FONTS } from "@/themes/fonts";
 import { resolveTheme, themeVariables } from "@/themes/resolve";
 import { SWATCHES } from "@/themes/swatches";
 import { TEMPLATES } from "@/themes/templates";
-import { applyTemplate, BUTTON_STYLES, FONTS, LAYOUTS, OFFERED_LAYOUTS, TEXT_TONES, type Layout } from "@/themes/theme";
+import { applyTemplate, BUTTON_STYLES, FONTS, LAYOUTS, OFFERED_LAYOUTS, RSVP_STYLES, TEXT_TONES, type Layout } from "@/themes/theme";
 import { useTheme } from "@/themes/themed-page";
 import { TITLE_FONT_CLASSES } from "@/themes/title-fonts";
 
 // Each template as it would look, for its thumbnail. Templates are fixed data, so once is enough.
 const TEMPLATE_LOOKS = new Map(TEMPLATES.map((template) => [template.id, resolveTheme(applyTemplate(null, template))]));
 
-// The Design drawer's panel (spec, "Host: the look"): a plain panel beside the invitation, which
-// keeps changing as the host chooses. Top to bottom: upload (ticket 12), templates, layout,
-// background, and the finer knobs under Details. Every choice shows at once and is saved as it
-// is made; guests see what was saved. Ticket 11 turns it into a bottom sheet on phones and a side
-// panel on desktop.
+// The Design drawer's panel (spec, "Host: the look"): beside the invitation, which keeps changing
+// as the host chooses. Top to bottom: upload (ticket 12), templates, layout, background, and the
+// finer knobs under Details. Every choice shows at once and is saved as it is made; guests see
+// what was saved. The viewport decides its form, in CSS alone (story 43): a bottom sheet under
+// the md breakpoint, with the page scrolling above it, and a side panel from md up, with the page
+// moved over beside it (ThemedPage makes the room). It is not modal: the page stays live.
 export function DesignPanel({ eventId, title, onClose }: { eventId: string; title: string; onClose: () => void }) {
   const t = useTranslations("DesignDrawer");
   const { theme, resolved, change } = useTheme();
@@ -52,12 +53,13 @@ export function DesignPanel({ eventId, title, onClose }: { eventId: string; titl
   return (
     <section
       ref={panel}
+      data-slot="design-panel"
       role="dialog"
       aria-modal="false"
       aria-labelledby={`${id}-title`}
       tabIndex={-1}
       onKeyDown={(event) => event.key === "Escape" && onClose()}
-      className="dark fixed inset-x-2 bottom-2 z-50 flex max-h-[62dvh] flex-col overflow-hidden rounded-3xl border bg-popover/95 text-popover-foreground shadow-2xl backdrop-blur-2xl outline-none motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4 motion-safe:duration-200 sm:inset-x-auto sm:right-4 sm:bottom-4 sm:max-h-[min(82dvh,760px)] sm:w-[380px]"
+      className="dark fixed inset-x-0 bottom-0 z-50 flex max-h-[62dvh] flex-col overflow-hidden rounded-t-3xl border-t bg-popover/95 text-popover-foreground shadow-2xl backdrop-blur-2xl outline-none motion-safe:animate-in motion-safe:slide-in-from-bottom motion-safe:duration-300 motion-safe:ease-out md:inset-y-3 md:right-3 md:left-auto md:max-h-none md:w-95 md:rounded-3xl md:border motion-safe:md:slide-in-from-bottom-0 motion-safe:md:slide-in-from-right"
     >
       <header className="flex items-start justify-between gap-3 border-b px-5 py-3.5">
         <div className="min-w-0">
@@ -241,6 +243,15 @@ export function DesignPanel({ eventId, title, onClose }: { eventId: string; titl
               value={theme.buttonStyle}
               options={BUTTON_STYLES.map((style) => ({ value: style, label: t(`buttonStyles.${style}`) }))}
               onSelect={(value) => choose({ knob: "buttonStyle", value })}
+            />
+
+            <Segmented
+              legend={t("rsvpStyle")}
+              hint={t(`rsvpStyleHints.${theme.rsvpStyle}`)}
+              name="rsvpStyle"
+              value={theme.rsvpStyle}
+              options={RSVP_STYLES.map((style) => ({ value: style, label: t(`rsvpStyles.${style}`) }))}
+              onSelect={(value) => choose({ knob: "rsvpStyle", value })}
             />
           </div>
         </section>

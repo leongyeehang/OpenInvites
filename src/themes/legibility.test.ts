@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BACKGROUNDS } from "./backgrounds";
-import { AA, contrast, hexToRgb, over, SURFACES, toneTokens, worstBackdrop, type Rgb, type Rgba, type Tone } from "./legibility";
+import { AA, contrast, hexToRgb, over, SHEET_SURFACES, SURFACES, toneTokens, worstBackdrop, type Rgb, type Rgba, type Tone } from "./legibility";
 import { SWATCHES } from "./swatches";
 
 const TONES: Tone[] = ["light", "dark"];
@@ -66,10 +66,86 @@ describe("every combination the drawer offers", () => {
             expect(contrast(ink(tokens.textMuted, colour), colour), `muted, ${label}`).toBeGreaterThanOrEqual(AA);
             expect(contrast(ink(tokens.textFaint, colour), colour), `faint, ${label}`).toBeGreaterThanOrEqual(AA);
           }
+          // The RSVP sheet, which carries its own secondary strengths and accent ink.
+          const { sheet } = tokens;
+          for (const [surface, { layers, carries }] of Object.entries(SHEET_SURFACES(tone, tokens))) {
+            const colour = stack(layers, behind);
+            const label = `${accent} accent, on ${surface}`;
+            if (carries === "accent") {
+              expect(contrast(sheet.accentInk, colour), `accent ink, ${label}`).toBeGreaterThanOrEqual(AA);
+              continue;
+            }
+            expect(contrast(tokens.text, colour), `text, ${label}`).toBeGreaterThanOrEqual(AA);
+            if (carries === "full strength") continue;
+            expect(contrast(ink(sheet.textMuted, colour), colour), `muted, ${label}`).toBeGreaterThanOrEqual(AA);
+            expect(contrast(ink(sheet.textFaint, colour), colour), `faint, ${label}`).toBeGreaterThanOrEqual(AA);
+          }
         }
       });
     }
   }
+});
+
+// The RSVP sheet rises over the page itself, so what is behind it is not the backdrop but
+// whatever part of the invitation it covers: cards, text, a button filled with the accent.
+describe("the RSVP sheet", () => {
+  const WHITE: Rgb = [255, 255, 255];
+  const BLACK: Rgb = [0, 0, 0];
+
+  it("reads over anything it rises over, from white to black, on every background in both tones", () => {
+    for (const background of BACKGROUNDS) {
+      for (const tone of TONES) {
+        for (const accent of ACCENTS) {
+          const { text, glass, glassStrong, sheet } = toneTokens(tone, background, accent);
+          for (const behind of [WHITE, BLACK, worstBackdrop(tone, background)]) {
+            const label = `${background.name}, ${tone} tone, ${accent} accent, over ${behind}`;
+            // The sheet itself, a field or chip on it, and the copy button on the edit link's pill.
+            const [bare, inset, insetButton] = [[sheet.tint], [sheet.tint, glassStrong], [sheet.tint, glassStrong, glass]].map((layers) => stack(layers, behind));
+            for (const colour of [bare, inset]) {
+              expect(contrast(text, colour), `text, ${label}`).toBeGreaterThanOrEqual(AA);
+              expect(contrast(ink(sheet.textMuted, colour), colour), `muted, ${label}`).toBeGreaterThanOrEqual(AA);
+              expect(contrast(ink(sheet.textFaint, colour), colour), `faint, ${label}`).toBeGreaterThanOrEqual(AA);
+            }
+            expect(contrast(text, insetButton), `button label, ${label}`).toBeGreaterThanOrEqual(AA);
+            expect(contrast(sheet.accentInk, bare), `accent ink, ${label}`).toBeGreaterThanOrEqual(AA);
+          }
+        }
+      }
+    }
+  });
+
+  it("is frosted, not solid: some of the invitation always shows through it", () => {
+    for (const background of BACKGROUNDS) {
+      for (const tone of TONES) {
+        for (const accent of ACCENTS) {
+          const alpha = toneTokens(tone, background, accent).sheet.tint[3];
+          expect(alpha, `${background.name}, ${tone} tone, ${accent} accent`).toBeGreaterThan(0);
+          expect(alpha, `${background.name}, ${tone} tone, ${accent} accent`).toBeLessThanOrEqual(0.9);
+        }
+      }
+    }
+  });
+
+  it("keeps a hierarchy: secondary text on it is never closer than 80% to full strength", () => {
+    for (const background of BACKGROUNDS) {
+      for (const tone of TONES) {
+        for (const accent of ACCENTS) {
+          const { sheet } = toneTokens(tone, background, accent);
+          expect(sheet.textMuted[3], `${background.name}, ${tone} tone, ${accent} accent`).toBeLessThanOrEqual(0.8);
+          expect(sheet.textFaint[3], `${background.name}, ${tone} tone, ${accent} accent`).toBeLessThanOrEqual(0.8);
+        }
+      }
+    }
+  });
+
+  it("keeps its own text strengths and accent ink, and leaves the page's alone", () => {
+    // On a page dark enough that secondary text keeps its lightest strength, the sheet, which
+    // must also read over white, needs its secondary text stronger; the page's stays as it was.
+    const tokens = toneTokens("light", { lightest: "#101014", darkest: "#000000" }, "#ffc36b");
+    expect(tokens.textMuted[3]).toBe(0.75);
+    expect(tokens.accentInk).toEqual(hexToRgb("#ffc36b"));
+    expect(tokens.sheet.textMuted[3]).toBeGreaterThan(tokens.textMuted[3]);
+  });
 });
 
 describe("the settled look", () => {

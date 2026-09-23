@@ -3,6 +3,10 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+/* The host's Design panel is open (src/app/e/[slug]/design-panel.tsx): the page makes room for it. */
+@custom-variant designing (body:has([data-slot="design-panel"]) &);
+/* A guest's RSVP sheet is open (src/app/e/[slug]/rsvp-flow.tsx): the Design button steps aside. */
+@custom-variant rsvp-sheet-open (body:has([data-slot="rsvp-sheet"]) &);
 
 /*
   Design tokens, defined once. Three layers:
@@ -195,10 +199,12 @@
   --color-theme-glass-border: var(--theme-glass-border);
   --color-theme-scrim: var(--theme-scrim);
   --color-theme-glow: var(--theme-glow);
+  --color-theme-sheet: var(--theme-sheet);
   --font-title: var(--theme-title-font, var(--font-family-sans));
   --tracking-label: 0.2em;
   --shadow-glass: 0 8px 40px -16px rgb(0 0 0 / 0.35);
   --shadow-poster: 0 30px 80px -30px rgb(0 0 0 / 0.6);
+  --shadow-sheet: 0 -8px 60px -10px rgb(0 0 0 / 0.6);
   --drop-shadow-title: 0 2px 24px rgb(0 0 0 / 0.2);
   /* Poster title sizes: the serif can go bigger than the heavy sans faces; long titles step down. */
   --text-poster-serif: clamp(3.4rem, 14vw, 5.75rem);
@@ -239,9 +245,10 @@
   The event page paints its own theme and ignores the dashboard's light or dark setting (spec,
   "Themes and templates"). Every theme colour arrives inline on .event-page as a --theme-*
   variable (src/themes/resolve.ts, themeVariables): the accent, the text tone's colours, and the
-  glass, tinted just enough that all text reads (src/themes/legibility.ts). The text tone is also
-  there as data-tone. The title font arrives through --theme-title-font, set by the chosen font's
-  class (src/themes/title-fonts.ts).
+  glass, tinted just enough that all text reads (src/themes/legibility.ts). The RSVP sheet sets
+  its own tint, secondary text and accent ink on itself (resolve.ts, sheetVariables). The text
+  tone is also there as data-tone. The title font arrives through --theme-title-font, set by the
+  chosen font's class (src/themes/title-fonts.ts).
 */
 
 @layer components {

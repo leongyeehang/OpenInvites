@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, use, useOptimistic, type CSSProperties, type ReactNode } from "react";
+import { createContext, use, useOptimistic, useState, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { applyChange, type ThemeChange } from "./changes";
 import { resolveTheme, themeVariables, type ResolvedTheme, type SampledUpload } from "./resolve";
@@ -10,7 +10,9 @@ import { TITLE_FONT_CLASSES } from "./title-fonts";
 // The theme the page is wearing right now. For a guest that is the saved theme, always. For the
 // host with the Design drawer open it runs ahead of the save: `change` shows a change at once,
 // inside the transition that saves it, and the page settles on the saved theme once it returns.
-type ThemeState = { theme: Theme; resolved: ResolvedTheme; change: (change: ThemeChange) => void };
+// `root` is the page's own element, where anything that rises over the page (the RSVP sheet) is
+// put, so that it wears the theme too.
+type ThemeState = { theme: Theme; resolved: ResolvedTheme; change: (change: ThemeChange) => void; root: HTMLElement | null };
 
 const ThemeContext = createContext<ThemeState | null>(null);
 
@@ -36,14 +38,21 @@ export function ThemedPage({
   children: ReactNode;
 }) {
   const [theme, change] = useOptimistic(saved, applyChange);
+  const [root, setRoot] = useState<HTMLElement | null>(null);
   const resolved = resolveTheme(theme, upload);
   return (
-    <ThemeContext value={{ theme, resolved, change }}>
+    <ThemeContext value={{ theme, resolved, change, root }}>
       <div
+        ref={setRoot}
         data-tone={resolved.textTone}
         data-layout={resolved.layout}
         // No background of its own: a positioned box would paint over the fixed backdrop below.
-        className={cn("event-page relative min-h-dvh font-sans text-theme-text", TITLE_FONT_CLASSES[resolved.font.key])}
+        // While the host's Design panel is open the page makes room for it, so all of it stays in
+        // view: above the bottom sheet on a phone, beside the side panel on a wider screen.
+        className={cn(
+          "event-page relative min-h-dvh font-sans text-theme-text designing:max-md:pb-[62dvh] designing:md:pr-101",
+          TITLE_FONT_CLASSES[resolved.font.key],
+        )}
         style={themeVariables(resolved) as CSSProperties}
       >
         <Backdrop theme={resolved} />

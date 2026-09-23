@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { createPublished } from "./events";
 
 // Ticket 10: the host's Design drawer. A template sets the whole theme, any knob after it makes
@@ -113,6 +113,136 @@ test("the drawer keeps its order, offers only the Poster layout for now, and get
   await host.page.keyboard.press("Escape");
   await expect(drawer).toBeHidden();
   await expect(host.page.getByRole("button", { name: "Design" })).toBeFocused();
+
+  await host.context.close();
+});
+
+// Ticket 11: the RSVP style row, and the drawer's two forms.
+
+// Its slide-in has finished, so it is where it will stay.
+async function settled(locator: Locator) {
+  await locator.evaluate((element) => Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)));
+}
+
+async function box(locator: Locator) {
+  const found = await locator.boundingBox();
+  expect(found, "on screen").not.toBeNull();
+  return found!;
+}
+
+test("a host chooses whether guests answer inline or in a sheet, and each template has its own", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "design-rsvp-style", EVENT);
+  await host.page.goto(host.link);
+  const drawer = await openDrawer(host.page);
+  await drawer.getByRole("button", { name: "Details" }).click();
+  const style = drawer.getByRole("group", { name: "RSVP style" });
+
+  // Birthday, where every event starts, uses the sheet.
+  await expect(style.getByRole("radio", { name: "Sheet" })).toBeChecked();
+  await page.goto(host.link);
+  await page.getByRole("button", { name: "Going" }).click();
+  await expect(page.getByRole("dialog", { name: "Your RSVP" }).getByLabel("Your name")).toBeVisible();
+
+  // Inline makes the theme the host's own, and guests answer under the buttons.
+  await style.getByRole("radio", { name: "Inline" }).check();
+  await expect(drawer.getByText("Theme: Custom, started from Birthday")).toBeVisible();
+  await expect(drawer.getByText("Saved", { exact: true })).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: "Going" }).click();
+  await expect(page.getByLabel("Your name")).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  // Festival answers inline; Birthday again brings the sheet back.
+  await drawer.getByRole("button", { name: "Festival" }).click();
+  await expect(drawer.getByText("Theme: Festival")).toBeVisible();
+  await expect(style.getByRole("radio", { name: "Inline" })).toBeChecked();
+  await drawer.getByRole("button", { name: "Birthday" }).click();
+  await expect(drawer.getByText("Theme: Birthday")).toBeVisible();
+  await expect(style.getByRole("radio", { name: "Sheet" })).toBeChecked();
+  await expect(drawer.getByText("Saved", { exact: true })).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: "Going" }).click();
+  await expect(page.getByRole("dialog", { name: "Your RSVP" })).toBeVisible();
+
+  await host.context.close();
+});
+
+test("the drawer is a bottom sheet on a phone and a side panel on a wider screen, with the page in view and changing", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "design-forms", { ...EVENT, description: "Bring nothing." });
+  const page = host.page;
+  await page.goto(host.link);
+  const drawer = await openDrawer(page);
+  await settled(drawer);
+
+  const bottomSheet = async () => {
+    // Edge to edge, from the foot of the screen, with the invitation above it. (Polled, because a
+    // window that has just been resized takes a moment to lay out again.)
+    const edges = async () => {
+      const panel = await box(drawer);
+      const layout = await page.evaluate(() => ({ width: document.documentElement.clientWidth, height: window.innerHeight }));
+      return { left: panel.x, right: layout.width - panel.x - panel.width, foot: Math.round(layout.height - panel.y - panel.height) };
+    };
+    await expect.poll(edges).toEqual({ left: 0, right: 0, foot: 0 });
+    const panel = await box(drawer);
+    expect(panel.height).toBeLessThan(page.viewportSize()!.height * 0.7);
+    const title = await box(page.locator("h1"));
+    expect(title.y + title.height).toBeLessThanOrEqual(panel.y);
+    // And room to scroll the whole page up above it.
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const last = await box(page.locator("main > :last-child"));
+    expect(last.y + last.height).toBeLessThanOrEqual(panel.y);
+    await page.evaluate(() => window.scrollTo(0, 0));
+  };
+
+  if (page.viewportSize()!.width < 768) {
+    await bottomSheet();
+  } else {
+    // Down the right-hand side, the full height, with the page moved over beside it.
+    const viewport = page.viewportSize()!;
+    const panel = await box(drawer);
+    expect(panel.x + panel.width).toBeGreaterThan(viewport.width - 20);
+    expect(panel.height).toBeGreaterThan(viewport.height * 0.9);
+    expect(panel.width).toBeLessThan(viewport.width / 2);
+    const content = await box(page.locator("main"));
+    expect(content.x + content.width).toBeLessThanOrEqual(panel.x);
+  }
+
+  // The page keeps changing as the host chooses.
+  await drawer.getByRole("button", { name: "Details" }).click();
+  await drawer.getByRole("radio", { name: "Dark" }).check();
+  await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
+  await drawer.getByRole("radio", { name: "Fredoka" }).check();
+  await expect.poll(() => titleFont(page)).toMatch(/fredoka/i);
+
+  // The viewport decides the form, so a window narrowed to a phone's width gets the sheet.
+  if (page.viewportSize()!.width >= 768) {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await bottomSheet();
+  }
+
+  await host.context.close();
+});
+
+test("under reduced motion the drawer appears without sliding in", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "design-motion", EVENT);
+  const page = host.page;
+  const motion = (element: Element) => ({ animation: getComputedStyle(element).animationName, running: element.getAnimations({ subtree: true }).length });
+
+  await page.goto(host.link);
+  const drawer = await openDrawer(page);
+  expect((await drawer.evaluate(motion)).animation).toBe("enter");
+  await page.keyboard.press("Escape");
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const still = await openDrawer(page);
+  expect(await still.evaluate(motion)).toEqual({ animation: "none", running: 0 });
+  // Nor does anything in it move as the host chooses.
+  await still.getByRole("button", { name: "Details" }).click();
+  await still.getByRole("radio", { name: "Outline" }).check();
+  expect(await still.evaluate(motion)).toEqual({ animation: "none", running: 0 });
 
   await host.context.close();
 });

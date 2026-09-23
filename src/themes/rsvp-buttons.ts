@@ -9,7 +9,7 @@ import type { ButtonStyle } from "./theme";
 // for: glass on strong glass, solid on the opaque accent, and outline on the page's veil, which
 // is clear wherever bare text already reads.
 const BASE =
-  "inline-flex h-12 cursor-pointer items-center justify-center rounded-2xl px-3 text-sm font-medium transition-[background-color,opacity,border-color] outline-none focus-visible:ring-2 focus-visible:ring-theme-accent focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:cursor-default disabled:opacity-50";
+  "inline-flex h-12 cursor-pointer items-center justify-center rounded-2xl px-3 text-sm font-medium transition-[background-color,opacity,border-color] outline-none motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-theme-accent focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:cursor-default disabled:opacity-50";
 
 const UNSELECTED: Record<ButtonStyle, string> = {
   glass: "border border-theme-glass-border bg-theme-glass-strong backdrop-blur-xl hover:bg-theme-glass",

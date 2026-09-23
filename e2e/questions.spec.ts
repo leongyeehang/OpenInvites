@@ -68,6 +68,8 @@ test("a guest who can’t go is never asked the questions", async ({ page, brows
 test("coming back to change an answer brings back what was said before", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "questions-edit", {
+    // Inline, so the confirmation is in place of the buttons when the guest comes back.
+    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "0",
@@ -113,6 +115,8 @@ test("reordering the host's questions reorders them for the guest", async ({ pag
 test("a guest is not locked out when the host rewrites a question they answered", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "questions-rewrite", {
+    // Inline, so the confirmation is in place of the buttons when the guest comes back.
+    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "0",

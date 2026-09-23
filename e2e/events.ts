@@ -18,6 +18,8 @@ export type DraftFields = {
   requirePlusOneNames?: boolean;
   askEmail?: boolean;
   questions?: QuestionFields[];
+  // A theme knob rather than a field of the form: createPublished sets it in the Design drawer.
+  rsvpStyle?: "Inline" | "Sheet";
 };
 
 // Fills the questions editor, which is a list the host builds before saving the event.
@@ -59,5 +61,22 @@ export async function createPublished(browser: Browser, request: APIRequestConte
   const link = await createDraft(page, fields);
   await page.getByRole("button", { name: "Publish" }).click();
   await expect(page.getByText("Published", { exact: true })).toBeVisible();
+  if (fields.rsvpStyle) await chooseRsvpStyle(page, link, fields.rsvpStyle);
   return { context, page, link };
+}
+
+// How guests answer is a theme knob, so it is set as a host sets it: in the Design drawer on the
+// event page. The host's page goes back to where it was, the event's manage page.
+async function chooseRsvpStyle(page: Page, link: string, style: "Inline" | "Sheet") {
+  const manage = page.url();
+  await page.goto(link);
+  await page.getByRole("button", { name: "Design" }).click();
+  const drawer = page.getByRole("dialog", { name: "Design" });
+  await drawer.getByRole("button", { name: "Details" }).click();
+  const choice = drawer.getByRole("group", { name: "RSVP style" }).getByRole("radio", { name: style });
+  if (!(await choice.isChecked())) {
+    await choice.check();
+    await expect(drawer.getByText("Saved", { exact: true })).toBeVisible({ timeout: 15_000 });
+  }
+  await page.goto(manage);
 }

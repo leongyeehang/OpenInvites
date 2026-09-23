@@ -23,7 +23,7 @@ describe("applying a template", () => {
       accentOverride: "#ffffff",
       textTone: "auto",
       buttonStyle: "outline",
-      rsvpStyle: "inline",
+      rsvpStyle: "sheet",
       effect: "sparkles",
       template: { id: "vows", dirty: false },
     });
@@ -57,6 +57,7 @@ describe("changing a knob", () => {
     [{ knob: "accentOverride", value: "#8fe6c2" }, { accentOverride: "#8fe6c2" }],
     [{ knob: "textTone", value: "dark" }, { textTone: "dark" }],
     [{ knob: "buttonStyle", value: "outline" }, { buttonStyle: "outline" }],
+    [{ knob: "rsvpStyle", value: "inline" }, { rsvpStyle: "inline" }],
   ];
 
   it.each(changes)("sets the knob and marks the template dirty: %j", (change, knob) => {
@@ -109,6 +110,8 @@ describe("reading a change the drawer sent", () => {
       { knob: "accentOverride", value: null },
       { knob: "textTone", value: "auto" },
       { knob: "buttonStyle", value: "solid" },
+      { knob: "rsvpStyle", value: "sheet" },
+      { knob: "rsvpStyle", value: "inline" },
     ];
     for (const change of offered) expect(parseThemeChange(JSON.parse(JSON.stringify(change)))).toEqual(change);
   });
@@ -126,6 +129,8 @@ describe("reading a change the drawer sent", () => {
       { knob: "accentOverride", value: "#123456" },
       { knob: "textTone", value: "sepia" },
       { knob: "buttonStyle", value: "neon" },
+      { knob: "rsvpStyle", value: "modal" },
+      { knob: "rsvpStyle", value: null },
       { knob: "layout", value: "broadsheet" },
       { knob: "uploadId", value: "0192f0a1-7b3c-7d4e-8f00-123456789abc" },
       { knob: "template", value: { id: "birthday", dirty: false } },

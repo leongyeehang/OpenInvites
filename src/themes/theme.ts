@@ -18,6 +18,7 @@ export type Layout = (typeof LAYOUTS)[number];
 export type FontKey = (typeof FONTS)[number];
 export type TextTone = (typeof TEXT_TONES)[number];
 export type ButtonStyle = (typeof BUTTON_STYLES)[number];
+export type RsvpStyle = (typeof RSVP_STYLES)[number];
 
 export type Theme = {
   layout: Layout; // stored from day one; M1 renders only "poster"
@@ -29,7 +30,7 @@ export type Theme = {
   accentOverride: string | null; // "#rrggbb", or null to derive from the background
   textTone: TextTone;
   buttonStyle: ButtonStyle;
-  rsvpStyle: (typeof RSVP_STYLES)[number]; // Poster layout only
+  rsvpStyle: RsvpStyle; // Poster layout only
   effect: (typeof EFFECTS)[number]; // stored so templates can carry it; rendered from M2
   template: { id: string; dirty: boolean } | null; // where the host started, and whether they changed a knob
 };

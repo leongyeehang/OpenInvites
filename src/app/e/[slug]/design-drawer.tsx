@@ -33,7 +33,8 @@ export function DesignDrawer({ eventId, title }: { eventId: string; title: strin
       type="button"
       onClick={() => setOpen(true)}
       aria-expanded={false}
-      className="dark fixed right-4 bottom-[max(env(safe-area-inset-bottom),1rem)] z-40 inline-flex h-11 cursor-pointer items-center gap-2 rounded-full border bg-popover/90 pr-4 pl-3 text-sm font-medium text-popover-foreground shadow-xl backdrop-blur-xl transition-colors hover:bg-popover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      // It sits bottom right, and moves to the top while a guest's RSVP sheet is open there.
+      className="dark fixed right-4 bottom-[max(env(safe-area-inset-bottom),1rem)] z-40 inline-flex h-11 cursor-pointer items-center gap-2 rounded-full border bg-popover/90 pr-4 pl-3 text-sm font-medium text-popover-foreground shadow-xl backdrop-blur-xl transition-colors hover:bg-popover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring rsvp-sheet-open:top-[max(env(safe-area-inset-top),1rem)] rsvp-sheet-open:bottom-auto"
     >
       <span aria-hidden className="size-3 rounded-full ring-2 ring-foreground/40" style={{ background: accent }} />
       <Palette className="size-4" aria-hidden />
