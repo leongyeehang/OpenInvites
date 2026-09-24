@@ -1,4 +1,4 @@
-import { expect, test } from "./test";
+import { expect, expectNotFoundAsSent, test } from "./test";
 import { createDraft } from "./events";
 import { newHost, signUp, signUpVerified, verifyEmail } from "./hosts";
 
@@ -108,9 +108,10 @@ test("event pages carry a noindex signal in the header and in the page", async (
   expect(await response.text()).toMatch(/<meta name="robots" content="noindex/);
 });
 
-test("an unknown link is not found", async ({ page, request }) => {
-  const response = await request.get("/e/abcdefghij");
-  expect(response.status()).toBe(404);
+test("an unknown link is not found, on a page the server sends whole in the visitor's language", async ({ page, request }) => {
+  await expectNotFoundAsSent(await request.get("/e/abcdefghij"));
+  await expectNotFoundAsSent(await request.get("/e/not-a-link"));
+  await expectNotFoundAsSent(await request.get("/e/abcdefghij", { headers: { "accept-language": "zh-TW" } }), { lang: "zh-Hant", heading: "找不到頁面" });
   await page.goto("/e/abcdefghij");
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
 });
@@ -118,8 +119,7 @@ test("an unknown link is not found", async ({ page, request }) => {
 test("an event address a host mistypes is not found, on each of the event's pages", async ({ page }) => {
   await signUp(page, newHost("mistyped"));
   for (const path of ["/events/not-an-event", "/events/not-an-event/share", "/events/not-an-event/guests", "/events/0192a7b8-0000-7000-8000-00000000000"]) {
-    const response = await page.goto(path);
-    expect(response?.status(), path).toBe(404);
+    await expectNotFoundAsSent(await page.goto(path));
     await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
   }
 });

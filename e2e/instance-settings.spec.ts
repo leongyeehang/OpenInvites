@@ -1,4 +1,4 @@
-import { expect, test } from "./test";
+import { expect, expectNotFoundAsSent, test } from "./test";
 import { newHost, OPERATOR, PASSWORD, signIn, signUp } from "./hosts";
 
 // What depends on the registration mode runs on an instance of its own (registration.spec.ts).
@@ -17,15 +17,13 @@ test("anyone else, signed in or not, finds the page an unknown address gives, an
   const unknownTitle = await page.title();
   expect(unknown?.status()).toBe(404);
 
-  const signedOut = await page.goto("/instance");
-  expect(signedOut?.status()).toBe(404);
+  await expectNotFoundAsSent(await page.goto("/instance"));
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
   expect(await page.title()).toBe(unknownTitle);
 
   await signUp(page, newHost("not-operator"));
   await expect(page.getByRole("link", { name: "Instance settings" })).toHaveCount(0);
-  const signedIn = await page.goto("/instance");
-  expect(signedIn?.status()).toBe(404);
+  await expectNotFoundAsSent(await page.goto("/instance"));
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
   expect(await page.title()).toBe(unknownTitle);
 });

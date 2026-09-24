@@ -96,7 +96,7 @@ test.describe("on an instance whose operator has written their own", () => {
     test.slow();
     const host = await createPublished(browser, request, "analytics", { title: "Ada’s birthday", start: "2027-03-06T19:00" });
     const snippet = '<script data-analytics="operator">window.operatorAnalytics = (window.operatorAnalytics || 0) + 1</script>';
-    // Among them a not-found page, which Next.js builds in the browser rather than sending whole.
+    // Among them a not-found page, which is sent whole too (src/proxy.ts).
     for (const path of ["/", "/sign-in", "/privacy", host.link, "/e/nosuchlink"]) {
       await page.goto(path);
       expect(await scriptsNotFromTheApp(page), path).toContain(snippet);

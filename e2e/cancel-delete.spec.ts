@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "./test";
+import { expect, expectNotFoundAsSent, test, type Page } from "./test";
 import { createPublished } from "./events";
 import { PASSWORD } from "./hosts";
 
@@ -65,7 +65,7 @@ test("a host is told what deleting an event costs, and then the link is gone", a
   await expect(host.page).toHaveURL(/\/dashboard$/);
   await expect(host.page.getByText("Ada’s birthday")).toHaveCount(0);
 
-  expect((await request.get(host.link)).status()).toBe(404);
+  await expectNotFoundAsSent(await request.get(host.link));
   await page.goto(host.link);
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
 

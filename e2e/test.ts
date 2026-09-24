@@ -1,4 +1,4 @@
-import { test as base } from "@playwright/test";
+import { expect, test as base, type APIResponse, type Response } from "@playwright/test";
 
 export * from "@playwright/test";
 
@@ -13,6 +13,15 @@ export const test = base.extend({
     await provide({ ...extraHTTPHeaders, "x-forwarded-for": clientAddress() });
   },
 });
+
+// The not-found page as the server sends it, with 404: whole, in the visitor's language, its
+// heading there before any script runs (ticket 20; src/proxy.ts).
+export async function expectNotFoundAsSent(response: APIResponse | Response | null, { lang = "en", heading = "Page not found" } = {}) {
+  expect(response?.status()).toBe(404);
+  const html = (await response?.text()) ?? "";
+  expect(html).toContain(`<html lang="${lang}"`);
+  expect(html.replace(/<script[\s\S]*?<\/script>/g, "")).toMatch(new RegExp(`<h1[^>]*>${heading}</h1>`));
+}
 
 // An address from a private range, a different one for every test in the run.
 export function clientAddress() {

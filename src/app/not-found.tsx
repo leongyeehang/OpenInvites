@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+
+// Its title is its own, whichever address led here (src/proxy.ts sends pages that are not there).
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("NotFound");
+  return { title: t("title") };
+}
 
 export default async function NotFound() {
   const t = await getTranslations("NotFound");
