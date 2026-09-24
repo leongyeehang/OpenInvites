@@ -7,6 +7,8 @@ export default defineConfig({
   testDir: "./perf",
   workers: 1,
   reporter: "list",
+  // One file of long tests, on purpose: audits run in parallel would measure each other.
+  reportSlowTests: null,
   use: {
     baseURL: "http://localhost:3000",
     locale: "en-US",

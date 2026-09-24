@@ -8,7 +8,8 @@ import { promisify } from "node:util";
 // One Lighthouse audit of a page, as its command line runs one: a fresh Chromium for each run,
 // Lighthouse's default mobile profile (a mid-range phone on slow 4G, throttling simulated), the
 // performance category only. The Chromium is Playwright's own, through CHROME_PATH, unless one
-// is named already. Lighthouse sends nothing anywhere unless asked to on its command line.
+// is named already. Lighthouse reports its own errors to its makers when a user has said yes to
+// that once (it keeps the answer in its settings), so every run says no on its command line.
 
 const LIGHTHOUSE = resolve("node_modules/lighthouse/cli/index.js");
 
@@ -46,6 +47,7 @@ export async function audit(url: string, headers: Record<string, string>, report
         LIGHTHOUSE,
         url,
         "--only-categories=performance",
+        "--no-enable-error-reporting",
         "--output=json",
         `--output-path=${reportPath}`,
         `--chrome-flags=--headless=new --user-data-dir=${profile}`,
