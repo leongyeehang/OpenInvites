@@ -44,7 +44,7 @@ async function guestHtml(request: APIRequestContext, link: string) {
 
 // The picture a guest's page is painted with, if it is the host's upload.
 async function uploadedBackground(request: APIRequestContext, link: string) {
-  return (await guestHtml(request, link)).match(/url\((\/uploads\/[0-9a-f-]{36}\/background\.webp)\)/)?.[1];
+  return (await guestHtml(request, link)).match(/src="(\/uploads\/[0-9a-f-]{36}\/background\.webp)"/)?.[1];
 }
 
 // Uploads a picture and waits until the page wears it.
@@ -159,6 +159,49 @@ test("a picture over the size limit, or a file that is not a picture, is refused
   await host.context.close();
 });
 
+// Every file an upload is kept as, from the address of its background.
+const FILES = ["background.webp", "background-portrait.webp", "poster.webp", "poster-720.webp", "poster-copy.webp", "card.jpg"];
+const filesOf = (background: string) => FILES.map((file) => background.replace("background.webp", file));
+
+test("a phone held upright is sent only the part of the photo it shows, and it looks the same", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "upload-portrait", EVENT);
+  await host.page.goto(host.link);
+  await openDrawer(host.page);
+  const full = await upload(host.page, request, host.link, await darkPhoto());
+  await host.context.close();
+  const cut = full.replace("background.webp", "background-portrait.webp");
+
+  // The middle of the 1600x1000 photo, as tall as it is, at 2:3.
+  expect(await sharp(await (await request.get(cut)).body()).metadata()).toMatchObject({ format: "webp", width: 667, height: 1000 });
+
+  // This project's screen fetches one of the two: the cut on the 390x844 phone, the whole photo
+  // on the 1280x800 desktop.
+  const { width, height } = page.viewportSize()!;
+  const portrait = width / height <= 2 / 3;
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(host.link);
+  const fetched = () => page.evaluate(() => performance.getEntriesByType("resource").map((entry) => new URL(entry.name).pathname).filter((path) => path.startsWith("/uploads/")));
+  await expect.poll(fetched).toEqual([portrait ? cut : full]);
+  await page.waitForTimeout(500);
+  expect(await fetched()).toEqual([portrait ? cut : full]);
+  if (!portrait) return;
+
+  // Drawn over the phone, the cut is what the whole photo would have shown there.
+  const withCut = await page.screenshot();
+  await page.route(cut, async (route) => route.fulfill({ response: await route.fetch({ url: new URL(full, page.url()).href }) }));
+  await page.reload();
+  await expect.poll(fetched).toEqual([cut]);
+  await page.waitForTimeout(500);
+  const withWhole = await page.screenshot();
+  const pixels = async (png: Buffer) => (await sharp(png).removeAlpha().raw().toBuffer()) as Buffer;
+  const [a, b] = await Promise.all([pixels(withCut), pixels(withWhole)]);
+  expect(a.length).toBe(b.length);
+  let total = 0;
+  for (let at = 0; at < a.length; at++) total += Math.abs(a[at] - b[at]);
+  expect(total / a.length, "the mean difference per channel, out of 255").toBeLessThan(1);
+});
+
 test("replacing a picture removes the old one's files, and deleting the event removes the new one's", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "upload-replace", EVENT);
@@ -167,17 +210,17 @@ test("replacing a picture removes the old one's files, and deleting the event re
   await openDrawer(host.page);
 
   const first = await upload(host.page, request, host.link, await darkPhoto());
-  expect((await request.get(first)).status()).toBe(200);
+  for (const file of filesOf(first)) expect((await request.get(file)).status(), file).toBe(200);
   const second = await upload(host.page, request, host.link, await lightPhoto(), "Replace");
   await expect(host.page.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
-  expect((await request.get(first)).status()).toBe(404);
-  expect((await request.get(second)).status()).toBe(200);
+  for (const file of filesOf(first)) expect((await request.get(file)).status(), file).toBe(404);
+  for (const file of filesOf(second)) expect((await request.get(file)).status(), file).toBe(200);
 
   await host.page.goto(manage);
   await host.page.getByRole("button", { name: "Delete event" }).click();
   await host.page.getByRole("button", { name: "Delete it" }).click();
   await expect(host.page).toHaveURL(/\/dashboard$/);
-  expect((await request.get(second)).status()).toBe(404);
+  for (const file of filesOf(second)) expect((await request.get(file)).status(), file).toBe(404);
 
   await host.context.close();
 });
@@ -197,6 +240,6 @@ test("deleting an account removes the pictures on its events", async ({ browser,
   // Deleting checks the password first, which is slow on purpose.
   await expect(host.page).toHaveURL(/\/sign-in/, { timeout: 15_000 });
 
-  expect((await request.get(src)).status()).toBe(404);
+  for (const file of filesOf(src)) expect((await request.get(file)).status(), file).toBe(404);
   await host.context.close();
 });

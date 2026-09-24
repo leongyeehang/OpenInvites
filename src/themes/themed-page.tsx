@@ -1,11 +1,12 @@
 "use client";
 
 import { createContext, use, useOptimistic, useState, type CSSProperties, type ReactNode } from "react";
+import { preload } from "react-dom";
 import { cn } from "@/lib/utils";
 import { applyChange, type ThemeChange } from "./changes";
 import { resolveTheme, themeVariables, type ResolvedTheme, type ThemeUpload } from "./resolve";
 import type { Theme } from "./theme";
-import { TITLE_FONT_CLASSES } from "./title-fonts";
+import { TITLE_FONT_CLASSES, TITLE_FONT_FILES } from "./title-fonts";
 
 // The theme the page is wearing right now. For a guest that is the saved theme, always. For the
 // host with the Design drawer open it runs ahead of the save: `change` shows a change at once,
@@ -46,6 +47,9 @@ export function ThemedPage({
   const [theme, change] = useOptimistic(saved, applyChange);
   const [root, setRoot] = useState<HTMLElement | null>(null);
   const resolved = resolveTheme(theme, upload);
+  // The title's face, asked for from the page's head, beside the stylesheet that names it, rather
+  // than once the stylesheet has arrived and the title is laid out.
+  preload(TITLE_FONT_FILES[resolved.font.key], { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
   return (
     <ThemeContext value={{ theme, resolved, change, root, upload }}>
       <div
@@ -71,17 +75,24 @@ export function ThemedPage({
 
 // The warm layered background with grain: the gradient or scene, two soft blobs of colour that
 // drift when motion is welcome, and a fade into the base colour at the foot of the page. A host's
-// upload is painted as a scene is; behind the host's poster, a copy of it blurred to a wash of its
-// own colours, far enough past the screen's edges that they stay full, under a stronger scrim. The
-// lightest and darkest points of each background are measured with all of this in place
-// (backgrounds.ts, and uploads/process.ts for an upload and its copy), so change them together.
+// upload is painted as a scene is; behind the host's poster, its small copy blurred to a wash of
+// its own colours, far enough past the screen's edges that they stay full, under a stronger
+// scrim. The lightest and darkest points of each background are measured with all of this in
+// place (backgrounds.ts, and uploads/process.ts for an upload and its copy), so change them
+// together.
+//
+// A scene or a photo covers the screen from its centre. It is fetched at low priority, behind the
+// stylesheet and the title's font: it fills the whole screen, so the browser never counts it as
+// the page's largest paint, and the invitation reads over the base colour until it comes. A
+// screen up to 2:3, a phone held upright, is sent the host's photo cut to what it shows of it
+// (uploads/renditions.ts, portraitCut), any other the whole one.
 function Backdrop({ theme }: { theme: ResolvedTheme }) {
   const { background, poster } = theme;
   return (
     <div aria-hidden className="grain fixed inset-0 -z-10 overflow-hidden bg-theme-base">
-      {poster ? (
+      {poster && background.kind === "photo" ? (
         <>
-          <div className="absolute -inset-32 bg-cover bg-center blur-3xl" style={{ backgroundImage: `url(${poster.src})` }} />
+          <div className="absolute -inset-32 bg-cover bg-center blur-3xl" style={{ backgroundImage: `url(${background.src})` }} />
           <div className="absolute inset-0 bg-theme-scrim" />
         </>
       ) : background.kind === "gradient" ? (
@@ -93,7 +104,10 @@ function Backdrop({ theme }: { theme: ResolvedTheme }) {
         </>
       ) : (
         <>
-          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${background.src})` }} />
+          <picture>
+            {background.portraitSrc && <source media="(max-aspect-ratio: 2/3)" srcSet={background.portraitSrc} />}
+            <img src={background.src} alt="" fetchPriority="low" decoding="async" className="absolute inset-0 size-full object-cover" />
+          </picture>
           {/* Scenes and uploads get a scrim so the text tone always reads. */}
           <div className="absolute inset-0 bg-theme-scrim" />
         </>

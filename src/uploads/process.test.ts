@@ -2,6 +2,7 @@ import { crc32, deflateSync } from "node:zlib";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import { processUpload } from "./process";
+import { fitInside, SMALL_POSTER_BOX } from "./renditions";
 
 // A photo as a phone takes it: shot sideways (EXIF orientation 6, "rotate 90 degrees to show"),
 // tagged with the camera and where it was taken.
@@ -60,20 +61,50 @@ describe("processing an upload", () => {
     expect(await sharp(small.renditions.card).metadata()).toMatchObject({ width: 1200, height: 630 });
   });
 
-  it("makes a poster at the picture's own proportions, sharp on a high-density screen and never enlarged", async () => {
-    const sizes: [picture: [number, number], poster: [number, number]][] = [
-      [[3000, 2000], [1200, 800]],
-      [[2000, 3000], [1200, 1800]],
+  it("cuts the background to what a phone held upright shows of it: its middle, at 2:3", async () => {
+    // Red down the middle third, blue either side.
+    const picture = await sharp({ create: { width: 3000, height: 2000, channels: 3, background: "#0000ff" } })
+      .composite([{ input: { create: { width: 1000, height: 2000, channels: 3, background: "#ff0000" } }, left: 1000, top: 0 }])
+      .png()
+      .toBuffer();
+    const { renditions } = await processed(picture);
+    expect(await sharp(renditions.backgroundPortrait).metadata()).toMatchObject({ format: "webp", width: 910, height: 1365 });
+    // Its edges are the blue just outside the middle third, and its middle is the red.
+    const { data, info } = await sharp(renditions.backgroundPortrait).raw().toBuffer({ resolveWithObject: true });
+    const at = (x: number) => [...data.subarray((680 * info.width + x) * 3, (680 * info.width + x) * 3 + 3)];
+    expect(at(10)[2]).toBeGreaterThan(200);
+    expect(at(info.width - 10)[2]).toBeGreaterThan(200);
+    expect(at(Math.round(info.width / 2))[0]).toBeGreaterThan(200);
+    // A picture as narrow as that already is kept whole.
+    const tall = await processed(await sharp({ create: { width: 1000, height: 2000, channels: 3, background: "#1d2340" } }).png().toBuffer());
+    expect(await sharp(tall.renditions.backgroundPortrait).metadata()).toMatchObject({ width: 1000, height: 2000 });
+  });
+
+  it("makes a poster at the picture's own proportions, sharp on a high-density screen and never enlarged, and a smaller one", async () => {
+    const sizes: [picture: [number, number], poster: [number, number], small: [number, number]][] = [
+      [[3000, 2000], [1200, 800], [720, 480]],
+      [[2000, 3000], [1200, 1800], [720, 1080]],
       // Taller than twice its width, it stops at the poster's greatest height.
-      [[1000, 4000], [600, 2400]],
-      [[800, 600], [800, 600]],
+      [[1000, 4000], [600, 2400], [360, 1440]],
+      [[800, 600], [800, 600], [720, 540]],
+      [[500, 700], [500, 700], [500, 700]],
     ];
-    for (const [[width, height], [posterWidth, posterHeight]] of sizes) {
+    for (const [[width, height], [posterWidth, posterHeight], [smallWidth, smallHeight]] of sizes) {
       const picture = await processed(await sharp({ create: { width, height, channels: 3, background: "#1d2340" } }).png().toBuffer());
       expect(await sharp(picture.renditions.poster).metadata(), `${width}x${height}`).toMatchObject({ format: "webp", width: posterWidth, height: posterHeight });
-      // The page is told its size, so the poster has its place before it arrives.
+      expect(await sharp(picture.renditions.posterSmall).metadata(), `${width}x${height}`).toMatchObject({ format: "webp", width: smallWidth, height: smallHeight });
+      // The page is told the poster's size, so the poster has its place before it arrives, and
+      // works out the smaller one's from it, as the browser needs it to choose between them.
       expect(picture.sample, `${width}x${height}`).toMatchObject({ posterWidth, posterHeight });
+      expect(fitInside({ width: posterWidth, height: posterHeight }, SMALL_POSTER_BOX), `${width}x${height}`).toEqual({ width: smallWidth, height: smallHeight });
     }
+  });
+
+  it("makes the copy behind a poster small, as a wash of the poster's colours", async () => {
+    const wide = await processed(await sharp({ create: { width: 3000, height: 2000, channels: 3, background: "#1d2340" } }).png().toBuffer());
+    expect(await sharp(wide.renditions.posterCopy).metadata()).toMatchObject({ format: "webp", width: 192, height: 128 });
+    const tall = await processed(await sharp({ create: { width: 2000, height: 3000, channels: 3, background: "#1d2340" } }).png().toBuffer());
+    expect(await sharp(tall.renditions.posterCopy).metadata()).toMatchObject({ width: 128, height: 192 });
   });
 
   it("paints a transparent picture onto white, the page it was most likely made on", async () => {

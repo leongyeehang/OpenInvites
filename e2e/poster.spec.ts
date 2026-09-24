@@ -36,7 +36,7 @@ async function shownUpload(request: APIRequestContext, link: string) {
 
 // What a guest's page is painted with behind the invitation, when it is the host's upload.
 async function uploadedBackground(request: APIRequestContext, link: string) {
-  return (await guestHtml(request, link)).match(/url\((\/uploads\/[0-9a-f-]{36}\/background\.webp)\)/)?.[1];
+  return (await guestHtml(request, link)).match(/src="(\/uploads\/[0-9a-f-]{36}\/background\.webp)"/)?.[1];
 }
 
 // Uploads a picture and waits until the page shows it.
@@ -49,7 +49,7 @@ async function upload(page: Page, request: APIRequestContext, link: string, file
 
 // Markers only a guest's page in poster mode carries: the poster's blurred copy behind the page,
 // and the scrim of a title set on the poster.
-const posterCopy = (id: string) => `url(/uploads/${id}/poster.webp)`;
+const posterCopy = (id: string) => `url(/uploads/${id}/poster-copy.webp)`;
 const TITLE_ON_POSTER = "--theme-title-scrim";
 
 async function describePicture(drawer: Locator, request: APIRequestContext, link: string) {
@@ -102,10 +102,13 @@ test("a host makes their picture the poster, with the title below it or on it, a
   const title = page.getByRole("heading", { level: 1, name: EVENT.title });
   expect((await box(title)).y).toBeGreaterThanOrEqual((await box(picture)).y + (await box(picture)).height);
 
-  // The poster itself is made for the card: the picture's own size here, never enlarged.
+  // The poster itself is made for the card: the picture's own size here, never enlarged, and
+  // 720 pixels wide for a screen that needs no more. The copy behind the page is a small wash.
   const file = await request.get(`/uploads/${id}/poster.webp`);
   expect(file.headers()["content-type"]).toBe("image/webp");
   expect(await sharp(await file.body()).metadata()).toMatchObject({ width: 900, height: 1350 });
+  expect(await sharp(await (await request.get(`/uploads/${id}/poster-720.webp`)).body()).metadata()).toMatchObject({ width: 720, height: 1080 });
+  expect(await sharp(await (await request.get(`/uploads/${id}/poster-copy.webp`)).body()).metadata()).toMatchObject({ width: 128, height: 192 });
 
   // On the poster, the title sits across its foot.
   await placement.getByRole("radio", { name: "On the poster" }).check();
@@ -123,6 +126,47 @@ test("a host makes their picture the poster, with the title below it or on it, a
   expect((await box(title)).y).toBeGreaterThanOrEqual((await box(picture)).y + (await box(picture)).height);
 
   await host.context.close();
+});
+
+test("a guest's browser takes the poster at the width its screen needs, first", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "poster-widths", EVENT);
+  await host.page.goto(host.link);
+  const drawer = await openDrawer(host.page);
+  const id = await upload(host.page, request, host.link, await poster("fair-poster.jpg", 1600, 2400));
+  await drawer.getByRole("group", { name: "Use it as" }).getByRole("radio", { name: "Poster" }).check();
+  await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain(posterCopy(id));
+  await host.context.close();
+
+  // The poster this screen shows, once it has arrived, and every file of the picture it fetched.
+  const shown = async (guest: Page) => {
+    const picture = guest.locator('[data-slot="poster-card"] img');
+    await expect(picture).toHaveJSProperty("complete", true);
+    return new URL(await picture.evaluate((element: HTMLImageElement) => element.currentSrc)).pathname;
+  };
+  const fetched = (guest: Page) =>
+    guest.evaluate(() =>
+      performance
+        .getEntriesByType("resource")
+        .map((entry) => new URL(entry.name).pathname)
+        .filter((path) => path.startsWith("/uploads/"))
+        .sort(),
+    );
+
+  // This project's screen, at one pixel per point, wants no more than 720 pixels of poster: a
+  // phone's card is 358 wide, a desktop's 544. The copy behind the page is fetched too, small.
+  await page.goto(host.link);
+  await expect(page.locator('[data-slot="poster-card"] img')).toHaveAttribute("fetchpriority", "high");
+  expect(await shown(page)).toBe(`/uploads/${id}/poster-720.webp`);
+  await expect.poll(() => fetched(page)).toEqual([`/uploads/${id}/poster-720.webp`, `/uploads/${id}/poster-copy.webp`]);
+
+  // A phone at three pixels a point wants 1074 of them: the poster as it was made, 1200 wide.
+  const sharp3x = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+  const phone = await sharp3x.newPage();
+  await phone.goto(host.link);
+  expect(await shown(phone)).toBe(`/uploads/${id}/poster.webp`);
+  await expect.poll(() => fetched(phone)).toEqual([`/uploads/${id}/poster-copy.webp`, `/uploads/${id}/poster.webp`]);
+  await sharp3x.close();
 });
 
 test("switching back to the background keeps the same picture, its description and the rest of the theme", async ({ page, browser, request }) => {
@@ -176,8 +220,10 @@ test("a replaced poster stays the poster, and the old one's files go", async ({ 
   const second = await upload(host.page, request, host.link, await poster("fair-poster-final.jpg", 1000, 1400), "Replace");
   await expect(drawer.getByRole("group", { name: "Use it as" }).getByRole("radio", { name: "Poster" })).toBeChecked();
   await expect(host.page.locator('[data-slot="poster-card"] img')).toHaveAttribute("src", `/uploads/${second}/poster.webp`);
-  expect((await request.get(`/uploads/${first}/poster.webp`)).status()).toBe(404);
-  expect((await request.get(`/uploads/${second}/poster.webp`)).status()).toBe(200);
+  for (const file of ["poster.webp", "poster-720.webp", "poster-copy.webp", "background.webp", "background-portrait.webp", "card.jpg"]) {
+    expect((await request.get(`/uploads/${first}/${file}`)).status(), file).toBe(404);
+    expect((await request.get(`/uploads/${second}/${file}`)).status(), file).toBe(200);
+  }
 
   await host.context.close();
 });

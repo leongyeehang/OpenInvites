@@ -276,6 +276,91 @@
   chosen font's class (src/themes/title-fonts.ts).
 */
 
+/*
+  Title fonts, self-hosted from public/fonts (Latin subsets, SIL Open Font License). Each face is
+  shown in its fallback until it arrives (swap), and the fallback is a font every system has,
+  resized and spaced to take the same room, so the title keeps its place when the face comes in.
+  Its figures are the ones next/font/local computes for these files (adjustFontFallback): the
+  face's average character width over the fallback's for size-adjust, and its ascent, descent and
+  line gap over its em square, divided by that, for the overrides.
+*/
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("/fonts/instrument-serif-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("/fonts/instrument-serif-400-italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Instrument Serif Fallback";
+  src: local("Times New Roman");
+  ascent-override: 117.87%;
+  descent-override: 36.91%;
+  line-gap-override: 0%;
+  size-adjust: 83.99%;
+}
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/fonts/bricolage-grotesque-800.woff2") format("woff2");
+  font-weight: 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Bricolage Grotesque Fallback";
+  src: local("Arial");
+  ascent-override: 82.39%;
+  descent-override: 23.92%;
+  line-gap-override: 0%;
+  size-adjust: 112.88%;
+}
+@font-face {
+  font-family: "Syne";
+  src: url("/fonts/syne-800.woff2") format("woff2");
+  font-weight: 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Syne Fallback";
+  src: local("Arial");
+  ascent-override: 51.34%;
+  descent-override: 15.26%;
+  line-gap-override: 0%;
+  size-adjust: 180.18%;
+}
+@font-face {
+  font-family: "Fredoka";
+  src: url("/fonts/fredoka-600.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fredoka Fallback";
+  src: local("Arial");
+  ascent-override: 94.71%;
+  descent-override: 22.95%;
+  line-gap-override: 0%;
+  size-adjust: 102.84%;
+}
+.title-font-serif {
+  --theme-title-font: "Instrument Serif", "Instrument Serif Fallback";
+}
+.title-font-grotesque {
+  --theme-title-font: "Bricolage Grotesque", "Bricolage Grotesque Fallback";
+}
+.title-font-display {
+  --theme-title-font: "Syne", "Syne Fallback";
+}
+.title-font-rounded {
+  --theme-title-font: "Fredoka", "Fredoka Fallback";
+}
+
 @layer components {
   /* A control with the keyboard's focus is ringed in the colour legibility.ts solves to stand out
      at 3:1 from any surface a control sits on. The RSVP buttons, on the backdrop itself, ring

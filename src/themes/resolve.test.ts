@@ -6,13 +6,22 @@ import { DEFAULT_THEME, type Theme } from "./theme";
 const UPLOAD = "0192f0a1-7b3c-7d4e-8f00-123456789abc";
 const onUpload: Theme = { ...DEFAULT_THEME, backgroundId: null, uploadId: UPLOAD };
 
-// The same picture as a portrait poster, and its blurred copy behind it: dark.
-const POSTER: ThemeUpload["poster"] = { src: `/uploads/${UPLOAD}/poster.webp`, width: 1200, height: 1800, lightest: "#202020", darkest: "#707070" };
+// The same picture as a portrait poster, the widths it comes in, and its blurred copy behind it: dark.
+const POSTER: ThemeUpload["poster"] = {
+  src: `/uploads/${UPLOAD}/poster.webp`,
+  srcSet: `/uploads/${UPLOAD}/poster-720.webp 720w, /uploads/${UPLOAD}/poster.webp 1200w`,
+  copySrc: `/uploads/${UPLOAD}/poster-copy.webp`,
+  width: 1200,
+  height: 1800,
+  lightest: "#202020",
+  darkest: "#707070",
+};
 
 // The event's upload as the server sampled it: a dark photo unless a test says otherwise.
 const upload = (sampled: Partial<ThemeUpload> = {}): ThemeUpload => ({
   id: UPLOAD,
   src: `/uploads/${UPLOAD}/background.webp`,
+  portraitSrc: `/uploads/${UPLOAD}/background-portrait.webp`,
   accent: "#3aa885",
   luminance: 0.2,
   lightest: "#303030",
@@ -85,7 +94,11 @@ describe("resolveTheme", () => {
 
   it("paints the host's upload as a photo background, and says which upload it is", () => {
     const resolved = resolveTheme(onUpload, upload());
-    expect(resolved.background).toMatchObject({ kind: "photo", src: `/uploads/${UPLOAD}/background.webp` });
+    expect(resolved.background).toMatchObject({
+      kind: "photo",
+      src: `/uploads/${UPLOAD}/background.webp`,
+      portraitSrc: `/uploads/${UPLOAD}/background-portrait.webp`,
+    });
     expect(resolved.upload).toEqual(upload());
     expect(resolveTheme({ ...onUpload, backgroundId: "dusk" }, upload()).upload).toBeNull();
   });
@@ -103,6 +116,7 @@ describe("resolveTheme", () => {
     it("shows the host's upload as the invitation itself: the poster at its size, with what it shows and the title where the host put it", () => {
       expect(resolveTheme(asPoster, upload({ altText: "Our summer fair poster" })).poster).toEqual({
         src: `/uploads/${UPLOAD}/poster.webp`,
+        srcSet: `/uploads/${UPLOAD}/poster-720.webp 720w, /uploads/${UPLOAD}/poster.webp 1200w`,
         width: 1200,
         height: 1800,
         altText: "Our summer fair poster",
@@ -128,6 +142,7 @@ describe("resolveTheme", () => {
     });
 
     it("solves the page against the blurred copy behind the poster, under its own stronger scrim", () => {
+      expect(resolveTheme(asPoster, upload()).background).toMatchObject({ kind: "photo", src: `/uploads/${UPLOAD}/poster-copy.webp` });
       expect(resolveTheme(asPoster, upload()).tokens.scrim).toEqual(TONES.light.posterScrim);
       expect(resolveTheme(onUpload, upload()).tokens.scrim).toEqual(TONES.light.scrim);
       // The copy's own measurements decide: a bright copy smokes the glass, though the same

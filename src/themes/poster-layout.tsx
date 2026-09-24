@@ -48,7 +48,7 @@ export async function PosterLayout({
             <p className="text-sm text-theme-text-muted">{t("hostedBy", { name: event.hostName })}</p>
           </div>
         }
-        className={cn(entrance, "motion-safe:delay-0")}
+        className={cn(invitationEntrance, "motion-safe:delay-0")}
       />
 
       {rsvp && <div className={cn("mt-3", entrance, "motion-safe:delay-100")}>{rsvp}</div>}
@@ -84,7 +84,14 @@ export async function PosterLayout({
 
 // Each piece rises into place on load. Under reduced motion none of these classes apply, so
 // nothing moves.
-const entrance = "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4 motion-safe:fill-mode-both motion-safe:duration-700 motion-safe:ease-out";
+const rise = "motion-safe:animate-in motion-safe:slide-in-from-bottom-4 motion-safe:fill-mode-both motion-safe:duration-700 motion-safe:ease-out";
+const entrance = cn(rise, "motion-safe:fade-in");
+// The invitation fades in from a trace (1%) rather than from nothing, which looks the same. A
+// browser counts the largest thing it paints only where it is visible when painted, and a piece
+// faded in from nothing is painted once, unseen, and then only faded: the invitation would never
+// count, and the page's largest paint would wait for whatever is drawn after the scripts run
+// (the countdown), as a slow phone's first view of the page. From 1% it counts at once.
+const invitationEntrance = cn(rise, "motion-safe:fade-in-1");
 
 // The small spaced capitals used for the eyebrow, the tile headings, and the sticker.
 const label = "text-xs font-medium tracking-label uppercase";

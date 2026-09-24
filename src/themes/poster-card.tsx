@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { BackgroundDescription } from "./background-description";
@@ -92,18 +91,22 @@ export function PosterCard({
 }
 
 // The poster itself, at its own proportions: its size is known before it arrives, so the page
-// keeps its place. It is the first thing a guest sees, so it is fetched first. It is already made
-// to the card's size on upload, so it is served as it is. What the host says it shows is its
+// keeps its place. It is the first thing a guest sees, and the largest, so it is fetched first.
+// It was made on upload in the widths the card needs (uploads/renditions.ts), and the browser
+// takes the one the card's width at its screen's density calls for: the card is the page's
+// 36rem less its margins, or the screen less them. What the host says it shows is its
 // alternative text, and without a description it is decoration.
 function Picture({ poster, className, style }: { poster: ResolvedPoster; className?: string; style?: CSSProperties }) {
   return (
-    <Image
+    // A plain <img>: next/image would add its optimiser's widths to pictures already made to size.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       src={poster.src}
+      srcSet={poster.srcSet}
+      sizes={poster.srcSet && "(min-width: 36rem) 34rem, calc(100vw - 2rem)"}
       alt={poster.altText}
       width={poster.width}
       height={poster.height}
-      unoptimized
-      loading="eager"
       fetchPriority="high"
       className={cn("block h-auto w-full", className)}
       style={style}

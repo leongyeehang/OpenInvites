@@ -1,7 +1,7 @@
 import type { ThemeUpload } from "@/themes/resolve";
 import { removeRenditions, storeRenditions } from "./files";
 import { processUpload } from "./process";
-import { renditionUrl } from "./renditions";
+import { posterSrcSet, renditionUrl } from "./renditions";
 import { newUploadId, replaceUpload, type Upload } from "./repository";
 import { uploadProblem, type UploadProblem } from "./validate";
 
@@ -36,9 +36,11 @@ export async function uploadPicture(hostId: string, eventId: string, bytes: Uint
 // The upload as the theme and the page need it.
 export function themeUpload(upload: Upload): ThemeUpload {
   const { id, accent, luminance, lightest, darkest, altText } = upload;
+  const poster = { width: upload.posterWidth, height: upload.posterHeight };
   return {
     id,
     src: renditionUrl(id, "background"),
+    portraitSrc: renditionUrl(id, "backgroundPortrait"),
     accent,
     luminance,
     lightest,
@@ -46,8 +48,9 @@ export function themeUpload(upload: Upload): ThemeUpload {
     altText,
     poster: {
       src: renditionUrl(id, "poster"),
-      width: upload.posterWidth,
-      height: upload.posterHeight,
+      srcSet: posterSrcSet(id, poster),
+      copySrc: renditionUrl(id, "posterCopy"),
+      ...poster,
       lightest: upload.posterLightest,
       darkest: upload.posterDarkest,
     },

@@ -22,7 +22,8 @@ export type Background = {
   luminance: number; // 0..1
   lightest: string; // #rrggbb
   darkest: string; // #rrggbb
-} & ({ kind: "gradient"; css: string } | { kind: "photo"; src: string });
+  // A host's photo also comes cut to what a phone held upright shows of it (uploads/renditions.ts).
+} & ({ kind: "gradient"; css: string } | { kind: "photo"; src: string; portraitSrc?: string });
 
 // A background of the gallery. What the Design drawer calls it is a message
 // (DesignDrawer.backgroundNames, in every file in messages/), so its id has to be one they name.

@@ -28,6 +28,8 @@ ENV NODE_ENV=production \
 WORKDIR /app
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
+# The standalone output leaves public/ out: the curated scenes and the title fonts are served from it.
+COPY --from=build --chown=node:node /app/public ./public
 COPY --from=build --chown=node:node /app/drizzle ./drizzle
 COPY --from=build --chown=node:node /app/scripts ./scripts
 # The standalone output keeps postgres under pnpm's store path only (next.config.ts lists it as

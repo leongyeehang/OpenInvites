@@ -117,8 +117,9 @@ with Google or GitHub has no password to reset, and the command says so.
 - **One app container.** The rate limits keep their counts in the app's memory, so a restart
   forgets them, and running more than one app container would give each its own. Run one, as
   `compose.yaml` does.
-- **Pictures nobody points to.** A host's picture is three files (`<id>-background.webp`,
-  `<id>-poster.webp`, `<id>-card.jpg`). If the app stops in the middle of an upload, or cannot
+- **Pictures nobody points to.** A host's picture is six files (`<id>-background.webp`,
+  `<id>-background-portrait.webp`, `<id>-poster.webp`, `<id>-poster-720.webp`,
+  `<id>-poster-copy.webp`, `<id>-card.jpg`). If the app stops in the middle of an upload, or cannot
   remove a replaced or deleted picture's files (it logs that and carries on), files can be left
   in storage that no event uses. Nothing sweeps them up. They cost only space; the `upload`
   table lists the ids still in use (`docker compose exec db psql -U openinvites -d openinvites

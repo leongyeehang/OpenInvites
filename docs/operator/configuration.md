@@ -173,9 +173,12 @@ them:
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Required for `s3` | The access key the app signs its requests with. |
 
 A host's picture is never kept as sent. The app re-encodes it without its metadata (a photo's
-location never reaches a guest) and stores three files named after the upload's id:
-`<id>-background.webp`, `<id>-poster.webp`, and `<id>-card.jpg` (the link's preview card). They
-are removed when the host replaces the picture or deletes the event or their account.
+location never reaches a guest) and stores six files named after the upload's id, in the sizes
+the page needs: `<id>-background.webp` (the page's background) and `<id>-background-portrait.webp`
+(its middle, for a phone held upright), `<id>-poster.webp` and `<id>-poster-720.webp` (the
+picture as the invitation, at two widths) and `<id>-poster-copy.webp` (the small copy blurred
+behind it), and `<id>-card.jpg` (the link's preview card). They are removed when the host
+replaces the picture or deletes the event or their account.
 
 ### Configuring S3
 

@@ -3,24 +3,34 @@ import { TITLE_FONTS, type TitleFont } from "./fonts";
 import { css, GLOW, TONES, toneTokens, type ToneTokens } from "./legibility";
 import type { ButtonStyle, RsvpStyle, Theme, TitlePlacement } from "./theme";
 
-// The host's own picture, as the theme needs it: where the page gets it, what the server sampled
-// from it (uploads/sample.ts: its average luminance, accent, and brightest and darkest points as
-// the glass sees them), and what the host says it shows. `poster` is the same picture as the
-// invitation itself: its poster rendition and size, and the extremes of its blurred copy behind it.
+// The host's own picture, as the theme needs it: where the page gets it (and its cut for a phone
+// held upright), what the server sampled from it (uploads/sample.ts: its average luminance,
+// accent, and brightest and darkest points as the glass sees them), and what the host says it
+// shows. `poster` is the same picture as the invitation itself: its poster rendition, the widths
+// the browser may choose from, and its size, and its blurred copy behind it with that copy's
+// extremes.
 export type ThemeUpload = {
   id: string;
   src: string;
+  portraitSrc: string;
   accent: string;
   luminance: number;
   lightest: string;
   darkest: string;
   altText: string;
-  poster: { src: string; width: number; height: number; lightest: string; darkest: string };
+  poster: { src: string; srcSet: string | undefined; copySrc: string; width: number; height: number; lightest: string; darkest: string };
 };
 
 // The host's upload as the invitation itself (poster mode): the picture at its own proportions,
 // what it shows, and where the title goes, on it or below it.
-export type ResolvedPoster = { src: string; width: number; height: number; altText: string; titlePlacement: TitlePlacement };
+export type ResolvedPoster = {
+  src: string;
+  srcSet: string | undefined;
+  width: number;
+  height: number;
+  altText: string;
+  titlePlacement: TitlePlacement;
+};
 
 // A theme with every "auto" decided, ready to paint (spec, "Themes and templates"). Computed on
 // the server for the first paint, and again in the host's browser while they change it.
@@ -63,6 +73,7 @@ export function resolveTheme(theme: Theme, upload: ThemeUpload | null = null): R
     poster: asPoster
       ? {
           src: uploadInUse.poster.src,
+          srcSet: uploadInUse.poster.srcSet,
           width: uploadInUse.poster.width,
           height: uploadInUse.poster.height,
           altText: uploadInUse.altText,
@@ -81,10 +92,10 @@ export function resolveTheme(theme: Theme, upload: ThemeUpload | null = null): R
 // The upload as the page paints it: a photograph, as the curated scenes are, with the accent,
 // luminance and extremes the server sampled standing in for the ones measured for them. Behind
 // a poster it is the poster's blurred copy, with the extremes measured for that.
-function uploadedBackground({ src, accent, luminance, lightest, darkest, poster }: ThemeUpload, asPoster: boolean): Background {
+function uploadedBackground({ src, portraitSrc, accent, luminance, lightest, darkest, poster }: ThemeUpload, asPoster: boolean): Background {
   return asPoster
-    ? { id: "upload", kind: "photo", src: poster.src, accent, luminance, lightest: poster.lightest, darkest: poster.darkest }
-    : { id: "upload", kind: "photo", src, accent, luminance, lightest, darkest };
+    ? { id: "upload", kind: "photo", src: poster.copySrc, accent, luminance, lightest: poster.lightest, darkest: poster.darkest }
+    : { id: "upload", kind: "photo", src, portraitSrc, accent, luminance, lightest, darkest };
 }
 
 // The resolved theme as CSS custom properties for the page's root element (see globals.css,
