@@ -151,12 +151,12 @@ describe("changing a knob", () => {
 });
 
 describe("the theme readout", () => {
-  it("names the template while nothing has changed", () => {
-    expect(themeReadout(DEFAULT_THEME)).toEqual({ custom: false, template: "Birthday" });
+  it("points at the template while nothing has changed", () => {
+    expect(themeReadout(DEFAULT_THEME)).toEqual({ custom: false, template: "birthday" });
   });
 
   it("says custom, started from the template, once a knob has changed", () => {
-    expect(themeReadout(applyChange(DEFAULT_THEME, { knob: "buttonStyle", value: "solid" }))).toEqual({ custom: true, template: "Birthday" });
+    expect(themeReadout(applyChange(DEFAULT_THEME, { knob: "buttonStyle", value: "solid" }))).toEqual({ custom: true, template: "birthday" });
   });
 
   it("says custom alone when there is no template, or it is no longer shipped", () => {

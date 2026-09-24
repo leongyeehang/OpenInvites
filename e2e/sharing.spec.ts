@@ -52,11 +52,14 @@ test("the link unfurls as a card drawn from the event's theme", async ({ page, b
 test("a draft neither unfurls nor draws a card", async ({ page, request }) => {
   test.slow();
   await signUpVerified(page, request, "preview-draft");
-  const link = await createDraft(page, { title: "Quiet", start: "2027-05-01T12:00" });
+  // A title no interface string contains: every page carries its messages, a template named
+  // Quiet among them.
+  const title = "A surprise for Mei";
+  const link = await createDraft(page, { title, start: "2027-05-01T12:00" });
   expect((await request.get(`${link}/preview.png`)).status()).toBe(404);
   const source = await (await request.get(link)).text();
   expect(source).not.toContain("og:image");
-  expect(source).not.toContain("Quiet");
+  expect(source).not.toContain(title);
 });
 
 test("resetting the link retires the old one and tells whoever still has it", async ({ page, browser, request }) => {

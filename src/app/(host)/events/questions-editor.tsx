@@ -19,7 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { MAX_QUESTIONS, QUESTION_TYPES, type QuestionDraft } from "@/questions/question";
+import { choicesFrom, MAX_QUESTIONS, QUESTION_TYPES, type QuestionDraft } from "@/questions/question";
 
 const TYPE_LABELS = { text: "questionText", choice: "questionChoice", yesNo: "questionYesNo" } as const;
 
@@ -103,7 +103,7 @@ export function QuestionsEditor({
               <Input
                 aria-label={t("questionChoices", { number: index + 1 })}
                 value={draft.options.join(", ")}
-                onChange={(typed) => change(index, { options: typed.target.value.split(",").map((option) => option.trim()) })}
+                onChange={(typed) => change(index, { options: choicesFrom(typed.target.value) })}
                 placeholder={t("questionChoicesHint")}
               />
             )}

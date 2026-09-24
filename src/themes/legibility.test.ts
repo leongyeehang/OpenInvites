@@ -107,7 +107,7 @@ function expectEveryTextReads(tone: Tone, backdrop: Backdrop, accent: string, us
 describe("every combination the drawer offers", () => {
   for (const background of BACKGROUNDS) {
     for (const tone of TONES) {
-      it(`reads at AA on ${background.name} in the ${tone} tone`, () => {
+      it(`reads at AA on ${background.id} in the ${tone} tone`, () => {
         for (const accent of ACCENTS) expectEveryTextReads(tone, background, accent);
       });
     }
@@ -171,7 +171,7 @@ describe("the title on the poster", () => {
         const { text, titleOnPoster } = toneTokens(tone, background, background.accent, "poster");
         for (const under of UNDER) {
           const colour = over(titleOnPoster.scrim, under);
-          const label = `${background.name}, over ${under}`;
+          const label = `${background.id}, over ${under}`;
           expect(contrast(text, colour), `title, ${label}`).toBeGreaterThanOrEqual(AA);
           expect(contrast(ink(titleOnPoster.textMuted, colour), colour), `muted, ${label}`).toBeGreaterThanOrEqual(AA);
           expect(contrast(ink(titleOnPoster.textFaint, colour), colour), `faint, ${label}`).toBeGreaterThanOrEqual(AA);
@@ -211,7 +211,7 @@ describe("the RSVP sheet", () => {
         for (const accent of ACCENTS) {
           const { text, glass, glassStrong, sheet } = toneTokens(tone, background, accent);
           for (const behind of [WHITE, BLACK, worstBackdrop(tone, background)]) {
-            const label = `${background.name}, ${tone} tone, ${accent} accent, over ${behind}`;
+            const label = `${background.id}, ${tone} tone, ${accent} accent, over ${behind}`;
             // The sheet itself, a field or chip on it, and the copy button on the edit link's pill.
             const [bare, inset, insetButton] = [[sheet.tint], [sheet.tint, glassStrong], [sheet.tint, glassStrong, glass]].map((layers) => stack(layers, behind));
             for (const colour of [bare, inset]) {
@@ -232,8 +232,8 @@ describe("the RSVP sheet", () => {
       for (const tone of TONES) {
         for (const accent of ACCENTS) {
           const alpha = toneTokens(tone, background, accent).sheet.tint[3];
-          expect(alpha, `${background.name}, ${tone} tone, ${accent} accent`).toBeGreaterThan(0);
-          expect(alpha, `${background.name}, ${tone} tone, ${accent} accent`).toBeLessThanOrEqual(0.9);
+          expect(alpha, `${background.id}, ${tone} tone, ${accent} accent`).toBeGreaterThan(0);
+          expect(alpha, `${background.id}, ${tone} tone, ${accent} accent`).toBeLessThanOrEqual(0.9);
         }
       }
     }
@@ -244,8 +244,8 @@ describe("the RSVP sheet", () => {
       for (const tone of TONES) {
         for (const accent of ACCENTS) {
           const { sheet } = toneTokens(tone, background, accent);
-          expect(sheet.textMuted[3], `${background.name}, ${tone} tone, ${accent} accent`).toBeLessThanOrEqual(0.8);
-          expect(sheet.textFaint[3], `${background.name}, ${tone} tone, ${accent} accent`).toBeLessThanOrEqual(0.8);
+          expect(sheet.textMuted[3], `${background.id}, ${tone} tone, ${accent} accent`).toBeLessThanOrEqual(0.8);
+          expect(sheet.textFaint[3], `${background.id}, ${tone} tone, ${accent} accent`).toBeLessThanOrEqual(0.8);
         }
       }
     }

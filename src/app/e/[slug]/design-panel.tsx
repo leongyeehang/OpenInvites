@@ -12,7 +12,7 @@ import { themeReadout, type ThemeChange } from "@/themes/changes";
 import { TITLE_FONTS } from "@/themes/fonts";
 import { resolveTheme, themeVariables, type ThemeUpload } from "@/themes/resolve";
 import { SWATCHES } from "@/themes/swatches";
-import { TEMPLATES } from "@/themes/templates";
+import { TEMPLATES, type TemplateId } from "@/themes/templates";
 import { applyTemplate, BUTTON_STYLES, FONTS, LAYOUTS, OFFERED_LAYOUTS, RSVP_STYLES, TEXT_TONES, TITLE_PLACEMENTS, type Layout, type UploadMode } from "@/themes/theme";
 import { useTheme } from "@/themes/themed-page";
 import { TITLE_FONT_CLASSES } from "@/themes/title-fonts";
@@ -83,7 +83,11 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
     });
 
   const readout = themeReadout(theme);
-  const themeName = !readout.custom ? readout.template : readout.template ? t("customFrom", { template: readout.template }) : t("custom");
+  const themeName = !readout.custom
+    ? t(`templateNames.${readout.template}`)
+    : readout.template
+      ? t("customFrom", { template: t(`templateNames.${readout.template}`) })
+      : t("custom");
   // What Auto would pick, shown in its swatch whatever is chosen now.
   const autoAccent = resolveTheme({ ...theme, accentOverride: null }, upload).accent;
   // How the host's picture is shown now: as the background, as the poster, or not at all while
@@ -186,11 +190,11 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
                   type="button"
                   onClick={() => choose({ template: template.id })}
                   aria-pressed={clean}
-                  title={template.blurb}
+                  title={t(`templateBlurbs.${template.id}`)}
                   className="group w-[84px] shrink-0 cursor-pointer rounded-xl text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
                 >
                   <TemplateThumb templateId={template.id} title={title} state={clean ? "on" : current ? "edited" : "off"} />
-                  <span className="mt-1.5 block truncate text-xs font-medium">{template.name}</span>
+                  <span className="mt-1.5 block truncate text-xs font-medium">{t(`templateNames.${template.id}`)}</span>
                 </button>
               );
             })}
@@ -239,7 +243,7 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
                   style={fill(background)}
                 >
                   {checked && <Tick />}
-                  <TileName>{background.name}</TileName>
+                  <TileName>{t(`backgroundNames.${background.id}`)}</TileName>
                 </Choice>
               );
             })}
@@ -280,7 +284,7 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
                       <span aria-hidden className={cn("font-title text-3xl leading-none", TITLE_FONT_CLASSES[key], font.className)}>
                         Aa
                       </span>
-                      <span className="px-1 text-center text-[10px] leading-tight text-muted-foreground">{font.name}</span>
+                      <span className="px-1 text-center text-[10px] leading-tight text-muted-foreground">{t(`fontNames.${key}`)}</span>
                     </Choice>
                   );
                 })}
@@ -431,7 +435,7 @@ function TileName({ children }: { children: ReactNode }) {
 
 // A tiny poster in the template's own theme: its background, a pane of its glass, the event's
 // title in its font, and a stroke of its accent.
-function TemplateThumb({ templateId, title, state }: { templateId: string; title: string; state: "on" | "edited" | "off" }) {
+function TemplateThumb({ templateId, title, state }: { templateId: TemplateId; title: string; state: "on" | "edited" | "off" }) {
   const look = TEMPLATE_LOOKS.get(templateId)!;
   const { background, font } = look;
   return (

@@ -1,6 +1,6 @@
 import { findBackground } from "./backgrounds";
 import { isSwatch } from "./swatches";
-import { findTemplate } from "./templates";
+import { findTemplate, type TemplateId } from "./templates";
 import {
   applyTemplate,
   BUTTON_STYLES,
@@ -79,13 +79,14 @@ function sameTheme(a: Theme, b: Theme): boolean {
   );
 }
 
-// What the drawer says the theme is: a template's name, or custom and where it started.
-export type ThemeReadout = { custom: false; template: string } | { custom: true; template?: string };
+// What the drawer says the theme is: a template (by id; the drawer names it), or custom and
+// where it started.
+export type ThemeReadout = { custom: false; template: TemplateId } | { custom: true; template?: TemplateId };
 
 export function themeReadout(theme: Theme): ThemeReadout {
   const template = theme.template && findTemplate(theme.template.id);
   if (!template) return { custom: true };
-  return { custom: theme.template!.dirty, template: template.name };
+  return { custom: theme.template!.dirty, template: template.id };
 }
 
 function oneOf<T extends string>(options: readonly T[], value: unknown): value is T {

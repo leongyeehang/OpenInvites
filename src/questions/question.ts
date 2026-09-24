@@ -40,6 +40,12 @@ export type Question = {
   required: boolean;
 };
 
+// The choices of a question as the host types them into the editor, one after another: split on
+// commas, the ASCII one and the two Chinese is typed with (，and 、).
+export function choicesFrom(typed: string): string[] {
+  return typed.split(/[,，、]/).map((choice) => choice.trim());
+}
+
 export type QuestionError =
   | "questionsInvalid"
   | "questionTypeInvalid"

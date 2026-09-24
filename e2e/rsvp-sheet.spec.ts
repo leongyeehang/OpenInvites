@@ -63,7 +63,7 @@ test("a guest answers in a sheet that rises over the invitation and grows throug
   await sheet.getByRole("button", { name: "Send RSVP" }).click();
   await expect(sheet.getByText("You’re going!")).toBeVisible();
   await expect(sheet.getByText("Priya Nair, plus 2 more.")).toBeVisible();
-  await expect(sheet.getByText("Bringing Arjun, Mei.")).toBeVisible();
+  await expect(sheet.getByText("Bringing Arjun and Mei.")).toBeVisible();
   await expect(sheet.getByText(/^https?:\/\/\S+\/r\/\S+$/)).toBeVisible();
   await expect((await counts(host.page)).getByText("3 people expected")).toBeVisible();
 

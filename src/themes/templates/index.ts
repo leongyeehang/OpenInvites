@@ -6,7 +6,7 @@ import { supperClub } from "./supper-club";
 import type { Template } from "./template";
 import { vows } from "./vows";
 
-export type { Template, TemplateTheme } from "./template";
+export type { Template, TemplateId, TemplateTheme } from "./template";
 
 // The templates that ship, in the order the Design drawer shows them. A new template is a file
 // in this directory and one line here (README.md).

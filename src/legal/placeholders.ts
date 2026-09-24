@@ -1,13 +1,12 @@
 import type { LegalPage } from "./source";
 
-// What each legal page says until the operator provides their own text (source.ts). It is
-// addressed to the operator as much as to the reader: it says the page is not written yet, how
-// to write it, and what such a page usually covers on an instance of this software, in the
-// glossary's words. Markdown, like the operator's own.
+// What each legal page says until the operator provides their own text (source.ts), under the
+// sentence that tells the reader it is not written yet (legal-page.tsx, Legal.notPublished, in
+// the reader's language). This part is for the operator: how to write the page, and what such a
+// page usually covers on an instance of this software, in the glossary's words. Markdown, like
+// the operator's own, and in English, like the operator documentation.
 export const PLACEHOLDERS: Record<LegalPage, string> = {
   privacy: [
-    "**The operator of this instance has not published a privacy policy yet.**",
-    "",
     "To the operator: this is the placeholder OpenInvites ships. Replace it with your own policy, written in Markdown, by setting `PRIVACY_POLICY_FILE` to the path of a file you mount, or `PRIVACY_POLICY_MARKDOWN` to the text itself. The address in `OPERATOR_CONTACT_EMAIL` is shown under it.",
     "",
     "A privacy policy for an instance usually covers:",
@@ -21,8 +20,6 @@ export const PLACEHOLDERS: Record<LegalPage, string> = {
     "- **Who to contact** with questions or requests about personal data.",
   ].join("\n"),
   terms: [
-    "**The operator of this instance has not published terms of use yet.**",
-    "",
     "To the operator: this is the placeholder OpenInvites ships. Replace it with your own terms, written in Markdown, by setting `TERMS_FILE` to the path of a file you mount, or `TERMS_MARKDOWN` to the text itself. The address in `OPERATOR_CONTACT_EMAIL` is shown under it.",
     "",
     "Terms of use for an instance usually cover:",

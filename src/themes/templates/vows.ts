@@ -4,8 +4,6 @@ import type { Template } from "./template";
 // itself is never pushed down the page. (The prototype had it inline.)
 export const vows: Template = {
   id: "vows",
-  name: "Vows",
-  blurb: "Rose garden, a serif title, white accent and outline buttons.",
   theme: {
     layout: "poster",
     backgroundId: "rose",

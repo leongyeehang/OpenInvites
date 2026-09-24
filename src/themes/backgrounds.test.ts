@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import en from "../../messages/en.json";
 import { BACKGROUNDS, findBackground } from "./backgrounds";
 import { hexToRgb, luminance } from "./legibility";
 
@@ -15,8 +16,11 @@ describe("curated backgrounds", () => {
       expect(background.accent, background.id).toMatch(/^#[0-9a-f]{6}$/);
       expect(background.luminance, background.id).toBeGreaterThanOrEqual(0);
       expect(background.luminance, background.id).toBeLessThanOrEqual(1);
-      expect(background.name.length, background.id).toBeGreaterThan(0);
     }
+  });
+
+  it("names every background in English, and nothing else", () => {
+    expect(Object.keys(en.DesignDrawer.backgroundNames).sort()).toEqual(BACKGROUNDS.map((b) => b.id).sort());
   });
 
   it("carries the lightest and darkest points the legibility rule reads", () => {
@@ -35,7 +39,7 @@ describe("curated backgrounds", () => {
   });
 
   it("finds a background by id and nothing for an unknown or missing id", () => {
-    expect(findBackground("golden")?.name).toBe("Golden hour");
+    expect(findBackground("golden")?.accent).toBe("#ffc36b");
     expect(findBackground("nope")).toBeUndefined();
     expect(findBackground(null)).toBeUndefined();
   });

@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronLeft, Copy, X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { Dialog } from "radix-ui";
 import { useCallback, useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
@@ -532,6 +532,7 @@ function Confirmation({
   dismiss?: ReactNode;
 }) {
   const t = useTranslations("Rsvp");
+  const format = useFormatter();
   const [copied, setCopied] = useState(false);
   const named = answer.plusOneNames.filter(Boolean);
 
@@ -548,7 +549,7 @@ function Confirmation({
               ? t("summary.cant", { name: answer.name })
               : t("summary.coming", { name: answer.name, count: answer.plusOnes })}
           </p>
-          {named.length > 0 && <p className="text-sm text-theme-text-faint">{t("summary.bringing", { names: named.join(", ") })}</p>}
+          {named.length > 0 && <p className="text-sm text-theme-text-faint">{t("summary.bringing", { names: format.list(named) })}</p>}
           {answer.email && <p className="text-sm text-theme-text-faint">{t("summary.email", { email: answer.email })}</p>}
         </div>
         {dismiss}

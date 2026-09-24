@@ -4,8 +4,6 @@ import type { Template } from "./template";
 // keeps the accent row's choice visible.
 export const quiet: Template = {
   id: "quiet",
-  name: "Quiet",
-  blurb: "Slate, a grotesque title, near-white and outline buttons. Nothing moves.",
   theme: {
     layout: "poster",
     backgroundId: "slate",

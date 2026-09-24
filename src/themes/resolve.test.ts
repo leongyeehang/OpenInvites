@@ -76,11 +76,11 @@ describe("resolveTheme", () => {
     expect(resolveTheme({ ...DEFAULT_THEME, layout: "thread" }).layout).toBe("poster");
   });
 
-  it("resolves the background to what the page paints and names the title font", () => {
+  it("resolves the background to what the page paints and the title font to its face", () => {
     expect(resolveTheme(DEFAULT_THEME).background).toMatchObject({ kind: "gradient", css: expect.stringContaining("#ffc36b") });
     expect(resolveTheme({ ...DEFAULT_THEME, backgroundId: "aurora" }).background).toMatchObject({ kind: "photo", src: "/backgrounds/aurora.svg" });
-    expect(resolveTheme(DEFAULT_THEME).font).toMatchObject({ key: "serif", name: "Instrument Serif" });
-    expect(resolveTheme({ ...DEFAULT_THEME, font: "rounded" }).font.name).toBe("Fredoka");
+    expect(resolveTheme(DEFAULT_THEME).font).toMatchObject({ key: "serif", sizes: { short: "text-poster-serif" } });
+    expect(resolveTheme({ ...DEFAULT_THEME, font: "rounded" }).font.key).toBe("rounded");
   });
 
   it("paints the host's upload as a photo background, and says which upload it is", () => {

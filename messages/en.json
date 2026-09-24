@@ -404,6 +404,22 @@
     "comingSoon": "Coming soon",
     "templates": "Templates",
     "templatesHint": "Each sets the whole theme. Change any part after.",
+    "templateNames": {
+      "birthday": "Birthday",
+      "vows": "Vows",
+      "supper": "Supper club",
+      "kids": "Kids’ party",
+      "festival": "Festival",
+      "quiet": "Quiet"
+    },
+    "templateBlurbs": {
+      "birthday": "Golden hour, a large serif title and frosted glass buttons.",
+      "vows": "Rose garden, a serif title, white accent and outline buttons.",
+      "supper": "Midnight, a serif title, candlelight amber and solid buttons.",
+      "kids": "Dusk, rounded type, coral and solid buttons.",
+      "festival": "Aurora, a heavy grotesque title and glass buttons.",
+      "quiet": "Slate, a grotesque title, near-white and outline buttons. Nothing moves."
+    },
     "theme": "Theme: {name}",
     "custom": "Custom",
     "customFrom": "Custom, started from {template}",
@@ -423,8 +439,25 @@
       }
     },
     "background": "Background",
+    "backgroundNames": {
+      "golden": "Golden hour",
+      "dusk": "Dusk",
+      "forest": "Forest",
+      "midnight": "Midnight",
+      "sunset-sea": "Sunset sea",
+      "bokeh": "Bokeh",
+      "aurora": "Aurora",
+      "rose": "Rose garden",
+      "slate": "Slate"
+    },
     "details": "Details",
     "font": "Title font",
+    "fontNames": {
+      "serif": "Instrument Serif",
+      "grotesque": "Bricolage Grotesque",
+      "display": "Syne",
+      "rounded": "Fredoka"
+    },
     "accent": "Accent colour",
     "accentHint": "Auto takes it from the background.",
     "auto": "Auto",
@@ -595,6 +628,10 @@
   "Legal": {
     "privacy": "Privacy policy",
     "terms": "Terms of use",
+    "notPublished": {
+      "privacy": "The operator of this instance has not published a privacy policy yet.",
+      "terms": "The operator of this instance has not published terms of use yet."
+    },
     "contact": "Questions? Contact the operator of this instance at <link>{email}</link>.",
     "contactUnknown": "The operator of this instance has not given a contact address."
   }

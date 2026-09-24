@@ -4,8 +4,6 @@ import type { Template } from "./template";
 // Every new event starts here.
 export const birthday: Template = {
   id: "birthday",
-  name: "Birthday",
-  blurb: "Golden hour, a large serif title and frosted glass buttons.",
   theme: {
     layout: "poster",
     backgroundId: "golden",

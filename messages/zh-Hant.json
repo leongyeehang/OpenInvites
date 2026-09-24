@@ -1,8 +1,10 @@
 {
   "Home": {
     "title": "OpenInvites",
-    "status": "此實例正在運行。",
-    "tagline": "開源、可自行架設的活動邀請服務。"
+    "status": "此實例正常運作中。",
+    "tagline": "開源、可自行架設的活動邀請服務。",
+    "signIn": "登入",
+    "signUp": "建立帳號"
   },
   "LocaleSwitcher": {
     "label": "語言"
@@ -11,5 +13,626 @@
     "en": "English",
     "zh-Hans": "简体中文",
     "zh-Hant": "繁體中文"
+  },
+  "Auth": {
+    "signUp": {
+      "title": "建立主辦人帳號",
+      "description": "主辦活動，一個連結就能分享。",
+      "displayName": "顯示名稱",
+      "displayNameHint": "賓客會在「主辦人」一欄看到它。",
+      "email": "電子郵件",
+      "password": "密碼",
+      "passwordHint": "至少 8 個字元。",
+      "submit": "建立帳號",
+      "haveAccount": "已經有帳號了？",
+      "signIn": "登入",
+      "orContinueWith": "或使用以下方式繼續",
+      "continueWithGoogle": "使用 Google 繼續",
+      "continueWithGithub": "使用 GitHub 繼續",
+      "invitationPending": "你已收到主辦人邀請，請在下方建立帳號。",
+      "invitationRequired": "此實例僅限受邀註冊。要建立帳號，你需要此實例的營運者發出的主辦人邀請。",
+      "invitationUnusable": "此主辦人邀請已無法使用：它已被使用、已被撤銷或已過期。請向此實例的營運者索取新的邀請。"
+    },
+    "signIn": {
+      "title": "登入",
+      "email": "電子郵件",
+      "password": "密碼",
+      "submit": "登入",
+      "forgotPassword": "忘記密碼？",
+      "noAccount": "第一次來？",
+      "signUp": "建立帳號",
+      "passwordChanged": "密碼已變更，請使用新密碼登入。",
+      "accountDeleted": "你的帳號已刪除。",
+      "socialError": "沒有成功。請再試一次，或使用電子郵件和密碼登入。",
+      "orContinueWith": "或使用以下方式繼續",
+      "continueWithGoogle": "使用 Google 繼續",
+      "continueWithGithub": "使用 GitHub 繼續",
+      "HOST_INVITATION_REQUIRED": "此實例僅限受邀註冊。要使用 Google 或 GitHub 建立帳號，請先開啟你的主辦人邀請連結，再繼續。",
+      "HOST_INVITATION_UNUSABLE": "此主辦人邀請已無法使用。請向此實例的營運者索取新的邀請。",
+      "TOO_MANY_REQUESTS": "操作太頻繁了，請稍後再試。"
+    },
+    "forgotPassword": {
+      "title": "重設密碼",
+      "description": "輸入你的電子郵件，我們會寄一個連結給你，讓你設定新密碼。",
+      "email": "電子郵件",
+      "submit": "寄送重設連結",
+      "sent": "如果這個電子郵件有對應的帳號，重設連結已經寄出，一小時內有效。",
+      "noMail": "此實例無法寄送電子郵件，密碼由營運者手動重設。",
+      "contactOperator": "請寄信至 <link>{email}</link>，聯絡營運者重設密碼。",
+      "contactOperatorUnknown": "請聯絡此實例的營運者重設密碼。",
+      "backToSignIn": "返回登入"
+    },
+    "resetPassword": {
+      "title": "設定新密碼",
+      "password": "新密碼",
+      "passwordHint": "至少 8 個字元。",
+      "submit": "變更密碼",
+      "missingToken": "這個重設連結無效或已過期。",
+      "requestAgain": "重新取得連結"
+    },
+    "verifyEmail": {
+      "verifiedTitle": "電子郵件已驗證",
+      "verified": "謝謝，你的電子郵件地址已確認。",
+      "toDashboard": "前往我的活動",
+      "failedTitle": "這個連結無法使用",
+      "failed": "這個驗證連結無效或已過期。請登入，然後在「我的活動」頁面上方的提示中重新取得。",
+      "toSignIn": "登入"
+    },
+    "banner": {
+      "title": "驗證你的電子郵件",
+      "text": "我們已將連結寄到 {email}。開啟連結之前，你還無法建立活動。",
+      "resend": "重新寄送郵件",
+      "sent": "已寄出，請查看收件匣。"
+    },
+    "errors": {
+      "displayNameRequired": "請輸入顯示名稱。",
+      "unknown": "發生錯誤，請再試一次。",
+      "INVALID_EMAIL": "請輸入有效的電子郵件地址。",
+      "INVALID_EMAIL_OR_PASSWORD": "電子郵件和密碼不符。",
+      "USER_ALREADY_EXISTS": "這個電子郵件已經註冊過帳號。",
+      "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL": "這個電子郵件已經註冊過帳號。",
+      "PASSWORD_TOO_SHORT": "請至少使用 8 個字元。",
+      "PASSWORD_TOO_LONG": "最多只能使用 128 個字元。",
+      "INVALID_PASSWORD": "密碼不正確。",
+      "INVALID_TOKEN": "這個連結無效或已過期。",
+      "TOKEN_EXPIRED": "這個連結已過期。",
+      "EMAIL_ALREADY_VERIFIED": "你的電子郵件已經驗證過了。",
+      "VERIFICATION_EMAIL_NOT_ENABLED": "此實例無法寄送電子郵件。",
+      "SESSION_EXPIRED": "登入已逾時，請重新登入。",
+      "CREDENTIAL_ACCOUNT_NOT_FOUND": "這個帳號沒有設定密碼。",
+      "HOST_INVITATION_REQUIRED": "此實例僅限受邀註冊。你需要營運者發出的主辦人邀請，才能建立帳號。",
+      "HOST_INVITATION_UNUSABLE": "此主辦人邀請已無法使用。請向此實例的營運者索取新的邀請。",
+      "TOO_MANY_REQUESTS": "操作太頻繁了，請稍後再試。"
+    }
+  },
+  "Host": {
+    "header": {
+      "account": "帳號",
+      "signOut": "登出",
+      "instanceSettings": "實例設定"
+    },
+    "dashboard": {
+      "title": "我的活動",
+      "new": "新增活動",
+      "upcoming": "即將舉行",
+      "past": "已結束",
+      "empty": "你還沒有活動。建立一個，把連結分享出去吧。",
+      "emptyUpcoming": "近期沒有活動。",
+      "emptyPast": "還沒有已結束的活動。",
+      "counts": "{going} 人參加 · {maybe} 人待定 · {declined} 人無法參加",
+      "headcount": "{count, plural, =0 {還沒有人確定要來} other {預計 # 人}}"
+    }
+  },
+  "Account": {
+    "title": "帳號設定",
+    "displayName": {
+      "title": "顯示名稱",
+      "description": "賓客會在「主辦人」一欄看到它。",
+      "label": "顯示名稱",
+      "submit": "儲存",
+      "saved": "顯示名稱已儲存。"
+    },
+    "email": {
+      "title": "電子郵件",
+      "current": "目前登入的電子郵件：{email}。",
+      "label": "新的電子郵件",
+      "submit": "變更電子郵件",
+      "verificationSent": "請到 {email} 查收信件，開啟其中的連結確認變更。",
+      "changed": "電子郵件已變更。"
+    },
+    "password": {
+      "title": "密碼",
+      "current": "目前的密碼",
+      "new": "新密碼",
+      "newHint": "至少 8 個字元。",
+      "submit": "變更密碼",
+      "changed": "密碼已變更。"
+    },
+    "delete": {
+      "title": "刪除帳號",
+      "description": "將刪除你的帳號、你的活動，以及每位賓客的資料。這個動作無法復原。",
+      "button": "刪除帳號",
+      "confirmTitle": "要刪除你的帳號嗎？",
+      "confirmDescription": "你的活動和所有回覆都會一併刪除。請輸入密碼確認。",
+      "password": "密碼",
+      "cancel": "取消",
+      "confirm": "刪除我的帳號"
+    }
+  },
+  "Instance": {
+    "title": "實例設定",
+    "registration": {
+      "title": "註冊",
+      "description": "誰能在此實例上建立主辦人帳號。變更立即生效。",
+      "invitationOnly": "僅限受邀",
+      "invitationOnlyHint": "只有拿到你的主辦人邀請的人才能建立帳號。",
+      "open": "開放",
+      "openHint": "任何找到此實例的人都能建立帳號。",
+      "submit": "儲存",
+      "saved": "已儲存。",
+      "unknown": "請選擇「僅限受邀」或「開放」。"
+    },
+    "invitations": {
+      "title": "主辦人邀請",
+      "description": "即使註冊僅限受邀，主辦人邀請也能讓一個人建立主辦人帳號。邀請連結只能使用一次，{days} 天後失效。",
+      "email": "電子郵件（選填）",
+      "emailHint": "會替對方預先填好註冊表單。任何拿到連結的人仍然都能使用。",
+      "send": "把連結寄到這個電子郵件地址",
+      "submit": "建立主辦人邀請",
+      "invalidEmail": "請輸入有效的電子郵件地址。",
+      "emailToSend": "請輸入要接收這份主辦人邀請的電子郵件地址。",
+      "created": "主辦人邀請已建立。請現在複製連結：之後不會再顯示。",
+      "sent": "已寄送至 {email}。",
+      "notSent": "郵件沒有寄出。請複製連結，自行傳給對方。",
+      "link": "主辦人邀請連結",
+      "copy": "複製連結",
+      "copied": "已複製",
+      "listTitle": "所有主辦人邀請",
+      "empty": "還沒有主辦人邀請。",
+      "anyone": "任何持有連結的人",
+      "expiresIn": "{days, plural, other {# 天後失效}}",
+      "usedBy": "已由 {email} 使用",
+      "revoke": "撤銷",
+      "state": {
+        "pending": "待使用",
+        "used": "已使用",
+        "revoked": "已撤銷",
+        "expired": "已過期"
+      },
+      "tooFast": "操作太頻繁了，請稍後再試。"
+    }
+  },
+  "Mail": {
+    "verifyEmail": {
+      "subject": "驗證你在 OpenInvites 的電子郵件",
+      "body": "{name}，你好：\n\n請開啟下方連結，確認這是你的電子郵件地址。連結一小時內有效。\n\n{url}\n\n如果你沒有註冊過 OpenInvites，可以忽略這封郵件。"
+    },
+    "resetPassword": {
+      "subject": "重設你的 OpenInvites 密碼",
+      "body": "{name}，你好：\n\n請開啟下方連結設定新密碼。連結一小時內有效。\n\n{url}\n\n如果這不是你本人的操作，可以忽略這封郵件，你的密碼不會變更。"
+    },
+    "hostInvitation": {
+      "subject": "你的 OpenInvites 主辦人邀請",
+      "body": "你好：\n\n這是你的 OpenInvites 主辦人邀請。開啟下方連結，建立主辦人帳號，就可以開始製作活動頁面了。\n\n{url}\n\n這個連結只能建立一個帳號，{days} 天後失效。如果你沒想到會收到這封郵件，可以忽略它。"
+    }
+  },
+  "Events": {
+    "state": {
+      "draft": "草稿",
+      "published": "已發布",
+      "cancelled": "已取消"
+    },
+    "new": {
+      "title": "新增活動",
+      "submit": "儲存草稿"
+    },
+    "edit": {
+      "title": "活動",
+      "submit": "儲存變更",
+      "saved": "已儲存。賓客開啟連結就能馬上看到變更。"
+    },
+    "form": {
+      "title": "標題",
+      "allDay": "全天",
+      "start": "開始時間",
+      "end": "結束時間",
+      "endHint": "選填。",
+      "timeZone": "時區",
+      "timeZoneHint": "身在他處的賓客，看到的也是這個時區的時間。",
+      "location": "地點",
+      "locationHint": "填地址，或寫「阿嬤家三樓」也可以。選填。",
+      "description": "活動介紹",
+      "descriptionHint": "支援粗體、斜體、連結、清單和表情符號。選填。",
+      "plusOnesAllowed": "每位賓客可帶同伴人數",
+      "plusOnesNone": "不可帶",
+      "plusOnesAllowedHint": "一位賓客最多可以帶幾個人。",
+      "requirePlusOneNames": "要求填寫每位同伴的名字",
+      "askEmail": "請賓客留下電子郵件地址",
+      "guestListVisibility": "誰可以看到賓客名單",
+      "guestListAlways": "所有開啟連結的人",
+      "guestListAfterReply": "已回覆的賓客",
+      "guestListHidden": "只有我",
+      "guestListVisibilityHint": "你永遠都能看到完整名單。",
+      "questions": "問題",
+      "questionsHint": "賓客回覆時作答，答案只有你看得到。",
+      "questionAdd": "新增問題",
+      "questionPrompt": "問題 {number}",
+      "questionPromptHint": "例如：有什麼不吃的嗎？",
+      "questionType": "問題 {number} 的類型",
+      "questionText": "自由填寫",
+      "questionChoice": "從清單中選一項",
+      "questionYesNo": "是或否",
+      "questionRequired": "必填",
+      "questionChoices": "問題 {number} 的選項",
+      "questionChoicesHint": "湯，沙拉，都不要",
+      "questionUp": "上移",
+      "questionDown": "下移",
+      "questionRemove": "刪除問題",
+      "questionRemoveTitle": "刪除「{prompt}」？",
+      "questionRemoveText": "{count, plural, =1 {已有 1 位賓客回答了這個問題，這則回答也會一併刪除。} other {已有 # 位賓客回答了這個問題，這些回答也會一併刪除。}}",
+      "questionRemoveCancel": "保留",
+      "descriptionBold": "粗體",
+      "descriptionItalic": "斜體",
+      "descriptionLink": "加入連結",
+      "descriptionBullets": "項目清單",
+      "descriptionLinkPrompt": "連結要指向哪裡？"
+    },
+    "errors": {
+      "titleRequired": "請為活動取個標題。",
+      "startRequired": "請選擇開始時間。",
+      "startInvalid": "開始時間不是有效的日期和時間。",
+      "endInvalid": "結束時間不是有效的日期和時間。",
+      "endBeforeStart": "結束時間必須晚於開始時間。",
+      "timeZoneInvalid": "請從清單中選擇時區。",
+      "notFound": "這個活動已經不存在了。",
+      "plusOnesAllowedInvalid": "請選擇 0 到 10 之間的同伴人數。",
+      "guestListVisibilityInvalid": "請選擇誰可以看到賓客名單。",
+      "questionsInvalid": "無法讀取這些問題，請再試一次。",
+      "questionTypeInvalid": "請為每個問題選擇類型。",
+      "questionPromptRequired": "每個問題都需要填寫內容。",
+      "questionPromptTooLong": "問題太長了。",
+      "questionChoicesRequired": "清單題需要 2 到 10 個選項。",
+      "questionChoiceTooLong": "選項太長了。",
+      "tooManyQuestions": "一份邀請最多只能有 10 個問題。",
+      "descriptionTooLong": "活動介紹太長了，邀請放不下。",
+      "descriptionUnreadable": "無法讀取活動介紹。請先把它複製到安全的地方，再試一次。"
+    },
+    "manage": {
+      "link": "活動連結",
+      "view": "開啟活動頁面",
+      "publish": "發布",
+      "publishHint": "發布後，任何拿到活動連結的人都能開啟。",
+      "publishedHint": "任何持有連結的人都能開啟活動頁面。你做的修改會馬上顯示在那裡。",
+      "draftHint": "活動還是草稿時，只有你能開啟這個連結。",
+      "guests": "賓客名單",
+      "cancel": "取消活動",
+      "cancelHint": "頁面會保留並顯示取消通知，不再接受回覆。",
+      "cancelTitle": "取消「{title}」？",
+      "cancelText": "開啟連結的賓客會看到活動已取消。賓客名單會保留，但沒有人能再回覆。",
+      "cancelConfirm": "確認取消活動",
+      "keep": "算了",
+      "cancelledHint": "已取消。賓客會在頁面上看到通知，而且無法回覆。",
+      "delete": "刪除活動",
+      "deleteHint": "刪除這個活動，以及賓客告訴你的一切。這個動作無法復原。",
+      "deleteTitle": "刪除「{title}」？",
+      "deleteText": "{count, plural, =0 {還沒有人回覆，所以不會刪除其他內容。連結將會失效。} other {# 則回覆及其中的回答都會被刪除。連結將會失效。}}",
+      "deleteConfirm": "確認刪除",
+      "share": "分享"
+    },
+    "verify": {
+      "title": "請先驗證電子郵件",
+      "text": "建立活動前，請開啟我們寄到 {email} 的連結，然後再回到這裡。",
+      "resend": "重新寄送郵件"
+    },
+    "share": {
+      "title": "分享這個活動",
+      "backToEvent": "返回活動",
+      "copy": "複製連結",
+      "copied": "已複製",
+      "share": "分享…",
+      "qr": "QR 碼",
+      "qrHint": "列印出來，或在門口出示。",
+      "qrLabel": "活動連結的 QR 碼",
+      "reset": "重設連結",
+      "resetHint": "產生新連結，並停用舊連結。已回覆的賓客會保留他們的回覆。",
+      "resetTitle": "要重設這個活動的連結嗎？",
+      "resetText": "你分享過的連結將會失效，開啟它的人會看到提示。你需要把新連結重新傳出去。",
+      "resetConfirm": "確認重設"
+    }
+  },
+  "EventPage": {
+    "eyebrow": "誠邀你參加",
+    "hostedBy": "主辦人：{name}",
+    "when": "時間",
+    "where": "地點",
+    "about": "詳情",
+    "draftBanner": "草稿。發布之前，只有你看得到這個頁面。",
+    "edit": "編輯活動",
+    "notReadyTitle": "這份邀請還沒準備好",
+    "notReady": "主辦人還在準備中，請稍後再開啟這個連結。",
+    "guests": "賓客",
+    "headcount": "{count, plural, =0 {還沒有人} other {預計 # 人}}",
+    "alsoMaybe": "{count, plural, other {# 人待定}}",
+    "locked": "回覆後就能看到誰會來",
+    "nobodyYet": "還沒有人回覆，來當第一個吧。",
+    "status": {
+      "going": "參加",
+      "maybe": "待定",
+      "cant": "無法參加"
+    },
+    "cancelledTitle": "這個活動已取消",
+    "cancelled": "主辦人已經取消了活動，不需要再回覆。",
+    "addToCalendar": "加入行事曆",
+    "googleCalendar": "Google 日曆",
+    "outlook": "Outlook",
+    "startsInDays": "{count, plural, other {# 天後開始}}",
+    "startsInHours": "{count, plural, other {# 小時後開始}}",
+    "startsInMinutes": "{count, plural, =0 {即將開始} other {# 分鐘後開始}}",
+    "happeningNow": "正在進行",
+    "ended": "已經結束",
+    "yourTime": "你當地時間為 {time}。",
+    "openInMaps": "在地圖中開啟",
+    "retiredTitle": "這個連結已失效",
+    "retired": "主辦人已經換了新連結，請向主辦人索取。"
+  },
+  "DesignDrawer": {
+    "open": "設計",
+    "title": "設計",
+    "close": "關閉設計面板",
+    "autosave": "變更會自動儲存。",
+    "saving": "儲存中…",
+    "saved": "已儲存",
+    "failed": "這項變更沒有儲存成功，請再試一次。",
+    "upload": "上傳你的照片或海報",
+    "uploading": "上傳中…",
+    "uploadHint": "JPEG、PNG、WebP 或 AVIF 圖片，最大 {max, number} MB。",
+    "uploadProblems": {
+      "tooLarge": "這張圖片超過 {max, number} MB，這是這裡能上傳的上限。請換一張小一點的。",
+      "unsupported": "這個檔案不是這裡能用的圖片。請選擇 JPEG、PNG、WebP 或 AVIF 圖片。",
+      "tooManyPixels": "這張圖片像素太多，無法處理。請選擇 5000 萬像素以下的圖片。",
+      "failed": "圖片沒有上傳成功，請再試一次。",
+      "tooFast": "操作太頻繁了，請稍後再試。"
+    },
+    "useAs": "用作",
+    "useAsBackground": "背景",
+    "useAsPoster": "海報",
+    "useAsPosterHint": "你的圖片會以原本的比例成為邀請本身。可在「更多選項」中選擇標題的位置。",
+    "replace": "更換",
+    "yourPicture": "你的圖片",
+    "altText": "描述你的圖片",
+    "altTextHint": "會唸給使用螢幕閱讀器的賓客聽。如果圖片只是裝飾，可以留空。",
+    "comingSoon": "即將推出",
+    "templates": "範本",
+    "templatesHint": "每個範本都會設定整套主題，之後可以隨意修改。",
+    "templateNames": {
+      "birthday": "生日",
+      "vows": "婚禮",
+      "supper": "晚餐聚會",
+      "kids": "兒童派對",
+      "festival": "節慶",
+      "quiet": "靜謐"
+    },
+    "templateBlurbs": {
+      "birthday": "黃金時刻背景，大號襯線標題，毛玻璃按鈕。",
+      "vows": "玫瑰園背景，襯線標題，白色強調色，線框按鈕。",
+      "supper": "午夜背景，襯線標題，燭光琥珀色，實色按鈕。",
+      "kids": "暮色背景，圓潤字體，珊瑚色，實色按鈕。",
+      "festival": "極光背景，粗重的無襯線標題，玻璃按鈕。",
+      "quiet": "石板灰背景，無襯線標題，近白色，線框按鈕。一切靜止。"
+    },
+    "theme": "主題：{name}",
+    "custom": "自訂",
+    "customFrom": "自訂，以「{template}」範本為基礎",
+    "layout": "版面",
+    "layouts": {
+      "poster": {
+        "name": "海報",
+        "note": "一張卡片、三個按鈕和詳情。"
+      },
+      "broadsheet": {
+        "name": "報紙",
+        "note": "像一頁報紙，只有一份回覆表單。"
+      },
+      "thread": {
+        "name": "對話",
+        "note": "邀請讀起來像聊天。"
+      }
+    },
+    "background": "背景",
+    "backgroundNames": {
+      "golden": "黃金時刻",
+      "dusk": "暮色",
+      "forest": "森林",
+      "midnight": "午夜",
+      "sunset-sea": "海上日落",
+      "bokeh": "散景",
+      "aurora": "極光",
+      "rose": "玫瑰園",
+      "slate": "石板灰"
+    },
+    "details": "更多選項",
+    "font": "標題字體",
+    "fontNames": {
+      "serif": "Instrument Serif",
+      "grotesque": "Bricolage Grotesque",
+      "display": "Syne",
+      "rounded": "Fredoka"
+    },
+    "accent": "強調色",
+    "accentHint": "「自動」會從背景取色。",
+    "auto": "自動",
+    "swatches": {
+      "marigold": "金盞黃",
+      "pink": "粉紅",
+      "mint": "薄荷綠",
+      "periwinkle": "長春花藍",
+      "coral": "珊瑚色",
+      "white": "白色"
+    },
+    "textTone": "文字色調",
+    "textToneHint": "「自動」會依背景的明暗來選擇。",
+    "tones": {
+      "auto": "自動",
+      "light": "淺色",
+      "dark": "深色"
+    },
+    "buttons": "回覆按鈕",
+    "buttonStyles": {
+      "glass": "玻璃",
+      "solid": "實色",
+      "outline": "線框"
+    },
+    "rsvpStyle": "回覆方式",
+    "rsvpStyles": {
+      "inline": "內嵌",
+      "sheet": "面板"
+    },
+    "rsvpStyleHints": {
+      "inline": "回覆步驟直接在三個按鈕下方展開。",
+      "sheet": "點按按鈕後，邀請上方會升起一塊毛玻璃面板，隨著步驟展開。"
+    },
+    "titlePlacement": "標題位置",
+    "titlePlacements": {
+      "on": "在海報上",
+      "below": "在海報下方"
+    },
+    "titlePlacementHints": {
+      "on": "標題橫跨海報底部，襯著一層陰影，確保清楚易讀。",
+      "below": "標題放在海報下方，海報完整可見。"
+    }
+  },
+  "Guests": {
+    "title": "賓客名單",
+    "backToEvent": "返回活動",
+    "headcount": "{count, plural, =0 {還沒有人確定要來} other {預計 # 人}}",
+    "counts": "{going} 人參加 · {maybe} 人待定 · {declined} 人無法參加",
+    "empty": "還沒有人回覆。分享活動連結後，賓客會出現在這裡。",
+    "group": {
+      "going": "參加",
+      "maybe": "待定",
+      "cant": "無法參加"
+    },
+    "nobody": "目前沒有。",
+    "bringing": "同伴：{names}",
+    "plusOnes": "{count, plural, other {# 位同伴}}",
+    "replied": "回覆於 {when}",
+    "changed": "修改於 {when}",
+    "edit": "編輯",
+    "close": "關閉",
+    "status": "狀態",
+    "plusOnesLabel": "同伴人數",
+    "nameLabel": "名字",
+    "guestName": "同伴 {number}",
+    "save": "儲存",
+    "saved": "已儲存。",
+    "remove": "移除",
+    "removeTitle": "要移除 {name} 嗎？",
+    "removeText": "對方的回覆會被刪除，修改連結也會失效。這個動作無法復原。",
+    "cancel": "取消",
+    "confirmRemove": "移除賓客",
+    "live": "賓客回覆時，這份名單會自動更新。",
+    "errors": {
+      "notFound": "這個活動已經不存在了。",
+      "statusInvalid": "請選擇「參加」、「待定」或「無法參加」。",
+      "nameRequired": "賓客需要有名字。",
+      "nameTooLong": "名字太長了。",
+      "plusOnesInvalid": "人數超過這個活動允許的上限。",
+      "plusOneNameRequired": "每位同伴都需要有名字。",
+      "plusOneNameTooLong": "名字太長了。",
+      "emailInvalid": "這看起來不像電子郵件地址。"
+    }
+  },
+  "Rsvp": {
+    "going": "參加",
+    "maybe": "待定",
+    "cant": "無法參加",
+    "step": "第 {step} 步，共 {total} 步",
+    "back": "返回",
+    "continue": "繼續",
+    "send": "送出回覆",
+    "name": {
+      "title": "太好了！怎麼稱呼你？",
+      "cantTitle": "真可惜。請問你是？",
+      "label": "你的名字",
+      "placeholder": "例如：王小明",
+      "email": "電子郵件",
+      "emailHint": "選填。主辦人可以透過它聯絡你。"
+    },
+    "plusOnes": {
+      "title": "會帶同伴嗎？",
+      "hint": "{count, plural, =1 {你可以帶一位同伴。} other {你最多可以帶 # 位同伴。}}",
+      "justMe": "只有我",
+      "guestName": "同伴 {number}",
+      "optional": "選填"
+    },
+    "done": {
+      "going": "期待你的到來！",
+      "maybe": "那就先待定吧。",
+      "cant": "可惜你來不了。"
+    },
+    "summary": {
+      "coming": "{count, plural, =0 {{name}，就你自己。} other {{name}，另外帶 # 位同伴。}}",
+      "cant": "{name}，已記為無法參加。",
+      "bringing": "同伴：{names}",
+      "email": "主辦人會透過 {email} 聯絡你。"
+    },
+    "editLink": {
+      "label": "你的專屬修改連結",
+      "copy": "複製",
+      "copied": "已複製",
+      "hint": "也已儲存在這個瀏覽器中。"
+    },
+    "change": "更改回覆",
+    "edit": "修改資料",
+    "remove": "撤回我的回覆",
+    "replied": "{name}，你已回覆。",
+    "showMine": "查看我的回覆",
+    "sheet": {
+      "title": "你的回覆",
+      "close": "關閉"
+    },
+    "errors": {
+      "closed": "這份邀請目前不接受回覆。",
+      "statusInvalid": "請選擇「參加」、「待定」或「無法參加」。",
+      "nameRequired": "請告訴主辦人你是誰。",
+      "nameTooLong": "名字太長了。",
+      "plusOnesInvalid": "人數超過主辦人允許的上限。",
+      "plusOneNameRequired": "主辦人希望知道每位同伴的名字。",
+      "plusOneNameTooLong": "名字太長了。",
+      "emailInvalid": "這看起來不像電子郵件地址。",
+      "answerRequired": "主辦人希望你回答這一題。",
+      "answerNotOffered": "請從提供的選項中選一個。",
+      "answerTooLong": "回答太長了。",
+      "tooFast": "操作太頻繁了，請稍後再試。"
+    },
+    "questions": {
+      "title": "幾個小問題",
+      "optional": "選填",
+      "yes": "是",
+      "no": "否"
+    }
+  },
+  "NotFound": {
+    "title": "找不到頁面",
+    "text": "這個網址什麼也沒有。請檢查你收到的連結。",
+    "home": "前往首頁"
+  },
+  "TooFast": {
+    "title": "操作太頻繁了",
+    "text": "請稍後再試。"
+  },
+  "Footer": {
+    "privacy": "隱私權政策",
+    "terms": "使用條款"
+  },
+  "Legal": {
+    "privacy": "隱私權政策",
+    "terms": "使用條款",
+    "notPublished": {
+      "privacy": "此實例的營運者還沒有發布隱私權政策。",
+      "terms": "此實例的營運者還沒有發布使用條款。"
+    },
+    "contact": "有疑問嗎？請寄信至 <link>{email}</link>，聯絡此實例的營運者。",
+    "contactUnknown": "此實例的營運者沒有提供聯絡地址。"
   }
 }

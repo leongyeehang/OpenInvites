@@ -18,7 +18,7 @@ test.describe("a browser set to Traditional Chinese", () => {
 
   test("sees the home page in Traditional Chinese without touching anything", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText("此實例正在運行。")).toBeVisible();
+    await expect(page.getByText("此實例正常運作中。")).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
   });
 });

@@ -14,6 +14,9 @@ export default defineConfig({
   reporter: isCI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: "http://localhost:3000",
+    // The specs read the English interface, so every browser asks for English whatever the
+    // machine running them speaks; e2e/locales.spec.ts asks for the other languages itself.
+    locale: "en-US",
     trace: "on-first-retry",
   },
   projects: [

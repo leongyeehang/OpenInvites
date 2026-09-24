@@ -83,8 +83,8 @@ export function resolveTheme(theme: Theme, upload: ThemeUpload | null = null): R
 // a poster it is the poster's blurred copy, with the extremes measured for that.
 function uploadedBackground({ src, accent, luminance, lightest, darkest, poster }: ThemeUpload, asPoster: boolean): Background {
   return asPoster
-    ? { id: "upload", name: "", kind: "photo", src: poster.src, accent, luminance, lightest: poster.lightest, darkest: poster.darkest }
-    : { id: "upload", name: "", kind: "photo", src, accent, luminance, lightest, darkest };
+    ? { id: "upload", kind: "photo", src: poster.src, accent, luminance, lightest: poster.lightest, darkest: poster.darkest }
+    : { id: "upload", kind: "photo", src, accent, luminance, lightest, darkest };
 }
 
 // The resolved theme as CSS custom properties for the page's root element (see globals.css,

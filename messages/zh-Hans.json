@@ -2,7 +2,9 @@
   "Home": {
     "title": "OpenInvites",
     "status": "此实例正在运行。",
-    "tagline": "开源、可自托管的活动邀请服务。"
+    "tagline": "开源、可自托管的活动邀请服务。",
+    "signIn": "登录",
+    "signUp": "创建账号"
   },
   "LocaleSwitcher": {
     "label": "语言"
@@ -11,5 +13,626 @@
     "en": "English",
     "zh-Hans": "简体中文",
     "zh-Hant": "繁體中文"
+  },
+  "Auth": {
+    "signUp": {
+      "title": "创建主办人账号",
+      "description": "主办活动，一个链接就能分享。",
+      "displayName": "显示名称",
+      "displayNameHint": "宾客会在“主办人”一栏看到它。",
+      "email": "邮箱",
+      "password": "密码",
+      "passwordHint": "至少 8 个字符。",
+      "submit": "创建账号",
+      "haveAccount": "已有账号？",
+      "signIn": "登录",
+      "orContinueWith": "或使用以下方式继续",
+      "continueWithGoogle": "使用 Google 继续",
+      "continueWithGithub": "使用 GitHub 继续",
+      "invitationPending": "你已收到主办人邀请，请在下方创建账号。",
+      "invitationRequired": "此实例仅限受邀注册。要创建账号，你需要此实例的运营者发出的主办人邀请。",
+      "invitationUnusable": "此主办人邀请已无法使用：它已被使用、已被撤销或已过期。请向此实例的运营者索取新的邀请。"
+    },
+    "signIn": {
+      "title": "登录",
+      "email": "邮箱",
+      "password": "密码",
+      "submit": "登录",
+      "forgotPassword": "忘记密码？",
+      "noAccount": "第一次来？",
+      "signUp": "创建账号",
+      "passwordChanged": "密码已更改，请使用新密码登录。",
+      "accountDeleted": "你的账号已删除。",
+      "socialError": "没能成功。请重试，或使用邮箱和密码登录。",
+      "orContinueWith": "或使用以下方式继续",
+      "continueWithGoogle": "使用 Google 继续",
+      "continueWithGithub": "使用 GitHub 继续",
+      "HOST_INVITATION_REQUIRED": "此实例仅限受邀注册。要使用 Google 或 GitHub 创建账号，请先打开你的主办人邀请链接，再继续。",
+      "HOST_INVITATION_UNUSABLE": "此主办人邀请已无法使用。请向此实例的运营者索取新的邀请。",
+      "TOO_MANY_REQUESTS": "操作太频繁了，请稍后再试。"
+    },
+    "forgotPassword": {
+      "title": "重置密码",
+      "description": "输入你的邮箱，我们会发给你一个链接，用来设置新密码。",
+      "email": "邮箱",
+      "submit": "发送重置链接",
+      "sent": "如果这个邮箱有对应的账号，重置链接已经发出，一小时内有效。",
+      "noMail": "此实例无法发送邮件，密码由运营者手动重置。",
+      "contactOperator": "请发邮件至 <link>{email}</link>，联系运营者重置密码。",
+      "contactOperatorUnknown": "请联系此实例的运营者重置密码。",
+      "backToSignIn": "返回登录"
+    },
+    "resetPassword": {
+      "title": "设置新密码",
+      "password": "新密码",
+      "passwordHint": "至少 8 个字符。",
+      "submit": "更改密码",
+      "missingToken": "这个重置链接无效或已过期。",
+      "requestAgain": "重新获取链接"
+    },
+    "verifyEmail": {
+      "verifiedTitle": "邮箱已验证",
+      "verified": "谢谢，你的邮箱地址已确认。",
+      "toDashboard": "前往我的活动",
+      "failedTitle": "这个链接用不了",
+      "failed": "这个验证链接无效或已过期。请登录，然后在“我的活动”页面顶部的提示里重新获取。",
+      "toSignIn": "登录"
+    },
+    "banner": {
+      "title": "验证你的邮箱",
+      "text": "我们已向 {email} 发送了一个链接。打开它之前，你还不能创建活动。",
+      "resend": "重新发送邮件",
+      "sent": "已发送，请查收。"
+    },
+    "errors": {
+      "displayNameRequired": "请输入显示名称。",
+      "unknown": "出了点问题，请重试。",
+      "INVALID_EMAIL": "请输入有效的邮箱地址。",
+      "INVALID_EMAIL_OR_PASSWORD": "邮箱和密码不匹配。",
+      "USER_ALREADY_EXISTS": "这个邮箱已经注册过账号。",
+      "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL": "这个邮箱已经注册过账号。",
+      "PASSWORD_TOO_SHORT": "请至少使用 8 个字符。",
+      "PASSWORD_TOO_LONG": "最多只能使用 128 个字符。",
+      "INVALID_PASSWORD": "密码不正确。",
+      "INVALID_TOKEN": "这个链接无效或已过期。",
+      "TOKEN_EXPIRED": "这个链接已过期。",
+      "EMAIL_ALREADY_VERIFIED": "你的邮箱已经验证过了。",
+      "VERIFICATION_EMAIL_NOT_ENABLED": "此实例无法发送邮件。",
+      "SESSION_EXPIRED": "登录已过期，请重新登录。",
+      "CREDENTIAL_ACCOUNT_NOT_FOUND": "这个账号没有设置密码。",
+      "HOST_INVITATION_REQUIRED": "此实例仅限受邀注册。你需要运营者发出的主办人邀请才能创建账号。",
+      "HOST_INVITATION_UNUSABLE": "此主办人邀请已无法使用。请向此实例的运营者索取新的邀请。",
+      "TOO_MANY_REQUESTS": "操作太频繁了，请稍后再试。"
+    }
+  },
+  "Host": {
+    "header": {
+      "account": "账号",
+      "signOut": "退出登录",
+      "instanceSettings": "实例设置"
+    },
+    "dashboard": {
+      "title": "我的活动",
+      "new": "新建活动",
+      "upcoming": "即将举行",
+      "past": "已结束",
+      "empty": "你还没有活动。创建一个，把链接分享出去吧。",
+      "emptyUpcoming": "近期没有活动。",
+      "emptyPast": "还没有已结束的活动。",
+      "counts": "{going} 人参加 · {maybe} 人待定 · {declined} 人无法参加",
+      "headcount": "{count, plural, =0 {还没有人确定要来} other {预计 # 人}}"
+    }
+  },
+  "Account": {
+    "title": "账号设置",
+    "displayName": {
+      "title": "显示名称",
+      "description": "宾客会在“主办人”一栏看到它。",
+      "label": "显示名称",
+      "submit": "保存",
+      "saved": "显示名称已保存。"
+    },
+    "email": {
+      "title": "邮箱",
+      "current": "当前登录的邮箱：{email}。",
+      "label": "新邮箱",
+      "submit": "更改邮箱",
+      "verificationSent": "请查收 {email}，打开其中的链接确认更改。",
+      "changed": "邮箱已更改。"
+    },
+    "password": {
+      "title": "密码",
+      "current": "当前密码",
+      "new": "新密码",
+      "newHint": "至少 8 个字符。",
+      "submit": "更改密码",
+      "changed": "密码已更改。"
+    },
+    "delete": {
+      "title": "删除账号",
+      "description": "将删除你的账号、你的活动，以及每位宾客的资料。此操作无法撤销。",
+      "button": "删除账号",
+      "confirmTitle": "要删除你的账号吗？",
+      "confirmDescription": "你的活动和所有回复都会一并删除。请输入密码确认。",
+      "password": "密码",
+      "cancel": "取消",
+      "confirm": "删除我的账号"
+    }
+  },
+  "Instance": {
+    "title": "实例设置",
+    "registration": {
+      "title": "注册",
+      "description": "谁能在此实例上创建主办人账号。更改立即生效。",
+      "invitationOnly": "仅限受邀",
+      "invitationOnlyHint": "只有拿到你的主办人邀请的人才能创建账号。",
+      "open": "开放",
+      "openHint": "任何找到此实例的人都能创建账号。",
+      "submit": "保存",
+      "saved": "已保存。",
+      "unknown": "请选择“仅限受邀”或“开放”。"
+    },
+    "invitations": {
+      "title": "主办人邀请",
+      "description": "即使注册仅限受邀，主办人邀请也能让一个人创建主办人账号。邀请链接只能使用一次，{days} 天后过期。",
+      "email": "邮箱（选填）",
+      "emailHint": "会替对方预先填好注册表单。任何拿到链接的人仍然都能使用它。",
+      "send": "把链接发送到这个邮箱",
+      "submit": "创建主办人邀请",
+      "invalidEmail": "请输入有效的邮箱地址。",
+      "emailToSend": "请输入接收这份主办人邀请的邮箱地址。",
+      "created": "主办人邀请已创建。请现在复制链接：它不会再显示。",
+      "sent": "已发送至 {email}。",
+      "notSent": "邮件没能发出。请复制链接，自己发给对方。",
+      "link": "主办人邀请链接",
+      "copy": "复制链接",
+      "copied": "已复制",
+      "listTitle": "所有主办人邀请",
+      "empty": "还没有主办人邀请。",
+      "anyone": "任何持有链接的人",
+      "expiresIn": "{days, plural, other {# 天后过期}}",
+      "usedBy": "已由 {email} 使用",
+      "revoke": "撤销",
+      "state": {
+        "pending": "待使用",
+        "used": "已使用",
+        "revoked": "已撤销",
+        "expired": "已过期"
+      },
+      "tooFast": "操作太频繁了，请稍后再试。"
+    }
+  },
+  "Mail": {
+    "verifyEmail": {
+      "subject": "验证你在 OpenInvites 的邮箱",
+      "body": "{name}，你好：\n\n请打开下面的链接，确认这是你的邮箱地址。链接一小时内有效。\n\n{url}\n\n如果你没有注册过 OpenInvites，可以忽略这封邮件。"
+    },
+    "resetPassword": {
+      "subject": "重置你的 OpenInvites 密码",
+      "body": "{name}，你好：\n\n请打开下面的链接设置新密码。链接一小时内有效。\n\n{url}\n\n如果这不是你本人的操作，可以忽略这封邮件，你的密码不会改变。"
+    },
+    "hostInvitation": {
+      "subject": "你的 OpenInvites 主办人邀请",
+      "body": "你好：\n\n这是你的 OpenInvites 主办人邀请。打开下面的链接，创建主办人账号，就可以开始制作活动页面了。\n\n{url}\n\n这个链接只能创建一个账号，{days} 天后过期。如果你没想到会收到这封邮件，可以忽略它。"
+    }
+  },
+  "Events": {
+    "state": {
+      "draft": "草稿",
+      "published": "已发布",
+      "cancelled": "已取消"
+    },
+    "new": {
+      "title": "新建活动",
+      "submit": "保存草稿"
+    },
+    "edit": {
+      "title": "活动",
+      "submit": "保存更改",
+      "saved": "已保存。宾客打开链接就能立刻看到更改。"
+    },
+    "form": {
+      "title": "标题",
+      "allDay": "全天",
+      "start": "开始时间",
+      "end": "结束时间",
+      "endHint": "选填。",
+      "timeZone": "时区",
+      "timeZoneHint": "身在别处的宾客，看到的也是这个时区的时间。",
+      "location": "地点",
+      "locationHint": "填地址，或写“奶奶家三楼”也行。选填。",
+      "description": "活动介绍",
+      "descriptionHint": "支持粗体、斜体、链接、列表和表情符号。选填。",
+      "plusOnesAllowed": "每位宾客可带同伴人数",
+      "plusOnesNone": "不可带",
+      "plusOnesAllowedHint": "一位宾客最多可以带几个人。",
+      "requirePlusOneNames": "要求填写每位同伴的名字",
+      "askEmail": "请宾客留下邮箱地址",
+      "guestListVisibility": "谁可以看到宾客名单",
+      "guestListAlways": "所有打开链接的人",
+      "guestListAfterReply": "已回复的宾客",
+      "guestListHidden": "只有我",
+      "guestListVisibilityHint": "你始终能看到完整名单。",
+      "questions": "问题",
+      "questionsHint": "宾客回复时作答，答案只有你能看到。",
+      "questionAdd": "添加问题",
+      "questionPrompt": "问题 {number}",
+      "questionPromptHint": "例如：有什么忌口吗？",
+      "questionType": "问题 {number} 的类型",
+      "questionText": "自由填写",
+      "questionChoice": "从列表中选一项",
+      "questionYesNo": "是或否",
+      "questionRequired": "必填",
+      "questionChoices": "问题 {number} 的选项",
+      "questionChoicesHint": "汤，沙拉，都不要",
+      "questionUp": "上移",
+      "questionDown": "下移",
+      "questionRemove": "删除问题",
+      "questionRemoveTitle": "删除“{prompt}”？",
+      "questionRemoveText": "{count, plural, =1 {已有 1 位宾客回答了这个问题，这条回答也会一并删除。} other {已有 # 位宾客回答了这个问题，这些回答也会一并删除。}}",
+      "questionRemoveCancel": "保留",
+      "descriptionBold": "粗体",
+      "descriptionItalic": "斜体",
+      "descriptionLink": "添加链接",
+      "descriptionBullets": "项目列表",
+      "descriptionLinkPrompt": "链接要指向哪里？"
+    },
+    "errors": {
+      "titleRequired": "请给活动起个标题。",
+      "startRequired": "请选择开始时间。",
+      "startInvalid": "开始时间不是有效的日期和时间。",
+      "endInvalid": "结束时间不是有效的日期和时间。",
+      "endBeforeStart": "结束时间必须晚于开始时间。",
+      "timeZoneInvalid": "请从列表中选择时区。",
+      "notFound": "这个活动已经不存在了。",
+      "plusOnesAllowedInvalid": "请选择 0 到 10 之间的同伴人数。",
+      "guestListVisibilityInvalid": "请选择谁可以看到宾客名单。",
+      "questionsInvalid": "无法读取这些问题，请重试。",
+      "questionTypeInvalid": "请为每个问题选择类型。",
+      "questionPromptRequired": "每个问题都需要填写内容。",
+      "questionPromptTooLong": "问题太长了。",
+      "questionChoicesRequired": "列表题需要 2 到 10 个选项。",
+      "questionChoiceTooLong": "选项太长了。",
+      "tooManyQuestions": "一份邀请最多只能有 10 个问题。",
+      "descriptionTooLong": "活动介绍太长了，邀请装不下。",
+      "descriptionUnreadable": "无法读取活动介绍。请先把它复制到安全的地方，然后重试。"
+    },
+    "manage": {
+      "link": "活动链接",
+      "view": "打开活动页面",
+      "publish": "发布",
+      "publishHint": "发布后，任何拿到活动链接的人都能打开它。",
+      "publishedHint": "任何持有链接的人都能打开活动页面。你做的修改会立刻显示在那里。",
+      "draftHint": "活动还是草稿时，只有你能打开这个链接。",
+      "guests": "宾客名单",
+      "cancel": "取消活动",
+      "cancelHint": "页面会保留并显示取消通知，不再接受回复。",
+      "cancelTitle": "取消“{title}”？",
+      "cancelText": "打开链接的宾客会看到活动已取消。宾客名单会保留，但没有人能再回复。",
+      "cancelConfirm": "确认取消活动",
+      "keep": "算了",
+      "cancelledHint": "已取消。宾客会在页面上看到通知，并且无法回复。",
+      "delete": "删除活动",
+      "deleteHint": "删除这个活动，以及宾客告诉你的一切。此操作无法撤销。",
+      "deleteTitle": "删除“{title}”？",
+      "deleteText": "{count, plural, =0 {还没有人回复，所以不会删除其他内容。链接将失效。} other {# 条回复及其中的回答都会被删除。链接将失效。}}",
+      "deleteConfirm": "确认删除",
+      "share": "分享"
+    },
+    "verify": {
+      "title": "请先验证邮箱",
+      "text": "创建活动前，请打开我们发送到 {email} 的链接，然后再回到这里。",
+      "resend": "重新发送邮件"
+    },
+    "share": {
+      "title": "分享这个活动",
+      "backToEvent": "返回活动",
+      "copy": "复制链接",
+      "copied": "已复制",
+      "share": "分享…",
+      "qr": "二维码",
+      "qrHint": "打印出来，或在门口展示。",
+      "qrLabel": "活动链接的二维码",
+      "reset": "重置链接",
+      "resetHint": "生成新链接，并停用旧链接。已回复的宾客会保留他们的回复。",
+      "resetTitle": "要重置这个活动的链接吗？",
+      "resetText": "你分享过的链接将失效，打开它的人会看到提示。你需要把新链接重新发出去。",
+      "resetConfirm": "确认重置"
+    }
+  },
+  "EventPage": {
+    "eyebrow": "诚邀你参加",
+    "hostedBy": "主办人：{name}",
+    "when": "时间",
+    "where": "地点",
+    "about": "详情",
+    "draftBanner": "草稿。发布之前，只有你能看到这个页面。",
+    "edit": "编辑活动",
+    "notReadyTitle": "这份邀请还没准备好",
+    "notReady": "主办人还在准备中，请稍后再打开这个链接。",
+    "guests": "宾客",
+    "headcount": "{count, plural, =0 {还没有人} other {预计 # 人}}",
+    "alsoMaybe": "{count, plural, other {# 人待定}}",
+    "locked": "回复后就能看到谁会来",
+    "nobodyYet": "还没有人回复，来做第一个吧。",
+    "status": {
+      "going": "参加",
+      "maybe": "待定",
+      "cant": "无法参加"
+    },
+    "cancelledTitle": "这个活动已取消",
+    "cancelled": "主办人已经取消了活动，无需再回复。",
+    "addToCalendar": "添加到日历",
+    "googleCalendar": "Google 日历",
+    "outlook": "Outlook",
+    "startsInDays": "{count, plural, other {# 天后开始}}",
+    "startsInHours": "{count, plural, other {# 小时后开始}}",
+    "startsInMinutes": "{count, plural, =0 {马上开始} other {# 分钟后开始}}",
+    "happeningNow": "正在进行",
+    "ended": "已经结束",
+    "yourTime": "你当地时间为 {time}。",
+    "openInMaps": "在地图中打开",
+    "retiredTitle": "这个链接已失效",
+    "retired": "主办人已经换了新链接，请向主办人索取。"
+  },
+  "DesignDrawer": {
+    "open": "设计",
+    "title": "设计",
+    "close": "关闭设计面板",
+    "autosave": "更改会自动保存。",
+    "saving": "正在保存…",
+    "saved": "已保存",
+    "failed": "这项更改没有保存成功，请再试一次。",
+    "upload": "上传你的照片或海报",
+    "uploading": "正在上传…",
+    "uploadHint": "JPEG、PNG、WebP 或 AVIF 图片，最大 {max, number} MB。",
+    "uploadProblems": {
+      "tooLarge": "这张图片超过了 {max, number} MB，这是这里能上传的上限。请换一张小一点的。",
+      "unsupported": "这个文件不是这里能用的图片。请选择 JPEG、PNG、WebP 或 AVIF 图片。",
+      "tooManyPixels": "这张图片像素太多，处理不了。请选择 5000 万像素以下的图片。",
+      "failed": "图片没有上传成功，请再试一次。",
+      "tooFast": "操作太频繁了，请稍后再试。"
+    },
+    "useAs": "用作",
+    "useAsBackground": "背景",
+    "useAsPoster": "海报",
+    "useAsPosterHint": "你的图片会按原本的比例成为邀请本身。可在“更多选项”中选择标题的位置。",
+    "replace": "更换",
+    "yourPicture": "你的图片",
+    "altText": "描述你的图片",
+    "altTextHint": "会读给使用屏幕阅读器的宾客听。如果图片只是装饰，可以留空。",
+    "comingSoon": "即将推出",
+    "templates": "模板",
+    "templatesHint": "每个模板都会设置整套主题，之后可以随意修改。",
+    "templateNames": {
+      "birthday": "生日",
+      "vows": "婚礼",
+      "supper": "晚餐聚会",
+      "kids": "儿童派对",
+      "festival": "节庆",
+      "quiet": "静谧"
+    },
+    "templateBlurbs": {
+      "birthday": "黄金时刻背景，大号衬线标题，毛玻璃按钮。",
+      "vows": "玫瑰园背景，衬线标题，白色强调色，线框按钮。",
+      "supper": "午夜背景，衬线标题，烛光琥珀色，实色按钮。",
+      "kids": "暮色背景，圆润字体，珊瑚色，实色按钮。",
+      "festival": "极光背景，粗重的无衬线标题，玻璃按钮。",
+      "quiet": "石板灰背景，无衬线标题，近白色，线框按钮。一切静止。"
+    },
+    "theme": "主题：{name}",
+    "custom": "自定义",
+    "customFrom": "自定义，基于“{template}”模板",
+    "layout": "版式",
+    "layouts": {
+      "poster": {
+        "name": "海报",
+        "note": "一张卡片、三个按钮和详情。"
+      },
+      "broadsheet": {
+        "name": "报纸",
+        "note": "像一页报纸，只有一份回复表单。"
+      },
+      "thread": {
+        "name": "对话",
+        "note": "邀请读起来像聊天。"
+      }
+    },
+    "background": "背景",
+    "backgroundNames": {
+      "golden": "黄金时刻",
+      "dusk": "暮色",
+      "forest": "森林",
+      "midnight": "午夜",
+      "sunset-sea": "海上日落",
+      "bokeh": "光斑",
+      "aurora": "极光",
+      "rose": "玫瑰园",
+      "slate": "石板灰"
+    },
+    "details": "更多选项",
+    "font": "标题字体",
+    "fontNames": {
+      "serif": "Instrument Serif",
+      "grotesque": "Bricolage Grotesque",
+      "display": "Syne",
+      "rounded": "Fredoka"
+    },
+    "accent": "强调色",
+    "accentHint": "“自动”会从背景中取色。",
+    "auto": "自动",
+    "swatches": {
+      "marigold": "金盏黄",
+      "pink": "粉色",
+      "mint": "薄荷绿",
+      "periwinkle": "长春花蓝",
+      "coral": "珊瑚色",
+      "white": "白色"
+    },
+    "textTone": "文字色调",
+    "textToneHint": "“自动”会根据背景的明暗来选择。",
+    "tones": {
+      "auto": "自动",
+      "light": "浅色",
+      "dark": "深色"
+    },
+    "buttons": "回复按钮",
+    "buttonStyles": {
+      "glass": "玻璃",
+      "solid": "实色",
+      "outline": "线框"
+    },
+    "rsvpStyle": "回复方式",
+    "rsvpStyles": {
+      "inline": "内嵌",
+      "sheet": "面板"
+    },
+    "rsvpStyleHints": {
+      "inline": "回复步骤直接在三个按钮下方展开。",
+      "sheet": "点按钮后，邀请上方会升起一块毛玻璃面板，随着步骤展开。"
+    },
+    "titlePlacement": "标题位置",
+    "titlePlacements": {
+      "on": "在海报上",
+      "below": "在海报下方"
+    },
+    "titlePlacementHints": {
+      "on": "标题横在海报底部，衬着一层阴影，保证清晰可读。",
+      "below": "标题放在海报下方，海报完整可见。"
+    }
+  },
+  "Guests": {
+    "title": "宾客名单",
+    "backToEvent": "返回活动",
+    "headcount": "{count, plural, =0 {还没有人确定要来} other {预计 # 人}}",
+    "counts": "{going} 人参加 · {maybe} 人待定 · {declined} 人无法参加",
+    "empty": "还没有人回复。分享活动链接后，宾客会出现在这里。",
+    "group": {
+      "going": "参加",
+      "maybe": "待定",
+      "cant": "无法参加"
+    },
+    "nobody": "暂无。",
+    "bringing": "同伴：{names}",
+    "plusOnes": "{count, plural, other {# 位同伴}}",
+    "replied": "回复于 {when}",
+    "changed": "修改于 {when}",
+    "edit": "编辑",
+    "close": "关闭",
+    "status": "状态",
+    "plusOnesLabel": "同伴人数",
+    "nameLabel": "名字",
+    "guestName": "同伴 {number}",
+    "save": "保存",
+    "saved": "已保存。",
+    "remove": "移除",
+    "removeTitle": "要移除 {name} 吗？",
+    "removeText": "对方的回复会被删除，修改链接也会失效。此操作无法撤销。",
+    "cancel": "取消",
+    "confirmRemove": "移除宾客",
+    "live": "宾客回复时，这份名单会自动更新。",
+    "errors": {
+      "notFound": "这个活动已经不存在了。",
+      "statusInvalid": "请选择“参加”“待定”或“无法参加”。",
+      "nameRequired": "宾客需要有名字。",
+      "nameTooLong": "名字太长了。",
+      "plusOnesInvalid": "人数超过了这个活动允许的上限。",
+      "plusOneNameRequired": "每位同伴都需要有名字。",
+      "plusOneNameTooLong": "名字太长了。",
+      "emailInvalid": "这看起来不像邮箱地址。"
+    }
+  },
+  "Rsvp": {
+    "going": "参加",
+    "maybe": "待定",
+    "cant": "无法参加",
+    "step": "第 {step} 步，共 {total} 步",
+    "back": "返回",
+    "continue": "继续",
+    "send": "发送回复",
+    "name": {
+      "title": "太好了！怎么称呼你？",
+      "cantTitle": "真可惜。请问你是？",
+      "label": "你的名字",
+      "placeholder": "例如：王小明",
+      "email": "邮箱",
+      "emailHint": "选填。主办人可以通过它联系你。"
+    },
+    "plusOnes": {
+      "title": "会带同伴吗？",
+      "hint": "{count, plural, =1 {你可以带一位同伴。} other {你最多可以带 # 位同伴。}}",
+      "justMe": "只有我",
+      "guestName": "同伴 {number}",
+      "optional": "选填"
+    },
+    "done": {
+      "going": "期待你的到来！",
+      "maybe": "那就先待定吧。",
+      "cant": "可惜你来不了。"
+    },
+    "summary": {
+      "coming": "{count, plural, =0 {{name}，就你自己。} other {{name}，另带 # 位同伴。}}",
+      "cant": "{name}，已记为无法参加。",
+      "bringing": "同伴：{names}",
+      "email": "主办人会通过 {email} 联系你。"
+    },
+    "editLink": {
+      "label": "你的专属修改链接",
+      "copy": "复制",
+      "copied": "已复制",
+      "hint": "也已保存在这个浏览器里。"
+    },
+    "change": "更改回复",
+    "edit": "修改详情",
+    "remove": "撤回我的回复",
+    "replied": "{name}，你已回复。",
+    "showMine": "查看我的回复",
+    "sheet": {
+      "title": "你的回复",
+      "close": "关闭"
+    },
+    "errors": {
+      "closed": "这份邀请目前不接受回复。",
+      "statusInvalid": "请选择“参加”“待定”或“无法参加”。",
+      "nameRequired": "请告诉主办人你是谁。",
+      "nameTooLong": "名字太长了。",
+      "plusOnesInvalid": "人数超过了主办人允许的上限。",
+      "plusOneNameRequired": "主办人希望知道每位同伴的名字。",
+      "plusOneNameTooLong": "名字太长了。",
+      "emailInvalid": "这看起来不像邮箱地址。",
+      "answerRequired": "主办人希望你回答这一题。",
+      "answerNotOffered": "请从给出的选项中选一个。",
+      "answerTooLong": "回答太长了。",
+      "tooFast": "操作太频繁了，请稍后再试。"
+    },
+    "questions": {
+      "title": "几个小问题",
+      "optional": "选填",
+      "yes": "是",
+      "no": "否"
+    }
+  },
+  "NotFound": {
+    "title": "找不到页面",
+    "text": "这个地址什么也没有。请检查你收到的链接。",
+    "home": "前往首页"
+  },
+  "TooFast": {
+    "title": "操作太频繁了",
+    "text": "请稍后再试。"
+  },
+  "Footer": {
+    "privacy": "隐私政策",
+    "terms": "使用条款"
+  },
+  "Legal": {
+    "privacy": "隐私政策",
+    "terms": "使用条款",
+    "notPublished": {
+      "privacy": "此实例的运营者还没有发布隐私政策。",
+      "terms": "此实例的运营者还没有发布使用条款。"
+    },
+    "contact": "有疑问？请发邮件至 <link>{email}</link>，联系此实例的运营者。",
+    "contactUnknown": "此实例的运营者没有提供联系地址。"
   }
 }

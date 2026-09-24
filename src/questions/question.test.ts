@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_QUESTIONS, parseQuestions, type QuestionDraft } from "./question";
+import { choicesFrom, MAX_QUESTIONS, parseQuestions, type QuestionDraft } from "./question";
 
 const text: QuestionDraft = { type: "text", prompt: "Any dietary needs?", options: [], required: false };
 const choice: QuestionDraft = { type: "choice", prompt: "Starter?", options: ["Soup", "Salad"], required: true };
@@ -54,5 +54,14 @@ describe("parseQuestions", () => {
   it("keeps the form short", () => {
     const many = Array.from({ length: MAX_QUESTIONS + 1 }, () => text);
     expect(parseQuestions(many)).toEqual({ ok: false, error: "tooManyQuestions" });
+  });
+});
+
+describe("choicesFrom", () => {
+  it("reads the choices a host types, separated by commas, Chinese ones included", () => {
+    expect(choicesFrom("Soup, Salad,Neither")).toEqual(["Soup", "Salad", "Neither"]);
+    expect(choicesFrom("汤，沙拉、都不要")).toEqual(["汤", "沙拉", "都不要"]);
+    // A comma just typed leaves room for the next choice.
+    expect(choicesFrom("湯，")).toEqual(["湯", ""]);
   });
 });

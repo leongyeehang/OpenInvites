@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import en from "../../../messages/en.json";
 import { findBackground } from "../backgrounds";
 import { SWATCHES } from "../swatches";
 import { BUTTON_STYLES, EFFECTS, FONTS, LAYOUTS, RSVP_STYLES, TEXT_TONES, TITLE_PLACEMENTS } from "../theme";
@@ -6,10 +7,16 @@ import { findTemplate, TEMPLATES } from ".";
 
 // Templates are data contributors edit; these checks catch a slip before it reaches a page.
 describe("templates", () => {
-  it("ships the six, in the drawer's order, each with a unique id, a name and a blurb", () => {
-    expect(TEMPLATES.map((template) => template.name)).toEqual(["Birthday", "Vows", "Supper club", "Kids’ party", "Festival", "Quiet"]);
+  it("ships the six, in the drawer's order, each with a unique id", () => {
+    expect(TEMPLATES.map((template) => template.id)).toEqual(["birthday", "vows", "supper", "kids", "festival", "quiet"]);
     expect(new Set(TEMPLATES.map((template) => template.id)).size).toBe(6);
-    for (const template of TEMPLATES) expect(template.blurb.length, template.id).toBeGreaterThan(0);
+  });
+
+  it("names each in English, with a line about its look, and names nothing else", () => {
+    const ids = TEMPLATES.map((template) => template.id).sort();
+    expect(Object.keys(en.DesignDrawer.templateNames).sort()).toEqual(ids);
+    expect(Object.keys(en.DesignDrawer.templateBlurbs).sort()).toEqual(ids);
+    for (const id of ids) expect(en.DesignDrawer.templateBlurbs[id].length, id).toBeGreaterThan(0);
   });
 
   it("sets every knob of the theme to a value the Design drawer can show", () => {
@@ -57,7 +64,7 @@ describe("templates", () => {
   });
 
   it("finds a template by id and nothing for an unknown one", () => {
-    expect(findTemplate("vows")?.name).toBe("Vows");
+    expect(findTemplate("vows")?.theme.backgroundId).toBe("rose");
     expect(findTemplate("zine")).toBeUndefined();
   });
 });

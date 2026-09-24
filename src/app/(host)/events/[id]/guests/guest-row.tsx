@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 import { FormOutcome } from "@/components/form-outcome";
 import {
@@ -43,6 +43,7 @@ export function GuestRow({
   plusOnesAllowed: number;
 }) {
   const t = useTranslations("Guests");
+  const format = useFormatter();
   const [open, setOpen] = useState(false);
   const [state, save, saving] = useActionState(editGuestAction.bind(null, eventId, guest.id), undefined);
   const named = guest.plusOneNames.filter(Boolean);
@@ -57,7 +58,7 @@ export function GuestRow({
             <span>{t("replied", { when: replied })}</span>
             {changed && <span> · {t("changed", { when: changed })}</span>}
           </p>
-          {named.length > 0 && <p className="text-sm text-muted-foreground">{t("bringing", { names: named.join(", ") })}</p>}
+          {named.length > 0 && <p className="text-sm text-muted-foreground">{t("bringing", { names: format.list(named) })}</p>}
           {guest.email && <p className="text-sm break-all text-muted-foreground">{guest.email}</p>}
           {answers.length > 0 && (
             <dl className="mt-2 flex flex-col gap-1 text-sm">

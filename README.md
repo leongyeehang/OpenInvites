@@ -2,7 +2,7 @@
 
 An open source, self-hostable service where a host creates an event page and shares its link, and guests respond without needing an account. OpenInvites is the working name until the first public release.
 
-The application runs, migrates its own database, reports health, speaks English, Simplified Chinese, and Traditional Chinese, and lets a person become a host: sign up with email and password, verify their email, sign in on several devices, manage their account, and delete it. A host creates an event, saves it as a draft, publishes it, and shares a link to a bare event page; the themed look arrives next. The host screens are English only until the translation pass. Features arrive ticket by ticket under `.scratch/openinvites/issues/`.
+The application runs, migrates its own database, reports health, speaks English, Simplified Chinese, and Traditional Chinese, and lets a person become a host: sign up with email and password, verify their email, sign in on several devices, manage their account, and delete it. A host creates an event, saves it as a draft, publishes it, and shares a link to a bare event page; the themed look arrives next. Features arrive ticket by ticket under `.scratch/openinvites/issues/`.
 
 ## Run it locally
 

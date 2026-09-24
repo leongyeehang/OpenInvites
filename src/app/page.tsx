@@ -1,7 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { LocaleSwitcher } from "@/locale/locale-switcher";
 
 export default async function HomePage() {
   const t = await getTranslations("Home");
@@ -20,7 +19,6 @@ export default async function HomePage() {
           <Link href="/sign-up">{t("signUp")}</Link>
         </Button>
       </div>
-      <LocaleSwitcher />
     </main>
   );
 }
