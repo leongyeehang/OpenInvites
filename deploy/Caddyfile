@@ -1,0 +1,27 @@
+# Automatic HTTPS in front of OpenInvites (docs/operator/install.md). The app does not speak
+# TLS itself; Caddy gets a certificate for the name in BASE_URL and renews it on its own, once
+# that name points at this machine and ports 80 and 443 are open to the internet.
+#
+# The site address is BASE_URL from .env, such as https://invites.example.org. Give it no
+# trailing slash and no path: Caddy would read one as "only this path" and serve nothing else.
+#
+# The same file works for a Caddy installed on this machine instead of the one in compose.yaml,
+# with BASE_URL set in its environment or written in here, since both reach the app on the
+# loopback.
+
+# Behind a CDN such as Cloudflare, Caddy must trust the CDN's addresses, so that it adds the
+# visitor's address after the CDN's instead of replacing it, and TRUSTED_PROXY_HOPS in .env must
+# be 2 (docs/operator/configuration.md, "Rate limits"). Uncomment this block and put every range
+# your CDN publishes in place of the brackets (Cloudflare's are at https://www.cloudflare.com/ips/):
+#
+# {
+# 	servers {
+# 		trusted_proxies static <every range the CDN publishes, separated by spaces>
+# 	}
+# }
+
+{$BASE_URL} {
+	# Caddy puts the address it saw the visitor come from in X-Forwarded-For, replacing whatever
+	# the visitor sent: the one entry the app believes with TRUSTED_PROXY_HOPS=1.
+	reverse_proxy 127.0.0.1:{$APP_PORT:3000}
+}

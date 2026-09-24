@@ -1,8 +1,11 @@
 name: CI
 
 on:
+  # Branches only: a release tag runs these same checks through release.yml, before publishing.
   push:
+    branches: ["**"]
   pull_request:
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}

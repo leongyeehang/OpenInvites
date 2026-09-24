@@ -19,3 +19,6 @@ compose.yaml
 
 # tests are not part of the image
 **/*.test.ts
+
+# the deployment package is not part of the image
+deploy

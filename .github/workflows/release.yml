@@ -1,0 +1,133 @@
+name: Release
+
+# A tag such as v1.2.3 publishes the image for amd64 and arm64 to GitHub Container Registry and
+# Docker Hub, tagged 1.2.3, 1.2, 1 and latest, once every check a push runs (ci.yml) has passed.
+# Then the deployment package is started from the published image on an amd64 and an arm64
+# machine (deploy/smoke-test.sh). docs/releasing.md lists the secrets and variables it needs.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Checks
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Build and push the image
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: write
+    # Only the digest: GitHub drops a job output that contains a secret's value, and the image's
+    # name holds the owner's name, which may well be the Docker Hub username too.
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # GitHub Container Registry names must be lowercase; the Docker Hub namespace defaults to
+      # the repository owner's name. The smoke test below builds the first name the same way.
+      - name: Image names
+        id: names
+        env:
+          IMAGE_NAME: ${{ vars.IMAGE_NAME || 'openinvites' }}
+          DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE || github.repository_owner }}
+        run: |
+          echo "ghcr=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
+          echo "dockerhub=docker.io/${DOCKERHUB_NAMESPACE,,}/${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
+
+      # The arm64 image is built under emulation, so pnpm installs the arm64 builds of sharp and
+      # the other native packages, as it would on an arm64 machine.
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Sign in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sign in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # A pre-release such as v1.3.0-rc.1 gets only its own tag. A 0.x release gets no tag of
+      # its major version alone, which would promise nothing.
+      - name: Tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ steps.names.outputs.ghcr }}
+            ${{ steps.names.outputs.dockerhub }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+          labels: |
+            org.opencontainers.image.title=OpenInvites
+            org.opencontainers.image.description=Self-hostable event pages that guests RSVP to without an account
+            org.opencontainers.image.licenses=AGPL-3.0
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  smoke-test:
+    name: Smoke test on ${{ matrix.arch }}
+    needs: publish
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          # Arm64 hardware: GitHub's arm64 runners are free for public repositories.
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v5
+
+      # The package may still be private right after its first push.
+      - name: Sign in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # By digest, so it is exactly what was pushed; the registry hands each machine its own build.
+      - name: Start the deployment package from the published image
+        env:
+          IMAGE_NAME: ${{ vars.IMAGE_NAME || 'openinvites' }}
+          DIGEST: ${{ needs.publish.outputs.digest }}
+        run: deploy/smoke-test.sh "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${IMAGE_NAME}@${DIGEST}"

@@ -16,6 +16,11 @@ COPY . .
 RUN pnpm build
 
 FROM node:22-alpine AS runner
+# The release workflow adds the version, revision and build time (.github/workflows/release.yml).
+LABEL org.opencontainers.image.title="OpenInvites" \
+      org.opencontainers.image.description="Self-hostable event pages that guests RSVP to without an account" \
+      org.opencontainers.image.source="https://github.com/leongyeehang/OpenInvites" \
+      org.opencontainers.image.licenses="AGPL-3.0"
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     HOSTNAME=0.0.0.0 \

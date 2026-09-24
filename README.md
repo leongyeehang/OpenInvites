@@ -37,67 +37,19 @@ Also useful: `pnpm lint`, `pnpm typecheck`, and `pnpm db:generate` after changin
 
 ## Configuration
 
-Every setting is an environment variable. Development defaults live in the committed `.env.development`; put personal overrides in `.env.development.local`, which git ignores.
+Every setting is an environment variable. Running an instance is covered by the operator documentation in `docs/operator/`, and the deployment package it describes (a production Compose file with a pinned Postgres 18 and Caddy for automatic HTTPS, an `.env.example` listing every variable, and a `Caddyfile`) is in `deploy/`:
 
-| Variable | Purpose |
-| --- | --- |
-| `DATABASE_URL` | Postgres 18 connection string. |
-| `BASE_URL` | Public origin of the instance, such as `https://invites.example.org`. Links in emails start with it. |
-| `AUTH_SECRET` | Long random string that signs sessions and email links. Changing it signs every host out. |
-| `SMTP_URL` | SMTP server for outgoing mail, such as `smtp://user:pass@mail.example.org:587`. Unset means the instance has no mail: hosts are not asked to verify their email and password reset goes through the operator command below. |
-| `MAIL_FROM` | Sender of outgoing mail, such as `OpenInvites <no-reply@example.org>`. Required when `SMTP_URL` is set. |
-| `OPERATOR_CONTACT_EMAIL` | Shown to hosts when they need the operator, such as to reset a password on an instance without mail. |
-| `OPERATOR_EMAIL` | The operator's own account, to take the instance back (see below). This email may always sign up, whatever the registration mode. With mail, its account becomes the operator in place of whoever was once its email is verified: when Google or GitHub report it verified, when its verification link is opened, or at a start. Without mail, a new account with it becomes the operator only if there is none, and at every start the account with it becomes the operator. Use an address other than `OPERATOR_CONTACT_EMAIL`, and unset it once your account is the operator. Optional: without it, the first account created on the instance is the operator. |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | OAuth credentials for "Continue with Google". The button appears only when both are set. |
-| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | OAuth credentials for "Continue with GitHub". The button appears only when both are set. |
+- [Installing an instance](docs/operator/install.md): from a fresh machine to a running instance, and the first account, which becomes the operator.
+- [Configuring an instance](docs/operator/configuration.md): every variable, including mail, Google and GitHub sign-in, S3 storage, rate limits, the legal pages, and the operator's `OPERATOR_EMAIL`.
+- [Upgrading, backups, and operations](docs/operator/upgrade-backup.md): upgrades, backup and restore, and the password reset command.
 
-### The operator, registration, and host invitations
+Images are published by CI on each release tag ([docs/releasing.md](docs/releasing.md)).
 
-The first account created on a fresh instance is its operator; there is only ever one. The operator finds **Instance settings** in the header of the host area (`/instance`); for anyone else that address is a page that does not exist.
-
-- **Registration** is Invitation only on a fresh instance: only someone holding a host invitation can create an account, by email, Google, or GitHub alike. Open lets anyone sign up. A change takes effect at once.
-- **Host invitations** are single-use links the operator makes on the same page, optionally addressed to an email, which then fills in the sign-up form (anyone with the link can still use it). The link is shown once, to copy; with mail configured, the operator can have it emailed instead. A link works for one account and expires after 14 days, and can be revoked while it is pending. The page lists every invitation as Pending, Used, Revoked, or Expired.
-
-If someone else created the first account before you did, you can take the instance back with `OPERATOR_EMAIL`:
-
-1. Set it to an address of yours that is not public, not the one in `OPERATOR_CONTACT_EMAIL`: whoever proves they hold it becomes the operator. Restart.
-2. Sign up with that address, which is let in whatever the registration mode, or sign in if the account already exists.
-3. With mail, open the verification link sent to it: the account is then the operator. Without mail, restart once more: at start the account with that address becomes the operator.
-4. Unset `OPERATOR_EMAIL` and restart, so nobody else can use it later.
-
-On an instance without mail there is no verifying an address, so promotion at a restart trusts whoever holds the account with it, and any host can change their account's email to it at once. Set the variable only for the restart that needs it. With mail, the account with that address is never made the operator before its email is verified.
-
-An instance upgraded from before there was an operator makes its earliest account the operator and starts Invitation only.
-
-### Resetting a host's password
-
-On an instance without mail, the operator resets a host's password from inside the container. It prints a temporary password to pass on; the host signs in with it and changes it in account settings.
-
-```sh
-docker compose exec app node scripts/reset-password.mjs host@example.org
-```
-
-In development: `node --env-file=.env.development scripts/reset-password.mjs host@example.org`.
-
-### Google and GitHub sign-in
-
-Set both variables for a provider to add its button to the sign-in and sign-up pages; either one left unset keeps the button off. Register the redirect URL built from `BASE_URL`:
-
-| Provider | Where to create the OAuth client | Redirect URL to register |
-| --- | --- | --- |
-| Google | [Google Cloud Console](https://console.cloud.google.com/apis/credentials), OAuth client ID, type Web application | `{BASE_URL}/api/auth/callback/google` |
-| GitHub | [GitHub Developer settings](https://github.com/settings/developers), New OAuth App | `{BASE_URL}/api/auth/callback/github` |
-
-Put each client ID and secret in the matching environment variable above.
-
-No automated test can sign in against the real providers, so verify by hand after configuring them:
-
-1. Restart the instance and confirm both buttons appear on `/sign-in` and `/sign-up`.
-2. Sign in with Google using an address that has not signed up before: a host is created and signed in, with no "verify your email" banner, and the display name matches the Google profile's name.
-3. Sign in with GitHub the same way: the display name matches the GitHub profile's name, or the GitHub username when the profile has none.
-4. Sign up with email and password using an address you also control on Google or GitHub with a verified email there, then sign in with that provider using the same address: it signs in to the same account rather than creating a second one. A provider address that does not match, or is not verified there, does not link.
+In development, the defaults live in the committed `.env.development`; put personal overrides in `.env.development.local`, which git ignores. The password reset command runs against the development database with `node --env-file=.env.development scripts/reset-password.mjs host@example.org`.
 
 ## Compose profiles
+
+The `compose.yaml` at the root is for development and tests; an instance runs `deploy/compose.yaml`.
 
 | Profile | Services | Use |
 | --- | --- | --- |
@@ -125,6 +77,9 @@ messages/           Translation files, one per locale
 drizzle/            SQL migrations
 scripts/            Commands an operator runs inside the container
 e2e/                Playwright browser tests
+deploy/             The deployment package: production Compose file, .env.example, Caddyfile,
+                    and the smoke test the release workflow runs against a published image
+docs/operator/      Operator documentation: installing, configuring, upgrading, backups
 ```
 
 Vocabulary is in `CONTEXT.md`; hard-to-reverse choices are in `docs/adr/`. The software sends nothing to the project or to any third party (ADR-0005).

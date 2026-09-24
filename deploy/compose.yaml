@@ -1,0 +1,79 @@
+# OpenInvites: one instance, as an operator runs it (docs/operator/install.md).
+#
+# Every setting lives in .env next to this file (copy .env.example and fill it in); this file
+# should not need editing, so a newer release's copy can replace it. Local changes, such as
+# mounting the legal pages, go in compose.override.yaml, which Compose reads as well.
+#
+# The repository's own compose.yaml, at its root, is for development and tests; this is not it.
+name: openinvites-instance
+
+services:
+  app:
+    image: ${OPENINVITES_IMAGE:-ghcr.io/leongyeehang/openinvites:latest}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://openinvites:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/openinvites
+      BASE_URL: ${BASE_URL:?Set BASE_URL in .env}
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env}
+    # On this machine's loopback only, for the reverse proxy. The rate limits believe the
+    # X-Forwarded-For entry the proxy adds (TRUSTED_PROXY_HOPS), so a visitor who could reach the
+    # app past the proxy could write that entry and pass for anyone. Never publish it wider.
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    # Hosts' uploaded pictures, when STORAGE_BACKEND is local (the default).
+    volumes:
+      - uploads:/app/uploads
+    # Ready once migrations have run and the database answers (/api/health).
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      start_period: 30s
+      retries: 6
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Postgres 18 or newer is required (ADR-0004). A minor version is pinned; a newer release of
+  # this file may move it, which needs nothing more than `docker compose up -d`.
+  db:
+    image: postgres:18.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: openinvites
+      # Read only when the database is first created: changing it later does not change it.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: openinvites
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openinvites -d openinvites"]
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 12
+
+  # Automatic HTTPS in front of the app (Caddyfile). Started by COMPOSE_PROFILES=caddy in .env;
+  # leave that out to run a reverse proxy of your own instead. It uses this machine's network
+  # directly, so it sees every visitor's own address, over IPv6 too, which the rate limits count
+  # by: through Docker's port forwarding an IPv6 visitor would arrive as Docker's own address.
+  caddy:
+    image: caddy:2.11-alpine
+    profiles: [caddy]
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      BASE_URL: ${BASE_URL:?Set BASE_URL in .env}
+      APP_PORT: ${APP_PORT:-3000}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates and the keys Caddy made for them.
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  db-data:
+  uploads:
+  caddy-data:
+  caddy-config:
