@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { ClientMessages } from "@/locale/client-messages";
 import { ResetPasswordForm } from "./reset-password-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -20,7 +21,15 @@ export default async function ResetPasswordPage({ searchParams }: PageProps<"/re
           <h1>{t("title")}</h1>
         </CardTitle>
       </CardHeader>
-      <CardContent>{token ? <ResetPasswordForm token={token} /> : <p role="alert">{t("missingToken")}</p>}</CardContent>
+      <CardContent>
+        {token ? (
+          <ClientMessages namespaces={["Auth.resetPassword"]}>
+            <ResetPasswordForm token={token} />
+          </ClientMessages>
+        ) : (
+          <p role="alert">{t("missingToken")}</p>
+        )}
+      </CardContent>
       <CardFooter className="text-sm">
         <Link href="/forgot-password" className="underline underline-offset-4">
           {t("requestAgain")}

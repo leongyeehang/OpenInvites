@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { requireHost } from "@/auth/session";
 import { findHostEvent } from "@/events/repository";
 import { formatMoment } from "@/events/time";
+import { ClientMessages } from "@/locale/client-messages";
 import { listAnswersByGuest } from "@/questions/repository";
 import { asTally, countRsvps, groupByStatus } from "@/rsvps/counts";
 import { listGuestList } from "@/rsvps/repository";
@@ -32,7 +33,7 @@ export default async function GuestListPage({ params }: PageProps<"/events/[id]/
   const counts = countRsvps(guests.map(asTally));
 
   return (
-    <>
+    <ClientMessages namespaces={["Guests"]}>
       <RefreshWhileWatching />
       <div className="flex flex-col gap-1">
         <Link href={`/events/${event.id}`} className="text-sm text-muted-foreground hover:underline">
@@ -80,6 +81,6 @@ export default async function GuestListPage({ params }: PageProps<"/events/[id]/
         ))
       )}
       <p className="text-sm text-muted-foreground">{t("live")}</p>
-    </>
+    </ClientMessages>
   );
 }

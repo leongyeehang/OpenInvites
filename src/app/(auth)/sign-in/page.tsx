@@ -6,6 +6,7 @@ import { getSession } from "@/auth/session";
 import { enabledSocialProviders } from "@/auth/providers";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { ClientMessages } from "@/locale/client-messages";
 import { SocialSignIn } from "../social-sign-in";
 import { SignInForm } from "./sign-in-form";
 
@@ -43,7 +44,9 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <SignInForm />
+          <ClientMessages namespaces={["Auth.signIn"]}>
+            <SignInForm />
+          </ClientMessages>
           <SocialSignIn providers={enabledSocialProviders()} namespace="Auth.signIn" />
         </CardContent>
         <CardFooter className="flex-col items-start gap-2 text-sm text-muted-foreground">

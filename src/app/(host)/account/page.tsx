@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { requireHost } from "@/auth/session";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ClientMessages } from "@/locale/client-messages";
 import { ChangeEmailForm, ChangePasswordForm, DeleteAccountDialog, DisplayNameForm } from "./account-forms";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -12,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AccountPage() {
   const [host, t] = await Promise.all([requireHost(), getTranslations("Account")]);
   return (
-    <>
+    <ClientMessages namespaces={["Account.displayName", "Account.email", "Account.password", "Account.delete"]}>
       <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
       <Card>
         <CardHeader>
@@ -57,6 +58,6 @@ export default async function AccountPage() {
           <DeleteAccountDialog />
         </CardContent>
       </Card>
-    </>
+    </ClientMessages>
   );
 }

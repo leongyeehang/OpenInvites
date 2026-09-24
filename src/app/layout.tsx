@@ -23,7 +23,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           the snippet does not change. */}
       {analytics && <head suppressHydrationWarning dangerouslySetInnerHTML={{ __html: analytics }} />}
       <body>
-        <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        {/* The language and its formats for every client component; their messages come from each
+            page, which passes only the ones its client components read (locale/client-messages.tsx). */}
+        <NextIntlClientProvider messages={null}>{children}</NextIntlClientProvider>
         <PageFooter />
       </body>
     </html>

@@ -10,6 +10,7 @@ import { acceptsRsvps, eventPageFor } from "@/events/access";
 import { findEventBySlug, isRetiredSlug } from "@/events/repository";
 import { baseUrl, maxUploadBytes } from "@/instance/env";
 import { isSlug } from "@/events/slug";
+import { ClientMessages } from "@/locale/client-messages";
 import { answersStillOffered } from "@/questions/answers";
 import { findAnswers, listQuestions } from "@/questions/repository";
 import { asTally, countRsvps } from "@/rsvps/counts";
@@ -131,39 +132,49 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const picture = upload ? themeUpload(upload) : null;
   const shown = resolveTheme(event.theme, picture).upload !== null;
 
+  // The client components below read their messages in the browser; the host's Design drawer, only
+  // on the host's own page, brings its own.
   return (
-    <ThemedPage
-      theme={event.theme}
-      upload={isHost || shown ? picture : null}
-      designer={isHost ? <DesignDrawer eventId={event.id} title={event.title} maxUploadBytes={maxUploadBytes()} /> : undefined}
-    >
-      <PosterLayout
-        event={event}
-        notice={isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined}
-        rsvp={
-          <RsvpFlow
-            slug={event.slug}
-            settings={event}
-            mine={mine && guestRsvp(mine)}
-            open={acceptsRsvps(event.state)}
-            questions={questions}
-            answers={answersStillOffered(answers, questions)}
-            calendar={calendar}
-          />
+    <ClientMessages namespaces={["EventPage", "Rsvp"]}>
+      <ThemedPage
+        theme={event.theme}
+        upload={isHost || shown ? picture : null}
+        designer={
+          isHost ? (
+            <ClientMessages namespaces={["DesignDrawer"]}>
+              <DesignDrawer eventId={event.id} title={event.title} maxUploadBytes={maxUploadBytes()} />
+            </ClientMessages>
+          ) : undefined
         }
-        underWhen={
-          <>
-            <ViewerTime event={event} locale={locale} />
-            <Countdown event={event} />
-          </>
-        }
-        underWhere={event.location ? <MapLink location={event.location} /> : undefined}
-        calendar={calendar}
-        guestList={
-          view === "hidden" ? undefined : <GuestList view={view} guests={guests} counts={countRsvps(guests.map(asTally))} />
-        }
-      />
-      <PageFooter themed />
-    </ThemedPage>
+      >
+        <PosterLayout
+          event={event}
+          notice={isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined}
+          rsvp={
+            <RsvpFlow
+              slug={event.slug}
+              settings={event}
+              mine={mine && guestRsvp(mine)}
+              open={acceptsRsvps(event.state)}
+              questions={questions}
+              answers={answersStillOffered(answers, questions)}
+              calendar={calendar}
+            />
+          }
+          underWhen={
+            <>
+              <ViewerTime event={event} locale={locale} />
+              <Countdown event={event} />
+            </>
+          }
+          underWhere={event.location ? <MapLink location={event.location} /> : undefined}
+          calendar={calendar}
+          guestList={
+            view === "hidden" ? undefined : <GuestList view={view} guests={guests} counts={countRsvps(guests.map(asTally))} />
+          }
+        />
+        <PageFooter themed />
+      </ThemedPage>
+    </ClientMessages>
   );
 }

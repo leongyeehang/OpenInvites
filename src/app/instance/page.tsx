@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { revokeHostInvitationAction } from "@/instance/actions";
 import { HOST_INVITATION_DAYS, hostInvitationDaysLeft, hostInvitationState, type HostInvitationState } from "@/instance/host-invitation";
 import { listHostInvitations, registrationMode, type HostInvitation } from "@/instance/repository";
+import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
 import { HostHeader } from "../(host)/host-header";
 import { HostInvitationForm, RegistrationForm } from "./instance-forms";
@@ -37,7 +38,9 @@ export default async function InstancePage() {
             <CardDescription>{t("registration.description")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <RegistrationForm mode={mode} />
+            <ClientMessages namespaces={["Instance.registration"]}>
+              <RegistrationForm mode={mode} />
+            </ClientMessages>
           </CardContent>
         </Card>
         <Card>
@@ -48,7 +51,9 @@ export default async function InstancePage() {
             <CardDescription>{t("invitations.description", { days: HOST_INVITATION_DAYS })}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
-            <HostInvitationForm canSend={isMailConfigured()} />
+            <ClientMessages namespaces={["Instance.invitations"]}>
+              <HostInvitationForm canSend={isMailConfigured()} />
+            </ClientMessages>
             <section aria-labelledby="invitations-heading" className="flex flex-col gap-3">
               <h3 id="invitations-heading" className="font-medium">
                 {t("invitations.listTitle")}

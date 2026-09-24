@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { operatorContactEmail } from "@/instance/env";
 import { isMailConfigured } from "@/mail/config";
+import { ClientMessages } from "@/locale/client-messages";
 import { ForgotPasswordForm } from "./forgot-password-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -27,7 +28,9 @@ export default async function ForgotPasswordPage() {
       </CardHeader>
       <CardContent>
         {mail ? (
-          <ForgotPasswordForm />
+          <ClientMessages namespaces={["Auth.forgotPassword"]}>
+            <ForgotPasswordForm />
+          </ClientMessages>
         ) : (
           <p>
             {operator

@@ -5,6 +5,7 @@ import { hostNeedsVerification } from "@/auth/verification";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createEventAction } from "@/events/actions";
 import { timeZones } from "@/events/time";
+import { ClientMessages } from "@/locale/client-messages";
 import { ResendVerificationForm } from "../../resend-verification-form";
 import { EventForm } from "../event-form";
 
@@ -33,7 +34,9 @@ export default async function NewEventPage() {
   return (
     <>
       <h1 className="text-2xl font-semibold tracking-tight">{t("new.title")}</h1>
-      <EventForm action={createEventAction} timeZones={timeZones()} submitLabel={t("new.submit")} questions={[]} answerCounts={{}} />
+      <ClientMessages namespaces={["Events.form"]}>
+        <EventForm action={createEventAction} timeZones={timeZones()} submitLabel={t("new.submit")} questions={[]} answerCounts={{}} />
+      </ClientMessages>
     </>
   );
 }

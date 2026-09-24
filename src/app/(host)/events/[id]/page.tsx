@@ -11,6 +11,7 @@ import { countAnswersByQuestion, listQuestions } from "@/questions/repository";
 import { countRsvpsByEvent } from "@/rsvps/repository";
 import { timeZones } from "@/events/time";
 import { baseUrl } from "@/instance/env";
+import { ClientMessages } from "@/locale/client-messages";
 import { EventForm } from "../event-form";
 import { DangerZone } from "../danger-zone";
 import { EventStateBadge } from "../event-state-badge";
@@ -35,7 +36,7 @@ export default async function ManageEventPage({ params }: PageProps<"/events/[id
   const replies = counts.get(event.id);
 
   return (
-    <>
+    <ClientMessages namespaces={["Events.form", "Events.manage"]}>
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">{event.title}</h1>
         <EventStateBadge state={event.state} />
@@ -92,6 +93,6 @@ export default async function ManageEventPage({ params }: PageProps<"/events/[id
         cancellable={event.state === "published"}
         rsvps={(replies?.going ?? 0) + (replies?.maybe ?? 0) + (replies?.cant ?? 0)}
       />
-    </>
+    </ClientMessages>
   );
 }

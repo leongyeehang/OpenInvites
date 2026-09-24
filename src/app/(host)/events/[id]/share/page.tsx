@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { resetLinkAction } from "@/events/actions";
 import { findHostEvent } from "@/events/repository";
 import { baseUrl } from "@/instance/env";
+import { ClientMessages } from "@/locale/client-messages";
 import { qrSvg } from "@/sharing/qr";
 import { ShareActions } from "./share-actions";
 
@@ -43,7 +44,9 @@ export default async function SharePage({ params }: PageProps<"/events/[id]/shar
       </div>
 
       <p className="break-all font-mono text-sm">{link}</p>
-      <ShareActions link={link} title={event.title} />
+      <ClientMessages namespaces={["Events.share"]}>
+        <ShareActions link={link} title={event.title} />
+      </ClientMessages>
 
       <section aria-labelledby="qr-heading" className="flex flex-col gap-3">
         <h2 id="qr-heading" className="text-lg font-medium">
