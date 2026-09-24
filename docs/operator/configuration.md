@@ -88,13 +88,9 @@ If someone has already created an unverified account with your `OPERATOR_EMAIL` 
 recover it by resetting its password by email, then verifying it:
 
 1. On the sign-in page, choose **Forgot your password?** and follow the link sent to the address.
-2. A reset does not sign out whoever created the account, so remove its sessions before it
-   becomes the operator:
-   ```sh
-   docker compose exec db psql -U openinvites -d openinvites \
-     -c "delete from session where user_id = (select id from \"user\" where email = 'you@example.org')"
-   ```
-3. Sign in with the new password and choose **Resend email** in the banner on your dashboard.
+   Setting the new password signs the account out everywhere, so whoever created it is signed
+   out too.
+2. Sign in with the new password and choose **Resend email** in the banner on your dashboard.
    Open the link it sends: the account is now the operator.
 
 ## Mail
@@ -120,7 +116,8 @@ address on a domain your provider is set up to send for (SPF and DKIM), or mail 
 With mail configured:
 
 - a new host verifies their email before they can create an event;
-- a host who forgot their password gets a reset link by email;
+- a host who forgot their password gets a reset link by email, and setting the new password
+  signs them out on every device;
 - changing an account's email is confirmed from the new address;
 - the operator can have a host invitation emailed.
 

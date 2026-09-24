@@ -2,9 +2,10 @@
 //
 //   docker compose exec app node scripts/reset-password.mjs host@example.org
 //
-// Prints a temporary password for the operator to pass on. The host signs in with it
-// and changes it in account settings. Plain JavaScript with one dependency (postgres),
-// so it runs in the production image, which carries no TypeScript toolchain.
+// Prints a temporary password for the operator to pass on, and signs the host out everywhere.
+// The host signs in with it and changes it in account settings. Plain JavaScript with one
+// dependency (postgres), so it runs in the production image, which carries no TypeScript
+// toolchain.
 import { randomBytes, randomInt, scryptSync } from "node:crypto";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -55,13 +56,20 @@ async function main(email) {
     const password = generateTemporaryPassword();
     const hash = hashPassword(password);
     // Better Auth keeps the password on the "credential" account row, keyed by the user's id.
-    const updated = await sql`
-      update account set password = ${hash}, updated_at = now()
-      where user_id = ${host.id} and provider_id = 'credential'`;
-    if (updated.count === 0) return fail(`${email} has no password to reset`);
+    // A reset also signs out every session the account had, as a reset by email does (auth.ts),
+    // in the same transaction, so whoever else was signed in cannot stay.
+    const reset = await sql.begin(async (tx) => {
+      const updated = await tx`
+        update account set password = ${hash}, updated_at = now()
+        where user_id = ${host.id} and provider_id = 'credential'`;
+      if (updated.count === 0) return false;
+      await tx`delete from session where user_id = ${host.id}`;
+      return true;
+    });
+    if (!reset) return fail(`${email} has no password to reset`);
 
     console.log(`Temporary password for ${host.name} <${email}>: ${password}`);
-    console.log("Ask them to sign in with it and change it in account settings.");
+    console.log("They have been signed out everywhere. Ask them to sign in with it and change it in account settings.");
   } finally {
     await sql.end();
   }

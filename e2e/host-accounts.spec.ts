@@ -104,6 +104,32 @@ test("a host resets a forgotten password by email", async ({ page, request }) =>
   await expect(page).toHaveURL(/\/dashboard$/);
 });
 
+test("resetting a password by email signs the host out on every device, the one that reset it too", async ({
+  page,
+  browser,
+  request,
+}) => {
+  const host = newHost("reset-everywhere");
+  await signUp(page, host);
+  const otherDevice = await browser.newContext();
+  const otherPage = await otherDevice.newPage();
+  await signIn(otherPage, host.email, PASSWORD);
+  await expect(otherPage).toHaveURL(/\/dashboard$/);
+
+  await page.goto(await requestResetLink(page, request, host.email));
+  await page.getByLabel("New password").fill("a passphrase nobody else has");
+  await page.getByRole("button", { name: "Change password" }).click();
+  await expect(page).toHaveURL(/\/sign-in/);
+  await expect(page.getByText("Your password has been changed. Sign in with the new one.")).toBeVisible();
+
+  await otherPage.goto("/dashboard");
+  await expect(otherPage).toHaveURL(/\/sign-in$/);
+  await otherDevice.close();
+
+  await signIn(page, host.email, "a passphrase nobody else has");
+  await expect(page).toHaveURL(/\/dashboard$/);
+});
+
 test("a reset link cannot be used twice", async ({ page, request }) => {
   const host = newHost("reuse");
   await signUp(page, host);
@@ -121,10 +147,11 @@ test("a reset link cannot be used twice", async ({ page, request }) => {
   await expect(page.getByText("This link is not valid or has expired.")).toBeVisible();
 });
 
-test("the operator resets a host's password with the command inside the container", async ({ page }) => {
+test("the operator resets a host's password with the command inside the container, signing them out", async ({
+  page,
+}) => {
   const host = newHost("operator");
   await signUp(page, host);
-  await signOut(page);
 
   const output = execFileSync(
     "docker",
@@ -133,7 +160,10 @@ test("the operator resets a host's password with the command inside the containe
   );
   const temporaryPassword = output.match(/Temporary password for .*: (\S+)/)?.[1];
   expect(temporaryPassword, output).toBeTruthy();
+  expect(output).toContain("They have been signed out everywhere.");
 
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/sign-in$/);
   await signIn(page, host.email, temporaryPassword!);
   await expect(page).toHaveURL(/\/dashboard$/);
 });

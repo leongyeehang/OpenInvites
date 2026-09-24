@@ -63,6 +63,9 @@ function createAuth() {
     emailAndPassword: {
       enabled: true,
       sendResetPassword: mail ? sendPasswordResetEmail : undefined,
+      // A reset is how a host takes their account back, so it signs out every session the
+      // account had, anyone else's included. The browser that reset it is sent to sign in.
+      revokeSessionsOnPasswordReset: true,
     },
     // A verified email is what makes the account OPERATOR_EMAIL names the operator (instance/
     // admission.ts); this is where an email and password account gets one.

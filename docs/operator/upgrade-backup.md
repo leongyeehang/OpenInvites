@@ -88,17 +88,19 @@ restored database as it starts, as in an upgrade.
 ## Resetting a host's password
 
 On an instance with mail, hosts reset their own password from **Forgot your password?** on the
-sign-in page. Without mail, the operator does it from inside the container:
+sign-in page; setting the new password signs them out on every device. Without mail, the
+operator does it from inside the container:
 
 ```sh
 docker compose exec app node scripts/reset-password.mjs host@example.org
 ```
 
-It prints a temporary password for you to pass on:
+It prints a temporary password for you to pass on, and signs the host out everywhere, so
+nobody else who was signed in to their account stays signed in:
 
 ```
 Temporary password for Sam <host@example.org>: 7kqv4mxe2nhw9pta
-Ask them to sign in with it and change it in account settings.
+They have been signed out everywhere. Ask them to sign in with it and change it in account settings.
 ```
 
 The host signs in with it and changes it in account settings. A host who only ever signed in
