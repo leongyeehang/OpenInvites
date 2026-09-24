@@ -3,7 +3,7 @@
 import { Check, ChevronLeft, Copy, X } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Dialog } from "radix-ui";
-import { useCallback, useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { cn } from "@/lib/utils";
 import { removeRsvpAction, saveRsvpAction } from "@/rsvps/actions";
 import { offeredBy } from "@/questions/answers";
@@ -90,6 +90,9 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
   const opener = useRef<HTMLButtonElement | null>(null);
   const statusButtons = useRef<Partial<Record<RsvpStatus, HTMLButtonElement | null>>>({});
   const followFocus = useRef(false);
+  // Where the focus goes when what had it goes away under it (focusNext, below).
+  const focusNext = useRef<"confirmation" | "buttons" | null>(null);
+  const confirmationHeading = useRef<HTMLHeadingElement>(null);
 
   // Declining takes two taps, so a guest who can't go is asked nothing else. Everyone else is
   // asked only what this event has to ask.
@@ -146,6 +149,17 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
     form.current?.querySelector<HTMLElement>(`[data-step="${step}"] :is(input:not([type="hidden"]), textarea, button)`)?.focus({ preventScroll: true });
   }, [step]);
 
+  // Sending, removing or going back to change an answer takes away the button that was pressed.
+  // The focus goes to the confirmation's heading once the answer is saved, which a screen reader
+  // then reads out, and back to the status buttons once it is removed or being changed. The
+  // sheet, closing, hands it back to the buttons itself.
+  useEffect(() => {
+    const target = focusNext.current;
+    focusNext.current = null;
+    if (target === "confirmation") confirmationHeading.current?.focus({ preventScroll: sheet });
+    if (target === "buttons" && !sheet) statusButtons.current[draft.status]?.focus();
+  }, [step, answer, sheet, draft.status]);
+
   const send = (formData: FormData) =>
     startWorking(async () => {
       const result = await saveRsvpAction(slug, formData);
@@ -156,6 +170,7 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
         return;
       }
       if (!result.saved) return;
+      focusNext.current = "confirmation";
       setAnswer(result.saved);
       setStep("done");
     });
@@ -165,6 +180,7 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
       const result = await removeRsvpAction(slug);
       setWithdrawRefusal(result.error);
       if (result.error) return;
+      focusNext.current = "buttons";
       setAnswer(undefined);
       setDraft(BLANK);
       setStep("idle");
@@ -173,8 +189,10 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
   const confirmation = confirmed && (
     <Confirmation
       answer={answer}
+      headingRef={confirmationHeading}
       onChangeAnswer={() => {
         setWithdrawRefusal(undefined);
+        focusNext.current = "buttons";
         setStep("idle");
       }}
       onEditDetails={() => {
@@ -517,6 +535,7 @@ function Labelled({ label, hint, children }: { label: string; hint?: string; chi
 // from any device, and the three ways out.
 function Confirmation({
   answer,
+  headingRef,
   onChangeAnswer,
   onEditDetails,
   onRemove,
@@ -526,6 +545,8 @@ function Confirmation({
   dismiss,
 }: {
   answer: GuestRsvp;
+  // Where the focus lands once the answer is saved: the heading that says how it went.
+  headingRef: RefObject<HTMLHeadingElement | null>;
   onChangeAnswer: () => void;
   onEditDetails: () => void;
   onRemove: () => void;
@@ -548,7 +569,9 @@ function Confirmation({
           <Check className="size-5" />
         </span>
         <div className="flex-1">
-          <p className="font-title text-3xl leading-tight">{t(`done.${answer.status}`)}</p>
+          <h2 ref={headingRef} tabIndex={-1} className="font-title text-3xl leading-tight outline-none">
+            {t(`done.${answer.status}`)}
+          </h2>
           <p className="text-sm text-theme-text-muted">
             {answer.status === "cant"
               ? t("summary.cant", { name: answer.name })

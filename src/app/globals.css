@@ -85,7 +85,9 @@
   --destructive: var(--red-600);
   --border: var(--neutral-200);
   --input: var(--neutral-200);
-  --ring: var(--neutral-400);
+  /* Focus rings are drawn at 50% (ring-ring/50, outline-ring/50): at that strength this stands out
+     from white and the muted greys at 3.3:1 or more (e2e/keyboard.spec.ts measures it). */
+  --ring: var(--neutral-900);
   --chart-1: var(--neutral-300);
   --chart-2: var(--neutral-500);
   --chart-3: var(--neutral-600);
@@ -120,7 +122,8 @@
   --destructive: var(--red-400);
   --border: oklch(from var(--neutral-0) l c h / 10%);
   --input: oklch(from var(--neutral-0) l c h / 15%);
-  --ring: var(--neutral-500);
+  /* At 50%, 3.5:1 or more on the dark panels (the Design drawer). */
+  --ring: var(--neutral-300);
   --sidebar: var(--neutral-900);
   --sidebar-foreground: var(--neutral-50);
   --sidebar-primary: var(--blue-500);
