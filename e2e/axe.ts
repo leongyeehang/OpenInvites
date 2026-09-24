@@ -78,14 +78,17 @@ async function readPage(page: Page) {
   }
 
   if (fixedBackdrop) {
-    // Colour contrast from one view: its verdicts on text wholly in sight.
-    const readContrast = async () => {
-      const read = await new AxeBuilder({ page }).withRules([CONTRAST]).analyze();
+    // Colour contrast from one view: its verdicts on text wholly in sight. The first view, at the
+    // top, is the one all the rules were read from.
+    const readContrast = async (read?: typeof whole) => {
+      read ??= await new AxeBuilder({ page }).withRules([CONTRAST]).analyze();
       const verdicts = [
         ...read.violations.map((rule) => ({ rule, kind: "violation" as const })),
         ...read.passes.map((rule) => ({ rule, kind: "pass" as const })),
         ...read.incomplete.map((rule) => ({ rule, kind: "incomplete" as const })),
-      ].flatMap(({ rule, kind }) => rule.nodes.map(({ target }) => ({ rule, kind, target: target.join(" ") })));
+      ]
+        .filter(({ rule }) => rule.id === CONTRAST)
+        .flatMap(({ rule, kind }) => rule.nodes.map(({ target }) => ({ rule, kind, target: target.join(" ") })));
       const inSight = await page.evaluate((targets) => targets.map((target) => whollyInSight(document.querySelector(target))), verdicts.map(({ target }) => target));
       verdicts.forEach(({ rule, kind, target }, at) => {
         if (!inSight[at]) return;
@@ -106,7 +109,7 @@ async function readPage(page: Page) {
         window.scrollTo(0, y);
         return window.scrollY;
       }, top);
-      await readContrast();
+      await readContrast(top === 0 ? whole : undefined);
       // The foot of the page, or as far as it scrolls (not at all under a modal sheet).
       if (reached < top || reached + height >= (await page.evaluate(() => document.documentElement.scrollHeight))) break;
     }

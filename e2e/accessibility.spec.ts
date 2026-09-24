@@ -137,7 +137,7 @@ test("the Design drawer, open with Details expanded, in both text tones", async 
 });
 
 test("the event page with the host's picture as the background and as the poster, in both text tones, described", async ({ page, browser, request }) => {
-  test.slow();
+  test.setTimeout(180_000);
   const host = await createPublished(browser, request, "a11y-picture", EVENT);
   await host.page.goto(host.link);
   const drawer = await openDrawer(host.page);
@@ -241,7 +241,8 @@ async function everyStep(page: Page, flow: Locator | Page, where: string) {
 
 for (const style of ["Inline", "Sheet"] as const) {
   test(`the RSVP flow in the ${style} style, every step and the confirmation, in both text tones`, async ({ browser, request }) => {
-    test.slow();
+    // Ten pages to read, each a view at a time.
+    test.setTimeout(180_000);
     const host = await createPublished(browser, request, `a11y-${style.toLowerCase()}`, { ...EVENT, rsvpStyle: style });
     await host.page.goto(host.link);
     const drawer = await openDrawer(host.page);
