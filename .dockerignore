@@ -18,8 +18,11 @@ Dockerfile
 compose.yaml
 .github
 
-# tests are not part of the image
+# tests are not part of the image, nor the contributor tools beside the operator's commands,
+# which import the browser tests' helpers from e2e/
 **/*.test.ts
+scripts/measure-backgrounds.ts
+scripts/screenshots.ts
 
 # the deployment package is not part of the image
 deploy

@@ -6,8 +6,8 @@ import type { Theme } from "../theme";
 // be one they name.
 export type TemplateId = keyof typeof en.DesignDrawer.templateNames;
 
-// The shape of a template's data file. README.md in this directory explains each field and how
-// to add a template.
+// The shape of a template's data file. docs/contributing/templates.md explains each field and
+// how to add a template.
 export type Template = {
   // Stored on every event that starts from this template, so never rename one that has shipped.
   id: TemplateId;

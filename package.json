@@ -13,7 +13,9 @@
     "test:s3": "vitest run --config vitest.s3.config.ts",
     "test:e2e": "docker compose --profile test up -d --build --wait && playwright test",
     "perf": "docker compose --profile test up -d --build --wait && playwright test --config playwright.perf.config.ts",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "measure:backgrounds": "playwright test --config playwright.scripts.config.ts --project backgrounds",
+    "screenshots": "playwright test --config playwright.scripts.config.ts --project screenshots"
   },
   "dependencies": {
     "@bradenmacdonald/s3-lite-client": "^1.0.0",

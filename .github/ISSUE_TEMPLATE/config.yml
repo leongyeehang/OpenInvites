@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/leongyeehang/OpenInvites/security/advisories/new
+    about: Please report security problems privately here, not in a public issue.
+  - name: Running an instance
+    url: https://github.com/leongyeehang/OpenInvites/tree/main/docs/operator
+    about: Installing, configuring, upgrading and backing up an instance.

@@ -9,7 +9,7 @@ import { vows } from "./vows";
 export type { Template, TemplateId, TemplateTheme } from "./template";
 
 // The templates that ship, in the order the Design drawer shows them. A new template is a file
-// in this directory and one line here (README.md).
+// in this directory and one line here (docs/contributing/templates.md).
 export const TEMPLATES: readonly Template[] = [birthday, vows, supperClub, kidsParty, festival, quiet];
 
 export function findTemplate(id: string): Template | undefined {

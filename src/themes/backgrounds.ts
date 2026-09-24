@@ -4,7 +4,8 @@ import type en from "../../messages/en.json";
 // here, and its name to every file in messages/, to offer a new background. Each carries a
 // pre-chosen accent that reads on it and its average luminance (0 dark to 1 light) for the
 // automatic text tone. Luminance is measured as the mean of (0.2126 R + 0.7152 G + 0.0722 B) /
-// 255 over the rendered background; the four scenes are self-hosted SVG files in
+// 255 over the rendered background alone (no blobs, scrim, fade or grain) on a 390x844 phone,
+// rounded to two places; the four scenes are self-hosted SVG files in
 // public/backgrounds, each named after its content (public-files.test.ts says the name a new or
 // changed one takes), since browsers keep them for a year.
 //
@@ -14,8 +15,9 @@ import type en from "../../messages/en.json";
 // scenes, the fade at the foot) with the page's content hidden, under a 24px backdrop blur (the
 // glass's own), at 360x740, 390x844, 768x1024, 1280x800 and 1920x1080, with the blobs at rest
 // and at the far end of their drift: the lightest pixel in the light tone with a white accent
-// (the brightest blob there can be), the darkest in the dark tone. Re-measure when the backdrop
-// changes.
+// (the brightest blob there can be), the darkest in the dark tone with each accent a host may
+// pick. `pnpm measure:backgrounds` measures all three (docs/contributing/backgrounds.md).
+// Re-measure when the backdrop changes.
 
 export type Background = {
   id: string;

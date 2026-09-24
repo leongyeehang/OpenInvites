@@ -1,0 +1,50 @@
+name: Bug report
+description: Something in OpenInvites does not work as it should.
+labels: ["bug", "needs-triage"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead. Screenshots help.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open an event page as a guest
+        2. Choose Going
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or image tag
+      description: The release or image tag you run, such as `0.1.0` or `latest`, or the commit if you build it yourself.
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment
+      options:
+        - The Compose file in deploy/
+        - Development (pnpm dev)
+        - Other (say how below)
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      placeholder: Safari on iPhone 15, Firefox 131 on Windows, ...
+    validations:
+      required: true
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: How you deploy it if not with the Compose file, relevant logs (`docker compose logs app`), your language. Leave out passwords, secrets, and guests' details.

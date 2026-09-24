@@ -1,0 +1,16 @@
+name: Feature request
+description: Something OpenInvites could do for hosts, guests, or operators.
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What you want to do
+      description: Who it is for (a host, a guest, an operator) and what they are trying to do that they cannot today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How it could work
+      description: Optional. Your idea of how it might look or behave, and anything you have tried instead.

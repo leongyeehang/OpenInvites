@@ -1,92 +1,59 @@
 # OpenInvites
 
-An open source, self-hostable service where a host creates an event page and shares its link, and guests respond without needing an account. OpenInvites is the working name until the first public release.
+Invitations you host yourself. A host makes an event page that looks like an invitation and shares its link. Guests open it on their phone and reply, with no account and no app. The host watches the guest list fill up.
 
-The application runs, migrates its own database, reports health, speaks English, Simplified Chinese, and Traditional Chinese, and lets a person become a host: sign up with email and password, verify their email, sign in on several devices, manage their account, and delete it. A host creates an event, saves it as a draft, publishes it, and shares a link to a bare event page; the themed look arrives next. Features arrive ticket by ticket under `.scratch/openinvites/issues/`.
+OpenInvites is open source and made to be self-hosted: one Compose file runs it on a small server or a Raspberry Pi. It sends nothing to the project or to anyone else.
+
+<p>
+  <img src="docs/screenshots/event-birthday.webp" width="250" alt="An invitation to Mei’s 30th on a phone: a large serif title over a golden-hour gradient, three buttons for Going, Maybe and Can’t go, and the date and place on frosted glass.">
+  <img src="docs/screenshots/rsvp-sheet.webp" width="250" alt="A guest replying in a sheet that has risen over the invitation, bringing one guest, named Leo.">
+  <img src="docs/screenshots/event-festival.webp" width="250" alt="An invitation to a night market in the Festival template: a heavy grotesque title over a dark aurora.">
+</p>
+<p>
+  <img src="docs/screenshots/design-drawer.webp" width="760" alt="The host’s Design drawer beside their event page: upload a photo or poster, templates, layout, and backgrounds.">
+</p>
+<p>
+  <img src="docs/screenshots/guest-list.webp" width="760" alt="The host’s guest list: seven people expected, grouped under Going, Maybe and Can’t go, with plus-ones and reply times.">
+</p>
+
+## What it does
+
+- **Event pages worth opening.** Six templates to start from, a gallery of backgrounds or the host's own photo or poster, four title fonts, and an accent colour. Whatever the host picks, the text stays readable.
+- **Replies without an account.** Guests answer Going, Maybe or Can't go, bring plus-ones, answer the host's questions, and change their answer later from the same phone or a private edit link. They can add the event to their calendar and open the place in their maps.
+- **A guest list that keeps itself.** The host sees who is coming and the headcount as replies arrive, and chooses whether guests see the list. The link can be shared, shown as a QR code, and unfurls into a preview card.
+- **An instance you run.** The first account becomes the operator, who decides whether anyone may sign up or only the hosts they invite. Email and password sign-in, with Google and GitHub when configured. Pages in English, Simplified Chinese and Traditional Chinese, following each visitor's browser.
 
 ## Run it locally
 
-You need Node.js 22, pnpm (`corepack enable` gives you the pinned version), and Docker with Compose.
+You need [Git](https://git-scm.com/), [Node.js](https://nodejs.org/) 22, [pnpm](https://pnpm.io/) 10, and [Docker](https://docs.docker.com/get-docker/) with Compose. `corepack enable` gives you the pnpm version the repository names (you may need `sudo`); `npm install --global pnpm@10` works too.
 
 ```sh
-git clone git@github.com:leongyeehang/OpenInvites.git && cd OpenInvites
+git clone https://github.com/leongyeehang/OpenInvites.git
+cd OpenInvites
 pnpm install
 pnpm dev
 ```
 
-`pnpm dev` starts Postgres 18 and [Mailpit](https://mailpit.axllent.org/) (a fake mail server that catches every email the app sends) through the Compose `dev` profile, waits for them to be healthy, then starts Next.js. Migrations run before the server takes its first request. Open <http://localhost:3000>.
+`pnpm install` may end by saying it ignored the build scripts of a few packages: nothing here needs them. `pnpm dev` starts Postgres 18 and [Mailpit](https://mailpit.axllent.org/), a fake mail server that catches every email the app sends (their images are downloaded the first time), then starts the app, which brings its database up to date before it answers the first request. It needs ports 3000, 5432, 1025 and 8025 free.
 
-- Home page: <http://localhost:3000>
-- Mail the app sent, such as verification links: <http://localhost:8025>
-- Health, ready only when the database answers: <http://localhost:3000/api/health>
+1. Open <http://localhost:3000> and choose **Create an account**. The first account on a new instance becomes its operator.
+2. Open Mailpit at <http://localhost:8025> and follow the link in **Verify your email for OpenInvites**.
+3. On your dashboard, choose **New event**, fill it in, and **Save draft**. Then **Publish** it and **Open the event page**. The **Design** button there opens the drawer in the screenshot above.
 
-Stop the containers with `docker compose --profile dev down` (add `-v` to drop the database).
+Stop it with Ctrl-C, then `docker compose --profile dev down` to stop the containers (add `-v` to delete the database).
 
-## Tests
+## Run an instance
 
-Two seams, and nothing in between:
+The deployment package in [`deploy/`](deploy/) runs the published image with Postgres and [Caddy](https://caddyserver.com/) for automatic HTTPS, on amd64 or arm64:
 
-| Command | What it runs |
-| --- | --- |
-| `pnpm test` | Vitest unit tests for pure rules, such as locale resolution, the event link slug, and time zones. |
-| `pnpm test:e2e` | Builds the production image, starts the `test` profile (app, Postgres 18, [Mailpit](https://mailpit.axllent.org/) as a fake mail server), then runs Playwright at a 390px phone width and at desktop width against it. |
+- [Installing an instance](docs/operator/install.md): from a fresh machine to a running instance with HTTPS.
+- [Configuring an instance](docs/operator/configuration.md): every setting, including mail, Google and GitHub sign-in, S3 storage, rate limits, and the privacy and terms pages.
+- [Upgrading, backups, and operations](docs/operator/upgrade-backup.md): upgrades, backup and restore, and resetting a host's password.
 
-After browser tests, `docker compose --profile test down -v` stops the stack.
+## Contribute
 
-`pnpm perf` audits the event page's speed on a phone. Like `pnpm test:e2e` it builds the production image and starts the `test` profile (stop `next dev` first: both use port 3000), then makes an event in each kind of theme a host can give the page, through the product as the browser tests do: a curated background with the Sheet and with the Inline RSVP style, an uploaded photo as the background, and a portrait poster. It runs [Lighthouse](https://github.com/GoogleChrome/lighthouse)'s default mobile audit (a mid-range phone on slow 4G, throttling simulated) three times on each, in English and in Simplified Chinese, in Playwright's Chromium (`CHROME_PATH` names another). It prints each median with its LCP, TBT and CLS and the largest opportunities Lighthouse names, keeps each run's report in `test-results/`, and fails when any median is below 90. It takes about seven minutes after the build. It is not part of CI: scores vary between machines, and a gate that fails at random is worse than none.
-
-Also useful: `pnpm lint`, `pnpm typecheck`, and `pnpm db:generate` after changing `src/db/schema.ts` (migrations live in `drizzle/` and are applied automatically at start).
-
-## Configuration
-
-Every setting is an environment variable. Running an instance is covered by the operator documentation in `docs/operator/`, and the deployment package it describes (a production Compose file with a pinned Postgres 18 and Caddy for automatic HTTPS, an `.env.example` listing every variable, and a `Caddyfile`) is in `deploy/`:
-
-- [Installing an instance](docs/operator/install.md): from a fresh machine to a running instance, and the first account, which becomes the operator.
-- [Configuring an instance](docs/operator/configuration.md): every variable, including mail, Google and GitHub sign-in, S3 storage, rate limits, the legal pages, and the operator's `OPERATOR_EMAIL`.
-- [Upgrading, backups, and operations](docs/operator/upgrade-backup.md): upgrades, backup and restore, and the password reset command.
-
-Images are published by CI on each release tag ([docs/releasing.md](docs/releasing.md)).
-
-In development, the defaults live in the committed `.env.development`; put personal overrides in `.env.development.local`, which git ignores. The password reset command runs against the development database with `node --env-file=.env.development scripts/reset-password.mjs host@example.org`.
-
-## Compose profiles
-
-The `compose.yaml` at the root is for development and tests; an instance runs `deploy/compose.yaml`.
-
-| Profile | Services | Use |
-| --- | --- | --- |
-| `dev` | `db`, `mail` | `pnpm dev` runs Next.js on your machine against them. |
-| `test` | `app`, `app-social`, `app-fresh`, `app-no-mail`, `db`, `db-fresh`, `db-no-mail`, `mail` | The image an operator will run, exercised by the browser tests and CI. `app` runs with registration open, which the browser tests' operator (`OPERATOR_EMAIL`) sets on the instance settings page before the other specs run, and with rate limits low enough for a test to reach (`.env.development` sets the same); each test sends an `X-Forwarded-For` address of its own (`e2e/test.ts`), as a reverse proxy would, so none uses up another's allowance. `app-social` is the same image with dummy Google and GitHub credentials, for the one spec that checks the social sign-in buttons, and with an analytics snippet and legal pages of the operator's own (one from the environment, one from `e2e/legal/terms.md` mounted as a file). `app-fresh` (port 3002) is the same image on its own database, held in memory by `db-fresh`; `e2e/registration.spec.ts` recreates both before it runs, so the first account and the registration modes are tested on an instance nobody has used. `app-no-mail` (port 3003, on `db-no-mail`) is the same again without mail, for `e2e/registration-without-mail.spec.ts`. |
-
-## Layout
-
-```
-src/app/            Next.js App Router pages and route handlers; (auth) is everything before
-                    sign-in, (host) is the signed-in host area, e/[slug] is the public event page,
-                    instance is the operator's settings page
-src/auth/           Auth module: Better Auth instance, session helpers, server actions, emails
-src/components/ui/  shadcn/ui primitives, themed from the tokens in src/app/globals.css
-src/db/             Drizzle client, schema, and the migrator run at start
-src/events/         Events module: slug, time rules, form rules, repository, server actions
-src/instance/       The instance: settings from the environment and the database, the operator,
-                    the registration mode, and host invitations
-src/legal/          The privacy policy and terms of use: the operator's Markdown or the placeholders
-src/lib/            Small shared types and helpers
-src/locale/         Locale resolution, translation loading, language switcher
-src/mail/           Mail module: SMTP configuration and sending
-src/rate-limit/     RateLimit module: the client address, the limits, and their in-memory counts
-messages/           Translation files, one per locale
-drizzle/            SQL migrations
-scripts/            Commands an operator runs inside the container
-e2e/                Playwright browser tests
-perf/               The event page's Lighthouse audit (pnpm perf)
-deploy/             The deployment package: production Compose file, .env.example, Caddyfile,
-                    and the smoke test the release workflow runs against a published image
-docs/operator/      Operator documentation: installing, configuring, upgrading, backups
-```
-
-Vocabulary is in `CONTEXT.md`; hard-to-reverse choices are in `docs/adr/`. The software sends nothing to the project or to any third party (ADR-0005).
+Bug reports, ideas, translations, templates, and code are all welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers the development setup, the tests, how issues and pull requests work, and the sign-off every commit carries. New templates, backgrounds and languages are data files, with a guide each in [`docs/contributing/`](docs/contributing/). Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## Licence
 
-AGPL-3.0. The licence text lands before the repository goes public.
+OpenInvites is free software under the [GNU Affero General Public License](LICENSE), version 3 or (at your option) any later version (`AGPL-3.0-or-later`). If you run a modified version for others, the licence asks you to offer them its source.
