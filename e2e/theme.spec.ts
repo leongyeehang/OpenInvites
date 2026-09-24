@@ -65,8 +65,9 @@ test("a new event's page wears the Birthday template: serif title, golden accent
 
 // Ticket 20: the page asks for the one title font it uses from its head, beside the stylesheet,
 // shows the title in a fallback of the same size until it arrives rather than hiding it, and
-// never fetches the others. A curated scene is served with the page.
-test("a guest's page asks early for its own title font and no other, and a scene background arrives with it", async ({ page, browser, request }) => {
+// never fetches the others. Fonts and scenes are named after their content and kept for a year,
+// so a guest coming back is not held up asking for them again. A curated scene is served.
+test("a guest's page asks early for its own title font and no other, kept for a year, and a scene background arrives with it", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "theme-font", { title: "Ada’s birthday", start: "2027-03-06T19:00" });
   const preloaded = async () => {
@@ -74,15 +75,26 @@ test("a guest's page asks early for its own title font and no other, and a scene
     return [...html.matchAll(/<link rel="preload"[^>]*as="font"[^>]*>/g)].map(([tag]) => tag.match(/href="([^"]+)"/)?.[1]);
   };
   const fonts = (guest: Page) =>
-    guest.evaluate(() => performance.getEntriesByType("resource").map((entry) => new URL(entry.name).pathname).filter((path) => path.startsWith("/fonts/")));
+    guest.evaluate(() =>
+      performance
+        .getEntriesByType("resource")
+        .filter((entry) => new URL(entry.name).pathname.startsWith("/fonts/"))
+        .map((entry) => ({ path: new URL(entry.name).pathname, fetched: (entry as PerformanceResourceTiming).transferSize > 0 })),
+    );
+  const FOR_A_YEAR = "public, max-age=31536000, immutable";
 
   // Birthday's serif, and only that face is fetched; it is shown by swapping in, never hidden.
-  expect(await preloaded()).toEqual(["/fonts/instrument-serif-400.woff2"]);
+  const [serif] = await preloaded();
+  expect(await preloaded()).toEqual([expect.stringMatching(/^\/fonts\/instrument-serif-400\.[0-9a-f]{8}\.woff2$/)]);
+  expect((await request.get(serif!)).headers()["cache-control"]).toBe(FOR_A_YEAR);
   await page.goto(host.link);
-  await expect.poll(() => fonts(page)).toEqual(["/fonts/instrument-serif-400.woff2"]);
+  await expect.poll(() => fonts(page)).toEqual([{ path: serif, fetched: true }]);
   const displays = await page.evaluate(() => [...document.fonts].filter((face) => !/Fallback/.test(face.family)).map((face) => face.display));
   expect(displays.length).toBeGreaterThan(0);
   expect(new Set(displays)).toEqual(new Set(["swap"]));
+  // Coming back, the face is the one already kept: nothing is asked of the server for it.
+  await page.goto(host.link);
+  await expect.poll(() => fonts(page)).toEqual([{ path: serif, fetched: false }]);
 
   // The host chooses Syne and a scene: the page now asks for Syne alone, and the scene is there.
   await host.page.goto(host.link);
@@ -91,14 +103,17 @@ test("a guest's page asks early for its own title font and no other, and a scene
   await drawer.getByRole("radio", { name: "Bokeh" }).check();
   await drawer.getByRole("button", { name: "Details" }).click();
   await drawer.getByRole("radio", { name: "Syne" }).check();
-  await expect.poll(preloaded, { timeout: 15_000 }).toEqual(["/fonts/syne-800.woff2"]);
+  await expect.poll(preloaded, { timeout: 15_000 }).toEqual([expect.stringMatching(/^\/fonts\/syne-800\.[0-9a-f]{8}\.woff2$/)]);
+  const [syne] = await preloaded();
+  expect((await request.get(syne!)).headers()["cache-control"]).toBe(FOR_A_YEAR);
   const another = await browser.newContext();
   const guest = await another.newPage();
-  const scene = guest.waitForResponse((response) => new URL(response.url()).pathname === "/backgrounds/bokeh.svg");
+  const scene = guest.waitForResponse((response) => /^\/backgrounds\/bokeh\.[0-9a-f]{8}\.svg$/.test(new URL(response.url()).pathname));
   await guest.goto(host.link);
   expect((await scene).status()).toBe(200);
   expect((await scene).headers()["content-type"]).toContain("image/svg+xml");
-  await expect.poll(() => fonts(guest)).toEqual(["/fonts/syne-800.woff2"]);
+  expect((await scene).headers()["cache-control"]).toBe(FOR_A_YEAR);
+  await expect.poll(() => fonts(guest)).toEqual([{ path: syne, fetched: true }]);
   await another.close();
   await host.context.close();
 });

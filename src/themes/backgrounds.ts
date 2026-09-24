@@ -5,7 +5,8 @@ import type en from "../../messages/en.json";
 // pre-chosen accent that reads on it and its average luminance (0 dark to 1 light) for the
 // automatic text tone. Luminance is measured as the mean of (0.2126 R + 0.7152 G + 0.0722 B) /
 // 255 over the rendered background; the four scenes are self-hosted SVG files in
-// public/backgrounds.
+// public/backgrounds, each named after its content (public-files.test.ts says the name a new or
+// changed one takes), since browsers keep them for a year.
 //
 // `lightest` and `darkest` are what legibility.ts reads to keep every text tone readable: the
 // brightest point light text can meet on the page, and the darkest point dark text can meet. Each
@@ -66,10 +67,10 @@ export const BACKGROUNDS: readonly CuratedBackground[] = [
     lightest: "#484962",
     darkest: "#070818",
   },
-  { id: "sunset-sea", kind: "photo", src: "/backgrounds/sunset-sea.svg", accent: "#ffcf6b", luminance: 0.45, lightest: "#b7a26d", darkest: "#5e4f6f" },
-  { id: "bokeh", kind: "photo", src: "/backgrounds/bokeh.svg", accent: "#ffb26b", luminance: 0.11, lightest: "#9b7c42", darkest: "#474151" },
-  { id: "aurora", kind: "photo", src: "/backgrounds/aurora.svg", accent: "#7ef0c8", luminance: 0.14, lightest: "#19635a", darkest: "#3d404d" },
-  { id: "rose", kind: "photo", src: "/backgrounds/rose-garden.svg", accent: "#ff9ec7", luminance: 0.23, lightest: "#773758", darkest: "#564252" },
+  { id: "sunset-sea", kind: "photo", src: "/backgrounds/sunset-sea.66efaaa7.svg", accent: "#ffcf6b", luminance: 0.45, lightest: "#b7a26d", darkest: "#5e4f6f" },
+  { id: "bokeh", kind: "photo", src: "/backgrounds/bokeh.1de98ced.svg", accent: "#ffb26b", luminance: 0.11, lightest: "#9b7c42", darkest: "#474151" },
+  { id: "aurora", kind: "photo", src: "/backgrounds/aurora.6e1d45e9.svg", accent: "#7ef0c8", luminance: 0.14, lightest: "#19635a", darkest: "#3d404d" },
+  { id: "rose", kind: "photo", src: "/backgrounds/rose-garden.f950085a.svg", accent: "#ff9ec7", luminance: 0.23, lightest: "#773758", darkest: "#564252" },
   {
     id: "slate",
     kind: "gradient",

@@ -2,9 +2,10 @@ import type { FontKey } from "./theme";
 
 // The four title fonts (PROTOTYPE.md: one serif, one grotesque, one display, one rounded), all
 // self-hosted from public/fonts under the SIL Open Font License, Latin subset. Adding a face
-// means: its key in theme.ts FONTS, its woff2 and OFL.txt in public/fonts, its @font-face, its
-// fallback and its class in globals.css ("Title fonts"), its class and file in title-fonts.ts, its
-// entry here, and its name in every file in messages/ (DesignDrawer.fontNames).
+// means: its key in theme.ts FONTS, its woff2 (named after its content: public-files.test.ts)
+// and OFL.txt in public/fonts, its @font-face, its fallback and its class in globals.css ("Title
+// fonts"), its class and file in title-fonts.ts, its entry here, and its name in every file in
+// messages/ (DesignDrawer.fontNames).
 export type TitleFont = {
   key: FontKey;
   // Weight and tracking that suit the face at display sizes.

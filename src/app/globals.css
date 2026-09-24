@@ -277,7 +277,8 @@
 */
 
 /*
-  Title fonts, self-hosted from public/fonts (Latin subsets, SIL Open Font License). Each face is
+  Title fonts, self-hosted from public/fonts (Latin subsets, SIL Open Font License), each file
+  named after its content and kept by browsers for a year (next.config.ts). Each face is
   shown in its fallback until it arrives (swap), and the fallback is a font every system has,
   resized and spaced to take the same room, so the title keeps its place when the face comes in.
   Its figures are the ones next/font/local computes for these files (adjustFontFallback): the
@@ -286,14 +287,14 @@
 */
 @font-face {
   font-family: "Instrument Serif";
-  src: url("/fonts/instrument-serif-400.woff2") format("woff2");
+  src: url("/fonts/instrument-serif-400.5eb09b5a.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Instrument Serif";
-  src: url("/fonts/instrument-serif-400-italic.woff2") format("woff2");
+  src: url("/fonts/instrument-serif-400-italic.5a51946d.woff2") format("woff2");
   font-weight: 400;
   font-style: italic;
   font-display: swap;
@@ -308,7 +309,7 @@
 }
 @font-face {
   font-family: "Bricolage Grotesque";
-  src: url("/fonts/bricolage-grotesque-800.woff2") format("woff2");
+  src: url("/fonts/bricolage-grotesque-800.3e1b5f0a.woff2") format("woff2");
   font-weight: 800;
   font-display: swap;
 }
@@ -322,7 +323,7 @@
 }
 @font-face {
   font-family: "Syne";
-  src: url("/fonts/syne-800.woff2") format("woff2");
+  src: url("/fonts/syne-800.1a340e84.woff2") format("woff2");
   font-weight: 800;
   font-display: swap;
 }
@@ -336,7 +337,7 @@
 }
 @font-face {
   font-family: "Fredoka";
-  src: url("/fonts/fredoka-600.woff2") format("woff2");
+  src: url("/fonts/fredoka-600.b62f2898.woff2") format("woff2");
   font-weight: 600;
   font-display: swap;
 }

@@ -87,7 +87,7 @@ describe("resolveTheme", () => {
 
   it("resolves the background to what the page paints and the title font to its face", () => {
     expect(resolveTheme(DEFAULT_THEME).background).toMatchObject({ kind: "gradient", css: expect.stringContaining("#ffc36b") });
-    expect(resolveTheme({ ...DEFAULT_THEME, backgroundId: "aurora" }).background).toMatchObject({ kind: "photo", src: "/backgrounds/aurora.svg" });
+    expect(resolveTheme({ ...DEFAULT_THEME, backgroundId: "aurora" }).background).toMatchObject({ kind: "photo", src: "/backgrounds/aurora.6e1d45e9.svg" });
     expect(resolveTheme(DEFAULT_THEME).font).toMatchObject({ key: "serif", sizes: { short: "text-poster-serif" } });
     expect(resolveTheme({ ...DEFAULT_THEME, font: "rounded" }).font.key).toBe("rounded");
   });
