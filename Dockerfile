@@ -21,7 +21,7 @@ FROM node:22-alpine AS runner
 LABEL org.opencontainers.image.title="OpenInvites" \
       org.opencontainers.image.description="Self-hostable event pages that guests RSVP to without an account" \
       org.opencontainers.image.source="https://github.com/leongyeehang/OpenInvites" \
-      org.opencontainers.image.licenses="AGPL-3.0"
+      org.opencontainers.image.licenses="AGPL-3.0-or-later"
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     HOSTNAME=0.0.0.0 \

@@ -83,7 +83,7 @@ jobs:
           labels: |
             org.opencontainers.image.title=OpenInvites
             org.opencontainers.image.description=Self-hostable event pages that guests RSVP to without an account
-            org.opencontainers.image.licenses=AGPL-3.0
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
 
       - name: Build and push
         id: build
