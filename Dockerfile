@@ -7,7 +7,8 @@ RUN corepack enable
 WORKDIR /app
 
 FROM base AS deps
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# .pnpmfile.cjs keeps Lighthouse's @opentelemetry/api out of the app (its comment says why).
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .pnpmfile.cjs ./
 RUN pnpm install --frozen-lockfile
 
 FROM base AS build

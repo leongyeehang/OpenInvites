@@ -1,3 +1,9 @@
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
+# Lighthouse's @opentelemetry packages stay with the packages that ask for them (.pnpmfile.cjs):
+# hoisted where every package can reach them, Next.js and better-auth would still find the API
+# and put it in the build.
+hoistPattern:
+  - "*"
+  - "!@opentelemetry/*"
