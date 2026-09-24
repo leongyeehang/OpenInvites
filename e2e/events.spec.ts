@@ -118,7 +118,15 @@ test("an unknown link is not found, on a page the server sends whole in the visi
 
 test("an event address a host mistypes is not found, on each of the event's pages", async ({ page }) => {
   await signUp(page, newHost("mistyped"));
-  for (const path of ["/events/not-an-event", "/events/not-an-event/share", "/events/not-an-event/guests", "/events/0192a7b8-0000-7000-8000-00000000000"]) {
+  for (const path of [
+    "/events/not-an-event",
+    "/events/not-an-event/share",
+    "/events/not-an-event/guests",
+    "/events/0192a7b8-0000-7000-8000-00000000000",
+    // Next.js routes these to the event pages, with "new" for the event.
+    "/events/new/share",
+    "/events/new/guests",
+  ]) {
     await expectNotFoundAsSent(await page.goto(path));
     await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
   }

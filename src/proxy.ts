@@ -49,10 +49,11 @@ async function notFoundHere(pathname: string, headers: Headers): Promise<boolean
     const slug = decoded(eventLink[1]);
     return !isSlug(slug) || (!(await findEventBySlug(slug)) && !(await isRetiredSlug(slug)));
   }
-  // Another host's event, or none, for a signed-in host ((host)/events/[id], share, guests). A
+  // Another host's event, or none, for a signed-in host ((host)/events/[id], share, guests), which
+  // /events/new/share and /events/new/guests are too: only /events/new is a page of its own. A
   // visitor who is not signed in is sent to sign in by the page.
   const hostEvent = pathname.match(/^\/events\/([^/]+)(?:\/share|\/guests)?$/);
-  if (hostEvent && hostEvent[1] !== "new") {
+  if (hostEvent && pathname !== "/events/new") {
     const session = await getAuth().api.getSession({ headers });
     return session !== null && !(await findHostEvent(session.user.id, decoded(hostEvent[1])));
   }
