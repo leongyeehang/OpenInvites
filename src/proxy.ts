@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuth } from "@/auth/auth";
-import { findEventBySlug, findHostEvent, isRetiredSlug } from "@/events/repository";
+import { eventLinkExists, findHostEvent } from "@/events/repository";
 import { isSlug } from "@/events/slug";
 import { isOperator } from "@/instance/repository";
 import { consume, retryAfter } from "@/rate-limit/rate-limit";
@@ -47,7 +47,7 @@ async function notFoundHere(pathname: string, headers: Headers): Promise<boolean
   const eventLink = pathname.match(/^\/e\/([^/]+)$/);
   if (eventLink) {
     const slug = decoded(eventLink[1]);
-    return !isSlug(slug) || (!(await findEventBySlug(slug)) && !(await isRetiredSlug(slug)));
+    return !isSlug(slug) || !(await eventLinkExists(slug));
   }
   // Another host's event, or none, for a signed-in host ((host)/events/[id], share, guests), which
   // /events/new/share and /events/new/guests are too: only /events/new is a page of its own. A

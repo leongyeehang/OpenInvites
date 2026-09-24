@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { cache } from "react";
 import { getDb } from "@/db/client";
 import { event, retiredSlug, upload, user } from "@/db/schema";
@@ -117,6 +117,16 @@ export async function resetEventLink(hostId: string, id: string): Promise<Event 
       throw error;
     }
   });
+}
+
+// Whether an event link leads to a page: an event's, or the one that says its host reset it. The
+// proxy asks this before every guest's first view of an event page (src/proxy.ts), so it only
+// looks the slug up, in both places, in one query, and reads nothing else of the event.
+export async function eventLinkExists(slug: string): Promise<boolean> {
+  const [row] = await getDb().execute<{ found: boolean }>(
+    sql`select exists (select 1 from ${event} where ${event.slug} = ${slug}) or exists (select 1 from ${retiredSlug} where ${retiredSlug.slug} = ${slug}) as found`,
+  );
+  return row.found;
 }
 
 // Whether this link used to work, which is a different thing from never having existed.
