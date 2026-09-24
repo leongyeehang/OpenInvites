@@ -30,11 +30,11 @@ test("a host applies a template, changes knobs, and guests see the saved theme",
 
   const drawer = await openDrawer(host.page);
   await expect(drawer.getByText("Theme: Birthday")).toBeVisible();
-  await expect(drawer.getByRole("button", { name: "Birthday" })).toHaveAttribute("aria-pressed", "true");
+  await expect(drawer.getByRole("radio", { name: "Birthday" })).toBeChecked();
 
   // A template shows on the page at once: Festival's grotesque title.
-  await drawer.getByRole("button", { name: "Festival" }).click();
-  await expect(drawer.getByRole("button", { name: "Festival" })).toHaveAttribute("aria-pressed", "true");
+  await drawer.getByRole("radio", { name: "Festival" }).check();
+  await expect(drawer.getByRole("radio", { name: "Festival" })).toBeChecked();
   await expect(drawer.getByText("Theme: Festival")).toBeVisible();
   await expect.poll(() => titleFont(host.page)).toMatch(/bricolage/i);
 
@@ -42,7 +42,7 @@ test("a host applies a template, changes knobs, and guests see the saved theme",
   await drawer.getByRole("button", { name: "Details" }).click();
   await drawer.getByRole("radio", { name: "Solid accent" }).check();
   await expect(drawer.getByText("Theme: Custom, started from Festival")).toBeVisible();
-  await expect(drawer.getByRole("button", { name: "Festival" })).toHaveAttribute("aria-pressed", "false");
+  await expect(drawer.getByRole("radio", { name: "Festival" })).not.toBeChecked();
   await drawer.getByRole("radio", { name: "Dark" }).check();
   await expect(host.page.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
 
@@ -68,7 +68,7 @@ test("a host applies a template, changes knobs, and guests see the saved theme",
   await expect(page.getByRole("button", { name: "Design" })).toHaveCount(0);
 
   // Applying the template again starts clean.
-  await reopened.getByRole("button", { name: "Festival" }).click();
+  await reopened.getByRole("radio", { name: "Festival" }).check();
   await expect(reopened.getByText("Theme: Festival")).toBeVisible();
   await expect(reopened.getByRole("group", { name: "Text tone" }).getByRole("radio", { name: "Auto" })).toBeChecked();
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('data-tone="light"');
@@ -99,7 +99,7 @@ test("the drawer keeps its order, offers only the Poster layout for now, and get
     await expect(choice).toBeDisabled();
     await expect(choice.locator("..")).toContainText("Coming soon");
   }
-  await drawer.getByRole("button", { name: "Supper club" }).click();
+  await drawer.getByRole("radio", { name: "Supper club" }).check();
   await expect(drawer.getByText("Theme: Supper club")).toBeVisible();
   await expect(drawer.getByRole("radio", { name: /Poster/ })).toBeChecked();
   await expect(host.page.locator("[data-layout]")).toHaveAttribute("data-layout", "poster");
@@ -153,10 +153,10 @@ test("a host chooses whether guests answer inline or in a sheet, and each templa
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
   // Festival answers inline; Birthday again brings the sheet back.
-  await drawer.getByRole("button", { name: "Festival" }).click();
+  await drawer.getByRole("radio", { name: "Festival" }).check();
   await expect(drawer.getByText("Theme: Festival")).toBeVisible();
   await expect(style.getByRole("radio", { name: "Inline" })).toBeChecked();
-  await drawer.getByRole("button", { name: "Birthday" }).click();
+  await drawer.getByRole("radio", { name: "Birthday" }).check();
   await expect(drawer.getByText("Theme: Birthday")).toBeVisible();
   await expect(style.getByRole("radio", { name: "Sheet" })).toBeChecked();
   await expect(drawer.getByText("Saved", { exact: true })).toBeVisible();

@@ -7,9 +7,11 @@ import type { ButtonStyle } from "./theme";
 // too. The others stay as they are rather than fading: they can still be chosen, and faded
 // labels stop reading on some backgrounds. Each style sits on a surface legibility.ts accounts
 // for: glass on strong glass, solid on the opaque accent, and outline on the page's veil, which
-// is clear wherever bare text already reads.
+// is clear wherever bare text already reads. The buttons sit on the backdrop itself, which can be
+// anything, so the keyboard's focus rings them inside, in their label's own colour, which reads
+// on their own surface at AA and so stands out from it at well over 3:1.
 const BASE =
-  "inline-flex h-12 cursor-pointer items-center justify-center rounded-2xl px-3 text-sm font-medium transition-[background-color,opacity,border-color] outline-none motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-theme-accent focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:cursor-default disabled:opacity-50";
+  "inline-flex h-12 cursor-pointer items-center justify-center rounded-2xl px-3 text-sm font-medium transition-[background-color,opacity,border-color] motion-reduce:transition-none focus-visible:outline-current focus-visible:-outline-offset-4 disabled:cursor-default disabled:opacity-50";
 
 const UNSELECTED: Record<ButtonStyle, string> = {
   glass: "border border-theme-glass-border bg-theme-glass-strong backdrop-blur-xl hover:bg-theme-glass",

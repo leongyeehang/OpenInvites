@@ -163,7 +163,7 @@ describe("resolveTheme", () => {
     expect(resolveTheme({ ...DEFAULT_THEME, rsvpStyle: "inline" }).rsvpStyle).toBe("inline");
   });
 
-  it("gives the RSVP sheet its own tint, secondary text and accent ink, to set on itself", () => {
+  it("gives the RSVP sheet its own tint, secondary text, accent ink and focus ring, to set on itself", () => {
     const resolved = resolveTheme(DEFAULT_THEME);
     const variables = sheetVariables(resolved);
     expect(variables).toEqual({
@@ -171,6 +171,7 @@ describe("resolveTheme", () => {
       "--theme-text-muted": css(resolved.tokens.sheet.textMuted),
       "--theme-text-faint": css(resolved.tokens.sheet.textFaint),
       "--theme-accent-ink": css(resolved.tokens.sheet.accentInk),
+      "--theme-focus-ring": css(resolved.tokens.sheet.focusRing),
     });
     for (const [name, value] of Object.entries(variables)) expect(value, name).toMatch(/^(#[0-9a-f]{6}|rgb\(\d+ \d+ \d+ \/ [0-9.]+\))$/);
   });

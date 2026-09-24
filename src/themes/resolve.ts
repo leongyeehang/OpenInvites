@@ -104,18 +104,20 @@ export function themeVariables({ accent, tokens }: ResolvedTheme): Record<string
     "--theme-veil": css(tokens.veil),
     "--theme-scrim": css(tokens.scrim),
     "--theme-glow": css(GLOW),
+    "--theme-focus-ring": css(tokens.focusRing),
   };
 }
 
 // The RSVP sheet is a surface of its own (legibility.ts, SHEET_SURFACES): it sets its tint, and
-// the secondary text and accent ink that read on it, on itself, so the flow inside it takes them
-// with the classes it wears on the inline card.
+// the secondary text, accent ink and focus ring that read on it, on itself, so the flow inside it
+// takes them with the classes it wears on the inline card.
 export function sheetVariables({ tokens: { sheet } }: ResolvedTheme): Record<string, string> {
   return {
     "--theme-sheet": css(sheet.tint),
     "--theme-text-muted": css(sheet.textMuted),
     "--theme-text-faint": css(sheet.textFaint),
     "--theme-accent-ink": css(sheet.accentInk),
+    "--theme-focus-ring": css(sheet.focusRing),
   };
 }
 

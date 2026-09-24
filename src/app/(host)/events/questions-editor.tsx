@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { FieldDescription, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { choicesFrom, MAX_QUESTIONS, QUESTION_TYPES, type QuestionDraft } from "@/questions/question";
@@ -48,9 +48,12 @@ export function QuestionsEditor({
 
   const remove = (at: number) => setDrafts(drafts.filter((_, index) => index !== at));
 
+  // A group of fields with a name of its own, so each field in it is heard as one of the questions.
   return (
-    <Field>
-      <FieldLabel>{t("questions")}</FieldLabel>
+    <FieldSet className="gap-2">
+      <FieldLegend variant="label" className="mb-2">
+        {t("questions")}
+      </FieldLegend>
       <FieldDescription>{t("questionsHint")}</FieldDescription>
       <input type="hidden" name="questions" value={JSON.stringify(drafts)} />
 
@@ -121,7 +124,7 @@ export function QuestionsEditor({
           <Plus /> {t("questionAdd")}
         </Button>
       )}
-    </Field>
+    </FieldSet>
   );
 }
 

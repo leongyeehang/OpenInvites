@@ -332,7 +332,7 @@
       "share": "分享…",
       "qr": "QR 碼",
       "qrHint": "列印出來，或在門口出示。",
-      "qrLabel": "活動連結的 QR 碼",
+      "qrLabel": "{link} 的 QR 碼",
       "reset": "重設連結",
       "resetHint": "產生新連結，並停用舊連結。已回覆的賓客會保留他們的回覆。",
       "resetTitle": "要重設這個活動的連結嗎？",
@@ -608,6 +608,7 @@
     "questions": {
       "title": "幾個小問題",
       "optional": "選填",
+      "required": "必填",
       "yes": "是",
       "no": "否"
     }

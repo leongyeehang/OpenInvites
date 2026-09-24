@@ -226,7 +226,8 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
           <ChevronLeft className="size-5" aria-hidden />
         </button>
         <div className="flex-1">
-          <div className="mb-1.5 flex gap-1" aria-label={t("step", { step: position + 1, total: steps.length })}>
+          <span className="sr-only">{t("step", { step: position + 1, total: steps.length })}</span>
+          <div aria-hidden className="mb-1.5 flex gap-1">
             {steps.map((each, index) => (
               <span
                 key={each}
@@ -309,7 +310,7 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
               {question.type === "text" ? (
                 <label className="block">
                   <span className="mb-1.5 block text-sm text-theme-text-muted">
-                    <Asked question={question} optional={t("questions.optional")} />
+                    <Asked question={question} optional={t("questions.optional")} required={t("questions.required")} />
                   </span>
                   <textarea
                     name={`answer:${question.id}`}
@@ -322,7 +323,7 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
               ) : (
                 <fieldset>
                   <legend className="mb-1.5 text-sm text-theme-text-muted">
-                    <Asked question={question} optional={t("questions.optional")} />
+                    <Asked question={question} optional={t("questions.optional")} required={t("questions.required")} />
                   </legend>
                   <input type="hidden" name={`answer:${question.id}`} value={draft.answers[question.id] ?? ""} />
                   <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={question.prompt}>
@@ -481,13 +482,17 @@ function focusOnArrival(field: HTMLInputElement | null) {
   field?.focus({ preventScroll: true });
 }
 
-// The prompt, and whether the host insists on an answer.
-function Asked({ question, optional }: { question: Question; optional: string }) {
+// The prompt, and whether the host insists on an answer: an asterisk to the eye, the word to a
+// screen reader.
+function Asked({ question, optional, required }: { question: Question; optional: string; required: string }) {
   return (
     <>
       {question.prompt}
       {question.required ? (
-        <span className="text-theme-accent-ink"> *</span>
+        <>
+          <span aria-hidden className="text-theme-accent-ink"> *</span>
+          <span className="sr-only"> ({required})</span>
+        </>
       ) : (
         <span className="text-theme-text-faint"> · {optional}</span>
       )}
@@ -496,7 +501,7 @@ function Asked({ question, optional }: { question: Question; optional: string })
 }
 
 const FIELD =
-  "h-12 w-full rounded-xl border border-theme-glass-border bg-theme-glass-strong px-4 text-base text-theme-text placeholder:text-theme-text-faint outline-none focus:ring-2 focus:ring-theme-accent";
+  "h-12 w-full rounded-xl border border-theme-glass-border bg-theme-glass-strong px-4 text-base text-theme-text placeholder:text-theme-text-faint";
 
 function Labelled({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (

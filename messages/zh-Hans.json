@@ -332,7 +332,7 @@
       "share": "分享…",
       "qr": "二维码",
       "qrHint": "打印出来，或在门口展示。",
-      "qrLabel": "活动链接的二维码",
+      "qrLabel": "{link} 的二维码",
       "reset": "重置链接",
       "resetHint": "生成新链接，并停用旧链接。已回复的宾客会保留他们的回复。",
       "resetTitle": "要重置这个活动的链接吗？",
@@ -608,6 +608,7 @@
     "questions": {
       "title": "几个小问题",
       "optional": "选填",
+      "required": "必填",
       "yes": "是",
       "no": "否"
     }

@@ -332,7 +332,7 @@
       "share": "Share…",
       "qr": "QR code",
       "qrHint": "Print it, or hold it up at the door.",
-      "qrLabel": "QR code for the event link",
+      "qrLabel": "QR code for {link}",
       "reset": "Reset the link",
       "resetHint": "Issues a new link and stops the old one working. Anyone who already replied keeps their RSVP.",
       "resetTitle": "Reset this event's link?",
@@ -608,6 +608,7 @@
     "questions": {
       "title": "A couple of questions",
       "optional": "Optional",
+      "required": "Required",
       "yes": "Yes",
       "no": "No"
     }

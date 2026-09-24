@@ -16,8 +16,9 @@ test("a host copies the link and holds up a code for it", async ({ browser, requ
   await expect(host.page.getByRole("heading", { name: "Share this event" })).toBeVisible();
   await expect(host.page.getByText(host.link)).toBeVisible();
 
-  // The code is drawn on the server, so it is in the page rather than fetched.
-  const qr = host.page.getByRole("img", { name: "QR code for the event link" });
+  // The code is drawn on the server, so it is in the page rather than fetched, and named with the
+  // link it holds, for anyone who cannot scan it.
+  const qr = host.page.getByRole("img", { name: `QR code for ${host.link}` });
   await expect(qr.locator("svg")).toBeVisible();
 
   await host.context.grantPermissions(["clipboard-read", "clipboard-write"]);

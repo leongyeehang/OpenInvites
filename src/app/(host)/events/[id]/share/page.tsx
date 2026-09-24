@@ -50,9 +50,10 @@ export default async function SharePage({ params }: PageProps<"/events/[id]/shar
           {t("share.qr")}
         </h2>
         <p className="text-sm text-muted-foreground">{t("share.qrHint")}</p>
+        {/* Its name carries the link it encodes, for anyone who cannot scan it. */}
         <div
           role="img"
-          aria-label={t("share.qrLabel")}
+          aria-label={t("share.qrLabel", { link })}
           className="w-48 max-w-full rounded-xl bg-white p-3 ring-1 ring-foreground/10 [&>svg]:h-auto [&>svg]:w-full"
           dangerouslySetInnerHTML={{ __html: qrSvg(link) }}
         />

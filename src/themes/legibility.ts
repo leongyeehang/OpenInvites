@@ -3,17 +3,21 @@ import type { Background } from "./backgrounds";
 // Every combination of knobs must read (spec, story 44). This is the rule that makes it so: from
 // the backdrop at its most extreme, the text tone and the accent, it works out how strongly the
 // glass is tinted, how far secondary text may fade, and which colours go on the accent and stand
-// for it as text, so that all text meets WCAG 2 AA (4.5:1). Colours are sRGB channels 0 to 255
-// with an alpha of 0 to 1, blended the way a browser blends them.
+// for it as text, so that all text meets WCAG 2 AA (4.5:1), and which colour rings a control that
+// has the keyboard's focus, so that it stands out at 3:1 (non-text contrast). Colours are sRGB
+// channels 0 to 255 with an alpha of 0 to 1, blended the way a browser blends them.
 
 export type Rgb = readonly [number, number, number];
 export type Rgba = readonly [number, number, number, number];
 export type Tone = "light" | "dark";
 
 export const AA = 4.5;
-// Solved a hair above AA, so that rounding to whole channels and the film grain over the
+// WCAG 2's non-text contrast (1.4.11), which a focus ring needs against what is behind it.
+export const NON_TEXT = 3;
+// Each solved a hair above, so that rounding to whole channels and the film grain over the
 // backdrop cannot tip a page under it.
 const TARGET = 4.6;
+const RING_TARGET = 3.1;
 
 // Secondary text fades no further than its tone allows (`muted`, `faint` below), and comes no
 // closer to full strength than this, so the page keeps its hierarchy and a placeholder never
@@ -112,9 +116,14 @@ export type ToneTokens = {
   onAccent: Rgb;
   // The accent where it is set as text, moved towards the tone's text until it reads.
   accentInk: Rgb;
-  // The RSVP sheet: its tint, and the secondary text and accent ink that read on it, which the
-  // sheet sets for everything inside it.
-  sheet: { tint: Rgba; textMuted: Rgba; textFaint: Rgba; accentInk: Rgb };
+  // The ring round a control that has the keyboard's focus: the accent, moved towards the tone's
+  // text until it stands out from every surface a control sits on. The RSVP buttons, which sit on
+  // the backdrop itself, are ringed inside instead, in their own label's colour, which reads on
+  // their own surface by the rule above (rsvp-buttons.ts).
+  focusRing: Rgb;
+  // The RSVP sheet: its tint, and the secondary text, accent ink and focus ring that read on it,
+  // which the sheet sets for everything inside it.
+  sheet: { tint: Rgba; textMuted: Rgba; textFaint: Rgba; accentInk: Rgb; focusRing: Rgb };
   // The title on the poster (poster mode): the scrim it sits on at its strongest, and the
   // secondary text that reads there, which the title's block sets for itself.
   titleOnPoster: { scrim: Rgba; textMuted: Rgba; textFaint: Rgba };
@@ -194,9 +203,9 @@ export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string, use: 
   const t = TONES[tone];
   const behind = worstBackdrop(tone, backdrop);
   const on = (layers: Rgba[]) => layers.reduce<Rgb>((colour, layer) => over(layer, colour), behind);
-  const reads = (colour: Rgb | Rgba, layers: Rgba[]) => {
+  const reads = (colour: Rgb | Rgba, layers: Rgba[], target = TARGET) => {
     const surface = on(layers);
-    return contrast(colour.length === 4 ? over(colour, surface) : colour, surface) >= TARGET;
+    return contrast(colour.length === 4 ? over(colour, surface) : colour, surface) >= target;
   };
   const text = t.text;
   const secondary: Rgba = [...text, SECONDARY_AT_MOST];
@@ -217,7 +226,9 @@ export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string, use: 
   const veil: Rgba = [...t.shade, least(0, (value) => fits(SURFACES({ glass, glassStrong, veil: [...t.shade, value] }).page))];
 
   // How far secondary text may fade on a set of surfaces, and how far the accent ink must move
-  // towards the text to read on them.
+  // towards the text to read on them, and the focus ring to stand out from every one of them (a
+  // control can sit on any surface text can). The text itself reads on all of them, so both
+  // always get there.
   const inkAt = (amount: number) => over([...text, amount], accentRgb).map(Math.round) as unknown as Rgb;
   const strengthsOn = (surfaces: Surface[]) => {
     const everyStrength = surfaces.filter((surface) => surface.carries === "every strength");
@@ -227,6 +238,7 @@ export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string, use: 
       textMuted: [...text, least(t.muted, fadedReads)] as Rgba,
       textFaint: [...text, least(t.faint, fadedReads)] as Rgba,
       accentInk: inkAt(least(0, (amount) => accentSurfaces.every(({ layers }) => reads(inkAt(amount), layers)))),
+      focusRing: inkAt(least(0, (amount) => surfaces.every(({ layers }) => reads(inkAt(amount), layers, RING_TARGET)))),
     };
   };
   const page = strengthsOn(Object.values(SURFACES({ glass, glassStrong, veil })));
@@ -253,6 +265,7 @@ export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string, use: 
     scrim: use === "poster" ? t.posterScrim : t.scrim,
     onAccent: onAccent(accentRgb),
     accentInk: page.accentInk,
+    focusRing: page.focusRing,
     sheet: { tint: sheetTint, ...strengthsOn(sheetAt(sheetTint[3])) },
     titleOnPoster: { scrim: titleScrim, textMuted: onTitle.textMuted, textFaint: onTitle.textFaint },
   };

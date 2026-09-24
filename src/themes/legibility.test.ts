@@ -3,6 +3,7 @@ import { BACKGROUNDS } from "./backgrounds";
 import {
   AA,
   contrast,
+  NON_TEXT,
   hexToRgb,
   over,
   POSTER_SURFACES,
@@ -77,6 +78,10 @@ function expectEveryTextReads(tone: Tone, backdrop: Backdrop, accent: string, us
     expect(contrast(ink(tokens.textMuted, colour), colour), `muted, ${label}`).toBeGreaterThanOrEqual(AA);
     expect(contrast(ink(tokens.textFaint, colour), colour), `faint, ${label}`).toBeGreaterThanOrEqual(AA);
   }
+  // A focus ring, wherever a control sits.
+  for (const [surface, { layers }] of Object.entries(SURFACES(tokens))) {
+    expect(contrast(tokens.focusRing, stack(layers, behind)), `focus ring, ${accent} accent, on ${surface}`).toBeGreaterThanOrEqual(NON_TEXT);
+  }
   // The RSVP sheet, which carries its own secondary strengths and accent ink.
   const { sheet } = tokens;
   for (const [surface, { layers, carries }] of Object.entries(SHEET_SURFACES(tone, tokens))) {
@@ -90,6 +95,9 @@ function expectEveryTextReads(tone: Tone, backdrop: Backdrop, accent: string, us
     if (carries === "full strength") continue;
     expect(contrast(ink(sheet.textMuted, colour), colour), `muted, ${label}`).toBeGreaterThanOrEqual(AA);
     expect(contrast(ink(sheet.textFaint, colour), colour), `faint, ${label}`).toBeGreaterThanOrEqual(AA);
+  }
+  for (const [surface, { layers }] of Object.entries(SHEET_SURFACES(tone, tokens))) {
+    expect(contrast(sheet.focusRing, stack(layers, behind)), `focus ring, ${accent} accent, on ${surface}`).toBeGreaterThanOrEqual(NON_TEXT);
   }
   // The title on the poster, over its scrim, which carries its own secondary strengths.
   const { titleOnPoster } = tokens;
@@ -221,6 +229,7 @@ describe("the RSVP sheet", () => {
             }
             expect(contrast(text, insetButton), `button label, ${label}`).toBeGreaterThanOrEqual(AA);
             expect(contrast(sheet.accentInk, bare), `accent ink, ${label}`).toBeGreaterThanOrEqual(AA);
+            for (const colour of [bare, inset]) expect(contrast(sheet.focusRing, colour), `focus ring, ${label}`).toBeGreaterThanOrEqual(NON_TEXT);
           }
         }
       }
@@ -289,6 +298,30 @@ describe("the settled look", () => {
   it("keeps the accent's own colour as text where it already reads", () => {
     const slate = BACKGROUNDS.find((background) => background.id === "slate")!;
     expect(toneTokens("light", slate, "#ffc36b").accentInk).toEqual(hexToRgb("#ffc36b"));
+  });
+});
+
+// A control that has the keyboard's focus is ringed in the accent, moved towards the tone's text
+// only as far as it takes to stand out at 3:1 (WCAG 2's non-text contrast) from every surface a
+// control sits on; the RSVP sheet has a ring of its own, as it has its own accent ink.
+describe("the focus ring", () => {
+  it("is the accent itself where the accent stands out", () => {
+    const slate = BACKGROUNDS.find((background) => background.id === "slate")!;
+    expect(toneTokens("light", slate, "#ffc36b").focusRing).toEqual(hexToRgb("#ffc36b"));
+  });
+
+  it("moves towards the text only as far as it needs to", () => {
+    // A pale accent under dark text, on the light frost: it has to darken, but it is not the text.
+    const tokens = toneTokens("dark", BACKGROUNDS[0], "#ffc36b");
+    expect(tokens.focusRing).not.toEqual(hexToRgb("#ffc36b"));
+    expect(tokens.focusRing).not.toEqual(tokens.text);
+    const surfaces = Object.values(SURFACES(tokens)).map(({ layers }) => stack(layers, worstBackdrop("dark", BACKGROUNDS[0])));
+    expect(Math.min(...surfaces.map((surface) => contrast(tokens.focusRing, surface)))).toBeLessThan(NON_TEXT + 0.5);
+  });
+
+  it("is solved for the sheet on its own, which leaves the page's alone", () => {
+    const tokens = toneTokens("light", { lightest: "#101014", darkest: "#000000" }, "#3a1b5c");
+    expect(tokens.sheet.focusRing).not.toEqual(tokens.focusRing);
   });
 });
 

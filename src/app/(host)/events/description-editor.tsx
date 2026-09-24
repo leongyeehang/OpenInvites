@@ -2,7 +2,7 @@
 
 import { Bold, Italic, Link2, List } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { richTextToHtml } from "@/rich-text/html";
@@ -15,13 +15,31 @@ import type { RichText } from "@/rich-text/rich-text";
 // model, so nothing pasted in can arrive as markup.
 export function DescriptionEditor({ doc }: { doc: RichText }) {
   const t = useTranslations("Events.form");
+  const labelId = useId();
   const editable = useRef<HTMLDivElement>(null);
   const [seeded] = useState(() => richTextToHtml(doc));
   const [value, setValue] = useState(() => JSON.stringify(doc));
+  // Which of the toggles are on where the cursor is, so each says whether it is pressed.
+  const [on, setOn] = useState<Record<Toggle, boolean>>({ bold: false, italic: false, insertUnorderedList: false });
 
   const read = () => {
     if (editable.current) setValue(JSON.stringify(readRichText(editable.current)));
   };
+
+  const readToggles = useCallback(() => {
+    const anchor = document.getSelection()?.anchorNode;
+    const inside = !!anchor && !!editable.current?.contains(anchor);
+    setOn({
+      bold: inside && document.queryCommandState("bold"),
+      italic: inside && document.queryCommandState("italic"),
+      insertUnorderedList: inside && document.queryCommandState("insertUnorderedList"),
+    });
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener("selectionchange", readToggles);
+    return () => document.removeEventListener("selectionchange", readToggles);
+  }, [readToggles]);
 
   // The browser's own editing commands. Deprecated, and still the only thing every phone and
   // laptop implements; what they leave behind is read back through the model either way.
@@ -29,6 +47,7 @@ export function DescriptionEditor({ doc }: { doc: RichText }) {
     editable.current?.focus();
     document.execCommand(name, false, argument);
     read();
+    readToggles();
   };
 
   // Asking for the address takes the selection away with it, so the words the host had chosen
@@ -55,12 +74,15 @@ export function DescriptionEditor({ doc }: { doc: RichText }) {
 
   return (
     <Field>
-      <FieldLabel>{t("description")}</FieldLabel>
+      {/* The editable area is not a form field, so the label names it and focuses it by hand. */}
+      <FieldLabel id={labelId} onClick={() => editable.current?.focus()}>
+        {t("description")}
+      </FieldLabel>
       <div className="flex flex-wrap gap-1" onMouseDown={(pressed) => pressed.preventDefault()}>
-        <Button type="button" variant="ghost" size="icon" aria-label={t("descriptionBold")} onClick={() => command("bold")}>
+        <Button type="button" variant="ghost" size="icon" aria-label={t("descriptionBold")} aria-pressed={on.bold} className="aria-pressed:bg-muted" onClick={() => command("bold")}>
           <Bold />
         </Button>
-        <Button type="button" variant="ghost" size="icon" aria-label={t("descriptionItalic")} onClick={() => command("italic")}>
+        <Button type="button" variant="ghost" size="icon" aria-label={t("descriptionItalic")} aria-pressed={on.italic} className="aria-pressed:bg-muted" onClick={() => command("italic")}>
           <Italic />
         </Button>
         <Button type="button" variant="ghost" size="icon" aria-label={t("descriptionLink")} onClick={link}>
@@ -71,6 +93,8 @@ export function DescriptionEditor({ doc }: { doc: RichText }) {
           variant="ghost"
           size="icon"
           aria-label={t("descriptionBullets")}
+          aria-pressed={on.insertUnorderedList}
+          className="aria-pressed:bg-muted"
           onClick={() => command("insertUnorderedList")}
         >
           <List />
@@ -81,7 +105,7 @@ export function DescriptionEditor({ doc }: { doc: RichText }) {
         ref={editable}
         role="textbox"
         aria-multiline="true"
-        aria-label={t("description")}
+        aria-labelledby={labelId}
         contentEditable
         suppressContentEditableWarning
         onInput={read}
@@ -101,3 +125,5 @@ export function DescriptionEditor({ doc }: { doc: RichText }) {
     </Field>
   );
 }
+
+type Toggle = "bold" | "italic" | "insertUnorderedList";

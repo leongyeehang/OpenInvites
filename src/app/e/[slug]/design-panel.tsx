@@ -150,7 +150,7 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
                 >
                   <Upload className="size-4" aria-hidden />
                   {uploading ? t("uploading") : t("replace")}
-                  <PictureInput disabled={uploading} onPick={send} />
+                  <PictureInput disabled={uploading} onPick={send} describedBy={`${id}-upload-hint`} />
                 </label>
               </div>
             </div>
@@ -163,42 +163,50 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
             >
               <Upload className="size-5" aria-hidden />
               {uploading ? t("uploading") : t("upload")}
-              <PictureInput disabled={uploading} onPick={send} />
+              <PictureInput disabled={uploading} onPick={send} describedBy={`${id}-upload-hint`} />
             </label>
           )}
+          {/* Either describes the file picker: what it takes, or why it did not take the last one. */}
           {problem ? (
-            <p role="alert" className="text-sm text-destructive">
+            <p id={`${id}-upload-hint`} role="alert" className="text-sm text-destructive">
               {t(`uploadProblems.${problem}`, { max })}
             </p>
           ) : (
-            <p className="text-xs text-muted-foreground">{t("uploadHint", { max })}</p>
+            <p id={`${id}-upload-hint`} className="text-xs text-muted-foreground">
+              {t("uploadHint", { max })}
+            </p>
           )}
           {upload && <AltText key={upload.id} upload={upload} onSave={describe} />}
         </section>
 
-        <section aria-labelledby={`${id}-templates`}>
-          <Heading id={`${id}-templates`} hint={t("templatesHint")}>
-            {t("templates")}
-          </Heading>
-          <div className="-mx-5 flex gap-3 overflow-x-auto px-5 pt-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {TEMPLATES.map((template) => {
-              const current = theme.template?.id === template.id;
-              const clean = current && !theme.template!.dirty;
-              return (
-                <button
-                  key={template.id}
-                  type="button"
-                  onClick={() => choose({ template: template.id })}
-                  aria-pressed={clean}
-                  title={t(`templateBlurbs.${template.id}`)}
-                  className="group w-[84px] shrink-0 cursor-pointer rounded-xl text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-                >
-                  <TemplateThumb templateId={template.id} title={title} state={clean ? "on" : current ? "edited" : "off"} />
-                  <span className="mt-1.5 block truncate text-xs font-medium">{t(`templateNames.${template.id}`)}</span>
-                </button>
-              );
-            })}
-          </div>
+        <section>
+          {/* One template is on while the theme is still exactly it; once any knob has changed,
+              none is, and choosing the one it started from applies it afresh. */}
+          <Choices legend={t("templates")} hint={t("templatesHint")}>
+            <div className="-mx-5 flex gap-3 overflow-x-auto px-5 pt-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {TEMPLATES.map((template) => {
+                const current = theme.template?.id === template.id;
+                const clean = current && !theme.template!.dirty;
+                return (
+                  <label
+                    key={template.id}
+                    className="group relative w-[84px] shrink-0 cursor-pointer rounded-xl has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-4 has-[:focus-visible]:outline-ring"
+                  >
+                    <input
+                      type="radio"
+                      name="template"
+                      checked={clean}
+                      onChange={() => choose({ template: template.id })}
+                      title={t(`templateBlurbs.${template.id}`)}
+                      className="absolute inset-0 z-10 m-0 cursor-pointer appearance-none opacity-0"
+                    />
+                    <TemplateThumb templateId={template.id} title={title} state={clean ? "on" : current ? "edited" : "off"} />
+                    <span className="mt-1.5 block truncate text-xs font-medium">{t(`templateNames.${template.id}`)}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </Choices>
           <p className="mt-1 text-sm">{t("theme", { name: themeName })}</p>
         </section>
 
@@ -373,12 +381,13 @@ function fillWith(src: string): CSSProperties {
 
 // A hidden file picker inside the label that opens it. Only the kinds of picture the server
 // takes are offered, which also has Safari send an iPhone's HEIC photo as a JPEG.
-function PictureInput({ disabled, onPick }: { disabled: boolean; onPick: (file: File) => void }) {
+function PictureInput({ disabled, onPick, describedBy }: { disabled: boolean; onPick: (file: File) => void; describedBy: string }) {
   return (
     <input
       type="file"
       accept={UPLOAD_TYPES.map((type) => `image/${type}`).join(",")}
       disabled={disabled}
+      aria-describedby={describedBy}
       className="sr-only"
       onChange={(event) => {
         const file = event.currentTarget.files?.[0];
@@ -501,17 +510,6 @@ function LayoutSketch({ layout }: { layout: Layout }) {
 
 const HEADING = "text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase";
 const HINT = "-mt-1.5 mb-2.5 text-xs text-muted-foreground";
-
-function Heading({ id, hint, children }: { id?: string; hint?: string; children: ReactNode }) {
-  return (
-    <>
-      <h3 id={id} className={cn(HEADING, "mb-2.5")}>
-        {children}
-      </h3>
-      {hint && <p className={HINT}>{hint}</p>}
-    </>
-  );
-}
 
 // A group of choices, one of which is on: a fieldset whose legend reads like the other headings,
 // with its hint under it as a description rather than part of its name.

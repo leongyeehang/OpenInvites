@@ -9,11 +9,17 @@ test("formatting survives saving, reopening, and the guest's page", async ({ pag
     description: "Bring nothing.",
   });
 
-  // Bold the whole description, add a bullet list, and save.
+  // Bold the whole description, add a bullet list, and save. The label is the editor's, and the
+  // toolbar says which formatting is on where the cursor is.
   const editor = host.page.getByLabel("Description");
-  await editor.click();
+  await host.page.getByText("Description", { exact: true }).click();
+  await expect(editor).toBeFocused();
   await host.page.keyboard.press("ControlOrMeta+a");
-  await host.page.getByRole("button", { name: "Bold" }).click();
+  const bold = host.page.getByRole("button", { name: "Bold" });
+  await expect(bold).toHaveAttribute("aria-pressed", "false");
+  await bold.click();
+  await expect(bold).toHaveAttribute("aria-pressed", "true");
+  await expect(host.page.getByRole("button", { name: "Italic" })).toHaveAttribute("aria-pressed", "false");
   await host.page.getByRole("button", { name: "Save changes" }).click();
   await expect(host.page.getByText("Saved.")).toBeVisible({ timeout: 15_000 });
 
