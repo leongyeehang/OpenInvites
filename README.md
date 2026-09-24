@@ -33,6 +33,8 @@ Two seams, and nothing in between:
 
 After browser tests, `docker compose --profile test down -v` stops the stack.
 
+`pnpm perf` audits the event page's speed on a phone. Like `pnpm test:e2e` it builds the production image and starts the `test` profile (stop `next dev` first: both use port 3000), then makes an event in each kind of theme a host can give the page, through the product as the browser tests do: a curated background with the Sheet and with the Inline RSVP style, an uploaded photo as the background, and a portrait poster. It runs [Lighthouse](https://github.com/GoogleChrome/lighthouse)'s default mobile audit (a mid-range phone on slow 4G, throttling simulated) three times on each, in English and in Simplified Chinese, in Playwright's Chromium (`CHROME_PATH` names another). It prints each median with its LCP, TBT and CLS and the largest opportunities Lighthouse names, keeps each run's report in `test-results/`, and fails when any median is below 90. It takes about seven minutes after the build. It is not part of CI: scores vary between machines, and a gate that fails at random is worse than none.
+
 Also useful: `pnpm lint`, `pnpm typecheck`, and `pnpm db:generate` after changing `src/db/schema.ts` (migrations live in `drizzle/` and are applied automatically at start).
 
 ## Configuration
@@ -77,6 +79,7 @@ messages/           Translation files, one per locale
 drizzle/            SQL migrations
 scripts/            Commands an operator runs inside the container
 e2e/                Playwright browser tests
+perf/               The event page's Lighthouse audit (pnpm perf)
 deploy/             The deployment package: production Compose file, .env.example, Caddyfile,
                     and the smoke test the release workflow runs against a published image
 docs/operator/      Operator documentation: installing, configuring, upgrading, backups

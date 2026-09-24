@@ -10,6 +10,7 @@ test-results
 playwright-report
 uploads
 e2e
+perf
 *.md
 .env
 .env*.local
