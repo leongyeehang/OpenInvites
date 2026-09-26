@@ -10,7 +10,10 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
   forbidOnly: isCI,
+  // On CI a failed test runs once more, so that its trace is recorded (trace below), and the run
+  // still fails if it passes then: a test that passes only sometimes is a failure too.
   retries: isCI ? 1 : 0,
+  failOnFlakyTests: isCI,
   reporter: isCI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: "http://localhost:3000",
