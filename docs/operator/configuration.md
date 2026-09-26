@@ -232,7 +232,7 @@ runs.
 | Variable | Default | What it counts |
 | --- | --- | --- |
 | `TRUSTED_PROXY_HOPS` | `1` | Not a limit: how many reverse proxies stand in front of the app (below). |
-| `RATE_LIMIT_EVENT_PAGE` | `120/1m` | Every request under an event link: the page, its preview card, its calendar file, whether the link exists or not, so links cannot be found by trying them. The host's own editing of their event page does not count. |
+| `RATE_LIMIT_EVENT_PAGE` | `120/1m` | Every request under an event link: the page, its preview card, its calendar file, whether the link exists or not, so links cannot be found by trying them. The host's own changes in the Design drawer on their event page do not count; their visits to the page do, and so does the refresh that shows a picture they have just uploaded. |
 | `RATE_LIMIT_RSVP` | `60/10m` | Sending an RSVP, and removing one. |
 | `RATE_LIMIT_UPLOAD` | `20/10m` | Uploading a picture. |
 | `RATE_LIMIT_SIGN_UP` | `10/1h` | Signing up, and opening a host invitation link. |

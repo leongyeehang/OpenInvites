@@ -30,7 +30,7 @@ export async function hasAccounts(): Promise<boolean> {
 
 // A sign-up that finds the instance empty takes it, in one statement: the settings row is locked
 // while it is written, so of two first sign-ups at once only one sees no claim and makes it. The
-// claim is kept until that account exists (seatNewHost below). The same email may claim again,
+// claim is kept until that account exists (seatFirstAccount below). The same email may claim again,
 // should its first try have failed before the account was made.
 export async function claimEmptyInstance(email: string): Promise<boolean> {
   const claimed = await getDb()

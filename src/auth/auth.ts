@@ -18,11 +18,14 @@ import { socialProviders } from "./providers";
 // (actions.ts) or a request reaches them at /api/auth directly: signing up; anything that checks
 // a password, or starts a sign-in with Google or GitHub; a password reset; and everything that
 // sends an email, to whatever address the request names. Signing up sends one only with mail.
-// The endpoints left out need no limit of their own: the links in emails carry a single-use
-// token nobody can guess, a provider's answer needs the state its (counted) sign-in started, and
-// the rest either give nothing away (the session check, the ok and error pages) or need a
-// signed-in host and neither check a password nor send mail. A refusal is an error with its code,
-// which the forms turn into the same sentence as their other errors (errors.ts).
+// The endpoints left out need no limit of their own: the links in emails carry a token nobody
+// can guess, a provider's answer needs the state its (counted) sign-in started, and the rest
+// either give nothing away (the session check, the ok and error pages) or need a signed-in host
+// and neither check a password nor send mail. A /verify-email link's token is a signed one rather
+// than one kept to be used up, so it works again until it expires; today that is harmless, as by
+// then the address it verifies is verified already, or no longer the account's. A refusal is an
+// error with its code, which the forms turn into the same sentence as their other errors
+// (errors.ts).
 function limitsByEndpoint(mail: boolean): Record<string, readonly LimitName[]> {
   return {
     "/sign-up/email": mail ? ["signUp", "mail"] : ["signUp"],
