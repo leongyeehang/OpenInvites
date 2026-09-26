@@ -224,6 +224,36 @@ test("the drawer is a bottom sheet on a phone and a side panel on a wider screen
   await host.context.close();
 });
 
+test("nothing in the drawer scrolls sideways but its row of templates", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "design-width", EVENT);
+  await host.page.goto(host.link);
+  const drawer = await openDrawer(host.page);
+  await settled(drawer);
+  await drawer.getByRole("button", { name: "Details" }).click();
+  await expect(drawer.getByRole("radio", { name: "Instrument Serif" })).toBeVisible();
+
+  // Whatever in the drawer a host can scroll sideways, by how many choices it holds: only the
+  // row of six templates, and not the panel around it.
+  const sideways = () =>
+    drawer.evaluate((panel) =>
+      [panel, ...panel.querySelectorAll("*")]
+        .filter((element) => element.scrollWidth > element.clientWidth && ["auto", "scroll"].includes(getComputedStyle(element).overflowX))
+        .map((element) => element.querySelectorAll('input[type="radio"]').length),
+    );
+  expect(await sideways()).toEqual([6]);
+
+  // The last template starts past the panel's edge, and scrolling the row brings it in.
+  const panel = await box(drawer);
+  const quiet = drawer.getByRole("radio", { name: "Quiet" });
+  expect((await box(quiet)).x).toBeGreaterThan(panel.x + panel.width);
+  await quiet.scrollIntoViewIfNeeded();
+  const tile = await box(quiet);
+  expect(tile.x + tile.width).toBeLessThanOrEqual(panel.x + panel.width);
+
+  await host.context.close();
+});
+
 test("under reduced motion the drawer appears without sliding in", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "design-motion", EVENT);

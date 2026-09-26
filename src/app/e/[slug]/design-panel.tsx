@@ -512,11 +512,13 @@ const HEADING = "text-[11px] font-semibold tracking-[0.18em] text-muted-foregrou
 const HINT = "-mt-1.5 mb-2.5 text-xs text-muted-foreground";
 
 // A group of choices, one of which is on: a fieldset whose legend reads like the other headings,
-// with its hint under it as a description rather than part of its name.
+// with its hint under it as a description rather than part of its name. A fieldset is at least as
+// wide as its content unless told otherwise (min-w-0), which would make the whole panel scroll
+// sideways to fit the row of templates, rather than the row within it.
 function Choices({ legend, hint, children }: { legend: string; hint?: string; children: ReactNode }) {
   const hintId = useId();
   return (
-    <fieldset aria-describedby={hint && hintId}>
+    <fieldset aria-describedby={hint && hintId} className="min-w-0">
       <legend className={cn(HEADING, "mb-2.5")}>{legend}</legend>
       {hint && (
         <p id={hintId} className={HINT}>
