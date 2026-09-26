@@ -1,18 +1,15 @@
-import { ImageResponse } from "next/og";
 import { notFound } from "next/navigation";
 import { eventPageFor } from "@/events/access";
 import { findEventBySlug } from "@/events/repository";
 import { isSlug } from "@/events/slug";
 import { formatWhen } from "@/events/time";
-import { PREVIEW_SIZE, previewCard } from "@/sharing/preview-card";
+import { drawPreviewCard } from "@/sharing/preview-card";
 import { resolveTheme } from "@/themes/resolve";
 import { readRendition } from "@/uploads/files";
 import { findEventUpload } from "@/uploads/repository";
 import { themeUpload } from "@/uploads/uploads";
 
-// A crawler brings no language of its own, so the card is written in the source one. The card is
-// drawn in the face next/og bundles: the theme's title fonts ship as woff2, which Satori cannot
-// read (see the ticket 14 notes).
+// A crawler brings no language of its own, so the card is written in the source one.
 const CARD_LOCALE = "en";
 
 export async function GET(_request: Request, context: RouteContext<"/e/[slug]/preview.png">) {
@@ -33,9 +30,10 @@ export async function GET(_request: Request, context: RouteContext<"/e/[slug]/pr
   const card = theme.upload && (await readRendition(theme.upload.id, "card"));
   const picture = card ? `data:image/jpeg;base64,${Buffer.from(card).toString("base64")}` : undefined;
 
-  return new ImageResponse(previewCard(event, theme, formatWhen(event, CARD_LOCALE), picture), {
-    ...PREVIEW_SIZE,
+  const png = await drawPreviewCard(event, theme, formatWhen(event, CARD_LOCALE), picture);
+  return new Response(new Uint8Array(png), {
     headers: {
+      "Content-Type": "image/png",
       "Cache-Control": versioned ? "public, max-age=31536000, immutable" : "public, max-age=300",
     },
   });

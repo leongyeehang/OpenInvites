@@ -15,8 +15,8 @@ export const RENDITIONS = {
   // The poster reduced to a wash of its colours (POSTER_COPY_BOX), for the blurred copy that fills
   // the page behind it: under that blur a larger picture would add nothing.
   posterCopy: { file: "poster-copy.webp", type: "image/webp" },
-  // The link's preview card, at the card's own size (sharing/preview-card.tsx), as a JPEG:
-  // next/og draws PNG, JPEG and GIF, not WebP.
+  // The link's preview card, at the card's own size (sharing/preview-card.tsx), as a JPEG,
+  // which Satori and sharp, which draw the card, both read.
   card: { file: "card.jpg", type: "image/jpeg" },
 } as const;
 

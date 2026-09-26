@@ -5,9 +5,12 @@ const withNextIntl = createNextIntlPlugin("./src/locale/request.ts");
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  // Kept as a real package in the image instead of bundled into the server chunks, so the
-  // operator command in scripts/ can import it too.
-  serverExternalPackages: ["postgres"],
+  // Kept as real packages in the image instead of bundled into the server chunks: postgres so
+  // the operator command in scripts/ can import it too, and satori because the text shaper it
+  // loads (harfbuzzjs) reads its WebAssembly from the folder it is installed in.
+  serverExternalPackages: ["postgres", "satori"],
+  // The preview card's faces, which it reads from disk as it draws a card (sharing/card-fonts.ts).
+  outputFileTracingIncludes: { "/e/\\[slug\\]/preview.png": ["./src/sharing/fonts/*"] },
   async headers() {
     // The title fonts and the curated scenes in public/ are named after their content
     // (src/themes/public-files.test.ts), so what is behind such a name never changes and a browser
