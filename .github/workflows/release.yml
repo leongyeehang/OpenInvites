@@ -1,7 +1,8 @@
 name: Release
 
-# A tag such as v1.2.3 publishes the image for amd64 and arm64 to GitHub Container Registry and
-# Docker Hub, tagged 1.2.3, once every check a push runs (ci.yml) has passed. Then the deployment
+# A tag such as v1.2.3 publishes the image for amd64 and arm64 to GitHub Container Registry and,
+# once the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets are set, Docker Hub, tagged 1.2.3, once
+# every check a push runs (ci.yml) has passed. Then the deployment
 # package is started from the published image on an amd64 and an arm64 machine
 # (deploy/smoke-test.sh), and only once both have passed do the tags that move from release to
 # release, 1.2, 1 and latest, point at it. docs/releasing.md lists the secrets and variables it
@@ -34,6 +35,9 @@ jobs:
     # name holds the owner's name, which may well be the Docker Hub username too.
     outputs:
       digest: ${{ steps.build.outputs.digest }}
+    # Docker Hub is used only once both of its secrets are set.
+    env:
+      DOCKERHUB: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -45,8 +49,12 @@ jobs:
           IMAGE_NAME: ${{ vars.IMAGE_NAME || 'openinvites' }}
           DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE || github.repository_owner }}
         run: |
-          echo "ghcr=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
-          echo "dockerhub=docker.io/${DOCKERHUB_NAMESPACE,,}/${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
+          {
+            echo "images<<EOF"
+            echo "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${IMAGE_NAME}"
+            if [ "$DOCKERHUB" = true ]; then echo "docker.io/${DOCKERHUB_NAMESPACE,,}/${IMAGE_NAME}"; fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       # The arm64 image is built under emulation, so pnpm installs the arm64 builds of sharp and
       # the other native packages, as it would on an arm64 machine.
@@ -62,6 +70,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Sign in to Docker Hub
+        if: env.DOCKERHUB == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -72,9 +81,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ${{ steps.names.outputs.ghcr }}
-            ${{ steps.names.outputs.dockerhub }}
+          images: ${{ steps.names.outputs.images }}
           flavor: latest=false
           tags: |
             type=semver,pattern={{version}}
@@ -144,6 +151,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      DOCKERHUB: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
     steps:
       # As in publish: a job output cannot carry the names (see its outputs).
       - name: Image names
@@ -152,8 +161,12 @@ jobs:
           IMAGE_NAME: ${{ vars.IMAGE_NAME || 'openinvites' }}
           DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE || github.repository_owner }}
         run: |
-          echo "ghcr=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
-          echo "dockerhub=docker.io/${DOCKERHUB_NAMESPACE,,}/${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
+          {
+            echo "images<<EOF"
+            echo "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${IMAGE_NAME}"
+            if [ "$DOCKERHUB" = true ]; then echo "docker.io/${DOCKERHUB_NAMESPACE,,}/${IMAGE_NAME}"; fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -165,6 +178,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Sign in to Docker Hub
+        if: env.DOCKERHUB == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -175,9 +189,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ${{ steps.names.outputs.ghcr }}
-            ${{ steps.names.outputs.dockerhub }}
+          images: ${{ steps.names.outputs.images }}
           flavor: latest=false
           tags: |
             type=semver,pattern={{major}}.{{minor}}
