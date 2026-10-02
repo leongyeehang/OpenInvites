@@ -22,6 +22,7 @@ const upload = (sampled: Partial<ThemeUpload> = {}): ThemeUpload => ({
   id: UPLOAD,
   src: `/uploads/${UPLOAD}/background.webp`,
   portraitSrc: `/uploads/${UPLOAD}/background-portrait.webp`,
+  thumbnailSrc: `/uploads/${UPLOAD}/poster-720.webp`,
   accent: "#3aa885",
   luminance: 0.2,
   lightest: "#303030",

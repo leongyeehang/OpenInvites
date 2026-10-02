@@ -4,15 +4,16 @@ import { css, GLOW, TONES, toneTokens, type ToneTokens } from "./legibility";
 import type { ButtonStyle, RsvpStyle, Theme, TitlePlacement } from "./theme";
 
 // The host's own picture, as the theme needs it: where the page gets it (and its cut for a phone
-// held upright), what the server sampled from it (uploads/sample.ts: its average luminance,
-// accent, and brightest and darkest points as the glass sees them), and what the host says it
-// shows. `poster` is the same picture as the invitation itself: its poster rendition, the widths
-// the browser may choose from, and its size, and its blurred copy behind it with that copy's
-// extremes.
+// held upright, and the small copy the Design drawer shows), what the server sampled from it
+// (uploads/sample.ts: its average luminance, accent, and brightest and darkest points as the
+// glass sees them), and what the host says it shows. `poster` is the same picture as the
+// invitation itself: its poster rendition, the widths the browser may choose from, and its size,
+// and its blurred copy behind it with that copy's extremes.
 export type ThemeUpload = {
   id: string;
   src: string;
   portraitSrc: string;
+  thumbnailSrc: string;
   accent: string;
   luminance: number;
   lightest: string;

@@ -202,6 +202,36 @@ test("a phone held upright is sent only the part of the photo it shows, and it l
   expect(total / a.length, "the mean difference per channel, out of 255").toBeLessThan(1);
 });
 
+test("the drawer shows the picture as the small poster, so a phone is not sent the whole background for it", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "upload-thumbnail", EVENT);
+  // createPublished's host is at a desktop's size: this host works on the device the project is.
+  const viewport = page.viewportSize()!;
+  await host.page.setViewportSize(viewport);
+  const requested: string[] = [];
+  host.page.on("request", (sent) => requested.push(new URL(sent.url()).pathname));
+  await host.page.goto(host.link);
+  await openDrawer(host.page);
+  const full = await upload(host.page, request, host.link, await darkPhoto());
+  const small = full.replace("background.webp", "poster-720.webp");
+  const cut = full.replace("background.webp", "background-portrait.webp");
+
+  // The thumbnail is drawn with the 720-pixel poster, not the 2048-pixel background.
+  const thumbnail = host.page.getByRole("dialog", { name: "Design" }).locator('span[aria-hidden][style*="/uploads/"]');
+  await expect(thumbnail).toHaveCSS("background-image", `url("${new URL(small, host.page.url()).href}")`);
+  await expect.poll(() => requested).toContain(small);
+
+  // A phone held upright shows the page's own cut of the photo, so the whole background is never
+  // asked for: not by the page, and not by the drawer.
+  if (viewport.width / viewport.height <= 2 / 3) {
+    await expect.poll(() => requested).toContain(cut);
+    await host.page.waitForTimeout(500);
+    expect(requested).not.toContain(full);
+  }
+
+  await host.context.close();
+});
+
 test("replacing a picture removes the old one's files, and deleting the event removes the new one's", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "upload-replace", EVENT);

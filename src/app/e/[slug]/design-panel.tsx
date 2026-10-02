@@ -130,7 +130,7 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
         <section className="space-y-4">
           {upload ? (
             <div className="flex gap-3">
-              <span aria-hidden className="h-28 w-21 shrink-0 rounded-xl ring-1 ring-border" style={fillWith(upload.src)} />
+              <span aria-hidden className="h-28 w-21 shrink-0 rounded-xl ring-1 ring-border" style={fillWith(upload.thumbnailSrc)} />
               <div className="min-w-0 flex-1 space-y-3">
                 <Choices legend={t("useAs")} hint={shownAs === "poster" ? t("useAsPosterHint") : undefined}>
                   <div className="grid grid-cols-2 gap-2">
@@ -257,7 +257,7 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
             })}
             {/* The host's picture stays here whichever background is shown, to go back to. */}
             {upload && (
-              <Choice name="background" checked={shownAs === "background"} onSelect={() => showUploadAs("background")} className="aspect-[3/4]" style={fillWith(upload.src)}>
+              <Choice name="background" checked={shownAs === "background"} onSelect={() => showUploadAs("background")} className="aspect-[3/4]" style={fillWith(upload.thumbnailSrc)}>
                 {shownAs === "background" && <Tick />}
                 <TileName>{t("yourPicture")}</TileName>
               </Choice>
