@@ -6,7 +6,7 @@ import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
 import { deleteHostEvents } from "@/events/repository";
 import { admitNewHost, seatAdmittedHost, seatVerifiedHost } from "@/instance/admission";
-import { baseUrl } from "@/instance/env";
+import { authSecret, baseUrl } from "@/instance/env";
 import { HOST_INVITATION_COOKIE } from "@/instance/host-invitation-token";
 import { isMailConfigured } from "@/mail/config";
 import { consumeAll, retryAfter, type LimitName } from "@/rate-limit/rate-limit";
@@ -61,7 +61,7 @@ function createAuth() {
   const providers = socialProviders();
   return betterAuth({
     baseURL: baseUrl(),
-    secret: process.env.AUTH_SECRET,
+    secret: authSecret(),
     database: drizzleAdapter(getDb(), { provider: "pg", schema }),
     emailAndPassword: {
       enabled: true,

@@ -7,6 +7,17 @@ export function baseUrl(): string {
   return url;
 }
 
+// The secret that signs sessions and the links in emails (AUTH_SECRET), exactly as given: trimming
+// it would change the key and sign every host out. Better Auth would fall back to a built-in
+// default for a missing one and only warn about a short one, so both are refused here, at start.
+// The messages never hold the value.
+export function authSecret(): string {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret?.trim()) throw new Error("AUTH_SECRET is not set");
+  if (secret.length < 32) throw new Error("AUTH_SECRET must be at least 32 characters");
+  return secret;
+}
+
 // Shown wherever a host is told to contact the operator, such as password reset without mail.
 export function operatorContactEmail(): string | undefined {
   return process.env.OPERATOR_CONTACT_EMAIL?.trim() || undefined;

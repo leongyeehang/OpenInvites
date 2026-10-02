@@ -7,12 +7,13 @@ export async function register(): Promise<void> {
   const { runMigrations } = await import("./db/migrate");
   await runMigrations(databaseUrl());
   // Settings the first sign-up, upload, or legal page would otherwise trip over: fail at start instead.
-  const { baseUrl, maxUploadBytes } = await import("./instance/env");
+  const { authSecret, baseUrl, maxUploadBytes } = await import("./instance/env");
   const { mailConfig } = await import("./mail/config");
   const { storageConfig } = await import("./storage/config");
   const { checkRateLimitsAtStart } = await import("./rate-limit/rate-limit");
   const { checkLegalPagesAtStart } = await import("./legal/documents");
   baseUrl();
+  authSecret();
   mailConfig();
   storageConfig();
   maxUploadBytes();
