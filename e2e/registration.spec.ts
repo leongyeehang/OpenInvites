@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from "./test";
+import { expect, expectNotFoundAsSent, test, type Browser, type Page } from "./test";
 import { latestMailTo, linkIn, mailCountTo, newHost, PASSWORD, signIn, signUp, submitSignUp, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
 
@@ -160,6 +160,10 @@ test("a revoked host invitation lets nobody in", async ({ browser }) => {
   await submitSignUp(page, addressee);
   await expect(page.getByText(UNUSABLE)).toBeVisible();
   await page.context().close();
+});
+
+test("a host invitation link nobody made is not found", async ({ request }) => {
+  await expectNotFoundAsSent(await request.get("/host-invitation/not-a-real-token", { maxRedirects: 0 }));
 });
 
 test("switching registration to Open lets anyone sign up", async ({ browser }) => {

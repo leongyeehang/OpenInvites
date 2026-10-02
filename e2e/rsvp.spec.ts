@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "./test";
+import { expect, expectNotFoundAsSent, test, type Page } from "./test";
 import { createDraft, createPublished } from "./events";
 import { signUpVerified } from "./hosts";
 
@@ -235,6 +235,9 @@ test("a draft takes no RSVPs", async ({ page, request }) => {
 });
 
 test("an edit link nobody was given leads nowhere", async ({ request }) => {
-  const response = await request.get("/r/not-a-real-token", { maxRedirects: 0 });
-  expect(response.status()).toBe(404);
+  await expectNotFoundAsSent(await request.get("/r/not-a-real-token", { maxRedirects: 0 }));
+  await expectNotFoundAsSent(await request.get("/r/not-a-real-token", { maxRedirects: 0, headers: { "accept-language": "zh-TW" } }), {
+    lang: "zh-Hant",
+    heading: "找不到頁面",
+  });
 });

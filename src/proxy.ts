@@ -2,15 +2,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getAuth } from "@/auth/auth";
 import { eventLinkExists, findHostEvent } from "@/events/repository";
 import { isSlug } from "@/events/slug";
-import { isOperator } from "@/instance/repository";
+import { findHostInvitation, isOperator } from "@/instance/repository";
 import { consume, retryAfter } from "@/rate-limit/rate-limit";
+import { findEventForToken } from "@/rsvps/repository";
 
 // Requests the rate limits count before any route sees them (spec, "Operator configuration").
 // Every request under an event link counts against one limit per client, whatever its method:
 // the page, its preview card, and its calendar file, whether the slug belongs to an event, has
 // been retired, or never existed, so that event links cannot be found by trying them. A host
-// invitation link counts as signing up. A refused request gets a page that says so, as 429 with
-// Retry-After.
+// invitation link counts as signing up; an edit link counts as nothing. A refused request gets a
+// page that says so, as 429 with Retry-After.
 //
 // A server action (a POST naming one in Next-Action) is let through: it is the page's own form
 // (a guest's RSVP, the host's Design drawer), whose answer must be the action's own, with its
@@ -18,8 +19,9 @@ import { consume, retryAfter } from "@/rate-limit/rate-limit";
 // belongs to another page to that page, without drawing this one either way; one of the page's
 // own whose answer draws the page again is counted by the page (e/[slug]/page.tsx).
 //
-// Then a page that is not there for this visitor is answered with the not-found page, drawn on
-// the server as it is for an address nothing lives at (below, notFoundHere).
+// Then a page that is not there for this visitor, or an edit link or a host invitation link that
+// was never made, is answered with the not-found page, drawn on the server as it is for an address
+// nothing lives at (below, notFoundHere).
 export async function proxy(request: NextRequest) {
   if (request.method === "POST" && request.headers.has("next-action")) return;
   const { pathname } = request.nextUrl;
@@ -32,7 +34,7 @@ export async function proxy(request: NextRequest) {
   }
 }
 
-export const config = { matcher: ["/e/:path*", "/host-invitation/:path*", "/events/:path*", "/instance"] };
+export const config = { matcher: ["/e/:path*", "/r/:path*", "/host-invitation/:path*", "/events/:path*", "/instance"] };
 
 // A page's notFound() cannot be drawn on the server. React's server renderer has no error
 // boundaries, so a page that throws it while the document is being drawn takes the whole
@@ -40,8 +42,10 @@ export const config = { matcher: ["/e/:path*", "/host-invitation/:path*", "/even
 // content) for the browser to build the not-found page in. An address nothing lives at is drawn
 // whole, as Next.js's own /_not-found page. So each page that ends in notFound() is asked here, the
 // way it asks itself, and a visitor it is not there for is sent /_not-found, drawn whole, in their
-// language, with 404. The pages keep their own notFound(), which is what a visitor moving between
-// pages in the browser meets (their not-found page is drawn in the browser anyway).
+// language, with 404. A route handler (an edit link, a host invitation link) is asked the same way:
+// its notFound() has no page to draw at all and sends an empty body. The pages and the handlers
+// keep their own notFound(), which is what a visitor moving between pages in the browser meets
+// (their not-found page is drawn in the browser anyway) and what a request this lets through meets.
 async function notFoundHere(pathname: string, headers: Headers): Promise<boolean> {
   // An event link that never existed; one its host has reset has a page of its own (e/[slug]).
   const eventLink = pathname.match(/^\/e\/([^/]+)$/);
@@ -49,6 +53,13 @@ async function notFoundHere(pathname: string, headers: Headers): Promise<boolean
     const slug = decoded(eventLink[1]);
     return !isSlug(slug) || !(await eventLinkExists(slug));
   }
+  // An edit link no RSVP has (r/[token]).
+  const editLink = pathname.match(/^\/r\/([^/]+)$/);
+  if (editLink) return !(await findEventForToken(decoded(editLink[1])));
+  // A host invitation link that was never made (host-invitation/[token]); one that is used, revoked,
+  // or expired is sent to sign-up, which says so.
+  const invitationLink = pathname.match(/^\/host-invitation\/([^/]+)$/);
+  if (invitationLink) return !(await findHostInvitation(decoded(invitationLink[1])));
   // Another host's event, or none, for a signed-in host ((host)/events/[id], share, guests), which
   // /events/new/share and /events/new/guests are too: only /events/new is a page of its own. A
   // visitor who is not signed in is sent to sign in by the page.
