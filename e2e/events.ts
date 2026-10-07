@@ -17,6 +17,8 @@ export type DraftFields = {
   plusOnes?: string;
   requirePlusOneNames?: boolean;
   askEmail?: boolean;
+  // Reminders are on for a new event; false turns them off.
+  reminders?: boolean;
   questions?: QuestionFields[];
   // A theme knob rather than a field of the form: createPublished sets it in the Design drawer.
   rsvpStyle?: "Inline" | "Sheet";
@@ -46,6 +48,7 @@ export async function createDraft(page: Page, fields: DraftFields) {
   if (fields.plusOnes) await page.getByLabel("Plus-ones per guest").selectOption(fields.plusOnes);
   if (fields.requirePlusOneNames) await page.getByLabel("Ask for each plus-one’s name").check();
   if (fields.askEmail) await page.getByLabel("Ask guests for an email address").check();
+  if (fields.reminders === false) await page.getByLabel("Remind guests by email (a week before to Maybe, the day before to Going)").uncheck();
   if (fields.questions) await addQuestions(page, fields.questions);
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page).toHaveURL(/\/events\/[0-9a-f-]{36}$/, { timeout: 15_000 });

@@ -85,10 +85,17 @@ export async function changeEventTheme(hostId: string, id: string, change: (them
   });
 }
 
+// Publishing records when, the first time a draft is published: a reminder whose time came before
+// it is never sent (reminders/due.ts). The CASE reads the state the row had before this update.
 export async function publishEvent(hostId: string, id: string): Promise<Event | undefined> {
+  const now = new Date();
   const [published] = await getDb()
     .update(event)
-    .set({ state: "published", updatedAt: new Date() })
+    .set({
+      state: "published",
+      publishedAt: sql`case when ${event.state} = 'draft' then ${now.toISOString()}::timestamptz else ${event.publishedAt} end`,
+      updatedAt: now,
+    })
     .where(and(eq(event.id, id), eq(event.hostId, hostId)))
     .returning();
   return published && withTheme(published);

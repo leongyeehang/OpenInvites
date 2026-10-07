@@ -239,6 +239,14 @@
     "announcement": {
       "subject": "{title}: a message from the host"
     },
+    "reminderWeek": {
+      "subject": "{title} is in a week",
+      "body": "{title} is in a week.\n\nWhen: {when}{located, select, yes {\nWhere: {location}} other {}}\n\nYou said Maybe{plusOnes, plural, =0 {} one {, with # plus-one} other {, with # plus-ones}}.\n\nThe event page:\n{url}"
+    },
+    "reminderDay": {
+      "subject": "{title} is tomorrow",
+      "body": "{title} is tomorrow.\n\nWhen: {when}{located, select, yes {\nWhere: {location}} other {}}\n\nYou said Going{plusOnes, plural, =0 {} one {, with # plus-one} other {, with # plus-ones}}.\n\nThe event page:\n{url}"
+    },
     "guestFooter": "You are getting this because you gave your email when you replied to {title}. To stop emails about this event: {url}"
   },
   "Events": {
@@ -279,6 +287,8 @@
       "guestListHidden": "Only me",
       "guestListVisibilityHint": "You always see the whole list.",
       "notifyOnRsvp": "Email me when a guest replies",
+      "remindersEnabled": "Remind guests by email (a week before to Maybe, the day before to Going)",
+      "askEmailHint": "Guests get email only if you ask for their email on the RSVP form.",
       "questions": "Questions",
       "questionsHint": "Asked while a guest replies. Their answers are yours alone.",
       "questionAdd": "Add a question",

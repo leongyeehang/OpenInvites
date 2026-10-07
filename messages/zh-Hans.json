@@ -239,6 +239,14 @@
     "announcement": {
       "subject": "“{title}”：来自主办人的消息"
     },
+    "reminderWeek": {
+      "subject": "“{title}”还有一周就到了",
+      "body": "“{title}”还有一周就到了。\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}\n\n你的回复是：待定{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n活动页面：\n{url}"
+    },
+    "reminderDay": {
+      "subject": "“{title}”就在明天",
+      "body": "“{title}”就在明天。\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}\n\n你的回复是：参加{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n活动页面：\n{url}"
+    },
     "guestFooter": "你收到这封邮件，是因为你回复“{title}”时留下了邮箱。如果不想再收到关于这个活动的邮件，请打开这个链接：{url}"
   },
   "Events": {
@@ -279,6 +287,8 @@
       "guestListHidden": "只有我",
       "guestListVisibilityHint": "你始终能看到完整名单。",
       "notifyOnRsvp": "有宾客回复时给我发邮件",
+      "remindersEnabled": "发邮件提醒宾客（提前一周提醒待定的宾客，提前一天提醒参加的宾客）",
+      "askEmailHint": "只有你在回复表单中请宾客留下邮箱，宾客才会收到邮件。",
       "questions": "问题",
       "questionsHint": "宾客回复时作答，答案只有你能看到。",
       "questionAdd": "添加问题",

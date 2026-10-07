@@ -1,5 +1,5 @@
 import { asc, eq, lte } from "drizzle-orm";
-import { getDb } from "@/db/client";
+import { getDb, type Db } from "@/db/client";
 import { mailOutbox } from "@/db/schema";
 import { nextAttempt } from "./retry";
 import { sendMail } from "./send";
@@ -9,10 +9,11 @@ import { sendMail } from "./send";
 export type QueuedMail = { eventId: string | null; to: string; subject: string; text: string };
 
 // Every email about an event goes out through here rather than through sendMail (spec, "Mail
-// outbox and worker"). Callers check isMailConfigured() first, and kick the worker once queued.
-export async function queueMail(rows: QueuedMail[]): Promise<void> {
+// outbox and worker"). Callers check isMailConfigured() first, and kick the worker once queued. A
+// caller can queue inside its own transaction (the reminders, with the mark that they were sent).
+export async function queueMail(rows: QueuedMail[], db: Db = getDb()): Promise<void> {
   if (rows.length === 0) return;
-  await getDb().insert(mailOutbox).values(rows);
+  await db.insert(mailOutbox).values(rows);
 }
 
 // Sends every message due by now, oldest first, until none is left. Each is claimed in a

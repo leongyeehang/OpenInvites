@@ -152,6 +152,16 @@ export const event = pgTable(
     // The language the host last saved the event form in, which mail about the event to its hosts
     // is written in: the request that queues such mail is usually a guest's, in their language.
     locale: text("locale").$type<Locale>().notNull().default(defaultLocale),
+    // Whether guests who gave an email are reminded, a week before if they said Maybe and the day
+    // before if they said Going (spec, "Automatic reminders"). On for new events, off for events
+    // from before 0.3, as notifyOnRsvp is.
+    remindersEnabled: boolean("reminders_enabled").notNull().default(true),
+    // When the host published the event. A reminder whose time came before it is never sent, so
+    // an event published five days out sends no week reminder.
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    // When each reminder went out: each is sent once per event.
+    weekReminderSentAt: timestamp("week_reminder_sent_at", { withTimezone: true }),
+    dayReminderSentAt: timestamp("day_reminder_sent_at", { withTimezone: true }),
     ...timestamps,
   },
   (table) => [index("event_host_id_idx").on(table.hostId)],

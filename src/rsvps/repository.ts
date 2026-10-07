@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { cache } from "react";
-import { getDb } from "@/db/client";
+import { getDb, type Db } from "@/db/client";
 import { event, rsvp } from "@/db/schema";
 import type { Locale } from "@/locale/resolve-locale";
 import { countRsvps, type RsvpCounts, type StatusTally } from "./counts";
@@ -128,12 +128,13 @@ export async function deleteRsvp(eventId: string, id: string): Promise<Rsvp | un
 }
 
 // The RSVPs of one event as mail to its guests needs them, in the order they replied: who is told
-// is decided by the caller (cancellation.ts), and the mail is written in each guest's language.
-export type MailableRsvp = Pick<Rsvp, "status" | "email" | "mailToken" | "locale">;
+// is decided by the caller (audience.ts), the mail is written in each guest's language, and a
+// reminder repeats their reply. The reminders read them inside their own transaction.
+export type MailableRsvp = Pick<Rsvp, "status" | "plusOnes" | "email" | "mailToken" | "locale">;
 
-export async function listMailableRsvps(eventId: string): Promise<MailableRsvp[]> {
-  return getDb()
-    .select({ status: rsvp.status, email: rsvp.email, mailToken: rsvp.mailToken, locale: rsvp.locale })
+export async function listMailableRsvps(eventId: string, db: Db = getDb()): Promise<MailableRsvp[]> {
+  return db
+    .select({ status: rsvp.status, plusOnes: rsvp.plusOnes, email: rsvp.email, mailToken: rsvp.mailToken, locale: rsvp.locale })
     .from(rsvp)
     .where(eq(rsvp.eventId, eventId))
     .orderBy(asc(rsvp.repliedAt));

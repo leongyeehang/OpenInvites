@@ -1,4 +1,5 @@
 import { PHASE_PRODUCTION_BUILD } from "next/constants";
+import { queueDueReminders } from "@/reminders/queue";
 import { isMailConfigured } from "./config";
 import { sendDue } from "./outbox";
 
@@ -18,15 +19,18 @@ function worker(): Worker {
   return global[SHARED];
 }
 
-// Sends the outbox every minute, from register() in instrumentation.ts once the start checks have
-// passed. Without mail nothing is ever queued, so there is no worker; nor under `next build`.
+// Queues the reminders that are due and sends the outbox every minute, from register() in
+// instrumentation.ts once the start checks have passed. Without mail nothing is ever queued, so
+// there is no worker and no reminder; nor under `next build`.
 export function startMailWorker(): void {
   if (process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD || !isMailConfigured()) return;
   worker().timer ??= setInterval(() => void kickMailWorker(), EVERY_MINUTE);
 }
 
-// Sends whatever is due now rather than at the next minute. An action that has just queued mail
-// calls it through after(), so that its response does not wait for the mail server.
+// Sends whatever is due now rather than at the next minute, after queuing the reminders due now
+// (spec, "Mail outbox and worker"). An action that has just queued mail calls it through after(),
+// so that its response does not wait for the mail server. The outbox is read with a clock taken
+// after the reminders are queued, so they go out in this run.
 export async function kickMailWorker(): Promise<void> {
   const state = worker();
   if (state.running) {
@@ -37,6 +41,7 @@ export async function kickMailWorker(): Promise<void> {
   try {
     do {
       state.again = false;
+      await queueDueReminders(new Date());
       await sendDue(new Date());
     } while (state.again);
   } catch (error) {

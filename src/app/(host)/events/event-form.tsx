@@ -5,7 +5,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { FormOutcome } from "@/components/form-outcome";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { MAX_PLUS_ONES } from "@/events/form";
@@ -39,6 +39,9 @@ export function EventForm({ action, event, timeZones, submitLabel, questions, an
   const t = useTranslations("Events.form");
   const [state, formAction, pending] = useActionState(action, undefined);
   const [allDay, setAllDay] = useState(event?.allDay ?? false);
+  // Guests can be reminded only if they can give an email, so the reminder setting says so while
+  // the box that asks for it is unticked.
+  const [askEmail, setAskEmail] = useState(event?.askEmail ?? false);
   const timeZoneSelect = useRef<HTMLSelectElement>(null);
 
   // A new event defaults to the host's device zone, which only the browser knows, so the
@@ -110,7 +113,7 @@ export function EventForm({ action, event, timeZones, submitLabel, questions, an
           <FieldLabel htmlFor="require-plus-one-names">{t("requirePlusOneNames")}</FieldLabel>
         </Field>
         <Field orientation="horizontal">
-          <Checkbox id="ask-email" name="askEmail" defaultChecked={event?.askEmail} />
+          <Checkbox id="ask-email" name="askEmail" checked={askEmail} onCheckedChange={(checked) => setAskEmail(checked === true)} />
           <FieldLabel htmlFor="ask-email">{t("askEmail")}</FieldLabel>
         </Field>
         <QuestionsEditor questions={questions} answerCounts={answerCounts} />
@@ -132,6 +135,18 @@ export function EventForm({ action, event, timeZones, submitLabel, questions, an
         <Field orientation="horizontal">
           <Checkbox id="notify-on-rsvp" name="notifyOnRsvp" defaultChecked={event?.notifyOnRsvp ?? true} />
           <FieldLabel htmlFor="notify-on-rsvp">{t("notifyOnRsvp")}</FieldLabel>
+        </Field>
+        <Field orientation="horizontal">
+          <Checkbox
+            id="reminders-enabled"
+            name="remindersEnabled"
+            defaultChecked={event?.remindersEnabled ?? true}
+            aria-describedby={askEmail ? undefined : "reminders-hint"}
+          />
+          <FieldContent>
+            <FieldLabel htmlFor="reminders-enabled">{t("remindersEnabled")}</FieldLabel>
+            {!askEmail && <FieldDescription id="reminders-hint">{t("askEmailHint")}</FieldDescription>}
+          </FieldContent>
         </Field>
         <FormOutcome state={state} />
         <Button type="submit" disabled={pending} className="self-start">
