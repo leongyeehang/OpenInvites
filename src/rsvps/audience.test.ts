@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RsvpStatus } from "@/rsvps/form";
+import type { RsvpStatus } from "./form";
 import { recipients } from "./audience";
 
 function guest(status: RsvpStatus, email: string | null, mailToken: string | null = email && `token-${email}`) {

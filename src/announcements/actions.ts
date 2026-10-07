@@ -3,19 +3,16 @@
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { after } from "next/server";
 import { requireHost } from "@/auth/session";
-import { findHostEvent, type Event } from "@/events/repository";
+import { findHostEvent } from "@/events/repository";
 import type { FormState } from "@/lib/form-state";
 import { isUuid } from "@/lib/uuid";
 import { isMailConfigured } from "@/mail/config";
-import { guestMail, type MailedGuest } from "@/mail/guest-mail";
-import { queueMail } from "@/mail/outbox";
-import { kickMailWorker } from "@/mail/worker";
+import { queueGuestMail } from "@/mail/queue-guest-mail";
 import { consume } from "@/rate-limit/rate-limit";
+import { recipients } from "@/rsvps/audience";
 import { listMailableRsvps } from "@/rsvps/repository";
 import { DEFAULT_AUDIENCE, parseAnnouncement } from "./announcement";
-import { recipients } from "./audience";
 import { createAnnouncement, deleteAnnouncement } from "./repository";
 
 // The host posts an announcement to the event page and emails it to the guests they picked by
@@ -43,7 +40,15 @@ export async function postAnnouncementAction(eventId: string, _: FormState, form
 
   const posted = await createAnnouncement(event.id, parsed.announcement);
   if (!posted) return { error: t("errors.tooMany") };
-  await emailGuests(event, posted.body, guests);
+  // The host's words as written, under a subject and above a footer in the language each guest
+  // replied in (spec, "Guest mail"). A failure to queue is logged, and the post stands.
+  const values = { title: event.title };
+  await queueGuestMail(
+    event,
+    guests,
+    (_, theirs) => ({ subject: theirs("Mail.announcement.subject", values), body: posted.body }),
+    "an announcement to",
+  );
   revalidatePath(`/events/${event.id}/announcements`);
   return { success: mail ? t("sent", { count: guests.length }) : t("postedNoMail") };
 }
@@ -55,24 +60,4 @@ export async function deleteAnnouncementAction(eventId: string, id: string): Pro
   if (!event || !isUuid(id)) return;
   await deleteAnnouncement(event.id, id);
   revalidatePath(`/events/${event.id}/announcements`);
-}
-
-// Queues the announcement for each guest it is for: the host's words as written, under a subject
-// and above a footer in the language the guest replied in (spec, "Guest mail"). It never throws:
-// the announcement is on the page already, and a failure here must not tell the host otherwise,
-// so it is logged instead.
-async function emailGuests(event: Pick<Event, "id" | "title">, body: string, guests: MailedGuest[]): Promise<void> {
-  if (guests.length === 0) return;
-  try {
-    const rows = await Promise.all(
-      guests.map(async (guest) => {
-        const t = await getTranslations({ locale: guest.locale, namespace: "Mail.announcement" });
-        return guestMail(guest, event, { subject: t("subject", { title: event.title }), body });
-      }),
-    );
-    await queueMail(rows);
-    after(kickMailWorker);
-  } catch (error) {
-    console.error(`Mail: could not queue the guests' email about an announcement to event ${event.id}:`, error);
-  }
 }
