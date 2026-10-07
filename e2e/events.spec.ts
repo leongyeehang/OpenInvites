@@ -122,10 +122,12 @@ test("an event address a host mistypes is not found, on each of the event's page
     "/events/not-an-event",
     "/events/not-an-event/share",
     "/events/not-an-event/guests",
+    "/events/not-an-event/announcements",
     "/events/0192a7b8-0000-7000-8000-00000000000",
     // Next.js routes these to the event pages, with "new" for the event.
     "/events/new/share",
     "/events/new/guests",
+    "/events/new/announcements",
   ]) {
     await expectNotFoundAsSent(await page.goto(path));
     await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();

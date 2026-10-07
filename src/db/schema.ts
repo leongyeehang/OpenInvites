@@ -290,3 +290,20 @@ export const mailOutbox = pgTable(
   },
   (table) => [index("mail_outbox_event_id_idx").on(table.eventId)],
 );
+
+// A message the host posts to the event page, and emails to the guests whose status is one they
+// ticked (spec, "Announcements"). The audience is kept as ticked, so the host's list can say whom
+// it went to. At most ten per event, which the Announcements module checks.
+export const announcement = pgTable(
+  "announcement",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    audience: rsvpStatus("audience").array().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("announcement_event_id_idx").on(table.eventId)],
+);

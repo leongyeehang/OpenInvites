@@ -63,10 +63,11 @@ async function notFoundHere(pathname: string, headers: Headers): Promise<boolean
   // or expired is sent to sign-up, which says so.
   const invitationLink = pathname.match(/^\/host-invitation\/([^/]+)$/);
   if (invitationLink) return !(await findHostInvitation(decoded(invitationLink[1])));
-  // Another host's event, or none, for a signed-in host ((host)/events/[id], share, guests), which
-  // /events/new/share and /events/new/guests are too: only /events/new is a page of its own. A
-  // visitor who is not signed in is sent to sign in by the page.
-  const hostEvent = pathname.match(/^\/events\/([^/]+)(?:\/share|\/guests)?$/);
+  // Another host's event, or none, for a signed-in host ((host)/events/[id], share, guests,
+  // announcements), which /events/new/share, /events/new/guests and /events/new/announcements are
+  // too: only /events/new is a page of its own. A visitor who is not signed in is sent to sign in
+  // by the page.
+  const hostEvent = pathname.match(/^\/events\/([^/]+)(?:\/share|\/guests|\/announcements)?$/);
   if (hostEvent && pathname !== "/events/new") {
     const session = await getAuth().api.getSession({ headers });
     return session !== null && !(await findHostEvent(session.user.id, decoded(hostEvent[1])));

@@ -236,6 +236,9 @@
       "subject": "「{title}」已取消",
       "body": "主辦人已經取消了「{title}」。\n\n活動頁面：\n{url}"
     },
+    "announcement": {
+      "subject": "「{title}」：來自主辦人的訊息"
+    },
     "guestFooter": "你收到這封郵件，是因為你回覆「{title}」時留下了電子郵件。如果不想再收到關於這個活動的郵件，請開啟這個連結：{url}"
   },
   "Events": {
@@ -340,7 +343,8 @@
       "deleteTitle": "刪除「{title}」？",
       "deleteText": "{count, plural, =0 {還沒有人回覆，所以不會刪除其他內容。連結將會失效。} other {# 則回覆及其中的回答都會被刪除。連結將會失效。}}",
       "deleteConfirm": "確認刪除",
-      "share": "分享"
+      "share": "分享",
+      "announcements": "公告"
     },
     "verify": {
       "title": "請先驗證電子郵件",
@@ -369,6 +373,7 @@
     "when": "時間",
     "where": "地點",
     "about": "詳情",
+    "announcements": "主辦人的話",
     "draftBanner": "草稿。發布之前，只有你看得到這個頁面。",
     "edit": "編輯活動",
     "notReadyTitle": "這份邀請還沒準備好",
@@ -563,6 +568,40 @@
       "plusOneNameRequired": "每位同伴都需要有名字。",
       "plusOneNameTooLong": "名字太長了。",
       "emailInvalid": "這看起來不像電子郵件地址。"
+    }
+  },
+  "Announcements": {
+    "title": "公告",
+    "backToEvent": "返回活動",
+    "explainer": "任何開啟活動連結的人都能在頁面上看到公告。郵件只會寄給你選取、而且留下了電子郵件的賓客。",
+    "askEmailHint": "只有你在回覆表單中請賓客留下電子郵件，賓客才會收到郵件。",
+    "noMail": "此實例無法寄送電子郵件，所以公告只會顯示在活動頁面上。",
+    "message": "公告內容",
+    "remind": "立即寄送提醒",
+    "reminderDraft": "提醒一下：「{title}」快到了。\n\n時間：{when}{located, select, yes {\n地點：{location}} other {}}\n\n活動頁面：\n{url}",
+    "audience": "郵件寄給回覆以下狀態的賓客",
+    "status": {
+      "going": "參加",
+      "maybe": "待定",
+      "cant": "無法參加"
+    },
+    "send": "送出",
+    "sent": "{count, plural, =0 {已發布到活動頁面。你選取的賓客都沒有留下電子郵件，所以沒有寄出郵件。} other {已發布到活動頁面，並已寄郵件給 # 位賓客。}}",
+    "postedNoMail": "已發布到活動頁面。沒有寄出郵件。",
+    "sentTo": "寄送對象：{audience}",
+    "delete": "刪除",
+    "deleteTitle": "要刪除這則公告嗎？",
+    "deleteText": "它會從活動頁面上移除。已經收到郵件的賓客仍會保留那封郵件。",
+    "deleteConfirm": "確認刪除",
+    "keep": "算了",
+    "errors": {
+      "notFound": "這個活動已經不存在了。",
+      "bodyRequired": "請先寫下公告內容。",
+      "bodyTooLong": "公告太長了，請控制在 2000 字以內。",
+      "audienceRequired": "請選擇要寄郵件給哪些賓客。",
+      "audienceInvalid": "請選擇「參加」、「待定」或「無法參加」。",
+      "tooMany": "一個活動最多只能有 10 則公告。刪除一則後才能再發布。",
+      "tooFast": "操作太頻繁了，請稍後再試。"
     }
   },
   "Rsvp": {

@@ -66,6 +66,9 @@ export default async function ManageEventPage({ params }: PageProps<"/events/[id
             <Button asChild variant="outline">
               <Link href={`/events/${event.id}/share`}>{t("manage.share")}</Link>
             </Button>
+            <Button asChild variant="outline">
+              <Link href={`/events/${event.id}/announcements`}>{t("manage.announcements")}</Link>
+            </Button>
             {event.state === "draft" && (
               <form action={publishEventAction.bind(null, event.id)}>
                 <Button type="submit" title={t("manage.publishHint")}>

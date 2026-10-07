@@ -1,8 +1,9 @@
 import { Clock, MapPin } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
+import type { Announcement } from "@/announcements/repository";
 import type { EventWithHost } from "@/events/repository";
-import { formatDateSticker, formatWhen } from "@/events/time";
+import { formatDateSticker, formatMoment, formatWhen } from "@/events/time";
 import { cn } from "@/lib/utils";
 import { RichTextView } from "@/rich-text/rich-text-view";
 import { Glass } from "./glass";
@@ -13,6 +14,7 @@ import { PosterCard } from "./poster-card";
 // glass tiles. It renders inside a ThemedPage, which carries the theme.
 export async function PosterLayout({
   event,
+  announcements,
   notice,
   rsvp,
   guestList,
@@ -21,6 +23,8 @@ export async function PosterLayout({
   calendar,
 }: {
   event: EventWithHost;
+  // The host's announcements, newest first, which every viewer reads.
+  announcements: Pick<Announcement, "id" | "body" | "createdAt">[];
   notice?: ReactNode;
   rsvp?: ReactNode;
   guestList?: ReactNode;
@@ -72,6 +76,24 @@ export async function PosterLayout({
         <Glass data-slot="description" className={cn("mt-3 p-5", entrance, "motion-safe:delay-300")}>
           <SectionLabel>{t("about")}</SectionLabel>
           <RichTextView doc={event.descriptionRich} className="leading-relaxed text-theme-text-muted" />
+        </Glass>
+      )}
+
+      {/* Each dated in the event's zone, as everything on the page is, and with its line breaks;
+          nothing else in it is formatted. */}
+      {announcements.length > 0 && (
+        <Glass data-slot="announcements" className={cn("mt-3 p-5", entrance, "motion-safe:delay-300")}>
+          <SectionLabel>{t("announcements")}</SectionLabel>
+          <ol className="flex flex-col gap-4">
+            {announcements.map((each) => (
+              <li key={each.id}>
+                <p className="text-sm text-theme-text-faint">
+                  <time dateTime={each.createdAt.toISOString()}>{formatMoment(each.createdAt, event.timeZone, locale)}</time>
+                </p>
+                <p className="mt-1 leading-relaxed break-words whitespace-pre-line">{each.body}</p>
+              </li>
+            ))}
+          </ol>
         </Glass>
       )}
 

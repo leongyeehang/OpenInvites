@@ -3,6 +3,7 @@ import { cache } from "react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { listAnnouncements } from "@/announcements/repository";
 import { getSession } from "@/auth/session";
 import { PageFooter } from "@/components/page-footer";
 import { TooFast } from "@/components/too-fast";
@@ -119,12 +120,13 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // Whether this guest may see the list decides whether it is even loaded.
   const view = guestListView(event.guestListVisibility, { hasRsvp: mine !== undefined });
   const guests = view === "open" ? await listPublicGuestList(event.id) : [];
-  // What this event asks, what this guest has already said, so coming back prefills, and the
-  // host's own picture if there is one.
-  const [questions, answers, upload] = await Promise.all([
+  // What this event asks, what this guest has already said, so coming back prefills, the host's
+  // own picture if there is one, and what the host has announced, which every viewer reads.
+  const [questions, answers, upload, announcements] = await Promise.all([
     listQuestions(event.id),
     mine ? findAnswers(mine.rsvp.id) : Promise.resolve({}),
     findEventUpload(event.id),
+    listAnnouncements(event.id),
   ]);
 
   // Guests are sent the host's picture only while the page shows it: one the host put aside
@@ -149,6 +151,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
       >
         <PosterLayout
           event={event}
+          announcements={announcements}
           notice={isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined}
           rsvp={
             <RsvpFlow

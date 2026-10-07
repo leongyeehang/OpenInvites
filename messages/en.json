@@ -236,6 +236,9 @@
       "subject": "{title} is cancelled",
       "body": "The host has cancelled {title}.\n\nThe event page:\n{url}"
     },
+    "announcement": {
+      "subject": "{title}: a message from the host"
+    },
     "guestFooter": "You are getting this because you gave your email when you replied to {title}. To stop emails about this event: {url}"
   },
   "Events": {
@@ -340,7 +343,8 @@
       "deleteTitle": "Delete “{title}”?",
       "deleteText": "{count, plural, =0 {Nobody has replied, so nothing else goes with it. The link stops working.} =1 {One RSVP, and the answers with it, are deleted. The link stops working.} other {# RSVPs, and the answers with them, are deleted. The link stops working.}}",
       "deleteConfirm": "Delete it",
-      "share": "Share"
+      "share": "Share",
+      "announcements": "Announcements"
     },
     "verify": {
       "title": "Verify your email first",
@@ -369,6 +373,7 @@
     "when": "When",
     "where": "Where",
     "about": "About",
+    "announcements": "From the host",
     "draftBanner": "Draft. Only you can see this page until you publish it.",
     "edit": "Edit event",
     "notReadyTitle": "This invitation isn’t ready yet",
@@ -563,6 +568,40 @@
       "plusOneNameRequired": "Every guest needs a name.",
       "plusOneNameTooLong": "That name is too long.",
       "emailInvalid": "That does not look like an email address."
+    }
+  },
+  "Announcements": {
+    "title": "Announcements",
+    "backToEvent": "Back to the event",
+    "explainer": "Everyone who opens the event link can read announcements on the page. The email goes to the guests you pick who gave an email.",
+    "askEmailHint": "Guests get email only if you ask for their email on the RSVP form.",
+    "noMail": "This instance cannot send email, so announcements appear on the event page only.",
+    "message": "Message",
+    "remind": "Send a reminder now",
+    "reminderDraft": "A reminder: {title} is coming up.\n\nWhen: {when}{located, select, yes {\nWhere: {location}} other {}}\n\nThe event page:\n{url}",
+    "audience": "Email it to guests who said",
+    "status": {
+      "going": "Going",
+      "maybe": "Maybe",
+      "cant": "Can’t go"
+    },
+    "send": "Send",
+    "sent": "{count, plural, =0 {Posted to the event page. None of the guests you picked gave an email, so nobody was emailed.} =1 {Posted to the event page and emailed to 1 guest.} other {Posted to the event page and emailed to # guests.}}",
+    "postedNoMail": "Posted to the event page. No email was sent.",
+    "sentTo": "Sent to {audience}",
+    "delete": "Delete",
+    "deleteTitle": "Delete this announcement?",
+    "deleteText": "It comes off the event page. Guests who were emailed keep the email.",
+    "deleteConfirm": "Delete it",
+    "keep": "Never mind",
+    "errors": {
+      "notFound": "This event no longer exists.",
+      "bodyRequired": "Write the announcement first.",
+      "bodyTooLong": "That announcement is too long. Keep it to 2,000 characters.",
+      "audienceRequired": "Choose who gets the email.",
+      "audienceInvalid": "Choose Going, Maybe, or Can’t go.",
+      "tooMany": "Ten announcements is the most an event can carry. Delete one to post another.",
+      "tooFast": "You’re going too fast. Try again shortly."
     }
   },
   "Rsvp": {

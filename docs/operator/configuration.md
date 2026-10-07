@@ -132,8 +132,9 @@ forgotten password with the command in [upgrade-backup.md](upgrade-backup.md#res
 To check mail works after setting it up, sign up a host with an address you can read, or ask for
 a password reset for one. If nothing arrives, `docker compose logs app` shows the SMTP server's
 answer. Every request that sends one of the account emails (verification, password reset, an email
-change, a host invitation) counts against `RATE_LIMIT_MAIL`. The hosts' reply emails come from
-guests' RSVPs, so `RATE_LIMIT_RSVP` bounds them.
+change, a host invitation) counts against `RATE_LIMIT_MAIL`, and so does a host's announcement that
+emails guests, once however many it reaches. The hosts' reply emails come from guests' RSVPs, so
+`RATE_LIMIT_RSVP` bounds them.
 
 ## Sign in with Google and GitHub
 
@@ -245,7 +246,7 @@ runs.
 | `RATE_LIMIT_SIGN_UP` | `10/1h` | Signing up, and opening a host invitation link. |
 | `RATE_LIMIT_SIGN_IN` | `10/15m` | Signing in, and everything else that checks a password (changing it, deleting an account), and starting a Google or GitHub sign-in. |
 | `RATE_LIMIT_PASSWORD_RESET` | `10/1h` | Asking for a password reset link, and setting the new password. |
-| `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an account email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, and the operator's emailed host invitations. |
+| `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an account email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, and the operator's emailed host invitations. Also each announcement a host emails to guests, counted once however many guests it reaches. |
 
 Each limit is written `count/window`, the window in seconds, minutes or hours: `120/1m`,
 `60/10m`, `10/1h`. The defaults are for people, some of whom share an address (an office, a

@@ -236,6 +236,9 @@
       "subject": "“{title}”已取消",
       "body": "主办人已经取消了“{title}”。\n\n活动页面：\n{url}"
     },
+    "announcement": {
+      "subject": "“{title}”：来自主办人的消息"
+    },
     "guestFooter": "你收到这封邮件，是因为你回复“{title}”时留下了邮箱。如果不想再收到关于这个活动的邮件，请打开这个链接：{url}"
   },
   "Events": {
@@ -340,7 +343,8 @@
       "deleteTitle": "删除“{title}”？",
       "deleteText": "{count, plural, =0 {还没有人回复，所以不会删除其他内容。链接将失效。} other {# 条回复及其中的回答都会被删除。链接将失效。}}",
       "deleteConfirm": "确认删除",
-      "share": "分享"
+      "share": "分享",
+      "announcements": "公告"
     },
     "verify": {
       "title": "请先验证邮箱",
@@ -369,6 +373,7 @@
     "when": "时间",
     "where": "地点",
     "about": "详情",
+    "announcements": "主办人的话",
     "draftBanner": "草稿。发布之前，只有你能看到这个页面。",
     "edit": "编辑活动",
     "notReadyTitle": "这份邀请还没准备好",
@@ -563,6 +568,40 @@
       "plusOneNameRequired": "每位同伴都需要有名字。",
       "plusOneNameTooLong": "名字太长了。",
       "emailInvalid": "这看起来不像邮箱地址。"
+    }
+  },
+  "Announcements": {
+    "title": "公告",
+    "backToEvent": "返回活动",
+    "explainer": "任何打开活动链接的人都能在页面上看到公告。邮件只发给你选中的、并且留下了邮箱的宾客。",
+    "askEmailHint": "只有你在回复表单中请宾客留下邮箱，宾客才会收到邮件。",
+    "noMail": "此实例无法发送邮件，所以公告只会显示在活动页面上。",
+    "message": "公告内容",
+    "remind": "立即发送提醒",
+    "reminderDraft": "提醒一下：“{title}”快到了。\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}\n\n活动页面：\n{url}",
+    "audience": "邮件发给回复以下状态的宾客",
+    "status": {
+      "going": "参加",
+      "maybe": "待定",
+      "cant": "无法参加"
+    },
+    "send": "发送",
+    "sent": "{count, plural, =0 {已发布到活动页面。你选中的宾客都没有留下邮箱，所以没有发出邮件。} other {已发布到活动页面，并已发邮件给 # 位宾客。}}",
+    "postedNoMail": "已发布到活动页面。没有发出邮件。",
+    "sentTo": "发送对象：{audience}",
+    "delete": "删除",
+    "deleteTitle": "要删除这条公告吗？",
+    "deleteText": "它会从活动页面上移除。已经收到邮件的宾客仍会保留那封邮件。",
+    "deleteConfirm": "确认删除",
+    "keep": "算了",
+    "errors": {
+      "notFound": "这个活动已经不存在了。",
+      "bodyRequired": "请先写下公告内容。",
+      "bodyTooLong": "公告太长了，请控制在 2000 字以内。",
+      "audienceRequired": "请选择要发邮件给哪些宾客。",
+      "audienceInvalid": "请选择“参加”“待定”或“无法参加”。",
+      "tooMany": "一个活动最多只能有 10 条公告。删除一条后才能再发布。",
+      "tooFast": "操作太频繁了，请稍后再试。"
     }
   },
   "Rsvp": {
