@@ -231,7 +231,12 @@
         "maybe": "待定",
         "cant": "无法参加"
       }
-    }
+    },
+    "cancelled": {
+      "subject": "“{title}”已取消",
+      "body": "主办人已经取消了“{title}”。\n\n活动页面：\n{url}"
+    },
+    "guestFooter": "你收到这封邮件，是因为你回复“{title}”时留下了邮箱。如果不想再收到关于这个活动的邮件，请打开这个链接：{url}"
   },
   "Events": {
     "state": {
@@ -630,6 +635,13 @@
       "yes": "是",
       "no": "否"
     }
+  },
+  "StopMail": {
+    "title": "关于这个活动的邮件",
+    "onFile": "你为这个活动留下的邮箱是 {email}。",
+    "noEmail": "这个活动目前没有你的邮箱。",
+    "stop": "不再接收这个活动的邮件",
+    "done": "好了，你不会再收到关于“{title}”的邮件。"
   },
   "NotFound": {
     "title": "找不到页面",

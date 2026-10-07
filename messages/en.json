@@ -231,7 +231,12 @@
         "maybe": "Maybe",
         "cant": "Can’t go"
       }
-    }
+    },
+    "cancelled": {
+      "subject": "{title} is cancelled",
+      "body": "The host has cancelled {title}.\n\nThe event page:\n{url}"
+    },
+    "guestFooter": "You are getting this because you gave your email when you replied to {title}. To stop emails about this event: {url}"
   },
   "Events": {
     "state": {
@@ -630,6 +635,13 @@
       "yes": "Yes",
       "no": "No"
     }
+  },
+  "StopMail": {
+    "title": "Emails about this event",
+    "onFile": "The email on file for this event is {email}.",
+    "noEmail": "No email is on file for this event.",
+    "stop": "Stop emails about this event",
+    "done": "Done. You will get no more email about {title}."
   },
   "NotFound": {
     "title": "Page not found",

@@ -9,6 +9,7 @@ import type { FormState } from "@/lib/form-state";
 import { parseQuestions } from "@/questions/question";
 import { parseRichText } from "@/rich-text/rich-text";
 import { saveQuestions } from "@/questions/repository";
+import { notifyGuestsOfCancellation } from "@/rsvps/notify-cancellation";
 import { parseEventForm } from "./form";
 import { cancelEvent, createEvent, deleteEvent, publishEvent, resetEventLink, updateEvent } from "./repository";
 
@@ -108,7 +109,8 @@ export async function publishEventAction(id: string): Promise<void> {
 
 export async function cancelEventAction(id: string): Promise<void> {
   const host = await requireHost();
-  await cancelEvent(host.id, id);
+  const cancelled = await cancelEvent(host.id, id);
+  if (cancelled) await notifyGuestsOfCancellation(cancelled);
   revalidatePath(`/events/${id}`);
   redirect(`/events/${id}`);
 }

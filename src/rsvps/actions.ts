@@ -1,6 +1,6 @@
 "use server";
 
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { requireHost } from "@/auth/session";
@@ -53,9 +53,11 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
   if (!answers.ok) return { error: answers.error };
 
   const mine = await findRsvpOnThisDevice(event.id);
+  // The language the guest answers in is the one their mail about the event is written in.
+  const locale = await getLocale();
   // Two writes rather than one transaction: a failure between them leaves the RSVP saved with
   // its previous answers, which the guest can put right by answering again.
-  const saved = await saveRsvp(event.id, parsed.input, mine);
+  const saved = await saveRsvp(event.id, { ...parsed.input, locale }, mine);
   await saveAnswers(saved.rsvp.id, answers.answers);
   if (!mine) {
     // A new RSVP: this device now remembers the guest, so the link finds their answer next time.

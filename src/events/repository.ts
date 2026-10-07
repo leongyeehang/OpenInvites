@@ -140,11 +140,13 @@ export async function isRetiredSlug(slug: string): Promise<boolean> {
 }
 
 // Calling it off: the page stays up with its notice and takes no more answers (spec, story 28).
+// Only a published event is called off, and only the call that does it gets the event back, so
+// its guests are told once (rsvps/notify-cancellation.ts), however often the host presses.
 export async function cancelEvent(hostId: string, id: string): Promise<Event | undefined> {
   const [cancelled] = await getDb()
     .update(event)
     .set({ state: "cancelled", updatedAt: new Date() })
-    .where(and(eq(event.id, id), eq(event.hostId, hostId)))
+    .where(and(eq(event.id, id), eq(event.hostId, hostId), eq(event.state, "published")))
     .returning();
   return cancelled && withTheme(cancelled);
 }

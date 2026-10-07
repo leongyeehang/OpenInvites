@@ -2,10 +2,11 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { cache } from "react";
 import { getDb } from "@/db/client";
 import { event, rsvp } from "@/db/schema";
+import type { Locale } from "@/locale/resolve-locale";
 import { countRsvps, type RsvpCounts, type StatusTally } from "./counts";
 import type { RsvpAnswer, RsvpInput, RsvpStatus } from "./form";
 import { planRsvp } from "./plan";
-import { generateEditToken, hashEditToken } from "./token";
+import { generateEditToken, generateMailToken, hashEditToken } from "./token";
 
 export type Rsvp = typeof rsvp.$inferSelect;
 
@@ -32,18 +33,30 @@ export async function findEventForToken(token: string): Promise<{ eventId: strin
 // An RSVP together with the edit token that opened it, which is what the guest holds.
 export type MyRsvp = { rsvp: Rsvp; token: string };
 
-// Saves one answer. A guest who already has an RSVP here changes it and keeps their edit token;
-// anyone else gets a new RSVP with a fresh one.
-export async function saveRsvp(eventId: string, input: RsvpInput, mine: MyRsvp | undefined): Promise<MyRsvp> {
+// Saves one answer, in the language the guest gave it in. A guest who already has an RSVP here
+// changes it and keeps their edit token; anyone else gets a new RSVP with a fresh one. The first
+// save with an email makes the RSVP's mail token, and every later save keeps it, even one that
+// blanks the email, so the stop link in an old email still finds its page (spec, "Guest mail").
+export async function saveRsvp(eventId: string, input: RsvpInput & { locale: Locale }, mine: MyRsvp | undefined): Promise<MyRsvp> {
   const plan = planRsvp(eventId, input, mine && { id: mine.rsvp.id, token: mine.token }, new Date());
   if (plan.replaces) {
-    const [replaced] = await getDb().update(rsvp).set(plan.changes).where(eq(rsvp.id, plan.replaces.id)).returning();
+    const mailToken = input.email ? sql`coalesce(${rsvp.mailToken}, ${generateMailToken()})` : undefined;
+    const [replaced] = await getDb()
+      .update(rsvp)
+      .set({ ...plan.changes, locale: input.locale, mailToken })
+      .where(eq(rsvp.id, plan.replaces.id))
+      .returning();
     return { rsvp: replaced, token: plan.replaces.token };
   }
   const token = generateEditToken();
   const [created] = await getDb()
     .insert(rsvp)
-    .values({ ...plan.rsvp, editTokenHash: hashEditToken(token) })
+    .values({
+      ...plan.rsvp,
+      locale: input.locale,
+      editTokenHash: hashEditToken(token),
+      mailToken: input.email ? generateMailToken() : null,
+    })
     .returning();
   return { rsvp: created, token };
 }
@@ -112,6 +125,43 @@ export async function editRsvpAsHost(eventId: string, id: string, edit: RsvpAnsw
 export async function deleteRsvp(eventId: string, id: string): Promise<Rsvp | undefined> {
   const [removed] = await getDb().delete(rsvp).where(and(eq(rsvp.id, id), eq(rsvp.eventId, eventId))).returning();
   return removed;
+}
+
+// The RSVPs of one event as mail to its guests needs them, in the order they replied: who is told
+// is decided by the caller (cancellation.ts), and the mail is written in each guest's language.
+export type MailableRsvp = Pick<Rsvp, "status" | "email" | "mailToken" | "locale">;
+
+export async function listMailableRsvps(eventId: string): Promise<MailableRsvp[]> {
+  return getDb()
+    .select({ status: rsvp.status, email: rsvp.email, mailToken: rsvp.mailToken, locale: rsvp.locale })
+    .from(rsvp)
+    .where(eq(rsvp.eventId, eventId))
+    .orderBy(asc(rsvp.repliedAt));
+}
+
+// What the stop link's page shows (app/m/[token]): the event's title and the email on file, and
+// nothing else of the RSVP, which a mail token never reveals or edits.
+export async function findByMailToken(mailToken: string): Promise<{ title: string; email: string | null } | undefined> {
+  const [row] = await getDb()
+    .select({ title: event.title, email: rsvp.email })
+    .from(rsvp)
+    .innerJoin(event, eq(event.id, rsvp.eventId))
+    .where(eq(rsvp.mailToken, mailToken))
+    .limit(1);
+  return row;
+}
+
+// The stop link's one power: blanking the email, so no more mail about the event reaches the
+// guest. The token stays, so the link keeps landing on its page. Returns the event's title, or
+// nothing when no RSVP has the token.
+export async function blankEmailByMailToken(mailToken: string): Promise<{ title: string } | undefined> {
+  const [stopped] = await getDb()
+    .update(rsvp)
+    .set({ email: null })
+    .from(event)
+    .where(and(eq(rsvp.mailToken, mailToken), eq(event.id, rsvp.eventId)))
+    .returning({ title: event.title });
+  return stopped;
 }
 
 // The RSVPs of several events at once, for the host's dashboard. Postgres groups them; the
