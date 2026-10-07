@@ -219,12 +219,12 @@
       "subject": {
         "replied": "{name} replied to {title}: {status}",
         "changed": "{name} changed their RSVP to {title}: {status}",
-        "removed": "{name} removed their RSVP to {title}"
+        "removed": "{name}’s RSVP to {title} was removed"
       },
       "body": {
         "replied": "{name} replied to {title}: {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email me when a guest replies” in the event’s settings.",
         "changed": "{name} changed their RSVP to {title}: {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email me when a guest replies” in the event’s settings.",
-        "removed": "{name} removed their RSVP to {title}. Their RSVP said {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email me when a guest replies” in the event’s settings."
+        "removed": "{name}’s RSVP to {title} was removed. It said {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email me when a guest replies” in the event’s settings."
       },
       "status": {
         "going": "Going",

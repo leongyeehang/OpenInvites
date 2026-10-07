@@ -214,6 +214,23 @@
     "hostInvitation": {
       "subject": "你的 OpenInvites 主辦人邀請",
       "body": "你好：\n\n這是你的 OpenInvites 主辦人邀請。開啟下方連結，建立主辦人帳號，就可以開始製作活動頁面了。\n\n{url}\n\n這個連結只能建立一個帳號，{days} 天後失效。如果你沒想到會收到這封郵件，可以忽略它。"
+    },
+    "rsvpReply": {
+      "subject": {
+        "replied": "{name} 回覆了「{title}」：{status}",
+        "changed": "{name} 更改了對「{title}」的回覆：{status}",
+        "removed": "{name} 對「{title}」的回覆已移除"
+      },
+      "body": {
+        "replied": "{name} 回覆了「{title}」：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給我」。",
+        "changed": "{name} 更改了對「{title}」的回覆：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給我」。",
+        "removed": "{name} 對「{title}」的回覆已移除。原本的回覆是：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給我」。"
+      },
+      "status": {
+        "going": "參加",
+        "maybe": "待定",
+        "cant": "無法參加"
+      }
     }
   },
   "Events": {
@@ -253,6 +270,7 @@
       "guestListAfterReply": "已回覆的賓客",
       "guestListHidden": "只有我",
       "guestListVisibilityHint": "你永遠都能看到完整名單。",
+      "notifyOnRsvp": "有賓客回覆時寄電子郵件給我",
       "questions": "問題",
       "questionsHint": "賓客回覆時作答，答案只有你看得到。",
       "questionAdd": "新增問題",
