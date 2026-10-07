@@ -6,6 +6,7 @@ import { cookies, headers } from "next/headers";
 import { requireHost } from "@/auth/session";
 import { acceptsRsvps } from "@/events/access";
 import { findEventBySlug, findHostEvent } from "@/events/repository";
+import { can } from "@/hosts/role";
 import { parseAnswers, type AnswerFields } from "@/questions/answers";
 import { listQuestions, saveAnswers } from "@/questions/repository";
 import type { FormState } from "@/lib/form-state";
@@ -95,7 +96,7 @@ export async function editGuestAction(
 ): Promise<FormState> {
   const [host, t] = await Promise.all([requireHost(), getTranslations("Guests")]);
   const event = await findHostEvent(host.id, eventId);
-  if (!event) return { error: t("errors.notFound") };
+  if (!event || !can(event.role, "guests")) return { error: t("errors.notFound") };
 
   const parsed = parseHostEdit(fields(formData), event);
   if (!parsed.ok) return { error: t(`errors.${parsed.error}`) };
@@ -109,7 +110,7 @@ export async function editGuestAction(
 export async function removeGuestAction(eventId: string, rsvpId: string): Promise<void> {
   const host = await requireHost();
   const event = await findHostEvent(host.id, eventId);
-  if (!event) return;
+  if (!event || !can(event.role, "guests")) return;
   const removed = await deleteRsvp(event.id, rsvpId);
   await notifyHostsOfRsvp(event, removed, undefined);
   revalidatePath(`/events/${eventId}/guests`);

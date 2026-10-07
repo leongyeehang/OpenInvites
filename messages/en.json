@@ -120,7 +120,8 @@
       "emptyUpcoming": "Nothing coming up.",
       "emptyPast": "Nothing has happened yet.",
       "counts": "{going} going · {maybe} maybe · {declined} can’t go",
-      "headcount": "{count, plural, =0 {no one expected yet} =1 {1 person expected} other {# people expected}}"
+      "headcount": "{count, plural, =0 {no one expected yet} =1 {1 person expected} other {# people expected}}",
+      "coHost": "Co-host"
     }
   },
   "Account": {
@@ -153,7 +154,7 @@
       "description": "Removes your account, your events, and every guest’s data. This cannot be undone.",
       "button": "Delete account",
       "confirmTitle": "Delete your account?",
-      "confirmDescription": "Your events and every RSVP go with it. Enter your password to confirm.",
+      "confirmDescription": "Your own events and every RSVP go with it, even those you share with co-hosts. You leave the events you co-host, which stay with their hosts. Enter your password to confirm.",
       "password": "Password",
       "cancel": "Cancel",
       "confirm": "Delete my account"
@@ -218,12 +219,12 @@
     "rsvpReply": {
       "subject": {
         "replied": "{name} replied to {title}: {status}",
-        "changed": "{name} changed their RSVP to {title}: {status}",
+        "changed": "{name}’s RSVP to {title} is now {status}",
         "removed": "{name}’s RSVP to {title} was removed"
       },
       "body": {
         "replied": "{name} replied to {title}: {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email me when a guest replies” in the event’s settings.",
-        "changed": "{name} changed their RSVP to {title}: {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email me when a guest replies” in the event’s settings.",
+        "changed": "{name}’s RSVP to {title} is now {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email me when a guest replies” in the event’s settings.",
         "removed": "{name}’s RSVP to {title} was removed. It said {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email me when a guest replies” in the event’s settings."
       },
       "status": {
@@ -354,7 +355,10 @@
       "deleteText": "{count, plural, =0 {Nobody has replied, so nothing else goes with it. The link stops working.} =1 {One RSVP, and the answers with it, are deleted. The link stops working.} other {# RSVPs, and the answers with them, are deleted. The link stops working.}}",
       "deleteConfirm": "Delete it",
       "share": "Share",
-      "announcements": "Announcements"
+      "announcements": "Announcements",
+      "hosts": "Hosts",
+      "coHost": "Co-host",
+      "leave": "Leave this event"
     },
     "verify": {
       "title": "Verify your email first",
@@ -379,7 +383,7 @@
   },
   "EventPage": {
     "eyebrow": "You’re invited to",
-    "hostedBy": "Hosted by {name}",
+    "hostedBy": "Hosted by {hosts}",
     "when": "When",
     "where": "Where",
     "about": "About",
@@ -614,6 +618,36 @@
       "tooFast": "You’re going too fast. Try again shortly."
     }
   },
+  "Hosts": {
+    "title": "Hosts",
+    "backToEvent": "Back to the event",
+    "explainer": "Co-hosts manage this event with you. They can do everything you can, except delete it or change who its co-hosts are.",
+    "host": "Host",
+    "coHost": "Co-host",
+    "remove": "Remove",
+    "removeTitle": "Remove {name} as a co-host?",
+    "removeText": "They will no longer be able to manage this event. You can make them a new co-host link later.",
+    "removeConfirm": "Remove",
+    "keep": "Never mind",
+    "links": "Co-host links",
+    "linksEmpty": "No co-host links are waiting to be used.",
+    "linkDates": "Made {made} · Expires {expires}",
+    "revoke": "Revoke",
+    "make": "Make a co-host link",
+    "created": "Copy this link now: it is not shown again. It works for one person and expires in {days} days.",
+    "link": "Co-host link",
+    "copy": "Copy link",
+    "copied": "Copied",
+    "full": "This event has {max} co-hosts, the most it can have. Remove one to add another.",
+    "coHostIntro": "You co-host this event. Leaving takes it off your events, and you can no longer manage it.",
+    "leave": "Leave this event",
+    "leaveTitle": "Leave “{title}”?",
+    "leaveText": "You will no longer be able to manage it. Its host can make you a new co-host link.",
+    "leaveConfirm": "Leave",
+    "errors": {
+      "notFound": "This event no longer exists."
+    }
+  },
   "Rsvp": {
     "going": "Going",
     "maybe": "Maybe",
@@ -691,6 +725,20 @@
     "noEmail": "No email is on file for this event.",
     "stop": "Stop emails about this event",
     "done": "Done. You will get no more email about {title}."
+  },
+  "CoHostLink": {
+    "title": "Co-host link",
+    "intro": "Accept to co-host this event and manage it with its host.",
+    "accept": "Accept",
+    "signIn": "Sign in to accept this co-host link",
+    "needsAccount": "A co-host link needs a host account on this instance. If you don’t have one, create one, then open this link again.",
+    "needsInvitation": "A co-host link needs a host account on this instance. This instance is invitation only, so to create an account you need a host invitation from its operator.",
+    "owner": "This is your own event.",
+    "openEvent": "Open your event",
+    "used": "This co-host link has already been used. Ask the host for a new one.",
+    "revoked": "This co-host link has been revoked. Ask the host for a new one.",
+    "expired": "This co-host link has expired. Ask the host for a new one.",
+    "full": "This event already has {max} co-hosts, the most it can have."
   },
   "NotFound": {
     "title": "Page not found",

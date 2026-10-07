@@ -1,5 +1,6 @@
 import { getSession } from "@/auth/session";
 import { findHostEvent } from "@/events/repository";
+import { can } from "@/hosts/role";
 import { baseUrl, maxUploadBytes } from "@/instance/env";
 import { isUuid } from "@/lib/uuid";
 import { consume, retryAfter } from "@/rate-limit/rate-limit";
@@ -20,7 +21,8 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
   const session = await getSession();
   if (!session) return new Response(null, { status: 401 });
   const { id } = await context.params;
-  if (!isUuid(id) || !(await findHostEvent(session.user.id, id))) return refused("notFound");
+  const event = isUuid(id) ? await findHostEvent(session.user.id, id) : undefined;
+  if (!event || !can(event.role, "design")) return refused("notFound");
 
   const maxBytes = maxUploadBytes();
   const bytes = await readUpTo(request, maxBytes);

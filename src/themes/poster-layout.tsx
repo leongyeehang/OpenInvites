@@ -1,5 +1,5 @@
 import { Clock, MapPin } from "lucide-react";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import type { Announcement } from "@/announcements/repository";
 import type { EventWithHost } from "@/events/repository";
@@ -14,6 +14,7 @@ import { PosterCard } from "./poster-card";
 // glass tiles. It renders inside a ThemedPage, which carries the theme.
 export async function PosterLayout({
   event,
+  hosts,
   announcements,
   notice,
   rsvp,
@@ -23,6 +24,8 @@ export async function PosterLayout({
   calendar,
 }: {
   event: EventWithHost;
+  // Every host's display name, owner first, then co-hosts in the order they were added.
+  hosts: string[];
   // The host's announcements, newest first, which every viewer reads.
   announcements: Pick<Announcement, "id" | "body" | "createdAt">[];
   notice?: ReactNode;
@@ -33,7 +36,7 @@ export async function PosterLayout({
   underWhere?: ReactNode;
   calendar?: ReactNode;
 }) {
-  const [t, locale] = await Promise.all([getTranslations("EventPage"), getLocale()]);
+  const [t, locale, format] = await Promise.all([getTranslations("EventPage"), getLocale(), getFormatter()]);
   const sticker = formatDateSticker(event, locale);
 
   return (
@@ -49,7 +52,7 @@ export async function PosterLayout({
             <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-theme-accent text-xs font-semibold text-theme-on-accent">
               {initialsOf(event.hostName)}
             </span>
-            <p className="text-sm text-theme-text-muted">{t("hostedBy", { name: event.hostName })}</p>
+            <p className="text-sm text-theme-text-muted">{t("hostedBy", { hosts: format.list(hosts, { type: "conjunction" }) })}</p>
           </div>
         }
         className={cn(invitationEntrance, "motion-safe:delay-0")}

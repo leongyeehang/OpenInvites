@@ -120,7 +120,8 @@
       "emptyUpcoming": "近期沒有活動。",
       "emptyPast": "還沒有已結束的活動。",
       "counts": "{going} 人參加 · {maybe} 人待定 · {declined} 人無法參加",
-      "headcount": "{count, plural, =0 {還沒有人確定要來} other {預計 # 人}}"
+      "headcount": "{count, plural, =0 {還沒有人確定要來} other {預計 # 人}}",
+      "coHost": "共同主辦人"
     }
   },
   "Account": {
@@ -153,7 +154,7 @@
       "description": "將刪除你的帳號、你的活動，以及每位賓客的資料。這個動作無法復原。",
       "button": "刪除帳號",
       "confirmTitle": "要刪除你的帳號嗎？",
-      "confirmDescription": "你的活動和所有回覆都會一併刪除。請輸入密碼確認。",
+      "confirmDescription": "你自己的活動和所有回覆都會一併刪除，有共同主辦人的也不例外。你共同主辦的活動會留給它們的主辦人，你會退出這些活動。請輸入密碼確認。",
       "password": "密碼",
       "cancel": "取消",
       "confirm": "刪除我的帳號"
@@ -218,12 +219,12 @@
     "rsvpReply": {
       "subject": {
         "replied": "{name} 回覆了「{title}」：{status}",
-        "changed": "{name} 更改了對「{title}」的回覆：{status}",
+        "changed": "{name} 對「{title}」的回覆現在是：{status}",
         "removed": "{name} 對「{title}」的回覆已移除"
       },
       "body": {
         "replied": "{name} 回覆了「{title}」：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給我」。",
-        "changed": "{name} 更改了對「{title}」的回覆：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給我」。",
+        "changed": "{name} 對「{title}」的回覆現在是：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給我」。",
         "removed": "{name} 對「{title}」的回覆已移除。原本的回覆是：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給我」。"
       },
       "status": {
@@ -354,7 +355,10 @@
       "deleteText": "{count, plural, =0 {還沒有人回覆，所以不會刪除其他內容。連結將會失效。} other {# 則回覆及其中的回答都會被刪除。連結將會失效。}}",
       "deleteConfirm": "確認刪除",
       "share": "分享",
-      "announcements": "公告"
+      "announcements": "公告",
+      "hosts": "主辦人",
+      "coHost": "共同主辦人",
+      "leave": "退出這個活動"
     },
     "verify": {
       "title": "請先驗證電子郵件",
@@ -379,7 +383,7 @@
   },
   "EventPage": {
     "eyebrow": "誠邀你參加",
-    "hostedBy": "主辦人：{name}",
+    "hostedBy": "主辦人：{hosts}",
     "when": "時間",
     "where": "地點",
     "about": "詳情",
@@ -614,6 +618,36 @@
       "tooFast": "操作太頻繁了，請稍後再試。"
     }
   },
+  "Hosts": {
+    "title": "主辦人",
+    "backToEvent": "返回活動",
+    "explainer": "共同主辦人和你一起管理這個活動。除了刪除活動和變更共同主辦人，你能做的事他們都能做。",
+    "host": "主辦人",
+    "coHost": "共同主辦人",
+    "remove": "移除",
+    "removeTitle": "要移除共同主辦人 {name} 嗎？",
+    "removeText": "移除後，對方將無法再管理這個活動。之後你可以再為對方產生新的共同主辦人連結。",
+    "removeConfirm": "確認移除",
+    "keep": "算了",
+    "links": "共同主辦人連結",
+    "linksEmpty": "沒有待使用的共同主辦人連結。",
+    "linkDates": "產生於 {made} · {expires} 失效",
+    "revoke": "撤銷",
+    "make": "產生共同主辦人連結",
+    "created": "請現在複製這個連結：之後不會再顯示。連結只能給一個人使用，{days} 天後失效。",
+    "link": "共同主辦人連結",
+    "copy": "複製連結",
+    "copied": "已複製",
+    "full": "這個活動已有 {max} 位共同主辦人，已達上限。要新增，請先移除一位。",
+    "coHostIntro": "你是這個活動的共同主辦人。退出後，這個活動會從「我的活動」中移除，你也無法再管理它。",
+    "leave": "退出這個活動",
+    "leaveTitle": "要退出「{title}」嗎？",
+    "leaveText": "退出後你將無法再管理這個活動。主辦人可以再為你產生新的共同主辦人連結。",
+    "leaveConfirm": "確認退出",
+    "errors": {
+      "notFound": "這個活動已經不存在了。"
+    }
+  },
   "Rsvp": {
     "going": "參加",
     "maybe": "待定",
@@ -691,6 +725,20 @@
     "noEmail": "這個活動目前沒有你的電子郵件。",
     "stop": "不再接收這個活動的郵件",
     "done": "好了，你不會再收到關於「{title}」的郵件。"
+  },
+  "CoHostLink": {
+    "title": "共同主辦人連結",
+    "intro": "接受後，你會成為這個活動的共同主辦人，和主辦人一起管理它。",
+    "accept": "接受",
+    "signIn": "登入以接受這個共同主辦人連結",
+    "needsAccount": "共同主辦人連結需要你在此實例上有主辦人帳號。如果還沒有，請先建立一個，然後再次開啟這個連結。",
+    "needsInvitation": "共同主辦人連結需要你在此實例上有主辦人帳號。此實例僅限受邀註冊，要建立帳號，你需要此實例的營運者發出的主辦人邀請。",
+    "owner": "這是你自己的活動。",
+    "openEvent": "開啟你的活動",
+    "used": "這個共同主辦人連結已經被使用了。請向主辦人索取新的連結。",
+    "revoked": "這個共同主辦人連結已被撤銷。請向主辦人索取新的連結。",
+    "expired": "這個共同主辦人連結已失效。請向主辦人索取新的連結。",
+    "full": "這個活動已有 {max} 位共同主辦人，已達上限。"
   },
   "NotFound": {
     "title": "找不到頁面",

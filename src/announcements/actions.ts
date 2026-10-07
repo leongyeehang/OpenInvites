@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { requireHost } from "@/auth/session";
 import { findHostEvent } from "@/events/repository";
+import { can } from "@/hosts/role";
 import type { FormState } from "@/lib/form-state";
 import { isUuid } from "@/lib/uuid";
 import { isMailConfigured } from "@/mail/config";
@@ -20,7 +21,7 @@ import { createAnnouncement, deleteAnnouncement } from "./repository";
 export async function postAnnouncementAction(eventId: string, _: FormState, formData: FormData): Promise<FormState> {
   const [host, t] = await Promise.all([requireHost(), getTranslations("Announcements")]);
   const event = await findHostEvent(host.id, eventId);
-  if (!event) return { error: t("errors.notFound") };
+  if (!event || !can(event.role, "announcements")) return { error: t("errors.notFound") };
 
   // Without mail there is nobody to email, and the form's checkboxes are disabled, so they post
   // nothing: the announcement is for the page alone, and keeps the form's default audience.
@@ -57,7 +58,7 @@ export async function postAnnouncementAction(eventId: string, _: FormState, form
 export async function deleteAnnouncementAction(eventId: string, id: string): Promise<void> {
   const host = await requireHost();
   const event = await findHostEvent(host.id, eventId);
-  if (!event || !isUuid(id)) return;
+  if (!event || !can(event.role, "announcements") || !isUuid(id)) return;
   await deleteAnnouncement(event.id, id);
   revalidatePath(`/events/${event.id}/announcements`);
 }

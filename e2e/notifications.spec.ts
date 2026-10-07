@@ -52,7 +52,7 @@ test("the host is emailed when a guest replies and changes their status, and not
   await page.getByRole("button", { name: "Send RSVP" }).click();
   await expect(page.getByText("You’re a maybe.")).toBeVisible({ timeout: 15_000 });
 
-  await expectNewestMail(request, host.email, "Priya Nair changed their RSVP to Ada’s birthday: Maybe.");
+  await expectNewestMail(request, host.email, "Priya Nair’s RSVP to Ada’s birthday is now Maybe.");
   expect(await mailCountTo(request, host.email)).toBe(3);
 
   // A new name keeps the status, which is not worth an email.
@@ -83,7 +83,7 @@ test("the host is emailed when a guest replies and changes their status, and not
   await otherPage.getByRole("button", { name: "Send RSVP" }).click();
   await expect(otherPage.getByText("We’ll miss you.")).toBeVisible({ timeout: 15_000 });
 
-  await expectNewestMail(request, host.email, "Mei Lin changed their RSVP to Ada’s birthday: Can’t go.");
+  await expectNewestMail(request, host.email, "Mei Lin’s RSVP to Ada’s birthday is now Can’t go.");
   expect(await mailCountTo(request, host.email)).toBe(4);
 
   await other.close();

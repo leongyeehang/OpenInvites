@@ -2,6 +2,8 @@ import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { cache } from "react";
 import { getDb } from "@/db/client";
 import { event, retiredSlug, upload, user } from "@/db/schema";
+import { hostedBy } from "@/hosts/repository";
+import { roleOf, type Role } from "@/hosts/role";
 import { isUuid } from "@/lib/uuid";
 import type { Locale } from "@/locale/resolve-locale";
 import { DEFAULT_THEME, parseTheme, type Theme } from "@/themes/theme";
@@ -11,6 +13,8 @@ import { SLUG_TAKEN, withFreshSlug } from "./slug";
 
 export type Event = typeof event.$inferSelect;
 export type EventState = Event["state"];
+// An event as one of its hosts finds it: with what they are to it, owner or co-host.
+export type HostEvent = Event & { role: Role };
 
 // Every read goes through here: the stored theme is completed by parseTheme, so rows from before
 // themes existed, or from a newer version, come back as a whole Theme.
@@ -47,20 +51,23 @@ export async function createEvent(hostId: string, input: EventChanges): Promise<
   });
 }
 
-// Scoped to the host: a host can only ever load or change their own events. Cached per
-// request, as generateMetadata and the page both ask. An id from the address bar that is not a
-// UUID finds nothing, as Postgres would refuse it, so the host's pages show not-found for it.
-export const findHostEvent = cache(async (hostId: string, id: string): Promise<Event | undefined> => {
+// The one gate (spec, "Co-hosts"): scoped to the host, it finds an event they own or co-host, with
+// their role, and nothing for anyone else. Every host page and event action comes through here,
+// and each action then asks can(role, action) (hosts/role.ts); the writes below are scoped the same
+// way. Cached per request, as generateMetadata and the page both ask. An id from the address bar
+// that is not a UUID finds nothing, as Postgres would refuse it, so the host's pages show
+// not-found for it.
+export const findHostEvent = cache(async (hostId: string, id: string): Promise<HostEvent | undefined> => {
   if (!isUuid(id)) return undefined;
-  const found = await getDb().query.event.findFirst({ where: and(eq(event.id, id), eq(event.hostId, hostId)) });
-  return found && withTheme(found);
+  const found = await getDb().query.event.findFirst({ where: and(eq(event.id, id), hostedBy(hostId)) });
+  return found && { ...withTheme(found), role: roleOf(found, hostId) };
 });
 
 export async function updateEvent(hostId: string, id: string, input: EventChanges): Promise<Event | undefined> {
   const [updated] = await getDb()
     .update(event)
     .set({ ...input, updatedAt: new Date() })
-    .where(and(eq(event.id, id), eq(event.hostId, hostId)))
+    .where(and(eq(event.id, id), hostedBy(hostId)))
     .returning();
   return updated && withTheme(updated);
 }
@@ -74,7 +81,7 @@ export async function changeEventTheme(hostId: string, id: string, change: (them
     const [row] = await tx
       .select({ theme: event.theme })
       .from(event)
-      .where(and(eq(event.id, id), eq(event.hostId, hostId)))
+      .where(and(eq(event.id, id), hostedBy(hostId)))
       .for("update");
     if (!row) return undefined;
     const current = parseTheme(row.theme);
@@ -96,7 +103,7 @@ export async function publishEvent(hostId: string, id: string): Promise<Event | 
       publishedAt: sql`case when ${event.state} = 'draft' then ${now.toISOString()}::timestamptz else ${event.publishedAt} end`,
       updatedAt: now,
     })
-    .where(and(eq(event.id, id), eq(event.hostId, hostId)))
+    .where(and(eq(event.id, id), hostedBy(hostId)))
     .returning();
   return published && withTheme(published);
 }
@@ -107,7 +114,7 @@ export async function resetEventLink(hostId: string, id: string): Promise<Event 
   return withFreshSlug(async (slug) => {
     try {
       return await getDb().transaction(async (tx) => {
-        const current = await tx.query.event.findFirst({ where: and(eq(event.id, id), eq(event.hostId, hostId)) });
+        const current = await tx.query.event.findFirst({ where: and(eq(event.id, id), hostedBy(hostId)) });
         if (!current) return undefined;
 
         // Retiring a slug twice is not a collision worth retrying: both unique constraints
@@ -119,7 +126,7 @@ export async function resetEventLink(hostId: string, id: string): Promise<Event 
         const [reset] = await tx
           .update(event)
           .set({ slug, updatedAt: new Date() })
-          .where(and(eq(event.id, current.id), eq(event.hostId, hostId), eq(event.slug, current.slug)))
+          .where(and(eq(event.id, current.id), hostedBy(hostId), eq(event.slug, current.slug)))
           .returning();
         return reset && withTheme(reset);
       });
@@ -153,18 +160,19 @@ export async function cancelEvent(hostId: string, id: string): Promise<Event | u
   const [cancelled] = await getDb()
     .update(event)
     .set({ state: "cancelled", updatedAt: new Date() })
-    .where(and(eq(event.id, id), eq(event.hostId, hostId), eq(event.state, "published")))
+    .where(and(eq(event.id, id), hostedBy(hostId), eq(event.state, "published")))
     .returning();
   return cancelled && withTheme(cancelled);
 }
 
-// Leaves no trace: the event's RSVPs, their answers, its questions, its retired slugs and its
-// upload all cascade with it, and the upload's stored files go too.
+// Leaves no trace: the event's RSVPs, their answers, its questions, its retired slugs, its upload and
+// its co-hosts all cascade with it, and the upload's stored files go too. Only its owner deletes it.
 export async function deleteEvent(hostId: string, id: string): Promise<void> {
   await removeEvents(and(eq(event.id, id), eq(event.hostId, hostId)));
 }
 
-// Every event of a host who is deleting their account (auth.ts), before the account itself goes.
+// Every event a host owns, when they delete their account (auth.ts), before the account itself goes,
+// co-hosted or not. The events they co-host stay with their owners; the membership goes with the account.
 export async function deleteHostEvents(hostId: string): Promise<void> {
   await removeEvents(eq(event.hostId, hostId));
 }
@@ -184,14 +192,15 @@ async function removeEvents(which: SQL | undefined): Promise<void> {
   await removeRenditions(uploads);
 }
 
-export async function listHostEvents(hostId: string): Promise<Event[]> {
-  const events = await getDb().query.event.findMany({ where: eq(event.hostId, hostId), orderBy: [asc(event.startsAt), desc(event.createdAt)] });
-  return events.map(withTheme);
+// The dashboard: the events a host owns and those they co-host, each with their role.
+export async function listHostEvents(hostId: string): Promise<HostEvent[]> {
+  const events = await getDb().query.event.findMany({ where: hostedBy(hostId), orderBy: [asc(event.startsAt), desc(event.createdAt)] });
+  return events.map((found) => ({ ...withTheme(found), role: roleOf(found, hostId) }));
 }
 
 export type EventWithHost = Event & { hostName: string };
 
-// The event page: an event by its link, with the host's display name for "Hosted by".
+// The event page: an event by its link, with its owner's display name, which the preview card shows.
 export const findEventBySlug = cache(async (slug: string): Promise<EventWithHost | undefined> => {
   const [row] = await getDb()
     .select({ event, hostName: user.name })

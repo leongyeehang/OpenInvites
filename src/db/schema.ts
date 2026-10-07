@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, doublePrecision, index, integer, jsonb, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { DEFAULT_REGISTRATION_MODE, REGISTRATION_MODES } from "../instance/registration";
 import { defaultLocale, type Locale } from "../locale/resolve-locale";
 import { QUESTION_TYPES } from "../questions/question";
@@ -165,6 +165,45 @@ export const event = pgTable(
     ...timestamps,
   },
   (table) => [index("event_host_id_idx").on(table.hostId)],
+);
+
+// A co-host (CONTEXT.md): a host who shares management of an event they did not create (spec,
+// "Co-hosts"). The host who created it stays event.hostId, its owner. Deleting the event, or the
+// co-host's account, ends the membership; the order they were added in is the order the event
+// page names them in.
+export const eventHost = pgTable(
+  "event_host",
+  {
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    hostId: uuid("host_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.eventId, table.hostId] }), index("event_host_host_id_idx").on(table.hostId)],
+);
+
+// A co-host link: the owner's permission for one host to become a co-host of their event, carried
+// by a single-use link that works for seven days (hosts/co-host-link.ts). As with a host
+// invitation, only the hash of the link's token is kept; the owner sees the link once.
+export const coHostLink = pgTable(
+  "co_host_link",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    // The host who accepted it; nobody once that account is deleted.
+    usedById: uuid("used_by_id").references(() => user.id, { onDelete: "set null" }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [index("co_host_link_event_id_idx").on(table.eventId)],
 );
 
 export const rsvpStatus = pgEnum("rsvp_status", RSVP_STATUSES);

@@ -5,13 +5,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireHost } from "@/auth/session";
 import { hostNeedsVerification } from "@/auth/verification";
+import { can } from "@/hosts/role";
 import type { FormState } from "@/lib/form-state";
 import { parseQuestions } from "@/questions/question";
 import { parseRichText } from "@/rich-text/rich-text";
 import { saveQuestions } from "@/questions/repository";
 import { notifyGuestsOfCancellation } from "@/rsvps/notify-cancellation";
 import { parseEventForm } from "./form";
-import { cancelEvent, createEvent, deleteEvent, publishEvent, resetEventLink, updateEvent } from "./repository";
+import { cancelEvent, createEvent, deleteEvent, findHostEvent, publishEvent, resetEventLink, updateEvent } from "./repository";
 
 // The editor writes its document into one field, as the questions editor does. An empty field
 // is an empty description; a field that will not parse is a mistake worth saying out loud,
@@ -82,9 +83,14 @@ export async function createEventAction(_: FormState, formData: FormData): Promi
   redirect(`/events/${created.id}`);
 }
 
+// Every action below finds the event through the one gate, which answers for its owner and its
+// co-hosts, and asks whether their role may do this (hosts/role.ts). One it may not is answered as
+// an event that is not theirs would be, so nothing tells them more.
 export async function updateEventAction(id: string, _: FormState, formData: FormData): Promise<FormState> {
   const host = await requireHost();
   const t = await getTranslations("Events");
+  const event = await findHostEvent(host.id, id);
+  if (!event || !can(event.role, "edit")) return { error: t("errors.notFound") };
   const posted = postedDescription(formData);
   if (posted === UNREADABLE) return { error: t("errors.descriptionUnreadable") };
   const description = parseRichText(posted);
@@ -104,13 +110,15 @@ export async function updateEventAction(id: string, _: FormState, formData: Form
 
 export async function publishEventAction(id: string): Promise<void> {
   const host = await requireHost();
-  await publishEvent(host.id, id);
+  const event = await findHostEvent(host.id, id);
+  if (event && can(event.role, "publish")) await publishEvent(host.id, id);
   redirect(`/events/${id}`);
 }
 
 export async function cancelEventAction(id: string): Promise<void> {
   const host = await requireHost();
-  const cancelled = await cancelEvent(host.id, id);
+  const event = await findHostEvent(host.id, id);
+  const cancelled = event && can(event.role, "cancel") ? await cancelEvent(host.id, id) : undefined;
   if (cancelled) await notifyGuestsOfCancellation(cancelled);
   revalidatePath(`/events/${id}`);
   redirect(`/events/${id}`);
@@ -118,13 +126,15 @@ export async function cancelEventAction(id: string): Promise<void> {
 
 export async function deleteEventAction(id: string): Promise<void> {
   const host = await requireHost();
-  await deleteEvent(host.id, id);
+  const event = await findHostEvent(host.id, id);
+  if (event && can(event.role, "delete")) await deleteEvent(host.id, id);
   redirect("/dashboard");
 }
 
 export async function resetLinkAction(id: string): Promise<void> {
   const host = await requireHost();
-  await resetEventLink(host.id, id);
+  const event = await findHostEvent(host.id, id);
+  if (event && can(event.role, "resetLink")) await resetEventLink(host.id, id);
   // The manage page shows the link too, so it must not keep showing the retired one.
   revalidatePath(`/events/${id}`);
   revalidatePath(`/events/${id}/share`);

@@ -8,6 +8,7 @@ import { getSession } from "@/auth/session";
 import { PageFooter } from "@/components/page-footer";
 import { TooFast } from "@/components/too-fast";
 import { acceptsRsvps, eventPageFor } from "@/events/access";
+import { eventHosts } from "@/events/hosts";
 import { findEventBySlug, isRetiredSlug } from "@/events/repository";
 import { baseUrl, maxUploadBytes } from "@/instance/env";
 import { isSlug } from "@/events/slug";
@@ -36,6 +37,15 @@ import { Countdown, MapLink, ViewerTime } from "./viewer";
 // Event pages are never indexed (ADR-0004). The header carries the same signal (next.config.ts).
 const noindex: Metadata["robots"] = { index: false, follow: false };
 
+// Every host of the event, owner first: whom "Hosted by" names, and who sees a draft and the Design
+// drawer. Cached per request, as the page and its redrawing both ask.
+const hostsOf = cache(eventHosts);
+
+async function isHostOf(eventId: string): Promise<boolean> {
+  const session = await getSession();
+  return session !== null && (await hostsOf(eventId)).some((host) => host.id === session.user.id);
+}
+
 // One of this page's own server actions (a guest's RSVP, the host's Design drawer) that changed
 // something (revalidated, refreshed, or set a cookie) is answered with the page it was posted to,
 // drawn again, whatever slug that page's address names. So such an action posted to an event link
@@ -43,13 +53,13 @@ const noindex: Metadata["robots"] = { index: false, follow: false };
 // hands any other action to a page it belongs to, which never draws this one.) The proxy lets
 // actions through, as they are forms with limits and messages of their own (src/proxy.ts); the
 // page counts its own redrawing instead, against the event page limit, for anyone but the event's
-// host, whose Design drawer redraws it at every change. Past the limit it is drawn as "too fast"
+// hosts, whose Design drawer redraws it at every change. Past the limit it is drawn as "too fast"
 // whatever the slug. Cached, so the page and its metadata count once.
 const redrawAllowed = cache(async (slug: string): Promise<boolean> => {
   const requestHeaders = await headers();
   if (!requestHeaders.has("next-action")) return true;
   const event = isSlug(slug) ? await findEventBySlug(slug) : undefined;
-  if (event && (await getSession())?.user.id === event.hostId) return true;
+  if (event && (await isHostOf(event.id))) return true;
   return (await consume("eventPage", requestHeaders)).allowed;
 });
 
@@ -99,7 +109,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // Who is looking decides whether a draft shows at all, and whether the Design drawer is here.
   // A guest has no session cookie, and the lookup returns without touching the database.
   const isDraft = event.state === "draft";
-  const isHost = (await getSession())?.user.id === event.hostId;
+  const isHost = await isHostOf(event.id);
   if (eventPageFor(event.state, { isHost }) === "notReady") {
     const t = await getTranslations("EventPage");
     return (
@@ -122,11 +132,12 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const guests = view === "open" ? await listPublicGuestList(event.id) : [];
   // What this event asks, what this guest has already said, so coming back prefills, the host's
   // own picture if there is one, and what the host has announced, which every viewer reads.
-  const [questions, answers, upload, announcements] = await Promise.all([
+  const [questions, answers, upload, announcements, hosts] = await Promise.all([
     listQuestions(event.id),
     mine ? findAnswers(mine.rsvp.id) : Promise.resolve({}),
     findEventUpload(event.id),
     listAnnouncements(event.id),
+    hostsOf(event.id),
   ]);
 
   // Guests are sent the host's picture only while the page shows it: one the host put aside
@@ -151,6 +162,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
       >
         <PosterLayout
           event={event}
+          hosts={hosts.map((host) => host.name)}
           announcements={announcements}
           notice={isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined}
           rsvp={
