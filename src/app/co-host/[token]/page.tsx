@@ -3,12 +3,14 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/auth/session";
+import { hostNeedsVerification } from "@/auth/verification";
 import { Button } from "@/components/ui/button";
 import { findHostEvent } from "@/events/repository";
 import { coHostLinkState } from "@/hosts/co-host-link";
 import { findCoHostLink } from "@/hosts/repository";
 import { registrationMode } from "@/instance/repository";
 import { ClientMessages } from "@/locale/client-messages";
+import { ResendVerificationForm } from "../../(host)/resend-verification-form";
 import { AcceptForm } from "./accept-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -22,7 +24,9 @@ export async function generateMetadata(): Promise<Metadata> {
 // it. A link that is used, revoked or expired says so; one that was never made is answered with
 // the not-found page (src/proxy.ts). A visitor who is not signed in is sent to sign in and back,
 // and told that the link needs a host account here, which on an invitation-only instance takes a
-// host invitation first: the link admits nobody to the instance.
+// host invitation first: the link admits nobody to the instance. On an instance with mail, a host must
+// have verified their email before accepting, as before creating an event: the event's mail to its
+// hosts goes to that address (auth/verification.ts).
 export default async function CoHostLinkPage({ params }: PageProps<"/co-host/[token]">) {
   const { token } = await params;
   const [link, session, t] = await Promise.all([findCoHostLink(token), getSession(), getTranslations("CoHostLink")]);
@@ -45,6 +49,11 @@ export default async function CoHostLinkPage({ params }: PageProps<"/co-host/[to
         </>
       ) : state !== "pending" ? (
         <p className="text-muted-foreground">{t(state)}</p>
+      ) : session && hostNeedsVerification(session.user) ? (
+        <>
+          <p className="text-muted-foreground">{t("verify", { email: session.user.email })}</p>
+          <ResendVerificationForm label={t("resend")} />
+        </>
       ) : session ? (
         <ClientMessages namespaces={["CoHostLink"]}>
           <AcceptForm token={token} />

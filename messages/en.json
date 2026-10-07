@@ -738,7 +738,9 @@
     "used": "This co-host link has already been used. Ask the host for a new one.",
     "revoked": "This co-host link has been revoked. Ask the host for a new one.",
     "expired": "This co-host link has expired. Ask the host for a new one.",
-    "full": "This event already has {max} co-hosts, the most it can have."
+    "full": "This event already has {max} co-hosts, the most it can have.",
+    "verify": "Before you accept, open the link we sent to {email}. Then open this co-host link again.",
+    "resend": "Resend email"
   },
   "NotFound": {
     "title": "Page not found",

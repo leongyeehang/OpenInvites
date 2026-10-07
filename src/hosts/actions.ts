@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { getSession, requireHost } from "@/auth/session";
+import { hostNeedsVerification } from "@/auth/verification";
 import { findHostEvent } from "@/events/repository";
 import { isUuid } from "@/lib/uuid";
 import { coHostLinkUrl, generateCoHostLinkToken, hashCoHostLinkToken, MAX_CO_HOSTS, roomForCoHost } from "./co-host-link";
@@ -54,11 +55,13 @@ export async function leaveEventAction(eventId: string): Promise<void> {
 
 // Accepting a co-host link at /co-host/<token>. A visitor who is not signed in is sent to sign in
 // and back. Accepted, or already a co-host, the host lands on the event's manage page; anything else
-// is said on the link's page. A token no link has is not found, as its page is.
+// is said on the link's page. A token no link has is not found, as its page is. With mail, a host who
+// has not verified their email is refused, as the page says, whatever is posted.
 export async function acceptCoHostLinkAction(token: string): Promise<{ error?: string }> {
   const session = await getSession();
   if (!session) redirect(`/sign-in?next=${encodeURIComponent(`/co-host/${token}`)}`);
   const t = await getTranslations("CoHostLink");
+  if (hostNeedsVerification(session.user)) return { error: t("verify", { email: session.user.email }) };
   const accepted = await acceptCoHostLink(token, session.user.id, new Date());
   if (!accepted) notFound();
   if (accepted.outcome === "accepted" || accepted.outcome === "coHost") redirect(`/events/${accepted.eventId}`);

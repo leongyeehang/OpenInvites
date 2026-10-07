@@ -54,17 +54,24 @@ export async function revokeCoHostLink(eventId: string, id: string, now: Date): 
 
 export type Acceptance = "accepted" | "owner" | "coHost" | "full" | Exclude<CoHostLinkState, "pending">;
 
-// A signed-in host accepting a co-host link, in one transaction. The link is locked, so of two hosts
-// racing on it the second finds it used; the event is locked while its co-hosts are counted, so two
-// links accepted at once cannot both take the tenth place. The owner, and a host who already
-// co-hosts the event, leave the link as it was. Undefined for a link that was never made.
+// A signed-in host accepting a co-host link, in one transaction. The event is locked while its
+// co-hosts are counted, so two links accepted at once cannot both take the tenth place; the link is
+// locked, so of two hosts racing on it the second finds it used. The event is locked first, in the
+// order deleting an event takes them (events/repository.ts, removeEvents, then the cascade to its
+// links), so an accept and a delete at once wait for each other rather than deadlock. The owner, and
+// a host who already co-hosts the event, leave the link as it was. Undefined for a link that was
+// never made, or whose event was deleted meanwhile.
 export async function acceptCoHostLink(token: string, hostId: string, now: Date): Promise<{ eventId: string; outcome: Acceptance } | undefined> {
   return getDb().transaction(async (tx) => {
-    const [link] = await tx.select().from(coHostLink).where(eq(coHostLink.tokenHash, hashCoHostLinkToken(token))).for("update");
+    const tokenHash = hashCoHostLinkToken(token);
+    const [named] = await tx.select({ eventId: coHostLink.eventId }).from(coHostLink).where(eq(coHostLink.tokenHash, tokenHash));
+    if (!named) return undefined;
+    const [owner] = await tx.select({ hostId: event.hostId }).from(event).where(eq(event.id, named.eventId)).for("no key update");
+    if (!owner) return undefined;
+    const [link] = await tx.select().from(coHostLink).where(eq(coHostLink.tokenHash, tokenHash)).for("update");
     if (!link) return undefined;
     const answer = (outcome: Acceptance) => ({ eventId: link.eventId, outcome });
 
-    const [owner] = await tx.select({ hostId: event.hostId }).from(event).where(eq(event.id, link.eventId)).for("no key update");
     if (owner.hostId === hostId) return answer("owner");
     const [member] = await tx
       .select({ hostId: eventHost.hostId })

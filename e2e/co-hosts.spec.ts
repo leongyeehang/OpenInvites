@@ -1,6 +1,6 @@
-import { expect, expectNotFoundAsSent, test, type Browser, type Page } from "./test";
+import { expect, expectNotFoundAsSent, test, type APIRequestContext, type Browser, type Page } from "./test";
 import { createPublished } from "./events";
-import { latestMailTo, newHost, PASSWORD, signOut, signUp } from "./hosts";
+import { latestMailTo, newHost, PASSWORD, signOut, signUp, signUpVerified, verifyEmail } from "./hosts";
 
 // A host shares an event's management through a co-host link (spec, "Co-hosts"): whoever accepts it
 // while signed in can do everything the owner can, but delete the event or manage its co-hosts.
@@ -22,12 +22,12 @@ async function makeCoHostLink(ownerPage: Page): Promise<string> {
   return link;
 }
 
-// A second host, signed up in a browser of their own, who accepts the link and lands on the event.
-async function acceptAsNewHost(browser: Browser, link: string) {
+// A second host, signed up and verified in a browser of their own, who accepts the link and lands on
+// the event.
+async function acceptAsNewHost(browser: Browser, request: APIRequestContext, link: string) {
   const context = await browser.newContext();
   const page = await context.newPage();
-  const host = newHost("co-host");
-  await signUp(page, host);
+  const host = await signUpVerified(page, request, "co-host");
   await page.goto(link);
   await expect(page.getByRole("heading", { name: EVENT.title })).toBeVisible();
   await page.getByRole("button", { name: "Accept" }).click();
@@ -46,7 +46,7 @@ test("a host accepts a co-host link, sees the event on their dashboard, edits it
   const link = await makeCoHostLink(owner.page);
   await expect(owner.page.getByText(/^Made .+ · Expires .+$/)).toHaveCount(1);
 
-  const coHost = await acceptAsNewHost(browser, link);
+  const coHost = await acceptAsNewHost(browser, request, link);
   expect(coHost.page.url()).toBe(manage);
   await expect(coHost.page.getByRole("heading", { name: EVENT.title, level: 1 })).toBeVisible();
   await expect(coHost.page.getByRole("main").getByText("Co-host", { exact: true })).toBeVisible();
@@ -94,7 +94,7 @@ test("a co-host has no Delete, and a direct post of the delete action is refused
   const owner = await createPublished(browser, request, "co-host-delete", EVENT);
   const manage = owner.page.url();
   const link = await makeCoHostLink(owner.page);
-  const coHost = await acceptAsNewHost(browser, link);
+  const coHost = await acceptAsNewHost(browser, request, link);
 
   await expect(coHost.page.getByRole("button", { name: "Delete event" })).toHaveCount(0);
   await expect(coHost.page.getByRole("link", { name: "Hosts", exact: true })).toHaveCount(0);
@@ -139,7 +139,7 @@ test("a co-host leaves the event, and it is gone from their dashboard", async ({
   test.slow();
   const owner = await createPublished(browser, request, "co-host-leave", EVENT);
   const manage = owner.page.url();
-  const coHost = await acceptAsNewHost(browser, await makeCoHostLink(owner.page));
+  const coHost = await acceptAsNewHost(browser, request, await makeCoHostLink(owner.page));
 
   await coHost.page.getByRole("link", { name: "Leave this event" }).click();
   await expect(coHost.page.getByRole("heading", { name: "Hosts", level: 1 })).toBeVisible();
@@ -161,7 +161,7 @@ test("the owner removes a co-host", async ({ browser, request }) => {
   test.slow();
   const owner = await createPublished(browser, request, "co-host-remove", EVENT);
   const manage = owner.page.url();
-  const coHost = await acceptAsNewHost(browser, await makeCoHostLink(owner.page));
+  const coHost = await acceptAsNewHost(browser, request, await makeCoHostLink(owner.page));
 
   await owner.page.reload();
   const row = owner.page.getByRole("listitem").filter({ hasText: coHost.name });
@@ -201,6 +201,8 @@ test("a co-host link opened signed out goes through sign-in and back", async ({ 
   const link = await makeCoHostLink(owner.page);
   const host = newHost("co-host-returning");
   await signUp(page, host);
+  await verifyEmail(page, request, host.email);
+  await page.goto("/dashboard");
   await signOut(page);
 
   await page.goto(link);
@@ -215,6 +217,29 @@ test("a co-host link opened signed out goes through sign-in and back", async ({ 
   await page.getByRole("button", { name: "Sign in" }).click();
 
   await expect(page).toHaveURL(link, { timeout: 15_000 });
+  await page.getByRole("button", { name: "Accept" }).click();
+  await expect(page).toHaveURL(/\/events\/[0-9a-f-]{36}$/, { timeout: 15_000 });
+  await expect(page.getByRole("main").getByText("Co-host", { exact: true })).toBeVisible();
+  await owner.context.close();
+});
+
+// With mail, a host verifies their email before accepting, as before creating an event: the event's
+// mail to its hosts goes there.
+test("a host who has not verified their email is asked to before accepting", async ({ page, browser, request }) => {
+  test.slow();
+  const owner = await createPublished(browser, request, "co-host-verify", EVENT);
+  const link = await makeCoHostLink(owner.page);
+  const host = newHost("co-host-unverified");
+  await signUp(page, host);
+
+  await page.goto(link);
+  await expect(page.getByRole("heading", { name: EVENT.title })).toBeVisible();
+  await expect(page.getByText(`Before you accept, open the link we sent to ${host.email}. Then open this co-host link again.`)).toBeVisible();
+  await expect(page.getByRole("main").getByRole("button", { name: "Resend email" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Accept" })).toHaveCount(0);
+
+  await verifyEmail(page, request, host.email);
+  await page.goto(link);
   await page.getByRole("button", { name: "Accept" }).click();
   await expect(page).toHaveURL(/\/events\/[0-9a-f-]{36}$/, { timeout: 15_000 });
   await expect(page.getByRole("main").getByText("Co-host", { exact: true })).toBeVisible();
