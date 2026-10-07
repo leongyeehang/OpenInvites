@@ -180,7 +180,8 @@ export const rsvp = pgTable(
     editTokenHash: text("edit_token_hash").notNull().unique(),
     // The secret in the stop link at the foot of every email to the guest (spec, "Guest mail"). In
     // clear, unlike the edit token: their mail is written long after their request is over, and
-    // the link can only blank the email. Made the first time the RSVP has an email, then kept.
+    // the link can only blank the email. Made the first time the RSVP has an email, then kept; an
+    // RSVP that had an email before mail tokens existed got 32 hex digits instead (migration 0015).
     mailToken: text("mail_token").unique(),
     // The language the guest last saved their RSVP in, which their mail is written in.
     locale: text("locale").$type<Locale>().notNull().default(defaultLocale),
