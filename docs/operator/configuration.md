@@ -119,7 +119,12 @@ With mail configured:
 - a host who forgot their password gets a reset link by email, and setting the new password
   signs them out on every device;
 - changing an account's email is confirmed from the new address;
-- the operator can have a host invitation emailed.
+- the operator can have a host invitation emailed;
+- the host is emailed when a guest replies, unless they turn it off for the event.
+
+The app sends event mail from a queue inside the app container, so there is nothing else to run. A
+message that fails is retried a few times over about an hour and a half; if it still fails, it is
+dropped and the log says why.
 
 Without mail, none of those emails exist: hosts are not asked to verify, and you reset a
 forgotten password with the command in [upgrade-backup.md](upgrade-backup.md#resetting-a-hosts-password).

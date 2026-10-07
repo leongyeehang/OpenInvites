@@ -1,6 +1,6 @@
 "use server";
 
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireHost } from "@/auth/session";
@@ -43,6 +43,7 @@ function fields(formData: FormData) {
     requirePlusOneNames: formData.get("requirePlusOneNames") === "on",
     askEmail: formData.get("askEmail") === "on",
     guestListVisibility: text("guestListVisibility"),
+    notifyOnRsvp: formData.get("notifyOnRsvp") === "on",
   };
 }
 
@@ -73,7 +74,8 @@ export async function createEventAction(_: FormState, formData: FormData): Promi
   const questions = parseQuestions(postedQuestions(formData));
   if (!questions.ok) return { error: t(`errors.${questions.error}`) };
 
-  const created = await createEvent(host.id, parsed.input);
+  // The language the host saves in is the one their event's mail to its hosts is written in.
+  const created = await createEvent(host.id, { ...parsed.input, locale: await getLocale() });
   await saveQuestions(created.id, questions.questions);
   redirect(`/events/${created.id}`);
 }
@@ -90,7 +92,7 @@ export async function updateEventAction(id: string, _: FormState, formData: Form
   const questions = parseQuestions(postedQuestions(formData));
   if (!questions.ok) return { error: t(`errors.${questions.error}`) };
 
-  const updated = await updateEvent(host.id, id, parsed.input);
+  const updated = await updateEvent(host.id, id, { ...parsed.input, locale: await getLocale() });
   if (!updated) return { error: t("errors.notFound") };
   await saveQuestions(updated.id, questions.questions);
   // The heading and link card on the manage page show the event too.

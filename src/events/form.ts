@@ -17,6 +17,7 @@ export type EventInput = {
   requirePlusOneNames: boolean;
   askEmail: boolean;
   guestListVisibility: GuestListVisibility;
+  notifyOnRsvp: boolean;
 };
 
 // What the event form posts, as strings, before any of it is trusted.
@@ -32,6 +33,7 @@ export type EventFormFields = {
   requirePlusOneNames: boolean;
   askEmail: boolean;
   guestListVisibility: string;
+  notifyOnRsvp: boolean;
 };
 
 // How many people one guest may bring at most (spec, "Per-event settings").
@@ -104,6 +106,7 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
       requirePlusOneNames: fields.requirePlusOneNames,
       askEmail: fields.askEmail,
       guestListVisibility,
+      notifyOnRsvp: fields.notifyOnRsvp,
     },
   };
 }

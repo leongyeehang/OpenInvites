@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { boolean, check, doublePrecision, index, integer, jsonb, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { DEFAULT_REGISTRATION_MODE, REGISTRATION_MODES } from "../instance/registration";
+import { defaultLocale, type Locale } from "../locale/resolve-locale";
 import { QUESTION_TYPES } from "../questions/question";
 import { EMPTY_RICH_TEXT, type RichText } from "../rich-text/rich-text";
 import { RSVP_STATUSES } from "../rsvps/form";
@@ -144,6 +145,13 @@ export const event = pgTable(
     requirePlusOneNames: boolean("require_plus_one_names").notNull().default(false),
     askEmail: boolean("ask_email").notNull().default(false),
     guestListVisibility: guestListVisibility("guest_list_visibility").notNull().default(DEFAULT_GUEST_LIST_VISIBILITY),
+    // Whether every host is emailed when a guest replies, changes their status, or removes their
+    // RSVP (spec, "Host notifications"). On for new events; events from before 0.3 start with it
+    // off, so an upgrade sends nobody mail they did not ask for (spec, story 141).
+    notifyOnRsvp: boolean("notify_on_rsvp").notNull().default(true),
+    // The language the host last saved the event form in, which mail about the event to its hosts
+    // is written in: the request that queues such mail is usually a guest's, in their language.
+    locale: text("locale").$type<Locale>().notNull().default(defaultLocale),
     ...timestamps,
   },
   (table) => [index("event_host_id_idx").on(table.hostId)],
@@ -255,3 +263,23 @@ export const upload = pgTable("upload", {
   posterHeight: integer("poster_height").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Every email about an event, to a guest or to a host, waits here until the mail worker sends it
+// (mail/outbox.ts; spec, "Mail outbox and worker"). A message that sent is deleted; one that failed
+// keeps how often it has, why it last did, and when to try again. Deleting the event takes its
+// unsent mail with it.
+export const mailOutbox = pgTable(
+  "mail_outbox",
+  {
+    id: id(),
+    eventId: uuid("event_id").references(() => event.id, { onDelete: "cascade" }),
+    to: text("to").notNull(),
+    subject: text("subject").notNull(),
+    text: text("text").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    sendAfter: timestamp("send_after", { withTimezone: true }).notNull().defaultNow(),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+  },
+  (table) => [index("mail_outbox_event_id_idx").on(table.eventId)],
+);

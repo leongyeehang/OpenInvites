@@ -57,12 +57,12 @@ export async function createDraft(page: Page, fields: DraftFields) {
 export async function createPublished(browser: Browser, request: APIRequestContext, label: string, fields: DraftFields) {
   const context = await browser.newContext();
   const page = await context.newPage();
-  await signUpVerified(page, request, label);
+  const { email } = await signUpVerified(page, request, label);
   const link = await createDraft(page, fields);
   await page.getByRole("button", { name: "Publish" }).click();
   await expect(page.getByText("Published", { exact: true })).toBeVisible();
   if (fields.rsvpStyle) await chooseRsvpStyle(page, link, fields.rsvpStyle);
-  return { context, page, link };
+  return { context, page, link, email };
 }
 
 // How guests answer is a theme knob, so it is set as a host sets it: in the Design drawer on the

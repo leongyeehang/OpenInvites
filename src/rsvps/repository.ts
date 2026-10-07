@@ -93,17 +93,25 @@ export async function listPublicGuestList(eventId: string): Promise<PublicGuest[
 
 // A host changing a guest's RSVP on their behalf (spec, story 53). It writes only what a host
 // may set, so the guest's email and their edit token survive untouched and the link in their
-// pocket keeps working.
-export async function editRsvpAsHost(eventId: string, id: string, edit: RsvpAnswer): Promise<void> {
-  await getDb()
-    .update(rsvp)
-    .set({ ...edit, updatedAt: new Date() })
-    .where(and(eq(rsvp.id, id), eq(rsvp.eventId, eventId)));
+// pocket keeps working. Returns the RSVP as it was, read under the same lock as the write, so the
+// hosts are told of the change that was made (notify-hosts.ts).
+export async function editRsvpAsHost(eventId: string, id: string, edit: RsvpAnswer): Promise<Rsvp | undefined> {
+  return getDb().transaction(async (tx) => {
+    const [previous] = await tx
+      .select()
+      .from(rsvp)
+      .where(and(eq(rsvp.id, id), eq(rsvp.eventId, eventId)))
+      .for("update");
+    if (previous) await tx.update(rsvp).set({ ...edit, updatedAt: new Date() }).where(eq(rsvp.id, id));
+    return previous;
+  });
 }
 
 // Scoped to the event, so neither a stale cookie nor another host's page can reach an RSVP.
-export async function deleteRsvp(eventId: string, id: string): Promise<void> {
-  await getDb().delete(rsvp).where(and(eq(rsvp.id, id), eq(rsvp.eventId, eventId)));
+// Returns the RSVP that went, if there was one.
+export async function deleteRsvp(eventId: string, id: string): Promise<Rsvp | undefined> {
+  const [removed] = await getDb().delete(rsvp).where(and(eq(rsvp.id, id), eq(rsvp.eventId, eventId))).returning();
+  return removed;
 }
 
 // The RSVPs of several events at once, for the host's dashboard. Postgres groups them; the

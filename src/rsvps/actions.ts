@@ -12,6 +12,7 @@ import type { FormState } from "@/lib/form-state";
 import { consume } from "@/rate-limit/rate-limit";
 import { parseHostEdit, parseRsvpForm, type RsvpFormFields } from "./form";
 import { findRsvpOnThisDevice, guestRsvp, type SaveRsvpResult } from "./guest";
+import { notifyHostsOfRsvp } from "./notify-hosts";
 import { deleteRsvp, editRsvpAsHost, saveRsvp } from "./repository";
 import { rsvpCookieName, rsvpCookieOptions } from "./token";
 
@@ -56,6 +57,7 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
   // its previous answers, which the guest can put right by answering again.
   const saved = await saveRsvp(event.id, parsed.input, mine);
   await saveAnswers(saved.rsvp.id, answers.answers);
+  await notifyHostsOfRsvp(event, mine?.rsvp, saved.rsvp);
   if (!mine) {
     // A new RSVP: this device now remembers the guest, so the link finds their answer next time.
     (await cookies()).set(rsvpCookieName(event.id), saved.token, rsvpCookieOptions());
@@ -73,7 +75,10 @@ export async function removeRsvpAction(slug: string): Promise<{ error?: "tooFast
   const event = await findEventBySlug(slug);
   if (!event) return {};
   const mine = await findRsvpOnThisDevice(event.id);
-  if (mine) await deleteRsvp(event.id, mine.rsvp.id);
+  if (mine) {
+    const removed = await deleteRsvp(event.id, mine.rsvp.id);
+    await notifyHostsOfRsvp(event, removed, undefined);
+  }
   (await cookies()).delete(rsvpCookieName(event.id));
   revalidatePath(`/e/${slug}`);
   return {};
@@ -94,7 +99,8 @@ export async function editGuestAction(
   const parsed = parseHostEdit(fields(formData), event);
   if (!parsed.ok) return { error: t(`errors.${parsed.error}`) };
 
-  await editRsvpAsHost(event.id, rsvpId, parsed.edit);
+  const previous = await editRsvpAsHost(event.id, rsvpId, parsed.edit);
+  if (previous) await notifyHostsOfRsvp(event, previous, parsed.edit);
   revalidatePath(`/events/${eventId}/guests`);
   return { success: t("saved") };
 }
@@ -103,6 +109,7 @@ export async function removeGuestAction(eventId: string, rsvpId: string): Promis
   const host = await requireHost();
   const event = await findHostEvent(host.id, eventId);
   if (!event) return;
-  await deleteRsvp(event.id, rsvpId);
+  const removed = await deleteRsvp(event.id, rsvpId);
+  await notifyHostsOfRsvp(event, removed, undefined);
   revalidatePath(`/events/${eventId}/guests`);
 }

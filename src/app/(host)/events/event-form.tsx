@@ -129,6 +129,10 @@ export function EventForm({ action, event, timeZones, submitLabel, questions, an
           </NativeSelect>
           <FieldDescription>{t("guestListVisibilityHint")}</FieldDescription>
         </Field>
+        <Field orientation="horizontal">
+          <Checkbox id="notify-on-rsvp" name="notifyOnRsvp" defaultChecked={event?.notifyOnRsvp ?? true} />
+          <FieldLabel htmlFor="notify-on-rsvp">{t("notifyOnRsvp")}</FieldLabel>
+        </Field>
         <FormOutcome state={state} />
         <Button type="submit" disabled={pending} className="self-start">
           {submitLabel}

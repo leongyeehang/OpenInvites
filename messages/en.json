@@ -214,6 +214,23 @@
     "hostInvitation": {
       "subject": "Your host invitation for OpenInvites",
       "body": "Hello,\n\nHere is your host invitation for OpenInvites. Open the link below to create your host account and start making event pages.\n\n{url}\n\nThe link works for one account and expires in {days} days. If you were not expecting this, you can ignore this message."
+    },
+    "rsvpReply": {
+      "subject": {
+        "replied": "{name} replied to {title}: {status}",
+        "changed": "{name} changed their RSVP to {title}: {status}",
+        "removed": "{name} removed their RSVP to {title}"
+      },
+      "body": {
+        "replied": "{name} replied to {title}: {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email me when a guest replies” in the event’s settings.",
+        "changed": "{name} changed their RSVP to {title}: {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email me when a guest replies” in the event’s settings.",
+        "removed": "{name} removed their RSVP to {title}. Their RSVP said {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email me when a guest replies” in the event’s settings."
+      },
+      "status": {
+        "going": "Going",
+        "maybe": "Maybe",
+        "cant": "Can’t go"
+      }
     }
   },
   "Events": {
@@ -253,6 +270,7 @@
       "guestListAfterReply": "Guests who have replied",
       "guestListHidden": "Only me",
       "guestListVisibilityHint": "You always see the whole list.",
+      "notifyOnRsvp": "Email me when a guest replies",
       "questions": "Questions",
       "questionsHint": "Asked while a guest replies. Their answers are yours alone.",
       "questionAdd": "Add a question",

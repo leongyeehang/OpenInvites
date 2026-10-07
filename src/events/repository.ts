@@ -3,6 +3,7 @@ import { cache } from "react";
 import { getDb } from "@/db/client";
 import { event, retiredSlug, upload, user } from "@/db/schema";
 import { isUuid } from "@/lib/uuid";
+import type { Locale } from "@/locale/resolve-locale";
 import { DEFAULT_THEME, parseTheme, type Theme } from "@/themes/theme";
 import { removeRenditions } from "@/uploads/files";
 import type { EventInput } from "./form";
@@ -30,8 +31,11 @@ function isSlugCollision(error: unknown): boolean {
   return code === UNIQUE_VIOLATION && constraint_name === EVENT_SLUG_UNIQUE;
 }
 
+// What saving the event form writes: the form, and the language it was saved in.
+export type EventChanges = EventInput & { locale: Locale };
+
 // A new event starts with the Birthday template's theme (ticket 06).
-export async function createEvent(hostId: string, input: EventInput): Promise<Event> {
+export async function createEvent(hostId: string, input: EventChanges): Promise<Event> {
   return withFreshSlug(async (slug) => {
     try {
       const [created] = await getDb().insert(event).values({ hostId, slug, theme: DEFAULT_THEME, ...input }).returning();
@@ -52,7 +56,7 @@ export const findHostEvent = cache(async (hostId: string, id: string): Promise<E
   return found && withTheme(found);
 });
 
-export async function updateEvent(hostId: string, id: string, input: EventInput): Promise<Event | undefined> {
+export async function updateEvent(hostId: string, id: string, input: EventChanges): Promise<Event | undefined> {
   const [updated] = await getDb()
     .update(event)
     .set({ ...input, updatedAt: new Date() })
