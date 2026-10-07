@@ -57,11 +57,12 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
   // its previous answers, which the guest can put right by answering again.
   const saved = await saveRsvp(event.id, parsed.input, mine);
   await saveAnswers(saved.rsvp.id, answers.answers);
-  await notifyHostsOfRsvp(event, mine?.rsvp, saved.rsvp);
   if (!mine) {
     // A new RSVP: this device now remembers the guest, so the link finds their answer next time.
     (await cookies()).set(rsvpCookieName(event.id), saved.token, rsvpCookieOptions());
   }
+  // Once the RSVP is saved and remembered, so that nothing about the hosts' email can undo either.
+  await notifyHostsOfRsvp(event, mine?.rsvp, saved.rsvp);
   // The guest list is a reward for answering, so it unlocks without waiting for a reload.
   revalidatePath(`/e/${slug}`);
   return { saved: guestRsvp(saved) };
@@ -75,11 +76,9 @@ export async function removeRsvpAction(slug: string): Promise<{ error?: "tooFast
   const event = await findEventBySlug(slug);
   if (!event) return {};
   const mine = await findRsvpOnThisDevice(event.id);
-  if (mine) {
-    const removed = await deleteRsvp(event.id, mine.rsvp.id);
-    await notifyHostsOfRsvp(event, removed, undefined);
-  }
+  const removed = mine && (await deleteRsvp(event.id, mine.rsvp.id));
   (await cookies()).delete(rsvpCookieName(event.id));
+  await notifyHostsOfRsvp(event, removed, undefined);
   revalidatePath(`/e/${slug}`);
   return {};
 }

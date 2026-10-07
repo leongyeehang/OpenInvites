@@ -15,7 +15,8 @@ type RsvpShown = { name: string; status: RsvpStatus; plusOnes: number };
 // Emails every host of the event about one RSVP, given as it was and as it is now (undefined where
 // there was none), when the change is one they are told of (notice.ts), the event has it on, and
 // the instance has mail (spec, "Host notifications"). The mail is in the event's language: the
-// request queueing it is a guest's, or one host's on behalf of them all.
+// request queueing it is a guest's, or one host's on behalf of them all. It never throws: the RSVP
+// is already saved, and a failure here must not tell the guest otherwise, so it is logged instead.
 export async function notifyHostsOfRsvp(
   event: Pick<Event, "id" | "title" | "notifyOnRsvp" | "locale">,
   previous: RsvpShown | undefined,
@@ -25,17 +26,21 @@ export async function notifyHostsOfRsvp(
   const rsvp = current ?? previous;
   if (!notice || !rsvp || !event.notifyOnRsvp || !isMailConfigured()) return;
 
-  const t = await getTranslations({ locale: event.locale, namespace: "Mail.rsvpReply" });
-  const values = {
-    name: rsvp.name,
-    title: event.title,
-    status: t(`status.${rsvp.status}`),
-    plusOnes: rsvp.plusOnes,
-    url: `${baseUrl()}/events/${event.id}/guests`,
-  };
-  const subject = t(`subject.${notice}`, values);
-  const text = t(`body.${notice}`, values);
-  const hosts = await eventHosts(event.id);
-  await queueMail(hosts.map((host) => ({ eventId: event.id, to: host.email, subject, text })));
-  after(kickMailWorker);
+  try {
+    const t = await getTranslations({ locale: event.locale, namespace: "Mail.rsvpReply" });
+    const values = {
+      name: rsvp.name,
+      title: event.title,
+      status: t(`status.${rsvp.status}`),
+      plusOnes: rsvp.plusOnes,
+      url: `${baseUrl()}/events/${event.id}/guests`,
+    };
+    const subject = t(`subject.${notice}`, values);
+    const text = t(`body.${notice}`, values);
+    const hosts = await eventHosts(event.id);
+    await queueMail(hosts.map((host) => ({ eventId: event.id, to: host.email, subject, text })));
+    after(kickMailWorker);
+  } catch (error) {
+    console.error(`Mail: could not queue the hosts' email about an RSVP to event ${event.id}:`, error);
+  }
 }
