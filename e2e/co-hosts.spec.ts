@@ -212,7 +212,7 @@ test("a co-host link opened signed out goes through sign-in and back", async ({ 
   ).toBeVisible();
   await page.getByRole("link", { name: "Sign in to accept this co-host link" }).click();
   await expect(page).toHaveURL(/\/sign-in\?next=/);
-  await page.getByLabel("Email").fill(host.email);
+  await page.getByLabel("Email", { exact: true }).fill(host.email);
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
 

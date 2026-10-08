@@ -9,7 +9,7 @@ const NO_MAIL_BASE_URL = "http://localhost:3003";
 
 async function askForLink(page: Page, email: string) {
   await page.goto("/sign-in");
-  await page.getByLabel("Send it to").fill(email);
+  await page.getByLabel("Email for the sign-in link").fill(email);
   await page.getByRole("button", { name: "Send me the link" }).click();
   await expect(page.getByRole("status")).toHaveText(
     `If an account exists here, we sent a sign-in link to ${email}.`,
@@ -79,5 +79,5 @@ test("the sign-in page of an instance without mail has no sign-in link form", as
   await page.goto(`${NO_MAIL_BASE_URL}/sign-in`);
   await expect(page.getByLabel("Password")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Email me a sign-in link" })).toHaveCount(0);
-  await expect(page.getByLabel("Send it to")).toHaveCount(0);
+  await expect(page.getByLabel("Email for the sign-in link")).toHaveCount(0);
 });

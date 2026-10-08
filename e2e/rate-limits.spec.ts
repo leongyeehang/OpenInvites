@@ -141,10 +141,10 @@ test("someone trying password after password is told to slow down in the sign-in
   await page.goto("/sign-in");
   // Each attempt is answered before the next: the form empties itself once it has its answer.
   const attempt = async (password: string) => {
-    await page.getByLabel("Email").fill("nobody@example.test");
+    await page.getByLabel("Email", { exact: true }).fill("nobody@example.test");
     await page.getByLabel("Password").fill(password);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.getByLabel("Email")).toHaveValue("");
+    await expect(page.getByLabel("Email", { exact: true })).toHaveValue("");
   };
   for (let tried = 0; tried < SIGN_IN_LIMIT; tried++) {
     await attempt(`not the password ${tried}`);

@@ -51,7 +51,7 @@
       "HOST_INVITATION_UNUSABLE": "此主辦人邀請已無法使用。請向此實例的營運者索取新的邀請。",
       "TOO_MANY_REQUESTS": "操作太頻繁了，請稍後再試。",
       "linkTitle": "透過電子郵件取得登入連結",
-      "linkEmail": "寄送到",
+      "linkEmail": "接收登入連結的電子郵件",
       "linkSubmit": "寄連結給我",
       "linkSent": "如果這裡有對應的帳號，我們已把登入連結寄到 {email}。",
       "linkExpired": "這個登入連結已過期或已被使用。"

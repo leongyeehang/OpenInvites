@@ -51,7 +51,7 @@
       "HOST_INVITATION_UNUSABLE": "此主办人邀请已无法使用。请向此实例的运营者索取新的邀请。",
       "TOO_MANY_REQUESTS": "操作太频繁了，请稍后再试。",
       "linkTitle": "通过邮件获取登录链接",
-      "linkEmail": "发送到",
+      "linkEmail": "接收登录链接的邮箱",
       "linkSubmit": "给我发链接",
       "linkSent": "如果这里有对应的账号，我们已把登录链接发到 {email}。",
       "linkExpired": "这个登录链接已过期或已被使用。"
