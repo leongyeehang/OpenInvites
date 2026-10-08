@@ -170,6 +170,8 @@ test("the owner removes a co-host", async ({ browser, request }) => {
   await expect(dialog.getByText(`Remove ${coHost.name} as a co-host?`)).toBeVisible();
   await dialog.getByRole("button", { name: "Remove", exact: true }).click();
   await expect(owner.page.getByText(coHost.name)).toHaveCount(0);
+  // The Remove button went with them, so the focus is on the page's heading rather than lost.
+  await expect(owner.page.getByRole("heading", { level: 1, name: "Hosts" })).toBeFocused();
 
   await expectNotFoundAsSent(await coHost.page.goto(manage));
   await coHost.page.goto("/dashboard");
@@ -184,6 +186,8 @@ test("a revoked co-host link says so, and one that was never made is not found",
   const link = await makeCoHostLink(owner.page);
   await owner.page.getByRole("button", { name: "Revoke" }).click();
   await expect(owner.page.getByText("No co-host links are waiting to be used.")).toBeVisible();
+  // The Revoke button went with the link, so the focus is on the links' heading rather than lost.
+  await expect(owner.page.getByRole("heading", { name: "Co-host links" })).toBeFocused();
 
   await signUp(page, newHost("co-host-revoked"));
   await page.goto(link);

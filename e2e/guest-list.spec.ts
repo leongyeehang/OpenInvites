@@ -177,6 +177,8 @@ test("the host removes a guest and the guest's page forgets them", async ({ page
   await expect(host.page.getByText("Remove Priya Nair?")).toBeVisible();
   await host.page.getByRole("button", { name: "Remove guest" }).click();
   await expect(host.page.getByText("Nobody has replied yet.")).toBeVisible();
+  // The Remove button went with the guest, so the focus is on the page's heading rather than lost.
+  await expect(host.page.getByRole("heading", { level: 1, name: "Guest list" })).toBeFocused();
 
   await page.reload();
   await expect(page.getByText("You’re going!")).toHaveCount(0);

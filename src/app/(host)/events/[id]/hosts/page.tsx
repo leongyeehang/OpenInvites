@@ -3,6 +3,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireHost } from "@/auth/session";
+import { DeleteDialogContent } from "@/components/delete-dialog-content";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -24,6 +25,12 @@ import { listCoHostLinks } from "@/hosts/repository";
 import { can } from "@/hosts/role";
 import { ClientMessages } from "@/locale/client-messages";
 import { CoHostLinkForm } from "./co-host-link-form";
+import { RevokeLinkForm } from "./revoke-link-form";
+
+// Where the focus goes once a co-host, or a co-host link, is taken off the page, since the button
+// that did it goes too: the page's heading, and the links' heading.
+const HEADING = "hosts-heading";
+const LINKS_HEADING = "links-heading";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Hosts");
@@ -44,7 +51,9 @@ export default async function HostsPage({ params }: PageProps<"/events/[id]/host
         <Link href={`/events/${event.id}`} className="text-sm text-muted-foreground hover:underline">
           {t("backToEvent")}
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        <h1 id={HEADING} tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
+          {t("title")}
+        </h1>
       </div>
       {can(event.role, "manageCoHosts") ? <OwnersView event={event} /> : <LeaveEvent event={event} />}
     </>
@@ -81,7 +90,7 @@ async function OwnersView({ event }: { event: HostEvent }) {
                   {t("remove")}
                 </Button>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <DeleteDialogContent focusAfter={HEADING}>
                 <form action={removeCoHostAction.bind(null, event.id, coHost.id)}>
                   <AlertDialogHeader>
                     <AlertDialogTitle>{t("removeTitle", { name: coHost.name })}</AlertDialogTitle>
@@ -94,14 +103,14 @@ async function OwnersView({ event }: { event: HostEvent }) {
                     </Button>
                   </AlertDialogFooter>
                 </form>
-              </AlertDialogContent>
+              </DeleteDialogContent>
             </AlertDialog>
           </li>
         ))}
       </ul>
 
-      <section aria-labelledby="links-heading" className="flex flex-col gap-3">
-        <h2 id="links-heading" className="text-lg font-medium">
+      <section aria-labelledby={LINKS_HEADING} className="flex flex-col gap-3">
+        <h2 id={LINKS_HEADING} tabIndex={-1} className="text-lg font-medium outline-none">
           {t("links")}
         </h2>
         {pending.length === 0 ? (
@@ -117,11 +126,11 @@ async function OwnersView({ event }: { event: HostEvent }) {
                     expires: formatMoment(link.expiresAt, event.timeZone, locale),
                   })}
                 </span>
-                <form action={revokeCoHostLinkAction.bind(null, event.id, link.id)}>
+                <RevokeLinkForm revoke={revokeCoHostLinkAction.bind(null, event.id, link.id)} focusAfter={LINKS_HEADING}>
                   <Button type="submit" variant="outline" size="sm">
                     {t("revoke")}
                   </Button>
-                </form>
+                </RevokeLinkForm>
               </li>
             ))}
           </ul>
