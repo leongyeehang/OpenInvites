@@ -118,6 +118,7 @@ With mail configured:
 - a new host verifies their email before they can create an event;
 - a host who forgot their password gets a reset link by email, and setting the new password
   signs them out on every device;
+- a host can sign in with a link emailed to them;
 - changing an account's email is confirmed from the new address;
 - the operator can have a host invitation emailed;
 - the host is emailed when a guest replies, unless they turn it off for the event;

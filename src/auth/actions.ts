@@ -78,6 +78,28 @@ export async function signInSocial(provider: SocialProviderId, next?: string): P
   redirect(url ?? "/sign-in?socialError=1&error=TOO_MANY_REQUESTS");
 }
 
+// The same answer whether or not the address has an account (emails.ts sends nothing for one
+// that has none). The link leads to `next`, checked as the email sign-in checks it; one that has
+// expired or been used comes back to the sign-in page, which says so.
+export async function requestSignInLink(_: FormState, formData: FormData): Promise<FormState> {
+  const t = await getTranslations("Auth.signIn");
+  const email = field(formData, "email").trim();
+  const next = nextPath(formData.get("next"));
+  try {
+    await getAuth().api.signInMagicLink({
+      body: {
+        email,
+        callbackURL: next,
+        errorCallbackURL: `/sign-in?${new URLSearchParams({ linkError: "1", next })}`,
+      },
+      headers: await headers(),
+    });
+  } catch (error) {
+    return { error: await authErrorMessage(error) };
+  }
+  return { success: t("linkSent", { email }) };
+}
+
 // Signs out this device only; sessions on other devices stay valid.
 export async function signOut(): Promise<void> {
   await getAuth().api.signOut({ headers: await headers() });

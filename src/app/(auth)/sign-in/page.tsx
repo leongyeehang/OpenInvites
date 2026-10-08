@@ -5,10 +5,12 @@ import { redirect } from "next/navigation";
 import { nextPath } from "@/auth/next-path";
 import { getSession } from "@/auth/session";
 import { enabledSocialProviders } from "@/auth/providers";
+import { isMailConfigured } from "@/mail/config";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientMessages } from "@/locale/client-messages";
 import { SocialSignIn } from "../social-sign-in";
+import { SignInLinkForm } from "./sign-in-link-form";
 import { SignInForm } from "./sign-in-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -31,9 +33,11 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
     ? t("passwordChanged")
     : params.accountDeleted
       ? t("accountDeleted")
-      : params.socialError
-        ? t(refusal ?? "socialError")
-        : undefined;
+      : params.linkError
+        ? t("linkExpired")
+        : params.socialError
+          ? t(refusal ?? "socialError")
+          : undefined;
   return (
     <>
       {notice && (
@@ -52,6 +56,11 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
             <SignInForm next={next} />
           </ClientMessages>
           <SocialSignIn providers={enabledSocialProviders()} namespace="Auth.signIn" next={next} />
+          {isMailConfigured() && (
+            <ClientMessages namespaces={["Auth.signIn"]}>
+              <SignInLinkForm next={next} />
+            </ClientMessages>
+          )}
         </CardContent>
         <CardFooter className="flex-col items-start gap-2 text-sm text-muted-foreground">
           <Link href="/forgot-password" className="text-foreground underline underline-offset-4">

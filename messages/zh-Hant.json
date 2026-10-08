@@ -49,7 +49,12 @@
       "continueWithGithub": "使用 GitHub 繼續",
       "HOST_INVITATION_REQUIRED": "此實例僅限受邀註冊。要使用 Google 或 GitHub 建立帳號，請先開啟你的主辦人邀請連結，再繼續。",
       "HOST_INVITATION_UNUSABLE": "此主辦人邀請已無法使用。請向此實例的營運者索取新的邀請。",
-      "TOO_MANY_REQUESTS": "操作太頻繁了，請稍後再試。"
+      "TOO_MANY_REQUESTS": "操作太頻繁了，請稍後再試。",
+      "linkTitle": "透過電子郵件取得登入連結",
+      "linkEmail": "寄送到",
+      "linkSubmit": "寄連結給我",
+      "linkSent": "如果這裡有對應的帳號，我們已把登入連結寄到 {email}。",
+      "linkExpired": "這個登入連結已過期或已被使用。"
     },
     "forgotPassword": {
       "title": "重設密碼",
@@ -252,7 +257,11 @@
       "subject": "「{title}」就在明天",
       "body": "「{title}」就在明天。\n\n時間：{when}{located, select, yes {\n地點：{location}} other {}}\n\n你的回覆是：參加{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n活動頁面：\n{url}"
     },
-    "guestFooter": "你收到這封郵件，是因為你回覆「{title}」時留下了電子郵件。如果不想再收到關於這個活動的郵件，請開啟這個連結：{url}"
+    "guestFooter": "你收到這封郵件，是因為你回覆「{title}」時留下了電子郵件。如果不想再收到關於這個活動的郵件，請開啟這個連結：{url}",
+    "magicLink": {
+      "subject": "你的 OpenInvites 登入連結",
+      "body": "{name}，你好：\n\n請開啟下方連結登入。連結 15 分鐘內有效，且只能使用一次。\n\n{url}\n\n如果這不是你本人的操作，可以忽略這封郵件，不會有人因此登入。"
+    }
   },
   "Events": {
     "state": {

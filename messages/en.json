@@ -49,7 +49,12 @@
       "continueWithGithub": "Continue with GitHub",
       "HOST_INVITATION_REQUIRED": "This instance is invitation only. To create an account with Google or GitHub, open your host invitation link first, then continue.",
       "HOST_INVITATION_UNUSABLE": "This host invitation can no longer be used. Ask the operator of this instance for a new one.",
-      "TOO_MANY_REQUESTS": "You’re going too fast. Try again shortly."
+      "TOO_MANY_REQUESTS": "You’re going too fast. Try again shortly.",
+      "linkTitle": "Email me a sign-in link",
+      "linkEmail": "Send it to",
+      "linkSubmit": "Send me the link",
+      "linkSent": "If an account exists here, we sent a sign-in link to {email}.",
+      "linkExpired": "That sign-in link has expired or was already used."
     },
     "forgotPassword": {
       "title": "Reset your password",
@@ -252,7 +257,11 @@
       "subject": "{title} is tomorrow",
       "body": "{title} is tomorrow.\n\nWhen: {when}{located, select, yes {\nWhere: {location}} other {}}\n\nYou said Going{plusOnes, plural, =0 {} one {, with # plus-one} other {, with # plus-ones}}.\n\nThe event page:\n{url}"
     },
-    "guestFooter": "You are getting this because you gave your email when you replied to {title}. To stop emails about this event: {url}"
+    "guestFooter": "You are getting this because you gave your email when you replied to {title}. To stop emails about this event: {url}",
+    "magicLink": {
+      "subject": "Your sign-in link for OpenInvites",
+      "body": "Hi {name},\n\nOpen the link below to sign in. It is valid for 15 minutes and works once.\n\n{url}\n\nIf you did not ask for this, you can ignore this message and nobody is signed in."
+    }
   },
   "Events": {
     "state": {
