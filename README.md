@@ -5,12 +5,12 @@ Invitations you host yourself. A host makes an event page that looks like an inv
 OpenInvites is open source and made to be self-hosted: one Compose file runs it on a small server or a Raspberry Pi. It sends nothing to the project or to anyone else.
 
 <p>
-  <img src="docs/screenshots/event-birthday.webp" width="250" alt="An invitation to Mei’s 30th on a phone: a large serif title over a golden-hour gradient, three buttons for Going, Maybe and Can’t go, and the date and place on frosted glass.">
+  <img src="docs/screenshots/event-birthday.webp" width="250" alt="An invitation to Mei’s 30th on a phone: a large serif title over a golden-hour gradient with sparkles, three buttons for Going, Maybe and Can’t go, and the date and place on frosted glass.">
   <img src="docs/screenshots/rsvp-sheet.webp" width="250" alt="A guest replying in a sheet that has risen over the invitation, bringing one guest, named Leo.">
-  <img src="docs/screenshots/event-festival.webp" width="250" alt="An invitation to a night market in the Festival template: a heavy grotesque title over a dark aurora.">
+  <img src="docs/screenshots/event-festival.webp" width="250" alt="An invitation to a night market in the Festival template: a heavy grotesque title over a dark aurora, with floating shapes and a tilted date.">
 </p>
 <p>
-  <img src="docs/screenshots/design-drawer.webp" width="760" alt="The host’s Design drawer beside their event page: upload a photo or poster, templates, layout, and backgrounds.">
+  <img src="docs/screenshots/design-drawer.webp" width="760" alt="The host’s Design drawer beside their event page: upload a photo or poster, templates, the three layouts, and backgrounds.">
 </p>
 <p>
   <img src="docs/screenshots/guest-list.webp" width="760" alt="The host’s guest list: seven people expected, grouped under Going, Maybe and Can’t go, with plus-ones and reply times.">
