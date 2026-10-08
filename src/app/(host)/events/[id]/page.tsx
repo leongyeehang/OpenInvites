@@ -6,7 +6,7 @@ import { requireHost } from "@/auth/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { publishEventAction, updateEventAction } from "@/events/actions";
+import { duplicateEventAction, publishEventAction, updateEventAction } from "@/events/actions";
 import { findHostEvent } from "@/events/repository";
 import { can } from "@/hosts/role";
 import { countAnswersByQuestion, listQuestions } from "@/questions/repository";
@@ -27,10 +27,12 @@ export async function generateMetadata({ params }: PageProps<"/events/[id]">): P
 // The host's page for one event: its link and state, then the same form as creating it. A co-host
 // gets the same page, marked as theirs to co-host, without what is the owner's alone: deleting the
 // event and choosing its co-hosts (hosts/role.ts).
-export default async function ManageEventPage({ params }: PageProps<"/events/[id]">) {
-  const [host, { id }, t] = await Promise.all([requireHost(), params, getTranslations("Events")]);
+export default async function ManageEventPage({ params, searchParams }: PageProps<"/events/[id]">) {
+  const [host, { id }, { from }, t] = await Promise.all([requireHost(), params, searchParams, getTranslations("Events")]);
   const event = await findHostEvent(host.id, id);
   if (!event) notFound();
+  // Where a duplicate came from, said only when the host can see that event themselves.
+  const source = typeof from === "string" ? await findHostEvent(host.id, from) : undefined;
   const link = `${baseUrl()}/e/${event.slug}`;
   const [questions, answerCounts, counts] = await Promise.all([
     listQuestions(event.id),
@@ -41,6 +43,11 @@ export default async function ManageEventPage({ params }: PageProps<"/events/[id
 
   return (
     <ClientMessages namespaces={["Events.form", "Events.manage"]}>
+      {source && (
+        <p role="status" className="rounded-md border bg-muted px-4 py-3 text-sm">
+          {t("manage.duplicatedFrom", { title: source.title })}
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">{event.title}</h1>
         <EventStateBadge state={event.state} />
@@ -78,6 +85,13 @@ export default async function ManageEventPage({ params }: PageProps<"/events/[id
               <Button asChild variant="outline">
                 <Link href={`/events/${event.id}/hosts`}>{t("manage.hosts")}</Link>
               </Button>
+            )}
+            {can(event.role, "duplicate") && (
+              <form action={duplicateEventAction.bind(null, event.id)}>
+                <Button type="submit" variant="outline" title={t("manage.duplicateHint")}>
+                  {t("manage.duplicate")}
+                </Button>
+              </form>
             )}
             {event.state === "draft" && (
               <form action={publishEventAction.bind(null, event.id)}>

@@ -264,6 +264,9 @@
     }
   },
   "Events": {
+    "duplicate": {
+      "copySuffix": "(copy)"
+    },
     "state": {
       "draft": "Draft",
       "published": "Published",
@@ -356,6 +359,9 @@
       "view": "Open the event page",
       "publish": "Publish",
       "publishHint": "Publishing makes the event link work for anyone who has it.",
+      "duplicate": "Duplicate",
+      "duplicateHint": "Makes a new draft with the same details, look, questions, settings and picture. Replies, comments and announcements are not copied.",
+      "duplicatedFrom": "Duplicated from {title}",
       "publishedHint": "Anyone with the link can open the event page. Edits show up there straight away.",
       "draftHint": "Only you can open the link while the event is a draft.",
       "guests": "Guest list",

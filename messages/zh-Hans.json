@@ -264,6 +264,9 @@
     }
   },
   "Events": {
+    "duplicate": {
+      "copySuffix": "（副本）"
+    },
     "state": {
       "draft": "草稿",
       "published": "已发布",
@@ -356,6 +359,9 @@
       "view": "打开活动页面",
       "publish": "发布",
       "publishHint": "发布后，任何拿到活动链接的人都能打开它。",
+      "duplicate": "复制活动",
+      "duplicateHint": "生成一份新的草稿，沿用相同的详情、外观、问题、设置和图片。回复、评论和公告不会复制。",
+      "duplicatedFrom": "复制自“{title}”",
       "publishedHint": "任何持有链接的人都能打开活动页面。你做的修改会立刻显示在那里。",
       "draftHint": "活动还是草稿时，只有你能打开这个链接。",
       "guests": "宾客名单",

@@ -9,8 +9,11 @@ import { can } from "@/hosts/role";
 import type { FormState } from "@/lib/form-state";
 import { parseQuestions } from "@/questions/question";
 import { parseRichText } from "@/rich-text/rich-text";
-import { saveQuestions } from "@/questions/repository";
+import { listQuestions, saveQuestions } from "@/questions/repository";
 import { notifyGuestsOfCancellation } from "@/rsvps/notify-cancellation";
+import { copyPicture } from "@/uploads/copy";
+import { findEventUpload } from "@/uploads/repository";
+import { duplicateInput } from "./duplicate";
 import { parseEventForm } from "./form";
 import { cancelEvent, createEvent, deleteEvent, findHostEvent, publishEvent, resetEventLink, updateEvent } from "./repository";
 
@@ -141,4 +144,26 @@ export async function resetLinkAction(id: string): Promise<void> {
   revalidatePath(`/events/${id}`);
   revalidatePath(`/events/${id}/share`);
   redirect(`/events/${id}/share`);
+}
+
+// A new draft with the same details, look, questions, settings and picture, owned by the host who
+// asks, who is taken to its manage page, which names the event it came from.
+export async function duplicateEventAction(id: string): Promise<void> {
+  const host = await requireHost();
+  const source = await findHostEvent(host.id, id);
+  if (!source || !can(source.role, "duplicate")) redirect(`/events/${id}`);
+  const t = await getTranslations("Events");
+  const { event, questions } = duplicateInput(source, await listQuestions(id), await getLocale(), t("duplicate.copySuffix"));
+
+  const created = await createEvent(host.id, event);
+  try {
+    await saveQuestions(created.id, questions);
+    const picture = await findEventUpload(id);
+    if (picture) await copyPicture(picture, host.id, created.id);
+  } catch (error) {
+    // Nothing half-made is left in the host's dashboard; the host can try again.
+    await deleteEvent(host.id, created.id);
+    throw error;
+  }
+  redirect(`/events/${created.id}?from=${id}`);
 }

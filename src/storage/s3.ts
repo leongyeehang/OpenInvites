@@ -24,5 +24,9 @@ export function s3Storage({ endpoint, region, bucket, accessKey, secretKey }: Ex
       // Deleting a key that is not there succeeds, as S3 defines it.
       await client.deleteObject(key);
     },
+    async copy(fromKey, toKey) {
+      // Done by the server: the bytes never come to the application.
+      await client.copyObject({ sourceKey: fromKey }, toKey);
+    },
   };
 }

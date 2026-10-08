@@ -38,8 +38,9 @@ function isSlugCollision(error: unknown): boolean {
 // What saving the event form writes: the form, and the language it was saved in.
 export type EventChanges = EventInput & { locale: Locale };
 
-// A new event starts with the Birthday template's theme (ticket 06).
-export async function createEvent(hostId: string, input: EventChanges): Promise<Event> {
+// A new event starts with the Birthday template's theme (ticket 06), unless it is given one: a
+// duplicate starts with the theme of the event it copies.
+export async function createEvent(hostId: string, input: EventChanges & { theme?: Theme }): Promise<Event> {
   return withFreshSlug(async (slug) => {
     try {
       const [created] = await getDb().insert(event).values({ hostId, slug, theme: DEFAULT_THEME, ...input }).returning();

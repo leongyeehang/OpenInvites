@@ -10,6 +10,9 @@ export type Storage = {
   // Nothing stored under the key is not an error.
   get(key: string): Promise<Uint8Array | undefined>;
   delete(key: string): Promise<void>;
+  // The bytes under one key, also under another, without passing through the application on S3.
+  // The key copied from must exist.
+  copy(fromKey: string, toKey: string): Promise<void>;
 };
 
 function create(config: StorageConfig): Storage {
