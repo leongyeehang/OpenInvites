@@ -153,7 +153,8 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     );
   }
 
-  // A server action redraw is a POST naming its action, which is all the page can tell of the method.
+  // This is the one place a page render writes. A server action redraw is a POST naming its
+  // action, which is all the page can tell of the method.
   const requestHeaders = await headers();
   const method = requestHeaders.has("next-action") ? "POST" : "GET";
   if (countsAsView({ method, headers: requestHeaders }, event, { isHost })) await recordView(event.id);

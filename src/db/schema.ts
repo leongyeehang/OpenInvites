@@ -152,11 +152,11 @@ export const event = pgTable(
     // The language the host last saved the event form in, which mail about the event to its hosts
     // is written in: the request that queues such mail is usually a guest's, in their language.
     locale: text("locale").$type<Locale>().notNull().default(defaultLocale),
+    // How many times the event page was opened by someone who is not a host (spec, "View count").
+    views: integer("views").notNull().default(0),
     // Whether guests who gave an email are reminded, a week before if they said Maybe and the day
     // before if they said Going (spec, "Automatic reminders"). On for new events, off for events
     // from before 0.3, as notifyOnRsvp is.
-    // How many times the event page was opened by someone who is not a host (spec, "View count").
-    views: integer("views").notNull().default(0),
     remindersEnabled: boolean("reminders_enabled").notNull().default(true),
     // When the host published the event. A reminder whose time came before it is never sent, so
     // an event published five days out sends no week reminder.
