@@ -3,90 +3,30 @@
 import { Check, ChevronLeft, Copy, X } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Dialog } from "radix-ui";
-import { useCallback, useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { cn } from "@/lib/utils";
-import { removeRsvpAction, saveRsvpAction } from "@/rsvps/actions";
-import { offeredBy, type AnswerFields } from "@/questions/answers";
+import { offeredBy } from "@/questions/answers";
 import type { Question } from "@/questions/question";
-import { RSVP_STATUSES, type RsvpSettings, type RsvpStatus } from "@/rsvps/form";
-import type { GuestRsvp, RsvpRefusal } from "@/rsvps/guest";
+import { RSVP_STATUSES, type RsvpStatus } from "@/rsvps/form";
+import type { GuestRsvp } from "@/rsvps/guest";
 import { Confetti } from "@/themes/effects/confetti";
-import { confettiFor } from "@/themes/effects/trigger";
 import { Glass } from "@/themes/glass";
 import { sheetVariables } from "@/themes/resolve";
 import { rsvpButtonClasses } from "@/themes/rsvp-buttons";
 import { useTheme } from "@/themes/themed-page";
+import { useRsvpFlow, type RsvpFlowProps, type Step } from "./use-rsvp-flow";
 
-// Where the guest is in the flow (PROTOTYPE.md): the three buttons, then their name, then who
-// they are bringing, then the confirmation. Ticket 09 puts the host's questions before the end.
-type Step = "idle" | "name" | "plusones" | "questions" | "done";
-
-// Which step holds the field a refusal is about, so a guest is never shown "fix your email"
-// with the email field hidden two steps back. A refusal about no field in particular leaves the
-// guest where they are, with the message in front of them.
-const STEP_OF: Partial<Record<RsvpRefusal, Step>> = {
-  nameRequired: "name",
-  nameTooLong: "name",
-  emailInvalid: "name",
-  plusOnesInvalid: "plusones",
-  plusOneNameRequired: "plusones",
-  plusOneNameTooLong: "plusones",
-  answerRequired: "questions",
-  answerNotOffered: "questions",
-  answerTooLong: "questions",
-};
-
-type Draft = {
-  status: RsvpStatus;
-  name: string;
-  plusOnes: number;
-  plusOneNames: string[];
-  email: string;
-  answers: AnswerFields;
-};
-
-const BLANK: Draft = { status: "going", name: "", plusOnes: 0, plusOneNames: [], email: "", answers: {} };
-
-// Coming back to change an answer starts from the answer that is already there, except that a
-// host who has since lowered the plus-ones allowance wins: otherwise the guest would carry an
-// impossible number into every attempt to save, and never be able to change their RSVP again.
-function draftFrom(mine: GuestRsvp | undefined, settings: RsvpSettings, answers: AnswerFields): Draft {
-  if (!mine) return { ...BLANK, answers };
-  const { status, name, plusOneNames, email } = mine;
-  const plusOnes = Math.min(mine.plusOnes, settings.plusOnesAllowed);
-  return { status, name, plusOnes, plusOneNames: plusOneNames.slice(0, plusOnes), email: email ?? "", answers };
-}
-
-type Props = {
-  slug: string;
-  settings: RsvpSettings;
-  mine: GuestRsvp | undefined;
-  open: boolean;
-  questions: Question[];
-  answers: AnswerFields;
-  calendar?: ReactNode;
-};
-
-// The guest's whole RSVP: the three buttons under the poster, the steps, and once they have
-// answered, their confirmation. It is one flow whichever RSVP style the theme sets; only what the
-// steps and the confirmation appear in differs. Inline, they open under the buttons, and the
-// confirmation takes the buttons' place. In the Sheet style they rise over the invitation in a
-// sheet (PROTOTYPE.md), the buttons stay, and a guest who has answered can close the sheet and
-// open it again. Everything wears the page's theme, which the host may be changing as the guest
-// would see it.
-export function RsvpFlow({ slug, settings, mine, open, questions, answers, calendar }: Props) {
+// The guest's whole RSVP in the Poster layout: the three buttons under the poster, the steps, and
+// once they have answered, their confirmation. The flow's rules are use-rsvp-flow.ts's; this is
+// how the Poster presents them, whichever RSVP style the theme sets; only what the steps and the
+// confirmation appear in differs. Inline, they open under the buttons, and the confirmation takes
+// the buttons' place. In the Sheet style they rise over the invitation in a sheet (PROTOTYPE.md),
+// the buttons stay, and a guest who has answered can close the sheet and open it again.
+// Everything wears the page's theme, which the host may be changing as the guest would see it.
+export function RsvpFlow(props: RsvpFlowProps) {
+  const { settings, open, questions, calendar } = props;
   const t = useTranslations("Rsvp");
-  const {
-    theme: { effect },
-    resolved: { buttonStyle, rsvpStyle },
-  } = useTheme();
-  const [step, setStep] = useState<Step>(mine ? "done" : "idle");
-  const [answer, setAnswer] = useState(mine);
-  const [draft, setDraft] = useState<Draft>(() => draftFrom(mine, settings, answers));
-  const [error, setError] = useState<RsvpRefusal>();
-  // Why the guest's RSVP could not be removed just now, shown with their confirmation.
-  const [withdrawRefusal, setWithdrawRefusal] = useState<"tooFast">();
-  const [working, startWorking] = useTransition();
+  const { buttonStyle, rsvpStyle } = useTheme().resolved;
   const form = useRef<HTMLFormElement>(null);
   // The sheet opens when the guest chooses a status or asks to see their RSVP, and hands focus
   // back to whichever button that was when it closes.
@@ -95,35 +35,23 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
   const opener = useRef<HTMLButtonElement | null>(null);
   const statusButtons = useRef<Partial<Record<RsvpStatus, HTMLButtonElement | null>>>({});
   const followFocus = useRef(false);
-  // Where the focus goes when what had it goes away under it (focusNext, below).
-  const focusNext = useRef<"confirmation" | "buttons" | null>(null);
   const confirmationHeading = useRef<HTMLHeadingElement>(null);
-  // Under the Confetti effect, how many answers saved here have made the guest Going: each one is
-  // a fresh fall over the page.
-  const [falls, setFalls] = useState(0);
 
-  // Declining takes two taps, so a guest who can't go is asked nothing else. Everyone else is
-  // asked only what this event has to ask.
-  const steps: Step[] =
-    draft.status === "cant"
-      ? ["name"]
-      : ["name", ...(settings.plusOnesAllowed > 0 ? (["plusones"] as const) : []), ...(questions.length > 0 ? (["questions"] as const) : [])];
-  const position = Math.max(0, steps.indexOf(step));
-  const last = position === steps.length - 1;
-  const confirmed = answer !== undefined && step === "done";
-  const answering = step !== "idle" && !confirmed;
-
-  const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
-  const recordAnswer = (questionId: string, values: string[]) =>
-    setDraft((current) => ({ ...current, answers: { ...current.answers, [questionId]: values } }));
+  // Sending, removing or going back to change an answer takes away the button that was pressed.
+  // The focus goes to the confirmation's heading once the answer is saved, which a screen reader
+  // then reads out, and back to the status buttons once it is removed or being changed. The
+  // sheet, closing, hands it back to the buttons itself.
+  const flow = useRsvpFlow(props, (target, status) => {
+    if (target === "confirmation") confirmationHeading.current?.focus({ preventScroll: sheet });
+    if (target === "status" && !sheet) statusButtons.current[status]?.focus();
+  });
+  const { step, draft, change, recordAnswer, steps, position, last, confirmed, answering, working } = flow;
 
   const headings: Partial<Record<Step, string>> = {
     name: t(draft.status === "cant" ? "name.cantTitle" : "name.title"),
     plusones: t("plusOnes.title"),
     questions: t("questions.title"),
   };
-  const forward = () => setStep(steps[position + 1]);
-  const back = () => setStep(position === 0 ? "idle" : steps[position - 1]);
 
   const openSheet = (from: HTMLButtonElement) => {
     opener.current = from;
@@ -132,7 +60,7 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
   // Closing the sheet part-way leaves the RSVP as it was: the saved one, if there is one.
   const closeSheet = () => {
     setSheetOpen(false);
-    if (step !== "done") setStep(answer ? "done" : "idle");
+    flow.stopAnswering();
   };
   // Once the sheet has gone, however it went (the guest may have changed or removed their answer
   // from inside it), it stays shut, and focus goes back to what opened it or, when that has gone
@@ -143,8 +71,7 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
   };
 
   const pick = (status: RsvpStatus, from: HTMLButtonElement) => {
-    change({ status, plusOnes: status === "cant" ? 0 : draft.plusOnes });
-    setStep("name");
+    flow.pick(status);
     if (sheet) openSheet(from);
   };
 
@@ -157,60 +84,15 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
     form.current?.querySelector<HTMLElement>(`[data-step="${step}"] :is(input:not([type="hidden"]), textarea, button)`)?.focus({ preventScroll: true });
   }, [step]);
 
-  // Sending, removing or going back to change an answer takes away the button that was pressed.
-  // The focus goes to the confirmation's heading once the answer is saved, which a screen reader
-  // then reads out, and back to the status buttons once it is removed or being changed. The
-  // sheet, closing, hands it back to the buttons itself.
-  useEffect(() => {
-    const target = focusNext.current;
-    focusNext.current = null;
-    if (target === "confirmation") confirmationHeading.current?.focus({ preventScroll: sheet });
-    if (target === "buttons" && !sheet) statusButtons.current[draft.status]?.focus();
-  }, [step, answer, sheet, draft.status]);
-
-  const send = (formData: FormData) =>
-    startWorking(async () => {
-      const result = await saveRsvpAction(slug, formData);
-      setError(result.error);
-      if (result.error) {
-        const owner = STEP_OF[result.error];
-        if (owner && steps.includes(owner)) setStep(owner);
-        return;
-      }
-      if (!result.saved) return;
-      focusNext.current = "confirmation";
-      if (effect === "confetti" && confettiFor(answer?.status ?? null, result.saved.status)) setFalls((count) => count + 1);
-      setAnswer(result.saved);
-      setStep("done");
-    });
-
-  const remove = () =>
-    startWorking(async () => {
-      const result = await removeRsvpAction(slug);
-      setWithdrawRefusal(result.error);
-      if (result.error) return;
-      focusNext.current = "buttons";
-      setAnswer(undefined);
-      setDraft(BLANK);
-      setStep("idle");
-    });
-
   const confirmation = confirmed && (
     <Confirmation
-      answer={answer}
+      answer={confirmed}
       headingRef={confirmationHeading}
-      onChangeAnswer={() => {
-        setWithdrawRefusal(undefined);
-        focusNext.current = "buttons";
-        setStep("idle");
-      }}
-      onEditDetails={() => {
-        setWithdrawRefusal(undefined);
-        setStep("name");
-      }}
-      onRemove={remove}
+      onChangeAnswer={flow.changeAnswer}
+      onEditDetails={flow.editDetails}
+      onRemove={flow.withdraw}
       removing={working}
-      refusal={withdrawRefusal && t(`errors.${withdrawRefusal}`)}
+      refusal={flow.withdrawRefusal && t(`errors.${flow.withdrawRefusal}`)}
       calendar={calendar}
       dismiss={
         sheet && (
@@ -228,7 +110,7 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
   const stepper = answering && (
     <form
       ref={form}
-      action={send}
+      action={flow.send}
       // Enter in a field finishes its step rather than sending a half-filled RSVP. On a button it
       // does what the button says, so Back goes back and a plus-one chip is chosen.
       onKeyDown={(event) => {
@@ -236,7 +118,7 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
         event.preventDefault();
         if (!draft.name.trim()) return;
         followFocus.current = true;
-        forward();
+        flow.forward();
       }}
       className="flex flex-col gap-4"
     >
@@ -246,7 +128,7 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
       <div className="flex items-start gap-2">
         <button
           type="button"
-          onClick={back}
+          onClick={flow.back}
           aria-label={t("back")}
           className="-ml-1 grid size-9 shrink-0 cursor-pointer place-items-center rounded-full hover:bg-theme-glass"
         >
@@ -415,9 +297,9 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
         </ol>
       </div>
 
-      {error && (
+      {flow.refusal && (
         <p role="alert" className="text-sm font-medium">
-          {t(`errors.${error}`)}
+          {t(`errors.${flow.refusal}`)}
         </p>
       )}
 
@@ -425,7 +307,7 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
         // Never type="submit": React would turn this very element into one as the step
         // changes, mid-click, and the browser would then send the half-filled form.
         type="button"
-        onClick={() => (last ? form.current?.requestSubmit() : forward())}
+        onClick={() => (last ? form.current?.requestSubmit() : flow.forward())}
         disabled={working || !draft.name.trim()}
         className="h-12 cursor-pointer rounded-2xl bg-theme-accent text-base font-medium text-theme-on-accent transition-opacity hover:opacity-90 disabled:cursor-default motion-reduce:transition-none disabled:opacity-50"
       >
@@ -435,7 +317,7 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
   );
 
   // What the buttons show as chosen: the saved answer once there is one, else the one being given.
-  const chosen = confirmed ? answer.status : answering ? draft.status : undefined;
+  const chosen = confirmed ? confirmed.status : answering ? draft.status : undefined;
   const buttons = (
     <>
       <div className="grid grid-cols-3 gap-2">
@@ -461,7 +343,7 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
 
   // The confetti falls as the confirmation appears. It sits first, apart from whatever the flow
   // shows, so going on from the confirmation neither stops it nor starts it again.
-  const confetti = falls > 0 && <Confetti key={falls} />;
+  const confetti = flow.falls > 0 && <Confetti key={flow.falls} />;
 
   if (!sheet) {
     if (confirmation)
@@ -490,13 +372,13 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
         {/* On the veil too. It stays while the sheet is open, so focus can come back to it. */}
         {confirmed && (
           <p className="mx-auto mt-2 w-fit rounded-full bg-theme-veil px-3 py-1.5 text-center text-xs text-theme-text-muted backdrop-blur-xl">
-            {t("replied", { name: answer.name })}{" "}
+            {t("replied", { name: confirmed.name })}{" "}
             <button type="button" onClick={(event) => openSheet(event.currentTarget)} className="cursor-pointer font-medium text-theme-text underline underline-offset-2">
               {t("showMine")}
             </button>
           </p>
         )}
-        <RsvpSheet open={sheetOpen && (answering || confirmed)} onClose={closeSheet} onClosed={sheetClosed}>
+        <RsvpSheet open={sheetOpen && (answering || confirmed !== undefined)} onClose={closeSheet} onClosed={sheetClosed}>
           {confirmation || stepper}
         </RsvpSheet>
       </div>
