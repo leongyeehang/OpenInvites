@@ -121,16 +121,24 @@ With mail configured:
 - a host can sign in with a link emailed to them;
 - changing an account's email is confirmed from the new address;
 - the operator can have a host invitation emailed;
-- the host is emailed when a guest replies, unless they turn it off for the event;
+- an event's hosts, co-hosts included, are emailed when a guest replies, changes their answer or
+  removes their RSVP, unless they turn it off for the event;
 - the hosts are emailed when someone comments on the event page, unless they turn it off for the
   event;
+- guests who gave an email are told when the host cancels the event, if they said Going or Maybe;
+- the hosts can email an announcement to the guests who gave an email, chosen by their answer;
 - guests who gave an email are reminded of an event a week before if they said Maybe, and the day
-  before if they said Going, unless the host turns reminders off for the event.
+  before if they said Going, unless the host turns reminders off for the event;
+- every email to a guest ends with a link to a page where one tap stops email about that event.
 
-The app sends event mail from a queue inside the app container, so there is nothing else to run.
-The container checks the queue once a minute, and that is when it queues the reminders that have
-fallen due. A message that fails is retried a few times over about an hour and a half; if it still
-fails, it is dropped and the log says why.
+A guest gives an email only when the host asks for one on the RSVP form, so only those guests get
+mail.
+
+The app sends event mail (everything above about an event) from a queue inside the app container,
+so there is nothing else to run. It sends what someone has just queued at once, and checks the
+queue once a minute, which is also when it queues the reminders that have fallen due. A message
+that fails is retried a few times over about an hour and a half; if it still fails, it is dropped
+and the log says why.
 
 Without mail, none of those emails exist: hosts are not asked to verify, and you reset a
 forgotten password with the command in [upgrade-backup.md](upgrade-backup.md#resetting-a-hosts-password).
@@ -138,9 +146,9 @@ forgotten password with the command in [upgrade-backup.md](upgrade-backup.md#res
 To check mail works after setting it up, sign up a host with an address you can read, or ask for
 a password reset for one. If nothing arrives, `docker compose logs app` shows the SMTP server's
 answer. Every request that sends one of the account emails (verification, password reset, an email
-change, a host invitation) counts against `RATE_LIMIT_MAIL`, and so does a host's announcement that
-emails guests, once however many it reaches. The hosts' reply emails come from guests' RSVPs, so
-`RATE_LIMIT_RSVP` bounds them, and their comment emails come from comments, which
+change, a sign-in link, a host invitation) counts against `RATE_LIMIT_MAIL`, and so does a host's
+announcement that emails guests, once however many it reaches. The hosts' reply emails come from
+guests' RSVPs, so `RATE_LIMIT_RSVP` bounds them, and their comment emails come from comments, which
 `RATE_LIMIT_COMMENT` bounds.
 
 ## Sign in with Google and GitHub
