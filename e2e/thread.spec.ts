@@ -139,15 +139,18 @@ test("a guest replies in the conversation: Going with a named plus-one, a questi
   await done.click();
   await expect(conversation(page).getByText("Tag and Piñata", { exact: true })).toBeVisible();
 
-  // The done bubble, by her first name, with the calendar and the edit link, which copies.
+  // The done bubble, by her first name, with the calendar and the edit link, shown as text, since
+  // a browser opened from a chat app may not copy it, and copied by its chip.
   await expect(doneBubble(page)).toContainText("You’re in, Priya! Can’t wait. Here’s your private link to change anything later. It’s saved in this browser too.", {
     timeout: 15_000,
   });
   await expect(doneBubble(page)).toBeInViewport();
   await expect(doneBubble(page).getByRole("link", { name: "Add to calendar" })).toBeVisible();
+  const shownLink = doneBubble(page).getByText(EDIT_LINK);
+  await expect(shownLink).toBeVisible();
   await doneBubble(page).getByRole("button", { name: "Copy edit link" }).click();
   await expect(doneBubble(page).getByRole("button", { name: "Copied" })).toBeVisible();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(EDIT_LINK);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe((await shownLink.textContent())!.trim());
   for (const action of ["Change my answer", "Edit my details", "Remove my RSVP"]) await expect(page.getByRole("button", { name: action })).toBeVisible();
   // Nothing on the page is wider than the screen.
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);

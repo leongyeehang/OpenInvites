@@ -1,8 +1,9 @@
 "use client";
 
 import { useFormatter, useTranslations } from "next-intl";
-import { useState, type ReactNode, type RefObject } from "react";
+import { useRef, type ReactNode, type RefObject } from "react";
 import type { GuestRsvp } from "@/rsvps/guest";
+import { useCopyLink } from "./use-copy-link";
 
 const LINK = "cursor-pointer underline decoration-theme-accent decoration-2 underline-offset-4 hover:opacity-80 disabled:cursor-default disabled:opacity-50";
 
@@ -32,7 +33,8 @@ export function BroadsheetReceipt({
 }) {
   const t = useTranslations("Rsvp");
   const format = useFormatter();
-  const [copied, setCopied] = useState(false);
+  const shownLink = useRef<HTMLSpanElement>(null);
+  const link = useCopyLink(answer.editLink, shownLink);
   const named = answer.plusOneNames.filter(Boolean);
 
   return (
@@ -60,13 +62,15 @@ export function BroadsheetReceipt({
       <div className="mt-6">
         <p className="label-mono text-theme-text-muted">{t("editLink.label")}</p>
         <div className="mt-1 flex items-center justify-between gap-3 border-b border-theme-text/20 pb-2">
-          <span className="min-w-0 truncate font-mono text-sm">{answer.editLink}</span>
+          <span ref={shownLink} className={`min-w-0 font-mono text-sm ${link.failed ? "break-all" : "truncate"}`}>
+            {answer.editLink}
+          </span>
           <button
             type="button"
-            onClick={() => navigator.clipboard.writeText(answer.editLink).then(() => setCopied(true))}
+            onClick={link.copy}
             className="label-mono inline-flex h-9 shrink-0 cursor-pointer items-center text-theme-accent-ink hover:underline"
           >
-            {copied ? t("editLink.copied") : t("editLink.copy")}
+            {link.copied ? t("editLink.copied") : t("editLink.copy")}
           </button>
         </div>
         <p className="mt-2 text-xs text-theme-text-faint">{t("editLink.hint")}</p>

@@ -14,6 +14,7 @@ import { Glass } from "@/themes/glass";
 import { sheetVariables } from "@/themes/resolve";
 import { rsvpButtonClasses } from "@/themes/rsvp-buttons";
 import { useTheme } from "@/themes/themed-page";
+import { useCopyLink } from "./use-copy-link";
 import { useRsvpFlow, type RsvpFlowProps, type Step } from "./use-rsvp-flow";
 
 // The guest's whole RSVP in the Poster layout: the three buttons under the poster, the steps, and
@@ -499,7 +500,8 @@ function Confirmation({
 }) {
   const t = useTranslations("Rsvp");
   const format = useFormatter();
-  const [copied, setCopied] = useState(false);
+  const shownLink = useRef<HTMLParagraphElement>(null);
+  const link = useCopyLink(answer.editLink, shownLink);
   const named = answer.plusOneNames.filter(Boolean);
 
   return (
@@ -528,14 +530,16 @@ function Confirmation({
       <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-theme-glass-strong px-3 py-2.5">
         <div className="min-w-0">
           <p className="text-xs tracking-wider text-theme-text-faint uppercase">{t("editLink.label")}</p>
-          <p className="truncate font-mono text-[13px]">{answer.editLink}</p>
+          <p ref={shownLink} className={cn("font-mono text-[13px]", link.failed ? "break-all" : "truncate")}>
+            {answer.editLink}
+          </p>
         </div>
         <button
           type="button"
-          onClick={() => navigator.clipboard.writeText(answer.editLink).then(() => setCopied(true))}
+          onClick={link.copy}
           className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-theme-glass px-3 text-xs font-medium hover:bg-theme-glass-strong"
         >
-          <Copy className="size-3.5" aria-hidden /> {copied ? t("editLink.copied") : t("editLink.copy")}
+          <Copy className="size-3.5" aria-hidden /> {link.copied ? t("editLink.copied") : t("editLink.copy")}
         </button>
       </div>
 

@@ -15,6 +15,7 @@ import { cardButtonClasses } from "@/themes/rsvp-buttons";
 import { useTheme } from "@/themes/themed-page";
 import { ARRIVAL, arriving, BUBBLE_CHIP, GuestBubble, HOST_BUBBLE, HostBubble } from "@/themes/thread-bubble";
 import { threadMessages, threadTurns, type Said, type ThreadEvent, type ThreadReply } from "@/themes/thread-script";
+import { useCopyLink } from "./use-copy-link";
 import { useRsvpFlow, type Draft, type RsvpFlowProps, type RsvpFlowState } from "./use-rsvp-flow";
 
 // About as long as the host takes to type a line.
@@ -501,7 +502,7 @@ function QuestionComposer({
             {label(option)}
           </button>
         ))}
-        <button type="button" onClick={advance} disabled={question.required && given.length === 0} className={chip()}>
+        <button type="button" onClick={() => advance()} disabled={question.required && given.length === 0} className={chip()}>
           {t("thread.finish")}
         </button>
       </Chips>
@@ -530,8 +531,8 @@ function QuestionComposer({
 }
 
 // The host's last line: how the guest stands, by their first name, and their private link to
-// change it, which they can copy, with the calendar for a guest who is coming. Its words take
-// the focus once it arrives, so a screen reader reads them.
+// change it, shown and with a chip that copies it, with the calendar for a guest who is coming.
+// Its words take the focus once it arrives, so a screen reader reads them.
 function DoneBubble({
   className,
   line,
@@ -547,15 +548,19 @@ function DoneBubble({
 }) {
   const t = useTranslations("EventPage");
   const r = useTranslations("Rsvp");
-  const [copied, setCopied] = useState(false);
+  const shownLink = useRef<HTMLParagraphElement>(null);
+  const link = useCopyLink(answer.editLink, shownLink);
   return (
     <HostBubble data-slot="done" className={className}>
       <p ref={lineRef} tabIndex={-1} className="outline-none">
         {line} {t("thread.done.link")}
       </p>
+      <p ref={shownLink} className={cn("mt-2 font-mono text-[13px]", link.failed ? "break-all" : "truncate")}>
+        {answer.editLink}
+      </p>
       <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" onClick={() => navigator.clipboard.writeText(answer.editLink).then(() => setCopied(true))} className={BUBBLE_CHIP}>
-          <Copy className="size-4" aria-hidden /> {copied ? r("editLink.copied") : t("thread.copyLink")}
+        <button type="button" onClick={link.copy} className={BUBBLE_CHIP}>
+          <Copy className="size-4" aria-hidden /> {link.copied ? r("editLink.copied") : t("thread.copyLink")}
         </button>
         {answer.status !== "cant" && calendar}
       </div>
