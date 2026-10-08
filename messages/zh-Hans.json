@@ -228,9 +228,9 @@
         "removed": "{name} 对“{title}”的回复已移除"
       },
       "body": {
-        "replied": "{name} 回复了“{title}”：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给我发邮件”。",
-        "changed": "{name} 对“{title}”的回复现在是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给我发邮件”。",
-        "removed": "{name} 对“{title}”的回复已移除。原来的回复是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给我发邮件”。"
+        "replied": "{name} 回复了“{title}”：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
+        "changed": "{name} 对“{title}”的回复现在是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
+        "removed": "{name} 对“{title}”的回复已移除。原来的回复是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
       },
       "status": {
         "going": "参加",
@@ -247,7 +247,7 @@
     },
     "comment": {
       "subject": "{name} 在“{title}”留言了",
-      "body": "{name} 在“{title}”留言：\n\n{comment}\n\n活动页面：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客留言时给我发邮件”。"
+      "body": "{name} 在“{title}”留言：\n\n{comment}\n\n活动页面：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客留言时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
     },
     "reminderWeek": {
       "subject": "“{title}”还有一周就到了",
@@ -301,14 +301,14 @@
       "guestListVisibility": "谁可以看到宾客名单",
       "guestListAlways": "所有打开链接的人",
       "guestListAfterReply": "已回复的宾客",
-      "guestListHidden": "只有我",
-      "guestListVisibilityHint": "你始终能看到完整名单。",
-      "notifyOnRsvp": "有宾客回复时给我发邮件",
+      "guestListHidden": "只有主办人",
+      "guestListVisibilityHint": "主办人始终能看到完整名单。",
+      "notifyOnRsvp": "有宾客回复时给主办人发邮件",
       "remindersEnabled": "发邮件提醒宾客（提前一周提醒待定的宾客，提前一天提醒参加的宾客）",
       "askEmailHint": "只有你在回复表单中请宾客留下邮箱，宾客才会收到邮件。",
       "commentsEnabled": "留言",
       "commentsEnabledHint": "已回复的宾客和主办人可以在活动页面上留言。",
-      "notifyOnComment": "有宾客留言时给我发邮件",
+      "notifyOnComment": "有宾客留言时给主办人发邮件",
       "questions": "问题",
       "questionsHint": "宾客回复时作答，答案只有你能看到。",
       "questionAdd": "添加问题",

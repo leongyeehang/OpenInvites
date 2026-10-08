@@ -107,7 +107,7 @@ test("a guest who has not replied sees how many comments there are; once they re
   expect(said).toBe("Priya Nair commented on Ada’s birthday:");
   expect(words).toBe("I’ll bring the cake.\nAnd candles.");
   expect(where).toBe(`The event page:\n${host.link}`);
-  expect(footer).toBe("To stop these emails, untick “Email me when a guest comments” in the event’s settings.");
+  expect(footer).toBe("To stop these emails, untick “Email the hosts when a guest comments” in the event’s settings. That stops them for every host of the event.");
   expect(rest).toEqual([]);
 
   await host.context.close();

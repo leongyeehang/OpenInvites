@@ -228,9 +228,9 @@
         "removed": "{name} 對「{title}」的回覆已移除"
       },
       "body": {
-        "replied": "{name} 回覆了「{title}」：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給我」。",
-        "changed": "{name} 對「{title}」的回覆現在是：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給我」。",
-        "removed": "{name} 對「{title}」的回覆已移除。原本的回覆是：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給我」。"
+        "replied": "{name} 回覆了「{title}」：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。",
+        "changed": "{name} 對「{title}」的回覆現在是：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。",
+        "removed": "{name} 對「{title}」的回覆已移除。原本的回覆是：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。"
       },
       "status": {
         "going": "參加",
@@ -247,7 +247,7 @@
     },
     "comment": {
       "subject": "{name} 在「{title}」留言了",
-      "body": "{name} 在「{title}」留言：\n\n{comment}\n\n活動頁面：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客留言時寄電子郵件給我」。"
+      "body": "{name} 在「{title}」留言：\n\n{comment}\n\n活動頁面：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客留言時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。"
     },
     "reminderWeek": {
       "subject": "「{title}」還有一週就到了",
@@ -301,14 +301,14 @@
       "guestListVisibility": "誰可以看到賓客名單",
       "guestListAlways": "所有開啟連結的人",
       "guestListAfterReply": "已回覆的賓客",
-      "guestListHidden": "只有我",
-      "guestListVisibilityHint": "你永遠都能看到完整名單。",
-      "notifyOnRsvp": "有賓客回覆時寄電子郵件給我",
+      "guestListHidden": "只有主辦人",
+      "guestListVisibilityHint": "主辦人永遠都能看到完整名單。",
+      "notifyOnRsvp": "有賓客回覆時寄電子郵件給主辦人",
       "remindersEnabled": "寄電子郵件提醒賓客（提前一週提醒待定的賓客，提前一天提醒參加的賓客）",
       "askEmailHint": "只有你在回覆表單中請賓客留下電子郵件，賓客才會收到郵件。",
       "commentsEnabled": "留言",
       "commentsEnabledHint": "已回覆的賓客和主辦人可以在活動頁面上留言。",
-      "notifyOnComment": "有賓客留言時寄電子郵件給我",
+      "notifyOnComment": "有賓客留言時寄電子郵件給主辦人",
       "questions": "問題",
       "questionsHint": "賓客回覆時作答，答案只有你看得到。",
       "questionAdd": "新增問題",

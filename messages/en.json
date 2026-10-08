@@ -228,9 +228,9 @@
         "removed": "{name}’s RSVP to {title} was removed"
       },
       "body": {
-        "replied": "{name} replied to {title}: {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email me when a guest replies” in the event’s settings.",
-        "changed": "{name}’s RSVP to {title} is now {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email me when a guest replies” in the event’s settings.",
-        "removed": "{name}’s RSVP to {title} was removed. It said {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email me when a guest replies” in the event’s settings."
+        "replied": "{name} replied to {title}: {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest replies” in the event’s settings. That stops them for every host of the event.",
+        "changed": "{name}’s RSVP to {title} is now {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest replies” in the event’s settings. That stops them for every host of the event.",
+        "removed": "{name}’s RSVP to {title} was removed. It said {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest replies” in the event’s settings. That stops them for every host of the event."
       },
       "status": {
         "going": "Going",
@@ -247,7 +247,7 @@
     },
     "comment": {
       "subject": "{name} commented on {title}",
-      "body": "{name} commented on {title}:\n\n{comment}\n\nThe event page:\n{url}\n\nTo stop these emails, untick “Email me when a guest comments” in the event’s settings."
+      "body": "{name} commented on {title}:\n\n{comment}\n\nThe event page:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest comments” in the event’s settings. That stops them for every host of the event."
     },
     "reminderWeek": {
       "subject": "{title} is in a week",
@@ -301,14 +301,14 @@
       "guestListVisibility": "Who can see the guest list",
       "guestListAlways": "Everyone who opens the link",
       "guestListAfterReply": "Guests who have replied",
-      "guestListHidden": "Only me",
-      "guestListVisibilityHint": "You always see the whole list.",
-      "notifyOnRsvp": "Email me when a guest replies",
+      "guestListHidden": "Only the hosts",
+      "guestListVisibilityHint": "The hosts always see the whole list.",
+      "notifyOnRsvp": "Email the hosts when a guest replies",
       "remindersEnabled": "Remind guests by email (a week before to Maybe, the day before to Going)",
       "askEmailHint": "Guests get email only if you ask for their email on the RSVP form.",
       "commentsEnabled": "Comments",
       "commentsEnabledHint": "Guests who have replied, and the hosts, can comment on the event page.",
-      "notifyOnComment": "Email me when a guest comments",
+      "notifyOnComment": "Email the hosts when a guest comments",
       "questions": "Questions",
       "questionsHint": "Asked while a guest replies. Their answers are yours alone.",
       "questionAdd": "Add a question",

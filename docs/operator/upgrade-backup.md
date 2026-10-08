@@ -44,7 +44,9 @@ changes until their host chooses:
 - **Comments, reminders, and the hosts' reply and comment emails start off on events that exist
   before the upgrade**, and on for every event created after it. A host turns them on in the
   event's settings, opened from their dashboard: **Comments**, **Remind guests by email**, **Email
-  me when a guest replies** and **Email me when a guest comments**, then **Save changes**.
+  the hosts when a guest replies** and **Email the hosts when a guest comments**, then **Save
+  changes**. The two email switches are the event's, so they turn the emails on or off for every
+  host of the event at once.
 - **Guests who gave an email before the upgrade can be emailed**: the cancellation notice, the
   host's announcements, and reminders once the host turns them on. Each email ends with the link
   that stops email about the event. Until a guest next saves their RSVP their email is in English,

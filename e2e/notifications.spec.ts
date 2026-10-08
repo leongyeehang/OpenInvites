@@ -14,7 +14,7 @@ async function expectNewestMail(request: APIRequestContext, email: string, says:
 // On the event's manage page, loaded afresh so that "Saved." is this save's and not the last one's.
 async function saveEmailSetting(hostPage: Page, on: boolean) {
   await hostPage.reload();
-  await hostPage.getByLabel("Email me when a guest replies").setChecked(on);
+  await hostPage.getByLabel("Email the hosts when a guest replies").setChecked(on);
   await hostPage.getByRole("button", { name: "Save changes" }).click();
   await expect(hostPage.getByText("Saved.")).toBeVisible({ timeout: 15_000 });
 }
@@ -43,6 +43,10 @@ test("the host is emailed when a guest replies and changes their status, and not
 
   await expectNewestMail(request, host.email, "Priya Nair replied to Ada’s birthday: Going, bringing one more person.");
   expect(await latestMailTo(request, host.email)).toContain(guestList);
+  // The switch is the event's, so the email says turning it off stops these emails for every host.
+  expect(await latestMailTo(request, host.email)).toContain(
+    "To stop these emails, untick “Email the hosts when a guest replies” in the event’s settings. That stops them for every host of the event.",
+  );
   expect(await mailCountTo(request, host.email)).toBe(2);
 
   await page.getByRole("button", { name: "Change my answer" }).click();
