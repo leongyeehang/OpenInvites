@@ -158,9 +158,6 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
 
   const locale = await getLocale();
   const link = `${baseUrl()}/e/${event.slug}`;
-  // The same rule the file itself follows: there is nothing to put in a calendar until an event
-  // is published, and nothing worth keeping there once it is called off.
-  const calendar = acceptsRsvps(event.state) ? <AddToCalendar event={event} link={link} /> : undefined;
   // The cookie tells us whether the guest in front of us has already replied on this device.
   const mine = await findRsvpOnThisDevice(event.id);
   // Whether this guest may see the list decides whether it is even loaded.
@@ -185,6 +182,9 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const picture = upload ? themeUpload(upload) : null;
   const resolved = resolveTheme(event.theme, picture);
   const shown = resolved.upload !== null;
+  // The same rule the file itself follows: there is nothing to put in a calendar until an event
+  // is published, and nothing worth keeping there once it is called off.
+  const calendar = acceptsRsvps(event.state) ? <AddToCalendar event={event} link={link} inCard={resolved.layout === "broadsheet"} /> : undefined;
 
   const notice = isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined;
   const flow: RsvpFlowProps = {

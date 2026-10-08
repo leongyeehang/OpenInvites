@@ -8,6 +8,8 @@ import { offeredBy } from "@/questions/answers";
 import { RSVP_STATUSES, type RsvpStatus } from "@/rsvps/form";
 import { Confetti } from "@/themes/effects/confetti";
 import { Glass } from "@/themes/glass";
+import { cardButtonClasses } from "@/themes/rsvp-buttons";
+import { useTheme } from "@/themes/themed-page";
 import { BroadsheetReceipt } from "./broadsheet-receipt";
 import { Asked } from "./rsvp-flow";
 import { useRsvpFlow, type RsvpFlowProps } from "./use-rsvp-flow";
@@ -22,10 +24,11 @@ import { useRsvpFlow, type RsvpFlowProps } from "./use-rsvp-flow";
 // The card is the glass the Poster's own RSVP card is, and everything on it sits where it sits
 // there (legibility.ts, SURFACES: text on the card, the accent filled or as ink on the card), so
 // it reads under every theme. A mark that is chosen is drawn in the text's own colour, so it never
-// rests on the accent alone.
+// rests on the accent alone. "Post my reply" wears the theme's RSVP button style.
 export function BroadsheetBallot(props: RsvpFlowProps) {
   const { settings, open, questions, calendar } = props;
   const t = useTranslations("Rsvp");
+  const { buttonStyle } = useTheme().resolved;
   const id = useId();
   const statusMarks = useRef<Partial<Record<RsvpStatus, HTMLInputElement | null>>>({});
   const receiptHeading = useRef<HTMLHeadingElement>(null);
@@ -217,10 +220,11 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
                     {t(`errors.${flow.refusal}`)}
                   </p>
                 )}
+                {/* In the theme's RSVP button style: the ballot's one button. */}
                 <button
                   type="submit"
                   disabled={working || !draft.name.trim()}
-                  className="flex h-14 cursor-pointer items-center justify-between rounded-2xl bg-theme-accent px-5 text-lg font-bold tracking-tight text-theme-on-accent transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-50 motion-reduce:transition-none"
+                  className={cn(cardButtonClasses(buttonStyle), "h-14 justify-between px-5 text-lg font-bold tracking-tight")}
                 >
                   {t("ballot.post")} <span aria-hidden>→</span>
                 </button>

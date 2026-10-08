@@ -129,6 +129,8 @@ test("a guest replies on the ballot: Going, two named plus-ones and the host's q
   await expect(page.getByRole("heading", { name: "We’ll miss you." })).toBeVisible();
   await expect(page.getByText("Priya Nair, marked as can’t go.")).toBeVisible();
   await expect(guestList(page).getByText("Priya Nair")).toHaveCount(0);
+  // She was the only one to reply, so the list says nobody is coming yet rather than nothing.
+  await expect(guestList(page).getByText("No one yet")).toBeVisible();
 
   // Amending brings back what was said.
   await page.getByRole("button", { name: "Amend reply" }).click();
@@ -255,6 +257,42 @@ test("under the Confetti effect, confetti falls over the Broadsheet when an RSVP
   await page.getByRole("button", { name: "Post my reply" }).click();
   await expect(page.getByRole("heading", { name: "You’re going!" })).toBeVisible();
   await expect(confetti).toBeVisible();
+
+  await host.context.close();
+});
+
+test("the ballot's Post button wears the theme's RSVP button style, and Supper club brings the Broadsheet with it", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "broadsheet-buttons", { title: "Supper at Mei’s", start: "2027-03-06T19:00", plusOnes: "0" });
+  await host.page.goto(host.link);
+  await host.page.getByRole("button", { name: "Design" }).click();
+  const drawer = host.page.getByRole("dialog", { name: "Design" });
+  await drawer.getByRole("radio", { name: "Supper club" }).check();
+  await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('data-layout="broadsheet"');
+
+  const post = page.getByRole("button", { name: "Post my reply" });
+  const ballot = async () => {
+    await page.goto(host.link);
+    await page.getByRole("radio", { name: "I’ll be there" }).check();
+  };
+  // Supper club's buttons are solid: the accent, its gold.
+  await ballot();
+  await expect(post).toHaveCSS("background-color", "rgb(255, 195, 107)");
+
+  await drawer.getByRole("button", { name: "Details" }).click();
+  const buttons = drawer.getByRole("group", { name: "RSVP buttons" });
+  await buttons.getByRole("radio", { name: "Outline" }).check();
+  await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('buttonStyle\\":\\"outline');
+  await ballot();
+  await expect(post).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(post).toHaveCSS("border-top-width", "2px");
+
+  await buttons.getByRole("radio", { name: "Glass" }).check();
+  await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('buttonStyle\\":\\"glass');
+  await ballot();
+  await expect(post).toHaveCSS("backdrop-filter", /blur/);
+  await expect(post).not.toHaveCSS("background-color", "rgb(255, 195, 107)");
+  await expect(post).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
 
   await host.context.close();
 });

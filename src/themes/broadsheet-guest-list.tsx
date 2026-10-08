@@ -33,10 +33,13 @@ export async function BroadsheetGuestList({ view, guests, you }: BroadsheetGuest
     );
   }
 
-  if (guests.length === 0) return <p className="text-theme-text-muted">{t("nobodyYet")}</p>;
-
   const going = guests.filter((guest) => guest.status === "going");
   const maybe = guests.filter((guest) => guest.status === "maybe");
+  // Nobody has replied yet; or everyone who has can't go, and none of them is listed.
+  if (going.length === 0 && maybe.length === 0) {
+    return <p className="text-theme-text-muted">{guests.length === 0 ? t("nobodyYet") : t("headcount", { count: 0 })}</p>;
+  }
+
   return (
     <>
       {going.length > 0 && (

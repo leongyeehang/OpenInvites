@@ -45,6 +45,39 @@ test("a guest can put the event straight into their calendar", async ({ page, br
   await host.context.close();
 });
 
+test("the calendar links stack on a narrow screen and sit side by side from 640 pixels", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "calendar-widths", EVENT);
+  const links = ["Add to calendar", "Google Calendar", "Outlook"].map((name) => page.getByRole("link", { name }));
+  // Read once the tiles have risen into place (the backdrop's endless drift aside).
+  const boxes = async () => {
+    await page.evaluate(() =>
+      Promise.all(
+        document
+          .getAnimations()
+          .filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity)
+          .map((animation) => animation.finished.catch(() => undefined)),
+      ),
+    );
+    return Promise.all(links.map(async (link) => (await link.boundingBox())!));
+  };
+
+  await page.setViewportSize({ width: 560, height: 900 });
+  await page.goto(host.link);
+  const narrow = await boxes();
+  for (const [above, below] of [narrow.slice(0, 2), narrow.slice(1, 3)]) expect(below.y).toBeGreaterThanOrEqual(above.y + above.height);
+
+  await page.setViewportSize({ width: 700, height: 900 });
+  const wide = await boxes();
+  for (const box of wide) {
+    expect(box.y).toBe(wide[0].y);
+    // One line each, at the links' own height.
+    expect(box.height).toBe(44);
+  }
+
+  await host.context.close();
+});
+
 test("a cancelled event is not offered to anyone's calendar", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "calendar-cancelled", EVENT);
