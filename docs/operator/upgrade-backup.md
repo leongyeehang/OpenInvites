@@ -38,8 +38,8 @@ Restore the backup you took instead.
 ### Upgrading to 0.3
 
 0.3 adds comments, co-hosts, announcements, reminders, and the emails that go with them
-([configuration.md](configuration.md#mail)). On events that already exist, all but the effects
-wait for their host:
+([configuration.md](configuration.md#mail)). On events that already exist, nothing on the page
+changes until their host chooses:
 
 - **Comments, reminders, and the hosts' reply and comment emails start off on events that exist
   before the upgrade**, and on for every event created after it. A host turns them on in the
@@ -54,11 +54,14 @@ wait for their host:
   reminder's time sends none: less than six days before an event, no "in a week" reminder goes,
   though the day reminder can still go during the event's last day. An existing event counts as
   published when it was last changed, which can only make a reminder less likely to go.
-- **Effects are drawn, on existing events too.** The effect a template names was stored with
-  each event before 0.3 and is now shown: Birthday, where every event starts, and Vows sparkle,
-  Festival has floating shapes, and Kids' party's confetti falls when a guest says Going. A guest
-  whose device asks for reduced motion sees none of it. The host turns it off with **None** under
-  **Effect**, in the Design drawer's **Details**.
+- **Existing events show no effect until their host picks one.** Effects are new in 0.3:
+  Birthday, where every event starts, and Vows sparkle, Festival has floating shapes, and Kids'
+  party's confetti falls when a guest says Going. The upgrade sets every existing event to no
+  effect, and since its theme then no longer matches its template, the Design drawer reads it as
+  "Custom, started from" that template (Quiet and Supper club have no effect, so their events are
+  left as they were). The host picks an effect under **Effect**, in the Design drawer's
+  **Details**, or chooses the template again. A guest whose device asks for reduced motion sees
+  no effect at all.
 - Existing events keep the Poster layout; the Design drawer now offers Broadsheet and Thread too.
 
 The app sends event mail itself, from a queue in its own container, so `compose.yaml` gains no
