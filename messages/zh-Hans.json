@@ -361,7 +361,7 @@
       "publish": "发布",
       "publishHint": "发布后，任何拿到活动链接的人都能打开它。",
       "duplicate": "复制活动",
-      "duplicateHint": "生成一份新的草稿，沿用相同的详情、外观、问题、设置和图片。回复、评论和公告不会复制。",
+      "duplicateHint": "生成一份新的草稿，沿用相同的详情、外观、问题、设置和图片。回复、留言和公告不会复制。",
       "duplicatedFrom": "复制自“{title}”",
       "publishedHint": "任何持有链接的人都能打开活动页面。你做的修改会立刻显示在那里。",
       "draftHint": "活动还是草稿时，只有你能打开这个链接。",
@@ -456,14 +456,14 @@
       "going": "我会来！",
       "maybe": "可能吧，我先看看",
       "cant": "可惜我来不了",
-      "askName": "耶！我该怎么称呼你？",
-      "askNameCant": "没关系的！请问你是哪位？我记一下。",
+      "askName": "太好了！我该怎么称呼你？",
+      "askNameCant": "没关系的！你是哪位呀？我记一下。",
       "askEmail": "留个邮箱方便我联系你吗？（不想留可以跳过）",
       "askPlusOnes": "好呀，{firstName}。会带朋友一起来吗？最多可以带 {max} 位。",
       "bringing": "我会带 {count} 位",
       "askGuestName": "{number, plural, =1 {第一位同伴叫什么名字？} =2 {第二位同伴叫什么名字？} =3 {第三位同伴叫什么名字？} =4 {第四位同伴叫什么名字？} =5 {第五位同伴叫什么名字？} =6 {第六位同伴叫什么名字？} =7 {第七位同伴叫什么名字？} =8 {第八位同伴叫什么名字？} =9 {第九位同伴叫什么名字？} =10 {第十位同伴叫什么名字？} other {第 # 位同伴叫什么名字？}}",
       "questionOptional": "{prompt}（没有的话可以跳过）",
-      "skipped": "这题我先跳过",
+      "skipped": "这个我先跳过",
       "skip": "跳过",
       "finish": "选好了",
       "send": "发送",
@@ -646,7 +646,7 @@
         "note": "宾客回复“参加”时飘落一次。"
       },
       "sparkles": {
-        "name": "闪光",
+        "name": "星光",
         "note": "点点光芒在背景中闪烁。"
       },
       "doodles": {
@@ -705,7 +705,7 @@
     "message": "公告内容",
     "remind": "立即发送提醒",
     "reminderDraft": "提醒一下：“{title}”快到了。\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}\n\n活动页面：\n{url}",
-    "audience": "邮件发给回复以下状态的宾客",
+    "audience": "邮件发给哪些宾客",
     "status": {
       "going": "参加",
       "maybe": "待定",
