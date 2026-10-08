@@ -18,10 +18,10 @@ OpenInvites is open source and made to be self-hosted: one Compose file runs it 
 
 ## What it does
 
-- **Event pages worth opening.** Six templates to start from, a gallery of backgrounds or the host's own photo or poster, four title fonts, and an accent colour. Whatever the host picks, the text stays readable.
-- **Replies without an account.** Guests answer Going, Maybe or Can't go, bring plus-ones, answer the host's questions, and change their answer later from the same phone or a private edit link. They can add the event to their calendar and open the place in their maps.
-- **A guest list that keeps itself.** The host sees who is coming and the headcount as replies arrive, and chooses whether guests see the list. The link can be shared, shown as a QR code, and unfurls into a preview card.
-- **An instance you run.** The first account becomes the operator, who decides whether anyone may sign up or only the hosts they invite. Email and password sign-in, with Google and GitHub when configured. Pages in English, Simplified Chinese and Traditional Chinese, following each visitor's browser.
+- **Event pages worth opening.** Six templates to start from, three layouts (a poster, an editorial page, or a chat with the host), a gallery of backgrounds or the host's own photo or poster, four title fonts, an accent colour, and an effect. Whatever the host picks, the text stays readable.
+- **Replies without an account.** Guests answer Going, Maybe or Can't go, bring plus-ones, answer the host's questions, and change their answer later from the same phone or a private edit link. They can add the event to their calendar, open the place in their maps, and once they have replied, talk with the host and each other in the comments.
+- **A guest list that keeps itself.** The host sees who is coming and the headcount as replies arrive, is emailed as they do, and chooses whether guests see the list. Announcements go on the page and to guests' inboxes, guests who gave an email are reminded before the event, and co-hosts can share the work. The link can be shared, shown as a QR code, and unfurls into a preview card.
+- **An instance you run.** The first account becomes the operator, who decides whether anyone may sign up or only the hosts they invite. Email and password sign-in or a link by email, with Google and GitHub when configured. Pages in English, Simplified Chinese and Traditional Chinese, following each visitor's browser.
 
 ## Run it locally
 

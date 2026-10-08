@@ -2,6 +2,8 @@
 
 The backgrounds a host picks from in the Design drawer are data: one entry each in `BACKGROUNDS` in [`src/themes/backgrounds.ts`](../../src/themes/backgrounds.ts), a name for each in the translation files, and, for a scene, a picture in [`public/backgrounds/`](../../public/backgrounds/). Adding one needs no application code.
 
+The two tiles the drawer shows after a host's own picture, under "From your picture", are not curated: Soft blur and Colour wash are made from the host's upload by [`src/themes/derived.ts`](../../src/themes/derived.ts), and their names are under `DesignDrawer.derivedNames`, not `backgroundNames`. Nothing in this guide applies to them, and no template can name them.
+
 ## The shape
 
 ```ts
