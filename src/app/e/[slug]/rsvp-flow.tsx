@@ -6,7 +6,7 @@ import { Dialog } from "radix-ui";
 import { useCallback, useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { cn } from "@/lib/utils";
 import { removeRsvpAction, saveRsvpAction } from "@/rsvps/actions";
-import { offeredBy } from "@/questions/answers";
+import { offeredBy, type AnswerFields } from "@/questions/answers";
 import type { Question } from "@/questions/question";
 import { RSVP_STATUSES, type RsvpSettings, type RsvpStatus } from "@/rsvps/form";
 import type { GuestRsvp, RsvpRefusal } from "@/rsvps/guest";
@@ -40,7 +40,7 @@ type Draft = {
   plusOnes: number;
   plusOneNames: string[];
   email: string;
-  answers: Record<string, string>;
+  answers: AnswerFields;
 };
 
 const BLANK: Draft = { status: "going", name: "", plusOnes: 0, plusOneNames: [], email: "", answers: {} };
@@ -48,7 +48,7 @@ const BLANK: Draft = { status: "going", name: "", plusOnes: 0, plusOneNames: [],
 // Coming back to change an answer starts from the answer that is already there, except that a
 // host who has since lowered the plus-ones allowance wins: otherwise the guest would carry an
 // impossible number into every attempt to save, and never be able to change their RSVP again.
-function draftFrom(mine: GuestRsvp | undefined, settings: RsvpSettings, answers: Record<string, string>): Draft {
+function draftFrom(mine: GuestRsvp | undefined, settings: RsvpSettings, answers: AnswerFields): Draft {
   if (!mine) return { ...BLANK, answers };
   const { status, name, plusOneNames, email } = mine;
   const plusOnes = Math.min(mine.plusOnes, settings.plusOnesAllowed);
@@ -61,7 +61,7 @@ type Props = {
   mine: GuestRsvp | undefined;
   open: boolean;
   questions: Question[];
-  answers: Record<string, string>;
+  answers: AnswerFields;
   calendar?: ReactNode;
 };
 
@@ -106,8 +106,8 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
   const answering = step !== "idle" && !confirmed;
 
   const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
-  const recordAnswer = (questionId: string, value: string) =>
-    setDraft((current) => ({ ...current, answers: { ...current.answers, [questionId]: value } }));
+  const recordAnswer = (questionId: string, values: string[]) =>
+    setDraft((current) => ({ ...current, answers: { ...current.answers, [questionId]: values } }));
 
   const headings: Partial<Record<Step, string>> = {
     name: t(draft.status === "cant" ? "name.cantTitle" : "name.title"),
@@ -333,20 +333,53 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
                   <textarea
                     name={`answer:${question.id}`}
                     rows={2}
-                    value={draft.answers[question.id] ?? ""}
-                    onChange={(typed) => recordAnswer(question.id, typed.target.value)}
+                    value={draft.answers[question.id]?.[0] ?? ""}
+                    onChange={(typed) => recordAnswer(question.id, [typed.target.value])}
                     className={cn(FIELD, "h-auto py-3")}
                   />
                 </label>
+              ) : question.type === "multiple" ? (
+                <fieldset>
+                  <legend className="mb-1.5 text-sm text-theme-text-muted">
+                    <Asked question={question} optional={t("questions.optional")} required={t("questions.required")} />
+                  </legend>
+                  <div className="flex flex-wrap gap-2">
+                    {question.options.map((option) => {
+                      const picks = draft.answers[question.id] ?? [];
+                      const chosen = picks.includes(option);
+                      return (
+                        // A checked box posts its own answer, so the step needs no hidden inputs
+                        // while it is out of sight; unchecking is how a pick is taken back.
+                        <label
+                          key={option}
+                          className={cn(
+                            "relative flex h-10 cursor-pointer items-center rounded-full px-4 text-sm font-medium transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-theme-accent motion-reduce:transition-none",
+                            chosen ? "bg-theme-accent text-theme-on-accent" : "bg-theme-glass-strong hover:bg-theme-glass",
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            name={`answer:${question.id}`}
+                            value={option}
+                            checked={chosen}
+                            onChange={() => recordAnswer(question.id, chosen ? picks.filter((pick) => pick !== option) : [...picks, option])}
+                            className="absolute inset-0 size-full cursor-pointer opacity-0"
+                          />
+                          {option}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
               ) : (
                 <fieldset>
                   <legend className="mb-1.5 text-sm text-theme-text-muted">
                     <Asked question={question} optional={t("questions.optional")} required={t("questions.required")} />
                   </legend>
-                  <input type="hidden" name={`answer:${question.id}`} value={draft.answers[question.id] ?? ""} />
+                  <input type="hidden" name={`answer:${question.id}`} value={draft.answers[question.id]?.[0] ?? ""} />
                   <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={question.prompt}>
                     {(offeredBy(question) ?? []).map((option) => {
-                      const chosen = draft.answers[question.id] === option;
+                      const chosen = draft.answers[question.id]?.[0] === option;
                       return (
                         <button
                           key={option}
@@ -355,7 +388,7 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
                           aria-checked={chosen}
                           // Tapping the chosen answer again takes it back, which is the
                           // only way to leave an optional question unanswered.
-                          onClick={() => recordAnswer(question.id, chosen && !question.required ? "" : option)}
+                          onClick={() => recordAnswer(question.id, chosen && !question.required ? [] : [option])}
                           className={cn(
                             "h-10 cursor-pointer rounded-full px-4 text-sm font-medium transition-colors motion-reduce:transition-none",
                             chosen ? "bg-theme-accent text-theme-on-accent" : "bg-theme-glass-strong hover:bg-theme-glass",

@@ -3,7 +3,7 @@ import { signUpVerified } from "./hosts";
 
 export type QuestionFields = {
   prompt: string;
-  type?: "text" | "choice" | "yesNo";
+  type?: "text" | "choice" | "multiple" | "yesNo";
   required?: boolean;
   choices?: string;
 };

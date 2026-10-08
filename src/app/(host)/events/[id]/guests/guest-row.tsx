@@ -65,7 +65,7 @@ export function GuestRow({
               {answers.map((given) => (
                 <div key={given.questionId} className="flex flex-wrap gap-x-2">
                   <dt className="text-muted-foreground">{given.prompt}</dt>
-                  <dd className="font-medium">{given.value}</dd>
+                  <dd className="font-medium">{format.list(given.values, { type: "conjunction" })}</dd>
                 </div>
               ))}
             </dl>

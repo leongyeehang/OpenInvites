@@ -277,7 +277,8 @@ export const answer = pgTable(
     questionId: uuid("question_id")
       .notNull()
       .references(() => question.id, { onDelete: "cascade" }),
-    value: text("value").notNull(),
+    // At most one value for every type but multiple choice, where each pick is one.
+    values: text("values").array().notNull(),
   },
   (table) => [index("answer_rsvp_id_idx").on(table.rsvpId), unique("answer_rsvp_question_unique").on(table.rsvpId, table.questionId)],
 );

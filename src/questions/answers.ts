@@ -1,12 +1,13 @@
 import type { RsvpStatus } from "@/rsvps/form";
 import type { Question } from "./question";
 
-// One guest's answer to one question. Answers belong to an RSVP and are the host's to read
-// alone (spec, "Events and RSVPs").
-export type Answer = { questionId: string; value: string };
+// One guest's answer to one question: the values they gave, at most one for every type but
+// multiple choice, where each pick is a value. Answers belong to an RSVP and are the host's to
+// read alone (spec, "Events and RSVPs").
+export type Answer = { questionId: string; values: string[] };
 
-// What the RSVP form posts: an answer against each question's id.
-export type AnswerFields = Record<string, string>;
+// What the RSVP form posts: the values given against each question's id.
+export type AnswerFields = Record<string, string[]>;
 
 export type AnswerError = "answerRequired" | "answerNotOffered" | "answerTooLong";
 
@@ -20,7 +21,7 @@ export const YES_OR_NO = ["yes", "no"];
 
 // The answers a question will accept, or null when a guest may write their own.
 export function offeredBy(question: Question): string[] | null {
-  if (question.type === "choice") return question.options;
+  if (question.type === "choice" || question.type === "multiple") return question.options;
   return question.type === "yesNo" ? YES_OR_NO : null;
 }
 
@@ -33,30 +34,38 @@ export function parseAnswers(given: AnswerFields, questions: Question[], status:
 
   const answers: Answer[] = [];
   for (const question of questions) {
-    const value = (given[question.id] ?? "").trim();
-    if (!value) {
+    const values = (given[question.id] ?? []).map((value) => value.trim()).filter(Boolean);
+    if (values.length === 0) {
       if (question.required) return { ok: false, error: "answerRequired" };
       continue;
     }
-    if (value.length > MAX_ANSWER) return { ok: false, error: "answerTooLong" };
+    if (values.some((value) => value.length > MAX_ANSWER)) return { ok: false, error: "answerTooLong" };
 
     const offered = offeredBy(question);
-    if (offered && !offered.includes(value)) return { ok: false, error: "answerNotOffered" };
+    if (question.type === "multiple") {
+      // Each pick counts once, and reads in the order the question offers them.
+      if (values.some((value) => !offered?.includes(value))) return { ok: false, error: "answerNotOffered" };
+      answers.push({ questionId: question.id, values: (offered ?? []).filter((option) => values.includes(option)) });
+      continue;
+    }
 
-    answers.push({ questionId: question.id, value });
+    if (values.length > 1) return { ok: false, error: "answerNotOffered" };
+    if (offered && !offered.includes(values[0])) return { ok: false, error: "answerNotOffered" };
+    answers.push({ questionId: question.id, values: values });
   }
   return { ok: true, answers };
 }
 
 // The answers still worth showing a guest who comes back. A host may have rewritten a question's
 // choices or changed its kind since, and an answer nobody offers any more would ride along in a
-// hidden field and refuse every save, locking the guest out of their own RSVP.
+// hidden field and refuse every save, locking the guest out of their own RSVP. Each value the
+// question no longer offers is dropped and the rest are kept.
 export function answersStillOffered(stored: AnswerFields, questions: Question[]): AnswerFields {
   const kept: AnswerFields = {};
   for (const question of questions) {
-    const value = stored[question.id];
     const offered = offeredBy(question);
-    if (value && (!offered || offered.includes(value))) kept[question.id] = value;
+    const values = (stored[question.id] ?? []).filter((value) => !offered || offered.includes(value));
+    if (values.length > 0) kept[question.id] = values;
   }
   return kept;
 }

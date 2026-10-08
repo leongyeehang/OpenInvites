@@ -193,3 +193,70 @@ test("a host can add a question while creating the event", async ({ page, reques
 
   await host.context.close();
 });
+
+test("a required multiple-choice question wants one pick, and two picks read joined in the guest list", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "questions-multiple", {
+    title: "Ada’s conference",
+    start: "2027-03-06T19:00",
+    plusOnes: "0",
+    questions: [{ prompt: "Which sessions?", type: "multiple", required: true, choices: "Keynote, Workshop, Panel" }],
+  });
+
+  await answerName(page, host.link, "Priya Nair");
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByText("The host would like an answer to this one.")).toBeVisible();
+
+  // A pick can be taken back by tapping it again, and a required question is blocked again.
+  await page.getByRole("checkbox", { name: "Workshop" }).check();
+  await page.getByRole("checkbox", { name: "Workshop" }).uncheck();
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByText("The host would like an answer to this one.")).toBeVisible();
+
+  await page.getByRole("checkbox", { name: "Keynote" }).check();
+  await page.getByRole("checkbox", { name: "Panel" }).check();
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByText("You’re going!")).toBeVisible();
+
+  await host.page.goto(`${host.page.url()}/guests`);
+  await expect(host.page.getByText("Keynote and Panel")).toBeVisible();
+
+  await host.context.close();
+});
+
+test("when the host removes an option, a guest's other pick is kept and their next edit completes", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "questions-multiple-rewrite", {
+    // Inline, so the confirmation is in place of the buttons when the guest comes back.
+    rsvpStyle: "Inline",
+    title: "Ada’s conference",
+    start: "2027-03-06T19:00",
+    plusOnes: "0",
+    questions: [{ prompt: "Which sessions?", type: "multiple", required: true, choices: "Keynote, Workshop, Panel" }],
+  });
+
+  await answerName(page, host.link, "Priya Nair");
+  await page.getByRole("checkbox", { name: "Keynote" }).check();
+  await page.getByRole("checkbox", { name: "Workshop" }).check();
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByText("You’re going!")).toBeVisible();
+
+  await host.page.getByLabel("Question 1 choices").fill("Keynote, Panel");
+  await host.page.getByRole("button", { name: "Save changes" }).click();
+  await expect(host.page.getByText("Saved.")).toBeVisible();
+
+  // The removed option is forgotten, the other pick comes back prefilled, and saving works.
+  await page.reload();
+  await page.getByRole("button", { name: "Edit details" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("checkbox", { name: "Workshop" })).toHaveCount(0);
+  await expect(page.getByRole("checkbox", { name: "Keynote" })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "Panel" })).not.toBeChecked();
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByText("You’re going!")).toBeVisible();
+
+  await host.page.goto(`${host.page.url()}/guests`);
+  await expect(host.page.getByText("Keynote", { exact: true })).toBeVisible();
+
+  await host.context.close();
+});

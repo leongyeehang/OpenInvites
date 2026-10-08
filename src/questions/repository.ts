@@ -1,7 +1,7 @@
 import { and, asc, eq, notInArray, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { answer, question, rsvp } from "@/db/schema";
-import type { Answer } from "./answers";
+import type { Answer, AnswerFields } from "./answers";
 import type { Question, QuestionInput } from "./question";
 
 // An event's questions, in the order the host arranged them.
@@ -54,21 +54,21 @@ export async function saveAnswers(rsvpId: string, answers: Answer[]): Promise<vo
 }
 
 // What one guest answered, for prefilling their form when they come back to change it.
-export async function findAnswers(rsvpId: string): Promise<Record<string, string>> {
+export async function findAnswers(rsvpId: string): Promise<AnswerFields> {
   const rows = await getDb()
-    .select({ questionId: answer.questionId, value: answer.value })
+    .select({ questionId: answer.questionId, values: answer.values })
     .from(answer)
     .where(eq(answer.rsvpId, rsvpId));
-  return Object.fromEntries(rows.map((row) => [row.questionId, row.value]));
+  return Object.fromEntries(rows.map((row) => [row.questionId, row.values]));
 }
 
-export type GuestAnswer = { questionId: string; prompt: string; value: string };
+export type GuestAnswer = { questionId: string; prompt: string; values: string[] };
 
 // Every guest's answers for one event, for the host's guest list and nowhere else. Ordered by
 // the question's position, so each guest's answers read in the order the host asked them.
 export async function listAnswersByGuest(eventId: string): Promise<Record<string, GuestAnswer[]>> {
   const rows = await getDb()
-    .select({ rsvpId: answer.rsvpId, questionId: answer.questionId, prompt: question.prompt, value: answer.value })
+    .select({ rsvpId: answer.rsvpId, questionId: answer.questionId, prompt: question.prompt, values: answer.values })
     .from(answer)
     .innerJoin(question, eq(question.id, answer.questionId))
     .innerJoin(rsvp, eq(rsvp.id, answer.rsvpId))

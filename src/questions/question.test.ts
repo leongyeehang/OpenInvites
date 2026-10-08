@@ -45,6 +45,20 @@ describe("parseQuestions", () => {
     expect(parsed.ok && parsed.questions[0].options).toEqual([]);
   });
 
+  it("gives a multiple-choice question its options under the same limits as a choice", () => {
+    const multiple: QuestionDraft = { type: "multiple", prompt: "Sessions?", options: ["Keynote", " ", "Panel"], required: true };
+    expect(parseQuestions([multiple])).toEqual({
+      ok: true,
+      questions: [{ id: undefined, type: "multiple", prompt: "Sessions?", options: ["Keynote", "Panel"], required: true, position: 0 }],
+    });
+    expect(parseQuestions([{ ...multiple, options: ["Keynote"] }])).toEqual({ ok: false, error: "questionChoicesRequired" });
+    expect(parseQuestions([{ ...multiple, options: Array.from({ length: 11 }, (_, i) => `o${i}`) }])).toEqual({
+      ok: false,
+      error: "questionChoicesRequired",
+    });
+    expect(parseQuestions([{ ...multiple, options: ["Keynote", "a".repeat(81)] }])).toEqual({ ok: false, error: "questionChoiceTooLong" });
+  });
+
   it("refuses anything that is not a list of questions", () => {
     expect(parseQuestions("[]")).toEqual({ ok: false, error: "questionsInvalid" });
     expect(parseQuestions([{ prompt: "No type" }])).toEqual({ ok: false, error: "questionsInvalid" });

@@ -31,11 +31,11 @@ function fields(formData: FormData): RsvpFormFields {
   };
 }
 
-// The questions step posts an answer against each question's id.
+// The questions step posts an answer against each question's id, once per pick.
 function answersFrom(formData: FormData): AnswerFields {
   const given: AnswerFields = {};
   for (const [key, value] of formData.entries()) {
-    if (key.startsWith("answer:") && typeof value === "string") given[key.slice("answer:".length)] = value;
+    if (key.startsWith("answer:") && typeof value === "string") (given[key.slice("answer:".length)] ??= []).push(value);
   }
   return given;
 }

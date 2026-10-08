@@ -314,6 +314,7 @@
       "questionType": "问题 {number} 的类型",
       "questionText": "自由填写",
       "questionChoice": "从列表中选一项",
+      "questionMultiple": "多选",
       "questionYesNo": "是或否",
       "questionRequired": "必填",
       "questionChoices": "问题 {number} 的选项",

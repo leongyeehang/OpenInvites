@@ -314,6 +314,7 @@
       "questionType": "Question {number} type",
       "questionText": "Free text",
       "questionChoice": "One of a list",
+      "questionMultiple": "Multiple choice",
       "questionYesNo": "Yes or no",
       "questionRequired": "Required",
       "questionChoices": "Question {number} choices",
