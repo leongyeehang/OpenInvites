@@ -585,6 +585,26 @@
     "titlePlacementHints": {
       "on": "The title sits across the foot of your poster, on a shade that keeps it readable.",
       "below": "The title sits under your poster, so all of it stays in view."
+    },
+    "effect": "Effect",
+    "effectHint": "Motion stops for guests who prefer reduced motion.",
+    "effects": {
+      "none": {
+        "name": "None",
+        "note": "Nothing added to the page."
+      },
+      "confetti": {
+        "name": "Confetti",
+        "note": "Falls once when a guest says Going."
+      },
+      "sparkles": {
+        "name": "Sparkles",
+        "note": "Points of light twinkle in the background."
+      },
+      "doodles": {
+        "name": "Doodles",
+        "note": "Shapes float in the background, and the date tilts."
+      }
     }
   },
   "Guests": {

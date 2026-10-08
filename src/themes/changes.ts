@@ -4,12 +4,14 @@ import { findTemplate, type TemplateId } from "./templates";
 import {
   applyTemplate,
   BUTTON_STYLES,
+  EFFECTS,
   FONTS,
   RSVP_STYLES,
   TEXT_TONES,
   TITLE_PLACEMENTS,
   UPLOAD_MODES,
   type ButtonStyle,
+  type Effect,
   type FontKey,
   type RsvpStyle,
   type TextTone,
@@ -31,7 +33,8 @@ export type KnobChange =
   | { knob: "accentOverride"; value: string | null }
   | { knob: "textTone"; value: TextTone }
   | { knob: "buttonStyle"; value: ButtonStyle }
-  | { knob: "rsvpStyle"; value: RsvpStyle };
+  | { knob: "rsvpStyle"; value: RsvpStyle }
+  | { knob: "effect"; value: Effect };
 
 export type ThemeChange = { template: string } | KnobChange;
 
@@ -119,6 +122,8 @@ export function parseThemeChange(raw: unknown, upload: string | null = null): Th
       return oneOf(BUTTON_STYLES, value) ? { knob, value } : undefined;
     case "rsvpStyle":
       return oneOf(RSVP_STYLES, value) ? { knob, value } : undefined;
+    case "effect":
+      return oneOf(EFFECTS, value) ? { knob, value } : undefined;
     default:
       return undefined;
   }

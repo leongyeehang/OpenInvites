@@ -13,7 +13,7 @@ import { TITLE_FONTS } from "@/themes/fonts";
 import { resolveTheme, themeVariables, type ThemeUpload } from "@/themes/resolve";
 import { SWATCHES } from "@/themes/swatches";
 import { TEMPLATES, type TemplateId } from "@/themes/templates";
-import { applyTemplate, BUTTON_STYLES, FONTS, LAYOUTS, OFFERED_LAYOUTS, RSVP_STYLES, TEXT_TONES, TITLE_PLACEMENTS, type Layout, type UploadMode } from "@/themes/theme";
+import { applyTemplate, BUTTON_STYLES, EFFECTS, FONTS, LAYOUTS, OFFERED_LAYOUTS, RSVP_STYLES, TEXT_TONES, TITLE_PLACEMENTS, type Layout, type UploadMode } from "@/themes/theme";
 import { useTheme } from "@/themes/themed-page";
 import { TITLE_FONT_CLASSES } from "@/themes/title-fonts";
 import { describeUploadAction } from "@/uploads/actions";
@@ -362,6 +362,23 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
                 onSelect={(value) => choose({ knob: "titlePlacement", value })}
               />
             )}
+
+            <Choices legend={t("effect")} hint={t("effectHint")}>
+              <div className="grid grid-cols-2 gap-2">
+                {EFFECTS.map((effect) => (
+                  <Choice
+                    key={effect}
+                    name="effect"
+                    checked={theme.effect === effect}
+                    onSelect={() => choose({ knob: "effect", value: effect })}
+                    className="flex-col items-start gap-1 bg-accent/40 p-2.5"
+                  >
+                    <span className="text-sm font-medium">{t(`effects.${effect}.name`)}</span>
+                    <span className="text-[11px] leading-snug text-muted-foreground">{t(`effects.${effect}.note`)}</span>
+                  </Choice>
+                ))}
+              </div>
+            </Choices>
           </div>
         </section>
       </div>

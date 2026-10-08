@@ -30,13 +30,14 @@ export function PosterCard({
   host: ReactNode;
   className?: string;
 }) {
-  const { resolved } = useTheme();
+  const { theme, resolved } = useTheme();
   const { poster } = resolved;
+  const date = <StickerHolder tilted={theme.effect === "doodles"}>{sticker}</StickerHolder>;
 
   if (!poster) {
     return (
       <Glass data-slot="poster-card" className={cn("relative overflow-hidden rounded-4xl p-6 shadow-poster sm:p-8", className)}>
-        <div className="absolute top-5 right-5 sm:top-7 sm:right-7">{sticker}</div>
+        <div className="absolute top-5 right-5 sm:top-7 sm:right-7">{date}</div>
         {eyebrow}
         <PosterTitle title={title} className="mt-12 sm:mt-14" />
         <div className="mt-6">{host}</div>
@@ -82,13 +83,38 @@ export function PosterCard({
             {eyebrow}
             <PosterTitle title={title} compact className="mt-3" />
           </div>
-          {sticker}
+          {date}
         </div>
         <div className="mt-6">{host}</div>
       </Glass>
     </div>
   );
 }
+
+// Holds the date sticker the layout drew. The Doodles effect tilts it about 6 degrees and fills it
+// with the accent, as round one's B had it (PROTOTYPE.md, "Effect"): when motion is welcome it
+// lands at its tilt with a small spring, once; under reduced motion it is simply there, tilted.
+// On the accent its three lines take the accent's own text colour, as everything filled with the
+// accent does (legibility.ts, onAccent), so the holder sets the glass and the text strengths the
+// sticker draws with on itself.
+function StickerHolder({ tilted, children }: { tilted: boolean; children: ReactNode }) {
+  return (
+    <div
+      data-slot="date-sticker"
+      className={cn("shrink-0", tilted && "-rotate-6 text-theme-on-accent motion-safe:animate-theme-sticker-in")}
+      style={tilted ? ON_ACCENT : undefined}
+    >
+      {children}
+    </div>
+  );
+}
+
+const ON_ACCENT = {
+  "--theme-glass-strong": "var(--theme-accent)",
+  "--theme-glass-border": "var(--theme-accent)",
+  "--theme-text-muted": "var(--theme-on-accent)",
+  "--theme-text-faint": "var(--theme-on-accent)",
+} as CSSProperties;
 
 // The poster itself, at its own proportions: its size is known before it arrives, so the page
 // keeps its place. It is the first thing a guest sees, and the largest, so it is fetched first.

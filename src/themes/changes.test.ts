@@ -61,6 +61,7 @@ describe("changing a knob", () => {
     [{ knob: "buttonStyle", value: "outline" }, { buttonStyle: "outline" }],
     [{ knob: "rsvpStyle", value: "inline" }, { rsvpStyle: "inline" }],
     [{ knob: "titlePlacement", value: "on" }, { titlePlacement: "on" }],
+    [{ knob: "effect", value: "doodles" }, { effect: "doodles" }],
   ];
 
   it.each(changes)("sets the knob and marks the template dirty: %j", (change, knob) => {
@@ -179,6 +180,10 @@ describe("reading a change the drawer sent", () => {
       { knob: "rsvpStyle", value: "inline" },
       { knob: "titlePlacement", value: "on" },
       { knob: "titlePlacement", value: "below" },
+      { knob: "effect", value: "none" },
+      { knob: "effect", value: "confetti" },
+      { knob: "effect", value: "sparkles" },
+      { knob: "effect", value: "doodles" },
     ];
     for (const change of offered) expect(parseThemeChange(JSON.parse(JSON.stringify(change)))).toEqual(change);
   });
@@ -213,6 +218,8 @@ describe("reading a change the drawer sent", () => {
       { knob: "rsvpStyle", value: null },
       { knob: "titlePlacement", value: "above" },
       { knob: "titlePlacement", value: null },
+      { knob: "effect", value: "fireworks" },
+      { knob: "effect", value: null },
       { knob: "layout", value: "broadsheet" },
       { knob: "uploadId", value: "0192f0a1-7b3c-7d4e-8f00-123456789abc" },
       { knob: "template", value: { id: "birthday", dirty: false } },

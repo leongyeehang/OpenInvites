@@ -10,6 +10,8 @@ import { offeredBy, type AnswerFields } from "@/questions/answers";
 import type { Question } from "@/questions/question";
 import { RSVP_STATUSES, type RsvpSettings, type RsvpStatus } from "@/rsvps/form";
 import type { GuestRsvp, RsvpRefusal } from "@/rsvps/guest";
+import { Confetti } from "@/themes/effects/confetti";
+import { confettiFor } from "@/themes/effects/trigger";
 import { Glass } from "@/themes/glass";
 import { sheetVariables } from "@/themes/resolve";
 import { rsvpButtonClasses } from "@/themes/rsvp-buttons";
@@ -74,7 +76,10 @@ type Props = {
 // would see it.
 export function RsvpFlow({ slug, settings, mine, open, questions, answers, calendar }: Props) {
   const t = useTranslations("Rsvp");
-  const { buttonStyle, rsvpStyle } = useTheme().resolved;
+  const {
+    theme: { effect },
+    resolved: { buttonStyle, rsvpStyle },
+  } = useTheme();
   const [step, setStep] = useState<Step>(mine ? "done" : "idle");
   const [answer, setAnswer] = useState(mine);
   const [draft, setDraft] = useState<Draft>(() => draftFrom(mine, settings, answers));
@@ -93,6 +98,9 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
   // Where the focus goes when what had it goes away under it (focusNext, below).
   const focusNext = useRef<"confirmation" | "buttons" | null>(null);
   const confirmationHeading = useRef<HTMLHeadingElement>(null);
+  // Under the Confetti effect, how many answers saved here have made the guest Going: each one is
+  // a fresh fall over the page.
+  const [falls, setFalls] = useState(0);
 
   // Declining takes two taps, so a guest who can't go is asked nothing else. Everyone else is
   // asked only what this event has to ask.
@@ -171,6 +179,7 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
       }
       if (!result.saved) return;
       focusNext.current = "confirmation";
+      if (effect === "confetti" && confettiFor(answer?.status ?? null, result.saved.status)) setFalls((count) => count + 1);
       setAnswer(result.saved);
       setStep("done");
     });
@@ -450,32 +459,48 @@ export function RsvpFlow({ slug, settings, mine, open, questions, answers, calen
     </>
   );
 
+  // The confetti falls as the confirmation appears. It sits first, apart from whatever the flow
+  // shows, so going on from the confirmation neither stops it nor starts it again.
+  const confetti = falls > 0 && <Confetti key={falls} />;
+
   if (!sheet) {
-    if (confirmation) return <Glass className="p-5">{confirmation}</Glass>;
+    if (confirmation)
+      return (
+        <>
+          {confetti}
+          <Glass className="p-5">{confirmation}</Glass>
+        </>
+      );
     return (
-      <div>
-        {buttons}
-        {stepper && <Glass className="mt-3 p-5">{stepper}</Glass>}
-      </div>
+      <>
+        {confetti}
+        <div>
+          {buttons}
+          {stepper && <Glass className="mt-3 p-5">{stepper}</Glass>}
+        </div>
+      </>
     );
   }
 
   return (
-    <div>
-      {buttons}
-      {/* On the veil too. It stays while the sheet is open, so focus can come back to it. */}
-      {confirmed && (
-        <p className="mx-auto mt-2 w-fit rounded-full bg-theme-veil px-3 py-1.5 text-center text-xs text-theme-text-muted backdrop-blur-xl">
-          {t("replied", { name: answer.name })}{" "}
-          <button type="button" onClick={(event) => openSheet(event.currentTarget)} className="cursor-pointer font-medium text-theme-text underline underline-offset-2">
-            {t("showMine")}
-          </button>
-        </p>
-      )}
-      <RsvpSheet open={sheetOpen && (answering || confirmed)} onClose={closeSheet} onClosed={sheetClosed}>
-        {confirmation || stepper}
-      </RsvpSheet>
-    </div>
+    <>
+      {confetti}
+      <div>
+        {buttons}
+        {/* On the veil too. It stays while the sheet is open, so focus can come back to it. */}
+        {confirmed && (
+          <p className="mx-auto mt-2 w-fit rounded-full bg-theme-veil px-3 py-1.5 text-center text-xs text-theme-text-muted backdrop-blur-xl">
+            {t("replied", { name: answer.name })}{" "}
+            <button type="button" onClick={(event) => openSheet(event.currentTarget)} className="cursor-pointer font-medium text-theme-text underline underline-offset-2">
+              {t("showMine")}
+            </button>
+          </p>
+        )}
+        <RsvpSheet open={sheetOpen && (answering || confirmed)} onClose={closeSheet} onClosed={sheetClosed}>
+          {confirmation || stepper}
+        </RsvpSheet>
+      </div>
+    </>
   );
 }
 
