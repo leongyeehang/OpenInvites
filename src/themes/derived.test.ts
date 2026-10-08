@@ -5,18 +5,20 @@ import { DEFAULT_THEME, type Theme } from "./theme";
 
 const UPLOAD = "0192f0a1-7b3c-7d4e-8f00-123456789abc";
 
-// A host's picture as the server sampled it: a night-blue garden with a marigold lantern. Its
-// brightest point under the light tone's scrim is a pale blue and its darkest under the dark
-// tone's a deep navy; its blurred copy behind a poster is measured on its own.
+// A host's picture as the server would sample it (uploads/sample.ts): a night-blue garden
+// (#1d2340) with a marigold lantern (#f5c16c), and an accent lifted from the lantern. Its
+// brightest point is the lantern under the light tone's scrim (25% black) and its darkest the
+// night blue under the dark tone's (25% white). Its blurred copy behind a poster is measured on
+// its own, under the poster's stronger scrims (45%), where the lantern is blurred to #c8a070.
 const upload: ThemeUpload = {
   id: UPLOAD,
   src: `/uploads/${UPLOAD}/background.webp`,
   portraitSrc: `/uploads/${UPLOAD}/background-portrait.webp`,
   thumbnailSrc: `/uploads/${UPLOAD}/poster-720.webp`,
-  accent: "#f5c16c",
-  luminance: 0.31,
-  lightest: "#c9d6e8",
-  darkest: "#1b2a4a",
+  accent: "#f6c571",
+  luminance: 0.18,
+  lightest: "#b89151",
+  darkest: "#565a70",
   altText: "The garden at dusk, strung with fairy lights",
   poster: {
     src: `/uploads/${UPLOAD}/poster.webp`,
@@ -24,8 +26,8 @@ const upload: ThemeUpload = {
     copySrc: `/uploads/${UPLOAD}/poster-copy.webp`,
     width: 1200,
     height: 750,
-    lightest: "#8a94a8",
-    darkest: "#4a5370",
+    lightest: "#6e583e",
+    darkest: "#838696",
   },
 };
 
@@ -43,10 +45,10 @@ describe("backgrounds made from the host's picture", () => {
       id: "upload-blur",
       kind: "photo",
       src: `/uploads/${UPLOAD}/poster-copy.webp`,
-      accent: "#f5c16c",
-      luminance: 0.31,
-      lightest: "#8a94a8",
-      darkest: "#4a5370",
+      accent: "#f6c571",
+      luminance: 0.18,
+      lightest: "#6e583e",
+      darkest: "#838696",
       blurred: true,
     });
   });
@@ -56,21 +58,22 @@ describe("backgrounds made from the host's picture", () => {
     expect(wash).toMatchObject({
       id: "upload-wash",
       kind: "gradient",
-      css: "linear-gradient(135deg, #1b2a4a, #f5c16c, #c9d6e8)",
-      accent: "#f5c16c",
-      lightest: "#c9d6e8",
-      darkest: "#1b2a4a",
+      css: "linear-gradient(135deg, #565a70, #f6c571, #b89151)",
+      accent: "#f6c571",
+      // The marigold accent is the brightest of the three stops.
+      lightest: "#f6c571",
+      darkest: "#565a70",
     });
-    // The mean of the stops' relative luminances: 0.0238, 0.5864 and 0.6634.
-    expect(wash.luminance).toBeCloseTo(0.42, 2);
+    // Measured as every background's luminance is (luma): the mean of 0.3558, 0.7896 and 0.5830.
+    expect(wash.luminance).toBeCloseTo(0.58, 2);
   });
 
   it("takes the wash's extremes from its stops by luminance, whatever the sample calls them", () => {
     // A dark picture: its brightest point under the light tone's scrim is darker than its darkest
-    // under the dark tone's, and the accent is brighter than both (0.0976, 0.3060 and 0.0296).
+    // under the dark tone's, and the accent is brighter than both (0.3451, 0.5572 and 0.1882).
     const wash = derivedBackground("upload-wash", { ...upload, accent: "#3aa885", lightest: "#303030", darkest: "#585858" });
     expect(wash).toMatchObject({ css: "linear-gradient(135deg, #585858, #3aa885, #303030)", lightest: "#3aa885", darkest: "#303030" });
-    expect(wash.luminance).toBeCloseTo(0.14, 2);
+    expect(wash.luminance).toBeCloseTo(0.36, 2);
   });
 });
 

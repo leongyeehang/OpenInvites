@@ -357,6 +357,8 @@ test("a picture brings a soft blur and a colour wash to the gallery, which guest
   expect(rewashed).toMatch(WASH);
   await expect(wash).toBeChecked();
   await expect(wash.locator("..")).toHaveCSS("background-image", rewashed);
+  // The pale garden's wash wears dark text, as the picture itself does.
+  await expect(host.page.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
   await expect
     .poll(
       async () => {
@@ -366,6 +368,7 @@ test("a picture brings a soft blur and a colour wash to the gallery, which guest
       { timeout: 15_000 },
     )
     .toBe(rewashed);
+  await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
   await previewCard(page, request);
 
   await host.context.close();

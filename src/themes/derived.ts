@@ -1,5 +1,5 @@
 import type { Background } from "./backgrounds";
-import { hexToRgb, luminance as relativeLuminance } from "./legibility";
+import { hexToRgb, luma } from "./legibility";
 import type { ThemeUpload } from "./resolve";
 
 // Two backgrounds made from the host's picture (spec, "Derived backgrounds"), offered in the
@@ -18,14 +18,15 @@ export function isDerivedBackground(id: string | null): id is DerivedBackgroundI
 // Soft blur is the picture's small copy, blurred by the page as it is behind a poster
 // (themed-page.tsx), so it carries the extremes measured for that copy under that blur and the
 // poster's scrim. Colour wash is a gradient from the picture's darkest point through its accent to
-// its lightest. Its luminance is the mean of its stops' and its extremes are its stops, the ones
-// with the highest and lowest luminance, whatever the sample calls them: under their scrims a dark
-// picture's lightest point can be darker than its darkest, and its accent brighter than both.
+// its lightest. Its luminance is the mean of its stops', measured as every background's is (luma),
+// so the automatic text tone reads it as it reads the picture. Its extremes are its stops, the
+// ones with the highest and lowest luminance, whatever the sample calls them: under their scrims a
+// dark picture's lightest point can be darker than its darkest, and its accent brighter than both.
 export function derivedBackground(id: DerivedBackgroundId, { accent, luminance, lightest, darkest, poster }: ThemeUpload): Background {
   if (id === "upload-blur") {
     return { id, kind: "photo", src: poster.copySrc, accent, luminance, lightest: poster.lightest, darkest: poster.darkest, blurred: true };
   }
-  const stops = [darkest, accent, lightest].map((colour) => ({ colour, luminance: relativeLuminance(hexToRgb(colour)) }));
+  const stops = [darkest, accent, lightest].map((colour) => ({ colour, luminance: luma(hexToRgb(colour)) }));
   const [low, , high] = [...stops].sort((a, b) => a.luminance - b.luminance);
   return {
     id,

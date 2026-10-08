@@ -38,6 +38,14 @@ export function luminance([r, g, b]: Rgb): number {
   return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
 }
 
+// The lightness every background's `luminance` is measured in (backgrounds.ts, uploads/sample.ts),
+// 0 dark to 1 light: the same weights over the channels as they are encoded, not linearised. The
+// automatic text tone's line is drawn on this scale (resolve.ts), which runs higher than WCAG's
+// relative luminance wherever a channel is between 0 and 255.
+export function luma([r, g, b]: Rgb): number {
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
+
 export function contrast(a: Rgb, b: Rgb): number {
   const [lighter, darker] = [luminance(a), luminance(b)].sort((x, y) => y - x);
   return (lighter + 0.05) / (darker + 0.05);

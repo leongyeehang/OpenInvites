@@ -195,8 +195,20 @@ describe("resolveTheme", () => {
       expect(resolveTheme(on("upload-wash"), upload()).accent).toBe("#3aa885");
       expect(resolveTheme({ ...on("upload-wash"), accentOverride: "#ff7a59" }, upload()).accent).toBe("#ff7a59");
       expect(resolveTheme(on("upload-blur"), upload({ luminance: 0.9 })).textTone).toBe("dark");
-      expect(resolveTheme(on("upload-wash"), upload({ accent: "#f4f1ea", lightest: "#ffffff", darkest: "#e8e4dc" })).textTone).toBe("dark");
       expect(resolveTheme(on("upload-wash"), upload()).textTone).toBe("light");
+    });
+
+    it("gives a pale picture's wash dark text, as the picture itself gets, measuring it as every background is", () => {
+      // A white picture: its darkest point under the dark tone's scrim, its lightest under the
+      // light tone's, and its own grey deepened into an accent. Its stops' luma is 1, 0.451 and
+      // 0.749, a mean of 0.73; their relative luminance would have been 0.56, light text.
+      const white = upload({ luminance: 1, accent: "#737373", lightest: "#bfbfbf", darkest: "#ffffff" });
+      expect(resolveTheme(onUpload, white).textTone).toBe("dark");
+      expect(resolveTheme(on("upload-wash"), white).textTone).toBe("dark");
+      // Near white with a coloured accent: 0.865, 0.453 and 0.749, a mean of 0.69 (relative, 0.48).
+      const linen = upload({ luminance: 0.88, accent: "#b8653a", lightest: "#bfbfbf", darkest: "#e1dcd6" });
+      expect(resolveTheme(onUpload, linen).textTone).toBe("dark");
+      expect(resolveTheme(on("upload-wash"), linen).textTone).toBe("dark");
     });
 
     it("falls back to the default background once the picture is gone", () => {
