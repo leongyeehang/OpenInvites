@@ -10,7 +10,7 @@ import type { RsvpCounts } from "@/rsvps/counts";
 import type { PublicGuest } from "@/rsvps/repository";
 import { Glass } from "./glass";
 import { initialsOf } from "./poster-layout";
-import { CommentsSection } from "./sections/comments-section";
+import { COMMENTS_HEADING, CommentsSection } from "./sections/comments-section";
 import type { ShownAnnouncement } from "./sections/announcements-section";
 import { arriving, BubbleLabel, HOST_BUBBLE, HostBubble } from "./thread-bubble";
 import { ThreadCard } from "./thread-card";
@@ -116,7 +116,7 @@ export async function ThreadLayout({
         </div>
       ) : (
         <details data-slot="comments" className={cn(HOST_BUBBLE, "group w-[85%] bg-theme-glass", className)}>
-          <summary className="-mx-1 flex cursor-pointer list-none items-center gap-2 rounded-lg px-1 font-medium [&::-webkit-details-marker]:hidden">
+          <summary id={COMMENTS_HEADING} className="-mx-1 flex cursor-pointer list-none items-center gap-2 rounded-lg px-1 font-medium [&::-webkit-details-marker]:hidden">
             <MessageCircle className="size-4 shrink-0" aria-hidden />
             <span className="flex-1">{t("comments.count", { count: comments.comments.length })}</span>
             <ChevronDown className="size-4 shrink-0 group-open:rotate-180" aria-hidden />

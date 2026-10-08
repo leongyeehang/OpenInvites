@@ -5,10 +5,10 @@ import { notFound } from "next/navigation";
 import { deleteAnnouncementAction } from "@/announcements/actions";
 import { listAnnouncements } from "@/announcements/repository";
 import { requireHost } from "@/auth/session";
+import { DeleteDialogContent } from "@/components/delete-dialog-content";
 import {
   AlertDialog,
   AlertDialogCancel,
-  AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
@@ -22,6 +22,10 @@ import { baseUrl } from "@/instance/env";
 import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
 import { AnnouncementForm } from "./announcement-form";
+
+// The page's heading, where the focus goes once an announcement is deleted, since its Delete
+// button goes with it.
+const HEADING = "announcements-heading";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Announcements");
@@ -59,7 +63,9 @@ export default async function AnnouncementsPage({ params }: PageProps<"/events/[
         <Link href={`/events/${event.id}`} className="text-sm text-muted-foreground hover:underline">
           {t("backToEvent")}
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        <h1 id={HEADING} tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
+          {t("title")}
+        </h1>
       </div>
       <div className="flex flex-col gap-2 text-muted-foreground">
         <p>{t("explainer")}</p>
@@ -73,40 +79,44 @@ export default async function AnnouncementsPage({ params }: PageProps<"/events/[
 
       {announcements.length > 0 && (
         <ul className="flex flex-col gap-3">
-          {announcements.map((each) => (
-            <li key={each.id} className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                <p className="text-sm text-muted-foreground">
-                  <time dateTime={each.createdAt.toISOString()}>{formatMoment(each.createdAt, event.timeZone, locale)}</time>
-                  {/* Without mail nothing was sent to anyone; the page says so above. */}
-                  {mail && <> · {t("sentTo", { audience: format.list(each.audience.map((status) => t(`status.${status}`))) })}</>}
-                </p>
-                {/* Taking one down cannot be undone, so it is confirmed. */}
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="sm">
-                      {t("delete")}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <form action={deleteAnnouncementAction.bind(null, event.id, each.id)}>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
-                        <AlertDialogDescription>{t("deleteText")}</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter className="pt-4">
-                        <AlertDialogCancel type="button">{t("keep")}</AlertDialogCancel>
-                        <Button type="submit" variant="destructive">
-                          {t("deleteConfirm")}
-                        </Button>
-                      </AlertDialogFooter>
-                    </form>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-              <p className="mt-2 break-words whitespace-pre-wrap">{each.body}</p>
-            </li>
-          ))}
+          {announcements.map((each) => {
+            const when = formatMoment(each.createdAt, event.timeZone, locale);
+            return (
+              <li key={each.id} className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                  <p className="text-sm text-muted-foreground">
+                    <time dateTime={each.createdAt.toISOString()}>{when}</time>
+                    {/* Without mail nothing was sent to anyone; the page says so above. */}
+                    {mail && <> · {t("sentTo", { audience: format.list(each.audience.map((status) => t(`status.${status}`))) })}</>}
+                  </p>
+                  {/* Taking one down cannot be undone, so it is confirmed. Its button says when it
+                      was posted, as every announcement has one. */}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="sm" aria-label={t("deleteLabel", { time: when })}>
+                        {t("delete")}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <DeleteDialogContent focusAfter={HEADING}>
+                      <form action={deleteAnnouncementAction.bind(null, event.id, each.id)}>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
+                          <AlertDialogDescription>{t("deleteText")}</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter className="pt-4">
+                          <AlertDialogCancel type="button">{t("keep")}</AlertDialogCancel>
+                          <Button type="submit" variant="destructive">
+                            {t("deleteConfirm")}
+                          </Button>
+                        </AlertDialogFooter>
+                      </form>
+                    </DeleteDialogContent>
+                  </AlertDialog>
+                </div>
+                <p className="mt-2 break-words whitespace-pre-wrap">{each.body}</p>
+              </li>
+            );
+          })}
         </ul>
       )}
     </>

@@ -41,10 +41,13 @@ function commentSaying(page: Page, text: string) {
   return page.getByRole("listitem").filter({ hasText: text });
 }
 
+// Once it has gone, with its Delete button, the focus is on the section's heading rather than lost
+// to the document.
 async function deleteComment(page: Page, text: string) {
   await commentSaying(page, text).getByRole("button", { name: "Delete" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete it" }).click();
   await expect(commentSaying(page, text)).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: "Comments" })).toBeFocused();
 }
 
 async function subjectOfLatestMailTo(request: APIRequestContext, email: string): Promise<string | undefined> {
@@ -120,11 +123,15 @@ test("a guest deletes their own comment and cannot delete the host's; the host d
   await comment(page, "See you there!");
   await expect(commentSaying(page, "Doors open at seven.").getByRole("button", { name: "Delete" })).toHaveCount(0);
 
-  // Their own goes once they confirm.
-  await commentSaying(page, "See you there!").getByRole("button", { name: "Delete" }).click();
+  // Their own goes once they confirm. Each Delete says whose comment it takes, and when it was
+  // posted; kept, the focus goes back to it.
+  const own = commentSaying(page, "See you there!").getByRole("button", { name: "Delete" });
+  await expect(own).toHaveAccessibleName(/^Delete Priya Nair’s comment from \S.+$/);
+  await own.click();
   await expect(page.getByRole("alertdialog")).toContainText("Delete this comment?");
   await page.getByRole("alertdialog").getByRole("button", { name: "Never mind" }).click();
   await expect(commentSaying(page, "See you there!")).toBeVisible();
+  await expect(own).toBeFocused();
   await deleteComment(page, "See you there!");
   await page.reload();
   await expect(commentSaying(page, "Doors open at seven.")).toBeVisible();

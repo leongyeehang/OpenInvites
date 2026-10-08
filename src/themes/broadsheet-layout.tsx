@@ -9,7 +9,7 @@ import { BackgroundDescription } from "./background-description";
 import { BroadsheetGuestList, type BroadsheetGuests } from "./broadsheet-guest-list";
 import { BroadsheetTitle } from "./broadsheet-title";
 import { AnnouncementsSection, type ShownAnnouncement } from "./sections/announcements-section";
-import { CommentsSection } from "./sections/comments-section";
+import { COMMENTS_HEADING, CommentsSection } from "./sections/comments-section";
 
 // The Broadsheet layout (spec, "Broadsheet", from the prototype's layout-broadsheet.tsx): an
 // editorial page at most 64rem wide. A masthead rule, one very large title (or the host's
@@ -115,7 +115,7 @@ export async function BroadsheetLayout({
           )}
 
           {comments && (
-            <Section label={t("comments.title")} slot="comments">
+            <Section label={t("comments.title")} slot="comments" headingId={COMMENTS_HEADING}>
               <CommentsSection comments={comments} form={commentForm} slug={event.slug} timeZone={event.timeZone} />
             </Section>
           )}
@@ -145,11 +145,14 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-// A part of the page under a rule and its label.
-function Section({ label, slot, children }: { label: string; slot: string; children: ReactNode }) {
+// A part of the page under a rule and its label. A label with an id is where the focus is sent
+// once something under it is deleted, so it can take the focus, though it is never a stop for Tab.
+function Section({ label, slot, headingId, children }: { label: string; slot: string; headingId?: string; children: ReactNode }) {
   return (
     <section data-slot={slot} className="border-t border-theme-text/80 pt-5">
-      <h2 className="label-mono mb-4 text-theme-text-muted">{label}</h2>
+      <h2 id={headingId} tabIndex={headingId ? -1 : undefined} className="label-mono mb-4 text-theme-text-muted outline-none">
+        {label}
+      </h2>
       {children}
     </section>
   );

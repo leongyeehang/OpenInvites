@@ -9,7 +9,7 @@ import { RichTextView } from "@/rich-text/rich-text-view";
 import { Glass } from "./glass";
 import { PosterCard } from "./poster-card";
 import { AnnouncementsSection, type ShownAnnouncement } from "./sections/announcements-section";
-import { CommentsSection } from "./sections/comments-section";
+import { COMMENTS_HEADING, CommentsSection } from "./sections/comments-section";
 
 // The Poster layout (PROTOTYPE.md, the verdict): a frosted poster card with the title in the
 // theme's font (or the host's own poster), the RSVP buttons beneath it, then the details in
@@ -103,7 +103,9 @@ export async function PosterLayout({
 
       {comments && (
         <Glass data-slot="comments" className={cn("mt-3 p-5", entrance, "motion-safe:delay-500")}>
-          <SectionLabel icon={MessageCircle}>{t("comments.title")}</SectionLabel>
+          <SectionLabel icon={MessageCircle} id={COMMENTS_HEADING}>
+            {t("comments.title")}
+          </SectionLabel>
           <CommentsSection comments={comments} form={commentForm} slug={event.slug} timeZone={event.timeZone} />
         </Glass>
       )}
@@ -125,9 +127,11 @@ const invitationEntrance = cn(rise, "motion-safe:fade-in-1");
 // The small spaced capitals used for the eyebrow, the tile headings, and the sticker.
 const label = "text-xs font-medium tracking-label uppercase";
 
-export function SectionLabel({ icon: Icon, children }: { icon?: React.ComponentType<{ className?: string }>; children: ReactNode }) {
+// A heading with an `id` is where the focus is sent once something under it is deleted, so it can
+// take the focus, though it is never a stop for Tab.
+export function SectionLabel({ icon: Icon, id, children }: { icon?: React.ComponentType<{ className?: string }>; id?: string; children: ReactNode }) {
   return (
-    <h2 className={cn(label, "mb-3 flex items-center gap-2 text-theme-text-faint")}>
+    <h2 id={id} tabIndex={id ? -1 : undefined} className={cn(label, "mb-3 flex items-center gap-2 text-theme-text-faint outline-none")}>
       {Icon && <Icon className="size-3.5" aria-hidden />}
       {children}
     </h2>

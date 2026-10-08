@@ -3,10 +3,10 @@ import { getLocale, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import { deleteCommentAction } from "@/comments/actions";
 import type { CommentsShown } from "@/comments/visibility";
+import { DeleteDialogContent } from "@/components/delete-dialog-content";
 import {
   AlertDialog,
   AlertDialogCancel,
-  AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
@@ -15,6 +15,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { formatMoment } from "@/events/time";
+
+// The id of the comments' heading, which every layout gives it: where the focus goes once a
+// comment is deleted, since its Delete button goes with it.
+export const COMMENTS_HEADING = "comments-heading";
 
 // The comments as every layout shows them (comments/visibility.ts decides what this viewer may
 // see): to a guest who has not replied, only how many there are; to everyone else the comments,
@@ -52,42 +56,50 @@ export async function CommentsSection({
         <p className="text-sm text-theme-text-muted">{t("comments.count", { count: 0 })}</p>
       ) : (
         <ol className="flex flex-col gap-4">
-          {comments.comments.map((each) => (
-            <li key={each.id}>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <p className="font-medium">{each.name}</p>
-                {each.byHost && <span className="rounded-full bg-theme-accent px-2 py-0.5 text-xs font-medium text-theme-on-accent">{t("comments.host")}</span>}
-                <p className="text-sm text-theme-text-faint">
-                  <time dateTime={each.createdAt.toISOString()}>{formatMoment(each.createdAt, timeZone, locale)}</time>
-                </p>
-                {/* Taking one down cannot be undone, so it is confirmed. */}
-                {each.deletable && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <button type="button" className="ml-auto cursor-pointer text-sm text-theme-text-muted underline underline-offset-2 hover:opacity-80">
-                        {t("comments.delete")}
-                      </button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <form action={deleteCommentAction.bind(null, slug, each.id)}>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>{t("comments.deleteTitle")}</AlertDialogTitle>
-                          <AlertDialogDescription>{t("comments.deleteText")}</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter className="pt-4">
-                          <AlertDialogCancel type="button">{t("comments.keep")}</AlertDialogCancel>
-                          <Button type="submit" variant="destructive">
-                            {t("comments.deleteConfirm")}
-                          </Button>
-                        </AlertDialogFooter>
-                      </form>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
-              </div>
-              <p className="mt-1 leading-relaxed break-words whitespace-pre-wrap">{each.body}</p>
-            </li>
-          ))}
+          {comments.comments.map((each) => {
+            const when = formatMoment(each.createdAt, timeZone, locale);
+            return (
+              <li key={each.id}>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <p className="font-medium">{each.name}</p>
+                  {each.byHost && <span className="rounded-full bg-theme-accent px-2 py-0.5 text-xs font-medium text-theme-on-accent">{t("comments.host")}</span>}
+                  <p className="text-sm text-theme-text-faint">
+                    <time dateTime={each.createdAt.toISOString()}>{when}</time>
+                  </p>
+                  {/* Taking one down cannot be undone, so it is confirmed. Its button says whose and
+                      when, as every comment has one. */}
+                  {each.deletable && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={t("comments.deleteLabel", { name: each.name, time: when })}
+                          className="ml-auto cursor-pointer text-sm text-theme-text-muted underline underline-offset-2 hover:opacity-80"
+                        >
+                          {t("comments.delete")}
+                        </button>
+                      </AlertDialogTrigger>
+                      <DeleteDialogContent focusAfter={COMMENTS_HEADING}>
+                        <form action={deleteCommentAction.bind(null, slug, each.id)}>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>{t("comments.deleteTitle")}</AlertDialogTitle>
+                            <AlertDialogDescription>{t("comments.deleteText")}</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter className="pt-4">
+                            <AlertDialogCancel type="button">{t("comments.keep")}</AlertDialogCancel>
+                            <Button type="submit" variant="destructive">
+                              {t("comments.deleteConfirm")}
+                            </Button>
+                          </AlertDialogFooter>
+                        </form>
+                      </DeleteDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
+                <p className="mt-1 leading-relaxed break-words whitespace-pre-wrap">{each.body}</p>
+              </li>
+            );
+          })}
         </ol>
       )}
       {comments.canPost && form}

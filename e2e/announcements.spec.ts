@@ -99,10 +99,12 @@ test("an announcement is emailed only to the statuses the host picked, shows on 
   await expect(page.getByRole("heading", { name: "From the host" })).toBeVisible();
   expect(await page.getByText("The gate code is 1234.").innerText()).toBe("The gate code is 1234.\nRing twice.");
 
-  // The host takes it down, and it is gone from both pages.
-  await host.page.getByRole("button", { name: "Delete", exact: true }).click();
+  // The host takes it down, and it is gone from both pages. Its Delete says which announcement it
+  // takes, by when it was posted; once it has gone, the focus is on the page's heading.
+  await host.page.getByRole("button", { name: /^Delete the announcement from \S/ }).click();
   await host.page.getByRole("alertdialog").getByRole("button", { name: "Delete it" }).click();
   await expect(host.page.getByText("Sent to Going")).toHaveCount(0, { timeout: 15_000 });
+  await expect(host.page.getByRole("heading", { level: 1, name: "Announcements" })).toBeFocused();
   await page.reload();
   await expect(page.getByRole("heading", { name: "Ada’s birthday" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "From the host" })).toHaveCount(0);
@@ -166,7 +168,7 @@ test("an event carries ten announcements, and the eleventh is refused", async ({
   });
   // The words are kept for when one has been deleted.
   await expect(message).toHaveValue("Note 11");
-  await expect(host.page.getByRole("button", { name: "Delete", exact: true })).toHaveCount(10);
+  await expect(host.page.getByRole("button", { name: /^Delete the announcement from \S/ })).toHaveCount(10);
 
   await host.context.close();
 });
