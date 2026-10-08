@@ -305,3 +305,54 @@ test("the Broadsheet layout: the event page, its ballot and the receipt, in both
   await visitor.close();
   await host.context.close();
 });
+
+// The Thread layout (ticket 13): the event page and every kind of turn of its conversation, then
+// the done bubble with the guest list and the comments open, in both text tones; then a cancelled
+// event.
+test("the Thread layout: the event page, each turn of the conversation and the done bubble, in both text tones, and cancelled", async ({ browser, request }) => {
+  test.setTimeout(180_000);
+  const host = await createPublished(browser, request, "a11y-thread", { ...EVENT, layout: "Thread" });
+  const manage = host.page.url();
+  await host.page.goto(host.link);
+  const drawer = await openDrawer(host.page);
+  for (const tone of ["Light", "Dark"] as const) {
+    await chooseTone(drawer, request, host.link, tone);
+    // A guest of their own for each tone, who has not answered yet.
+    const guest = await browser.newContext();
+    const page = await guest.newPage();
+    await page.goto(host.link);
+    const where = `the Thread, ${tone.toLowerCase()} tone`;
+    await expectNoSeriousViolations(page, `${where}: the page and the ask`);
+    await page.getByRole("button", { name: "Going", exact: true }).click();
+    await page.getByLabel("Your name").fill("Priya Nair");
+    await expectNoSeriousViolations(page, `${where}: the name in the composer`);
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(page.getByRole("button", { name: "+1", exact: true })).toBeVisible();
+    await expectNoSeriousViolations(page, `${where}: the plus-one chips`);
+    await page.getByRole("button", { name: "+1", exact: true }).click();
+    await expect(page.getByLabel("Any allergies?")).toBeVisible();
+    await expectNoSeriousViolations(page, `${where}: a written answer in the composer`);
+    await page.getByLabel("Any allergies?").fill("None");
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Yes", exact: true })).toBeVisible();
+    await expectNoSeriousViolations(page, `${where}: yes or no as chips, with Skip`);
+    await page.getByRole("button", { name: "Yes", exact: true }).click();
+    await expect(page.locator('[data-slot="done"]')).toBeVisible({ timeout: 15_000 });
+    await page.locator('[data-slot="comments"] summary').click();
+    await expect(page.getByLabel("Add a comment")).toBeVisible();
+    await expectNoSeriousViolations(page, `${where}: the done bubble, who's coming and the comments`);
+    await guest.close();
+  }
+
+  await host.page.goto(manage);
+  await host.page.getByRole("button", { name: "Cancel event" }).click();
+  await host.page.getByRole("button", { name: "Cancel the event" }).click();
+  await expect(host.page.getByText("Cancelled", { exact: true })).toBeVisible({ timeout: 15_000 });
+  const visitor = await browser.newContext();
+  const page = await visitor.newPage();
+  await page.goto(host.link);
+  await expect(page.getByText("This event is cancelled")).toBeVisible();
+  await expectNoSeriousViolations(page, "the Thread, a cancelled event, dark tone");
+  await visitor.close();
+  await host.context.close();
+});

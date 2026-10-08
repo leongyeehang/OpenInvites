@@ -1,6 +1,6 @@
 import type { Template } from "./template";
 
-// Made for the Thread layout, which ships in M2. Until then it applies with the Poster layout.
+// Made for the Thread layout, and applied with it.
 export const kidsParty: Template = {
   id: "kids",
   theme: {

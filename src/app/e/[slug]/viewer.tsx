@@ -6,6 +6,8 @@ import { useSyncExternalStore } from "react";
 import { countdownFor } from "@/events/countdown";
 import { mapHref } from "@/events/map";
 import type { EventTime } from "@/events/time";
+import { cn } from "@/lib/utils";
+import { BUBBLE_CHIP } from "@/themes/thread-bubble";
 
 // Three things only the guest's own device knows: what time it is, what zone they are in, and
 // which maps app they have. Each reads as nothing on the server and in the first client render,
@@ -103,7 +105,8 @@ export function ViewerTime({ event, locale }: { event: EventTime; locale: string
   return <p className="mt-1 text-sm text-theme-text-muted">{t("yourTime", { time })}</p>;
 }
 
-export function MapLink({ location }: { location: string }) {
+// The guest's maps app, at the place. As a chip in the Thread's Where bubble.
+export function MapLink({ location, chip = false }: { location: string; chip?: boolean }) {
   const t = useTranslations("EventPage");
   if (!useOnTheDevice()) return null;
 
@@ -113,7 +116,11 @@ export function MapLink({ location }: { location: string }) {
       href={mapHref(location, { apple })}
       target="_blank"
       rel="noreferrer"
-      className="mt-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium underline decoration-theme-accent underline-offset-4 hover:opacity-80"
+      className={
+        chip
+          ? cn(BUBBLE_CHIP, "mt-3")
+          : "mt-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium underline decoration-theme-accent underline-offset-4 hover:opacity-80"
+      }
     >
       {t("openInMaps")} <ArrowUpRight className="size-4" aria-hidden />
     </a>

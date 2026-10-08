@@ -81,10 +81,10 @@ describe("resolveTheme", () => {
     });
   });
 
-  it("carries the stored layout through, and renders one not offered yet as Poster", () => {
+  it("carries the stored layout through", () => {
     expect(resolveTheme(DEFAULT_THEME).layout).toBe("poster");
     expect(resolveTheme({ ...DEFAULT_THEME, layout: "broadsheet" }).layout).toBe("broadsheet");
-    expect(resolveTheme({ ...DEFAULT_THEME, layout: "thread" }).layout).toBe("poster");
+    expect(resolveTheme({ ...DEFAULT_THEME, layout: "thread" }).layout).toBe("thread");
   });
 
   it("resolves the background to what the page paints and the title font to its face", () => {

@@ -28,6 +28,7 @@ import { BroadsheetLayout } from "@/themes/broadsheet-layout";
 import { PosterLayout } from "@/themes/poster-layout";
 import { resolveTheme } from "@/themes/resolve";
 import { ThemedPage } from "@/themes/themed-page";
+import { ThreadLayout } from "@/themes/thread-layout";
 import { findEventUpload } from "@/uploads/repository";
 import { themeUpload } from "@/uploads/uploads";
 import { AddToCalendar } from "./add-to-calendar";
@@ -39,6 +40,7 @@ import { RetiredLink } from "./retired-link";
 import { DraftNotice } from "./draft-notice";
 import { GuestList } from "./guest-list";
 import { RsvpFlow } from "./rsvp-flow";
+import { ThreadComposer } from "./thread-composer";
 import type { RsvpFlowProps } from "./use-rsvp-flow";
 import { Countdown, CountdownFigure, MapLink, ViewerTime } from "./viewer";
 
@@ -123,8 +125,7 @@ export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Prom
 }
 
 // The event page: the invitation itself, rendered on the server in the event's theme so the
-// first paint is the finished look, in the layout the theme names (resolveTheme renders one not
-// offered yet as Poster). Every layout shows the same things, and the guest's RSVP flow is one
+// first paint is the finished look, in the layout the theme names. Every layout shows the same things, and the guest's RSVP flow is one
 // set of rules (use-rsvp-flow.ts) that each layout presents in its own way, so the page hands each
 // its own presentation of it. The host also gets the Design drawer on their own page.
 export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
@@ -184,7 +185,9 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const shown = resolved.upload !== null;
   // The same rule the file itself follows: there is nothing to put in a calendar until an event
   // is published, and nothing worth keeping there once it is called off.
-  const calendar = acceptsRsvps(event.state) ? <AddToCalendar event={event} link={link} inCard={resolved.layout === "broadsheet"} /> : undefined;
+  const calendar = acceptsRsvps(event.state) ? (
+    <AddToCalendar event={event} link={link} inCard={resolved.layout === "broadsheet"} chips={resolved.layout === "thread"} />
+  ) : undefined;
 
   const notice = isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined;
   const flow: RsvpFlowProps = {
@@ -213,7 +216,25 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
           ) : undefined
         }
       >
-        {resolved.layout === "broadsheet" ? (
+        {resolved.layout === "thread" ? (
+          <ThreadLayout
+            event={event}
+            hosts={hosts.map((host) => host.name)}
+            announcements={announcements}
+            comments={comments}
+            commentForm={<CommentForm slug={event.slug} />}
+            notice={notice}
+            rsvp={<ThreadComposer {...flow} closedAs={isDraft ? "draft" : event.state === "cancelled" ? "cancelled" : undefined} />}
+            guests={guestList && { ...guestList, you: mine?.rsvp.id }}
+            underWhen={
+              <>
+                <ViewerTime event={event} locale={locale} />
+                <Countdown event={event} />
+              </>
+            }
+            underWhere={event.location ? <MapLink location={event.location} chip /> : undefined}
+          />
+        ) : resolved.layout === "broadsheet" ? (
           <BroadsheetLayout
             event={event}
             hosts={hosts.map((host) => host.name)}

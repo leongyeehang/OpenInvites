@@ -79,7 +79,7 @@ test("a host applies a template, changes knobs, and guests see the saved theme",
   await host.context.close();
 });
 
-test("the drawer keeps its order, offers the Poster and Broadsheet layouts, and gets out of the way", async ({ page, browser, request }) => {
+test("the drawer keeps its order, offers the three layouts, and gets out of the way", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "design-order", EVENT);
   await host.page.goto(host.link);
@@ -92,11 +92,13 @@ test("the drawer keeps its order, offers the Poster and Broadsheet layouts, and 
   await expect(drawer.getByRole("button", { name: "Details" })).toHaveAttribute("aria-expanded", "false");
   await expect(drawer.getByRole("radio", { name: "Instrument Serif" })).toBeHidden();
 
-  // Thread is coming; Broadsheet can be chosen, and says what it is.
+  // Every layout can be chosen, and says what it is.
   const layouts = drawer.getByRole("group", { name: "Layout" });
   await expect(layouts.getByRole("radio", { name: /Poster/ })).toBeChecked();
-  await expect(layouts.getByRole("radio", { name: /Thread/ })).toBeDisabled();
-  await expect(layouts.getByRole("radio", { name: /Thread/ }).locator("..")).toContainText("Coming soon");
+  const thread = layouts.getByRole("radio", { name: /Thread/ });
+  await expect(thread).toBeEnabled();
+  await expect(thread.locator("..")).toContainText("The invitation reads like a chat.");
+  await expect(drawer.getByText("Coming soon")).toHaveCount(0);
   const broadsheet = layouts.getByRole("radio", { name: /Broadsheet/ });
   await expect(broadsheet).toBeEnabled();
   await expect(broadsheet.locator("..")).toContainText("An editorial page with one reply form.");

@@ -36,9 +36,9 @@ describe("applying a template", () => {
     expect(applied).toMatchObject({ backgroundId: "slate", uploadId: withUpload.uploadId, uploadMode: "poster" });
   });
 
-  it("applies Supper club with the Broadsheet layout, and Kids' party with the Poster layout while Thread is coming", () => {
+  it("applies Supper club with the Broadsheet layout and Kids' party with the Thread layout", () => {
     expect(applyTemplate(DEFAULT_THEME, template("supper")).layout).toBe("broadsheet");
-    expect(applyTemplate(DEFAULT_THEME, template("kids")).layout).toBe("poster");
+    expect(applyTemplate(DEFAULT_THEME, template("kids")).layout).toBe("thread");
   });
 
   it("brings its own layout when applied over another, as it does every knob", () => {
@@ -68,6 +68,7 @@ describe("changing a knob", () => {
     [{ knob: "titlePlacement", value: "on" }, { titlePlacement: "on" }],
     [{ knob: "effect", value: "doodles" }, { effect: "doodles" }],
     [{ knob: "layout", value: "broadsheet" }, { layout: "broadsheet" }],
+    [{ knob: "layout", value: "thread" }, { layout: "thread" }],
   ];
 
   it.each(changes)("sets the knob and marks the template dirty: %j", (change, knob) => {
@@ -204,6 +205,7 @@ describe("reading a change the drawer sent", () => {
       { knob: "effect", value: "doodles" },
       { knob: "layout", value: "poster" },
       { knob: "layout", value: "broadsheet" },
+      { knob: "layout", value: "thread" },
     ];
     for (const change of offered) expect(parseThemeChange(JSON.parse(JSON.stringify(change)))).toEqual(change);
   });
@@ -240,8 +242,7 @@ describe("reading a change the drawer sent", () => {
       { knob: "titlePlacement", value: null },
       { knob: "effect", value: "fireworks" },
       { knob: "effect", value: null },
-      // Only the layouts offered: Thread is not yet.
-      { knob: "layout", value: "thread" },
+      // Only the layouts there are.
       { knob: "layout", value: "zine" },
       { knob: "layout", value: null },
       { knob: "uploadId", value: "0192f0a1-7b3c-7d4e-8f00-123456789abc" },

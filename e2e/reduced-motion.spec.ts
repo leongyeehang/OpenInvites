@@ -164,6 +164,29 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await expectStill(ballot, "the Broadsheet's receipt");
   await third.close();
 
+  // The Thread: everything is there at once, the host is never seen typing, and the page jumps to
+  // the newest line rather than scrolling. A guest answers in its conversation.
+  await drawer.getByRole("group", { name: "Layout" }).getByRole("radio", { name: /^Thread/ }).check();
+  await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain('data-layout="thread"');
+  await expectStill(host, "the Design drawer, the Thread chosen");
+  const fourth = await browser.newContext({ reducedMotion: "reduce" });
+  const chat = await fourth.newPage();
+  await chat.goto(link);
+  await expectStill(chat, "the Thread");
+  await chat.getByRole("button", { name: "Going", exact: true }).click();
+  expect(await chat.locator('[data-slot="typing"]').count()).toBe(0);
+  await chat.getByLabel("Your name").fill("Ana Lim");
+  await expectStill(chat, "the Thread's conversation, the name in the composer");
+  await chat.getByRole("button", { name: "Send", exact: true }).click();
+  expect(await chat.locator('[data-slot="typing"]').count()).toBe(0);
+  await chat.getByRole("button", { name: "+1", exact: true }).click();
+  await expectStill(chat, "the Thread's conversation, a question");
+  await chat.getByRole("button", { name: "Skip", exact: true }).click();
+  await expect(chat.locator('[data-slot="done"]')).toBeVisible();
+  expect(await chat.locator('[data-slot="typing"]').count()).toBe(0);
+  await expectStill(chat, "the Thread's done bubble");
+  await fourth.close();
+
   // The host's guest list, with the guest opened for editing, and the share screen.
   await host.goto(`${manage}/guests`);
   await host.getByRole("button", { name: "Edit" }).first().click();

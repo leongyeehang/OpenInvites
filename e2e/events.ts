@@ -22,7 +22,7 @@ export type DraftFields = {
   questions?: QuestionFields[];
   // Theme knobs rather than fields of the form: createPublished sets them in the Design drawer.
   rsvpStyle?: "Inline" | "Sheet";
-  layout?: "Broadsheet";
+  layout?: "Broadsheet" | "Thread";
 };
 
 // Fills the questions editor, which is a list the host builds before saving the event.
@@ -88,7 +88,7 @@ async function chooseRsvpStyle(page: Page, link: string, style: "Inline" | "Shee
 
 // The layout is a theme knob too, chosen in the drawer's Layout row. The page the host is sent
 // back to is the manage page, where they were.
-export async function chooseLayout(page: Page, link: string, layout: "Poster" | "Broadsheet") {
+export async function chooseLayout(page: Page, link: string, layout: "Poster" | "Broadsheet" | "Thread") {
   const manage = page.url();
   await page.goto(link);
   await page.getByRole("button", { name: "Design" }).click();

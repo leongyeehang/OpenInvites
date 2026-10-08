@@ -20,8 +20,9 @@ function subscribeToMotion(onChange: () => void) {
 }
 
 // Whether the guest's device asks for reduced motion. Only the browser knows, and confetti only
-// ever mounts there; the server's answer, never used, is the still one.
-function useReducedMotion(): boolean {
+// ever mounts there; the server's answer, never used, is the still one. The Thread's pacing asks
+// it too.
+export function useReducedMotion(): boolean {
   return useSyncExternalStore(
     subscribeToMotion,
     () => matchMedia(REDUCED_MOTION).matches,

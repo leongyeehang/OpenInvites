@@ -129,6 +129,41 @@ test("a guest answers Going with a plus-one and a required question by keyboard 
   await host.context.close();
 });
 
+test("a guest answers Going with a plus-one and a required question by keyboard alone, in the Thread's composer", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-thread", { ...EVENT, layout: "Thread" });
+  await page.goto(host.link);
+
+  // Each answer the composer offers takes the focus once the host has asked for it.
+  await tabTo(page, page.getByRole("button", { name: "Going", exact: true }));
+  await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Your name")).toBeFocused();
+  await expectVisibleFocus(page);
+  await page.keyboard.type("Priya Nair");
+  // Enter sends it.
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Just me", exact: true })).toBeFocused();
+  await expectVisibleFocus(page);
+  await tabTo(page, page.getByRole("button", { name: "+1", exact: true }));
+  await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Any allergies?")).toBeFocused();
+  await expectVisibleFocus(page);
+  await page.keyboard.type("No nuts");
+  await page.keyboard.press("Enter");
+
+  // The done bubble takes the focus, so it is what a screen reader reads next.
+  const done = page.locator('[data-slot="done"] p');
+  await expect(done).toBeFocused();
+  await expect(done).toContainText("You’re in, Priya!");
+
+  // Taking the RSVP back hands the focus back to the chip it was given with.
+  await tabTo(page, page.getByRole("button", { name: "Remove my RSVP" }));
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Going", exact: true })).toBeFocused();
+  await expectVisibleFocus(page);
+  await host.context.close();
+});
+
 test("a host applies a template, changes a knob and closes the Design drawer by keyboard alone", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "keyboard-drawer", EVENT);

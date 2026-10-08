@@ -38,9 +38,10 @@ export type Theme = {
   template: { id: string; dirty: boolean } | null; // where the host started, and whether they changed a knob
 };
 
-// The layouts a host can use today. Thread ships with ticket 13; a template made for it applies
-// with the Poster layout until then, and a theme that names it renders as Poster.
-export const OFFERED_LAYOUTS: readonly Layout[] = ["poster", "broadsheet"];
+// The layouts a host can use: all three since M2. A layout added later can be stored before it
+// is offered; until then a template made for it applies with the Poster layout, and a theme that
+// names it renders as Poster.
+export const OFFERED_LAYOUTS: readonly Layout[] = ["poster", "broadsheet", "thread"];
 
 // Applying a template copies every knob it sets onto the theme and records the template as not
 // yet changed (spec, "Themes and templates"). The host's own upload is theirs, not the
