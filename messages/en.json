@@ -459,7 +459,7 @@
       "askName": "Yay! What should I call you?",
       "askNameCant": "No worries at all. Who’s this, so I can note it?",
       "askEmail": "And your email, so I can reach you? (skip if you’d rather not)",
-      "askPlusOnes": "Lovely, {firstName}. Bringing anyone? You can bring up to {max}.",
+      "askPlusOnes": "Lovely, {firstName}. Bringing anyone? {max, plural, =1 {You can bring one person.} other {You can bring up to # people.}}",
       "bringing": "I’ll bring {count}",
       "askGuestName": "{number, plural, =1 {What’s your first guest’s name?} =2 {What’s your second guest’s name?} =3 {What’s your third guest’s name?} =4 {What’s your fourth guest’s name?} =5 {What’s your fifth guest’s name?} =6 {What’s your sixth guest’s name?} =7 {What’s your seventh guest’s name?} =8 {What’s your eighth guest’s name?} =9 {What’s your ninth guest’s name?} =10 {What’s your tenth guest’s name?} other {What’s the name of guest #?}}",
       "questionOptional": "{prompt} (skip if none)",

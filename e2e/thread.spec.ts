@@ -117,7 +117,7 @@ test("a guest replies in the conversation: Going with a named plus-one, a questi
 
   // By her first name, up to as many as the host allows, and each one's name since the host asks.
   await expect(conversation(page).getByText("Priya Nair", { exact: true })).toBeVisible();
-  await expect(conversation(page).getByText("Lovely, Priya. Bringing anyone? You can bring up to 2.", { exact: true })).toBeVisible();
+  await expect(conversation(page).getByText("Lovely, Priya. Bringing anyone? You can bring up to 2 people.", { exact: true })).toBeVisible();
   for (const chip of ["Just me", "+1", "+2"]) await expect(page.getByRole("button", { name: chip, exact: true })).toBeVisible();
   await page.getByRole("button", { name: "+1", exact: true }).click();
   await expect(conversation(page).getByText("I’ll bring 1", { exact: true })).toBeVisible();
