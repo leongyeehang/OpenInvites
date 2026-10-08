@@ -579,6 +579,11 @@
       "rose": "玫瑰園",
       "slate": "石板灰"
     },
+    "fromYourPicture": "取自你的圖片",
+    "derivedNames": {
+      "upload-blur": "柔和模糊",
+      "upload-wash": "色彩暈染"
+    },
     "details": "更多選項",
     "font": "標題字體",
     "fontNames": {

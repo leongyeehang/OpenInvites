@@ -1,4 +1,5 @@
 import { DEFAULT_BACKGROUND, findBackground, type Background } from "./backgrounds";
+import { derivedBackground, isDerivedBackground } from "./derived";
 import { TITLE_FONTS, type TitleFont } from "./fonts";
 import { css, GLOW, TONES, toneTokens, type ToneTokens } from "./legibility";
 import { OFFERED_LAYOUTS, type ButtonStyle, type Layout, type RsvpStyle, type Theme, type TitlePlacement } from "./theme";
@@ -37,8 +38,9 @@ export type ResolvedPoster = {
 // the server for the first paint, and again in the host's browser while they change it.
 export type ResolvedTheme = {
   layout: Layout; // the stored layout, or Poster while the stored one is not offered yet
-  // What the page is painted on: a curated background, the host's upload as a photo, or, in
-  // poster mode, the blurred copy of the poster (measured as that copy).
+  // What the page is painted on: a curated background, the host's upload as a photo, a background
+  // made from it (derived.ts), or, in poster mode, the blurred copy of the poster (measured as
+  // that copy).
   background: Background;
   upload: ThemeUpload | null; // the host's upload, when it is in use, as the background or the poster
   poster: ResolvedPoster | null; // the upload as the poster, in poster mode
@@ -64,7 +66,11 @@ export function resolveTheme(theme: Theme, upload: ThemeUpload | null = null): R
   // the background decides.
   const uploadInUse = theme.backgroundId === null && upload !== null && theme.uploadId === upload.id ? upload : null;
   const asPoster = uploadInUse !== null && theme.uploadMode === "poster";
-  const background = uploadInUse ? uploadedBackground(uploadInUse, asPoster) : (findBackground(theme.backgroundId) ?? DEFAULT_BACKGROUND);
+  // A background made from the picture puts the picture itself aside, and is made from the
+  // event's upload whichever it is, so a new picture brings its own. Without one there is nothing
+  // to make it from, and the page falls back as for an unknown background.
+  const derived = isDerivedBackground(theme.backgroundId) && upload !== null ? derivedBackground(theme.backgroundId, upload) : undefined;
+  const background = uploadInUse ? uploadedBackground(uploadInUse, asPoster) : (derived ?? findBackground(theme.backgroundId) ?? DEFAULT_BACKGROUND);
   const accent = theme.accentOverride ?? background.accent;
   const textTone = theme.textTone === "auto" ? (background.luminance > LIGHT_BACKGROUND ? "dark" : "light") : theme.textTone;
   return {
@@ -86,7 +92,9 @@ export function resolveTheme(theme: Theme, upload: ThemeUpload | null = null): R
     font: TITLE_FONTS[theme.font],
     buttonStyle: theme.buttonStyle,
     rsvpStyle: theme.rsvpStyle,
-    tokens: toneTokens(textTone, background, accent, asPoster ? "poster" : "background"),
+    // The blurred copy, behind a poster or as Soft blur, wears the poster's stronger scrim, under
+    // which its extremes were measured.
+    tokens: toneTokens(textTone, background, accent, background.kind === "photo" && background.blurred ? "poster" : "background"),
   };
 }
 
@@ -95,7 +103,7 @@ export function resolveTheme(theme: Theme, upload: ThemeUpload | null = null): R
 // a poster it is the poster's blurred copy, with the extremes measured for that.
 function uploadedBackground({ src, portraitSrc, accent, luminance, lightest, darkest, poster }: ThemeUpload, asPoster: boolean): Background {
   return asPoster
-    ? { id: "upload", kind: "photo", src: poster.copySrc, accent, luminance, lightest: poster.lightest, darkest: poster.darkest }
+    ? { id: "upload", kind: "photo", src: poster.copySrc, accent, luminance, lightest: poster.lightest, darkest: poster.darkest, blurred: true }
     : { id: "upload", kind: "photo", src, portraitSrc, accent, luminance, lightest, darkest };
 }
 

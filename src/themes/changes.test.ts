@@ -144,6 +144,30 @@ describe("changing a knob", () => {
     });
   });
 
+  describe("a background made from the host's picture", () => {
+    // The picture as the poster, with the host's own accent on it.
+    const asPoster = applyChange(applyChange(withUpload, { knob: "uploadMode", value: "poster" }), { knob: "accentOverride", value: "#8fe6c2" });
+    const onWash = applyChange(asPoster, { knob: "backgroundId", value: "upload-wash" });
+
+    it("is chosen as any background is: the accent goes back to auto, and the picture stays in the gallery", () => {
+      expect(onWash).toEqual({ ...asPoster, backgroundId: "upload-wash", accentOverride: null, template: { id: "birthday", dirty: true } });
+      expect(applyChange(onWash, { knob: "backgroundId", value: "upload-blur" })).toEqual({ ...onWash, backgroundId: "upload-blur" });
+    });
+
+    it("gives way to the picture itself when the host chooses it again", () => {
+      expect(applyChange(onWash, { knob: "uploadMode", value: "background" })).toMatchObject({ backgroundId: null, uploadId: UPLOAD, uploadMode: "background" });
+      expect(applyChange(onWash, { knob: "uploadMode", value: "poster" })).toMatchObject({ backgroundId: null, uploadId: UPLOAD, uploadMode: "poster" });
+    });
+
+    it("stays when the picture is replaced, so the new picture's blur or wash shows, with its own accent", () => {
+      const ownAccent = applyChange(onWash, { knob: "accentOverride", value: "#ff7a59" });
+      expect(applyChange(ownAccent, { knob: "uploadId", value: OTHER_UPLOAD })).toEqual({ ...ownAccent, uploadId: OTHER_UPLOAD, accentOverride: null });
+      const onBlur = applyChange(onWash, { knob: "backgroundId", value: "upload-blur" });
+      expect(applyChange(onBlur, { knob: "uploadId", value: OTHER_UPLOAD })).toMatchObject({ backgroundId: "upload-blur", uploadId: OTHER_UPLOAD });
+      expect(applyChange(onWash, { knob: "uploadId", value: UPLOAD })).toBe(onWash);
+    });
+  });
+
   it("changes nothing, dirty flag included, when the host picks what is already chosen", () => {
     expect(applyChange(DEFAULT_THEME, { knob: "font", value: "serif" })).toBe(DEFAULT_THEME);
     expect(applyChange(DEFAULT_THEME, { knob: "backgroundId", value: "golden" })).toBe(DEFAULT_THEME);
@@ -216,6 +240,14 @@ describe("reading a change the drawer sent", () => {
     expect(parseThemeChange({ knob: "uploadMode", value: "wallpaper" }, UPLOAD)).toBeUndefined();
     // An event without an upload has none to show.
     expect(parseThemeChange({ knob: "uploadMode", value: "poster" }, null)).toBeUndefined();
+  });
+
+  it("accepts a background made from the event's upload only when it has one", () => {
+    expect(parseThemeChange({ knob: "backgroundId", value: "upload-blur" }, UPLOAD)).toEqual({ knob: "backgroundId", value: "upload-blur" });
+    expect(parseThemeChange({ knob: "backgroundId", value: "upload-wash" }, UPLOAD)).toEqual({ knob: "backgroundId", value: "upload-wash" });
+    expect(parseThemeChange({ knob: "backgroundId", value: "upload-blur" }, null)).toBeUndefined();
+    expect(parseThemeChange({ knob: "backgroundId", value: "upload-wash" })).toBeUndefined();
+    expect(parseThemeChange({ knob: "backgroundId", value: "upload-sepia" }, UPLOAD)).toBeUndefined();
   });
 
   it("takes a new picture only from an upload, never from the drawer", () => {

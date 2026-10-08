@@ -166,6 +166,47 @@ describe("resolveTheme", () => {
     });
   });
 
+  describe("backgrounds made from the picture", () => {
+    const on = (backgroundId: string): Theme => ({ ...onUpload, backgroundId });
+
+    it("paints Soft blur as the blurred copy behind a poster is painted, solved against that copy under its scrim", () => {
+      const resolved = resolveTheme(on("upload-blur"), upload());
+      expect(resolved.background).toMatchObject({ id: "upload-blur", kind: "photo", src: `/uploads/${UPLOAD}/poster-copy.webp`, blurred: true });
+      expect(resolved.tokens.scrim).toEqual(TONES.light.posterScrim);
+      const brightCopy = upload({ poster: { ...POSTER, lightest: "#8c8c8c" } });
+      expect(css(resolveTheme(on("upload-blur"), brightCopy).tokens.glass)).not.toBe("rgb(255 255 255 / 0.1)");
+    });
+
+    it("paints Colour wash as a gradient from the picture's colours, under no scrim of a photo's", () => {
+      const resolved = resolveTheme(on("upload-wash"), upload());
+      expect(resolved.background).toMatchObject({ id: "upload-wash", kind: "gradient", css: "linear-gradient(135deg, #505050, #3aa885, #303030)" });
+      expect(resolved.tokens.scrim).toEqual(TONES.light.scrim);
+    });
+
+    it("puts the picture itself aside: it is neither the background nor the poster", () => {
+      for (const id of ["upload-blur", "upload-wash"]) {
+        expect(resolveTheme(on(id), upload()).upload, id).toBeNull();
+        expect(resolveTheme({ ...on(id), uploadMode: "poster" }, upload()).poster, id).toBeNull();
+      }
+    });
+
+    it("takes the accent and the text tone from the picture, unless the host chose them", () => {
+      expect(resolveTheme(on("upload-blur"), upload()).accent).toBe("#3aa885");
+      expect(resolveTheme(on("upload-wash"), upload()).accent).toBe("#3aa885");
+      expect(resolveTheme({ ...on("upload-wash"), accentOverride: "#ff7a59" }, upload()).accent).toBe("#ff7a59");
+      expect(resolveTheme(on("upload-blur"), upload({ luminance: 0.9 })).textTone).toBe("dark");
+      expect(resolveTheme(on("upload-wash"), upload({ accent: "#f4f1ea", lightest: "#ffffff", darkest: "#e8e4dc" })).textTone).toBe("dark");
+      expect(resolveTheme(on("upload-wash"), upload()).textTone).toBe("light");
+    });
+
+    it("falls back to the default background once the picture is gone", () => {
+      for (const id of ["upload-blur", "upload-wash"]) {
+        expect(resolveTheme(on(id)).background, id).toMatchObject({ id: "golden" });
+        expect(resolveTheme(on(id)).accent, id).toBe("#ffc36b");
+      }
+    });
+  });
+
   it("expresses the accent and the tone's colours as CSS variables for first paint", () => {
     const variables = themeVariables(resolveTheme(DEFAULT_THEME));
     expect(variables).toMatchObject({ "--theme-accent": "#ffc36b", "--theme-on-accent": "#2a1540", "--theme-text": "#ffffff", "--theme-base": "#1b0f2b" });

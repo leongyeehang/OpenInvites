@@ -77,11 +77,11 @@ export function ThemedPage({
 
 // The warm layered background with grain: the gradient or scene, two soft blobs of colour that
 // drift when motion is welcome, and a fade into the base colour at the foot of the page. A host's
-// upload is painted as a scene is; behind the host's poster, its small copy blurred to a wash of
-// its own colours, far enough past the screen's edges that they stay full, under a stronger
-// scrim. The lightest and darkest points of each background are measured with all of this in
-// place (backgrounds.ts, and uploads/process.ts for an upload and its copy), so change them
-// together.
+// upload is painted as a scene is; behind the host's poster, and as Soft blur, its small copy
+// blurred to a wash of its own colours, far enough past the screen's edges that they stay full,
+// under a stronger scrim. Colour wash is a gradient like the curated ones. The lightest and
+// darkest points of each background are measured with all of this in place (backgrounds.ts, and
+// uploads/process.ts for an upload and its copy), so change them together.
 //
 // A scene or a photo covers the screen from its centre. It is fetched at low priority, behind the
 // stylesheet and the title's font: it fills the whole screen, so the browser never counts it as
@@ -95,10 +95,10 @@ export function ThemedPage({
 // text, so legibility.ts, which solves the glass against the backdrop, needs no change for them.
 // Under reduced motion neither is drawn.
 function Backdrop({ theme, effect }: { theme: ResolvedTheme; effect: Effect }) {
-  const { background, poster } = theme;
+  const { background } = theme;
   return (
-    <div aria-hidden className="grain fixed inset-0 -z-10 overflow-hidden bg-theme-base">
-      {poster && background.kind === "photo" ? (
+    <div aria-hidden data-slot="backdrop" className="grain fixed inset-0 -z-10 overflow-hidden bg-theme-base">
+      {background.kind === "photo" && background.blurred ? (
         <>
           <div className="absolute -inset-32 bg-cover bg-center blur-3xl" style={{ backgroundImage: `url(${background.src})` }} />
           <div className="absolute inset-0 bg-theme-scrim" />

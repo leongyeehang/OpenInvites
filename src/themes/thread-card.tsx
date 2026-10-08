@@ -40,6 +40,11 @@ export function ThreadCard({ title, invited, when, className }: { title: string;
 
   const picture = poster ? (
     <Picture poster={poster} sizes={SIZES} className="col-start-1 row-start-1" />
+  ) : background.kind === "photo" && background.blurred ? (
+    // Soft blur: the copy blurred as the backdrop blurs it, past the frame's edges so they stay full.
+    <div aria-hidden className="relative col-start-1 row-start-1 aspect-[4/3] overflow-hidden">
+      <div className="absolute -inset-32 bg-cover bg-center blur-3xl" style={{ backgroundImage: `url(${background.src})` }} />
+    </div>
   ) : (
     <div
       aria-hidden

@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { changeThemeAction } from "@/themes/actions";
 import { BACKGROUNDS, type Background } from "@/themes/backgrounds";
 import { themeReadout, type ThemeChange } from "@/themes/changes";
+import { DERIVED_BACKGROUND_IDS, derivedBackground } from "@/themes/derived";
 import { TITLE_FONTS } from "@/themes/fonts";
 import { resolveTheme, themeVariables, type ThemeUpload } from "@/themes/resolve";
 import { SWATCHES } from "@/themes/swatches";
@@ -254,6 +255,37 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
               </Choice>
             )}
           </div>
+          {/* Two more made from it, while there is one: its copy blurred as the page blurs it, and
+              a wash of its colours. */}
+          {upload && (
+            <div role="group" aria-labelledby={`${id}-derived`} className="mt-3">
+              <p id={`${id}-derived`} className="mb-2 text-xs font-medium text-muted-foreground">
+                {t("fromYourPicture")}
+              </p>
+              <div className="grid grid-cols-5 gap-2">
+                {DERIVED_BACKGROUND_IDS.map((derived) => {
+                  const background = derivedBackground(derived, upload);
+                  const checked = theme.backgroundId === derived;
+                  return (
+                    <Choice
+                      key={derived}
+                      name="background"
+                      checked={checked}
+                      onSelect={() => choose({ knob: "backgroundId", value: derived })}
+                      className="aspect-[3/4]"
+                      style={background.kind === "gradient" ? fill(background) : undefined}
+                    >
+                      {background.kind === "photo" && (
+                        <span className="absolute -inset-4 bg-cover bg-center blur-md" style={{ backgroundImage: `url(${background.src})` }} />
+                      )}
+                      {checked && <Tick />}
+                      <TileName>{t(`derivedNames.${derived}`)}</TileName>
+                    </Choice>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </Choices>
 
         <section>

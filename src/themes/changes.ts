@@ -1,4 +1,5 @@
 import { findBackground } from "./backgrounds";
+import { isDerivedBackground } from "./derived";
 import { isSwatch } from "./swatches";
 import { findTemplate, type TemplateId } from "./templates";
 import {
@@ -65,6 +66,11 @@ function changeKnob(theme: Theme, change: KnobChange): Theme {
     const uploadId = change.knob === "uploadId" ? change.value : theme.uploadId;
     const uploadMode = change.knob === "uploadMode" ? change.value : theme.uploadMode;
     if (uploadId === null) return theme;
+    // A background made from the picture stays when the picture is replaced, so the new picture's
+    // blur or wash shows, with its own accent as any picture newly in use brings.
+    if (change.knob === "uploadId" && isDerivedBackground(theme.backgroundId)) {
+      return theme.uploadId === uploadId ? theme : { ...theme, uploadId, accentOverride: null };
+    }
     const inUse = theme.backgroundId === null && theme.uploadId === uploadId;
     if (inUse && theme.uploadMode === uploadMode) return theme;
     // A picture newly in use brings its own accent, as a new background does (below); the same
@@ -102,8 +108,9 @@ function oneOf<T extends string>(options: readonly T[], value: unknown): value i
 
 // A change as the drawer sent it, checked like any other input from a browser. Only what the
 // drawer offers is accepted: the accent must be auto or one of the six swatches, so every
-// colour a page can wear is one legibility.ts has checked, and the host's picture can be used
-// only on an event that has one (`upload`, its id, or null when it has none).
+// colour a page can wear is one legibility.ts has checked, and the host's picture, or a background
+// made from it, can be used only on an event that has one (`upload`, its id, or null when it has
+// none).
 export function parseThemeChange(raw: unknown, upload: string | null = null): ThemeChange | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
   const { template, knob, value } = raw as { template?: unknown; knob?: unknown; value?: unknown };
@@ -113,7 +120,7 @@ export function parseThemeChange(raw: unknown, upload: string | null = null): Th
     case "layout":
       return oneOf(OFFERED_LAYOUTS, value) ? { knob, value } : undefined;
     case "backgroundId":
-      return typeof value === "string" && findBackground(value) ? { knob, value } : undefined;
+      return typeof value === "string" && (findBackground(value) || (upload !== null && isDerivedBackground(value))) ? { knob, value } : undefined;
     case "uploadMode":
       return upload !== null && oneOf(UPLOAD_MODES, value) ? { knob, value } : undefined;
     case "titlePlacement":

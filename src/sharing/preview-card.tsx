@@ -11,9 +11,10 @@ import { cardText } from "./card-text";
 export const PREVIEW_SIZE = { width: 1200, height: 630 };
 
 // Painted without a stylesheet, so it reads the theme's resolved colours directly. A curated
-// gradient is used as it is written; a photographic background is not fetched here, so its
-// accent and tone stand in for it. A host's upload is drawn itself, from its card rendition
-// (`picture`, a data URL), shaded into the tone's base colour behind the words.
+// gradient, and Colour wash, is used as it is written; a photographic background is not fetched
+// here, so its accent and tone stand in for it. A host's upload is drawn itself, from its card
+// rendition (`picture`, a data URL; blurred under Soft blur, blurredForCard), shaded into the
+// tone's base colour behind the words.
 function backdrop(theme: ResolvedTheme): string {
   const base = TONE_BASE[theme.textTone];
   return theme.background.kind === "gradient" ? theme.background.css : `linear-gradient(150deg, ${theme.accent} 0%, ${base} 70%)`;
@@ -23,6 +24,17 @@ function shade(theme: ResolvedTheme): string {
   const [r, g, b] = hexToRgb(TONE_BASE[theme.textTone]);
   const at = (alpha: number) => `rgba(${r}, ${g}, ${b}, ${alpha})`;
   return `linear-gradient(to top, ${at(0.92)} 0%, ${at(0.7)} 50%, ${at(0.15)} 100%)`;
+}
+
+// The page blurs the picture's small copy by 64 CSS pixels (themed-page.tsx, blur-3xl), and the
+// card is about as wide as a desktop screen, so the same blur leaves the same wash of colour.
+const PAGE_BLUR = 64;
+
+// Soft blur on the card: the card rendition blurred as the page blurs the copy. Satori blurs only
+// what is on its canvas, so its own blur would fade the card's edges into the backdrop; this
+// carries the picture's colours out to them.
+export function blurredForCard(card: Uint8Array): Promise<Buffer> {
+  return sharp(card).blur(PAGE_BLUR).jpeg().toBuffer();
 }
 
 type CardEvent = Pick<EventWithHost, "title" | "hostName">;

@@ -25,6 +25,7 @@ import { findRsvpOnThisDevice, guestRsvp } from "@/rsvps/guest";
 import { listPublicGuestList } from "@/rsvps/repository";
 import { guestListView } from "@/rsvps/visibility";
 import { BroadsheetLayout } from "@/themes/broadsheet-layout";
+import { derivedUpload, isDerivedBackground } from "@/themes/derived";
 import { PosterLayout } from "@/themes/poster-layout";
 import { resolveTheme } from "@/themes/resolve";
 import { ThemedPage } from "@/themes/themed-page";
@@ -179,10 +180,12 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   ]);
 
   // Guests are sent the host's picture only while the page shows it: one the host put aside
-  // stays in the host's gallery, not in anyone else's hands.
+  // stays in the host's gallery, not in anyone else's hands. Under a background made from it,
+  // they are sent only what that is painted with.
   const picture = upload ? themeUpload(upload) : null;
   const resolved = resolveTheme(event.theme, picture);
-  const shown = resolved.upload !== null;
+  const backgroundId = resolved.background.id;
+  const guestPicture = resolved.upload ?? (picture && isDerivedBackground(backgroundId) ? derivedUpload(picture, backgroundId) : null);
   // The same rule the file itself follows: there is nothing to put in a calendar until an event
   // is published, and nothing worth keeping there once it is called off.
   const calendar = acceptsRsvps(event.state) ? (
@@ -207,7 +210,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     <ClientMessages namespaces={["EventPage", "Rsvp"]}>
       <ThemedPage
         theme={event.theme}
-        upload={isHost || shown ? picture : null}
+        upload={isHost ? picture : guestPicture}
         designer={
           isHost ? (
             <ClientMessages namespaces={["DesignDrawer"]}>

@@ -93,8 +93,8 @@ export const GLOW = hexToRgb("#ff5c8a");
 // the blurred copy behind a poster).
 export type Backdrop = Pick<Background, "lightest" | "darkest">;
 
-// What the backdrop is: a background (curated, or the host's upload), or the blurred copy of the
-// host's poster behind it, which wears the poster scrim.
+// What the backdrop is: a background (curated, the host's upload, or Colour wash), or the blurred
+// copy of the host's picture, behind their poster or as Soft blur, which wears the poster scrim.
 export type BackdropUse = "background" | "poster";
 
 // The point of the backdrop where the tone's text is hardest to read.
