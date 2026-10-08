@@ -1,7 +1,20 @@
-import { Clock, MapPin } from "lucide-react";
+import { Clock, Lock, MapPin, MessageCircle } from "lucide-react";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import type { Announcement } from "@/announcements/repository";
+import { deleteCommentAction } from "@/comments/actions";
+import type { CommentsShown } from "@/comments/visibility";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import type { EventWithHost } from "@/events/repository";
 import { formatDateSticker, formatMoment, formatWhen } from "@/events/time";
 import { cn } from "@/lib/utils";
@@ -16,6 +29,8 @@ export async function PosterLayout({
   event,
   hosts,
   announcements,
+  comments,
+  commentForm,
   notice,
   rsvp,
   guestList,
@@ -28,6 +43,10 @@ export async function PosterLayout({
   hosts: string[];
   // The host's announcements, newest first, which every viewer reads.
   announcements: Pick<Announcement, "id" | "body" | "createdAt">[];
+  // The comments as this viewer may see them (comments/visibility.ts), absent when the host has
+  // turned them off; and the form that posts one, shown where they may.
+  comments?: CommentsShown;
+  commentForm?: ReactNode;
   notice?: ReactNode;
   rsvp?: ReactNode;
   guestList?: ReactNode;
@@ -93,7 +112,7 @@ export async function PosterLayout({
                 <p className="text-sm text-theme-text-faint">
                   <time dateTime={each.createdAt.toISOString()}>{formatMoment(each.createdAt, event.timeZone, locale)}</time>
                 </p>
-                <p className="mt-1 leading-relaxed break-words whitespace-pre-line">{each.body}</p>
+                <p className="mt-1 leading-relaxed break-words whitespace-pre-wrap">{each.body}</p>
               </li>
             ))}
           </ol>
@@ -103,6 +122,73 @@ export async function PosterLayout({
       {calendar && <Glass className={cn("mt-3 p-5", entrance, "motion-safe:delay-400")}>{calendar}</Glass>}
 
       {guestList && <Glass className={cn("mt-3 p-5", entrance, "motion-safe:delay-500")}>{guestList}</Glass>}
+
+      {/* Shown as written, with their line breaks and spaces, and dated as everything on the page
+          is. A guest who has not replied is told only how many there are. */}
+      {comments && (
+        <Glass data-slot="comments" className={cn("mt-3 p-5", entrance, "motion-safe:delay-500")}>
+          <SectionLabel icon={MessageCircle}>{t("comments.title")}</SectionLabel>
+          {comments.view === "locked" ? (
+            <>
+              <p className="text-lg font-medium">{t("comments.count", { count: comments.count })}</p>
+              <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-theme-text-faint">
+                <Lock className="size-3.5" aria-hidden /> {t("comments.locked")}
+              </p>
+            </>
+          ) : (
+            <div className="flex flex-col gap-5">
+              {comments.comments.length === 0 ? (
+                <p className="text-sm text-theme-text-muted">{t("comments.count", { count: 0 })}</p>
+              ) : (
+                <ol className="flex flex-col gap-4">
+                  {comments.comments.map((each) => (
+                    <li key={each.id}>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <p className="font-medium">{each.name}</p>
+                        {each.byHost && (
+                          <span className="rounded-full bg-theme-accent px-2 py-0.5 text-xs font-medium text-theme-on-accent">{t("comments.host")}</span>
+                        )}
+                        <p className="text-sm text-theme-text-faint">
+                          <time dateTime={each.createdAt.toISOString()}>{formatMoment(each.createdAt, event.timeZone, locale)}</time>
+                        </p>
+                        {/* Taking one down cannot be undone, so it is confirmed. */}
+                        {each.deletable && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <button
+                                type="button"
+                                className="ml-auto cursor-pointer text-sm text-theme-text-muted underline underline-offset-2 hover:opacity-80"
+                              >
+                                {t("comments.delete")}
+                              </button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <form action={deleteCommentAction.bind(null, event.slug, each.id)}>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>{t("comments.deleteTitle")}</AlertDialogTitle>
+                                  <AlertDialogDescription>{t("comments.deleteText")}</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter className="pt-4">
+                                  <AlertDialogCancel type="button">{t("comments.keep")}</AlertDialogCancel>
+                                  <Button type="submit" variant="destructive">
+                                    {t("comments.deleteConfirm")}
+                                  </Button>
+                                </AlertDialogFooter>
+                              </form>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </div>
+                      <p className="mt-1 leading-relaxed break-words whitespace-pre-wrap">{each.body}</p>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              {comments.canPost && commentForm}
+            </div>
+          )}
+        </Glass>
+      )}
     </main>
   );
 }

@@ -121,6 +121,8 @@ With mail configured:
 - changing an account's email is confirmed from the new address;
 - the operator can have a host invitation emailed;
 - the host is emailed when a guest replies, unless they turn it off for the event;
+- the hosts are emailed when someone comments on the event page, unless they turn it off for the
+  event;
 - guests who gave an email are reminded of an event a week before if they said Maybe, and the day
   before if they said Going, unless the host turns reminders off for the event.
 
@@ -137,7 +139,8 @@ a password reset for one. If nothing arrives, `docker compose logs app` shows th
 answer. Every request that sends one of the account emails (verification, password reset, an email
 change, a host invitation) counts against `RATE_LIMIT_MAIL`, and so does a host's announcement that
 emails guests, once however many it reaches. The hosts' reply emails come from guests' RSVPs, so
-`RATE_LIMIT_RSVP` bounds them.
+`RATE_LIMIT_RSVP` bounds them, and their comment emails come from comments, which
+`RATE_LIMIT_COMMENT` bounds.
 
 ## Sign in with Google and GitHub
 
@@ -250,6 +253,7 @@ runs.
 | `RATE_LIMIT_SIGN_IN` | `10/15m` | Signing in, and everything else that checks a password (changing it, deleting an account), starting a Google or GitHub sign-in, and opening a co-host link. |
 | `RATE_LIMIT_PASSWORD_RESET` | `10/1h` | Asking for a password reset link, and setting the new password. |
 | `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an account email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, and the operator's emailed host invitations. Also each announcement a host emails to guests, counted once however many guests it reaches. |
+| `RATE_LIMIT_COMMENT` | `30/10m` | Posting a comment on an event page, by a guest or a host. This also bounds the emails that tell hosts about comments. |
 
 Each limit is written `count/window`, the window in seconds, minutes or hours: `120/1m`,
 `60/10m`, `10/1h`. The defaults are for people, some of whom share an address (an office, a

@@ -240,6 +240,10 @@
     "announcement": {
       "subject": "{title}: a message from the host"
     },
+    "comment": {
+      "subject": "{name} commented on {title}",
+      "body": "{name} commented on {title}:\n\n{comment}\n\nThe event page:\n{url}\n\nTo stop these emails, untick “Email me when a guest comments” in the event’s settings."
+    },
     "reminderWeek": {
       "subject": "{title} is in a week",
       "body": "{title} is in a week.\n\nWhen: {when}{located, select, yes {\nWhere: {location}} other {}}\n\nYou said Maybe{plusOnes, plural, =0 {} one {, with # plus-one} other {, with # plus-ones}}.\n\nThe event page:\n{url}"
@@ -290,6 +294,9 @@
       "notifyOnRsvp": "Email me when a guest replies",
       "remindersEnabled": "Remind guests by email (a week before to Maybe, the day before to Going)",
       "askEmailHint": "Guests get email only if you ask for their email on the RSVP form.",
+      "commentsEnabled": "Comments",
+      "commentsEnabledHint": "Guests who have replied, and the hosts, can comment on the event page.",
+      "notifyOnComment": "Email me when a guest comments",
       "questions": "Questions",
       "questionsHint": "Asked while a guest replies. Their answers are yours alone.",
       "questionAdd": "Add a question",
@@ -388,6 +395,26 @@
     "where": "Where",
     "about": "About",
     "announcements": "From the host",
+    "comments": {
+      "title": "Comments",
+      "count": "{count, plural, =0 {No comments yet} =1 {1 comment} other {# comments}}",
+      "locked": "Reply to join the conversation",
+      "host": "Host",
+      "label": "Add a comment",
+      "post": "Post",
+      "delete": "Delete",
+      "deleteTitle": "Delete this comment?",
+      "deleteText": "It comes off the event page for everyone.",
+      "deleteConfirm": "Delete it",
+      "keep": "Never mind",
+      "errors": {
+        "closed": "This event isn’t taking comments.",
+        "bodyRequired": "Write your comment first.",
+        "bodyTooLong": "That comment is too long. Keep it to 1,000 characters.",
+        "tooMany": "This event has 500 comments, the most it can carry.",
+        "tooFast": "You’re going too fast. Try again shortly."
+      }
+    },
     "draftBanner": "Draft. Only you can see this page until you publish it.",
     "edit": "Edit event",
     "notReadyTitle": "This invitation isn’t ready yet",

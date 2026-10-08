@@ -240,6 +240,10 @@
     "announcement": {
       "subject": "「{title}」：來自主辦人的訊息"
     },
+    "comment": {
+      "subject": "{name} 在「{title}」留言了",
+      "body": "{name} 在「{title}」留言：\n\n{comment}\n\n活動頁面：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客留言時寄電子郵件給我」。"
+    },
     "reminderWeek": {
       "subject": "「{title}」還有一週就到了",
       "body": "「{title}」還有一週就到了。\n\n時間：{when}{located, select, yes {\n地點：{location}} other {}}\n\n你的回覆是：待定{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n活動頁面：\n{url}"
@@ -290,6 +294,9 @@
       "notifyOnRsvp": "有賓客回覆時寄電子郵件給我",
       "remindersEnabled": "寄電子郵件提醒賓客（提前一週提醒待定的賓客，提前一天提醒參加的賓客）",
       "askEmailHint": "只有你在回覆表單中請賓客留下電子郵件，賓客才會收到郵件。",
+      "commentsEnabled": "留言",
+      "commentsEnabledHint": "已回覆的賓客和主辦人可以在活動頁面上留言。",
+      "notifyOnComment": "有賓客留言時寄電子郵件給我",
       "questions": "問題",
       "questionsHint": "賓客回覆時作答，答案只有你看得到。",
       "questionAdd": "新增問題",
@@ -388,6 +395,26 @@
     "where": "地點",
     "about": "詳情",
     "announcements": "主辦人的話",
+    "comments": {
+      "title": "留言",
+      "count": "{count, plural, =0 {還沒有留言} other {# 則留言}}",
+      "locked": "回覆後就能加入大家的對話",
+      "host": "主辦人",
+      "label": "寫下留言",
+      "post": "發布",
+      "delete": "刪除",
+      "deleteTitle": "要刪除這則留言嗎？",
+      "deleteText": "刪除後，活動頁面上所有人都不會再看到它。",
+      "deleteConfirm": "確認刪除",
+      "keep": "算了",
+      "errors": {
+        "closed": "這個活動目前不接受留言。",
+        "bodyRequired": "請先寫下留言。",
+        "bodyTooLong": "留言太長了，請控制在 1000 字以內。",
+        "tooMany": "這個活動已有 500 則留言，已達上限。",
+        "tooFast": "操作太頻繁了，請稍後再試。"
+      }
+    },
     "draftBanner": "草稿。發布之前，只有你看得到這個頁面。",
     "edit": "編輯活動",
     "notReadyTitle": "這份邀請還沒準備好",

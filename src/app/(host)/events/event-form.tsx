@@ -148,6 +148,22 @@ export function EventForm({ action, event, timeZones, submitLabel, questions, an
             {!askEmail && <FieldDescription id="reminders-hint">{t("askEmailHint")}</FieldDescription>}
           </FieldContent>
         </Field>
+        <Field orientation="horizontal">
+          <Checkbox
+            id="comments-enabled"
+            name="commentsEnabled"
+            defaultChecked={event?.commentsEnabled ?? true}
+            aria-describedby="comments-hint"
+          />
+          <FieldContent>
+            <FieldLabel htmlFor="comments-enabled">{t("commentsEnabled")}</FieldLabel>
+            <FieldDescription id="comments-hint">{t("commentsEnabledHint")}</FieldDescription>
+          </FieldContent>
+        </Field>
+        <Field orientation="horizontal">
+          <Checkbox id="notify-on-comment" name="notifyOnComment" defaultChecked={event?.notifyOnComment ?? true} />
+          <FieldLabel htmlFor="notify-on-comment">{t("notifyOnComment")}</FieldLabel>
+        </Field>
         <FormOutcome state={state} />
         <Button type="submit" disabled={pending} className="self-start">
           {submitLabel}

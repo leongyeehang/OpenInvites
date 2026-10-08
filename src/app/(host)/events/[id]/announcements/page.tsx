@@ -104,7 +104,7 @@ export default async function AnnouncementsPage({ params }: PageProps<"/events/[
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
-              <p className="mt-2 break-words whitespace-pre-line">{each.body}</p>
+              <p className="mt-2 break-words whitespace-pre-wrap">{each.body}</p>
             </li>
           ))}
         </ul>

@@ -240,6 +240,10 @@
     "announcement": {
       "subject": "“{title}”：来自主办人的消息"
     },
+    "comment": {
+      "subject": "{name} 在“{title}”留言了",
+      "body": "{name} 在“{title}”留言：\n\n{comment}\n\n活动页面：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客留言时给我发邮件”。"
+    },
     "reminderWeek": {
       "subject": "“{title}”还有一周就到了",
       "body": "“{title}”还有一周就到了。\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}\n\n你的回复是：待定{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n活动页面：\n{url}"
@@ -290,6 +294,9 @@
       "notifyOnRsvp": "有宾客回复时给我发邮件",
       "remindersEnabled": "发邮件提醒宾客（提前一周提醒待定的宾客，提前一天提醒参加的宾客）",
       "askEmailHint": "只有你在回复表单中请宾客留下邮箱，宾客才会收到邮件。",
+      "commentsEnabled": "留言",
+      "commentsEnabledHint": "已回复的宾客和主办人可以在活动页面上留言。",
+      "notifyOnComment": "有宾客留言时给我发邮件",
       "questions": "问题",
       "questionsHint": "宾客回复时作答，答案只有你能看到。",
       "questionAdd": "添加问题",
@@ -388,6 +395,26 @@
     "where": "地点",
     "about": "详情",
     "announcements": "主办人的话",
+    "comments": {
+      "title": "留言",
+      "count": "{count, plural, =0 {还没有留言} other {# 条留言}}",
+      "locked": "回复后就能加入大家的对话",
+      "host": "主办人",
+      "label": "写下留言",
+      "post": "发布",
+      "delete": "删除",
+      "deleteTitle": "要删除这条留言吗？",
+      "deleteText": "删除后，活动页面上所有人都不会再看到它。",
+      "deleteConfirm": "确认删除",
+      "keep": "算了",
+      "errors": {
+        "closed": "这个活动目前不接受留言。",
+        "bodyRequired": "请先写下留言。",
+        "bodyTooLong": "留言太长了，请控制在 1000 字以内。",
+        "tooMany": "这个活动已有 500 条留言，已达上限。",
+        "tooFast": "操作太频繁了，请稍后再试。"
+      }
+    },
     "draftBanner": "草稿。发布之前，只有你能看到这个页面。",
     "edit": "编辑活动",
     "notReadyTitle": "这份邀请还没准备好",

@@ -47,6 +47,8 @@ function fields(formData: FormData) {
     guestListVisibility: text("guestListVisibility"),
     notifyOnRsvp: formData.get("notifyOnRsvp") === "on",
     remindersEnabled: formData.get("remindersEnabled") === "on",
+    commentsEnabled: formData.get("commentsEnabled") === "on",
+    notifyOnComment: formData.get("notifyOnComment") === "on",
   };
 }
 

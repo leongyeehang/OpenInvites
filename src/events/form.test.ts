@@ -15,6 +15,8 @@ const valid = {
   guestListVisibility: "afterReply",
   notifyOnRsvp: true,
   remindersEnabled: true,
+  commentsEnabled: true,
+  notifyOnComment: true,
 };
 
 describe("parseEventForm", () => {
@@ -37,6 +39,8 @@ describe("parseEventForm", () => {
         guestListVisibility: "afterReply",
         notifyOnRsvp: true,
         remindersEnabled: true,
+        commentsEnabled: true,
+        notifyOnComment: true,
       },
     });
   });

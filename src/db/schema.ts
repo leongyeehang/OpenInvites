@@ -162,6 +162,11 @@ export const event = pgTable(
     // When each reminder went out: each is sent once per event.
     weekReminderSentAt: timestamp("week_reminder_sent_at", { withTimezone: true }),
     dayReminderSentAt: timestamp("day_reminder_sent_at", { withTimezone: true }),
+    // Whether the event page has comments (spec, "Comments"), and whether every host is emailed on
+    // each one. On for new events; events from before 0.3 start with both off, so no live page
+    // changes under its host (spec, story 141).
+    commentsEnabled: boolean("comments_enabled").notNull().default(true),
+    notifyOnComment: boolean("notify_on_comment").notNull().default(true),
     ...timestamps,
   },
   (table) => [index("event_host_id_idx").on(table.hostId)],
@@ -355,4 +360,28 @@ export const announcement = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("announcement_event_id_idx").on(table.eventId)],
+);
+
+// A comment on the event page, by a guest who has replied or by a host (spec, "Comments"). It
+// belongs to whoever wrote it, exactly one of the RSVP and the host: removing the RSVP, or deleting
+// the host's account, takes it with them, as deleting the event takes them all. At most 500 per
+// event, which the Comments module checks.
+export const comment = pgTable(
+  "comment",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    rsvpId: uuid("rsvp_id").references(() => rsvp.id, { onDelete: "cascade" }),
+    hostId: uuid("host_id").references(() => user.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("comment_event_id_idx").on(table.eventId),
+    index("comment_rsvp_id_idx").on(table.rsvpId),
+    index("comment_host_id_idx").on(table.hostId),
+    check("comment_one_author", sql`(${table.rsvpId} is null) <> (${table.hostId} is null)`),
+  ],
 );
