@@ -79,7 +79,7 @@ test("a host applies a template, changes knobs, and guests see the saved theme",
   await host.context.close();
 });
 
-test("the drawer keeps its order, offers only the Poster layout for now, and gets out of the way", async ({ browser, request }) => {
+test("the drawer keeps its order, offers the Poster and Broadsheet layouts, and gets out of the way", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "design-order", EVENT);
   await host.page.goto(host.link);
@@ -92,17 +92,40 @@ test("the drawer keeps its order, offers only the Poster layout for now, and get
   await expect(drawer.getByRole("button", { name: "Details" })).toHaveAttribute("aria-expanded", "false");
   await expect(drawer.getByRole("radio", { name: "Instrument Serif" })).toBeHidden();
 
-  // Broadsheet and Thread are coming; Supper club, made for Broadsheet, applies as a Poster.
-  await expect(drawer.getByRole("radio", { name: /Poster/ })).toBeChecked();
-  for (const layout of [/Broadsheet/, /Thread/]) {
-    const choice = drawer.getByRole("radio", { name: layout });
-    await expect(choice).toBeDisabled();
-    await expect(choice.locator("..")).toContainText("Coming soon");
-  }
+  // Thread is coming; Broadsheet can be chosen, and says what it is.
+  const layouts = drawer.getByRole("group", { name: "Layout" });
+  await expect(layouts.getByRole("radio", { name: /Poster/ })).toBeChecked();
+  await expect(layouts.getByRole("radio", { name: /Thread/ })).toBeDisabled();
+  await expect(layouts.getByRole("radio", { name: /Thread/ }).locator("..")).toContainText("Coming soon");
+  const broadsheet = layouts.getByRole("radio", { name: /Broadsheet/ });
+  await expect(broadsheet).toBeEnabled();
+  await expect(broadsheet.locator("..")).toContainText("An editorial page with one reply form.");
+
+  // Choosing it changes the layout and nothing else, and the RSVP style, the Poster's alone, goes.
+  await drawer.getByRole("button", { name: "Details" }).click();
+  await expect(drawer.getByRole("group", { name: "RSVP style" }).getByRole("radio", { name: "Sheet" })).toBeChecked();
+  await broadsheet.check();
+  await expect(host.page.locator("[data-layout]")).toHaveAttribute("data-layout", "broadsheet");
+  await expect(drawer.getByText("Theme: Custom, started from Birthday")).toBeVisible();
+  await expect(drawer.getByRole("group", { name: "RSVP style" })).toHaveCount(0);
+  await expect(drawer.getByRole("group", { name: "Background" }).getByRole("radio", { name: "Golden hour" })).toBeChecked();
+  await expect(drawer.getByRole("radio", { name: "Instrument Serif" })).toBeChecked();
+  await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('data-layout="broadsheet"');
+  await page.goto(host.link);
+  await expect(page.getByRole("radio", { name: "I’ll be there" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Going" })).toHaveCount(0);
+
+  // Back to the Poster, the RSVP style is where the host left it.
+  await layouts.getByRole("radio", { name: /Poster/ }).check();
+  await expect(host.page.locator("[data-layout]")).toHaveAttribute("data-layout", "poster");
+  await expect(drawer.getByRole("group", { name: "RSVP style" }).getByRole("radio", { name: "Sheet" })).toBeChecked();
+  await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('data-layout="poster"');
+
+  // Supper club, made for Broadsheet, applies with it.
   await drawer.getByRole("radio", { name: "Supper club" }).check();
   await expect(drawer.getByText("Theme: Supper club")).toBeVisible();
-  await expect(drawer.getByRole("radio", { name: /Poster/ })).toBeChecked();
-  await expect(host.page.locator("[data-layout]")).toHaveAttribute("data-layout", "poster");
+  await expect(layouts.getByRole("radio", { name: /Broadsheet/ })).toBeChecked();
+  await expect(host.page.locator("[data-layout]")).toHaveAttribute("data-layout", "broadsheet");
 
   // A background from the gallery shows at once and makes the theme custom.
   await drawer.getByRole("radio", { name: "Dusk" }).check();

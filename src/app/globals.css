@@ -9,6 +9,13 @@
 @custom-variant rsvp-sheet-open (body:has([data-slot="rsvp-sheet"]) &);
 /* A themed event page is showing (src/themes/themed-page.tsx): it carries its own footer, so the plain one steps aside. */
 @custom-variant themed (body:has(.event-page) &);
+/* The Broadsheet's labels (src/themes/broadsheet-layout.tsx): small spaced capitals in the mono face. */
+@utility label-mono {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
 
 /*
   Design tokens, defined once. Three layers:
@@ -246,6 +253,8 @@
   --animate-theme-float: theme-float var(--float-duration) ease-in-out infinite;
   /* The doodles' date sticker lands at its tilt with a small spring, once. */
   --animate-theme-sticker-in: theme-sticker-in 0.6s ease-out 0.25s both;
+  /* The Broadsheet's "Received" stamp comes down onto the ballot at its tilt, once. */
+  --animate-theme-stamp-in: theme-stamp-in 0.45s ease-out both;
 
   @keyframes theme-twinkle {
     0%,
@@ -266,6 +275,23 @@
     }
     50% {
       transform: translateY(var(--float-rise)) rotate(8deg);
+    }
+  }
+  /* From large and turned further, overshooting once, to the -8 degrees the stamp rests at. */
+  @keyframes theme-stamp-in {
+    0% {
+      opacity: 0;
+      rotate: -20deg;
+      scale: 1.6;
+    }
+    60% {
+      opacity: 1;
+      rotate: -7deg;
+      scale: 0.96;
+    }
+    100% {
+      rotate: -8deg;
+      scale: 1;
     }
   }
   /* A spring, overshooting once and settling at the -6 degrees the sticker rests at. */

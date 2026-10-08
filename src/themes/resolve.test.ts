@@ -81,8 +81,9 @@ describe("resolveTheme", () => {
     });
   });
 
-  it("renders every stored layout as Poster in M1", () => {
-    expect(resolveTheme({ ...DEFAULT_THEME, layout: "broadsheet" }).layout).toBe("poster");
+  it("carries the stored layout through, and renders one not offered yet as Poster", () => {
+    expect(resolveTheme(DEFAULT_THEME).layout).toBe("poster");
+    expect(resolveTheme({ ...DEFAULT_THEME, layout: "broadsheet" }).layout).toBe("broadsheet");
     expect(resolveTheme({ ...DEFAULT_THEME, layout: "thread" }).layout).toBe("poster");
   });
 

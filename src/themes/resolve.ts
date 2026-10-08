@@ -1,7 +1,7 @@
 import { DEFAULT_BACKGROUND, findBackground, type Background } from "./backgrounds";
 import { TITLE_FONTS, type TitleFont } from "./fonts";
 import { css, GLOW, TONES, toneTokens, type ToneTokens } from "./legibility";
-import type { ButtonStyle, RsvpStyle, Theme, TitlePlacement } from "./theme";
+import { OFFERED_LAYOUTS, type ButtonStyle, type Layout, type RsvpStyle, type Theme, type TitlePlacement } from "./theme";
 
 // The host's own picture, as the theme needs it: where the page gets it (and its cut for a phone
 // held upright, and the small copy the Design drawer shows), what the server sampled from it
@@ -36,7 +36,7 @@ export type ResolvedPoster = {
 // A theme with every "auto" decided, ready to paint (spec, "Themes and templates"). Computed on
 // the server for the first paint, and again in the host's browser while they change it.
 export type ResolvedTheme = {
-  layout: "poster"; // M1 ships the Poster layout; other stored layouts render as Poster
+  layout: Layout; // the stored layout, or Poster while the stored one is not offered yet
   // What the page is painted on: a curated background, the host's upload as a photo, or, in
   // poster mode, the blurred copy of the poster (measured as that copy).
   background: Background;
@@ -46,7 +46,7 @@ export type ResolvedTheme = {
   textTone: "light" | "dark";
   font: TitleFont;
   buttonStyle: ButtonStyle;
-  rsvpStyle: RsvpStyle; // the Poster layout's, which is every layout in M1
+  rsvpStyle: RsvpStyle; // the Poster layout's; other layouts keep it and show nothing of it
   // Every colour the page paints text with and on, chosen together so that all of it reads.
   tokens: ToneTokens;
 };
@@ -68,7 +68,7 @@ export function resolveTheme(theme: Theme, upload: ThemeUpload | null = null): R
   const accent = theme.accentOverride ?? background.accent;
   const textTone = theme.textTone === "auto" ? (background.luminance > LIGHT_BACKGROUND ? "dark" : "light") : theme.textTone;
   return {
-    layout: "poster",
+    layout: OFFERED_LAYOUTS.includes(theme.layout) ? theme.layout : "poster",
     background,
     upload: uploadInUse,
     poster: asPoster

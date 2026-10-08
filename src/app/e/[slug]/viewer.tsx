@@ -61,6 +61,30 @@ export function Countdown({ event }: { event: EventTime }) {
   );
 }
 
+// The Broadsheet's countdown: one large number and what it counts, "days to go" while there are
+// days, then hours, then minutes; once the event has begun or ended, it says so in words. Until
+// the device has told the time it is a dash, so the fact keeps its place.
+export function CountdownFigure({ event }: { event: EventTime }) {
+  const t = useTranslations("EventPage");
+  const now = useClock();
+  if (!now) return <span aria-hidden className="block font-mono text-5xl leading-none text-theme-text-faint">—</span>;
+
+  const countdown = countdownFor(event, now);
+  if (countdown.state !== "before") return <span className="block">{t(countdown.state === "now" ? "happeningNow" : "ended")}</span>;
+  const [count, unit] =
+    countdown.days > 0
+      ? [countdown.days, "daysToGo" as const]
+      : countdown.hours > 0
+        ? [countdown.hours, "hoursToGo" as const]
+        : [countdown.minutes, "minutesToGo" as const];
+  return (
+    <>
+      <span className="block font-mono text-5xl leading-none font-medium tracking-tighter tabular-nums">{count}</span>
+      <span className="label-mono mt-2 block text-theme-text-muted">{t(`broadsheet.${unit}`, { count })}</span>
+    </>
+  );
+}
+
 // The same moment on the guest's own clock, when that is not the event's clock.
 export function ViewerTime({ event, locale }: { event: EventTime; locale: string }) {
   const t = useTranslations("EventPage");

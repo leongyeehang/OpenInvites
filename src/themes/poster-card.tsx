@@ -11,7 +11,7 @@ import { useTheme } from "./themed-page";
 // The poster is as wide as the card, unless that would make it taller than the screen: then it
 // is as tall as the screen allows, with room to see the page goes on, and narrower, so a guest
 // sees all of it at once. It is never narrower than 20rem, where a title still fits on it.
-const fitted = ({ width, height }: ResolvedPoster): CSSProperties => ({ width: `min(100%, max(20rem, calc((100svh - 6rem) * ${width / height})))` });
+export const fitted = ({ width, height }: ResolvedPoster): CSSProperties => ({ width: `min(100%, max(20rem, calc((100svh - 6rem) * ${width / height})))` });
 
 // The invitation at the top of the Poster layout: a frosted card with the title large, the date
 // and who is hosting. In poster mode the host's picture is the invitation itself, at its own
@@ -121,15 +121,26 @@ const ON_ACCENT = {
 // It was made on upload in the widths the card needs (uploads/renditions.ts), and the browser
 // takes the one the card's width at its screen's density calls for: the card is the page's
 // 36rem less its margins, or the screen less them. What the host says it shows is its
-// alternative text, and without a description it is decoration.
-function Picture({ poster, className, style }: { poster: ResolvedPoster; className?: string; style?: CSSProperties }) {
+// alternative text, and without a description it is decoration. A layout that sets the poster
+// at another width says so in `sizes`.
+export function Picture({
+  poster,
+  sizes = "(min-width: 36rem) 34rem, calc(100vw - 2rem)",
+  className,
+  style,
+}: {
+  poster: ResolvedPoster;
+  sizes?: string;
+  className?: string;
+  style?: CSSProperties;
+}) {
   return (
     // A plain <img>: next/image would add its optimiser's widths to pictures already made to size.
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={poster.src}
       srcSet={poster.srcSet}
-      sizes={poster.srcSet && "(min-width: 36rem) 34rem, calc(100vw - 2rem)"}
+      sizes={poster.srcSet && sizes}
       alt={poster.altText}
       width={poster.width}
       height={poster.height}

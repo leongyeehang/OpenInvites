@@ -441,8 +441,8 @@ function focusOnArrival(field: HTMLInputElement | null) {
 }
 
 // The prompt, and whether the host insists on an answer: an asterisk to the eye, the word to a
-// screen reader.
-function Asked({ question, optional, required }: { question: Question; optional: string; required: string }) {
+// screen reader. The Broadsheet's ballot asks the same way.
+export function Asked({ question, optional, required }: { question: Question; optional: string; required: string }) {
   return (
     <>
       {question.prompt}

@@ -2,8 +2,8 @@ import { birthday } from "./templates/birthday";
 import type { Template } from "./templates/template";
 
 // The theme: the look of one event page, stored on the event (spec, "Themes and templates").
-// The shape was settled by the prototype on branch prototype/event-page. M1 stores every knob
-// and renders the Poster layout; the host changes knobs in the Design drawer.
+// The shape was settled by the prototype on branch prototype/event-page. The host changes knobs
+// in the Design drawer.
 
 export const LAYOUTS = ["poster", "broadsheet", "thread"] as const;
 export const UPLOAD_MODES = ["background", "poster"] as const;
@@ -24,7 +24,7 @@ export type RsvpStyle = (typeof RSVP_STYLES)[number];
 export type Effect = (typeof EFFECTS)[number];
 
 export type Theme = {
-  layout: Layout; // stored from day one; M1 renders only "poster"
+  layout: Layout; // stored from day one; rendered once it is offered (OFFERED_LAYOUTS)
   backgroundId: string | null; // a curated background, or null when an upload is in use
   uploadId: string | null; // the host's own image (ticket 12)
   uploadMode: UploadMode;
@@ -38,9 +38,9 @@ export type Theme = {
   template: { id: string; dirty: boolean } | null; // where the host started, and whether they changed a knob
 };
 
-// The layouts a host can use today. Broadsheet and Thread ship in M2; a template made for one of
-// them applies with the Poster layout until then, so nothing changes under the host when it lands.
-export const OFFERED_LAYOUTS: readonly Layout[] = ["poster"];
+// The layouts a host can use today. Thread ships with ticket 13; a template made for it applies
+// with the Poster layout until then, and a theme that names it renders as Poster.
+export const OFFERED_LAYOUTS: readonly Layout[] = ["poster", "broadsheet"];
 
 // Applying a template copies every knob it sets onto the theme and records the template as not
 // yet changed (spec, "Themes and templates"). The host's own upload is theirs, not the

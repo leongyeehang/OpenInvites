@@ -220,8 +220,7 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
                   name="layout"
                   checked={resolved.layout === layout}
                   disabled={!offered}
-                  // Poster is the only layout offered, so there is nothing to change to yet.
-                  onSelect={() => undefined}
+                  onSelect={() => choose({ knob: "layout", value: layout })}
                   className="flex-col items-start gap-2 bg-accent/40 p-2.5"
                 >
                   <LayoutSketch layout={layout} />
@@ -342,14 +341,17 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
               onSelect={(value) => choose({ knob: "buttonStyle", value })}
             />
 
-            <Segmented
-              legend={t("rsvpStyle")}
-              hint={t(`rsvpStyleHints.${theme.rsvpStyle}`)}
-              name="rsvpStyle"
-              value={theme.rsvpStyle}
-              options={RSVP_STYLES.map((style) => ({ value: style, label: t(`rsvpStyles.${style}`) }))}
-              onSelect={(value) => choose({ knob: "rsvpStyle", value })}
-            />
+            {/* Only the Poster has an RSVP style; under another layout it is kept, unseen. */}
+            {resolved.layout === "poster" && (
+              <Segmented
+                legend={t("rsvpStyle")}
+                hint={t(`rsvpStyleHints.${theme.rsvpStyle}`)}
+                name="rsvpStyle"
+                value={theme.rsvpStyle}
+                options={RSVP_STYLES.map((style) => ({ value: style, label: t(`rsvpStyles.${style}`) }))}
+                onSelect={(value) => choose({ knob: "rsvpStyle", value })}
+              />
+            )}
 
             {/* Only a poster has a title placement: on its foot, or below it. */}
             {resolved.poster && (

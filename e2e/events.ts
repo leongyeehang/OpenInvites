@@ -20,8 +20,9 @@ export type DraftFields = {
   // Reminders are on for a new event; false turns them off.
   reminders?: boolean;
   questions?: QuestionFields[];
-  // A theme knob rather than a field of the form: createPublished sets it in the Design drawer.
+  // Theme knobs rather than fields of the form: createPublished sets them in the Design drawer.
   rsvpStyle?: "Inline" | "Sheet";
+  layout?: "Broadsheet";
 };
 
 // Fills the questions editor, which is a list the host builds before saving the event.
@@ -65,6 +66,7 @@ export async function createPublished(browser: Browser, request: APIRequestConte
   await page.getByRole("button", { name: "Publish" }).click();
   await expect(page.getByText("Published", { exact: true })).toBeVisible();
   if (fields.rsvpStyle) await chooseRsvpStyle(page, link, fields.rsvpStyle);
+  if (fields.layout) await chooseLayout(page, link, fields.layout);
   return { context, page, link, name, email };
 }
 
@@ -81,5 +83,18 @@ async function chooseRsvpStyle(page: Page, link: string, style: "Inline" | "Shee
     await choice.check();
     await expect(drawer.getByText("Saved", { exact: true })).toBeVisible({ timeout: 15_000 });
   }
+  await page.goto(manage);
+}
+
+// The layout is a theme knob too, chosen in the drawer's Layout row. The page the host is sent
+// back to is the manage page, where they were.
+export async function chooseLayout(page: Page, link: string, layout: "Poster" | "Broadsheet") {
+  const manage = page.url();
+  await page.goto(link);
+  await page.getByRole("button", { name: "Design" }).click();
+  const drawer = page.getByRole("dialog", { name: "Design" });
+  await drawer.getByRole("group", { name: "Layout" }).getByRole("radio", { name: new RegExp(`^${layout}`) }).check();
+  await expect(drawer.getByText("Saved", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("[data-layout]")).toHaveAttribute("data-layout", layout.toLowerCase());
   await page.goto(manage);
 }

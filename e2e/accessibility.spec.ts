@@ -259,3 +259,49 @@ for (const style of ["Inline", "Sheet"] as const) {
     await host.context.close();
   });
 }
+
+// The Broadsheet layout (ticket 12): the event page, every state of its ballot and the receipt, with
+// the guest list and the comments open, in both text tones; then a cancelled event.
+test("the Broadsheet layout: the event page, its ballot and the receipt, in both text tones, and cancelled", async ({ browser, request }) => {
+  test.setTimeout(180_000);
+  const host = await createPublished(browser, request, "a11y-broadsheet", { ...EVENT, layout: "Broadsheet" });
+  const manage = host.page.url();
+  await host.page.goto(host.link);
+  const drawer = await openDrawer(host.page);
+  for (const tone of ["Light", "Dark"] as const) {
+    await chooseTone(drawer, request, host.link, tone);
+    // A guest of their own for each tone, who has not answered yet.
+    const guest = await browser.newContext();
+    const page = await guest.newPage();
+    await page.goto(host.link);
+    const where = `the Broadsheet, ${tone.toLowerCase()} tone`;
+    await expectNoSeriousViolations(page, `${where}: the page and the ballot`);
+    await page.getByRole("radio", { name: "I’ll be there" }).check();
+    await page.getByLabel("Your name").fill("Priya Nair");
+    await page.getByRole("button", { name: "One guest more" }).click();
+    await page.getByLabel("Guest 1").fill("Arjun");
+    await page.getByRole("radio", { name: "Yes" }).check();
+    // The required question is left, so the ballot says so.
+    await page.getByRole("button", { name: "Post my reply" }).click();
+    await expect(page.getByText("The host would like an answer to this one.")).toBeVisible();
+    await expectNoSeriousViolations(page, `${where}: the ballot filled in, with a refusal`);
+    await page.getByLabel(/Any allergies/).fill("None");
+    await page.getByRole("button", { name: "Post my reply" }).click();
+    await expect(page.getByText("You’re going!")).toBeVisible();
+    await expect(page.getByLabel("Add a comment")).toBeVisible();
+    await expectNoSeriousViolations(page, `${where}: the receipt, the guest list and the comments`);
+    await guest.close();
+  }
+
+  await host.page.goto(manage);
+  await host.page.getByRole("button", { name: "Cancel event" }).click();
+  await host.page.getByRole("button", { name: "Cancel the event" }).click();
+  await expect(host.page.getByText("Cancelled", { exact: true })).toBeVisible({ timeout: 15_000 });
+  const visitor = await browser.newContext();
+  const page = await visitor.newPage();
+  await page.goto(host.link);
+  await expect(page.getByText("This event is cancelled")).toBeVisible();
+  await expectNoSeriousViolations(page, "the Broadsheet, a cancelled event, dark tone");
+  await visitor.close();
+  await host.context.close();
+});

@@ -24,12 +24,14 @@ import { consume } from "@/rate-limit/rate-limit";
 import { findRsvpOnThisDevice, guestRsvp } from "@/rsvps/guest";
 import { listPublicGuestList } from "@/rsvps/repository";
 import { guestListView } from "@/rsvps/visibility";
+import { BroadsheetLayout } from "@/themes/broadsheet-layout";
 import { PosterLayout } from "@/themes/poster-layout";
 import { resolveTheme } from "@/themes/resolve";
 import { ThemedPage } from "@/themes/themed-page";
 import { findEventUpload } from "@/uploads/repository";
 import { themeUpload } from "@/uploads/uploads";
 import { AddToCalendar } from "./add-to-calendar";
+import { BroadsheetBallot } from "./broadsheet-ballot";
 import { CancelledNotice } from "./cancelled-notice";
 import { CommentForm } from "./comment-form";
 import { DesignDrawer } from "./design-drawer";
@@ -37,7 +39,8 @@ import { RetiredLink } from "./retired-link";
 import { DraftNotice } from "./draft-notice";
 import { GuestList } from "./guest-list";
 import { RsvpFlow } from "./rsvp-flow";
-import { Countdown, MapLink, ViewerTime } from "./viewer";
+import type { RsvpFlowProps } from "./use-rsvp-flow";
+import { Countdown, CountdownFigure, MapLink, ViewerTime } from "./viewer";
 
 // Event pages are never indexed (ADR-0004). The header carries the same signal (next.config.ts).
 const noindex: Metadata["robots"] = { index: false, follow: false };
@@ -120,8 +123,10 @@ export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Prom
 }
 
 // The event page: the invitation itself, rendered on the server in the event's theme so the
-// first paint is the finished look. M1 ships the Poster layout; resolveTheme maps every stored
-// layout to it. The host also gets the Design drawer on their own page.
+// first paint is the finished look, in the layout the theme names (resolveTheme renders one not
+// offered yet as Poster). Every layout shows the same things, and the guest's RSVP flow is one
+// set of rules (use-rsvp-flow.ts) that each layout presents in its own way, so the page hands each
+// its own presentation of it. The host also gets the Design drawer on their own page.
 export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const { slug } = await params;
   if (!(await redrawAllowed(slug))) return <TooFast />;
@@ -178,7 +183,20 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // Guests are sent the host's picture only while the page shows it: one the host put aside
   // stays in the host's gallery, not in anyone else's hands.
   const picture = upload ? themeUpload(upload) : null;
-  const shown = resolveTheme(event.theme, picture).upload !== null;
+  const resolved = resolveTheme(event.theme, picture);
+  const shown = resolved.upload !== null;
+
+  const notice = isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined;
+  const flow: RsvpFlowProps = {
+    slug: event.slug,
+    settings: event,
+    mine: mine && guestRsvp(mine),
+    open: acceptsRsvps(event.state),
+    questions,
+    answers: answersStillOffered(answers, questions),
+    calendar,
+  };
+  const guestList = view === "hidden" ? undefined : { view, guests, counts: countRsvps(guests.map(asTally)) };
 
   // The client components below read their messages in the browser; the host's Design drawer, only
   // on the host's own page, brings its own.
@@ -195,36 +213,40 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
           ) : undefined
         }
       >
-        <PosterLayout
-          event={event}
-          hosts={hosts.map((host) => host.name)}
-          announcements={announcements}
-          comments={comments}
-          commentForm={<CommentForm slug={event.slug} />}
-          notice={isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined}
-          rsvp={
-            <RsvpFlow
-              slug={event.slug}
-              settings={event}
-              mine={mine && guestRsvp(mine)}
-              open={acceptsRsvps(event.state)}
-              questions={questions}
-              answers={answersStillOffered(answers, questions)}
-              calendar={calendar}
-            />
-          }
-          underWhen={
-            <>
-              <ViewerTime event={event} locale={locale} />
-              <Countdown event={event} />
-            </>
-          }
-          underWhere={event.location ? <MapLink location={event.location} /> : undefined}
-          calendar={calendar}
-          guestList={
-            view === "hidden" ? undefined : <GuestList view={view} guests={guests} counts={countRsvps(guests.map(asTally))} />
-          }
-        />
+        {resolved.layout === "broadsheet" ? (
+          <BroadsheetLayout
+            event={event}
+            hosts={hosts.map((host) => host.name)}
+            announcements={announcements}
+            comments={comments}
+            commentForm={<CommentForm slug={event.slug} />}
+            notice={notice}
+            rsvp={<BroadsheetBallot {...flow} />}
+            guests={guestList && { ...guestList, you: mine?.rsvp.id }}
+            underWhen={<ViewerTime event={event} locale={locale} />}
+            countdown={<CountdownFigure event={event} />}
+            underWhere={event.location ? <MapLink location={event.location} /> : undefined}
+          />
+        ) : (
+          <PosterLayout
+            event={event}
+            hosts={hosts.map((host) => host.name)}
+            announcements={announcements}
+            comments={comments}
+            commentForm={<CommentForm slug={event.slug} />}
+            notice={notice}
+            rsvp={<RsvpFlow {...flow} />}
+            underWhen={
+              <>
+                <ViewerTime event={event} locale={locale} />
+                <Countdown event={event} />
+              </>
+            }
+            underWhere={event.location ? <MapLink location={event.location} /> : undefined}
+            calendar={calendar}
+            guestList={guestList && <GuestList {...guestList} />}
+          />
+        )}
         <PageFooter themed />
       </ThemedPage>
     </ClientMessages>

@@ -36,9 +36,14 @@ describe("applying a template", () => {
     expect(applied).toMatchObject({ backgroundId: "slate", uploadId: withUpload.uploadId, uploadMode: "poster" });
   });
 
-  it("applies Supper club and Kids' party with the Poster layout while theirs are coming", () => {
-    expect(applyTemplate(DEFAULT_THEME, template("supper")).layout).toBe("poster");
+  it("applies Supper club with the Broadsheet layout, and Kids' party with the Poster layout while Thread is coming", () => {
+    expect(applyTemplate(DEFAULT_THEME, template("supper")).layout).toBe("broadsheet");
     expect(applyTemplate(DEFAULT_THEME, template("kids")).layout).toBe("poster");
+  });
+
+  it("brings its own layout when applied over another, as it does every knob", () => {
+    const supper = applyTemplate(DEFAULT_THEME, template("supper"));
+    expect(applyTemplate(supper, template("birthday")).layout).toBe("poster");
   });
 
   it("changes nothing when the template is already on and untouched", () => {
@@ -62,6 +67,7 @@ describe("changing a knob", () => {
     [{ knob: "rsvpStyle", value: "inline" }, { rsvpStyle: "inline" }],
     [{ knob: "titlePlacement", value: "on" }, { titlePlacement: "on" }],
     [{ knob: "effect", value: "doodles" }, { effect: "doodles" }],
+    [{ knob: "layout", value: "broadsheet" }, { layout: "broadsheet" }],
   ];
 
   it.each(changes)("sets the knob and marks the template dirty: %j", (change, knob) => {
@@ -145,6 +151,18 @@ describe("changing a knob", () => {
     expect(applyChange(onUpload, { knob: "uploadId", value: UPLOAD })).toBe(onUpload);
   });
 
+  it("keeps every other knob, the RSVP style included, when the layout changes and changes back", () => {
+    const own = [
+      { knob: "backgroundId", value: "dusk" },
+      { knob: "font", value: "display" },
+      { knob: "rsvpStyle", value: "inline" },
+      { knob: "effect", value: "confetti" },
+    ].reduce<Theme>((theme, change) => applyChange(theme, change as ThemeChange), DEFAULT_THEME);
+    const broadsheet = applyChange(own, { knob: "layout", value: "broadsheet" });
+    expect(broadsheet).toEqual({ ...own, layout: "broadsheet" });
+    expect(applyChange(broadsheet, { knob: "layout", value: "poster" })).toEqual(own);
+  });
+
   it("leaves a theme that started from no template without one", () => {
     const own: Theme = { ...DEFAULT_THEME, template: null };
     expect(applyChange(own, { knob: "font", value: "rounded" }).template).toBeNull();
@@ -184,6 +202,8 @@ describe("reading a change the drawer sent", () => {
       { knob: "effect", value: "confetti" },
       { knob: "effect", value: "sparkles" },
       { knob: "effect", value: "doodles" },
+      { knob: "layout", value: "poster" },
+      { knob: "layout", value: "broadsheet" },
     ];
     for (const change of offered) expect(parseThemeChange(JSON.parse(JSON.stringify(change)))).toEqual(change);
   });
@@ -220,7 +240,10 @@ describe("reading a change the drawer sent", () => {
       { knob: "titlePlacement", value: null },
       { knob: "effect", value: "fireworks" },
       { knob: "effect", value: null },
-      { knob: "layout", value: "broadsheet" },
+      // Only the layouts offered: Thread is not yet.
+      { knob: "layout", value: "thread" },
+      { knob: "layout", value: "zine" },
+      { knob: "layout", value: null },
       { knob: "uploadId", value: "0192f0a1-7b3c-7d4e-8f00-123456789abc" },
       { knob: "template", value: { id: "birthday", dirty: false } },
     ];

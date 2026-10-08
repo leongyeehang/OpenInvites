@@ -432,6 +432,16 @@
         "tooFast": "操作太频繁了，请稍后再试。"
       }
     },
+    "broadsheet": {
+      "invitation": "邀请函",
+      "host": "{count, plural, other {主办人}}",
+      "countdown": "倒计时",
+      "daysToGo": "{count, plural, other {天后开始}}",
+      "hoursToGo": "{count, plural, other {小时后开始}}",
+      "minutesToGo": "{count, plural, other {分钟后开始}}",
+      "details": "活动详情",
+      "you": "你"
+    },
     "draftBanner": "草稿。发布之前，只有你能看到这个页面。",
     "edit": "编辑活动",
     "notReadyTitle": "这份邀请还没准备好",
@@ -781,6 +791,19 @@
       "required": "必填",
       "yes": "是",
       "no": "否"
+    },
+    "ballot": {
+      "title": "回复",
+      "pending": "请回复",
+      "received": "已收到",
+      "going": "我会来",
+      "cant": "来不了",
+      "plusOnes": "同伴人数",
+      "fewer": "少一位同伴",
+      "more": "多一位同伴",
+      "post": "发送我的回复",
+      "amend": "修改详情",
+      "change": "更改回复"
     }
   },
   "StopMail": {

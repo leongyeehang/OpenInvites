@@ -94,6 +94,41 @@ for (const style of ["Inline", "Sheet"] as const) {
   });
 }
 
+test("a guest answers Going with a plus-one and a required question by keyboard alone, on the Broadsheet's ballot", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-broadsheet", { ...EVENT, layout: "Broadsheet" });
+  await page.goto(host.link);
+
+  // The answer is a radio button: Space marks it, and what it asks opens beneath, after it.
+  const going = page.getByRole("radio", { name: "I’ll be there" });
+  await tabTo(page, going);
+  await page.keyboard.press("Space");
+  await expect(going).toBeChecked();
+  await tabTo(page, page.getByLabel("Your name"));
+  await page.keyboard.type("Priya Nair");
+  // The stepper's first button can go no lower, and keeps its place in the order all the same.
+  await tabTo(page, page.getByRole("button", { name: "One guest more" }));
+  await page.keyboard.press("Enter");
+  await tabTo(page, page.getByLabel("Guest 1"));
+  await page.keyboard.type("Arjun");
+  await tabTo(page, page.getByLabel(/Any allergies/));
+  await page.keyboard.type("No nuts");
+  await tabTo(page, page.getByRole("button", { name: "Post my reply" }));
+  await page.keyboard.press("Enter");
+
+  // The receipt takes the focus, so it is what a screen reader reads next.
+  await expect(page.getByRole("heading", { name: "You’re going!" })).toBeFocused();
+  await expect(page.getByText("Priya Nair, plus one more.")).toBeVisible();
+  await expect(page.getByText("Bringing Arjun.")).toBeVisible();
+
+  // Taking the RSVP back hands the focus back to the answer it was given with.
+  await tabTo(page, page.getByRole("button", { name: "Remove my RSVP" }));
+  await page.keyboard.press("Enter");
+  await expect(going).toBeFocused();
+  await expectVisibleFocus(page);
+  await host.context.close();
+});
+
 test("a host applies a template, changes a knob and closes the Design drawer by keyboard alone", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "keyboard-drawer", EVENT);

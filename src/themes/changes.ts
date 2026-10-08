@@ -6,6 +6,7 @@ import {
   BUTTON_STYLES,
   EFFECTS,
   FONTS,
+  OFFERED_LAYOUTS,
   RSVP_STYLES,
   TEXT_TONES,
   TITLE_PLACEMENTS,
@@ -13,6 +14,7 @@ import {
   type ButtonStyle,
   type Effect,
   type FontKey,
+  type Layout,
   type RsvpStyle,
   type TextTone,
   type Theme,
@@ -20,11 +22,13 @@ import {
   type UploadMode,
 } from "./theme";
 
-// What the Design drawer asks for: a template, or one knob set to one value. The layout row has
-// nothing to change while Poster is the only layout offered. The upload mode shows the host's
-// own picture as the background or as the poster. A new upload is not the drawer's to set: the
-// server applies `uploadId` once it has stored the picture (uploads/repository.ts).
+// What the Design drawer asks for: a template, or one knob set to one value. The layout is one of
+// those offered; changing it keeps every other knob, the Poster's RSVP style included. The upload
+// mode shows the host's own picture as the background or as the poster. A new upload is not the
+// drawer's to set: the server applies `uploadId` once it has stored the picture
+// (uploads/repository.ts).
 export type KnobChange =
+  | { knob: "layout"; value: Layout }
   | { knob: "backgroundId"; value: string }
   | { knob: "uploadId"; value: string }
   | { knob: "uploadMode"; value: UploadMode }
@@ -106,6 +110,8 @@ export function parseThemeChange(raw: unknown, upload: string | null = null): Th
   if (template !== undefined) return typeof template === "string" && findTemplate(template) ? { template } : undefined;
 
   switch (knob) {
+    case "layout":
+      return oneOf(OFFERED_LAYOUTS, value) ? { knob, value } : undefined;
     case "backgroundId":
       return typeof value === "string" && findBackground(value) ? { knob, value } : undefined;
     case "uploadMode":

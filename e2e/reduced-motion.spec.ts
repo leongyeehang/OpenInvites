@@ -146,6 +146,24 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await expect(page.locator('[data-slot="poster-card"] img')).toBeVisible();
   await expectStill(page, "the event page, poster mode");
 
+  // The Broadsheet: its page rises into place, and its receipt's stamp comes down, only when
+  // motion is welcome. A guest replies on its ballot.
+  await drawer.getByRole("group", { name: "Layout" }).getByRole("radio", { name: /^Broadsheet/ }).check();
+  await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain('data-layout="broadsheet"');
+  await expectStill(host, "the Design drawer, the Broadsheet chosen");
+  const third = await browser.newContext({ reducedMotion: "reduce" });
+  const ballot = await third.newPage();
+  await ballot.goto(link);
+  await expectStill(ballot, "the Broadsheet");
+  await ballot.getByRole("radio", { name: "I’ll be there" }).check();
+  await ballot.getByLabel("Your name").fill("Tom Ong");
+  await ballot.getByRole("button", { name: "One guest more" }).click();
+  await expectStill(ballot, "the Broadsheet's ballot, filled in");
+  await ballot.getByRole("button", { name: "Post my reply" }).click();
+  await expect(ballot.getByText("Received", { exact: true })).toBeVisible();
+  await expectStill(ballot, "the Broadsheet's receipt");
+  await third.close();
+
   // The host's guest list, with the guest opened for editing, and the share screen.
   await host.goto(`${manage}/guests`);
   await host.getByRole("button", { name: "Edit" }).first().click();

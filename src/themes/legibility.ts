@@ -133,13 +133,16 @@ export type ToneTokens = {
 // the tone's text in every strength, only at full strength (a button's label), or the accent.
 export type Surface = { layers: Rgba[]; carries: "every strength" | "full strength" | "accent" };
 
-// The surfaces of the Poster layout, as its markup stacks them. Keep this in step with the
-// markup when a new surface appears.
+// The surfaces of the layouts, as their markup stacks them. Keep this in step with the markup
+// when a new surface appears.
 export function SURFACES({ glass, glassStrong, veil }: Pick<ToneTokens, "glass" | "glassStrong" | "veil">) {
   return {
-    // Outline RSVP buttons and the "not taking replies" note, set straight on the page.
+    // Outline RSVP buttons and the "not taking replies" note, set straight on the page; and all of
+    // the Broadsheet's text outside its ballot.
     page: { layers: [veil], carries: "every strength" },
-    // The poster card and every tile.
+    // The Broadsheet's comment box, on the page.
+    fieldOnPage: { layers: [veil, glassStrong], carries: "every strength" },
+    // The poster card and every tile, and the Broadsheet's ballot.
     card: { layers: [glass], carries: "every strength" },
     // Glass RSVP buttons, notices.
     strongGlass: { layers: [glassStrong], carries: "every strength" },
@@ -216,14 +219,23 @@ export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string, use: 
   // ends up at worst.
   const fits = ({ layers, carries }: Surface) => reads(text, layers) && (carries !== "every strength" || reads(secondary, layers));
 
-  // The glass is tinted as little as the page's hardest point allows.
+  // The glass is tinted as little as the page's hardest point allows. What sits on the veil waits
+  // for the veil, which is solved next.
+  const onVeil = ["page", "fieldOnPage"];
   const glassAt = (tint: number) => ({ glass: frosted(t.shade, tint, t.frost), glassStrong: frosted(t.shade, tint, t.frostStrong) });
   const tint = least(0, (value) =>
-    Object.entries(SURFACES({ ...glassAt(value), veil: [...t.shade, 0] })).every(([name, surface]) => name === "page" || fits(surface)),
+    Object.entries(SURFACES({ ...glassAt(value), veil: [...t.shade, 0] })).every(([name, surface]) => onVeil.includes(name) || fits(surface)),
   );
   const { glass, glassStrong } = glassAt(tint);
-  // The veil is solved on its own: on most backdrops bare text reads with none.
-  const veil: Rgba = [...t.shade, least(0, (value) => fits(SURFACES({ glass, glassStrong, veil: [...t.shade, value] }).page))];
+  // The veil is solved on its own: on most backdrops bare text reads with none. A field on it is
+  // strong glass over it, which only takes the backdrop further from the text.
+  const veil: Rgba = [
+    ...t.shade,
+    least(0, (value) => {
+      const surfaces = SURFACES({ glass, glassStrong, veil: [...t.shade, value] });
+      return fits(surfaces.page) && fits(surfaces.fieldOnPage);
+    }),
+  ];
 
   // How far secondary text may fade on a set of surfaces, and how far the accent ink must move
   // towards the text to read on them, and the focus ring to stand out from every one of them (a

@@ -432,6 +432,16 @@
         "tooFast": "You’re going too fast. Try again shortly."
       }
     },
+    "broadsheet": {
+      "invitation": "Invitation",
+      "host": "{count, plural, one {Host} other {Hosts}}",
+      "countdown": "Countdown",
+      "daysToGo": "{count, plural, one {day to go} other {days to go}}",
+      "hoursToGo": "{count, plural, one {hour to go} other {hours to go}}",
+      "minutesToGo": "{count, plural, one {minute to go} other {minutes to go}}",
+      "details": "The details",
+      "you": "you"
+    },
     "draftBanner": "Draft. Only you can see this page until you publish it.",
     "edit": "Edit event",
     "notReadyTitle": "This invitation isn’t ready yet",
@@ -781,6 +791,19 @@
       "required": "Required",
       "yes": "Yes",
       "no": "No"
+    },
+    "ballot": {
+      "title": "RSVP",
+      "pending": "Please reply",
+      "received": "Received",
+      "going": "I’ll be there",
+      "cant": "Can’t make it",
+      "plusOnes": "Guests with you",
+      "fewer": "One guest fewer",
+      "more": "One guest more",
+      "post": "Post my reply",
+      "amend": "Amend reply",
+      "change": "Change answer"
     }
   },
   "StopMail": {

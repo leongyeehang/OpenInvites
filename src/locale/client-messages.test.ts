@@ -96,9 +96,10 @@ describe("the messages each page sends to the browser", () => {
   }
 
   it("follows imports into client components", () => {
-    // The event page reads RSVP messages in the browser, through a client component it imports.
+    // The event page reads RSVP messages in the browser, through the client components it imports:
+    // the Poster's flow, and the Broadsheet's ballot and the receipt the ballot imports.
     const { used } = walk(join(APP, "e/[slug]/page.tsx"));
-    expect(used.get("Rsvp")).toEqual(["app/e/[slug]/rsvp-flow.tsx"]);
+    expect(used.get("Rsvp")).toEqual(["app/e/[slug]/broadsheet-ballot.tsx", "app/e/[slug]/broadsheet-receipt.tsx", "app/e/[slug]/rsvp-flow.tsx"]);
     // The Design panel is fetched on its own, when the host opens it, and read too.
     expect(used.get("DesignDrawer")).toEqual(expect.arrayContaining(["app/e/[slug]/design-panel.tsx"]));
   });
