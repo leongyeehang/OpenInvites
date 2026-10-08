@@ -329,6 +329,10 @@ ANALYTICS_SNIPPET='<script defer src="https://analytics.example.org/script.js" d
 When it is empty, nothing at all is added to any page. OpenInvites itself never sends anything
 to the project or anyone else (ADR-0005): no usage counts, no version checks, no crash reports.
 
+The one thing it counts itself is how often each event page was opened by someone other than its
+hosts, which the host sees on the event's page. The count is kept in your database, it counts every
+open of the page including link previews fetched by chat apps, and nothing about it is sent anywhere.
+
 ## Set by the image
 
 The image sets `NODE_ENV=production`, `PORT=3000`, `HOSTNAME=0.0.0.0`, and

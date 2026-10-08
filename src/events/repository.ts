@@ -64,6 +64,17 @@ export const findHostEvent = cache(async (hostId: string, id: string): Promise<H
   return found && { ...withTheme(found), role: roleOf(found, hostId) };
 });
 
+// One more time the event page was opened. The one place rendering a page writes, kept to a single
+// statement with no read-back so the page costs one more round trip and nothing else; a failure is
+// logged and never reaches the guest, who came for the invitation, not for the count.
+export async function recordView(id: string): Promise<void> {
+  try {
+    await getDb().update(event).set({ views: sql`${event.views} + 1` }).where(eq(event.id, id));
+  } catch (error) {
+    console.error("Counting a view of the event page failed", error);
+  }
+}
+
 export async function updateEvent(hostId: string, id: string, input: EventChanges): Promise<Event | undefined> {
   const [updated] = await getDb()
     .update(event)

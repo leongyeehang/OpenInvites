@@ -68,6 +68,7 @@ export default async function ManageEventPage({ params, searchParams }: PageProp
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p className="break-all font-mono text-sm">{link}</p>
+          <p className="text-sm text-muted-foreground">{t("manage.opened", { count: event.views })}</p>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
               <Link href={`/e/${event.slug}`}>{t("manage.view")}</Link>

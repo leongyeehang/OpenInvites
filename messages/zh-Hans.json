@@ -356,6 +356,7 @@
     },
     "manage": {
       "link": "活动链接",
+      "opened": "活动页面已被打开 {count, plural, other {#}} 次",
       "view": "打开活动页面",
       "publish": "发布",
       "publishHint": "发布后，任何拿到活动链接的人都能打开它。",

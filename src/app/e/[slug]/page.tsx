@@ -12,7 +12,8 @@ import { PageFooter } from "@/components/page-footer";
 import { TooFast } from "@/components/too-fast";
 import { acceptsRsvps, eventPageFor } from "@/events/access";
 import { eventHosts } from "@/events/hosts";
-import { findEventBySlug, isRetiredSlug, type EventWithHost } from "@/events/repository";
+import { findEventBySlug, isRetiredSlug, recordView, type EventWithHost } from "@/events/repository";
+import { countsAsView } from "@/events/views";
 import { baseUrl, maxUploadBytes } from "@/instance/env";
 import { isSlug } from "@/events/slug";
 import { ClientMessages } from "@/locale/client-messages";
@@ -144,6 +145,11 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
       </main>
     );
   }
+
+  // A server action redraw is a POST naming its action, which is all the page can tell of the method.
+  const requestHeaders = await headers();
+  const method = requestHeaders.has("next-action") ? "POST" : "GET";
+  if (countsAsView({ method, headers: requestHeaders }, event, { isHost })) await recordView(event.id);
 
   const locale = await getLocale();
   const link = `${baseUrl()}/e/${event.slug}`;

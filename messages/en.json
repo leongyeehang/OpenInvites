@@ -356,6 +356,7 @@
     },
     "manage": {
       "link": "Event link",
+      "opened": "Opened {count, plural, =0 {0 times} =1 {once} other {# times}}",
       "view": "Open the event page",
       "publish": "Publish",
       "publishHint": "Publishing makes the event link work for anyone who has it.",

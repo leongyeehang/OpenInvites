@@ -356,6 +356,7 @@
     },
     "manage": {
       "link": "活動連結",
+      "opened": "活動頁面已被開啟 {count, plural, other {#}} 次",
       "view": "開啟活動頁面",
       "publish": "發布",
       "publishHint": "發布後，任何拿到活動連結的人都能開啟。",

@@ -25,6 +25,7 @@ const source: Event = {
   notifyOnRsvp: false,
   locale: "en",
   remindersEnabled: false,
+  views: 0,
   publishedAt: new Date("2027-01-01T00:00:00Z"),
   weekReminderSentAt: new Date("2027-02-27T00:00:00Z"),
   dayReminderSentAt: new Date("2027-03-05T00:00:00Z"),

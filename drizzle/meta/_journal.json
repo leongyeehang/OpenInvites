@@ -148,6 +148,13 @@
       "when": 1791423287127,
       "tag": "0020_multiple_choice_questions",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791425114341,
+      "tag": "0021_optimal_boom_boom",
+      "breakpoints": true
     }
   ]
 }
