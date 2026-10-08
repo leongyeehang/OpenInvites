@@ -202,7 +202,7 @@ test("a cancelled event shows its comments and takes no more", async ({ page, br
   await host.context.close();
 });
 
-test("the 31st comment in ten minutes from one address is refused as too fast", async ({ page, browser, request }) => {
+test("the 31st comment in ten minutes from one address is refused as too fast, and so is a delete", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "comments-rate", EVENT);
   await reply(page, host.link, "Priya Nair");
@@ -218,6 +218,13 @@ test("the 31st comment in ten minutes from one address is refused as too fast", 
   await page.reload();
   await expect(commentSaying(page, `Comment ${COMMENT_LIMIT}`)).toBeVisible();
   await expect(commentSaying(page, "One more thing")).toHaveCount(0);
+
+  // Deleting counts against the same limit: the dialog says why, and the comment stays.
+  await commentSaying(page, `Comment ${COMMENT_LIMIT}`).getByRole("button", { name: "Delete" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete it" }).click();
+  await expect(page.getByRole("alertdialog").getByRole("alert")).toHaveText("You’re going too fast. Try again shortly.", { timeout: 15_000 });
+  await page.reload();
+  await expect(commentSaying(page, `Comment ${COMMENT_LIMIT}`)).toBeVisible();
 
   await host.context.close();
 });

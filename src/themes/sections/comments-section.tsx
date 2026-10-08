@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { formatMoment } from "@/events/time";
+import { DeleteCommentForm } from "./delete-comment-form";
 
 // The id of the comments' heading, which every layout gives it: where the focus goes once a
 // comment is deleted, since its Delete button goes with it.
@@ -80,18 +81,23 @@ export async function CommentsSection({
                         </button>
                       </AlertDialogTrigger>
                       <DeleteDialogContent focusAfter={COMMENTS_HEADING}>
-                        <form action={deleteCommentAction.bind(null, slug, each.id)}>
+                        <DeleteCommentForm
+                          action={deleteCommentAction.bind(null, slug, each.id)}
+                          tooFast={t("comments.errors.tooFast")}
+                          footer={
+                            <AlertDialogFooter className="pt-4">
+                              <AlertDialogCancel type="button">{t("comments.keep")}</AlertDialogCancel>
+                              <Button type="submit" variant="destructive">
+                                {t("comments.deleteConfirm")}
+                              </Button>
+                            </AlertDialogFooter>
+                          }
+                        >
                           <AlertDialogHeader>
                             <AlertDialogTitle>{t("comments.deleteTitle")}</AlertDialogTitle>
                             <AlertDialogDescription>{t("comments.deleteText")}</AlertDialogDescription>
                           </AlertDialogHeader>
-                          <AlertDialogFooter className="pt-4">
-                            <AlertDialogCancel type="button">{t("comments.keep")}</AlertDialogCancel>
-                            <Button type="submit" variant="destructive">
-                              {t("comments.deleteConfirm")}
-                            </Button>
-                          </AlertDialogFooter>
-                        </form>
+                        </DeleteCommentForm>
                       </DeleteDialogContent>
                     </AlertDialog>
                   )}

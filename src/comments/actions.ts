@@ -58,13 +58,16 @@ export async function postCommentAction(slug: string, _: CommentState, formData:
   return { posted: true };
 }
 
-// A guest deletes their own comment, a host any (comment.ts, mayDelete). One this viewer may not
+// A guest deletes their own comment, a host any (comment.ts, mayDelete). Every delete counts
+// against the comment limit before anything is looked up, as a post does. One this viewer may not
 // delete is left as it is, as one that does not exist is.
-export async function deleteCommentAction(slug: string, id: string): Promise<void> {
+export async function deleteCommentAction(slug: string, id: string): Promise<{ error?: "tooFast" }> {
+  if (!(await consume("comment", await headers())).allowed) return { error: "tooFast" };
   const event = await findEventBySlug(slug);
-  if (!event || !isUuid(id)) return;
+  if (!event || !isUuid(id)) return {};
   const [{ viewer }, found] = await Promise.all([commenter(event.id), findComment(event.id, id)]);
-  if (!found || !mayDelete(viewer, found)) return;
+  if (!found || !mayDelete(viewer, found)) return {};
   await deleteComment(event.id, found.id);
   revalidatePath(`/e/${event.slug}`);
+  return {};
 }

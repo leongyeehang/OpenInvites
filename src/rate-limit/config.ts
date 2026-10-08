@@ -25,7 +25,7 @@ const LIMITS: Record<LimitName, { variable: string; default: Rule }> = {
   // Mail goes to whatever address a request names, so this is what keeps the instance from
   // flooding someone else's inbox.
   mail: { variable: "RATE_LIMIT_MAIL", default: { limit: 10, windowMs: HOUR } },
-  // Posting a comment, so that an event page cannot be spammed (spec, "Comments").
+  // Posting and deleting comments, so that an event page cannot be spammed (spec, "Comments").
   comment: { variable: "RATE_LIMIT_COMMENT", default: { limit: 30, windowMs: 10 * MINUTE } },
 };
 
