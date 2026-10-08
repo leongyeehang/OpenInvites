@@ -359,7 +359,7 @@ test("a draft shows its host the draft line, and a cancelled event says it is cl
   await chooseLayout(hostPage, link, "Thread");
 
   await hostPage.goto(link);
-  await expect(hostPage.getByText("Draft. Only you can see this page until you publish it.")).toBeVisible();
+  await expect(hostPage.getByText("Draft. Only the hosts can see this page until you publish it.")).toBeVisible();
   await expect(hostPage.getByRole("log").getByText("Publish the event to start collecting RSVPs.", { exact: true })).toBeVisible();
   await expect(hostPage.getByRole("button", { name: "Going", exact: true })).toHaveCount(0);
   await expect(hostPage.getByRole("button", { name: "Design" })).toBeVisible();

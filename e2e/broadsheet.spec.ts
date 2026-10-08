@@ -307,7 +307,7 @@ test("a draft shows its host the draft notice, and a cancelled event the notice 
   await chooseLayout(hostPage, link, "Broadsheet");
 
   await hostPage.goto(link);
-  await expect(hostPage.getByText("Draft. Only you can see this page until you publish it.")).toBeVisible();
+  await expect(hostPage.getByText("Draft. Only the hosts can see this page until you publish it.")).toBeVisible();
   await expect(hostPage.getByRole("radio", { name: "I’ll be there" })).toBeDisabled();
   await expect(hostPage.getByText("This invitation is not taking RSVPs.")).toBeVisible();
   await expect(hostPage.getByRole("button", { name: "Design" })).toBeVisible();

@@ -45,7 +45,7 @@ test("a host creates a draft, previews it, publishes it, and edits it", async ({
 
   await page.goto(link);
   await expect(page.getByRole("heading", { name: "Ada’s birthday" })).toBeVisible();
-  await expect(page.getByText("Draft. Only you can see this page until you publish it.")).toBeVisible();
+  await expect(page.getByText("Draft. Only the hosts can see this page until you publish it.")).toBeVisible();
   await page.getByRole("link", { name: "Edit event" }).click();
   await page.getByRole("button", { name: "Publish" }).click();
   await expect(page.getByText("Published", { exact: true })).toBeVisible();
