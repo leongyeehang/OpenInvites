@@ -49,10 +49,11 @@ wait for their host:
   host's announcements, and reminders once the host turns them on. Each email ends with the link
   that stops email about the event. Until a guest next saves their RSVP their email is in English,
   since the language they replied in was not recorded before.
-- **A reminder is never sent more than a day late.** Turning reminders on, or setting up mail,
-  less than a week before an event sends no "in a week" reminder, and less than a day before sends
-  none. An existing event counts as published when it was last changed, which can only make a
-  reminder less likely to go.
+- **A reminder goes out only within a day of its time**, a week before the start for Maybe and a
+  day before for Going, so turning reminders on, or setting up mail, more than a day after a
+  reminder's time sends none: less than six days before an event, no "in a week" reminder goes,
+  though the day reminder can still go during the event's last day. An existing event counts as
+  published when it was last changed, which can only make a reminder less likely to go.
 - **Effects are drawn, on existing events too.** The effect a template names was stored with
   each event before 0.3 and is now shown: Birthday, where every event starts, and Vows sparkle,
   Festival has floating shapes, and Kids' party's confetti falls when a guest says Going. A guest
