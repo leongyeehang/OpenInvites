@@ -51,7 +51,8 @@ else that address is a page that does not exist.
 
 - **Registration** is Invitation only on a fresh instance: only someone holding a host
   invitation can create an account, by email, Google, or GitHub alike. Open lets anyone sign up.
-  A change takes effect at once.
+  A change takes effect at once. With mail configured, Open also lets anyone who signs up have the
+  instance email addresses of their choosing ([Mail](#mail)).
 - **Host invitations** are single-use links the operator makes on the same page, optionally
   addressed to an email, which then fills in the sign-up form (anyone with the link can still
   use it). The link is shown once, to copy; with mail configured, the operator can have it
@@ -133,6 +134,14 @@ With mail configured:
 
 A guest gives an email only when the host asks for one on the RSVP form, so only those guests get
 mail.
+
+Mail also lets a host have the instance email anyone. A host can reply to their own event as many
+times as they like, typing any addresses into its RSVP form, and then post announcements to them;
+nothing checks that an address belongs to someone who asked. Only `RATE_LIMIT_RSVP` and
+`RATE_LIMIT_MAIL` bound it, and they count per client address. With registration Invitation only,
+the default, the hosts are people you admitted. If you open registration on an instance with mail,
+anyone who signs up can do this. Operator limits on guests per event and events per host, planned
+for a later release, are meant to close it.
 
 The app sends event mail (everything above about an event) from a queue inside the app container,
 so there is nothing else to run. It sends what someone has just queued at once, and checks the

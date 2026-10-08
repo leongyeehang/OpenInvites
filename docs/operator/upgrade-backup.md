@@ -66,6 +66,12 @@ changes until their host chooses:
   no effect at all.
 - Existing events keep the Poster layout; the Design drawer now offers Broadsheet and Thread too.
 
+With mail configured, a host can now have the instance email any addresses they type in, by
+replying to their own event with them and then posting an announcement. Only `RATE_LIMIT_RSVP` and
+`RATE_LIMIT_MAIL` bound it, per client address. With registration Invitation only, the default,
+that is limited to hosts you admitted; if your instance's registration is Open, read
+[configuration.md](configuration.md#mail) first.
+
 The app sends event mail itself, from a queue in its own container, so `compose.yaml` gains no
 service. There is one new setting, `RATE_LIMIT_COMMENT` ([configuration.md](configuration.md#rate-limits)),
 with a default that suits most instances.
