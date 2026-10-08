@@ -188,7 +188,7 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
                                           name={`answer:${question.id}`}
                                           value={option}
                                           checked={picked}
-                                          onChange={() => recordAnswer(question.id, picked ? given.filter((each) => each !== option) : [...given, option])}
+                                          onChange={() => flow.pickOption(question, option)}
                                         />
                                       ) : (
                                         <Mark
@@ -196,10 +196,10 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
                                           name={`answer:${question.id}`}
                                           value={option}
                                           checked={picked}
-                                          onChange={() => recordAnswer(question.id, [option])}
+                                          onChange={() => flow.pickOption(question, option)}
                                           // Choosing the chosen answer again takes it back, as on the
                                           // Poster: the only way to leave an optional question unanswered.
-                                          onClick={() => picked && !question.required && recordAnswer(question.id, [])}
+                                          onClick={() => picked && flow.pickOption(question, option)}
                                         />
                                       )}
                                       {question.type === "yesNo" ? t(`questions.${option as "yes" | "no"}`) : option}

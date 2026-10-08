@@ -25,6 +25,16 @@ export function offeredBy(question: Question): string[] | null {
   return question.type === "yesNo" ? YES_OR_NO : null;
 }
 
+// What a guest's answer becomes when they pick one of a question's options, whichever layout
+// they pick it in. A multiple-choice pick is added, or taken back if it was there. Any other
+// option becomes the answer; picking the chosen one again takes it back, which is the only way to
+// leave an optional question unanswered, and a required one keeps it.
+export function answerAfterPicking(question: Question, given: string[], option: string): string[] {
+  const chosen = given.includes(option);
+  if (question.type === "multiple") return chosen ? given.filter((each) => each !== option) : [...given, option];
+  return chosen && !question.required ? [] : [option];
+}
+
 // The rules of the questions step (ticket 09). Walking the host's questions rather than what
 // was posted means an answer to a question this event does not ask is simply not an answer,
 // and the result comes back in the order the host arranged.

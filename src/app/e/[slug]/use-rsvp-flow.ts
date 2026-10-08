@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useEffectEvent, useRef, useState, useTransition } from "react";
-import type { AnswerFields } from "@/questions/answers";
+import { answerAfterPicking, type AnswerFields } from "@/questions/answers";
 import type { Question } from "@/questions/question";
 import { removeRsvpAction, saveRsvpAction } from "@/rsvps/actions";
 import type { RsvpSettings, RsvpStatus } from "@/rsvps/form";
@@ -103,6 +103,12 @@ export function useRsvpFlow(
   const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
   const recordAnswer = (questionId: string, values: string[]) =>
     setDraft((current) => ({ ...current, answers: { ...current.answers, [questionId]: values } }));
+  // Picking one of a question's options, by the one rule every layout follows (answerAfterPicking).
+  const pickOption = (question: Question, option: string) =>
+    setDraft((current) => ({
+      ...current,
+      answers: { ...current.answers, [question.id]: answerAfterPicking(question, current.answers[question.id] ?? [], option) },
+    }));
 
   const pick = (status: RsvpStatus) => {
     change({ status, plusOnes: status === "cant" ? 0 : draft.plusOnes });
@@ -167,6 +173,7 @@ export function useRsvpFlow(
     draft,
     change,
     recordAnswer,
+    pickOption,
     steps,
     position,
     last,

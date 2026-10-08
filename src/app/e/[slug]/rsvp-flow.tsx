@@ -253,7 +253,7 @@ export function RsvpFlow(props: RsvpFlowProps) {
                             name={`answer:${question.id}`}
                             value={option}
                             checked={chosen}
-                            onChange={() => recordAnswer(question.id, chosen ? picks.filter((pick) => pick !== option) : [...picks, option])}
+                            onChange={() => flow.pickOption(question, option)}
                             className="absolute inset-0 size-full cursor-pointer opacity-0"
                           />
                           {option}
@@ -279,7 +279,7 @@ export function RsvpFlow(props: RsvpFlowProps) {
                           aria-checked={chosen}
                           // Tapping the chosen answer again takes it back, which is the
                           // only way to leave an optional question unanswered.
-                          onClick={() => recordAnswer(question.id, chosen && !question.required ? [] : [option])}
+                          onClick={() => flow.pickOption(question, option)}
                           className={cn(
                             "h-10 cursor-pointer rounded-full px-4 text-sm font-medium transition-colors motion-reduce:transition-none",
                             chosen ? "bg-theme-accent text-theme-on-accent" : "bg-theme-glass-strong hover:bg-theme-glass",

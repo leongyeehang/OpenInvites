@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answersStillOffered, parseAnswers } from "./answers";
+import { answerAfterPicking, answersStillOffered, parseAnswers } from "./answers";
 import type { Question } from "./question";
 
 const dietary: Question = { id: "q1", type: "text", prompt: "Any dietary needs?", options: [], required: false };
@@ -103,5 +103,26 @@ describe("parseAnswers for multiple choice", () => {
   it("allows only one value for the other types", () => {
     expect(parseAnswers({ q2: ["Soup", "Salad"] }, questions, "going")).toEqual({ ok: false, error: "answerNotOffered" });
     expect(parseAnswers({ q1: ["a", "b"], q2: ["Soup"] }, questions, "going")).toEqual({ ok: false, error: "answerNotOffered" });
+  });
+});
+
+describe("answerAfterPicking", () => {
+  it("makes the option the answer to a single choice, in place of the one before", () => {
+    expect(answerAfterPicking(starter, [], "Soup")).toEqual(["Soup"]);
+    expect(answerAfterPicking(starter, ["Soup"], "Salad")).toEqual(["Salad"]);
+    expect(answerAfterPicking(staying, ["no"], "yes")).toEqual(["yes"]);
+  });
+
+  it("takes the answer back when the chosen option of an optional question is picked again, and keeps it on a required one", () => {
+    expect(answerAfterPicking(staying, ["yes"], "yes")).toEqual([]);
+    expect(answerAfterPicking({ ...starter, required: false }, ["Soup"], "Soup")).toEqual([]);
+    expect(answerAfterPicking(starter, ["Soup"], "Soup")).toEqual(["Soup"]);
+  });
+
+  it("adds a pick to a multiple choice, or takes it away, and leaves the others as they were", () => {
+    expect(answerAfterPicking(sessions, [], "Panel")).toEqual(["Panel"]);
+    expect(answerAfterPicking(sessions, ["Panel"], "Keynote")).toEqual(["Panel", "Keynote"]);
+    expect(answerAfterPicking(sessions, ["Panel", "Keynote"], "Panel")).toEqual(["Keynote"]);
+    expect(answerAfterPicking({ ...sessions, required: true }, ["Panel"], "Panel")).toEqual([]);
   });
 });
