@@ -7,10 +7,10 @@ const games: Question = { id: "q2", type: "multiple", prompt: "Which games?", op
 const pudding: Question = { id: "q3", type: "choice", prompt: "Cake or ice cream?", options: ["Cake", "Ice cream"], required: true };
 const staying: Question = { id: "q4", type: "yesNo", prompt: "Staying for dinner?", options: [], required: false };
 
-const PARTY: ThreadEvent = { settings: { plusOnesAllowed: 2, requirePlusOneNames: false, askEmail: false }, questions: [allergies, games] };
+const PARTY: ThreadEvent = { settings: { plusOnesAllowed: 2, requirePlusOneNames: false, emailField: "none", phoneField: "none" }, questions: [allergies, games] };
 
 function reply(patch: Partial<ThreadReply> = {}): ThreadReply {
-  return { status: "going", name: "Mei Lin Tan", email: "", plusOnes: 0, plusOneNames: [], answers: {}, ...patch };
+  return { status: "going", name: "Mei Lin Tan", email: "", phone: "", plusOnes: 0, plusOneNames: [], answers: {}, ...patch };
 }
 
 // Who says what, in order, as the thread shows it.
@@ -47,7 +47,7 @@ describe("threadMessages", () => {
   });
 
   it("asks for an email after the name when the host does, and takes a skip", () => {
-    const asking: ThreadEvent = { ...PARTY, settings: { ...PARTY.settings, askEmail: true } };
+    const asking: ThreadEvent = { ...PARTY, settings: { ...PARTY.settings, emailField: "optional" } };
     expect(said(threadMessages({ step: "name", at: 1, reply: reply() }, asking)).slice(3)).toEqual([
       ["guest", { text: "Mei Lin Tan" }],
       ["host", { line: "askEmail" }],
@@ -55,6 +55,32 @@ describe("threadMessages", () => {
     expect(said(threadMessages({ step: "plusones", at: 0, reply: reply() }, asking)).slice(5, 6)).toEqual([["guest", { line: "skipped" }]]);
     expect(said(threadMessages({ step: "plusones", at: 0, reply: reply({ email: " mei@example.com " }) }, asking)).slice(5, 6)).toEqual([
       ["guest", { text: "mei@example.com" }],
+    ]);
+  });
+
+  it("asks for the email without offering a skip when the host requires it", () => {
+    const requiring: ThreadEvent = { ...PARTY, settings: { ...PARTY.settings, emailField: "required" } };
+    expect(said(threadMessages({ step: "name", at: 1, reply: reply() }, requiring)).slice(4)).toEqual([["host", { line: "askEmailRequired" }]]);
+  });
+
+  it("asks for a phone number after the email, and takes a skip unless the host requires it", () => {
+    const both: ThreadEvent = { ...PARTY, settings: { ...PARTY.settings, emailField: "optional", phoneField: "optional" } };
+    expect(said(threadMessages({ step: "name", at: 2, reply: reply({ email: "mei@example.com" }) }, both)).slice(3)).toEqual([
+      ["guest", { text: "Mei Lin Tan" }],
+      ["host", { line: "askEmail" }],
+      ["guest", { text: "mei@example.com" }],
+      ["host", { line: "askPhone" }],
+    ]);
+    expect(said(threadMessages({ step: "plusones", at: 0, reply: reply() }, both)).slice(7, 8)).toEqual([["guest", { line: "skipped" }]]);
+    expect(said(threadMessages({ step: "plusones", at: 0, reply: reply({ phone: " +65 9123 4567 " }) }, both)).slice(7, 8)).toEqual([
+      ["guest", { text: "+65 9123 4567" }],
+    ]);
+
+    // Without the email, the phone number is asked straight after the name.
+    const phoneOnly: ThreadEvent = { ...PARTY, settings: { ...PARTY.settings, phoneField: "required" } };
+    expect(said(threadMessages({ step: "name", at: 1, reply: reply() }, phoneOnly)).slice(3)).toEqual([
+      ["guest", { text: "Mei Lin Tan" }],
+      ["host", { line: "askPhoneRequired" }],
     ]);
   });
 
@@ -96,7 +122,7 @@ describe("threadMessages", () => {
   });
 
   it("answers a single choice with the option, and yes or no in the guest's language", () => {
-    const asking: ThreadEvent = { settings: { plusOnesAllowed: 0, requirePlusOneNames: false, askEmail: false }, questions: [pudding, staying] };
+    const asking: ThreadEvent = { settings: { plusOnesAllowed: 0, requirePlusOneNames: false, emailField: "none", phoneField: "none" }, questions: [pudding, staying] };
     const answers = { q3: ["Ice cream"], q4: ["yes"] };
     expect(said(threadMessages({ step: "questions", at: 2, reply: reply({ answers }) }, asking)).slice(3)).toEqual([
       ["guest", { text: "Mei Lin Tan" }],
@@ -145,7 +171,7 @@ describe("threadMessages", () => {
       ["guest", { text: "Mei Lin Tan" }],
       ["host", { line: "questionOptional", values: { prompt: "Any allergies?" } }],
     ]);
-    const nameOnly: ThreadEvent = { settings: { plusOnesAllowed: 0, requirePlusOneNames: false, askEmail: false }, questions: [] };
+    const nameOnly: ThreadEvent = { settings: { plusOnesAllowed: 0, requirePlusOneNames: false, emailField: "none", phoneField: "none" }, questions: [] };
     expect(said(threadMessages({ step: "name", at: 1, reply: reply() }, nameOnly))).toEqual([
       ASK,
       ["guest", { line: "going" }],
@@ -164,27 +190,28 @@ describe("threadMessages", () => {
   });
 
   it("gives every bubble its own key", () => {
-    const everything: ThreadEvent = { settings: { plusOnesAllowed: 2, requirePlusOneNames: true, askEmail: true }, questions: [allergies, games, pudding, staying] };
+    const everything: ThreadEvent = { settings: { plusOnesAllowed: 2, requirePlusOneNames: true, emailField: "optional", phoneField: "optional" }, questions: [allergies, games, pudding, staying] };
     const keys = threadMessages({ step: "done", at: 0, reply: reply({ plusOnes: 2, plusOneNames: ["Arjun", "Mei"] }) }, everything).map((bubble) => bubble.key);
     expect(new Set(keys).size).toBe(keys.length);
-    expect(keys).toHaveLength(2 + 2 * (2 + 3 + 4) + 1);
+    expect(keys).toHaveLength(2 + 2 * (3 + 3 + 4) + 1);
   });
 });
 
 describe("threadTurns", () => {
   it("lists what each step asks, one thing at a time, in order", () => {
-    const everything: ThreadEvent = { settings: { plusOnesAllowed: 2, requirePlusOneNames: true, askEmail: true }, questions: [allergies, games] };
+    const everything: ThreadEvent = { settings: { plusOnesAllowed: 2, requirePlusOneNames: true, emailField: "optional", phoneField: "optional" }, questions: [allergies, games] };
     const turns = threadTurns(reply({ plusOnes: 2 }), everything);
     expect(turns.map(({ step, at, asks }) => [step, at, asks.kind])).toEqual([
       ["name", 0, "name"],
       ["name", 1, "email"],
+      ["name", 2, "phone"],
       ["plusones", 0, "plusOnes"],
       ["plusones", 1, "guestName"],
       ["plusones", 2, "guestName"],
       ["questions", 0, "question"],
       ["questions", 1, "question"],
     ]);
-    // A guest who can't go is asked their name, and their email when the host wants it.
-    expect(threadTurns(reply({ status: "cant" }), everything).map(({ asks }) => asks.kind)).toEqual(["name", "email"]);
+    // A guest who can't go is asked their name, and how to reach them when the host wants it.
+    expect(threadTurns(reply({ status: "cant" }), everything).map(({ asks }) => asks.kind)).toEqual(["name", "email", "phone"]);
   });
 });

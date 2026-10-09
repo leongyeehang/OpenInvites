@@ -14,7 +14,7 @@ import { Glass } from "@/themes/glass";
 import { cardButtonClasses } from "@/themes/rsvp-buttons";
 import { useTheme } from "@/themes/themed-page";
 import { ARRIVAL, arriving, BUBBLE_CHIP, GuestBubble, HOST_BUBBLE, HostBubble } from "@/themes/thread-bubble";
-import { threadMessages, threadTurns, type Said, type ThreadEvent, type ThreadReply } from "@/themes/thread-script";
+import { threadMessages, threadTurns, type Said, type ThreadEvent, type ThreadReply, type Turn } from "@/themes/thread-script";
 import { useCopyLink } from "./use-copy-link";
 import { useRsvpFlow, type Draft, type RsvpFlowProps, type RsvpFlowState } from "./use-rsvp-flow";
 
@@ -26,10 +26,10 @@ const TYPING_MS = 650;
 // use-rsvp-flow.ts's and what each state reads as is the script's (thread-script.ts); this is how
 // the Thread presents them. One turn at a time: the host asks, and the composer offers the guest
 // the answers (chips for a status, the plus-ones and a choice, a text composer for a name, an
-// email or a written answer); the guest's answer joins the conversation, and the host's next line
-// follows. Answering the last turn sends the RSVP, through hidden fields as the Poster's form
-// sends it; once it is saved the host's done bubble carries the private link and the calendar,
-// and the composer the three ways on.
+// email, a phone number or a written answer); the guest's answer joins the conversation, and the
+// host's next line follows. Answering the last turn sends the RSVP, through hidden fields as the
+// Poster's form sends it; once it is saved the host's done bubble carries the private link and
+// the calendar, and the composer the three ways on.
 //
 // What the page holds when it opens arrives at once. A host line that answers the guest comes
 // after the host has been seen typing for a moment, and the page follows the conversation down.
@@ -53,6 +53,8 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
     focusNext.current = target === "confirmation" ? "done" : status;
   });
   const { step, draft, confirmed, working, refusal } = flow;
+  const reply: ThreadReply = confirmed ? { ...confirmed, email: confirmed.email ?? "", phone: confirmed.phone ?? "", answers: draft.answers } : draft;
+  const event: ThreadEvent = { closed: open ? undefined : (closedAs ?? "cancelled"), settings, questions };
 
   // The turn the guest is on within the flow's step (thread-script.ts, ThreadState). A new step
   // starts at its first turn. A refusal about one field sends the guest back to that field's
@@ -61,12 +63,10 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
   let at = place.at;
   if (place.step !== step || place.working !== working) {
     at = place.step === step ? place.at : 0;
-    if (place.working && !working && refusal) at = refusedAt(refusal) ?? at;
+    if (place.working && !working && refusal) at = refusedAt(refusal, threadTurns(reply, event)) ?? at;
     setPlace({ step, at, working });
   }
 
-  const reply: ThreadReply = confirmed ? { ...confirmed, email: confirmed.email ?? "", answers: draft.answers } : draft;
-  const event: ThreadEvent = { closed: open ? undefined : (closedAs ?? "cancelled"), settings, questions };
   const bubbles = threadMessages({ step, at, reply }, event);
   const turn = threadTurns(reply, event).find((each) => each.step === step && each.at === at);
 
@@ -249,10 +249,25 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
           label={r("name.email")}
           inputMode="email"
           autoComplete="email"
+          required={asks.required}
           value={draft.email}
           onChange={(email) => flow.change({ email })}
           onSend={() => advance()}
-          skip={<Skip className={chip()} onSkip={() => advance({ email: "" })} />}
+          skip={!asks.required && <Skip className={chip()} onSkip={() => advance({ email: "" })} />}
+        />
+      );
+    }
+    if (asks.kind === "phone") {
+      return (
+        <TextComposer
+          label={r("name.phone")}
+          inputMode="tel"
+          autoComplete="tel"
+          required={asks.required}
+          value={draft.phone}
+          onChange={(phone) => flow.change({ phone })}
+          onSend={() => advance()}
+          skip={!asks.required && <Skip className={chip()} onSkip={() => advance({ phone: "" })} />}
         />
       );
     }
@@ -335,6 +350,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
           <input type="hidden" name="status" value={draft.status} />
           <input type="hidden" name="name" value={draft.name} />
           <input type="hidden" name="email" value={draft.email} />
+          <input type="hidden" name="phone" value={draft.phone} />
           <input type="hidden" name="plusOnes" value={draft.plusOnes} />
           {Array.from({ length: draft.plusOnes }, (_, index) => (
             <input key={index} type="hidden" name="plusOneNames" value={draft.plusOneNames[index] ?? ""} />
@@ -349,11 +365,17 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
 }
 
 // Where a refusal about one field sends the guest back to, within the step the flow sends them to
-// (use-rsvp-flow.ts): the email's turn, or the first plus-one's name; anything else about a field
-// starts its step again. A refusal about none (too fast, closed) leaves them where they were.
-function refusedAt(refusal: RsvpRefusal): number | undefined {
+// (use-rsvp-flow.ts): the email's or the phone number's turn, or the first plus-one's name;
+// anything else about a field starts its step again. A refusal about none (too fast, closed)
+// leaves them where they were.
+function refusedAt(refusal: RsvpRefusal, turns: Turn[]): number | undefined {
   switch (refusal) {
+    case "emailRequired":
     case "emailInvalid":
+      return turns.find((turn) => turn.key === "email")?.at;
+    case "phoneRequired":
+    case "phoneInvalid":
+      return turns.find((turn) => turn.key === "phone")?.at;
     case "plusOneNameRequired":
     case "plusOneNameTooLong":
       return 1;
@@ -402,6 +424,7 @@ function TextComposer({
   placeholder,
   inputMode,
   autoComplete = "off",
+  required,
   value,
   onChange,
   onSend,
@@ -409,8 +432,11 @@ function TextComposer({
 }: {
   label: string;
   placeholder?: string;
-  inputMode?: "email";
+  inputMode?: "email" | "tel";
   autoComplete?: string;
+  // Whether the host requires it, which the field says to a screen reader; the line asking for
+  // it offers no skip.
+  required?: boolean;
   value: string;
   onChange: (value: string) => void;
   onSend: () => void;
@@ -433,6 +459,7 @@ function TextComposer({
           placeholder={placeholder}
           inputMode={inputMode}
           autoComplete={autoComplete}
+          aria-required={required || undefined}
           value={value}
           onChange={(typed) => onChange(typed.target.value)}
           className="size-full rounded-full border border-theme-glass-border bg-theme-glass-strong pr-12 pl-4 text-base text-theme-text placeholder:text-theme-text-faint"

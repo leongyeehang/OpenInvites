@@ -1,4 +1,5 @@
 import { richTextToPlain, type RichText } from "@/rich-text/rich-text";
+import { CONTACT_FIELDS, type ContactField } from "@/rsvps/form";
 import { GUEST_LIST_VISIBILITIES, type GuestListVisibility } from "@/rsvps/visibility";
 import { isTimeZone, toInstant, toWallTime } from "./time";
 
@@ -15,7 +16,8 @@ export type EventInput = {
   descriptionRich: RichText;
   plusOnesAllowed: number;
   requirePlusOneNames: boolean;
-  askEmail: boolean;
+  emailField: ContactField;
+  phoneField: ContactField;
   guestListVisibility: GuestListVisibility;
   notifyOnRsvp: boolean;
   remindersEnabled: boolean;
@@ -34,7 +36,8 @@ export type EventFormFields = {
   description: RichText;
   plusOnesAllowed: string;
   requirePlusOneNames: boolean;
-  askEmail: boolean;
+  emailField: string;
+  phoneField: string;
   guestListVisibility: string;
   notifyOnRsvp: boolean;
   remindersEnabled: boolean;
@@ -53,6 +56,7 @@ export type EventFormError =
   | "endBeforeStart"
   | "timeZoneInvalid"
   | "plusOnesAllowedInvalid"
+  | "contactFieldInvalid"
   | "guestListVisibilityInvalid";
 
 export type ParsedEventForm = { ok: true; input: EventInput } | { ok: false; error: EventFormError };
@@ -94,6 +98,10 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
     return { ok: false, error: "plusOnesAllowedInvalid" };
   }
 
+  const emailField = CONTACT_FIELDS.find((each) => each === fields.emailField);
+  const phoneField = CONTACT_FIELDS.find((each) => each === fields.phoneField);
+  if (!emailField || !phoneField) return { ok: false, error: "contactFieldInvalid" };
+
   const guestListVisibility = GUEST_LIST_VISIBILITIES.find((each) => each === fields.guestListVisibility);
   if (!guestListVisibility) return { ok: false, error: "guestListVisibilityInvalid" };
 
@@ -110,7 +118,8 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
       descriptionRich: fields.description,
       plusOnesAllowed,
       requirePlusOneNames: fields.requirePlusOneNames,
-      askEmail: fields.askEmail,
+      emailField,
+      phoneField,
       guestListVisibility,
       notifyOnRsvp: fields.notifyOnRsvp,
       remindersEnabled: fields.remindersEnabled,

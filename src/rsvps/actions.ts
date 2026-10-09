@@ -31,6 +31,7 @@ function fields(formData: FormData): RsvpFormFields {
     plusOnes: text("plusOnes"),
     plusOneNames: formData.getAll("plusOneNames").map((value) => (typeof value === "string" ? value : "")),
     email: text("email"),
+    phone: text("phone"),
   };
 }
 
@@ -97,8 +98,9 @@ export async function removeRsvpAction(slug: string): Promise<{ error?: "tooFast
   return {};
 }
 
-// A host changing a guest's RSVP on their own guest list. The host's form carries no email
-// field, and parseHostEdit ignores the one fields() reads, so the guest's address survives.
+// A host changing a guest's RSVP on their own guest list. The host's form carries every field
+// it sets, the email and the phone number among them, filled with what is stored, so a save
+// keeps what the host left alone.
 export async function editGuestAction(
   eventId: string,
   rsvpId: string,

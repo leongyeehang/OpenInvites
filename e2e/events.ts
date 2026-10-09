@@ -16,7 +16,11 @@ export type DraftFields = {
   description?: string;
   plusOnes?: string;
   requirePlusOneNames?: boolean;
+  // Email "Optional", which is what asking for one meant before it could be required.
   askEmail?: boolean;
+  // The Contact details choices; Don't ask when left out.
+  email?: "optional" | "required";
+  phone?: "optional" | "required";
   // Reminders are on for a new event; false turns them off.
   reminders?: boolean;
   questions?: QuestionFields[];
@@ -48,7 +52,10 @@ export async function createDraft(page: Page, fields: DraftFields) {
   if (fields.description) await page.getByLabel("Description").fill(fields.description);
   if (fields.plusOnes) await page.getByLabel("Plus-ones per guest").selectOption(fields.plusOnes);
   if (fields.requirePlusOneNames) await page.getByLabel("Ask for each plus-one’s name").check();
-  if (fields.askEmail) await page.getByLabel("Ask guests for an email address").check();
+  const contact = page.getByRole("group", { name: "Contact details" });
+  const email = fields.email ?? (fields.askEmail ? "optional" : undefined);
+  if (email) await contact.getByLabel("Email", { exact: true }).selectOption(email);
+  if (fields.phone) await contact.getByLabel("Phone number", { exact: true }).selectOption(fields.phone);
   if (fields.reminders === false) await page.getByLabel("Remind guests by email (a week before to Maybe, the day before to Going)").uncheck();
   if (fields.questions) await addQuestions(page, fields.questions);
   await page.getByRole("button", { name: "Save draft" }).click();

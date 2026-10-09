@@ -17,9 +17,10 @@ import { useRsvpFlow, type RsvpFlowProps } from "./use-rsvp-flow";
 // The Broadsheet's ballot (spec, "Broadsheet"): the RSVP flow's rules (use-rsvp-flow.ts) as one
 // form on a glass card, which the layout keeps in view beside the text on a wide screen. The guest
 // marks one of three answers, and everything the event asks of that answer opens beneath it at
-// once: their name (and email, when the host asks), how many they bring and their names, the
-// host's questions; then "Post my reply". Can't go asks only the name. Once saved, the card holds
-// the receipt: a "Received" stamp, their answer and the private link that changes it.
+// once: their name (and email and phone number, when the host asks), how many they bring and
+// their names, the host's questions; then "Post my reply". Can't go asks only who they are. Once
+// saved, the card holds the receipt: a "Received" stamp, their answer and the private link that
+// changes it.
 //
 // The card is the glass the Poster's own RSVP card is, and everything on it sits where it sits
 // there (legibility.ts, SURFACES: text on the card, the accent filled or as ink on the card), so
@@ -104,20 +105,40 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
                     className={FIELD}
                   />
                 </label>
-                {settings.askEmail && (
+                {settings.emailField !== "none" && (
                   <label className="block">
-                    <span className={LABEL}>{t("name.email")}</span>
+                    <Contact label={t("name.email")} required={settings.emailField === "required"} />
                     <input
-                      // Not type="email", as on the Poster: the action checks the address and says
-                      // what is wrong with it in the guest's language.
+                      // Not type="email" nor required, as on the Poster: the action checks the
+                      // address and says what is wrong with it in the guest's language.
                       inputMode="email"
                       autoComplete="email"
+                      aria-required={settings.emailField === "required" || undefined}
                       name="email"
                       value={draft.email}
                       onChange={(typed) => change({ email: typed.target.value })}
                       className={FIELD}
                     />
-                    <span className="mt-1 block text-xs text-theme-text-faint">{t("name.emailHint")}</span>
+                    <span className="mt-1 block text-xs text-theme-text-faint">
+                      {t(settings.emailField === "required" ? "name.emailHintRequired" : "name.emailHint")}
+                    </span>
+                  </label>
+                )}
+                {settings.phoneField !== "none" && (
+                  <label className="block">
+                    <Contact label={t("name.phone")} required={settings.phoneField === "required"} />
+                    <input
+                      inputMode="tel"
+                      autoComplete="tel"
+                      aria-required={settings.phoneField === "required" || undefined}
+                      name="phone"
+                      value={draft.phone}
+                      onChange={(typed) => change({ phone: typed.target.value })}
+                      className={FIELD}
+                    />
+                    <span className="mt-1 block text-xs text-theme-text-faint">
+                      {t(settings.phoneField === "required" ? "name.phoneHintRequired" : "name.phoneHint")}
+                    </span>
                   </label>
                 )}
 
@@ -240,6 +261,17 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
 const LABEL = "label-mono mb-1.5 block text-theme-text-muted";
 const PROMPT = "mb-2 block font-medium";
 const FIELD = "h-11 w-full border-b border-theme-text/40 bg-transparent text-lg text-theme-text placeholder:text-theme-text-faint";
+
+// The label of a way of reaching the guest, with the asterisk the Poster shows when the host
+// requires it; the input itself says so to a screen reader.
+function Contact({ label, required }: { label: string; required: boolean }) {
+  return (
+    <span className={LABEL}>
+      {label}
+      {required && <span aria-hidden className="text-theme-accent-ink"> *</span>}
+    </span>
+  );
+}
 
 // A radio button or a checkbox drawn as the ballot's mark: a ring or a box in the text's colour,
 // filled once chosen. It is the input itself, so the keyboard's focus rings it.

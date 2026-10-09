@@ -1,12 +1,11 @@
+import { isEmail } from "@/rsvps/form";
+
 // A report: a visitor telling the operator that an event page does not belong on the
 // instance (spec, "Report an event"). The reason says what is wrong; the contact, an email, is
-// only there for the operator to write back, and is optional.
+// only there for the operator to write back, and is optional. It is held to the rule the RSVP
+// form holds a guest's email to.
 export const REASON_MIN = 20;
 export const REASON_MAX = 1000;
-
-// The same rule the RSVP form applies to a guest's email (rsvps/form.ts).
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MAX_EMAIL = 254;
 
 export type ReportError = "reasonTooShort" | "reasonTooLong" | "contactInvalid";
 
@@ -19,6 +18,6 @@ export function parseReport(fields: { reason: string; contact: string }): Parsed
   const contact = fields.contact.trim();
   if (reason.length < REASON_MIN) return { ok: false, error: "reasonTooShort" };
   if (reason.length > REASON_MAX) return { ok: false, error: "reasonTooLong" };
-  if (contact && (contact.length > MAX_EMAIL || !EMAIL.test(contact))) return { ok: false, error: "contactInvalid" };
+  if (contact && !isEmail(contact)) return { ok: false, error: "contactInvalid" };
   return { ok: true, reason, contact: contact || null };
 }

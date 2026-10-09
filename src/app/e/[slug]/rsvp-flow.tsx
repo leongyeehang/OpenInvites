@@ -160,17 +160,40 @@ export function RsvpFlow(props: RsvpFlowProps) {
             className={FIELD}
           />
         </Labelled>
-        {settings.askEmail && (
-          <Labelled label={t("name.email")} hint={t("name.emailHint")}>
+        {settings.emailField !== "none" && (
+          <Labelled
+            label={t("name.email")}
+            required={settings.emailField === "required"}
+            hint={t(settings.emailField === "required" ? "name.emailHintRequired" : "name.emailHint")}
+          >
             <input
-              // Not type="email": on a later step this field is hidden, and a browser
-              // cannot show a validation bubble on something it cannot focus, so it would
-              // block the send in silence. The action checks the address instead.
+              // Not type="email", nor required: on a later step this field is hidden, and a
+              // browser cannot show a validation bubble on something it cannot focus, so it
+              // would block the send in silence. The action checks the address instead.
               inputMode="email"
               autoComplete="email"
+              aria-required={settings.emailField === "required" || undefined}
               name="email"
               value={draft.email}
               onChange={(typed) => change({ email: typed.target.value })}
+              className={FIELD}
+            />
+          </Labelled>
+        )}
+        {settings.phoneField !== "none" && (
+          <Labelled
+            label={t("name.phone")}
+            required={settings.phoneField === "required"}
+            hint={t(settings.phoneField === "required" ? "name.phoneHintRequired" : "name.phoneHint")}
+          >
+            <input
+              // Not required, as the email is not; the action checks the number.
+              inputMode="tel"
+              autoComplete="tel"
+              aria-required={settings.phoneField === "required" || undefined}
+              name="phone"
+              value={draft.phone}
+              onChange={(typed) => change({ phone: typed.target.value })}
               className={FIELD}
             />
           </Labelled>
@@ -462,10 +485,15 @@ export function Asked({ question, optional, required }: { question: Question; op
 const FIELD =
   "h-12 w-full rounded-xl border border-theme-glass-border bg-theme-glass-strong px-4 text-base text-theme-text placeholder:text-theme-text-faint";
 
-function Labelled({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+// A field with its label, and the hint under it. A field the host requires has an asterisk to the
+// eye; its input says it is required to a screen reader.
+function Labelled({ label, hint, required, children }: { label: string; hint?: string; required?: boolean; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-medium tracking-wider text-theme-text-faint uppercase">{label}</span>
+      <span className="mb-1.5 block text-xs font-medium tracking-wider text-theme-text-faint uppercase">
+        {label}
+        {required && <span aria-hidden className="text-theme-accent-ink"> *</span>}
+      </span>
       {children}
       {hint && <span className="mt-1 block text-xs text-theme-text-faint">{hint}</span>}
     </label>
@@ -521,6 +549,7 @@ function Confirmation({
           </p>
           {named.length > 0 && <p className="text-sm text-theme-text-faint">{t("summary.bringing", { names: format.list(named) })}</p>}
           {answer.email && <p className="text-sm text-theme-text-faint">{t("summary.email", { email: answer.email })}</p>}
+          {answer.phone && <p className="text-sm text-theme-text-faint">{t("summary.phone", { phone: answer.phone })}</p>}
         </div>
         {dismiss}
       </div>

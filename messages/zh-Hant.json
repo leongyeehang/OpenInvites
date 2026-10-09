@@ -333,7 +333,14 @@
       "plusOnesNone": "不可帶",
       "plusOnesAllowedHint": "一位賓客最多可以帶幾個人。",
       "requirePlusOneNames": "要求填寫每位同伴的名字",
-      "askEmail": "請賓客留下電子郵件地址",
+      "contact": {
+        "title": "聯絡方式",
+        "email": "電子郵件",
+        "phone": "電話號碼",
+        "none": "不詢問",
+        "optional": "選填",
+        "required": "必填"
+      },
       "guestListVisibility": "誰可以看到賓客名單",
       "guestListAlways": "所有開啟連結的人",
       "guestListAfterReply": "已回覆的賓客",
@@ -379,6 +386,7 @@
       "timeZoneInvalid": "請從清單中選擇時區。",
       "notFound": "這個活動已經不存在了。",
       "plusOnesAllowedInvalid": "請選擇 0 到 10 之間的同伴人數。",
+      "contactFieldInvalid": "請選擇如何詢問電子郵件和電話號碼。",
       "guestListVisibilityInvalid": "請選擇誰可以看到賓客名單。",
       "questionsInvalid": "無法讀取這些問題，請再試一次。",
       "questionTypeInvalid": "請為每個問題選擇類型。",
@@ -516,6 +524,9 @@
       "askName": "太好了！我該怎麼稱呼你？",
       "askNameCant": "沒關係的！你是哪位呀？我記一下。",
       "askEmail": "留個電子郵件方便我聯絡你嗎？（不想留可以跳過）",
+      "askEmailRequired": "請留個電子郵件，方便我聯絡你。",
+      "askPhone": "再留個電話號碼嗎？萬一需要打給你。（不想留可以跳過）",
+      "askPhoneRequired": "再留個電話號碼吧，萬一需要打給你。",
       "askPlusOnes": "好呀，{firstName}。會帶朋友一起來嗎？{max, plural, =1 {可以帶一位。} other {最多可以帶 # 位。}}",
       "bringing": "我會帶 {count} 位",
       "askGuestName": "{number, plural, =1 {第一位同伴叫什麼名字？} =2 {第二位同伴叫什麼名字？} =3 {第三位同伴叫什麼名字？} =4 {第四位同伴叫什麼名字？} =5 {第五位同伴叫什麼名字？} =6 {第六位同伴叫什麼名字？} =7 {第七位同伴叫什麼名字？} =8 {第八位同伴叫什麼名字？} =9 {第九位同伴叫什麼名字？} =10 {第十位同伴叫什麼名字？} other {第 # 位同伴叫什麼名字？}}",
@@ -734,6 +745,8 @@
     "plusOnesLabel": "同伴人數",
     "nameLabel": "名字",
     "guestName": "同伴 {number}",
+    "emailLabel": "電子郵件",
+    "phoneLabel": "電話號碼",
     "save": "儲存",
     "saved": "已儲存。",
     "remove": "移除",
@@ -750,7 +763,10 @@
       "plusOnesInvalid": "人數超過這個活動允許的上限。",
       "plusOneNameRequired": "每位同伴都需要有名字。",
       "plusOneNameTooLong": "名字太長了。",
-      "emailInvalid": "這看起來不像電子郵件地址。"
+      "emailRequired": "賓客需要有電子郵件地址。",
+      "emailInvalid": "這看起來不像電子郵件地址。",
+      "phoneRequired": "賓客需要有電話號碼。",
+      "phoneInvalid": "請輸入 5 到 20 位的電話號碼。"
     }
   },
   "Announcements": {
@@ -832,7 +848,11 @@
       "label": "你的名字",
       "placeholder": "例如：王小明",
       "email": "電子郵件",
-      "emailHint": "選填。主辦人可以透過它聯絡你。"
+      "emailHint": "選填。主辦人可以透過它聯絡你。",
+      "emailHintRequired": "主辦人可以透過它聯絡你。",
+      "phone": "電話號碼",
+      "phoneHint": "選填。只有主辦人看得到。",
+      "phoneHintRequired": "只有主辦人看得到。"
     },
     "plusOnes": {
       "title": "會帶同伴嗎？",
@@ -850,7 +870,8 @@
       "coming": "{count, plural, =0 {{name}，就你自己。} other {{name}，另外帶 # 位同伴。}}",
       "cant": "{name}，已記為無法參加。",
       "bringing": "同伴：{names}",
-      "email": "主辦人會透過 {email} 聯絡你。"
+      "email": "主辦人會透過 {email} 聯絡你。",
+      "phone": "電話：{phone}"
     },
     "editLink": {
       "label": "你的專屬修改連結",
@@ -875,7 +896,10 @@
       "plusOnesInvalid": "人數超過主辦人允許的上限。",
       "plusOneNameRequired": "主辦人希望知道每位同伴的名字。",
       "plusOneNameTooLong": "名字太長了。",
+      "emailRequired": "主辦人希望你留下電子郵件地址。",
       "emailInvalid": "這看起來不像電子郵件地址。",
+      "phoneRequired": "主辦人希望你留下電話號碼。",
+      "phoneInvalid": "請輸入 5 到 20 位的電話號碼。",
       "answerRequired": "主辦人希望你回答這一題。",
       "answerNotOffered": "請從提供的選項中選一個。",
       "answerTooLong": "回答太長了。",

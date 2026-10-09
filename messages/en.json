@@ -333,7 +333,14 @@
       "plusOnesNone": "None",
       "plusOnesAllowedHint": "How many people one guest may bring.",
       "requirePlusOneNames": "Ask for each plus-one’s name",
-      "askEmail": "Ask guests for an email address",
+      "contact": {
+        "title": "Contact details",
+        "email": "Email",
+        "phone": "Phone number",
+        "none": "Don’t ask",
+        "optional": "Optional",
+        "required": "Required"
+      },
       "guestListVisibility": "Who can see the guest list",
       "guestListAlways": "Everyone who opens the link",
       "guestListAfterReply": "Guests who have replied",
@@ -379,6 +386,7 @@
       "timeZoneInvalid": "Choose a time zone from the list.",
       "notFound": "This event no longer exists.",
       "plusOnesAllowedInvalid": "Choose a number of plus-ones between none and ten.",
+      "contactFieldInvalid": "Choose how to ask for an email and a phone number.",
       "guestListVisibilityInvalid": "Choose who can see the guest list.",
       "questionsInvalid": "Those questions could not be read. Try again.",
       "questionTypeInvalid": "Choose a kind for every question.",
@@ -516,6 +524,9 @@
       "askName": "Yay! What should I call you?",
       "askNameCant": "No worries at all. Who’s this, so I can note it?",
       "askEmail": "And your email, so I can reach you? (skip if you’d rather not)",
+      "askEmailRequired": "And your email, so I can reach you?",
+      "askPhone": "And a phone number, in case I need to call? (skip if you’d rather not)",
+      "askPhoneRequired": "And a phone number, in case I need to call?",
       "askPlusOnes": "Lovely, {firstName}. Bringing anyone? {max, plural, =1 {You can bring one person.} other {You can bring up to # people.}}",
       "bringing": "I’ll bring {count}",
       "askGuestName": "{number, plural, =1 {What’s your first guest’s name?} =2 {What’s your second guest’s name?} =3 {What’s your third guest’s name?} =4 {What’s your fourth guest’s name?} =5 {What’s your fifth guest’s name?} =6 {What’s your sixth guest’s name?} =7 {What’s your seventh guest’s name?} =8 {What’s your eighth guest’s name?} =9 {What’s your ninth guest’s name?} =10 {What’s your tenth guest’s name?} other {What’s the name of guest #?}}",
@@ -734,6 +745,8 @@
     "plusOnesLabel": "Plus-ones",
     "nameLabel": "Name",
     "guestName": "Guest {number}",
+    "emailLabel": "Email",
+    "phoneLabel": "Phone number",
     "save": "Save",
     "saved": "Saved.",
     "remove": "Remove",
@@ -750,7 +763,10 @@
       "plusOnesInvalid": "That is more people than this event allows.",
       "plusOneNameRequired": "Every guest needs a name.",
       "plusOneNameTooLong": "That name is too long.",
-      "emailInvalid": "That does not look like an email address."
+      "emailRequired": "A guest needs an email address.",
+      "emailInvalid": "That does not look like an email address.",
+      "phoneRequired": "A guest needs a phone number.",
+      "phoneInvalid": "Enter a phone number of 5 to 20 digits."
     }
   },
   "Announcements": {
@@ -832,7 +848,11 @@
       "label": "Your name",
       "placeholder": "e.g. Priya Nair",
       "email": "Email",
-      "emailHint": "Optional. The host can reach you here."
+      "emailHint": "Optional. The host can reach you here.",
+      "emailHintRequired": "The host can reach you here.",
+      "phone": "Phone number",
+      "phoneHint": "Optional. Only the hosts see it.",
+      "phoneHintRequired": "Only the hosts see it."
     },
     "plusOnes": {
       "title": "Bringing anyone?",
@@ -850,7 +870,8 @@
       "coming": "{count, plural, =0 {{name}, just you.} =1 {{name}, plus one more.} other {{name}, plus # more.}}",
       "cant": "{name}, marked as can’t go.",
       "bringing": "Bringing {names}.",
-      "email": "We’ll reach you at {email}."
+      "email": "We’ll reach you at {email}.",
+      "phone": "Phone: {phone}"
     },
     "editLink": {
       "label": "Your private edit link",
@@ -875,7 +896,10 @@
       "plusOnesInvalid": "That is more people than the host allows.",
       "plusOneNameRequired": "The host would like every guest’s name.",
       "plusOneNameTooLong": "That name is too long.",
+      "emailRequired": "The host would like your email address.",
       "emailInvalid": "That does not look like an email address.",
+      "phoneRequired": "The host would like your phone number.",
+      "phoneInvalid": "Enter a phone number of 5 to 20 digits.",
       "answerRequired": "The host would like an answer to this one.",
       "answerNotOffered": "Choose one of the answers offered.",
       "answerTooLong": "That answer is too long.",

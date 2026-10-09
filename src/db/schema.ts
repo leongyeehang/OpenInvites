@@ -5,7 +5,7 @@ import { DEFAULT_LIMITS } from "../instance/limits";
 import { defaultLocale, type Locale } from "../locale/resolve-locale";
 import { QUESTION_TYPES } from "../questions/question";
 import { EMPTY_RICH_TEXT, type RichText } from "../rich-text/rich-text";
-import { RSVP_STATUSES } from "../rsvps/form";
+import { CONTACT_FIELDS, RSVP_STATUSES } from "../rsvps/form";
 import { DEFAULT_GUEST_LIST_VISIBILITY, GUEST_LIST_VISIBILITIES } from "../rsvps/visibility";
 import type { Theme } from "../themes/theme";
 
@@ -120,6 +120,8 @@ export const eventState = pgEnum("event_state", ["draft", "published", "cancelle
 
 export const guestListVisibility = pgEnum("guest_list_visibility", GUEST_LIST_VISIBILITIES);
 
+export const contactField = pgEnum("contact_field", CONTACT_FIELDS);
+
 // An event belongs to one host. Its time is an instant plus the event's own IANA zone; all-day
 // events store midnight in that zone with the flag set. The slug is the event link (ADR-0004).
 // The theme is stored whole as JSON; parseTheme fills in whatever a row lacks, so an empty
@@ -149,7 +151,11 @@ export const event = pgTable(
     // What the host asks of guests on the RSVP form (spec, "Per-event settings").
     plusOnesAllowed: integer("plus_ones_allowed").notNull().default(1),
     requirePlusOneNames: boolean("require_plus_one_names").notNull().default(false),
-    askEmail: boolean("ask_email").notNull().default(false),
+    // Whether guests are asked for an email and a phone number: not at all, optionally, or as a
+    // must (spec, "Contact details"). Events from before 0.4 that asked for an email ask for it
+    // optionally, which is what asking meant then (migration 0027).
+    emailField: contactField("email_field").notNull().default("none"),
+    phoneField: contactField("phone_field").notNull().default("none"),
     guestListVisibility: guestListVisibility("guest_list_visibility").notNull().default(DEFAULT_GUEST_LIST_VISIBILITY),
     // Whether every host is emailed when a guest replies, changes their status, or removes their
     // RSVP (spec, "Host notifications"). On for new events; events from before 0.3 start with it
@@ -239,6 +245,8 @@ export const rsvp = pgTable(
     // As many entries as there are plus-ones; an entry is empty when the host does not ask for names.
     plusOneNames: text("plus_one_names").array().notNull().default(sql`'{}'::text[]`),
     email: text("email"),
+    // As the guest typed it, trimmed: shown to the hosts and used for nothing else.
+    phone: text("phone"),
     editTokenHash: text("edit_token_hash").notNull().unique(),
     // The secret in the stop link at the foot of every email to the guest (spec, "Guest mail"). In
     // clear, unlike the edit token: their mail is written long after their request is over, and

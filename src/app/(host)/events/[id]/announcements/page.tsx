@@ -69,7 +69,7 @@ export default async function AnnouncementsPage({ params }: PageProps<"/events/[
       </div>
       <div className="flex flex-col gap-2 text-muted-foreground">
         <p>{t("explainer")}</p>
-        {!event.askEmail && <p>{t("askEmailHint")}</p>}
+        {event.emailField === "none" && <p>{t("askEmailHint")}</p>}
         {!mail && <p>{t("noMail")}</p>}
       </div>
 

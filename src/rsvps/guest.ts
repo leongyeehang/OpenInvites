@@ -13,6 +13,7 @@ export type GuestRsvp = {
   plusOnes: number;
   plusOneNames: string[];
   email: string | null;
+  phone: string | null;
   editLink: string;
 };
 
@@ -23,8 +24,8 @@ export type RsvpRefusal = RsvpFormError | AnswerError | "closed" | "limitReached
 export type SaveRsvpResult = { error?: RsvpRefusal; saved?: GuestRsvp };
 
 export function guestRsvp({ rsvp, token }: MyRsvp): GuestRsvp {
-  const { status, name, plusOnes, plusOneNames, email } = rsvp;
-  return { status, name, plusOnes, plusOneNames, email, editLink: `${baseUrl()}/r/${token}` };
+  const { status, name, plusOnes, plusOneNames, email, phone } = rsvp;
+  return { status, name, plusOnes, plusOneNames, email, phone, editLink: `${baseUrl()}/r/${token}` };
 }
 
 // The RSVP the guest in front of us holds on this device. The cookie carries their edit token,

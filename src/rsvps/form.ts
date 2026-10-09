@@ -1,8 +1,16 @@
+// How the host asks for one way of reaching a guest, an email or a phone number (spec, "Contact
+// details"): not at all, as the guest's choice, or as something every RSVP must carry. The list
+// is the source, as RSVP_STATUSES below is, and the database enum is built from it.
+export const CONTACT_FIELDS = ["none", "optional", "required"] as const;
+
+export type ContactField = (typeof CONTACT_FIELDS)[number];
+
 // What the host asks of guests on this event's RSVP form (spec, "Per-event settings").
 export type RsvpSettings = {
   plusOnesAllowed: number;
   requirePlusOneNames: boolean;
-  askEmail: boolean;
+  emailField: ContactField;
+  phoneField: ContactField;
 };
 
 // The three answers, in the order the buttons show them. Following src/themes/theme.ts: the
@@ -11,7 +19,7 @@ export const RSVP_STATUSES = ["going", "maybe", "cant"] as const;
 
 export type RsvpStatus = (typeof RSVP_STATUSES)[number];
 
-// The part of an answer both a guest and a host may set.
+// The part of an answer that says who is coming.
 export type RsvpAnswer = {
   status: RsvpStatus;
   name: string;
@@ -19,32 +27,57 @@ export type RsvpAnswer = {
   plusOneNames: string[];
 };
 
-// One guest's answer, once trusted. Only a guest ever gives the email.
-export type RsvpInput = RsvpAnswer & { email: string | null };
+// One guest's answer, once trusted, with how they can be reached. A host's edit of it sets the
+// same.
+export type RsvpInput = RsvpAnswer & { email: string | null; phone: string | null };
 
-// What a host posts when editing someone else's RSVP, as strings, before any of it is trusted.
-export type HostEditFields = {
+// What the guest's own RSVP form posts, and a host's edit of someone else's RSVP, as strings,
+// before any of it is trusted.
+export type RsvpFormFields = {
   status: string;
   name: string;
   plusOnes: string;
   plusOneNames: string[];
+  email: string;
+  phone: string;
 };
 
-// What the guest's own RSVP form posts, which is the same plus the email field.
-export type RsvpFormFields = HostEditFields & { email: string };
-
-export type RsvpFormError = "statusInvalid" | "nameRequired" | "nameTooLong" | "plusOnesInvalid" | "plusOneNameRequired" | "plusOneNameTooLong" | "emailInvalid";
+export type RsvpFormError =
+  | "statusInvalid"
+  | "nameRequired"
+  | "nameTooLong"
+  | "plusOnesInvalid"
+  | "plusOneNameRequired"
+  | "plusOneNameTooLong"
+  | "emailRequired"
+  | "emailInvalid"
+  | "phoneRequired"
+  | "phoneInvalid";
 
 export type ParsedRsvpForm = { ok: true; input: RsvpInput } | { ok: false; error: RsvpFormError };
 
-export type ParsedHostEdit = { ok: true; edit: RsvpAnswer } | { ok: false; error: RsvpFormError };
+export type ParsedHostEdit = { ok: true; edit: RsvpInput } | { ok: false; error: RsvpFormError };
 
 // Long enough for any real name; short enough that the field cannot be used as storage.
 const MAX_NAME = 80;
 
-// Enough to catch a typo or a wrong field; the address is never verified in M1.
+// Enough to catch a typo or a wrong field. The one rule for an email a guest or a visitor types:
+// the RSVP form's, and the report form's contact (reports/report.ts).
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAIL = 254;
+
+export function isEmail(value: string): boolean {
+  return value.length <= MAX_EMAIL && EMAIL.test(value);
+}
+
+// A phone number as people write one (spec, "Contact details"): 5 to 20 characters of digits,
+// spaces, plus, hyphens, brackets and dots. It is kept as typed, never formatted or dialled, and
+// never proven: it is shown to the hosts and used for nothing else.
+const PHONE = /^[0-9 +\-().]{5,20}$/;
+
+export function isPhone(value: string): boolean {
+  return PHONE.test(value);
+}
 
 // The rules of the RSVP form (ticket 07). The settings are the host's, so what counts as a valid
 // answer changes from event to event.
@@ -52,24 +85,36 @@ export function parseRsvpForm(fields: RsvpFormFields, settings: RsvpSettings): P
   const parsed = parseAnswer(fields, settings);
   if (!parsed.ok) return parsed;
 
-  // The field only exists when the host asks for it, and giving it is still the guest's choice.
-  const typed = settings.askEmail ? fields.email.trim() : "";
-  if (typed && (typed.length > MAX_EMAIL || !EMAIL.test(typed))) return { ok: false, error: "emailInvalid" };
+  const email = asked(fields.email, settings.emailField);
+  if (!email && settings.emailField === "required") return { ok: false, error: "emailRequired" };
+  if (email && !isEmail(email)) return { ok: false, error: "emailInvalid" };
 
-  return { ok: true, input: { ...parsed.answer, email: typed || null } };
+  const phone = asked(fields.phone, settings.phoneField);
+  if (!phone && settings.phoneField === "required") return { ok: false, error: "phoneRequired" };
+  if (phone && !isPhone(phone)) return { ok: false, error: "phoneInvalid" };
+
+  return { ok: true, input: { ...parsed.answer, email: email || null, phone: phone || null } };
 }
 
-// What a host may change on a guest's RSVP (spec, story 53): the status, the name, and who they
-// are bringing. Never the email the guest gave, and never the edit token, so the link in that
-// guest's pocket keeps working. A host is held to the allowance they set themselves, but is not
-// made to invent names for someone else's plus-ones.
-export function parseHostEdit(fields: HostEditFields, settings: RsvpSettings): ParsedHostEdit {
-  const parsed = parseAnswer(fields, { ...settings, requirePlusOneNames: false });
-  return parsed.ok ? { ok: true, edit: parsed.answer } : parsed;
+// What the guest gave for one way of reaching them, trimmed. The field only exists when the host
+// asks for it, so a value posted anyway is ignored.
+function asked(typed: string, field: ContactField): string {
+  return field === "none" ? "" : typed.trim();
+}
+
+// What a host may change on a guest's RSVP (spec, story 53, and "Contact details"): the status,
+// the name, who they are bringing, and the email and phone number, which the host may know from
+// elsewhere. Never the edit token, so the link in that guest's pocket keeps working. A host is
+// held to the allowance they set themselves and to the shape of an email and a phone number, but
+// is not made to invent names for someone else's plus-ones, nor to give a way of reaching them,
+// and may give one the guest was not asked for.
+export function parseHostEdit(fields: RsvpFormFields, settings: RsvpSettings): ParsedHostEdit {
+  const parsed = parseRsvpForm(fields, { ...settings, requirePlusOneNames: false, emailField: "optional", phoneField: "optional" });
+  return parsed.ok ? { ok: true, edit: parsed.input } : parsed;
 }
 
 function parseAnswer(
-  fields: HostEditFields,
+  fields: RsvpFormFields,
   settings: RsvpSettings,
 ): { ok: true; answer: RsvpAnswer } | { ok: false; error: RsvpFormError } {
   const status = RSVP_STATUSES.find((each) => each === fields.status);

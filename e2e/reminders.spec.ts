@@ -120,8 +120,11 @@ test("the guests who said Going are reminded the day before, and an event with r
   await host.goto("/events/new");
   await expect(host.getByLabel(REMINDERS)).toBeChecked();
   await expect(host.getByText(ASK_EMAIL_HINT)).toBeVisible();
-  await host.getByLabel("Ask guests for an email address").check();
+  const email = host.getByRole("group", { name: "Contact details" }).getByLabel("Email", { exact: true });
+  await email.selectOption("optional");
   await expect(host.getByText(ASK_EMAIL_HINT)).toBeHidden();
+  await email.selectOption("none");
+  await expect(host.getByText(ASK_EMAIL_HINT)).toBeVisible();
 
   await context.close();
 });

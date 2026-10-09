@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { RsvpInput } from "./form";
 import { planRsvp } from "./plan";
 
-const input: RsvpInput = { status: "going", name: "Priya Nair", plusOnes: 1, plusOneNames: ["Arjun"], email: null };
+const input: RsvpInput = { status: "going", name: "Priya Nair", plusOnes: 1, plusOneNames: ["Arjun"], email: null, phone: null };
 const replied = new Date("2027-03-01T10:00:00Z");
 const later = new Date("2027-03-04T21:30:00Z");
 

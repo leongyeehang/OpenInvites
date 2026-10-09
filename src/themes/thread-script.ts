@@ -16,6 +16,7 @@ export type ThreadReply = {
   status: RsvpStatus;
   name: string;
   email: string;
+  phone: string;
   plusOnes: number;
   plusOneNames: string[];
   answers: AnswerFields;
@@ -23,8 +24,8 @@ export type ThreadReply = {
 
 export type ThreadState = {
   step: ThreadStep;
-  // The turn the step is on (threadTurns): the name or the email; how many plus-ones, then each
-  // one's name; each question. One past the step's last turn, all of it is answered.
+  // The turn the step is on (threadTurns): the name, the email, the phone number; how many
+  // plus-ones, then each one's name; each question. One past the step's last turn, all of it is answered.
   at: number;
   reply: ThreadReply;
 };
@@ -45,6 +46,9 @@ export type ThreadLine =
   | "askName"
   | "askNameCant"
   | "askEmail"
+  | "askEmailRequired"
+  | "askPhone"
+  | "askPhoneRequired"
   | "askPlusOnes"
   | "bringing"
   | "askGuestName"
@@ -66,7 +70,13 @@ export type Said =
 export type Bubble = { key: string; from: "host" | "guest"; said: Said; done?: true };
 
 // What a turn asks of the guest, which is what the composer offers them.
-export type Asks = { kind: "name" } | { kind: "email" } | { kind: "plusOnes" } | { kind: "guestName"; number: number } | { kind: "question"; question: Question };
+export type Asks =
+  | { kind: "name" }
+  | { kind: "email"; required: boolean }
+  | { kind: "phone"; required: boolean }
+  | { kind: "plusOnes" }
+  | { kind: "guestName"; number: number }
+  | { kind: "question"; question: Question };
 
 export type Turn = { step: ThreadStep; at: number; key: string; asks: Asks; ask: Said; answer: Said };
 
@@ -81,13 +91,35 @@ export function firstNameOf(name: string): string {
 }
 
 // Every turn this guest is asked, in order: the same steps the flow has (use-rsvp-flow.ts), each
-// asked one thing at a time. A guest who can't go is asked only who they are.
-export function threadTurns({ status, name, email, plusOnes, plusOneNames, answers }: ThreadReply, { settings, questions }: ThreadEvent): Turn[] {
+// asked one thing at a time. A guest who can't go is asked only who they are and, when the host
+// asks for them, how to reach them.
+export function threadTurns({ status, name, email, phone, plusOnes, plusOneNames, answers }: ThreadReply, { settings, questions }: ThreadEvent): Turn[] {
   const turns: Turn[] = [
     { step: "name", at: 0, key: "name", asks: { kind: "name" }, ask: { line: status === "cant" ? "askNameCant" : "askName" }, answer: { text: name.trim() } },
   ];
-  if (settings.askEmail) {
-    turns.push({ step: "name", at: 1, key: "email", asks: { kind: "email" }, ask: { line: "askEmail" }, answer: email.trim() ? { text: email.trim() } : SKIPPED });
+  // The email, then the phone number, each a turn of the name's step when the host asks for it;
+  // the line offers a skip only when the guest may leave it out.
+  if (settings.emailField !== "none") {
+    const required = settings.emailField === "required";
+    turns.push({
+      step: "name",
+      at: turns.length,
+      key: "email",
+      asks: { kind: "email", required },
+      ask: { line: required ? "askEmailRequired" : "askEmail" },
+      answer: email.trim() ? { text: email.trim() } : SKIPPED,
+    });
+  }
+  if (settings.phoneField !== "none") {
+    const required = settings.phoneField === "required";
+    turns.push({
+      step: "name",
+      at: turns.length,
+      key: "phone",
+      asks: { kind: "phone", required },
+      ask: { line: required ? "askPhoneRequired" : "askPhone" },
+      answer: phone.trim() ? { text: phone.trim() } : SKIPPED,
+    });
   }
   if (status === "cant") return turns;
 

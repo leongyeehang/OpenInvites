@@ -12,8 +12,9 @@ import { useTheme } from "@/themes/themed-page";
 // layout presents it in its own way (the Poster's buttons and steps, the Broadsheet's ballot);
 // the rules are here, once.
 
-// Where the guest is in the flow (PROTOTYPE.md): choosing a status, then their name, then who
-// they are bringing, then the host's questions, then the confirmation. A layout that asks
+// Where the guest is in the flow (PROTOTYPE.md): choosing a status, then their name (with their
+// email and phone number, when the host asks for them), then who they are bringing, then the
+// host's questions, then the confirmation. A layout that asks
 // everything at once treats every step but idle and done as "answering".
 export type Step = "idle" | "name" | "plusones" | "questions" | "done";
 
@@ -23,7 +24,10 @@ export type Step = "idle" | "name" | "plusones" | "questions" | "done";
 const STEP_OF: Partial<Record<RsvpRefusal, Step>> = {
   nameRequired: "name",
   nameTooLong: "name",
+  emailRequired: "name",
   emailInvalid: "name",
+  phoneRequired: "name",
+  phoneInvalid: "name",
   plusOnesInvalid: "plusones",
   plusOneNameRequired: "plusones",
   plusOneNameTooLong: "plusones",
@@ -38,19 +42,20 @@ export type Draft = {
   plusOnes: number;
   plusOneNames: string[];
   email: string;
+  phone: string;
   answers: AnswerFields;
 };
 
-const BLANK: Draft = { status: "going", name: "", plusOnes: 0, plusOneNames: [], email: "", answers: {} };
+const BLANK: Draft = { status: "going", name: "", plusOnes: 0, plusOneNames: [], email: "", phone: "", answers: {} };
 
 // Coming back to change an answer starts from the answer that is already there, except that a
 // host who has since lowered the plus-ones allowance wins: otherwise the guest would carry an
 // impossible number into every attempt to save, and never be able to change their RSVP again.
 function draftFrom(mine: GuestRsvp | undefined, settings: RsvpSettings, answers: AnswerFields): Draft {
   if (!mine) return { ...BLANK, answers };
-  const { status, name, plusOneNames, email } = mine;
+  const { status, name, plusOneNames, email, phone } = mine;
   const plusOnes = Math.min(mine.plusOnes, settings.plusOnesAllowed);
-  return { status, name, plusOnes, plusOneNames: plusOneNames.slice(0, plusOnes), email: email ?? "", answers };
+  return { status, name, plusOnes, plusOneNames: plusOneNames.slice(0, plusOnes), email: email ?? "", phone: phone ?? "", answers };
 }
 
 // What the event page hands whichever presentation of the flow its layout uses.

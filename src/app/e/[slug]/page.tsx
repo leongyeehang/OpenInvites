@@ -200,7 +200,12 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const notice = isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined;
   const flow: RsvpFlowProps = {
     slug: event.slug,
-    settings: { plusOnesAllowed: event.plusOnesAllowed, requirePlusOneNames: event.requirePlusOneNames, askEmail: event.askEmail },
+    settings: {
+      plusOnesAllowed: event.plusOnesAllowed,
+      requirePlusOneNames: event.requirePlusOneNames,
+      emailField: event.emailField,
+      phoneField: event.phoneField,
+    },
     mine: mine && guestRsvp(mine),
     open: acceptsRsvps(event.state),
     questions,

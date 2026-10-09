@@ -190,6 +190,13 @@
       "when": 1791539796559,
       "tag": "0026_custom_link",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791542690642,
+      "tag": "0027_contact_details",
+      "breakpoints": true
     }
   ]
 }

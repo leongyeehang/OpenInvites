@@ -60,6 +60,7 @@ export function GuestRow({
           </p>
           {named.length > 0 && <p className="text-sm text-muted-foreground">{t("bringing", { names: format.list(named) })}</p>}
           {guest.email && <p className="text-sm break-all text-muted-foreground">{guest.email}</p>}
+          {guest.phone && <p className="text-sm break-all text-muted-foreground">{guest.phone}</p>}
           {answers.length > 0 && (
             <dl className="mt-2 flex flex-col gap-1 text-sm">
               {answers.map((given) => (
@@ -149,6 +150,17 @@ function EditGuest({
             <Input id={`plus-one-${guest.id}-${index}`} name="plusOneNames" defaultValue={guest.plusOneNames[index] ?? ""} />
           </Field>
         ))}
+        {/* Always both, whatever the guests are asked: the host may know them from elsewhere, and
+            a field left out of the form would blank what is stored. Not type="email": an address
+            the browser doubts but the guest gave would block every save; the action checks it. */}
+        <Field>
+          <FieldLabel htmlFor={`email-${guest.id}`}>{t("emailLabel")}</FieldLabel>
+          <Input id={`email-${guest.id}`} name="email" inputMode="email" autoComplete="off" defaultValue={guest.email ?? ""} />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={`phone-${guest.id}`}>{t("phoneLabel")}</FieldLabel>
+          <Input id={`phone-${guest.id}`} name="phone" type="tel" autoComplete="off" defaultValue={guest.phone ?? ""} />
+        </Field>
         <FormOutcome state={state} />
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button type="submit" disabled={saving}>

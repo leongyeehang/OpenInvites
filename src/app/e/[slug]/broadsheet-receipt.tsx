@@ -55,6 +55,7 @@ export function BroadsheetReceipt({
         </p>
         {named.length > 0 && <p className="text-sm text-theme-text-faint">{t("summary.bringing", { names: format.list(named) })}</p>}
         {answer.email && <p className="text-sm text-theme-text-faint">{t("summary.email", { email: answer.email })}</p>}
+        {answer.phone && <p className="text-sm text-theme-text-faint">{t("summary.phone", { phone: answer.phone })}</p>}
       </div>
 
       {calendar && answer.status !== "cant" && <div className="mt-6">{calendar}</div>}

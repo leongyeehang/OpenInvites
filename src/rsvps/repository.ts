@@ -4,7 +4,7 @@ import { getDb, type Db } from "@/db/client";
 import { event, rsvp } from "@/db/schema";
 import type { Locale } from "@/locale/resolve-locale";
 import { countRsvps, type RsvpCounts, type StatusTally } from "./counts";
-import type { RsvpAnswer, RsvpInput, RsvpStatus } from "./form";
+import type { RsvpInput, RsvpStatus } from "./form";
 import { planRsvp } from "./plan";
 import { generateEditToken, generateMailToken, hashEditToken } from "./token";
 
@@ -77,6 +77,7 @@ export type HostGuest = {
   plusOnes: number;
   plusOneNames: string[];
   email: string | null;
+  phone: string | null;
   repliedAt: Date;
   updatedAt: Date;
 };
@@ -90,6 +91,7 @@ export async function listGuestList(eventId: string): Promise<HostGuest[]> {
       plusOnes: rsvp.plusOnes,
       plusOneNames: rsvp.plusOneNames,
       email: rsvp.email,
+      phone: rsvp.phone,
       repliedAt: rsvp.repliedAt,
       updatedAt: rsvp.updatedAt,
     })
@@ -110,18 +112,21 @@ export async function listPublicGuestList(eventId: string): Promise<PublicGuest[
     .orderBy(asc(rsvp.repliedAt));
 }
 
-// A host changing a guest's RSVP on their behalf (spec, story 53). It writes only what a host
-// may set, so the guest's email and their edit token survive untouched and the link in their
-// pocket keeps working. Returns the RSVP as it was, read under the same lock as the write, so the
-// hosts are told of the change that was made (notify-hosts.ts).
-export async function editRsvpAsHost(eventId: string, id: string, edit: RsvpAnswer): Promise<Rsvp | undefined> {
+// A host changing a guest's RSVP on their behalf (spec, story 53, and "Contact details"). It
+// writes only what a host may set, so the guest's edit token survives untouched and the link in
+// their pocket keeps working. An email the host gives gets the RSVP its mail token, as a guest's
+// does in saveRsvp, so every email to it can end with its stop link. Returns the RSVP as it was,
+// read under the same lock as the write, so the hosts are told of the change that was made
+// (notify-hosts.ts).
+export async function editRsvpAsHost(eventId: string, id: string, edit: RsvpInput): Promise<Rsvp | undefined> {
   return getDb().transaction(async (tx) => {
     const [previous] = await tx
       .select()
       .from(rsvp)
       .where(and(eq(rsvp.id, id), eq(rsvp.eventId, eventId)))
       .for("update");
-    if (previous) await tx.update(rsvp).set({ ...edit, updatedAt: new Date() }).where(eq(rsvp.id, id));
+    const mailToken = edit.email ? sql`coalesce(${rsvp.mailToken}, ${generateMailToken()})` : undefined;
+    if (previous) await tx.update(rsvp).set({ ...edit, mailToken, updatedAt: new Date() }).where(eq(rsvp.id, id));
     return previous;
   });
 }
