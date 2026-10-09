@@ -916,7 +916,7 @@
       "answerTooLong": "回答太長了。",
       "tooFast": "操作太頻繁了，請稍後再試。",
       "limitReached": "這場活動無法再接受更多回覆了。",
-      "codeWrong": "驗證碼不正確。{count, plural, other {還可以再試 # 次。}}",
+      "codeWrong": "驗證碼不正確。{count, plural, =0 {已沒有剩餘次數，再次確認即可收到新的驗證碼。} other {還可以再試 # 次。}}",
       "codeExpired": "驗證碼已過期，我們已重新寄出一組。",
       "codeResent": "嘗試次數太多，我們已重新寄出一組驗證碼。",
       "codeTooFast": "目前無法再寄送驗證碼，請過幾分鐘再試。",

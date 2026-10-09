@@ -916,7 +916,7 @@
       "answerTooLong": "That answer is too long.",
       "tooFast": "You’re going too fast. Try again shortly.",
       "limitReached": "This event can’t take more replies.",
-      "codeWrong": "That code isn’t right. {count, plural, one {# try left.} other {# tries left.}}",
+      "codeWrong": "That code isn’t right. {count, plural, =0 {That was the last try: confirm again for a new code.} one {# try left.} other {# tries left.}}",
       "codeExpired": "That code has expired. We sent a new one.",
       "codeResent": "Too many tries. We sent a new one.",
       "codeTooFast": "We can’t send another code right now. Try again in a few minutes.",

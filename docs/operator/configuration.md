@@ -149,7 +149,7 @@ With mail configured:
   before if they said Going, unless the host turns reminders off for the event;
 - a guest proving their email is sent a code to it, when the host asks for it;
 - every email to a guest ends with a link to a page where one tap stops email about that event,
-  except the code, which is sent before anything about the guest is kept.
+  except the code, which is sent before their RSVP is kept.
 
 A guest gives an email only when the host asks for one on the RSVP form, so only those guests get
 mail.

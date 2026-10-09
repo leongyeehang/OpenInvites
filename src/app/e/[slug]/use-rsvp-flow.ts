@@ -161,7 +161,16 @@ export function useRsvpFlow(
     return () => clearTimeout(timer);
   }, [resendIn]);
 
-  const send = (formData: FormData) =>
+  const send = (formData: FormData) => {
+    // The code sent to this email moments ago is still the one to enter: an answer posted again
+    // without it (the Broadsheet's "Post my reply" after "Change email" changed nothing) goes back
+    // to it, as the Poster's Continue does, rather than asking for another too soon.
+    if (codeSentTo !== undefined && resendIn > 0 && !formData.has("code")) {
+      setRefusal(undefined);
+      landing.current = "code";
+      setStep("code");
+      return;
+    }
     startWorking(async () => {
       const result = await saveRsvpAction(slug, formData);
       setRefusal(result.error);
@@ -188,6 +197,7 @@ export function useRsvpFlow(
       setAnswer(result.saved);
       setStep("done");
     });
+  };
 
   const withdraw = () =>
     startWorking(async () => {

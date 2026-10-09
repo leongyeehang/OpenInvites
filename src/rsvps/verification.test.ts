@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { CODE_MINUTES, codeVerdict, generateCode, hashCode, MAX_ATTEMPTS, needsCode, RESEND_SECONDS, resendIn } from "./verification";
+import { CODE_MINUTES, codeVerdict, generateCode, hashCode, MAX_ATTEMPTS, needsCode, RESEND_SECONDS, resendIn, resendWait } from "./verification";
 
 const sent = new Date("2027-03-01T10:00:00Z");
+const SECRET = "test-secret";
 const after = (seconds: number) => new Date(sent.getTime() + seconds * 1000);
 
 describe("generateCode", () => {
@@ -15,8 +16,10 @@ describe("generateCode", () => {
 });
 
 describe("hashCode", () => {
-  it("is the SHA-256 of the code, in hex", () => {
-    expect(hashCode("012345")).toBe("2224512ef44a62e580bb1c0dcb33aff688f4e7da8a488aeb4e7ca402c5cacf45");
+  it("is the HMAC-SHA256 of the code keyed by the instance's secret, in hex", () => {
+    expect(hashCode("012345", SECRET)).toBe("70d3c170231f93162e829d02d460cb869a7e4ebe9f524a32b87f1ca42440d21a");
+    // Another instance's secret makes another hash of the same code.
+    expect(hashCode("012345", "other-secret")).toBe("30be5ee23fe8e1101b13b9da4785c58a43cbbf182d0f9260518b9e6b637e4f9c");
   });
 });
 
@@ -57,31 +60,36 @@ describe("needsCode", () => {
 });
 
 describe("codeVerdict", () => {
-  const row = { codeHash: hashCode("042917"), expiresAt: new Date(sent.getTime() + CODE_MINUTES * 60_000), attempts: 0 };
+  const row = { codeHash: hashCode("042917", SECRET), expiresAt: new Date(sent.getTime() + CODE_MINUTES * 60_000), attempts: 0 };
 
   it("takes the code it was sent, spaces around it ignored", () => {
-    expect(codeVerdict(row, "042917", sent)).toBe("ok");
-    expect(codeVerdict(row, " 042917 ", sent)).toBe("ok");
+    expect(codeVerdict(row, "042917", sent, SECRET)).toBe("ok");
+    expect(codeVerdict(row, " 042917 ", sent, SECRET)).toBe("ok");
   });
 
-  it("refuses any other code", () => {
-    expect(codeVerdict(row, "042918", sent)).toBe("wrong");
-    expect(codeVerdict(row, "42917", sent)).toBe("wrong");
-    expect(codeVerdict(row, "", sent)).toBe("wrong");
+  it("refuses any other code, and the right one checked with another secret", () => {
+    expect(codeVerdict(row, "042918", sent, SECRET)).toBe("wrong");
+    expect(codeVerdict(row, "42917", sent, SECRET)).toBe("wrong");
+    expect(codeVerdict(row, "", sent, SECRET)).toBe("wrong");
+    expect(codeVerdict(row, "042917", sent, "other-secret")).toBe("wrong");
   });
 
   it("lasts ten minutes, and not a moment longer", () => {
-    expect(codeVerdict(row, "042917", after(CODE_MINUTES * 60 - 1))).toBe("ok");
-    expect(codeVerdict(row, "042917", after(CODE_MINUTES * 60))).toBe("expired");
-    expect(codeVerdict(row, "042918", after(CODE_MINUTES * 60))).toBe("expired");
+    expect(codeVerdict(row, "042917", after(CODE_MINUTES * 60 - 1), SECRET)).toBe("ok");
+    expect(codeVerdict(row, "042917", after(CODE_MINUTES * 60), SECRET)).toBe("expired");
+    expect(codeVerdict(row, "042918", after(CODE_MINUTES * 60), SECRET)).toBe("expired");
   });
 
   it("lasts five wrong tries: a sixth asks for a new code, even the right one", () => {
     expect(MAX_ATTEMPTS).toBe(5);
-    expect(codeVerdict({ ...row, attempts: MAX_ATTEMPTS - 1 }, "042917", sent)).toBe("ok");
-    expect(codeVerdict({ ...row, attempts: MAX_ATTEMPTS - 1 }, "042918", sent)).toBe("wrong");
-    expect(codeVerdict({ ...row, attempts: MAX_ATTEMPTS }, "042917", sent)).toBe("tooManyAttempts");
-    expect(codeVerdict({ ...row, attempts: MAX_ATTEMPTS }, "042918", sent)).toBe("tooManyAttempts");
+    expect(codeVerdict({ ...row, attempts: MAX_ATTEMPTS - 1 }, "042917", sent, SECRET)).toBe("ok");
+    expect(codeVerdict({ ...row, attempts: MAX_ATTEMPTS - 1 }, "042918", sent, SECRET)).toBe("wrong");
+    expect(codeVerdict({ ...row, attempts: MAX_ATTEMPTS }, "042917", sent, SECRET)).toBe("tooManyAttempts");
+    expect(codeVerdict({ ...row, attempts: MAX_ATTEMPTS }, "042918", sent, SECRET)).toBe("tooManyAttempts");
+  });
+
+  it("calls a code both out of time and out of tries expired", () => {
+    expect(codeVerdict({ ...row, attempts: MAX_ATTEMPTS }, "042917", after(CODE_MINUTES * 60), SECRET)).toBe("expired");
   });
 });
 
@@ -94,5 +102,21 @@ describe("resendIn", () => {
     expect(resendIn({ createdAt: sent }, after(29.9))).toBe(1);
     expect(resendIn({ createdAt: sent }, after(30))).toBe(0);
     expect(resendIn({ createdAt: sent }, after(3600))).toBe(0);
+  });
+});
+
+describe("resendWait", () => {
+  it("tells a guest refused another code what is left of the thirty seconds", () => {
+    expect(resendWait({ createdAt: sent }, after(10))).toBe(20);
+    expect(resendWait({ createdAt: sent }, after(29.5))).toBe(1);
+  });
+
+  it("is at least a second, as the database has just said it is too soon", () => {
+    expect(resendWait({ createdAt: sent }, after(30))).toBe(1);
+    expect(resendWait({ createdAt: sent }, after(45))).toBe(1);
+  });
+
+  it("is the whole thirty seconds when the code before it has gone meanwhile", () => {
+    expect(resendWait(undefined, sent)).toBe(RESEND_SECONDS);
   });
 });

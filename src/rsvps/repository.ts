@@ -7,7 +7,7 @@ import { countRsvps, type RsvpCounts, type StatusTally } from "./counts";
 import type { RsvpInput, RsvpStatus } from "./form";
 import { planHostEdit, planRsvp } from "./plan";
 import { generateEditToken, generateMailToken, hashEditToken } from "./token";
-import { codeVerdict, MAX_ATTEMPTS, type CodeVerdict } from "./verification";
+import { codeVerdict, MAX_ATTEMPTS, RESEND_SECONDS, type CodeVerdict } from "./verification";
 
 export type Rsvp = typeof rsvp.$inferSelect;
 
@@ -177,13 +177,13 @@ export async function findByMailToken(mailToken: string): Promise<{ title: strin
 }
 
 // The stop link's one power: blanking the email, so no more mail about the event reaches the
-// guest, and marking when, so a host cannot give them an email again (planHostEdit). The token
-// stays, so the link keeps landing on its page. Returns the event's title, or nothing when no
+// guest, and its proof with it, and marking when, so a host cannot give them an email again
+// (planHostEdit). The token stays, so the link keeps landing on its page. Returns the event's title, or nothing when no
 // RSVP has the token.
 export async function blankEmailByMailToken(mailToken: string): Promise<{ title: string } | undefined> {
   const [stopped] = await getDb()
     .update(rsvp)
-    .set({ email: null, mailStoppedAt: new Date() })
+    .set({ email: null, emailVerifiedAt: null, mailStoppedAt: new Date() })
     .from(event)
     .where(and(eq(rsvp.mailToken, mailToken), eq(event.id, rsvp.eventId)))
     .returning({ title: event.title });
@@ -219,13 +219,21 @@ export async function countRsvpsByEvent(eventIds: string[]): Promise<Map<string,
 // A code sent to an address a guest typed on the event's RSVP form (verification.ts).
 export type EmailCode = typeof emailCode.$inferSelect;
 
-// Stores the code just sent to an address, in place of any sent there before: its tries and its
-// time start again, and the old code no longer works.
-export async function createEmailCode(eventId: string, email: string, codeHash: string, expiresAt: Date): Promise<void> {
-  await getDb()
+// Stores a code just made for an address in place of the one before it, unless that one was made
+// less than thirty seconds ago (RESEND_SECONDS). The check is part of the write, so asks that
+// arrive together store, and send, one code. Returns the code stored, or nothing when it was too
+// soon. Its tries and its time start again, and the code before it no longer works.
+export async function createEmailCode(eventId: string, email: string, codeHash: string, expiresAt: Date, db: Db = getDb()): Promise<EmailCode | undefined> {
+  const [stored] = await db
     .insert(emailCode)
     .values({ eventId, email, codeHash, expiresAt })
-    .onConflictDoUpdate({ target: [emailCode.eventId, emailCode.email], set: { codeHash, expiresAt, attempts: 0, createdAt: sql`now()` } });
+    .onConflictDoUpdate({
+      target: [emailCode.eventId, emailCode.email],
+      set: { codeHash, expiresAt, attempts: 0, createdAt: sql`now()` },
+      setWhere: sql`${emailCode.createdAt} < now() - make_interval(secs => ${RESEND_SECONDS})`,
+    })
+    .returning();
+  return stored;
 }
 
 export async function findEmailCode(eventId: string, email: string): Promise<EmailCode | undefined> {
@@ -255,7 +263,7 @@ export async function deleteEmailCode(id: string, db: Db = getDb()): Promise<voi
 // that tries sent at once are counted one after another and a right code is used once: it is
 // deleted as it is accepted. A wrong one counts against it, and the guest is told how many tries
 // are left. No code for the address is one that has run out.
-export async function tryEmailCode(eventId: string, email: string, typed: string, now: Date): Promise<{ verdict: CodeVerdict; triesLeft: number }> {
+export async function tryEmailCode(eventId: string, email: string, typed: string, now: Date, secret: string): Promise<{ verdict: CodeVerdict; triesLeft: number }> {
   return getDb().transaction(async (tx) => {
     const [sent] = await tx
       .select()
@@ -263,7 +271,7 @@ export async function tryEmailCode(eventId: string, email: string, typed: string
       .where(and(eq(emailCode.eventId, eventId), eq(emailCode.email, email)))
       .for("update");
     if (!sent) return { verdict: "expired", triesLeft: 0 };
-    const verdict = codeVerdict(sent, typed, now);
+    const verdict = codeVerdict(sent, typed, now, secret);
     if (verdict === "ok") await deleteEmailCode(sent.id, tx);
     const attempts = verdict === "wrong" ? await countAttempt(sent.id, tx) : sent.attempts;
     return { verdict, triesLeft: Math.max(0, MAX_ATTEMPTS - attempts) };

@@ -11,6 +11,9 @@ import { clientAddress, expect, test } from "./test";
 
 const PARTY = { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0", email: "optional", verifyEmail: true } satisfies DraftFields;
 
+// What a guest is told when they ask for a code too soon after the last one.
+const TOO_SOON = "We just sent you a code. Look for it in your email.";
+
 // The code in the newest email to the address, which is the only thing on its line.
 async function codeSentTo(request: APIRequestContext, email: string, after = 0): Promise<string> {
   const code = (await latestMailTo(request, email, after)).match(/^([0-9]{6})\r?$/m)?.[1];
@@ -153,6 +156,41 @@ test("a guest at the mail limit who asks for another code is told so, and can st
   await host.context.close();
 });
 
+test("two asks for another code at the same moment send one, and the other is told one just went", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "code-twice", { ...PARTY, rsvpStyle: "Inline" });
+  const email = newHost("code-twice-guest").email;
+
+  // The guest has the invitation open in two tabs, and answers in both.
+  const other = await page.context().newPage();
+  for (const tab of [page, other]) {
+    await tab.goto(host.link);
+    await tab.getByRole("button", { name: "Going" }).click();
+    await tab.getByLabel("Your name").fill("Priya Nair");
+    await tab.getByLabel("Email").fill(email);
+    await tab.getByRole("button", { name: "Send RSVP" }).click();
+    await expect(tab.getByText(`We sent a code to ${email}.`)).toBeVisible();
+  }
+  // The second tab is told the first one's code is the one to enter.
+  await expect(other.getByText(TOO_SOON)).toBeVisible();
+  await expect.poll(() => mailCountTo(request, email), { timeout: 15_000 }).toBe(1);
+
+  // Thirty seconds on, both ask again at once: one new code goes, and the other tab is told so.
+  const again = [page, other].map((tab) => tab.getByRole("button", { name: /^Send it again/ }));
+  for (const button of again) await expect(button).toHaveText("Send it again", { timeout: 40_000 });
+  await Promise.all(again.map((button) => button.click()));
+  await expect.poll(async () => (await page.getByText(TOO_SOON).count()) + (await other.getByText(TOO_SOON).count()), { timeout: 15_000 }).toBe(1);
+  await expect.poll(() => mailCountTo(request, email), { timeout: 15_000 }).toBe(2);
+
+  // The newest code is the one that works.
+  await page.getByLabel("Code").fill(await codeSentTo(request, email, 1));
+  await page.getByRole("button", { name: "Confirm" }).click();
+  await expect(page.getByText("You’re going!")).toBeVisible();
+  expect(await mailCountTo(request, email)).toBe(2);
+
+  await host.context.close();
+});
+
 test("the Broadsheet's ballot asks for the code in its card, and takes it", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "code-broadsheet", { ...PARTY, layout: "Broadsheet", title: "Supper at Mei’s" });
@@ -169,6 +207,16 @@ test("the Broadsheet's ballot asks for the code in its card, and takes it", asyn
   await expect(ballot.getByLabel("Code")).toBeFocused();
   await expect(ballot.getByLabel("Your name")).toBeHidden();
   await expect(ballot.getByRole("button", { name: /^Send it again/ })).toBeDisabled();
+
+  // Back to the email and posted again unchanged: the code just sent is still the one to enter.
+  await ballot.getByRole("button", { name: "Change email" }).click();
+  await expect(ballot.getByLabel("Email")).toBeFocused();
+  await page.getByRole("button", { name: "Post my reply" }).click();
+  await expect(ballot.getByLabel("Code")).toBeFocused();
+  await expect(ballot.getByText(`We sent a code to ${email}.`)).toBeVisible();
+  await expect(ballot.getByText(TOO_SOON)).toHaveCount(0);
+  expect(await mailCountTo(request, email)).toBe(1);
+
   await ballot.getByLabel("Code").fill(await codeSentTo(request, email));
   await ballot.getByRole("button", { name: "Confirm" }).click();
 
