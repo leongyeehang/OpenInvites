@@ -107,7 +107,9 @@ test("the guests who said Going are reminded the day before, and an event with r
   expect(reminder.text).toMatch(/^When: .+ GMT\+8$/m);
   expect(reminder.text).toContain("Where: Ah Ma’s house, 3rd floor");
   expect(reminder.text).toContain("You said Going, with 2 plus-ones.");
-  expect(reminder.text).toContain(birthday);
+  // The event link, whichever container queued it: `app-social` shares the database and the mail
+  // worker's claim lets either container queue a reminder, under its own BASE_URL (compose.yaml).
+  expect(reminder.text).toMatch(new RegExp(`^https?://\\S+${new URL(birthday).pathname}$`, "m"));
   expect(reminder.text).toMatch(
     /You are getting this because you gave your email when you replied to Ada’s birthday\. To stop emails about this event: https?:\/\/\S+\/m\/[A-Za-z0-9]{24}$/,
   );
