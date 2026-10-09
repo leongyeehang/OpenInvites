@@ -4,6 +4,7 @@ import Link from "next/link";
 import { requireHost } from "@/auth/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { eventsOwnedAtLimit } from "@/events/limit";
 import { listHostEvents, type HostEvent } from "@/events/repository";
 import { formatWhen, partitionByEnd } from "@/events/time";
 import { NO_RSVPS, type RsvpCounts } from "@/rsvps/counts";
@@ -26,14 +27,19 @@ export default async function DashboardPage() {
   ]);
   const { upcoming, past } = partitionByEnd(events, new Date());
   const counts = await countRsvpsByEvent(events.map((event) => event.id));
+  const atLimit = await eventsOwnedAtLimit(host.id);
 
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
-        <Button asChild>
-          <Link href="/events/new">{t("new")}</Link>
-        </Button>
+        {atLimit === undefined ? (
+          <Button asChild>
+            <Link href="/events/new">{t("new")}</Link>
+          </Button>
+        ) : (
+          <p className="text-sm text-muted-foreground">{t("limitReached", { count: atLimit })}</p>
+        )}
       </div>
       {events.length === 0 ? (
         <p className="text-muted-foreground">{t("empty")}</p>

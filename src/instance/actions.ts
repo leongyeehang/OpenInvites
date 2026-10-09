@@ -10,8 +10,9 @@ import { isMailConfigured } from "@/mail/config";
 import { consume } from "@/rate-limit/rate-limit";
 import { sendHostInvitationEmail } from "./emails";
 import { generateHostInvitationToken, hashHostInvitationToken, hostInvitationLink } from "./host-invitation-token";
+import { parseLimits } from "./limits";
 import { isRegistrationMode } from "./registration";
-import { createHostInvitation, revokeHostInvitation, setRegistrationMode } from "./repository";
+import { createHostInvitation, revokeHostInvitation, setInstanceLimits, setRegistrationMode } from "./repository";
 
 // Every action here is the operator's alone; anyone else is told the page does not exist.
 
@@ -22,6 +23,21 @@ export async function setRegistrationModeAction(_: FormState, formData: FormData
   const mode = formData.get("mode");
   if (!isRegistrationMode(mode)) return { error: t("unknown") };
   await setRegistrationMode(mode);
+  revalidatePath("/instance");
+  return { success: t("saved") };
+}
+
+// Read each time a limit is checked, so a change takes effect at once, as the registration mode does.
+export async function setInstanceLimitsAction(_: FormState, formData: FormData): Promise<FormState> {
+  await requireOperator();
+  const t = await getTranslations("Instance.limits");
+  const text = (name: string) => {
+    const value = formData.get(name);
+    return typeof value === "string" ? value : "";
+  };
+  const parsed = parseLimits({ maxEventsPerHost: text("maxEventsPerHost"), maxRsvpsPerEvent: text("maxRsvpsPerEvent") });
+  if (!parsed.ok) return { error: t(`${parsed.field}Invalid`) };
+  await setInstanceLimits(parsed.limits);
   revalidatePath("/instance");
   return { success: t("saved") };
 }

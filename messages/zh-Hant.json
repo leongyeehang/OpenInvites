@@ -126,7 +126,8 @@
       "emptyPast": "還沒有已結束的活動。",
       "counts": "{going} 人參加 · {maybe} 人待定 · {declined} 人無法參加",
       "headcount": "{count, plural, =0 {還沒有人確定要來} other {預計 # 人}}",
-      "coHost": "共同主辦人"
+      "coHost": "共同主辦人",
+      "limitReached": "你已有 {count, plural, other {# 場活動}}，這是本實例允許的上限。刪除一場不再需要的活動，才能再建立新的。"
     }
   },
   "Account": {
@@ -177,6 +178,18 @@
       "submit": "儲存",
       "saved": "已儲存。",
       "unknown": "請選擇「僅限受邀」或「開放」。"
+    },
+    "limits": {
+      "title": "上限",
+      "description": "一位主辦人或一場活動最多能容納的數量。變更立即生效，已有的內容維持不變。",
+      "maxEventsPerHost": "每位主辦人的活動數",
+      "maxEventsPerHostHint": "計入主辦人名下的每一場活動，包括草稿和已結束的活動。",
+      "maxRsvpsPerEvent": "每場活動的回覆數",
+      "maxRsvpsPerEventHint": "計入一場活動收到的每一則回覆，無論回覆的是什麼。",
+      "submit": "儲存",
+      "saved": "已儲存。",
+      "maxEventsPerHostInvalid": "請為每位主辦人的活動數填寫 1 到 100,000 之間的整數。",
+      "maxRsvpsPerEventInvalid": "請為每場活動的回覆數填寫 1 到 100,000 之間的整數。"
     },
     "invitations": {
       "title": "主辦人邀請",
@@ -352,7 +365,8 @@
       "questionChoiceTooLong": "選項太長了。",
       "tooManyQuestions": "一份邀請最多只能有 10 個問題。",
       "descriptionTooLong": "活動介紹太長了，邀請放不下。",
-      "descriptionUnreadable": "無法讀取活動介紹。請先把它複製到安全的地方，再試一次。"
+      "descriptionUnreadable": "無法讀取活動介紹。請先把它複製到安全的地方，再試一次。",
+      "limitReached": "你已有 {count, plural, other {# 場活動}}，這是本實例允許的上限。刪除一場不再需要的活動，才能再建立新的。"
     },
     "manage": {
       "link": "活動連結",
@@ -823,7 +837,8 @@
       "answerRequired": "主辦人希望你回答這一題。",
       "answerNotOffered": "請從提供的選項中選一個。",
       "answerTooLong": "回答太長了。",
-      "tooFast": "操作太頻繁了，請稍後再試。"
+      "tooFast": "操作太頻繁了，請稍後再試。",
+      "limitReached": "這場活動無法再接受更多回覆了。"
     },
     "questions": {
       "title": "幾個小問題",

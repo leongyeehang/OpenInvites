@@ -169,7 +169,7 @@ test("a host invitation link nobody made is not found", async ({ request }) => {
 test("switching registration to Open lets anyone sign up", async ({ browser }) => {
   await operator.goto("/instance");
   await operator.getByLabel("Open", { exact: true }).check();
-  await operator.getByRole("button", { name: "Save" }).click();
+  await operator.locator("form").filter({ has: operator.getByLabel("Open", { exact: true }) }).getByRole("button", { name: "Save" }).click();
   await expect(operator.getByText("Saved.")).toBeVisible();
 
   const page = await onPhone(browser);

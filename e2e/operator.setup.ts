@@ -18,6 +18,7 @@ setup("the operator opens registration to everyone", async ({ page, request }) =
   await page.goto("/dashboard");
   await page.getByRole("link", { name: "Instance settings" }).click();
   await page.getByLabel("Open", { exact: true }).check();
-  await page.getByRole("button", { name: "Save" }).click();
+  // The Limits card has a Save button too: this one is the Registration form's.
+  await page.locator("form").filter({ has: page.getByLabel("Open", { exact: true }) }).getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Saved.")).toBeVisible();
 });

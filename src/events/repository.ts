@@ -210,6 +210,13 @@ export async function listHostEvents(hostId: string): Promise<HostEvent[]> {
   return events.map((found) => ({ ...withTheme(found), role: roleOf(found, hostId) }));
 }
 
+// The events this host owns, in any state; co-hosted events are not theirs. What the operator's
+// events-per-host limit counts.
+export async function countOwnedEvents(hostId: string): Promise<number> {
+  const [row] = await getDb().select({ events: sql<number>`count(*)::int` }).from(event).where(eq(event.hostId, hostId));
+  return row.events;
+}
+
 export type EventWithHost = Event & { hostName: string };
 
 // The event page: an event by its link, with its owner's display name, which the preview card shows.

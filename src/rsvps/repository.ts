@@ -30,6 +30,12 @@ export async function findEventForToken(token: string): Promise<{ eventId: strin
   return row;
 }
 
+// Every RSVP on the event, in any status: what the operator's replies-per-event limit counts.
+export async function countEventRsvps(eventId: string, db: Db = getDb()): Promise<number> {
+  const [row] = await db.select({ replies: sql<number>`count(*)::int` }).from(rsvp).where(eq(rsvp.eventId, eventId));
+  return row.replies;
+}
+
 // An RSVP together with the edit token that opened it, which is what the guest holds.
 export type MyRsvp = { rsvp: Rsvp; token: string };
 

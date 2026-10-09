@@ -6,7 +6,7 @@ import { requireHost } from "@/auth/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { duplicateEventAction, publishEventAction, updateEventAction } from "@/events/actions";
+import { publishEventAction, updateEventAction } from "@/events/actions";
 import { findHostEvent } from "@/events/repository";
 import { can } from "@/hosts/role";
 import { countAnswersByQuestion, listQuestions } from "@/questions/repository";
@@ -16,6 +16,7 @@ import { baseUrl } from "@/instance/env";
 import { ClientMessages } from "@/locale/client-messages";
 import { EventForm } from "../event-form";
 import { DangerZone } from "../danger-zone";
+import { DuplicateButton } from "../duplicate-button";
 import { EventStateBadge } from "../event-state-badge";
 
 export async function generateMetadata({ params }: PageProps<"/events/[id]">): Promise<Metadata> {
@@ -88,11 +89,7 @@ export default async function ManageEventPage({ params, searchParams }: PageProp
               </Button>
             )}
             {can(event.role, "duplicate") && (
-              <form action={duplicateEventAction.bind(null, event.id)}>
-                <Button type="submit" variant="outline" title={t("manage.duplicateHint")}>
-                  {t("manage.duplicate")}
-                </Button>
-              </form>
+              <DuplicateButton eventId={event.id} label={t("manage.duplicate")} hint={t("manage.duplicateHint")} />
             )}
             {event.state === "draft" && (
               <form action={publishEventAction.bind(null, event.id)}>

@@ -15,6 +15,7 @@ import { copyPicture } from "@/uploads/copy";
 import { findEventUpload } from "@/uploads/repository";
 import { duplicateInput } from "./duplicate";
 import { parseEventForm } from "./form";
+import { eventsOwnedAtLimit } from "./limit";
 import { cancelEvent, createEvent, deleteEvent, findHostEvent, publishEvent, resetEventLink, updateEvent } from "./repository";
 
 // The editor writes its document into one field, as the questions editor does. An empty field
@@ -73,6 +74,8 @@ export async function createEventAction(_: FormState, formData: FormData): Promi
   const host = await requireHost();
   const t = await getTranslations("Events");
   if (hostNeedsVerification(host)) return { error: t("verify.text", { email: host.email }) };
+  const owned = await eventsOwnedAtLimit(host.id);
+  if (owned !== undefined) return { error: t("errors.limitReached", { count: owned }) };
   const posted = postedDescription(formData);
   if (posted === UNREADABLE) return { error: t("errors.descriptionUnreadable") };
   const description = parseRichText(posted);
@@ -147,12 +150,15 @@ export async function resetLinkAction(id: string): Promise<void> {
 }
 
 // A new draft with the same details, look, questions, settings and picture, owned by the host who
-// asks, who is taken to its manage page, which names the event it came from.
-export async function duplicateEventAction(id: string): Promise<void> {
+// asks, who is taken to its manage page, which names the event it came from. A host at the
+// operator's limit is told so instead.
+export async function duplicateEventAction(id: string): Promise<FormState> {
   const host = await requireHost();
   const source = await findHostEvent(host.id, id);
   if (!source || !can(source.role, "duplicate")) redirect(`/events/${id}`);
   const t = await getTranslations("Events");
+  const owned = await eventsOwnedAtLimit(host.id);
+  if (owned !== undefined) return { error: t("errors.limitReached", { count: owned }) };
   const { event, questions } = duplicateInput(source, await listQuestions(id), await getLocale(), t("duplicate.copySuffix"));
 
   const created = await createEvent(host.id, event);

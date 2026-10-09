@@ -4,6 +4,7 @@ import { getDb } from "@/db/client";
 import { hostInvitation, instanceSettings, user } from "@/db/schema";
 import { hostInvitationExpiry } from "./host-invitation";
 import { hashHostInvitationToken } from "./host-invitation-token";
+import type { Limits } from "./limits";
 import type { OperatorSeat, RegistrationMode } from "./registration";
 
 // The instance settings row always exists: the migration that made the table put it there.
@@ -15,6 +16,18 @@ export async function registrationMode(): Promise<RegistrationMode> {
 
 export async function setRegistrationMode(mode: RegistrationMode): Promise<void> {
   await getDb().update(instanceSettings).set({ registrationMode: mode });
+}
+
+// Cached per request: the settings page and the checks that act on a limit may both ask.
+export const instanceLimits = cache(async (): Promise<Limits> => {
+  const [settings] = await getDb()
+    .select({ maxEventsPerHost: instanceSettings.maxEventsPerHost, maxRsvpsPerEvent: instanceSettings.maxRsvpsPerEvent })
+    .from(instanceSettings);
+  return settings;
+});
+
+export async function setInstanceLimits(limits: Limits): Promise<void> {
+  await getDb().update(instanceSettings).set(limits);
 }
 
 // Cached per request: the header and the page both ask.

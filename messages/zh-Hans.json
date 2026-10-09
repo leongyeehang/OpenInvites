@@ -126,7 +126,8 @@
       "emptyPast": "还没有已结束的活动。",
       "counts": "{going} 人参加 · {maybe} 人待定 · {declined} 人无法参加",
       "headcount": "{count, plural, =0 {还没有人确定要来} other {预计 # 人}}",
-      "coHost": "共同主办人"
+      "coHost": "共同主办人",
+      "limitReached": "你已有 {count, plural, other {# 场活动}}，这是本实例允许的上限。删除一场不再需要的活动，才能再创建新的。"
     }
   },
   "Account": {
@@ -177,6 +178,18 @@
       "submit": "保存",
       "saved": "已保存。",
       "unknown": "请选择“仅限受邀”或“开放”。"
+    },
+    "limits": {
+      "title": "上限",
+      "description": "一位主办人或一场活动最多能容纳的数量。更改立即生效，已有的内容保持不变。",
+      "maxEventsPerHost": "每位主办人的活动数",
+      "maxEventsPerHostHint": "计入主办人名下的每一场活动，包括草稿和已结束的活动。",
+      "maxRsvpsPerEvent": "每场活动的回复数",
+      "maxRsvpsPerEventHint": "计入一场活动收到的每一条回复，无论回复的是什么。",
+      "submit": "保存",
+      "saved": "已保存。",
+      "maxEventsPerHostInvalid": "请为每位主办人的活动数填写 1 到 100,000 之间的整数。",
+      "maxRsvpsPerEventInvalid": "请为每场活动的回复数填写 1 到 100,000 之间的整数。"
     },
     "invitations": {
       "title": "主办人邀请",
@@ -352,7 +365,8 @@
       "questionChoiceTooLong": "选项太长了。",
       "tooManyQuestions": "一份邀请最多只能有 10 个问题。",
       "descriptionTooLong": "活动介绍太长了，邀请装不下。",
-      "descriptionUnreadable": "无法读取活动介绍。请先把它复制到安全的地方，然后重试。"
+      "descriptionUnreadable": "无法读取活动介绍。请先把它复制到安全的地方，然后重试。",
+      "limitReached": "你已有 {count, plural, other {# 场活动}}，这是本实例允许的上限。删除一场不再需要的活动，才能再创建新的。"
     },
     "manage": {
       "link": "活动链接",
@@ -823,7 +837,8 @@
       "answerRequired": "主办人希望你回答这一题。",
       "answerNotOffered": "请从给出的选项中选一个。",
       "answerTooLong": "回答太长了。",
-      "tooFast": "操作太频繁了，请稍后再试。"
+      "tooFast": "操作太频繁了，请稍后再试。",
+      "limitReached": "这场活动无法再接受更多回复了。"
     },
     "questions": {
       "title": "几个小问题",

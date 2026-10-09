@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { boolean, check, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { DEFAULT_REGISTRATION_MODE, REGISTRATION_MODES } from "../instance/registration";
+import { DEFAULT_LIMITS } from "../instance/limits";
 import { defaultLocale, type Locale } from "../locale/resolve-locale";
 import { QUESTION_TYPES } from "../questions/question";
 import { EMPTY_RICH_TEXT, type RichText } from "../rich-text/rich-text";
@@ -92,6 +93,9 @@ export const instanceSettings = pgTable(
     // The email of a sign-up that found the instance empty, from the moment it is let in until its
     // account exists and becomes the operator. Two first sign-ups at once cannot both hold it.
     firstAccountEmail: text("first_account_email"),
+    // The operator's limits (spec, "Operator limits"); see instance/limits.ts for their range.
+    maxEventsPerHost: integer("max_events_per_host").notNull().default(DEFAULT_LIMITS.maxEventsPerHost),
+    maxRsvpsPerEvent: integer("max_rsvps_per_event").notNull().default(DEFAULT_LIMITS.maxRsvpsPerEvent),
   },
   (table) => [check("instance_settings_one_row", sql`${table.id}`)],
 );

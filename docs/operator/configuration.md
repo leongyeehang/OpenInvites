@@ -58,6 +58,14 @@ else that address is a page that does not exist.
   use it). The link is shown once, to copy; with mail configured, the operator can have it
   emailed instead. A link works for one account and expires after 14 days, and can be revoked
   while it is pending. The page lists every invitation as Pending, Used, Revoked, or Expired.
+- **Limits** are two caps, set on the same page and read each time they are checked, so a change
+  takes effect at once. **Events per host** (50 by default) counts every event a host owns,
+  drafts and past events included but not events they only co-host; a host at the limit cannot
+  create or duplicate an event until they delete one. **Replies per event** (500 by default)
+  counts every reply to an event, whatever its answer; a guest who has not yet replied is told
+  the event can't take more replies, while guests who have replied can still change or withdraw
+  theirs. Each is a whole number from 1 to 100,000. Lowering a limit below what exists leaves
+  the existing events and replies alone and refuses only new ones.
 - Emailed host invitations count against the mail rate limit (`RATE_LIMIT_MAIL`, 10 an hour by
   default) together with every other email your own address asks for. To send more host
   invitations than that in an hour, copy the links instead, or raise the limit.

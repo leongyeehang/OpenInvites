@@ -7,6 +7,8 @@ import { requireHost } from "@/auth/session";
 import { acceptsRsvps } from "@/events/access";
 import { findEventBySlug, findHostEvent } from "@/events/repository";
 import { can } from "@/hosts/role";
+import { atLimit } from "@/instance/limits";
+import { instanceLimits } from "@/instance/repository";
 import { parseAnswers, type AnswerFields } from "@/questions/answers";
 import { listQuestions, saveAnswers } from "@/questions/repository";
 import type { FormState } from "@/lib/form-state";
@@ -14,7 +16,7 @@ import { consume } from "@/rate-limit/rate-limit";
 import { parseHostEdit, parseRsvpForm, type RsvpFormFields } from "./form";
 import { findRsvpOnThisDevice, guestRsvp, type SaveRsvpResult } from "./guest";
 import { notifyHostsOfRsvp } from "./notify-hosts";
-import { deleteRsvp, editRsvpAsHost, saveRsvp } from "./repository";
+import { countEventRsvps, deleteRsvp, editRsvpAsHost, saveRsvp } from "./repository";
 import { rsvpCookieName, rsvpCookieOptions } from "./token";
 
 function fields(formData: FormData): RsvpFormFields {
@@ -40,6 +42,13 @@ function answersFrom(formData: FormData): AnswerFields {
   return given;
 }
 
+// Whether the event already has as many replies as the operator allows. A guest with a reply on
+// this device is never turned away by it: they are changing theirs, not adding one.
+async function repliesAtLimit(eventId: string): Promise<boolean> {
+  const [limits, replies] = await Promise.all([instanceLimits(), countEventRsvps(eventId)]);
+  return atLimit(replies, limits.maxRsvpsPerEvent);
+}
+
 // Every answer counts against the RSVP limit before anything is looked up, so that neither a
 // flood of RSVPs nor a search for event links gets far through here.
 export async function saveRsvpAction(slug: string, formData: FormData): Promise<SaveRsvpResult> {
@@ -54,6 +63,7 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
   if (!answers.ok) return { error: answers.error };
 
   const mine = await findRsvpOnThisDevice(event.id);
+  if (!mine && (await repliesAtLimit(event.id))) return { error: "limitReached" };
   // The language the guest answers in is the one their mail about the event is written in.
   const locale = await getLocale();
   // Two writes rather than one transaction: a failure between them leaves the RSVP saved with

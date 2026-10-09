@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { revokeHostInvitationAction } from "@/instance/actions";
 import { HOST_INVITATION_DAYS, hostInvitationDaysLeft, hostInvitationState, type HostInvitationState } from "@/instance/host-invitation";
-import { listHostInvitations, registrationMode, type HostInvitation } from "@/instance/repository";
+import { instanceLimits, listHostInvitations, registrationMode, type HostInvitation } from "@/instance/repository";
 import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
 import { HostHeader } from "../(host)/host-header";
-import { HostInvitationForm, RegistrationForm } from "./instance-forms";
+import { HostInvitationForm, LimitsForm, RegistrationForm } from "./instance-forms";
 
 // Outside the host area's layout, which sends a signed-out visitor to sign in: this page does
 // not exist for anyone but the operator, so everyone else gets the not-found page, title and all.
@@ -22,7 +22,12 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function InstancePage() {
   const host = await requireOperator();
-  const [t, mode, invitations] = await Promise.all([getTranslations("Instance"), registrationMode(), listHostInvitations()]);
+  const [t, mode, limits, invitations] = await Promise.all([
+    getTranslations("Instance"),
+    registrationMode(),
+    instanceLimits(),
+    listHostInvitations(),
+  ]);
   const now = new Date();
 
   return (
@@ -40,6 +45,19 @@ export default async function InstancePage() {
           <CardContent>
             <ClientMessages namespaces={["Instance.registration"]}>
               <RegistrationForm mode={mode} />
+            </ClientMessages>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>{t("limits.title")}</h2>
+            </CardTitle>
+            <CardDescription>{t("limits.description")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ClientMessages namespaces={["Instance.limits"]}>
+              <LimitsForm limits={limits} />
             </ClientMessages>
           </CardContent>
         </Card>

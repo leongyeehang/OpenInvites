@@ -1,0 +1,2 @@
+ALTER TABLE "instance_settings" ADD COLUMN "max_events_per_host" integer DEFAULT 50 NOT NULL;--> statement-breakpoint
+ALTER TABLE "instance_settings" ADD COLUMN "max_rsvps_per_event" integer DEFAULT 500 NOT NULL;

@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { createHostInvitationAction, setRegistrationModeAction } from "@/instance/actions";
+import { createHostInvitationAction, setInstanceLimitsAction, setRegistrationModeAction } from "@/instance/actions";
+import { LIMIT_MAX, LIMIT_MIN, type Limits } from "@/instance/limits";
 import { REGISTRATION_MODES, type RegistrationMode } from "@/instance/registration";
 
 export function RegistrationForm({ mode }: { mode: RegistrationMode }) {
@@ -36,6 +37,28 @@ export function RegistrationForm({ mode }: { mode: RegistrationMode }) {
             </Field>
           ))}
         </FieldSet>
+        <FormOutcome state={state} />
+        <Button type="submit" disabled={pending} className="self-start">
+          {t("submit")}
+        </Button>
+      </FieldGroup>
+    </form>
+  );
+}
+
+export function LimitsForm({ limits }: { limits: Limits }) {
+  const t = useTranslations("Instance.limits");
+  const [state, action, pending] = useActionState(setInstanceLimitsAction, undefined);
+  return (
+    <form action={action}>
+      <FieldGroup>
+        {(["maxEventsPerHost", "maxRsvpsPerEvent"] as const).map((name) => (
+          <Field key={name}>
+            <FieldLabel htmlFor={name}>{t(name)}</FieldLabel>
+            <Input id={name} name={name} type="number" inputMode="numeric" min={LIMIT_MIN} max={LIMIT_MAX} step={1} defaultValue={limits[name]} required />
+            <FieldDescription>{t(`${name}Hint`)}</FieldDescription>
+          </Field>
+        ))}
         <FormOutcome state={state} />
         <Button type="submit" disabled={pending} className="self-start">
           {t("submit")}
