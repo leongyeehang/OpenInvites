@@ -189,7 +189,7 @@ test("a host can add a question while creating the event", async ({ page, reques
 
   await host.page.goto(`${host.page.url()}/guests`);
   await expect(host.page.getByText("Staying over?")).toBeVisible();
-  await expect(host.page.getByText("yes")).toBeVisible();
+  await expect(host.page.getByText("yes", { exact: true })).toBeVisible();
 
   await host.context.close();
 });
