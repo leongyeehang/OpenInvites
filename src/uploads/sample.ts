@@ -1,4 +1,4 @@
-import { css, luminance as relativeLuminance, over, TONES, type Backdrop, type BackdropUse, type Rgb } from "@/themes/legibility";
+import { css, luma, luminance as relativeLuminance, over, TONES, type Backdrop, type BackdropUse, type Rgb } from "@/themes/legibility";
 
 // What the server reads from a host's picture (spec, "Uploads and images"), so the theme's auto
 // accent and auto text tone follow it, and every surface on the page is solved against it
@@ -35,7 +35,7 @@ export function sampleColours(raster: Raster): { luminance: number; accent: stri
   let brightness = 0;
   let count = 0;
   for (const [r, g, b] of pixels(raster)) {
-    brightness += (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    brightness += luma([r, g, b]);
     mean.r += r;
     mean.g += g;
     mean.b += b;

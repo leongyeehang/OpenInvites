@@ -99,6 +99,69 @@
       "when": 1790183057646,
       "tag": "0013_operator_and_host_invitations",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791344024702,
+      "tag": "0014_mail_outbox_and_reply_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1791351469623,
+      "tag": "0015_guest_mail",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791354089626,
+      "tag": "0016_announcements",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791357084142,
+      "tag": "0017_automatic_reminders",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791360243047,
+      "tag": "0018_co_hosts",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791364512085,
+      "tag": "0019_comments",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791423287127,
+      "tag": "0020_multiple_choice_questions",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791425114341,
+      "tag": "0021_event_views",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791454379392,
+      "tag": "0022_existing_events_keep_no_effect",
+      "breakpoints": true
     }
   ]
 }

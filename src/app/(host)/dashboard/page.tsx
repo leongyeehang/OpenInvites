@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { requireHost } from "@/auth/session";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { listHostEvents, type Event } from "@/events/repository";
+import { listHostEvents, type HostEvent } from "@/events/repository";
 import { formatWhen, partitionByEnd } from "@/events/time";
 import { NO_RSVPS, type RsvpCounts } from "@/rsvps/counts";
 import { countRsvpsByEvent } from "@/rsvps/repository";
@@ -14,7 +15,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("title") };
 }
 
-// Upcoming and past, decided by when the event ends, each card carrying how its RSVPs stand.
+// Upcoming and past, decided by when the event ends, each card carrying how its RSVPs stand. The
+// events the host co-hosts are among them, marked so.
 export default async function DashboardPage() {
   const host = await requireHost();
   const [t, locale, events] = await Promise.all([
@@ -55,7 +57,7 @@ async function EventList({
 }: {
   id: string;
   heading: string;
-  events: Event[];
+  events: HostEvent[];
   empty: string;
   locale: string;
   counts: Map<string, RsvpCounts>;
@@ -81,6 +83,7 @@ async function EventList({
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{event.title}</span>
                     <EventStateBadge state={event.state} />
+                    {event.role === "coHost" && <Badge variant="outline">{t("coHost")}</Badge>}
                   </div>
                   <span className="text-sm text-muted-foreground">{formatWhen(event, locale)}</span>
                   <span className="text-sm text-muted-foreground">

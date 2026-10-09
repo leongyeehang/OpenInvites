@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { choicesFrom, MAX_QUESTIONS, QUESTION_TYPES, type QuestionDraft } from "@/questions/question";
 
-const TYPE_LABELS = { text: "questionText", choice: "questionChoice", yesNo: "questionYesNo" } as const;
+const TYPE_LABELS = { text: "questionText", choice: "questionChoice", multiple: "questionMultiple", yesNo: "questionYesNo" } as const;
 
 // The host's questions, edited as one list and saved with the event, so a host can write them
 // while they create it. The list travels in a single hidden field; the action reads it back.
@@ -102,7 +102,7 @@ export function QuestionsEditor({
               </label>
             </div>
 
-            {draft.type === "choice" && (
+            {(draft.type === "choice" || draft.type === "multiple") && (
               <Input
                 aria-label={t("questionChoices", { number: index + 1 })}
                 value={draft.options.join(", ")}

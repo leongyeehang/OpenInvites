@@ -12,6 +12,7 @@ import type { FormState } from "@/lib/form-state";
 import { isMailConfigured } from "@/mail/config";
 import { getAuth } from "./auth";
 import { authErrorMessage } from "./errors";
+import { nextPath } from "./next-path";
 import type { SocialProviderId } from "./providers";
 import { type Host, requireHost } from "./session";
 
@@ -46,6 +47,8 @@ export async function signUp(_: FormState, formData: FormData): Promise<FormStat
   redirect("/dashboard");
 }
 
+// Back to the page that sent the visitor to sign in, when it is one on this instance (next-path.ts),
+// or the dashboard.
 export async function signIn(_: FormState, formData: FormData): Promise<FormState> {
   try {
     await getAuth().api.signInEmail({
@@ -55,24 +58,46 @@ export async function signIn(_: FormState, formData: FormData): Promise<FormStat
   } catch (error) {
     return { error: await authErrorMessage(error) };
   }
-  redirect("/dashboard");
+  redirect(nextPath(formData.get("next")));
 }
 
 // A first-time click creates the host (auth.ts's databaseHooks); a returning one signs them in.
 // Better Auth builds the provider's authorization URL; we just send the browser there. A click
 // the rate limits refuse comes back to the sign-in page, which says so, as a refused social
-// sign-up does.
-export async function signInSocial(provider: SocialProviderId): Promise<void> {
+// sign-up does. The provider sends the browser back to `next`, checked as the email sign-in checks it.
+export async function signInSocial(provider: SocialProviderId, next?: string): Promise<void> {
   let url: string | undefined;
   try {
     ({ url } = await getAuth().api.signInSocial({
-      body: { provider, callbackURL: "/dashboard", errorCallbackURL: "/sign-in?socialError=1" },
+      body: { provider, callbackURL: nextPath(next), errorCallbackURL: "/sign-in?socialError=1" },
       headers: await headers(),
     }));
   } catch (error) {
     if (!(error instanceof APIError) || error.body?.code !== "TOO_MANY_REQUESTS") throw error;
   }
   redirect(url ?? "/sign-in?socialError=1&error=TOO_MANY_REQUESTS");
+}
+
+// The same answer whether or not the address has an account (emails.ts sends nothing for one
+// that has none). The link leads to `next`, checked as the email sign-in checks it; one that has
+// expired or been used comes back to the sign-in page, which says so.
+export async function requestSignInLink(_: FormState, formData: FormData): Promise<FormState> {
+  const t = await getTranslations("Auth.signIn");
+  const email = field(formData, "email").trim();
+  const next = nextPath(formData.get("next"));
+  try {
+    await getAuth().api.signInMagicLink({
+      body: {
+        email,
+        callbackURL: next,
+        errorCallbackURL: `/sign-in?${new URLSearchParams({ linkError: "1", next })}`,
+      },
+      headers: await headers(),
+    });
+  } catch (error) {
+    return { error: await authErrorMessage(error) };
+  }
+  return { success: t("linkSent", { email }) };
 }
 
 // Signs out this device only; sessions on other devices stay valid.

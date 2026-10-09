@@ -49,7 +49,12 @@
       "continueWithGithub": "使用 GitHub 繼續",
       "HOST_INVITATION_REQUIRED": "此實例僅限受邀註冊。要使用 Google 或 GitHub 建立帳號，請先開啟你的主辦人邀請連結，再繼續。",
       "HOST_INVITATION_UNUSABLE": "此主辦人邀請已無法使用。請向此實例的營運者索取新的邀請。",
-      "TOO_MANY_REQUESTS": "操作太頻繁了，請稍後再試。"
+      "TOO_MANY_REQUESTS": "操作太頻繁了，請稍後再試。",
+      "linkTitle": "透過電子郵件取得登入連結",
+      "linkEmail": "接收登入連結的電子郵件",
+      "linkSubmit": "寄連結給我",
+      "linkSent": "如果這裡有對應的帳號，我們已把登入連結寄到 {email}。",
+      "linkExpired": "這個登入連結已過期或已被使用。"
     },
     "forgotPassword": {
       "title": "重設密碼",
@@ -120,7 +125,8 @@
       "emptyUpcoming": "近期沒有活動。",
       "emptyPast": "還沒有已結束的活動。",
       "counts": "{going} 人參加 · {maybe} 人待定 · {declined} 人無法參加",
-      "headcount": "{count, plural, =0 {還沒有人確定要來} other {預計 # 人}}"
+      "headcount": "{count, plural, =0 {還沒有人確定要來} other {預計 # 人}}",
+      "coHost": "共同主辦人"
     }
   },
   "Account": {
@@ -153,7 +159,7 @@
       "description": "將刪除你的帳號、你的活動，以及每位賓客的資料。這個動作無法復原。",
       "button": "刪除帳號",
       "confirmTitle": "要刪除你的帳號嗎？",
-      "confirmDescription": "你的活動和所有回覆都會一併刪除。請輸入密碼確認。",
+      "confirmDescription": "你自己的活動和所有回覆都會一併刪除，有共同主辦人的也不例外。你共同主辦的活動會留給它們的主辦人，你會退出這些活動。請輸入密碼確認。",
       "password": "密碼",
       "cancel": "取消",
       "confirm": "刪除我的帳號"
@@ -214,9 +220,53 @@
     "hostInvitation": {
       "subject": "你的 OpenInvites 主辦人邀請",
       "body": "你好：\n\n這是你的 OpenInvites 主辦人邀請。開啟下方連結，建立主辦人帳號，就可以開始製作活動頁面了。\n\n{url}\n\n這個連結只能建立一個帳號，{days} 天後失效。如果你沒想到會收到這封郵件，可以忽略它。"
+    },
+    "rsvpReply": {
+      "subject": {
+        "replied": "{name} 回覆了「{title}」：{status}",
+        "changed": "{name} 對「{title}」的回覆現在是：{status}",
+        "removed": "{name} 對「{title}」的回覆已移除"
+      },
+      "body": {
+        "replied": "{name} 回覆了「{title}」：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。",
+        "changed": "{name} 對「{title}」的回覆現在是：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。",
+        "removed": "{name} 對「{title}」的回覆已移除。原本的回覆是：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。"
+      },
+      "status": {
+        "going": "參加",
+        "maybe": "待定",
+        "cant": "無法參加"
+      }
+    },
+    "cancelled": {
+      "subject": "「{title}」已取消",
+      "body": "主辦人已經取消了「{title}」。\n\n活動頁面：\n{url}"
+    },
+    "announcement": {
+      "subject": "「{title}」：來自主辦人的訊息"
+    },
+    "comment": {
+      "subject": "{name} 在「{title}」留言了",
+      "body": "{name} 在「{title}」留言：\n\n{comment}\n\n活動頁面：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客留言時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。"
+    },
+    "reminderWeek": {
+      "subject": "「{title}」還有一週就到了",
+      "body": "「{title}」還有一週就到了。\n\n時間：{when}{located, select, yes {\n地點：{location}} other {}}\n\n你的回覆是：待定{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n活動頁面：\n{url}"
+    },
+    "reminderDay": {
+      "subject": "「{title}」就在明天",
+      "body": "「{title}」就在明天。\n\n時間：{when}{located, select, yes {\n地點：{location}} other {}}\n\n你的回覆是：參加{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n活動頁面：\n{url}"
+    },
+    "guestFooter": "你收到這封郵件，是因為你回覆「{title}」時留下了電子郵件。如果不想再收到關於這個活動的郵件，請開啟這個連結：{url}",
+    "magicLink": {
+      "subject": "你的 OpenInvites 登入連結",
+      "body": "{name}，你好：\n\n請開啟下方連結登入。連結 15 分鐘內有效，且只能使用一次。\n\n{url}\n\n如果這不是你本人的操作，可以忽略這封郵件，不會有人因此登入。"
     }
   },
   "Events": {
+    "duplicate": {
+      "copySuffix": "（副本）"
+    },
     "state": {
       "draft": "草稿",
       "published": "已發布",
@@ -251,8 +301,14 @@
       "guestListVisibility": "誰可以看到賓客名單",
       "guestListAlways": "所有開啟連結的人",
       "guestListAfterReply": "已回覆的賓客",
-      "guestListHidden": "只有我",
-      "guestListVisibilityHint": "你永遠都能看到完整名單。",
+      "guestListHidden": "只有主辦人",
+      "guestListVisibilityHint": "主辦人永遠都能看到完整名單。",
+      "notifyOnRsvp": "有賓客回覆時寄電子郵件給主辦人",
+      "remindersEnabled": "寄電子郵件提醒賓客（提前一週提醒待定的賓客，提前一天提醒參加的賓客）",
+      "askEmailHint": "只有你在回覆表單中請賓客留下電子郵件，賓客才會收到郵件。",
+      "commentsEnabled": "留言",
+      "commentsEnabledHint": "已回覆的賓客和主辦人可以在活動頁面上留言。",
+      "notifyOnComment": "有賓客留言時寄電子郵件給主辦人",
       "questions": "問題",
       "questionsHint": "賓客回覆時作答，答案只有你看得到。",
       "questionAdd": "新增問題",
@@ -261,6 +317,7 @@
       "questionType": "問題 {number} 的類型",
       "questionText": "自由填寫",
       "questionChoice": "從清單中選一項",
+      "questionMultiple": "多選",
       "questionYesNo": "是或否",
       "questionRequired": "必填",
       "questionChoices": "問題 {number} 的選項",
@@ -299,11 +356,15 @@
     },
     "manage": {
       "link": "活動連結",
+      "opened": "活動頁面已被開啟 {count, plural, other {#}} 次",
       "view": "開啟活動頁面",
       "publish": "發布",
       "publishHint": "發布後，任何拿到活動連結的人都能開啟。",
+      "duplicate": "複製活動",
+      "duplicateHint": "建立一份新的草稿，沿用相同的詳情、外觀、問題、設定和圖片。回覆、留言和公告不會複製。",
+      "duplicatedFrom": "複製自「{title}」",
       "publishedHint": "任何持有連結的人都能開啟活動頁面。你做的修改會馬上顯示在那裡。",
-      "draftHint": "活動還是草稿時，只有你能開啟這個連結。",
+      "draftHint": "活動還是草稿時，只有主辦人能開啟這個連結。",
       "guests": "賓客名單",
       "cancel": "取消活動",
       "cancelHint": "頁面會保留並顯示取消通知，不再接受回覆。",
@@ -317,7 +378,11 @@
       "deleteTitle": "刪除「{title}」？",
       "deleteText": "{count, plural, =0 {還沒有人回覆，所以不會刪除其他內容。連結將會失效。} other {# 則回覆及其中的回答都會被刪除。連結將會失效。}}",
       "deleteConfirm": "確認刪除",
-      "share": "分享"
+      "share": "分享",
+      "announcements": "公告",
+      "hosts": "主辦人",
+      "coHost": "共同主辦人",
+      "leave": "退出這個活動"
     },
     "verify": {
       "title": "請先驗證電子郵件",
@@ -342,11 +407,77 @@
   },
   "EventPage": {
     "eyebrow": "誠邀你參加",
-    "hostedBy": "主辦人：{name}",
+    "hostedBy": "主辦人：{hosts}",
     "when": "時間",
     "where": "地點",
     "about": "詳情",
-    "draftBanner": "草稿。發布之前，只有你看得到這個頁面。",
+    "announcements": "主辦人的話",
+    "comments": {
+      "title": "留言",
+      "count": "{count, plural, =0 {還沒有留言} other {# 則留言}}",
+      "locked": "回覆後就能加入大家的對話",
+      "host": "主辦人",
+      "label": "寫下留言",
+      "post": "發布",
+      "delete": "刪除",
+      "deleteLabel": "刪除 {name} 在 {time} 的留言",
+      "deleteTitle": "要刪除這則留言嗎？",
+      "deleteText": "刪除後，活動頁面上所有人都不會再看到它。",
+      "deleteConfirm": "確認刪除",
+      "keep": "算了",
+      "errors": {
+        "closed": "這個活動目前不接受留言。",
+        "bodyRequired": "請先寫下留言。",
+        "bodyTooLong": "留言太長了，請控制在 1000 字以內。",
+        "tooMany": "這個活動已有 500 則留言，已達上限。",
+        "tooFast": "操作太頻繁了，請稍後再試。"
+      }
+    },
+    "broadsheet": {
+      "invitation": "邀請函",
+      "host": "{count, plural, other {主辦人}}",
+      "countdown": "倒數",
+      "daysToGo": "{count, plural, other {天後開始}}",
+      "hoursToGo": "{count, plural, other {小時後開始}}",
+      "minutesToGo": "{count, plural, other {分鐘後開始}}",
+      "details": "活動詳情",
+      "you": "你"
+    },
+    "thread": {
+      "invitation": "邀請函",
+      "replies": "{count, plural, other {邀請函 · # 則回覆}}",
+      "sent": "邀請發出於 {date}",
+      "invited": "你收到一份邀請",
+      "guests": "誰會來",
+      "locked": "回覆後就能看到名字",
+      "you": "（你）",
+      "ask": "那麼，你能來嗎？",
+      "cancelled": "這個活動已經不接受回覆了。",
+      "draft": "發布活動後才能開始收集回覆。",
+      "going": "我會來！",
+      "maybe": "可能吧，我先看看",
+      "cant": "可惜我來不了",
+      "askName": "太好了！我該怎麼稱呼你？",
+      "askNameCant": "沒關係的！你是哪位呀？我記一下。",
+      "askEmail": "留個電子郵件方便我聯絡你嗎？（不想留可以跳過）",
+      "askPlusOnes": "好呀，{firstName}。會帶朋友一起來嗎？{max, plural, =1 {可以帶一位。} other {最多可以帶 # 位。}}",
+      "bringing": "我會帶 {count} 位",
+      "askGuestName": "{number, plural, =1 {第一位同伴叫什麼名字？} =2 {第二位同伴叫什麼名字？} =3 {第三位同伴叫什麼名字？} =4 {第四位同伴叫什麼名字？} =5 {第五位同伴叫什麼名字？} =6 {第六位同伴叫什麼名字？} =7 {第七位同伴叫什麼名字？} =8 {第八位同伴叫什麼名字？} =9 {第九位同伴叫什麼名字？} =10 {第十位同伴叫什麼名字？} other {第 # 位同伴叫什麼名字？}}",
+      "questionOptional": "{prompt}（沒有的話可以跳過）",
+      "skipped": "這個我先跳過",
+      "skip": "跳過",
+      "finish": "選好了",
+      "send": "傳送",
+      "done": {
+        "going": "{firstName}，記下你啦！好期待見到你。",
+        "maybe": "先記作待定啦，{firstName}。確定了再回來這裡說一聲。",
+        "cant": "真可惜見不到你，{firstName}。要是計畫有變，再回覆一次就好。",
+        "link": "這是你的專屬連結，之後想改什麼都可以用它。這個瀏覽器裡也存了一份。"
+      },
+      "copyLink": "複製修改連結",
+      "edit": "修改我的資料"
+    },
+    "draftBanner": "草稿。發布之前，只有主辦人看得到這個頁面。",
     "edit": "編輯活動",
     "notReadyTitle": "這份邀請還沒準備好",
     "notReady": "主辦人還在準備中，請稍後再開啟這個連結。",
@@ -401,7 +532,6 @@
     "yourPicture": "你的圖片",
     "altText": "描述你的圖片",
     "altTextHint": "會唸給使用螢幕閱讀器的賓客聽。如果圖片只是裝飾，可以留空。",
-    "comingSoon": "即將推出",
     "templates": "範本",
     "templatesHint": "每個範本都會設定整套主題，之後可以隨意修改。",
     "templateNames": {
@@ -449,6 +579,11 @@
       "aurora": "極光",
       "rose": "玫瑰園",
       "slate": "石板灰"
+    },
+    "fromYourPicture": "取自你的圖片",
+    "derivedNames": {
+      "upload-blur": "柔和模糊",
+      "upload-wash": "色彩暈染"
     },
     "details": "更多選項",
     "font": "標題字體",
@@ -499,6 +634,26 @@
     "titlePlacementHints": {
       "on": "標題橫跨海報底部，襯著一層陰影，確保清楚易讀。",
       "below": "標題放在海報下方，海報完整可見。"
+    },
+    "effect": "特效",
+    "effectHint": "賓客的裝置若開啟了「減少動態效果」，頁面就會保持靜止。",
+    "effects": {
+      "none": {
+        "name": "無",
+        "note": "不添加任何效果。"
+      },
+      "confetti": {
+        "name": "彩紙屑",
+        "note": "賓客回覆「參加」時飄落一次。"
+      },
+      "sparkles": {
+        "name": "星光",
+        "note": "點點光芒在背景中閃爍。"
+      },
+      "doodles": {
+        "name": "塗鴉",
+        "note": "背景裡飄著小圖形，日期也微微傾斜。"
+      }
     }
   },
   "Guests": {
@@ -540,6 +695,71 @@
       "plusOneNameRequired": "每位同伴都需要有名字。",
       "plusOneNameTooLong": "名字太長了。",
       "emailInvalid": "這看起來不像電子郵件地址。"
+    }
+  },
+  "Announcements": {
+    "title": "公告",
+    "backToEvent": "返回活動",
+    "explainer": "任何開啟活動連結的人都能在頁面上看到公告。郵件只會寄給你選取、而且留下了電子郵件的賓客。",
+    "askEmailHint": "只有你在回覆表單中請賓客留下電子郵件，賓客才會收到郵件。",
+    "noMail": "此實例無法寄送電子郵件，所以公告只會顯示在活動頁面上。",
+    "message": "公告內容",
+    "remind": "立即寄送提醒",
+    "reminderDraft": "提醒一下：「{title}」快到了。\n\n時間：{when}{located, select, yes {\n地點：{location}} other {}}\n\n活動頁面：\n{url}",
+    "audience": "郵件寄給哪些賓客",
+    "status": {
+      "going": "參加",
+      "maybe": "待定",
+      "cant": "無法參加"
+    },
+    "send": "送出",
+    "sent": "{count, plural, =0 {已發布到活動頁面。你選取的賓客都沒有留下電子郵件，所以沒有寄出郵件。} other {已發布到活動頁面，並已寄郵件給 # 位賓客。}}",
+    "postedNoMail": "已發布到活動頁面。沒有寄出郵件。",
+    "sentTo": "寄送對象：{audience}",
+    "delete": "刪除",
+    "deleteLabel": "刪除 {time} 發布的公告",
+    "deleteTitle": "要刪除這則公告嗎？",
+    "deleteText": "它會從活動頁面上移除。已經收到郵件的賓客仍會保留那封郵件。",
+    "deleteConfirm": "確認刪除",
+    "keep": "算了",
+    "errors": {
+      "notFound": "這個活動已經不存在了。",
+      "bodyRequired": "請先寫下公告內容。",
+      "bodyTooLong": "公告太長了，請控制在 2000 字以內。",
+      "audienceRequired": "請選擇要寄郵件給哪些賓客。",
+      "audienceInvalid": "請選擇「參加」、「待定」或「無法參加」。",
+      "tooMany": "一個活動最多只能有 10 則公告。刪除一則後才能再發布。",
+      "tooFast": "操作太頻繁了，請稍後再試。"
+    }
+  },
+  "Hosts": {
+    "title": "主辦人",
+    "backToEvent": "返回活動",
+    "explainer": "共同主辦人和你一起管理這個活動。除了刪除活動和變更共同主辦人，你能做的事他們都能做。",
+    "host": "主辦人",
+    "coHost": "共同主辦人",
+    "remove": "移除",
+    "removeTitle": "要移除共同主辦人 {name} 嗎？",
+    "removeText": "移除後，對方將無法再管理這個活動。之後你可以再為對方產生新的共同主辦人連結。",
+    "removeConfirm": "確認移除",
+    "keep": "算了",
+    "links": "共同主辦人連結",
+    "linksEmpty": "沒有待使用的共同主辦人連結。",
+    "linkDates": "產生於 {made} · {expires} 失效",
+    "revoke": "撤銷",
+    "make": "產生共同主辦人連結",
+    "created": "請現在複製這個連結：之後不會再顯示。連結只能給一個人使用，{days} 天後失效。",
+    "link": "共同主辦人連結",
+    "copy": "複製連結",
+    "copied": "已複製",
+    "full": "這個活動已有 {max} 位共同主辦人，已達上限。要新增，請先移除一位。",
+    "coHostIntro": "你是這個活動的共同主辦人。退出後，這個活動會從「我的活動」中移除，你也無法再管理它。",
+    "leave": "退出這個活動",
+    "leaveTitle": "要退出「{title}」嗎？",
+    "leaveText": "退出後你將無法再管理這個活動。主辦人可以再為你產生新的共同主辦人連結。",
+    "leaveConfirm": "確認退出",
+    "errors": {
+      "notFound": "這個活動已經不存在了。"
     }
   },
   "Rsvp": {
@@ -611,7 +831,43 @@
       "required": "必填",
       "yes": "是",
       "no": "否"
+    },
+    "ballot": {
+      "title": "回覆",
+      "pending": "請回覆",
+      "received": "已收到",
+      "going": "我會來",
+      "cant": "來不了",
+      "plusOnes": "同伴人數",
+      "fewer": "少一位同伴",
+      "more": "多一位同伴",
+      "post": "送出我的回覆",
+      "amend": "修改資料",
+      "change": "更改回覆"
     }
+  },
+  "StopMail": {
+    "title": "關於這個活動的郵件",
+    "onFile": "你為這個活動留下的電子郵件是 {email}。",
+    "noEmail": "這個活動目前沒有你的電子郵件。",
+    "stop": "不再接收這個活動的郵件",
+    "done": "好了，你不會再收到關於「{title}」的郵件。"
+  },
+  "CoHostLink": {
+    "title": "共同主辦人連結",
+    "intro": "接受後，你會成為這個活動的共同主辦人，和主辦人一起管理它。",
+    "accept": "接受",
+    "signIn": "登入以接受這個共同主辦人連結",
+    "needsAccount": "共同主辦人連結需要你在此實例上有主辦人帳號。如果還沒有，請先建立一個，然後再次開啟這個連結。",
+    "needsInvitation": "共同主辦人連結需要你在此實例上有主辦人帳號。此實例僅限受邀註冊，要建立帳號，你需要此實例的營運者發出的主辦人邀請。",
+    "owner": "這是你自己的活動。",
+    "openEvent": "開啟你的活動",
+    "used": "這個共同主辦人連結已經被使用了。請向主辦人索取新的連結。",
+    "revoked": "這個共同主辦人連結已被撤銷。請向主辦人索取新的連結。",
+    "expired": "這個共同主辦人連結已過期。請向主辦人索取新的連結。",
+    "full": "這個活動已有 {max} 位共同主辦人，已達上限。",
+    "verify": "接受之前，請開啟我們寄到 {email} 的連結，然後再次開啟這個共同主辦人連結。",
+    "resend": "重新寄送郵件"
   },
   "NotFound": {
     "title": "找不到頁面",

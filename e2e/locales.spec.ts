@@ -146,3 +146,59 @@ test("a host who signs up in Simplified Chinese is sent their verification email
   await expect(page.getByRole("heading", { name: "邮箱已验证" })).toBeVisible();
   await page.context().close();
 });
+
+// The other two layouts (tickets 12 and 13), each read in one of the Chinese scripts: their own
+// words, and the shared flow's, in the guest's language.
+test("a guest whose browser asks for zh-CN replies on the Broadsheet's ballot in Simplified Chinese", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "locale-broadsheet", { ...EVENT, layout: "Broadsheet" });
+  const page = await guestWithBrowserIn(browser, "zh-CN,zh;q=0.9");
+  await page.goto(host.link);
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hans");
+  await expect(page.getByText(COPY["zh-Hans"].when).first()).toBeVisible();
+  await expect(page.getByText("倒计时", { exact: true })).toBeVisible();
+  await expect(page.getByText("天后开始", { exact: true })).toBeVisible();
+
+  await page.getByRole("radio", { name: "我会来" }).check();
+  await page.getByLabel(COPY["zh-Hans"].name).fill("Priya");
+  await expect(page.getByText(COPY["zh-Hans"].hint)).toBeVisible();
+  await page.getByRole("button", { name: "多一位同伴" }).click();
+  await page.getByLabel(COPY["zh-Hans"].plusOneName).fill("Arjun");
+  await page.getByRole("button", { name: "发送我的回复" }).click();
+
+  await expect(page.getByText("已收到", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(COPY["zh-Hans"].done)).toBeVisible();
+  await expect(page.getByText(COPY["zh-Hans"].summary)).toBeVisible();
+  await expect(page.getByText(COPY["zh-Hans"].bringing)).toBeVisible();
+  await expect(page.getByRole("link", { name: COPY["zh-Hans"].calendar })).toHaveAttribute("href", /\/calendar\.ics$/);
+  await page.context().close();
+  await host.context.close();
+});
+
+test("a guest whose browser asks for zh-TW replies in the Thread's conversation in Traditional Chinese", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "locale-thread", { ...EVENT, layout: "Thread" });
+  const page = await guestWithBrowserIn(browser, "zh-TW,zh;q=0.9");
+  await page.goto(host.link);
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
+  await expect(page.locator("header").getByText("邀請函", { exact: true })).toBeVisible();
+  await expect(page.getByText(COPY["zh-Hant"].when).first()).toBeVisible();
+  await expect(page.getByText(COPY["zh-Hant"].countdown)).toBeVisible();
+
+  const conversation = page.getByRole("log");
+  await expect(conversation.getByText("那麼，你能來嗎？", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: COPY["zh-Hant"].going, exact: true }).click();
+  await expect(conversation.getByText("我會來！", { exact: true })).toBeVisible();
+  await expect(conversation.getByText("太好了！我該怎麼稱呼你？", { exact: true })).toBeVisible();
+  await page.getByLabel(COPY["zh-Hant"].name).fill("Priya");
+  await page.getByRole("button", { name: "傳送", exact: true }).click();
+  await expect(conversation.getByText("好呀，Priya。會帶朋友一起來嗎？最多可以帶 2 位。", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "+1", exact: true }).click();
+  await expect(conversation.getByText("我會帶 1 位", { exact: true })).toBeVisible();
+
+  await expect(page.locator('[data-slot="done"]')).toContainText("Priya，記下你啦！好期待見到你。", { timeout: 15_000 });
+  await expect(page.getByRole("button", { name: "複製修改連結" })).toBeVisible();
+  await expect(page.getByRole("link", { name: COPY["zh-Hant"].calendar })).toHaveAttribute("href", /\/calendar\.ics$/);
+  await page.context().close();
+  await host.context.close();
+});

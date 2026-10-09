@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, doublePrecision, index, integer, jsonb, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { DEFAULT_REGISTRATION_MODE, REGISTRATION_MODES } from "../instance/registration";
+import { defaultLocale, type Locale } from "../locale/resolve-locale";
 import { QUESTION_TYPES } from "../questions/question";
 import { EMPTY_RICH_TEXT, type RichText } from "../rich-text/rich-text";
 import { RSVP_STATUSES } from "../rsvps/form";
@@ -144,9 +145,72 @@ export const event = pgTable(
     requirePlusOneNames: boolean("require_plus_one_names").notNull().default(false),
     askEmail: boolean("ask_email").notNull().default(false),
     guestListVisibility: guestListVisibility("guest_list_visibility").notNull().default(DEFAULT_GUEST_LIST_VISIBILITY),
+    // Whether every host is emailed when a guest replies, changes their status, or removes their
+    // RSVP (spec, "Host notifications"). On for new events; events from before 0.3 start with it
+    // off, so an upgrade sends nobody mail they did not ask for (spec, story 141).
+    notifyOnRsvp: boolean("notify_on_rsvp").notNull().default(true),
+    // The language the host last saved the event form in, which mail about the event to its hosts
+    // is written in: the request that queues such mail is usually a guest's, in their language.
+    locale: text("locale").$type<Locale>().notNull().default(defaultLocale),
+    // How many times the event page was opened by someone who is not a host (spec, "View count").
+    views: integer("views").notNull().default(0),
+    // Whether guests who gave an email are reminded, a week before if they said Maybe and the day
+    // before if they said Going (spec, "Automatic reminders"). On for new events, off for events
+    // from before 0.3, as notifyOnRsvp is.
+    remindersEnabled: boolean("reminders_enabled").notNull().default(true),
+    // When the host published the event. A reminder whose time came before it is never sent, so
+    // an event published five days out sends no week reminder.
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    // When each reminder went out: each is sent once per event.
+    weekReminderSentAt: timestamp("week_reminder_sent_at", { withTimezone: true }),
+    dayReminderSentAt: timestamp("day_reminder_sent_at", { withTimezone: true }),
+    // Whether the event page has comments (spec, "Comments"), and whether every host is emailed on
+    // each one. On for new events; events from before 0.3 start with both off, so no live page
+    // changes under its host (spec, story 141).
+    commentsEnabled: boolean("comments_enabled").notNull().default(true),
+    notifyOnComment: boolean("notify_on_comment").notNull().default(true),
     ...timestamps,
   },
   (table) => [index("event_host_id_idx").on(table.hostId)],
+);
+
+// A co-host (CONTEXT.md): a host who shares management of an event they did not create (spec,
+// "Co-hosts"). The host who created it stays event.hostId, its owner. Deleting the event, or the
+// co-host's account, ends the membership; the order they were added in is the order the event
+// page names them in.
+export const eventHost = pgTable(
+  "event_host",
+  {
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    hostId: uuid("host_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.eventId, table.hostId] }), index("event_host_host_id_idx").on(table.hostId)],
+);
+
+// A co-host link: the owner's permission for one host to become a co-host of their event, carried
+// by a single-use link that works for seven days (hosts/co-host-link.ts). As with a host
+// invitation, only the hash of the link's token is kept; the owner sees the link once.
+export const coHostLink = pgTable(
+  "co_host_link",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    // The host who accepted it; nobody once that account is deleted.
+    usedById: uuid("used_by_id").references(() => user.id, { onDelete: "set null" }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [index("co_host_link_event_id_idx").on(table.eventId)],
 );
 
 export const rsvpStatus = pgEnum("rsvp_status", RSVP_STATUSES);
@@ -170,6 +234,13 @@ export const rsvp = pgTable(
     plusOneNames: text("plus_one_names").array().notNull().default(sql`'{}'::text[]`),
     email: text("email"),
     editTokenHash: text("edit_token_hash").notNull().unique(),
+    // The secret in the stop link at the foot of every email to the guest (spec, "Guest mail"). In
+    // clear, unlike the edit token: their mail is written long after their request is over, and
+    // the link can only blank the email. Made the first time the RSVP has an email, then kept; an
+    // RSVP that had an email before mail tokens existed got 32 hex digits instead (migration 0015).
+    mailToken: text("mail_token").unique(),
+    // The language the guest last saved their RSVP in, which their mail is written in.
+    locale: text("locale").$type<Locale>().notNull().default(defaultLocale),
     repliedAt: timestamp("replied_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -208,7 +279,8 @@ export const answer = pgTable(
     questionId: uuid("question_id")
       .notNull()
       .references(() => question.id, { onDelete: "cascade" }),
-    value: text("value").notNull(),
+    // At most one value for every type but multiple choice, where each pick is one.
+    values: text("values").array().notNull(),
   },
   (table) => [index("answer_rsvp_id_idx").on(table.rsvpId), unique("answer_rsvp_question_unique").on(table.rsvpId, table.questionId)],
 );
@@ -255,3 +327,64 @@ export const upload = pgTable("upload", {
   posterHeight: integer("poster_height").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Every email about an event, to a guest or to a host, waits here until the mail worker sends it
+// (mail/outbox.ts; spec, "Mail outbox and worker"). A message that sent is deleted; one that failed
+// keeps how often it has, why it last did, and when to try again. Deleting the event takes its
+// unsent mail with it.
+export const mailOutbox = pgTable(
+  "mail_outbox",
+  {
+    id: id(),
+    eventId: uuid("event_id").references(() => event.id, { onDelete: "cascade" }),
+    to: text("to").notNull(),
+    subject: text("subject").notNull(),
+    text: text("text").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    sendAfter: timestamp("send_after", { withTimezone: true }).notNull().defaultNow(),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+  },
+  (table) => [index("mail_outbox_event_id_idx").on(table.eventId)],
+);
+
+// A message the host posts to the event page, and emails to the guests whose status is one they
+// ticked (spec, "Announcements"). The audience is kept as ticked, so the host's list can say whom
+// it went to. At most ten per event, which the Announcements module checks.
+export const announcement = pgTable(
+  "announcement",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    audience: rsvpStatus("audience").array().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("announcement_event_id_idx").on(table.eventId)],
+);
+
+// A comment on the event page, by a guest who has replied or by a host (spec, "Comments"). It
+// belongs to whoever wrote it, exactly one of the RSVP and the host: removing the RSVP, or deleting
+// the host's account, takes it with them, as deleting the event takes them all. At most 500 per
+// event, which the Comments module checks.
+export const comment = pgTable(
+  "comment",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    rsvpId: uuid("rsvp_id").references(() => rsvp.id, { onDelete: "cascade" }),
+    hostId: uuid("host_id").references(() => user.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("comment_event_id_idx").on(table.eventId),
+    index("comment_rsvp_id_idx").on(table.rsvpId),
+    index("comment_host_id_idx").on(table.hostId),
+    check("comment_one_author", sql`(${table.rsvpId} is null) <> (${table.hostId} is null)`),
+  ],
+);

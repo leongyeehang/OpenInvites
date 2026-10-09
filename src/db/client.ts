@@ -1,6 +1,11 @@
-import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import type { PgDatabase } from "drizzle-orm/pg-core";
+import { drizzle, type PostgresJsDatabase, type PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
+
+// The database, or a transaction on it: what a query takes that may run inside its caller's
+// transaction.
+export type Db = PgDatabase<PostgresJsQueryResultHKT, typeof schema>;
 
 export function databaseUrl(): string {
   const url = process.env.DATABASE_URL;

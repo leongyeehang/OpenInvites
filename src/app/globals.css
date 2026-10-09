@@ -9,6 +9,15 @@
 @custom-variant rsvp-sheet-open (body:has([data-slot="rsvp-sheet"]) &);
 /* A themed event page is showing (src/themes/themed-page.tsx): it carries its own footer, so the plain one steps aside. */
 @custom-variant themed (body:has(.event-page) &);
+/* The Thread layout is showing (src/themes/thread-layout.tsx): its composer holds the foot of the screen. */
+@custom-variant thread-page (body:has([data-layout="thread"]) &);
+/* The Broadsheet's labels (src/themes/broadsheet-layout.tsx): small spaced capitals in the mono face. */
+@utility label-mono {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
 
 /*
   Design tokens, defined once. Three layers:
@@ -237,6 +246,89 @@
     }
     50% {
       translate: 3rem -2rem;
+    }
+  }
+
+  /* The effects (src/themes/effects/). Each point of the sparkles and each doodle sets its own
+     pace in custom properties, which mean nothing until motion-safe: applies the animation. */
+  --animate-theme-twinkle: theme-twinkle var(--twinkle-duration) ease-in-out var(--twinkle-delay) infinite;
+  --animate-theme-float: theme-float var(--float-duration) ease-in-out infinite;
+  /* The doodles' date sticker lands at its tilt with a small spring, once. */
+  --animate-theme-sticker-in: theme-sticker-in 0.6s ease-out 0.25s both;
+  /* The Broadsheet's "Received" stamp comes down onto the ballot at its tilt, once. */
+  --animate-theme-stamp-in: theme-stamp-in 0.45s ease-out both;
+  /* The Thread's typing dots, each a little after the one before (its own animation-delay). */
+  --animate-theme-typing: theme-typing 0.9s ease-in-out infinite;
+
+  @keyframes theme-typing {
+    0%,
+    100% {
+      opacity: 0.4;
+      translate: 0 0;
+    }
+    50% {
+      opacity: 0.9;
+      translate: 0 -0.25rem;
+    }
+  }
+
+  @keyframes theme-twinkle {
+    0%,
+    100% {
+      opacity: 0.05;
+      scale: 0.6;
+    }
+    50% {
+      opacity: 0.9;
+      scale: 1.25;
+    }
+  }
+  /* On transform, so that a shape keeps the rotate it sits at and floats from there. */
+  @keyframes theme-float {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(var(--float-rise)) rotate(8deg);
+    }
+  }
+  /* From large and turned further, overshooting once, to the -8 degrees the stamp rests at. */
+  @keyframes theme-stamp-in {
+    0% {
+      opacity: 0;
+      rotate: -20deg;
+      scale: 1.6;
+    }
+    60% {
+      opacity: 1;
+      rotate: -7deg;
+      scale: 0.96;
+    }
+    100% {
+      rotate: -8deg;
+      scale: 1;
+    }
+  }
+  /* A spring, overshooting once and settling at the -6 degrees the sticker rests at. */
+  @keyframes theme-sticker-in {
+    0% {
+      opacity: 0;
+      rotate: -20deg;
+      scale: 0.6;
+    }
+    35% {
+      opacity: 1;
+      rotate: -3deg;
+      scale: 1.08;
+    }
+    70% {
+      rotate: -6.5deg;
+      scale: 0.985;
+    }
+    100% {
+      rotate: -6deg;
+      scale: 1;
     }
   }
 }

@@ -1,16 +1,21 @@
 import { findBackground } from "./backgrounds";
+import { isDerivedBackground } from "./derived";
 import { isSwatch } from "./swatches";
 import { findTemplate, type TemplateId } from "./templates";
 import {
   applyTemplate,
   BUTTON_STYLES,
+  EFFECTS,
   FONTS,
+  OFFERED_LAYOUTS,
   RSVP_STYLES,
   TEXT_TONES,
   TITLE_PLACEMENTS,
   UPLOAD_MODES,
   type ButtonStyle,
+  type Effect,
   type FontKey,
+  type Layout,
   type RsvpStyle,
   type TextTone,
   type Theme,
@@ -18,11 +23,13 @@ import {
   type UploadMode,
 } from "./theme";
 
-// What the Design drawer asks for: a template, or one knob set to one value. The layout row has
-// nothing to change while Poster is the only layout offered. The upload mode shows the host's
-// own picture as the background or as the poster. A new upload is not the drawer's to set: the
-// server applies `uploadId` once it has stored the picture (uploads/repository.ts).
+// What the Design drawer asks for: a template, or one knob set to one value. The layout is one of
+// those offered; changing it keeps every other knob, the Poster's RSVP style included. The upload
+// mode shows the host's own picture as the background or as the poster. A new upload is not the
+// drawer's to set: the server applies `uploadId` once it has stored the picture
+// (uploads/repository.ts).
 export type KnobChange =
+  | { knob: "layout"; value: Layout }
   | { knob: "backgroundId"; value: string }
   | { knob: "uploadId"; value: string }
   | { knob: "uploadMode"; value: UploadMode }
@@ -31,7 +38,8 @@ export type KnobChange =
   | { knob: "accentOverride"; value: string | null }
   | { knob: "textTone"; value: TextTone }
   | { knob: "buttonStyle"; value: ButtonStyle }
-  | { knob: "rsvpStyle"; value: RsvpStyle };
+  | { knob: "rsvpStyle"; value: RsvpStyle }
+  | { knob: "effect"; value: Effect };
 
 export type ThemeChange = { template: string } | KnobChange;
 
@@ -58,6 +66,11 @@ function changeKnob(theme: Theme, change: KnobChange): Theme {
     const uploadId = change.knob === "uploadId" ? change.value : theme.uploadId;
     const uploadMode = change.knob === "uploadMode" ? change.value : theme.uploadMode;
     if (uploadId === null) return theme;
+    // A background made from the picture stays when the picture is replaced, so the new picture's
+    // blur or wash shows, with its own accent as any picture newly in use brings.
+    if (change.knob === "uploadId" && isDerivedBackground(theme.backgroundId)) {
+      return theme.uploadId === uploadId ? theme : { ...theme, uploadId, accentOverride: null };
+    }
     const inUse = theme.backgroundId === null && theme.uploadId === uploadId;
     if (inUse && theme.uploadMode === uploadMode) return theme;
     // A picture newly in use brings its own accent, as a new background does (below); the same
@@ -95,16 +108,19 @@ function oneOf<T extends string>(options: readonly T[], value: unknown): value i
 
 // A change as the drawer sent it, checked like any other input from a browser. Only what the
 // drawer offers is accepted: the accent must be auto or one of the six swatches, so every
-// colour a page can wear is one legibility.ts has checked, and the host's picture can be used
-// only on an event that has one (`upload`, its id, or null when it has none).
+// colour a page can wear is one legibility.ts has checked, and the host's picture, or a background
+// made from it, can be used only on an event that has one (`upload`, its id, or null when it has
+// none).
 export function parseThemeChange(raw: unknown, upload: string | null = null): ThemeChange | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
   const { template, knob, value } = raw as { template?: unknown; knob?: unknown; value?: unknown };
   if (template !== undefined) return typeof template === "string" && findTemplate(template) ? { template } : undefined;
 
   switch (knob) {
+    case "layout":
+      return oneOf(OFFERED_LAYOUTS, value) ? { knob, value } : undefined;
     case "backgroundId":
-      return typeof value === "string" && findBackground(value) ? { knob, value } : undefined;
+      return typeof value === "string" && (findBackground(value) || (upload !== null && isDerivedBackground(value))) ? { knob, value } : undefined;
     case "uploadMode":
       return upload !== null && oneOf(UPLOAD_MODES, value) ? { knob, value } : undefined;
     case "titlePlacement":
@@ -119,6 +135,8 @@ export function parseThemeChange(raw: unknown, upload: string | null = null): Th
       return oneOf(BUTTON_STYLES, value) ? { knob, value } : undefined;
     case "rsvpStyle":
       return oneOf(RSVP_STYLES, value) ? { knob, value } : undefined;
+    case "effect":
+      return oneOf(EFFECTS, value) ? { knob, value } : undefined;
     default:
       return undefined;
   }

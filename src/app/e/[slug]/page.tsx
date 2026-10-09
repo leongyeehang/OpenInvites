@@ -3,11 +3,17 @@ import { cache } from "react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { listAnnouncements } from "@/announcements/repository";
 import { getSession } from "@/auth/session";
+import { mayDelete } from "@/comments/comment";
+import { countComments, listComments } from "@/comments/repository";
+import { commentsView, takesComments, type CommentsShown, type CommentViewer } from "@/comments/visibility";
 import { PageFooter } from "@/components/page-footer";
 import { TooFast } from "@/components/too-fast";
 import { acceptsRsvps, eventPageFor } from "@/events/access";
-import { findEventBySlug, isRetiredSlug } from "@/events/repository";
+import { eventHosts } from "@/events/hosts";
+import { findEventBySlug, isRetiredSlug, recordView, type EventWithHost } from "@/events/repository";
+import { countsAsView } from "@/events/views";
 import { baseUrl, maxUploadBytes } from "@/instance/env";
 import { isSlug } from "@/events/slug";
 import { ClientMessages } from "@/locale/client-messages";
@@ -18,22 +24,59 @@ import { consume } from "@/rate-limit/rate-limit";
 import { findRsvpOnThisDevice, guestRsvp } from "@/rsvps/guest";
 import { listPublicGuestList } from "@/rsvps/repository";
 import { guestListView } from "@/rsvps/visibility";
+import { BroadsheetLayout } from "@/themes/broadsheet-layout";
+import { derivedUpload, isDerivedBackground } from "@/themes/derived";
 import { PosterLayout } from "@/themes/poster-layout";
 import { resolveTheme } from "@/themes/resolve";
 import { ThemedPage } from "@/themes/themed-page";
+import { ThreadLayout } from "@/themes/thread-layout";
 import { findEventUpload } from "@/uploads/repository";
 import { themeUpload } from "@/uploads/uploads";
 import { AddToCalendar } from "./add-to-calendar";
+import { BroadsheetBallot } from "./broadsheet-ballot";
 import { CancelledNotice } from "./cancelled-notice";
+import { CommentForm } from "./comment-form";
 import { DesignDrawer } from "./design-drawer";
 import { RetiredLink } from "./retired-link";
 import { DraftNotice } from "./draft-notice";
 import { GuestList } from "./guest-list";
 import { RsvpFlow } from "./rsvp-flow";
-import { Countdown, MapLink, ViewerTime } from "./viewer";
+import { ThreadComposer } from "./thread-composer";
+import type { RsvpFlowProps } from "./use-rsvp-flow";
+import { Countdown, CountdownFigure, MapLink, ViewerTime } from "./viewer";
 
 // Event pages are never indexed (ADR-0004). The header carries the same signal (next.config.ts).
 const noindex: Metadata["robots"] = { index: false, follow: false };
+
+// Every host of the event, owner first: whom "Hosted by" names, and who sees a draft and the Design
+// drawer. Cached per request, as the page and its redrawing both ask.
+const hostsOf = cache(eventHosts);
+
+async function isHostOf(eventId: string): Promise<boolean> {
+  const session = await getSession();
+  return session !== null && (await hostsOf(eventId)).some((host) => host.id === session.user.id);
+}
+
+// What the comments section shows this viewer, or nothing when the host has turned comments off:
+// to the hosts and to a guest who has replied, the comments themselves; to anyone else only how
+// many there are, so not one of them is sent to that browser.
+async function commentsFor(event: EventWithHost, viewer: CommentViewer): Promise<CommentsShown | undefined> {
+  if (!event.commentsEnabled) return undefined;
+  if (commentsView(viewer) === "locked") return { view: "locked", count: await countComments(event.id) };
+  const comments = await listComments(event.id);
+  return {
+    view: "open",
+    canPost: takesComments(event, viewer),
+    comments: comments.map(({ id, name, hostId, body, createdAt, rsvpId }) => ({
+      id,
+      name,
+      byHost: hostId !== null,
+      body,
+      createdAt,
+      deletable: mayDelete(viewer, { rsvpId }),
+    })),
+  };
+}
 
 // One of this page's own server actions (a guest's RSVP, the host's Design drawer) that changed
 // something (revalidated, refreshed, or set a cookie) is answered with the page it was posted to,
@@ -42,13 +85,13 @@ const noindex: Metadata["robots"] = { index: false, follow: false };
 // hands any other action to a page it belongs to, which never draws this one.) The proxy lets
 // actions through, as they are forms with limits and messages of their own (src/proxy.ts); the
 // page counts its own redrawing instead, against the event page limit, for anyone but the event's
-// host, whose Design drawer redraws it at every change. Past the limit it is drawn as "too fast"
+// hosts, whose Design drawer redraws it at every change. Past the limit it is drawn as "too fast"
 // whatever the slug. Cached, so the page and its metadata count once.
 const redrawAllowed = cache(async (slug: string): Promise<boolean> => {
   const requestHeaders = await headers();
   if (!requestHeaders.has("next-action")) return true;
   const event = isSlug(slug) ? await findEventBySlug(slug) : undefined;
-  if (event && (await getSession())?.user.id === event.hostId) return true;
+  if (event && (await isHostOf(event.id))) return true;
   return (await consume("eventPage", requestHeaders)).allowed;
 });
 
@@ -83,8 +126,9 @@ export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Prom
 }
 
 // The event page: the invitation itself, rendered on the server in the event's theme so the
-// first paint is the finished look. M1 ships the Poster layout; resolveTheme maps every stored
-// layout to it. The host also gets the Design drawer on their own page.
+// first paint is the finished look, in the layout the theme names. Every layout shows the same things, and the guest's RSVP flow is one
+// set of rules (use-rsvp-flow.ts) that each layout presents in its own way, so the page hands each
+// its own presentation of it. The host also gets the Design drawer on their own page.
 export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const { slug } = await params;
   if (!(await redrawAllowed(slug))) return <TooFast />;
@@ -98,7 +142,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // Who is looking decides whether a draft shows at all, and whether the Design drawer is here.
   // A guest has no session cookie, and the lookup returns without touching the database.
   const isDraft = event.state === "draft";
-  const isHost = (await getSession())?.user.id === event.hostId;
+  const isHost = await isHostOf(event.id);
   if (eventPageFor(event.state, { isHost }) === "notReady") {
     const t = await getTranslations("EventPage");
     return (
@@ -109,28 +153,57 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     );
   }
 
+  // This is the one place a page render writes. A server action redraw is a POST naming its
+  // action, which is all the page can tell of the method.
+  const requestHeaders = await headers();
+  const method = requestHeaders.has("next-action") ? "POST" : "GET";
+  if (countsAsView({ method, headers: requestHeaders }, event, { isHost })) await recordView(event.id);
+
   const locale = await getLocale();
   const link = `${baseUrl()}/e/${event.slug}`;
-  // The same rule the file itself follows: there is nothing to put in a calendar until an event
-  // is published, and nothing worth keeping there once it is called off.
-  const calendar = acceptsRsvps(event.state) ? <AddToCalendar event={event} link={link} /> : undefined;
   // The cookie tells us whether the guest in front of us has already replied on this device.
   const mine = await findRsvpOnThisDevice(event.id);
   // Whether this guest may see the list decides whether it is even loaded.
   const view = guestListView(event.guestListVisibility, { hasRsvp: mine !== undefined });
   const guests = view === "open" ? await listPublicGuestList(event.id) : [];
-  // What this event asks, what this guest has already said, so coming back prefills, and the
-  // host's own picture if there is one.
-  const [questions, answers, upload] = await Promise.all([
+  // A host comments as a host, even with an RSVP on this device; a guest under their RSVP's name.
+  const viewer: CommentViewer = isHost ? { kind: "host" } : mine ? { kind: "guest", rsvpId: mine.rsvp.id } : { kind: "visitor" };
+  // What this event asks, what this guest has already said, so coming back prefills, the host's
+  // own picture if there is one, what the host has announced, which every viewer reads, and the
+  // comments as this viewer may see them.
+  const [questions, answers, upload, announcements, hosts, comments] = await Promise.all([
     listQuestions(event.id),
     mine ? findAnswers(mine.rsvp.id) : Promise.resolve({}),
     findEventUpload(event.id),
+    listAnnouncements(event.id),
+    hostsOf(event.id),
+    commentsFor(event, viewer),
   ]);
 
   // Guests are sent the host's picture only while the page shows it: one the host put aside
-  // stays in the host's gallery, not in anyone else's hands.
+  // stays in the host's gallery, not in anyone else's hands. Under a background made from it,
+  // they are sent only what that is painted with.
   const picture = upload ? themeUpload(upload) : null;
-  const shown = resolveTheme(event.theme, picture).upload !== null;
+  const resolved = resolveTheme(event.theme, picture);
+  const backgroundId = resolved.background.id;
+  const guestPicture = resolved.upload ?? (picture && isDerivedBackground(backgroundId) ? derivedUpload(picture, backgroundId) : null);
+  // The same rule the file itself follows: there is nothing to put in a calendar until an event
+  // is published, and nothing worth keeping there once it is called off.
+  const calendar = acceptsRsvps(event.state) ? (
+    <AddToCalendar event={event} link={link} inCard={resolved.layout === "broadsheet"} chips={resolved.layout === "thread"} />
+  ) : undefined;
+
+  const notice = isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined;
+  const flow: RsvpFlowProps = {
+    slug: event.slug,
+    settings: event,
+    mine: mine && guestRsvp(mine),
+    open: acceptsRsvps(event.state),
+    questions,
+    answers: answersStillOffered(answers, questions),
+    calendar,
+  };
+  const guestList = view === "hidden" ? undefined : { view, guests, counts: countRsvps(guests.map(asTally)) };
 
   // The client components below read their messages in the browser; the host's Design drawer, only
   // on the host's own page, brings its own.
@@ -138,7 +211,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     <ClientMessages namespaces={["EventPage", "Rsvp"]}>
       <ThemedPage
         theme={event.theme}
-        upload={isHost || shown ? picture : null}
+        upload={isHost ? picture : guestPicture}
         designer={
           isHost ? (
             <ClientMessages namespaces={["DesignDrawer"]}>
@@ -147,32 +220,58 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
           ) : undefined
         }
       >
-        <PosterLayout
-          event={event}
-          notice={isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined}
-          rsvp={
-            <RsvpFlow
-              slug={event.slug}
-              settings={event}
-              mine={mine && guestRsvp(mine)}
-              open={acceptsRsvps(event.state)}
-              questions={questions}
-              answers={answersStillOffered(answers, questions)}
-              calendar={calendar}
-            />
-          }
-          underWhen={
-            <>
-              <ViewerTime event={event} locale={locale} />
-              <Countdown event={event} />
-            </>
-          }
-          underWhere={event.location ? <MapLink location={event.location} /> : undefined}
-          calendar={calendar}
-          guestList={
-            view === "hidden" ? undefined : <GuestList view={view} guests={guests} counts={countRsvps(guests.map(asTally))} />
-          }
-        />
+        {resolved.layout === "thread" ? (
+          <ThreadLayout
+            event={event}
+            hosts={hosts.map((host) => host.name)}
+            announcements={announcements}
+            comments={comments}
+            commentForm={<CommentForm slug={event.slug} />}
+            notice={notice}
+            rsvp={<ThreadComposer {...flow} closedAs={isDraft ? "draft" : event.state === "cancelled" ? "cancelled" : undefined} />}
+            guests={guestList && { ...guestList, you: mine?.rsvp.id }}
+            underWhen={
+              <>
+                <ViewerTime event={event} locale={locale} />
+                <Countdown event={event} />
+              </>
+            }
+            underWhere={event.location ? <MapLink location={event.location} chip /> : undefined}
+          />
+        ) : resolved.layout === "broadsheet" ? (
+          <BroadsheetLayout
+            event={event}
+            hosts={hosts.map((host) => host.name)}
+            announcements={announcements}
+            comments={comments}
+            commentForm={<CommentForm slug={event.slug} />}
+            notice={notice}
+            rsvp={<BroadsheetBallot {...flow} />}
+            guests={guestList && { ...guestList, you: mine?.rsvp.id }}
+            underWhen={<ViewerTime event={event} locale={locale} />}
+            countdown={<CountdownFigure event={event} />}
+            underWhere={event.location ? <MapLink location={event.location} /> : undefined}
+          />
+        ) : (
+          <PosterLayout
+            event={event}
+            hosts={hosts.map((host) => host.name)}
+            announcements={announcements}
+            comments={comments}
+            commentForm={<CommentForm slug={event.slug} />}
+            notice={notice}
+            rsvp={<RsvpFlow {...flow} />}
+            underWhen={
+              <>
+                <ViewerTime event={event} locale={locale} />
+                <Countdown event={event} />
+              </>
+            }
+            underWhere={event.location ? <MapLink location={event.location} /> : undefined}
+            calendar={calendar}
+            guestList={guestList && <GuestList {...guestList} />}
+          />
+        )}
         <PageFooter themed />
       </ThemedPage>
     </ClientMessages>

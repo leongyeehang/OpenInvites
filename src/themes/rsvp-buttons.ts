@@ -22,3 +22,11 @@ const UNSELECTED: Record<ButtonStyle, string> = {
 export function rsvpButtonClasses(style: ButtonStyle, { selected }: { selected: boolean }) {
   return cn(BASE, selected ? "bg-theme-accent text-theme-on-accent ring-2 ring-theme-text" : UNSELECTED[style]);
 }
+
+// The same style on a button set inside a glass card rather than on the backdrop: the Broadsheet's
+// "Post my reply", on its ballot. Glass is strong glass on the card (legibility.ts, SURFACES.inset)
+// and solid is the accent, as above; outline has no veil behind it, since the card under its label
+// is already a surface the tone's text reads on (SURFACES.card). Focus rings it inside, as above.
+export function cardButtonClasses(style: ButtonStyle) {
+  return cn(BASE, style === "outline" ? "border-2 border-current/40 hover:border-current/70" : UNSELECTED[style]);
+}

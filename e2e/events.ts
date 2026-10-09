@@ -3,7 +3,7 @@ import { signUpVerified } from "./hosts";
 
 export type QuestionFields = {
   prompt: string;
-  type?: "text" | "choice" | "yesNo";
+  type?: "text" | "choice" | "multiple" | "yesNo";
   required?: boolean;
   choices?: string;
 };
@@ -17,9 +17,12 @@ export type DraftFields = {
   plusOnes?: string;
   requirePlusOneNames?: boolean;
   askEmail?: boolean;
+  // Reminders are on for a new event; false turns them off.
+  reminders?: boolean;
   questions?: QuestionFields[];
-  // A theme knob rather than a field of the form: createPublished sets it in the Design drawer.
+  // Theme knobs rather than fields of the form: createPublished sets them in the Design drawer.
   rsvpStyle?: "Inline" | "Sheet";
+  layout?: "Broadsheet" | "Thread";
 };
 
 // Fills the questions editor, which is a list the host builds before saving the event.
@@ -46,6 +49,7 @@ export async function createDraft(page: Page, fields: DraftFields) {
   if (fields.plusOnes) await page.getByLabel("Plus-ones per guest").selectOption(fields.plusOnes);
   if (fields.requirePlusOneNames) await page.getByLabel("Ask for each plus-one’s name").check();
   if (fields.askEmail) await page.getByLabel("Ask guests for an email address").check();
+  if (fields.reminders === false) await page.getByLabel("Remind guests by email (a week before to Maybe, the day before to Going)").uncheck();
   if (fields.questions) await addQuestions(page, fields.questions);
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page).toHaveURL(/\/events\/[0-9a-f-]{36}$/, { timeout: 15_000 });
@@ -57,12 +61,13 @@ export async function createDraft(page: Page, fields: DraftFields) {
 export async function createPublished(browser: Browser, request: APIRequestContext, label: string, fields: DraftFields) {
   const context = await browser.newContext();
   const page = await context.newPage();
-  await signUpVerified(page, request, label);
+  const { name, email } = await signUpVerified(page, request, label);
   const link = await createDraft(page, fields);
   await page.getByRole("button", { name: "Publish" }).click();
   await expect(page.getByText("Published", { exact: true })).toBeVisible();
   if (fields.rsvpStyle) await chooseRsvpStyle(page, link, fields.rsvpStyle);
-  return { context, page, link };
+  if (fields.layout) await chooseLayout(page, link, fields.layout);
+  return { context, page, link, name, email };
 }
 
 // How guests answer is a theme knob, so it is set as a host sets it: in the Design drawer on the
@@ -78,5 +83,18 @@ async function chooseRsvpStyle(page: Page, link: string, style: "Inline" | "Shee
     await choice.check();
     await expect(drawer.getByText("Saved", { exact: true })).toBeVisible({ timeout: 15_000 });
   }
+  await page.goto(manage);
+}
+
+// The layout is a theme knob too, chosen in the drawer's Layout row. The page the host is sent
+// back to is the manage page, where they were.
+export async function chooseLayout(page: Page, link: string, layout: "Poster" | "Broadsheet" | "Thread") {
+  const manage = page.url();
+  await page.goto(link);
+  await page.getByRole("button", { name: "Design" }).click();
+  const drawer = page.getByRole("dialog", { name: "Design" });
+  await drawer.getByRole("group", { name: "Layout" }).getByRole("radio", { name: new RegExp(`^${layout}`) }).check();
+  await expect(drawer.getByText("Saved", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("[data-layout]")).toHaveAttribute("data-layout", layout.toLowerCase());
   await page.goto(manage);
 }

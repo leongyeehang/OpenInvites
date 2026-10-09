@@ -35,6 +35,47 @@ a newer copy may move it to a later one: that needs nothing more than `docker co
 Going back to an older release after a newer one has migrated the database is not supported.
 Restore the backup you took instead.
 
+### Upgrading to 0.3
+
+0.3 adds comments, co-hosts, announcements, reminders, and the emails that go with them
+([configuration.md](configuration.md#mail)). On events that already exist, nothing on the page
+changes until their host chooses:
+
+- **Comments, reminders, and the hosts' reply and comment emails start off on events that exist
+  before the upgrade**, and on for every event created after it. A host turns them on in the
+  event's settings, opened from their dashboard: **Comments**, **Remind guests by email**, **Email
+  the hosts when a guest replies** and **Email the hosts when a guest comments**, then **Save
+  changes**. The two email switches are the event's, so they turn the emails on or off for every
+  host of the event at once.
+- **Guests who gave an email before the upgrade can be emailed**: the cancellation notice, the
+  host's announcements, and reminders once the host turns them on. Each email ends with the link
+  that stops email about the event. Until a guest next saves their RSVP their email is in English,
+  since the language they replied in was not recorded before.
+- **A reminder goes out only within a day of its time**, a week before the start for Maybe and a
+  day before for Going, so turning reminders on, or setting up mail, more than a day after a
+  reminder's time sends none: less than six days before an event, no "in a week" reminder goes,
+  though the day reminder can still go during the event's last day. An existing event counts as
+  published when it was last changed, which can only make a reminder less likely to go.
+- **Existing events show no effect until their host picks one.** Effects are new in 0.3:
+  Birthday, where every event starts, and Vows sparkle, Festival has floating shapes, and Kids'
+  party's confetti falls when a guest says Going. The upgrade sets every existing event to no
+  effect, and since its theme then no longer matches its template, the Design drawer reads it as
+  "Custom, started from" that template (Quiet and Supper club have no effect, so their events are
+  left as they were). The host picks an effect under **Effect**, in the Design drawer's
+  **Details**, or chooses the template again. A guest whose device asks for reduced motion sees
+  no effect at all.
+- Existing events keep the Poster layout; the Design drawer now offers Broadsheet and Thread too.
+
+With mail configured, a host can now have the instance email any addresses they type in, by
+replying to their own event with them and then posting an announcement. Only `RATE_LIMIT_RSVP` and
+`RATE_LIMIT_MAIL` bound it, per client address. With registration Invitation only, the default,
+that is limited to hosts you admitted; if your instance's registration is Open, read
+[configuration.md](configuration.md#mail) first.
+
+The app sends event mail itself, from a queue in its own container, so `compose.yaml` gains no
+service. There is one new setting, `RATE_LIMIT_COMMENT` ([configuration.md](configuration.md#rate-limits)),
+with a default that suits most instances.
+
 ## Backups
 
 An instance is four things:

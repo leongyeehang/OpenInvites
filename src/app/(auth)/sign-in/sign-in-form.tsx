@@ -8,11 +8,12 @@ import { FormOutcome } from "@/components/form-outcome";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
-export function SignInForm() {
+export function SignInForm({ next }: { next: string }) {
   const t = useTranslations("Auth.signIn");
   const [state, action, pending] = useActionState(signIn, undefined);
   return (
     <form action={action}>
+      <input type="hidden" name="next" value={next} />
       <FieldGroup>
         <Field>
           <FieldLabel htmlFor="email">{t("email")}</FieldLabel>
