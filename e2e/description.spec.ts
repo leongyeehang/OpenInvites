@@ -21,7 +21,7 @@ test("formatting survives saving, reopening, and the guest's page", async ({ pag
   await expect(bold).toHaveAttribute("aria-pressed", "true");
   await expect(host.page.getByRole("button", { name: "Italic" })).toHaveAttribute("aria-pressed", "false");
   await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText("Saved.")).toBeVisible({ timeout: 15_000 });
+  await expect(host.page.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
 
   // It comes back bold when the host returns to the form.
   await host.page.reload();
@@ -49,7 +49,7 @@ test("a host adds a link and a bullet list from the toolbar", async ({ page, bro
   await host.page.getByRole("button", { name: "Add a link" }).click();
   await host.page.getByRole("button", { name: "Bullet list" }).click();
   await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText("Saved.")).toBeVisible({ timeout: 15_000 });
+  await expect(host.page.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
 
   await page.goto(host.link);
   const link = page.locator('[data-slot="description"] li a');
@@ -82,7 +82,7 @@ test("a hostile paste leaves nothing but words behind", async ({ page, request, 
   // the rest of the form down. The host saves once the editor has settled.
   await expect(editor.locator("img")).toHaveJSProperty("complete", true);
   await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText("Saved.")).toBeVisible({ timeout: 15_000 });
+  await expect(host.page.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
 
   await page.goto(host.link);
   const about = page.locator('[data-slot="description"]');

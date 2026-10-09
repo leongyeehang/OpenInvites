@@ -9,7 +9,7 @@ import type { RsvpSettings, RsvpStatus } from "@/rsvps/form";
 // next thing. The flow's rules are use-rsvp-flow.ts's; this only says what each state reads as.
 
 // Where the guest is in the RSVP flow, as use-rsvp-flow.ts names it.
-export type ThreadStep = "idle" | "name" | "plusones" | "questions" | "done";
+export type ThreadStep = "idle" | "name" | "plusones" | "questions" | "code" | "done";
 
 // What the guest has said: the answer they are giving, or the one they saved.
 export type ThreadReply = {
@@ -20,13 +20,17 @@ export type ThreadReply = {
   plusOnes: number;
   plusOneNames: string[];
   answers: AnswerFields;
+  // The address a code was sent to while the guest proves their email (verification.ts), and the
+  // code they typed.
+  codeSentTo?: string;
+  code?: string;
 };
 
 export type ThreadState = {
   step: ThreadStep;
   // The turn the step is on (threadTurns): the name, the email, the phone number; how many
-  // plus-ones, then each one's name; each question. One past the step's last turn, all of it is
-  // answered.
+  // plus-ones, then each one's name; each question; the code. One past the step's last turn, all
+  // of it is answered.
   at: number;
   reply: ThreadReply;
 };
@@ -54,6 +58,7 @@ export type ThreadLine =
   | "bringing"
   | "askGuestName"
   | "questionOptional"
+  | "askCode"
   | "skipped"
   | `done.${RsvpStatus}`;
 
@@ -77,14 +82,15 @@ export type Asks =
   | { kind: "phone"; required: boolean }
   | { kind: "plusOnes" }
   | { kind: "guestName"; number: number }
-  | { kind: "question"; question: Question };
+  | { kind: "question"; question: Question }
+  | { kind: "code" };
 
 export type Turn = { step: ThreadStep; at: number; key: string; asks: Asks; ask: Said; answer: Said };
 
 const SKIPPED: Said = { line: "skipped" };
 
 // The order of the steps, which is the order of the conversation.
-const STEPS: ThreadStep[] = ["idle", "name", "plusones", "questions", "done"];
+const STEPS: ThreadStep[] = ["idle", "name", "plusones", "questions", "code", "done"];
 
 // The first word of the guest's name, which the host calls them by.
 export function firstNameOf(name: string): string {
@@ -93,8 +99,18 @@ export function firstNameOf(name: string): string {
 
 // Every turn this guest is asked, in order: the same steps the flow has (use-rsvp-flow.ts), each
 // asked one thing at a time. A guest who can't go is asked only who they are and, when the host
-// asks for them, how to reach them.
-export function threadTurns({ status, name, email, phone, plusOnes, plusOneNames, answers }: ThreadReply, { settings, questions }: ThreadEvent): Turn[] {
+// asks for them, how to reach them. Once a code is sent to their email, the last turn asks for it.
+export function threadTurns(reply: ThreadReply, event: ThreadEvent): Turn[] {
+  const turns = detailTurns(reply, event);
+  const { codeSentTo, code = "" } = reply;
+  if (codeSentTo !== undefined) {
+    turns.push({ step: "code", at: 0, key: "code", asks: { kind: "code" }, ask: { line: "askCode", values: { email: codeSentTo } }, answer: { text: code.trim() } });
+  }
+  return turns;
+}
+
+// The turns of the details, the plus-ones and the questions.
+function detailTurns({ status, name, email, phone, plusOnes, plusOneNames, answers }: ThreadReply, { settings, questions }: ThreadEvent): Turn[] {
   const turns: Turn[] = [
     { step: "name", at: 0, key: "name", asks: { kind: "name" }, ask: { line: status === "cant" ? "askNameCant" : "askName" }, answer: { text: name.trim() } },
   ];

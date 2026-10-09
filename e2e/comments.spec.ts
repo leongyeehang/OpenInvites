@@ -158,7 +158,7 @@ test("comments turned off take the section off the page, for guests and hosts al
 
   await host.page.getByLabel("Comments", { exact: true }).uncheck();
   await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText("Saved.")).toBeVisible({ timeout: 15_000 });
+  await expect(host.page.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
 
   await page.reload();
   await expect(page.getByRole("heading", { name: "Ada’s birthday" })).toBeVisible();

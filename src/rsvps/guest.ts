@@ -19,9 +19,22 @@ export type GuestRsvp = {
 
 // Why an answer was refused. The guest's own browser turns it into a sentence, and uses it to
 // send them back to the step holding the field that needs them. Too fast is the rate limit; limit reached is the operator's cap on replies per event.
-export type RsvpRefusal = RsvpFormError | AnswerError | "closed" | "limitReached" | "tooFast";
+export type RsvpRefusal = RsvpFormError | AnswerError | CodeRefusal | "closed" | "limitReached" | "tooFast";
 
-export type SaveRsvpResult = { error?: RsvpRefusal; saved?: GuestRsvp };
+// Why the code step stopped short of saving the reply (email-code.ts): a wrong code; a dead one,
+// expired or out of tries, for which a new one was sent; or no code sent, because one went to the
+// address moments ago or the client has caused as much mail as the instance allows.
+export type CodeRefusal = "codeWrong" | "codeExpired" | "codeResent" | "codeTooSoon" | "codeTooFast";
+
+// What saving an answer did: saved it; or sent a code to the email it gave (or one went there just
+// now), which the guest enters before it is saved, with how long until another can be sent; or
+// refused it, with how many tries the code has left when it was the wrong one.
+export type SaveRsvpResult = {
+  error?: RsvpRefusal;
+  saved?: GuestRsvp;
+  codeSent?: { email: string; resendIn: number };
+  triesLeft?: number;
+};
 
 export function guestRsvp({ rsvp, token }: MyRsvp): GuestRsvp {
   const { status, name, plusOnes, plusOneNames, email, phone } = rsvp;

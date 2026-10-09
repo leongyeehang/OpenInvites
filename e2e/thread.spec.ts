@@ -53,7 +53,7 @@ async function setGuestListVisibility(hostPage: Page, who: "always" | "afterRepl
   await hostPage.reload();
   await hostPage.getByLabel("Who can see the guest list").selectOption(who);
   await hostPage.getByRole("button", { name: "Save changes" }).click();
-  await expect(hostPage.getByText("Saved.")).toBeVisible();
+  await expect(hostPage.getByText(/^Saved\./)).toBeVisible();
 }
 
 // Notes whether the typing dots show, however briefly, before the host's next line.

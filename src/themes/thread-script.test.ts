@@ -180,6 +180,27 @@ describe("threadMessages", () => {
     ]);
   });
 
+  it("asks for the code once one is sent to the guest's email, after everything else, and keeps it once saved", () => {
+    const asking: ThreadEvent = { ...PARTY, settings: { ...PARTY.settings, emailField: "optional" } };
+    const proving = reply({ email: "mei@example.com", answers: { q2: ["Tag"] }, codeSentTo: "mei@example.com" });
+    expect(said(threadMessages({ step: "code", at: 0, reply: proving }, asking)).slice(-2)).toEqual([
+      ["guest", { list: ["Tag"] }],
+      ["host", { line: "askCode", values: { email: "mei@example.com" } }],
+    ]);
+    const saved = threadMessages({ step: "done", at: 0, reply: { ...proving, code: " 042917 " } }, asking);
+    expect(said(saved).slice(-3)).toEqual([
+      ["host", { line: "askCode", values: { email: "mei@example.com" } }],
+      ["guest", { text: "042917" }],
+      ["host", { line: "done.going", values: { firstName: "Mei" } }],
+    ]);
+    // A guest who can't go proves their email too, straight after giving it.
+    expect(said(threadMessages({ step: "code", at: 0, reply: { ...proving, status: "cant" } }, asking)).slice(-3)).toEqual([
+      ["host", { line: "askEmail" }],
+      ["guest", { text: "mei@example.com" }],
+      ["host", { line: "askCode", values: { email: "mei@example.com" } }],
+    ]);
+  });
+
   it("keeps a guest's conversation on an event that has since closed, and says so after it", () => {
     const bubbles = threadMessages({ step: "done", at: 0, reply: reply({ status: "cant" }) }, { ...PARTY, closed: "cancelled" });
     expect(said(bubbles)[0]).toEqual(ASK);
@@ -213,5 +234,11 @@ describe("threadTurns", () => {
     ]);
     // A guest who can't go is asked their name, and how to reach them when the host wants it.
     expect(threadTurns(reply({ status: "cant" }), everything).map(({ asks }) => asks.kind)).toEqual(["name", "email", "phone"]);
+    // The code is asked only once one was sent, last of all.
+    expect(threadTurns(reply({ plusOnes: 2, codeSentTo: "mei@example.com" }), everything).map(({ step, at, asks }) => [step, at, asks.kind]).at(-1)).toEqual([
+      "code",
+      0,
+      "code",
+    ]);
   });
 });

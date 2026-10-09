@@ -21,6 +21,8 @@ export type DraftFields = {
   // The Contact details choices; Don't ask when left out.
   email?: "optional" | "required";
   phone?: "optional" | "required";
+  // "Check the email with a code", which the form offers once it asks for an email.
+  verifyEmail?: boolean;
   // Reminders are on for a new event; false turns them off.
   reminders?: boolean;
   questions?: QuestionFields[];
@@ -56,6 +58,7 @@ export async function createDraft(page: Page, fields: DraftFields) {
   const email = fields.email ?? (fields.askEmail ? "optional" : undefined);
   if (email) await contact.getByLabel("Email", { exact: true }).selectOption(email);
   if (fields.phone) await contact.getByLabel("Phone number", { exact: true }).selectOption(fields.phone);
+  if (fields.verifyEmail) await contact.getByLabel("Check the email with a code").check();
   if (fields.reminders === false) await page.getByLabel("Remind guests by email (a week before to Maybe, the day before to Going)").uncheck();
   if (fields.questions) await addQuestions(page, fields.questions);
   await page.getByRole("button", { name: "Save draft" }).click();

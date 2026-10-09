@@ -297,6 +297,10 @@
       "subject": "關於「{title}」的檢舉",
       "body": "有人檢舉了活動頁面「{title}」。\n\n活動頁面：\n{url}\n\n檢舉內容：\n{reason}\n\n聯絡方式：{contact}\n\n這則檢舉也在你的實例的檢舉頁面上：\n{reportsUrl}",
       "noContact": "未留聯絡方式"
+    },
+    "code": {
+      "subject": "「{title}」的驗證碼",
+      "body": "你在「{title}」的驗證碼是：\n\n{code}\n\n驗證碼十分鐘內有效。\n\n你收到這封郵件，是因為有人在「{title}」的回覆表單中填寫了這個電子郵件。如果不是你本人填寫的，請忽略這封郵件。"
     }
   },
   "Events": {
@@ -336,6 +340,8 @@
       "contact": {
         "title": "聯絡方式",
         "email": "電子郵件",
+        "verifyEmail": "用驗證碼確認電子郵件",
+        "verifyEmailHint": "賓客須輸入我們寄到其電子郵件的六位數驗證碼，回覆才會儲存。",
         "phone": "電話號碼",
         "none": "不詢問",
         "optional": "選填",
@@ -531,6 +537,7 @@
       "bringing": "我會帶 {count} 位",
       "askGuestName": "{number, plural, =1 {第一位同伴叫什麼名字？} =2 {第二位同伴叫什麼名字？} =3 {第三位同伴叫什麼名字？} =4 {第四位同伴叫什麼名字？} =5 {第五位同伴叫什麼名字？} =6 {第六位同伴叫什麼名字？} =7 {第七位同伴叫什麼名字？} =8 {第八位同伴叫什麼名字？} =9 {第九位同伴叫什麼名字？} =10 {第十位同伴叫什麼名字？} other {第 # 位同伴叫什麼名字？}}",
       "questionOptional": "{prompt}（沒有的話可以跳過）",
+      "askCode": "我們已將驗證碼寄到 {email}，請在這裡輸入。",
       "skipped": "這個我先跳過",
       "skip": "跳過",
       "finish": "選好了",
@@ -740,7 +747,8 @@
     "replied": "回覆於 {when}",
     "changed": "修改於 {when}",
     "row": {
-      "mailStopped": "已停止接收這個活動的郵件"
+      "mailStopped": "已停止接收這個活動的郵件",
+      "emailChecked": "電子郵件已確認"
     },
     "edit": "編輯",
     "close": "關閉",
@@ -907,7 +915,12 @@
       "answerNotOffered": "請從提供的選項中選一個。",
       "answerTooLong": "回答太長了。",
       "tooFast": "操作太頻繁了，請稍後再試。",
-      "limitReached": "這場活動無法再接受更多回覆了。"
+      "limitReached": "這場活動無法再接受更多回覆了。",
+      "codeWrong": "驗證碼不正確。{count, plural, other {還可以再試 # 次。}}",
+      "codeExpired": "驗證碼已過期，我們已重新寄出一組。",
+      "codeResent": "嘗試次數太多，我們已重新寄出一組驗證碼。",
+      "codeTooFast": "目前無法再寄送驗證碼，請過幾分鐘再試。",
+      "codeTooSoon": "我們剛剛已寄出驗證碼，請查看你的電子郵件。"
     },
     "questions": {
       "title": "幾個小問題",
@@ -915,6 +928,15 @@
       "required": "必填",
       "yes": "是",
       "no": "否"
+    },
+    "code": {
+      "title": "查看你的電子郵件",
+      "sent": "我們已將驗證碼寄到 {email}。",
+      "label": "驗證碼",
+      "confirm": "確認",
+      "resend": "重新寄送",
+      "resendIn": "{seconds} 秒後可重新寄送",
+      "changeEmail": "更換電子郵件"
     },
     "ballot": {
       "title": "回覆",

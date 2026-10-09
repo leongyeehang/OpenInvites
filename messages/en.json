@@ -297,6 +297,10 @@
       "subject": "Report about {title}",
       "body": "Someone reported the event page “{title}”.\n\nThe event page:\n{url}\n\nWhat they said:\n{reason}\n\nHow to reach them: {contact}\n\nThe report is also on your instance’s reports page:\n{reportsUrl}",
       "noContact": "no contact given"
+    },
+    "code": {
+      "subject": "Your code for {title}",
+      "body": "Your code for {title}:\n\n{code}\n\nIt lasts ten minutes.\n\nYou’re getting this because this address was entered on {title}’s RSVP form. If it wasn’t you, ignore this email."
     }
   },
   "Events": {
@@ -336,6 +340,8 @@
       "contact": {
         "title": "Contact details",
         "email": "Email",
+        "verifyEmail": "Check the email with a code",
+        "verifyEmailHint": "Guests enter a six-digit code we email them before their reply is saved.",
         "phone": "Phone number",
         "none": "Don’t ask",
         "optional": "Optional",
@@ -531,6 +537,7 @@
       "bringing": "I’ll bring {count}",
       "askGuestName": "{number, plural, =1 {What’s your first guest’s name?} =2 {What’s your second guest’s name?} =3 {What’s your third guest’s name?} =4 {What’s your fourth guest’s name?} =5 {What’s your fifth guest’s name?} =6 {What’s your sixth guest’s name?} =7 {What’s your seventh guest’s name?} =8 {What’s your eighth guest’s name?} =9 {What’s your ninth guest’s name?} =10 {What’s your tenth guest’s name?} other {What’s the name of guest #?}}",
       "questionOptional": "{prompt} (skip if none)",
+      "askCode": "We sent a code to {email}. Type it here.",
       "skipped": "I’ll skip this one",
       "skip": "Skip",
       "finish": "Done",
@@ -740,7 +747,8 @@
     "replied": "Replied {when}",
     "changed": "Changed {when}",
     "row": {
-      "mailStopped": "Stopped email about this event"
+      "mailStopped": "Stopped email about this event",
+      "emailChecked": "Email checked"
     },
     "edit": "Edit",
     "close": "Close",
@@ -907,7 +915,12 @@
       "answerNotOffered": "Choose one of the answers offered.",
       "answerTooLong": "That answer is too long.",
       "tooFast": "You’re going too fast. Try again shortly.",
-      "limitReached": "This event can’t take more replies."
+      "limitReached": "This event can’t take more replies.",
+      "codeWrong": "That code isn’t right. {count, plural, one {# try left.} other {# tries left.}}",
+      "codeExpired": "That code has expired. We sent a new one.",
+      "codeResent": "Too many tries. We sent a new one.",
+      "codeTooFast": "We can’t send another code right now. Try again in a few minutes.",
+      "codeTooSoon": "We just sent you a code. Look for it in your email."
     },
     "questions": {
       "title": "A couple of questions",
@@ -915,6 +928,15 @@
       "required": "Required",
       "yes": "Yes",
       "no": "No"
+    },
+    "code": {
+      "title": "Check your email",
+      "sent": "We sent a code to {email}.",
+      "label": "Code",
+      "confirm": "Confirm",
+      "resend": "Send it again",
+      "resendIn": "Send it again in {seconds}s",
+      "changeEmail": "Change email"
     },
     "ballot": {
       "title": "RSVP",

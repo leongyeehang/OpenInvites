@@ -59,7 +59,7 @@ test("a host creates a draft, previews it, publishes it, and edits it", async ({
 
   await page.getByLabel("Title").fill("Ada’s 30th");
   await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("Saved.")).toBeVisible();
+  await expect(page.getByText(/^Saved\./)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Ada’s 30th", level: 1 })).toBeVisible();
   await guestPage.reload();
   await expect(guestPage.getByRole("heading", { name: "Ada’s 30th" })).toBeVisible();

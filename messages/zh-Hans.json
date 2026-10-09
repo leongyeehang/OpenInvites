@@ -297,6 +297,10 @@
       "subject": "关于“{title}”的举报",
       "body": "有人举报了活动页面“{title}”。\n\n活动页面：\n{url}\n\n举报内容：\n{reason}\n\n联系方式：{contact}\n\n这条举报也在你的实例的举报页面上：\n{reportsUrl}",
       "noContact": "未留联系方式"
+    },
+    "code": {
+      "subject": "“{title}”的验证码",
+      "body": "你在“{title}”的验证码是：\n\n{code}\n\n验证码十分钟内有效。\n\n你收到这封邮件，是因为有人在“{title}”的回复表单中填写了这个邮箱。如果不是你本人填写的，请忽略这封邮件。"
     }
   },
   "Events": {
@@ -336,6 +340,8 @@
       "contact": {
         "title": "联系方式",
         "email": "邮箱",
+        "verifyEmail": "用验证码确认邮箱",
+        "verifyEmailHint": "宾客须输入我们发到其邮箱的六位数验证码，回复才会保存。",
         "phone": "电话号码",
         "none": "不询问",
         "optional": "选填",
@@ -531,6 +537,7 @@
       "bringing": "我会带 {count} 位",
       "askGuestName": "{number, plural, =1 {第一位同伴叫什么名字？} =2 {第二位同伴叫什么名字？} =3 {第三位同伴叫什么名字？} =4 {第四位同伴叫什么名字？} =5 {第五位同伴叫什么名字？} =6 {第六位同伴叫什么名字？} =7 {第七位同伴叫什么名字？} =8 {第八位同伴叫什么名字？} =9 {第九位同伴叫什么名字？} =10 {第十位同伴叫什么名字？} other {第 # 位同伴叫什么名字？}}",
       "questionOptional": "{prompt}（没有的话可以跳过）",
+      "askCode": "我们已将验证码发送到 {email}，请在这里输入。",
       "skipped": "这个我先跳过",
       "skip": "跳过",
       "finish": "选好了",
@@ -740,7 +747,8 @@
     "replied": "回复于 {when}",
     "changed": "修改于 {when}",
     "row": {
-      "mailStopped": "已停止接收这个活动的邮件"
+      "mailStopped": "已停止接收这个活动的邮件",
+      "emailChecked": "邮箱已确认"
     },
     "edit": "编辑",
     "close": "关闭",
@@ -907,7 +915,12 @@
       "answerNotOffered": "请从给出的选项中选一个。",
       "answerTooLong": "回答太长了。",
       "tooFast": "操作太频繁了，请稍后再试。",
-      "limitReached": "这场活动无法再接受更多回复了。"
+      "limitReached": "这场活动无法再接受更多回复了。",
+      "codeWrong": "验证码不正确。{count, plural, other {还可以再试 # 次。}}",
+      "codeExpired": "验证码已过期，我们已重新发送了一个。",
+      "codeResent": "尝试次数太多，我们已重新发送了一个验证码。",
+      "codeTooFast": "目前无法再发送验证码，请过几分钟再试。",
+      "codeTooSoon": "我们刚刚已发送验证码，请查看你的邮箱。"
     },
     "questions": {
       "title": "几个小问题",
@@ -915,6 +928,15 @@
       "required": "必填",
       "yes": "是",
       "no": "否"
+    },
+    "code": {
+      "title": "查看你的邮箱",
+      "sent": "我们已将验证码发送到 {email}。",
+      "label": "验证码",
+      "confirm": "确认",
+      "resend": "重新发送",
+      "resendIn": "{seconds} 秒后可重新发送",
+      "changeEmail": "更换邮箱"
     },
     "ballot": {
       "title": "回复",

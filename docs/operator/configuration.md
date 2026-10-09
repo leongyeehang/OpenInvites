@@ -147,7 +147,9 @@ With mail configured:
 - the hosts can email an announcement to the guests who gave an email, chosen by their answer;
 - guests who gave an email are reminded of an event a week before if they said Maybe, and the day
   before if they said Going, unless the host turns reminders off for the event;
-- every email to a guest ends with a link to a page where one tap stops email about that event.
+- a guest proving their email is sent a code to it, when the host asks for it;
+- every email to a guest ends with a link to a page where one tap stops email about that event,
+  except the code, which is sent before anything about the guest is kept.
 
 A guest gives an email only when the host asks for one on the RSVP form, so only those guests get
 mail.
@@ -160,11 +162,11 @@ the default, the hosts are people you admitted. If you open registration on an i
 anyone who signs up can do this. Operator limits on guests per event and events per host, planned
 for a later release, are meant to close it.
 
-The app sends event mail (everything above about an event) from a queue inside the app container,
-so there is nothing else to run. It sends what someone has just queued at once, and checks the
-queue once a minute, which is also when it queues the reminders that have fallen due. A message
-that fails is retried a few times over about an hour and a half; if it still fails, it is dropped
-and the log says why.
+The app sends event mail (everything above about an event but a guest's code, which goes at once
+because the guest is waiting for it) from a queue inside the app container, so there is nothing
+else to run. It sends what someone has just queued at once, and checks the queue once a minute,
+which is also when it queues the reminders that have fallen due. A message that fails is retried
+a few times over about an hour and a half; if it still fails, it is dropped and the log says why.
 
 Without mail, none of those emails exist: hosts are not asked to verify, and you reset a
 forgotten password with the command in [upgrade-backup.md](upgrade-backup.md#resetting-a-hosts-password).
@@ -173,9 +175,9 @@ To check mail works after setting it up, sign up a host with an address you can 
 a password reset for one. If nothing arrives, `docker compose logs app` shows the SMTP server's
 answer. Every request that sends one of the account emails (verification, password reset, an email
 change, a sign-in link, a host invitation) counts against `RATE_LIMIT_MAIL`, and so does a host's
-announcement that emails guests, once however many it reaches. The hosts' reply emails come from
-guests' RSVPs, so `RATE_LIMIT_RSVP` bounds them, and their comment emails come from comments, which
-`RATE_LIMIT_COMMENT` bounds.
+announcement that emails guests, once however many it reaches, and each code sent to a guest to
+prove their email. The hosts' reply emails come from guests' RSVPs, so `RATE_LIMIT_RSVP` bounds
+them, and their comment emails come from comments, which `RATE_LIMIT_COMMENT` bounds.
 
 ## Sign in with Google and GitHub
 
@@ -287,7 +289,7 @@ runs.
 | `RATE_LIMIT_SIGN_UP` | `10/1h` | Signing up, and opening a host invitation link. |
 | `RATE_LIMIT_SIGN_IN` | `10/15m` | Signing in, and everything else that checks a password (changing it, deleting an account), starting a Google or GitHub sign-in, and opening a co-host link. |
 | `RATE_LIMIT_PASSWORD_RESET` | `10/1h` | Asking for a password reset link, and setting the new password. |
-| `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an account email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, asking for a sign-in link, and the operator's emailed host invitations. Also each announcement a host emails to guests, counted once however many guests it reaches. |
+| `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an account email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, asking for a sign-in link, and the operator's emailed host invitations. Also each announcement a host emails to guests, counted once however many guests it reaches, and each code sent to a guest to prove their email. |
 | `RATE_LIMIT_COMMENT` | `30/10m` | Posting a comment on an event page, and deleting one, by a guest or a host. This also bounds the emails that tell hosts about comments. |
 | `RATE_LIMIT_REPORT` | `5/1h` | Sending a report about an event page. This also bounds the emails that tell you about reports. |
 

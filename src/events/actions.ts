@@ -50,6 +50,7 @@ function fields(formData: FormData) {
     requirePlusOneNames: formData.get("requirePlusOneNames") === "on",
     emailField: text("emailField"),
     phoneField: text("phoneField"),
+    verifyEmail: formData.get("verifyEmail") === "on",
     guestListVisibility: text("guestListVisibility"),
     notifyOnRsvp: formData.get("notifyOnRsvp") === "on",
     remindersEnabled: formData.get("remindersEnabled") === "on",

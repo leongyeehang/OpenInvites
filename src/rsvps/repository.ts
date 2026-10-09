@@ -1,12 +1,13 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
 import { cache } from "react";
 import { getDb, type Db } from "@/db/client";
-import { event, rsvp } from "@/db/schema";
+import { emailCode, event, rsvp } from "@/db/schema";
 import type { Locale } from "@/locale/resolve-locale";
 import { countRsvps, type RsvpCounts, type StatusTally } from "./counts";
 import type { RsvpInput, RsvpStatus } from "./form";
 import { planHostEdit, planRsvp } from "./plan";
 import { generateEditToken, generateMailToken, hashEditToken } from "./token";
+import { codeVerdict, MAX_ATTEMPTS, type CodeVerdict } from "./verification";
 
 export type Rsvp = typeof rsvp.$inferSelect;
 
@@ -44,8 +45,9 @@ export type MyRsvp = { rsvp: Rsvp; token: string };
 // save with an email makes the RSVP's mail token, and every later save keeps it, even one that
 // blanks the email, so the stop link in an old email still finds its page (spec, "Guest mail"). An
 // email or phone number the host does not ask for is undefined in the input, and left as stored.
-export async function saveRsvp(eventId: string, input: RsvpInput & { locale: Locale }, mine: MyRsvp | undefined): Promise<MyRsvp> {
-  const plan = planRsvp(eventId, input, mine && { id: mine.rsvp.id, token: mine.token }, new Date());
+// `proven` says the guest has just entered the code sent to the email they gave (plan.ts).
+export async function saveRsvp(eventId: string, input: RsvpInput & { locale: Locale }, mine: MyRsvp | undefined, proven = false): Promise<MyRsvp> {
+  const plan = planRsvp(eventId, input, mine && { id: mine.rsvp.id, token: mine.token, email: mine.rsvp.email }, new Date(), proven);
   if (plan.replaces) {
     const mailToken = input.email ? sql`coalesce(${rsvp.mailToken}, ${generateMailToken()})` : undefined;
     const [replaced] = await getDb()
@@ -78,6 +80,8 @@ export type HostGuest = {
   plusOnes: number;
   plusOneNames: string[];
   email: string | null;
+  // When the guest proved the email by a code, if they did.
+  emailVerifiedAt: Date | null;
   phone: string | null;
   // When the guest stopped email about the event with the stop link, if they have.
   mailStoppedAt: Date | null;
@@ -94,6 +98,7 @@ export async function listGuestList(eventId: string): Promise<HostGuest[]> {
       plusOnes: rsvp.plusOnes,
       plusOneNames: rsvp.plusOneNames,
       email: rsvp.email,
+      emailVerifiedAt: rsvp.emailVerifiedAt,
       phone: rsvp.phone,
       mailStoppedAt: rsvp.mailStoppedAt,
       repliedAt: rsvp.repliedAt,
@@ -119,8 +124,9 @@ export async function listPublicGuestList(eventId: string): Promise<PublicGuest[
 // A host changing a guest's RSVP on their behalf (spec, story 53, and "Contact details"). It
 // writes only what a host may set, so the guest's edit token survives untouched and the link in
 // their pocket keeps working, and never an email for a guest who stopped email about the event
-// (planHostEdit, decided under the same lock as the write). An email the host gives gets the RSVP
-// its mail token, as a guest's does in saveRsvp, so every email to it can end with its stop link.
+// (planHostEdit, decided under the same lock as the write), nor a proven mark on an email the host
+// changed. An email the host gives gets the RSVP its mail token, as a guest's does in saveRsvp, so
+// every email to it can end with its stop link.
 // Returns the RSVP as it was, read under the same lock as the write, so the hosts are told of the
 // change that was made (notify-hosts.ts).
 export async function editRsvpAsHost(eventId: string, id: string, edit: RsvpInput): Promise<Rsvp | undefined> {
@@ -208,4 +214,65 @@ export async function countRsvpsByEvent(eventIds: string[]): Promise<Map<string,
   }
   for (const eventId of eventIds) counts.set(eventId, countRsvps(tallies.get(eventId) ?? []));
   return counts;
+}
+
+// A code sent to an address a guest typed on the event's RSVP form (verification.ts).
+export type EmailCode = typeof emailCode.$inferSelect;
+
+// Stores the code just sent to an address, in place of any sent there before: its tries and its
+// time start again, and the old code no longer works.
+export async function createEmailCode(eventId: string, email: string, codeHash: string, expiresAt: Date): Promise<void> {
+  await getDb()
+    .insert(emailCode)
+    .values({ eventId, email, codeHash, expiresAt })
+    .onConflictDoUpdate({ target: [emailCode.eventId, emailCode.email], set: { codeHash, expiresAt, attempts: 0, createdAt: sql`now()` } });
+}
+
+export async function findEmailCode(eventId: string, email: string): Promise<EmailCode | undefined> {
+  const [found] = await getDb()
+    .select()
+    .from(emailCode)
+    .where(and(eq(emailCode.eventId, eventId), eq(emailCode.email, email)))
+    .limit(1);
+  return found;
+}
+
+// One more wrong code entered against it. Returns how many there have been.
+export async function countAttempt(id: string, db: Db = getDb()): Promise<number> {
+  const [counted] = await db
+    .update(emailCode)
+    .set({ attempts: sql`${emailCode.attempts} + 1` })
+    .where(eq(emailCode.id, id))
+    .returning({ attempts: emailCode.attempts });
+  return counted?.attempts ?? MAX_ATTEMPTS;
+}
+
+export async function deleteEmailCode(id: string, db: Db = getDb()): Promise<void> {
+  await db.delete(emailCode).where(eq(emailCode.id, id));
+}
+
+// What a code the guest typed is worth (codeVerdict), decided under a lock on the code's row, so
+// that tries sent at once are counted one after another and a right code is used once: it is
+// deleted as it is accepted. A wrong one counts against it, and the guest is told how many tries
+// are left. No code for the address is one that has run out.
+export async function tryEmailCode(eventId: string, email: string, typed: string, now: Date): Promise<{ verdict: CodeVerdict; triesLeft: number }> {
+  return getDb().transaction(async (tx) => {
+    const [sent] = await tx
+      .select()
+      .from(emailCode)
+      .where(and(eq(emailCode.eventId, eventId), eq(emailCode.email, email)))
+      .for("update");
+    if (!sent) return { verdict: "expired", triesLeft: 0 };
+    const verdict = codeVerdict(sent, typed, now);
+    if (verdict === "ok") await deleteEmailCode(sent.id, tx);
+    const attempts = verdict === "wrong" ? await countAttempt(sent.id, tx) : sent.attempts;
+    return { verdict, triesLeft: Math.max(0, MAX_ATTEMPTS - attempts) };
+  });
+}
+
+// The mail worker's tidy-up: codes a day old, long dead, whether or not anyone entered them.
+export async function deleteStaleEmailCodes(now: Date): Promise<void> {
+  await getDb()
+    .delete(emailCode)
+    .where(lt(emailCode.createdAt, new Date(now.getTime() - 24 * 60 * 60 * 1000)));
 }

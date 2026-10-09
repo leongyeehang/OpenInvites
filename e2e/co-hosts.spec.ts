@@ -65,7 +65,7 @@ test("a host accepts a co-host link, sees the event on their dashboard, edits it
   await coHost.page.goto(manage);
   await coHost.page.getByLabel("Title").fill("Ada’s 30th");
   await coHost.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(coHost.page.getByText("Saved.")).toBeVisible({ timeout: 15_000 });
+  await expect(coHost.page.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
 
   await page.goto(owner.link);
   await expect(page.getByRole("heading", { name: "Ada’s 30th" })).toBeVisible();

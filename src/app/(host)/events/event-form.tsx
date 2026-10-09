@@ -29,6 +29,8 @@ const GUEST_LIST_LABELS = {
 type Props = {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   event?: Event;
+  // Whether the instance has mail, without which no code can prove a guest's email.
+  mail: boolean;
   timeZones: string[];
   submitLabel: string;
   questions: QuestionDraft[];
@@ -36,13 +38,16 @@ type Props = {
 };
 
 // One form for creating and editing. Times are typed in the event's zone; the action converts them.
-export function EventForm({ action, event, timeZones, submitLabel, questions, answerCounts }: Props) {
+export function EventForm({ action, event, mail, timeZones, submitLabel, questions, answerCounts }: Props) {
   const t = useTranslations("Events.form");
   const [state, formAction, pending] = useActionState(action, undefined);
   const [allDay, setAllDay] = useState(event?.allDay ?? false);
   // Guests can be reminded only if they can give an email, so the reminder setting says so while
   // the form does not ask for one.
   const [emailField, setEmailField] = useState<ContactField>(event?.emailField ?? "none");
+  // A code can only prove an email the form asks for, so the check waits, unticked, while it asks
+  // for none, and comes back as the host left it once it asks again.
+  const [verifyEmail, setVerifyEmail] = useState(event?.verifyEmail ?? false);
   const timeZoneSelect = useRef<HTMLSelectElement>(null);
 
   // A new event defaults to the host's device zone, which only the browser knows, so the
@@ -131,6 +136,26 @@ export function EventForm({ action, event, timeZones, submitLabel, questions, an
               ))}
             </NativeSelect>
           </Field>
+          {mail ? (
+            <Field orientation="horizontal" data-disabled={emailField === "none"}>
+              <Checkbox
+                id="verify-email"
+                name="verifyEmail"
+                checked={verifyEmail && emailField !== "none"}
+                disabled={emailField === "none"}
+                onCheckedChange={(checked) => setVerifyEmail(checked === true)}
+                aria-describedby="verify-email-hint"
+              />
+              <FieldContent>
+                <FieldLabel htmlFor="verify-email">{t("contact.verifyEmail")}</FieldLabel>
+                <FieldDescription id="verify-email-hint">{t("contact.verifyEmailHint")}</FieldDescription>
+              </FieldContent>
+            </Field>
+          ) : (
+            // Without mail the check is not offered, and one the host turned on is kept for when
+            // mail arrives (spec, "Contact details").
+            event?.verifyEmail && <input type="hidden" name="verifyEmail" value="on" />
+          )}
           <Field>
             <FieldLabel htmlFor="phone-field">{t("contact.phone")}</FieldLabel>
             <NativeSelect id="phone-field" name="phoneField" defaultValue={event?.phoneField ?? "none"}>

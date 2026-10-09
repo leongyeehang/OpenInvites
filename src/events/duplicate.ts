@@ -29,6 +29,7 @@ export function duplicateInput(
       requirePlusOneNames: source.requirePlusOneNames,
       emailField: source.emailField,
       phoneField: source.phoneField,
+      verifyEmail: source.verifyEmail,
       guestListVisibility: source.guestListVisibility,
       notifyOnRsvp: source.notifyOnRsvp,
       remindersEnabled: source.remindersEnabled,

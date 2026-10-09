@@ -12,12 +12,15 @@ import { instanceLimits } from "@/instance/repository";
 import { parseAnswers, type AnswerFields } from "@/questions/answers";
 import { listQuestions, saveAnswers } from "@/questions/repository";
 import type { FormState } from "@/lib/form-state";
+import { isMailConfigured } from "@/mail/config";
 import { consume } from "@/rate-limit/rate-limit";
+import { proveEmail } from "./email-code";
 import { parseHostEdit, parseRsvpForm, type RsvpFormFields } from "./form";
 import { findRsvpOnThisDevice, guestRsvp, type SaveRsvpResult } from "./guest";
 import { notifyHostsOfRsvp } from "./notify-hosts";
 import { countEventRsvps, deleteRsvp, editRsvpAsHost, saveRsvp } from "./repository";
 import { rsvpCookieName, rsvpCookieOptions } from "./token";
+import { needsCode } from "./verification";
 import { eventPaths } from "@/events/slug";
 
 function fields(formData: FormData): RsvpFormFields {
@@ -52,9 +55,12 @@ async function repliesAtLimit(eventId: string): Promise<boolean> {
 }
 
 // Every answer counts against the RSVP limit before anything is looked up, so that neither a
-// flood of RSVPs nor a search for event links gets far through here.
+// flood of RSVPs nor a search for event links gets far through here. When the host has the email
+// proven by a code, an answer is saved only once the guest has entered the code sent to it
+// (email-code.ts); until then nothing is written but the code.
 export async function saveRsvpAction(slug: string, formData: FormData): Promise<SaveRsvpResult> {
-  if (!(await consume("rsvp", await headers())).allowed) return { error: "tooFast" };
+  const requestHeaders = await headers();
+  if (!(await consume("rsvp", requestHeaders)).allowed) return { error: "tooFast" };
   const event = await findEventBySlug(slug);
   if (!event || !acceptsRsvps(event.state)) return { error: "closed" };
 
@@ -66,11 +72,21 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
 
   const mine = await findRsvpOnThisDevice(event.id);
   if (!mine && (await repliesAtLimit(event.id))) return { error: "limitReached" };
+
+  // Once the answer would be taken, its email is proven first when the host asks for it.
+  const { email } = parsed.input;
+  let proven = false;
+  if (email && needsCode({ verifyEmail: event.verifyEmail, emailField: event.emailField, mailConfigured: isMailConfigured(), email, current: mine?.rsvp })) {
+    const proof = await proveEmail(event, email, formData.get("code"), requestHeaders);
+    if (proof !== "proven") return proof;
+    proven = true;
+  }
+
   // The language the guest answers in is the one their mail about the event is written in.
   const locale = await getLocale();
   // Two writes rather than one transaction: a failure between them leaves the RSVP saved with
   // its previous answers, which the guest can put right by answering again.
-  const saved = await saveRsvp(event.id, { ...parsed.input, locale }, mine);
+  const saved = await saveRsvp(event.id, { ...parsed.input, locale }, mine, proven);
   await saveAnswers(saved.rsvp.id, answers.answers);
   if (!mine) {
     // A new RSVP: this device now remembers the guest, so the link finds their answer next time.

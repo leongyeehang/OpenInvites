@@ -26,10 +26,11 @@ const TYPING_MS = 650;
 // use-rsvp-flow.ts's and what each state reads as is the script's (thread-script.ts); this is how
 // the Thread presents them. One turn at a time: the host asks, and the composer offers the guest
 // the answers (chips for a status, the plus-ones and a choice, a text composer for a name, an
-// email, a phone number or a written answer); the guest's answer joins the conversation, and the
-// host's next line follows. Answering the last turn sends the RSVP, through hidden fields as the
-// Poster's form sends it; once it is saved the host's done bubble carries the private link and
-// the calendar, and the composer the three ways on.
+// email, a phone number, a written answer or a code); the guest's answer joins the conversation,
+// and the host's next line follows. Answering the last turn sends the RSVP, through hidden fields
+// as the Poster's form sends it; when the host has the email proven, the host asks for the code
+// sent to it, and the composer offers "Send it again". Once it is saved the host's done bubble
+// carries the private link and the calendar, and the composer the three ways on.
 //
 // What the page holds when it opens arrives at once. A host line that answers the guest comes
 // after the host has been seen typing for a moment, and the page follows the conversation down.
@@ -50,10 +51,14 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
   const focusNext = useRef<"controls" | "done" | RsvpStatus | null>(null);
 
   const flow = useRsvpFlow(props, (target, status) => {
-    focusNext.current = target === "confirmation" ? "done" : status;
+    focusNext.current = target === "confirmation" ? "done" : target === "code" ? "controls" : status;
   });
   const { step, draft, confirmed, working, refusal } = flow;
-  const reply: ThreadReply = confirmed ? { ...confirmed, email: confirmed.email ?? "", phone: confirmed.phone ?? "", answers: draft.answers } : draft;
+  // The code asked for, and the one given, stay in the conversation once the RSVP is saved.
+  const proving = { codeSentTo: flow.codeSentTo, code: draft.code };
+  const reply: ThreadReply = confirmed
+    ? { ...confirmed, email: confirmed.email ?? "", phone: confirmed.phone ?? "", answers: draft.answers, ...proving }
+    : { ...draft, ...proving };
   const event: ThreadEvent = { closed: open ? undefined : (closedAs ?? "cancelled"), settings, questions };
 
   // The turn the guest is on within the flow's step (thread-script.ts, ThreadState). A new step
@@ -150,6 +155,13 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
       });
       sendForm.current?.requestSubmit();
     }
+  };
+
+  // Back from the code to the email's turn, to give another.
+  const changeEmail = () => {
+    handOff();
+    flow.changeEmail();
+    setPlace({ step: "name", at: threadTurns(reply, event).find((each) => each.key === "email")?.at ?? 0, working });
   };
 
   const say = (said: Said): ReactNode => {
@@ -271,6 +283,36 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
         />
       );
     }
+    if (asks.kind === "code") {
+      return (
+        <>
+          <Chips>
+            <button
+              type="button"
+              onClick={() => {
+                handOff();
+                flow.resend(sendForm.current);
+              }}
+              disabled={working || flow.resendIn > 0}
+              className={chip()}
+            >
+              {flow.resendIn > 0 ? r("code.resendIn", { seconds: flow.resendIn }) : r("code.resend")}
+            </button>
+            <button type="button" onClick={changeEmail} className={chip()}>
+              {r("code.changeEmail")}
+            </button>
+          </Chips>
+          <TextComposer
+            label={r("code.label")}
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={draft.code}
+            onChange={(code) => flow.change({ code })}
+            onSend={() => advance()}
+          />
+        </>
+      );
+    }
     if (asks.kind === "plusOnes") {
       return (
         <Chips>
@@ -303,7 +345,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
   // Why the RSVP was just refused, while the guest answers; why it could not be removed, with the
   // done bubble.
   const why = flow.answering ? (working ? undefined : refusal) : flow.withdrawRefusal;
-  const alert = why && r(`errors.${why}`);
+  const alert = why && r(`errors.${why}`, { count: flow.triesLeft ?? 0 });
   // The composer is there while there is something to answer or wait for: not on an event that
   // takes no replies, to a guest who has not replied.
   const barShown = controls !== null || alert !== undefined || typing || (working && flow.answering);
@@ -351,6 +393,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
           <input type="hidden" name="name" value={draft.name} />
           <input type="hidden" name="email" value={draft.email} />
           <input type="hidden" name="phone" value={draft.phone} />
+          {step === "code" && <input type="hidden" name="code" value={draft.code} />}
           <input type="hidden" name="plusOnes" value={draft.plusOnes} />
           {Array.from({ length: draft.plusOnes }, (_, index) => (
             <input key={index} type="hidden" name="plusOneNames" value={draft.plusOneNames[index] ?? ""} />
@@ -365,11 +408,17 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
 }
 
 // Where a refusal about one field sends the guest back to, within the step the flow sends them to
-// (use-rsvp-flow.ts): the email's or the phone number's turn, or the first plus-one's name;
-// anything else about a field starts its step again. A refusal about none (too fast, closed)
-// leaves them where they were.
+// (use-rsvp-flow.ts): the email's, the phone number's or the code's turn, or the first plus-one's
+// name; anything else about a field starts its step again. A refusal about none (too fast,
+// closed) leaves them where they were.
 function refusedAt(refusal: RsvpRefusal, turns: Turn[]): number | undefined {
   switch (refusal) {
+    case "codeWrong":
+    case "codeExpired":
+    case "codeResent":
+    case "codeTooSoon":
+    case "codeTooFast":
+      return turns.find((turn) => turn.key === "code")?.at;
     case "emailRequired":
     case "emailInvalid":
       return turns.find((turn) => turn.key === "email")?.at;
@@ -432,7 +481,7 @@ function TextComposer({
 }: {
   label: string;
   placeholder?: string;
-  inputMode?: "email" | "tel";
+  inputMode?: "email" | "tel" | "numeric";
   autoComplete?: string;
   // Whether the host requires it, which the field says to a screen reader; the line asking for
   // it offers no skip.

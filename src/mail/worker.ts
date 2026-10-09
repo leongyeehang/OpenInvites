@@ -1,5 +1,6 @@
 import { PHASE_PRODUCTION_BUILD } from "next/constants";
 import { queueDueReminders } from "@/reminders/queue";
+import { deleteStaleEmailCodes } from "@/rsvps/repository";
 import { isMailConfigured } from "./config";
 import { sendDue } from "./outbox";
 
@@ -30,7 +31,9 @@ export function startMailWorker(): void {
 // Sends whatever is due now rather than at the next minute, after queuing the reminders due now
 // (spec, "Mail outbox and worker"). An action that has just queued mail calls it through after(),
 // so that its response does not wait for the mail server. The outbox is read with a clock taken
-// after the reminders are queued, so they go out in this run.
+// after the reminders are queued, so they go out in this run. Each run also deletes the codes
+// guests were sent to prove their email once they are a day old (rsvps/verification.ts): codes
+// exist only with mail, as the worker does.
 export async function kickMailWorker(): Promise<void> {
   const state = worker();
   if (state.running) {
@@ -39,6 +42,7 @@ export async function kickMailWorker(): Promise<void> {
   }
   state.running = true;
   try {
+    await deleteStaleEmailCodes(new Date());
     do {
       state.again = false;
       await queueDueReminders(new Date());

@@ -18,6 +18,7 @@ export type EventInput = {
   requirePlusOneNames: boolean;
   emailField: ContactField;
   phoneField: ContactField;
+  verifyEmail: boolean;
   guestListVisibility: GuestListVisibility;
   notifyOnRsvp: boolean;
   remindersEnabled: boolean;
@@ -38,6 +39,7 @@ export type EventFormFields = {
   requirePlusOneNames: boolean;
   emailField: string;
   phoneField: string;
+  verifyEmail: boolean;
   guestListVisibility: string;
   notifyOnRsvp: boolean;
   remindersEnabled: boolean;
@@ -120,6 +122,7 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
       requirePlusOneNames: fields.requirePlusOneNames,
       emailField,
       phoneField,
+      verifyEmail: fields.verifyEmail,
       guestListVisibility,
       notifyOnRsvp: fields.notifyOnRsvp,
       remindersEnabled: fields.remindersEnabled,

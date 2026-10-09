@@ -13,6 +13,7 @@ import { countAnswersByQuestion, listQuestions } from "@/questions/repository";
 import { countRsvpsByEvent } from "@/rsvps/repository";
 import { timeZones } from "@/events/time";
 import { ClientMessages } from "@/locale/client-messages";
+import { isMailConfigured } from "@/mail/config";
 import { EventForm } from "../event-form";
 import { DangerZone } from "../danger-zone";
 import { DuplicateButton } from "../duplicate-button";
@@ -106,6 +107,7 @@ export default async function ManageEventPage({ params, searchParams }: PageProp
         <EventForm
           action={updateEventAction.bind(null, event.id)}
           event={event}
+          mail={isMailConfigured()}
           timeZones={timeZones()}
           submitLabel={t("edit.submit")}
           questions={questions}

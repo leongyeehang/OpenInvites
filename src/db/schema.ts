@@ -156,6 +156,9 @@ export const event = pgTable(
     // optionally, which is what asking meant then (migration 0027).
     emailField: contactField("email_field").notNull().default("none"),
     phoneField: contactField("phone_field").notNull().default("none"),
+    // Whether a guest's email is taken only once they have entered a code sent to it (spec,
+    // "Contact details"). Kept without mail, where it does nothing until mail arrives.
+    verifyEmail: boolean("verify_email").notNull().default(false),
     guestListVisibility: guestListVisibility("guest_list_visibility").notNull().default(DEFAULT_GUEST_LIST_VISIBILITY),
     // Whether every host is emailed when a guest replies, changes their status, or removes their
     // RSVP (spec, "Host notifications"). On for new events; events from before 0.3 start with it
@@ -245,6 +248,9 @@ export const rsvp = pgTable(
     // As many entries as there are plus-ones; an entry is empty when the host does not ask for names.
     plusOneNames: text("plus_one_names").array().notNull().default(sql`'{}'::text[]`),
     email: text("email"),
+    // When the guest proved the email above by entering a code sent to it; null once it changes
+    // without one, whoever changes it (rsvps/plan.ts).
+    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
     // As the guest typed it, trimmed: shown to the hosts and used for nothing else.
     phone: text("phone"),
     editTokenHash: text("edit_token_hash").notNull().unique(),
@@ -344,6 +350,27 @@ export const upload = pgTable("upload", {
   posterHeight: integer("poster_height").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// A code sent to an address a guest typed on an event's RSVP form, waiting for them to enter it
+// (rsvps/verification.ts). One per address and event: sending another replaces it. Only its hash
+// is kept. Nothing else is stored for the address until the code matches, and the mail worker
+// deletes rows a day old.
+export const emailCode = pgTable(
+  "email_code",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    codeHash: text("code_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    // Wrong codes entered against it so far.
+    attempts: integer("attempts").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique("email_code_event_email_unique").on(table.eventId, table.email)],
+);
 
 // Every email about an event, to a guest or to a host, waits here until the mail worker sends it
 // (mail/outbox.ts; spec, "Mail outbox and worker"). A message that sent is deleted; one that failed

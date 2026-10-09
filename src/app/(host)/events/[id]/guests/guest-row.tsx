@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 import { DeleteDialogContent } from "@/components/delete-dialog-content";
@@ -62,7 +63,18 @@ export function GuestRow({
           {guest.mailStoppedAt ? (
             <p className="text-sm text-muted-foreground">{t("row.mailStopped")}</p>
           ) : (
-            guest.email && <p className="text-sm break-all text-muted-foreground">{guest.email}</p>
+            guest.email && (
+              <p className="text-sm break-all text-muted-foreground">
+                <span>{guest.email}</span>
+                {/* Beside an address the guest proved with a code (spec, story 156). */}
+                {guest.emailVerifiedAt && (
+                  <>
+                    <Check aria-hidden className="ml-1 inline size-3.5 align-[-2px] text-foreground" />
+                    <span className="sr-only"> {t("row.emailChecked")}</span>
+                  </>
+                )}
+              </p>
+            )
           )}
           {guest.phone && <p className="text-sm break-all text-muted-foreground">{guest.phone}</p>}
           {answers.length > 0 && (

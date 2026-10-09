@@ -224,7 +224,7 @@ test("a host who shows the list to everyone shows it before anyone replies", asy
 
   await host.page.getByLabel("Who can see the guest list").selectOption("always");
   await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText("Saved.")).toBeVisible();
+  await expect(host.page.getByText(/^Saved\./)).toBeVisible();
 
   await page.goto(host.link);
   await expect(page.getByText("Mei Lin")).toBeVisible();
@@ -249,7 +249,7 @@ test("a host who hides the list shows nothing, even to a guest who has replied",
 
   await host.page.getByLabel("Who can see the guest list").selectOption("hidden");
   await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText("Saved.")).toBeVisible();
+  await expect(host.page.getByText(/^Saved\./)).toBeVisible();
 
   await rsvp(page, host.link, "Priya Nair");
   await expect(page.getByRole("heading", { name: "Guests" })).toHaveCount(0);

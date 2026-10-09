@@ -14,9 +14,10 @@ import { useTheme } from "@/themes/themed-page";
 
 // Where the guest is in the flow (PROTOTYPE.md): choosing a status, then their name (with their
 // email and phone number, when the host asks for them), then who they are bringing, then the
-// host's questions, then the confirmation. A layout that asks everything at once treats every
-// step but idle and done as "answering".
-export type Step = "idle" | "name" | "plusones" | "questions" | "done";
+// host's questions, then, when the host has the email proven, the code sent to it, then the
+// confirmation. A layout that asks everything at once treats every step but idle and done as
+// "answering".
+export type Step = "idle" | "name" | "plusones" | "questions" | "code" | "done";
 
 // Which step holds the field a refusal is about, so a guest is never shown "fix your email"
 // with the email field hidden two steps back. A refusal about no field in particular leaves the
@@ -34,6 +35,11 @@ const STEP_OF: Partial<Record<RsvpRefusal, Step>> = {
   answerRequired: "questions",
   answerNotOffered: "questions",
   answerTooLong: "questions",
+  codeWrong: "code",
+  codeExpired: "code",
+  codeResent: "code",
+  codeTooSoon: "code",
+  codeTooFast: "code",
 };
 
 export type Draft = {
@@ -44,9 +50,11 @@ export type Draft = {
   email: string;
   phone: string;
   answers: AnswerFields;
+  // The code the guest is typing on the code step.
+  code: string;
 };
 
-const BLANK: Draft = { status: "going", name: "", plusOnes: 0, plusOneNames: [], email: "", phone: "", answers: {} };
+const BLANK: Draft = { status: "going", name: "", plusOnes: 0, plusOneNames: [], email: "", phone: "", answers: {}, code: "" };
 
 // Coming back to change an answer starts from the answer that is already there, except that a
 // host who has since lowered the plus-ones allowance wins: otherwise the guest would carry an
@@ -55,7 +63,7 @@ function draftFrom(mine: GuestRsvp | undefined, settings: RsvpSettings, answers:
   if (!mine) return { ...BLANK, answers };
   const { status, name, plusOneNames, email, phone } = mine;
   const plusOnes = Math.min(mine.plusOnes, settings.plusOnesAllowed);
-  return { status, name, plusOnes, plusOneNames: plusOneNames.slice(0, plusOnes), email: email ?? "", phone: phone ?? "", answers };
+  return { status, name, plusOnes, plusOneNames: plusOneNames.slice(0, plusOnes), email: email ?? "", phone: phone ?? "", answers, code: "" };
 }
 
 // What the event page hands whichever presentation of the flow its layout uses.
@@ -71,10 +79,10 @@ export type RsvpFlowProps = {
 };
 
 // Where the focus goes when what had it goes away under it: to the confirmation once an answer is
-// saved, which a screen reader then reads out, or back to the choice of status (at the status the
-// guest is choosing from) once it is removed or being changed. Only the presentation knows those
-// elements.
-export type Landing = "confirmation" | "status";
+// saved, which a screen reader then reads out, back to the choice of status (at the status the
+// guest is choosing from) once it is removed or being changed, or to the code's field once a code
+// is sent. Only the presentation knows those elements.
+export type Landing = "confirmation" | "status" | "code";
 
 export function useRsvpFlow(
   { slug, settings, mine, questions, answers }: RsvpFlowProps,
@@ -92,13 +100,24 @@ export function useRsvpFlow(
   // Under the Confetti effect, how many answers saved here have made the guest Going: each one is
   // a fresh fall over the page.
   const [falls, setFalls] = useState(0);
+  // The email the last code went to (rsvps/email-code.ts), how many codes have been sent here,
+  // how many seconds until "Send it again" may ask for another, and, after a wrong code, how many
+  // tries it has left.
+  const [codeTo, setCodeTo] = useState<string>();
+  const [codesSent, setCodesSent] = useState(0);
+  const [resendIn, setResendIn] = useState(0);
+  const [triesLeft, setTriesLeft] = useState<number>();
+  // The code step belongs to the email the code went to: a guest who changes the email is sent a
+  // code to the new one when they answer again.
+  const codeSentTo = codeTo !== undefined && codeTo === draft.email.trim() ? codeTo : undefined;
 
   // Declining takes two taps, so a guest who can't go is asked nothing else. Everyone else is
-  // asked only what this event has to ask.
-  const steps: Step[] =
+  // asked only what this event has to ask. Once a code is sent, entering it is the last step.
+  const details: Step[] =
     draft.status === "cant"
       ? ["name"]
       : ["name", ...(settings.plusOnesAllowed > 0 ? (["plusones"] as const) : []), ...(questions.length > 0 ? (["questions"] as const) : [])];
+  const steps: Step[] = codeSentTo === undefined ? details : [...details, "code"];
   const position = Math.max(0, steps.indexOf(step));
   const last = position === steps.length - 1;
   // The saved answer while the confirmation shows it.
@@ -133,12 +152,31 @@ export function useRsvpFlow(
     const target = landing.current;
     landing.current = null;
     if (target) onLanding(target);
-  }, [step, answer]);
+  }, [step, answer, codesSent]);
+
+  // "Send it again" waits thirty seconds after each code, counting them down.
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = setTimeout(() => setResendIn((left) => left - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
 
   const send = (formData: FormData) =>
     startWorking(async () => {
       const result = await saveRsvpAction(slug, formData);
       setRefusal(result.error);
+      setTriesLeft(result.triesLeft);
+      if (result.codeSent) {
+        // A code is on its way to the email the guest gave, or went there moments ago: they enter
+        // it next, in a field emptied for it.
+        landing.current = "code";
+        setCodeTo(result.codeSent.email);
+        setCodesSent((count) => count + 1);
+        setResendIn(result.codeSent.resendIn);
+        change({ code: "" });
+        setStep("code");
+        return;
+      }
       if (result.error) {
         const owner = STEP_OF[result.error];
         if (owner && steps.includes(owner)) setStep(owner);
@@ -159,17 +197,35 @@ export function useRsvpFlow(
       landing.current = "status";
       setAnswer(undefined);
       setDraft(BLANK);
+      setCodeTo(undefined);
       setStep("idle");
     });
 
+  // "Send it again": the answer as it stands, without the code typed so far, which asks for a new
+  // code (rsvps/email-code.ts).
+  const resend = (form: HTMLFormElement | null) => {
+    if (!form) return;
+    const answerOnly = new FormData(form);
+    answerOnly.delete("code");
+    send(answerOnly);
+  };
+  // From the code step back to the email, which is asked with the name.
+  const changeEmail = () => {
+    setRefusal(undefined);
+    setStep("name");
+  };
+
   // From the confirmation: back to choosing a status, keeping the name; or back to the details.
+  // Either is a new answer, whose email is proven again only if it changes.
   const changeAnswer = () => {
     setWithdrawRefusal(undefined);
+    setCodeTo(undefined);
     landing.current = "status";
     setStep("idle");
   };
   const editDetails = () => {
     setWithdrawRefusal(undefined);
+    setCodeTo(undefined);
     setStep("name");
   };
 
@@ -186,14 +242,19 @@ export function useRsvpFlow(
     confirmed,
     answering,
     refusal,
+    triesLeft,
     withdrawRefusal,
     working,
     falls,
+    codeSentTo,
+    resendIn,
     pick,
     forward,
     back,
     stopAnswering,
     send,
+    resend,
+    changeEmail,
     withdraw,
     changeAnswer,
     editDetails,

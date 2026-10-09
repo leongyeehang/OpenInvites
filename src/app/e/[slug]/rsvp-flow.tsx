@@ -3,7 +3,8 @@
 import { Check, ChevronLeft, Copy, X } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Dialog } from "radix-ui";
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils";
 import { offeredBy } from "@/questions/answers";
 import type { Question } from "@/questions/question";
@@ -37,14 +38,17 @@ export function RsvpFlow(props: RsvpFlowProps) {
   const statusButtons = useRef<Partial<Record<RsvpStatus, HTMLButtonElement | null>>>({});
   const followFocus = useRef(false);
   const confirmationHeading = useRef<HTMLHeadingElement>(null);
+  const codeField = useRef<HTMLInputElement>(null);
+  const id = useId();
 
   // Sending, removing or going back to change an answer takes away the button that was pressed.
   // The focus goes to the confirmation's heading once the answer is saved, which a screen reader
-  // then reads out, and back to the status buttons once it is removed or being changed. The
-  // sheet, closing, hands it back to the buttons itself.
+  // then reads out, back to the status buttons once it is removed or being changed, and to the
+  // code's field once a code is sent. The sheet, closing, hands it back to the buttons itself.
   const flow = useRsvpFlow(props, (target, status) => {
     if (target === "confirmation") confirmationHeading.current?.focus({ preventScroll: sheet });
     if (target === "status" && !sheet) statusButtons.current[status]?.focus();
+    if (target === "code") codeField.current?.focus({ preventScroll: sheet });
   });
   const { step, draft, change, recordAnswer, steps, position, last, confirmed, answering, working } = flow;
 
@@ -52,6 +56,14 @@ export function RsvpFlow(props: RsvpFlowProps) {
     name: t(draft.status === "cant" ? "name.cantTitle" : "name.title"),
     plusones: t("plusOnes.title"),
     questions: t("questions.title"),
+    code: t("code.title"),
+  };
+  const confirming = step === "code";
+
+  // Back from the code to the email, with the focus in it.
+  const changeEmail = () => {
+    flushSync(flow.changeEmail);
+    form.current?.querySelector<HTMLInputElement>('input[name="email"]')?.focus({ preventScroll: sheet });
   };
 
   const openSheet = (from: HTMLButtonElement) => {
@@ -115,6 +127,12 @@ export function RsvpFlow(props: RsvpFlowProps) {
       // Enter in a field finishes its step rather than sending a half-filled RSVP. On a button it
       // does what the button says, so Back goes back and a plus-one chip is chosen.
       onKeyDown={(event) => {
+        // In the code's field, Enter confirms it.
+        if (event.key === "Enter" && confirming && event.target === codeField.current) {
+          event.preventDefault();
+          if (draft.code.trim() && !working) form.current?.requestSubmit();
+          return;
+        }
         if (event.key !== "Enter" || last || !(event.target instanceof HTMLInputElement)) return;
         event.preventDefault();
         if (!draft.name.trim()) return;
@@ -321,9 +339,43 @@ export function RsvpFlow(props: RsvpFlowProps) {
         </ol>
       </div>
 
+      {/* The code sent to the guest's email, posted with the rest of the answer. */}
+      {flow.codeSentTo !== undefined && (
+        <div data-step="code" hidden={!confirming} className="flex flex-col gap-4">
+          <p id={`${id}-code-sent`} className="text-sm break-words text-theme-text-muted">
+            {t("code.sent", { email: flow.codeSentTo })}
+          </p>
+          <Labelled label={t("code.label")}>
+            <input
+              ref={codeField}
+              name="code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              aria-describedby={`${id}-code-sent`}
+              value={draft.code}
+              onChange={(typed) => change({ code: typed.target.value })}
+              className={FIELD}
+            />
+          </Labelled>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-theme-text-muted">
+            <button
+              type="button"
+              onClick={() => flow.resend(form.current)}
+              disabled={working || flow.resendIn > 0}
+              className="cursor-pointer underline underline-offset-2 hover:opacity-80 disabled:cursor-default disabled:no-underline disabled:opacity-70"
+            >
+              {flow.resendIn > 0 ? t("code.resendIn", { seconds: flow.resendIn }) : t("code.resend")}
+            </button>
+            <button type="button" onClick={changeEmail} className="cursor-pointer underline underline-offset-2 hover:opacity-80">
+              {t("code.changeEmail")}
+            </button>
+          </div>
+        </div>
+      )}
+
       {flow.refusal && (
         <p role="alert" className="text-sm font-medium">
-          {t(`errors.${flow.refusal}`)}
+          {t(`errors.${flow.refusal}`, { count: flow.triesLeft ?? 0 })}
         </p>
       )}
 
@@ -332,10 +384,10 @@ export function RsvpFlow(props: RsvpFlowProps) {
         // changes, mid-click, and the browser would then send the half-filled form.
         type="button"
         onClick={() => (last ? form.current?.requestSubmit() : flow.forward())}
-        disabled={working || !draft.name.trim()}
+        disabled={working || !draft.name.trim() || (confirming && !draft.code.trim())}
         className="h-12 cursor-pointer rounded-2xl bg-theme-accent text-base font-medium text-theme-on-accent transition-opacity hover:opacity-90 disabled:cursor-default motion-reduce:transition-none disabled:opacity-50"
       >
-        {last ? t("send") : t("continue")}
+        {confirming ? t("code.confirm") : last ? t("send") : t("continue")}
       </button>
     </form>
   );

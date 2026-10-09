@@ -16,7 +16,7 @@ async function saveEmailSetting(hostPage: Page, on: boolean) {
   await hostPage.reload();
   await hostPage.getByLabel("Email the hosts when a guest replies").setChecked(on);
   await hostPage.getByRole("button", { name: "Save changes" }).click();
-  await expect(hostPage.getByText("Saved.")).toBeVisible({ timeout: 15_000 });
+  await expect(hostPage.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
 }
 
 test("the host is emailed when a guest replies and changes their status, and not once they turn it off", async ({

@@ -204,6 +204,13 @@
       "when": 1791547218461,
       "tag": "0028_mail_stopped",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791549359316,
+      "tag": "0029_email_code",
+      "breakpoints": true
     }
   ]
 }

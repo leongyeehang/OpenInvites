@@ -49,7 +49,7 @@ async function setGuestListVisibility(hostPage: Page, who: "always" | "afterRepl
   await hostPage.reload();
   await hostPage.getByLabel("Who can see the guest list").selectOption(who);
   await hostPage.getByRole("button", { name: "Save changes" }).click();
-  await expect(hostPage.getByText("Saved.")).toBeVisible();
+  await expect(hostPage.getByText(/^Saved\./)).toBeVisible();
 }
 
 test("a guest replies on the ballot: Going, two named plus-ones and the host's questions, then a received stamp, the edit link and their line in the list", async ({
