@@ -1,0 +1,1 @@
+CREATE INDEX "report_event_id_idx" ON "report" USING btree ("event_id");

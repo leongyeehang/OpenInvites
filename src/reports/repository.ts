@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { event, report } from "@/db/schema";
 import { removeEvents } from "@/events/repository";
@@ -51,9 +51,10 @@ export async function markReportHandled(id: string): Promise<void> {
 }
 
 // The operator may delete any event: the same removal as the host's own, and every report about it
-// is handled by it. They are marked first, since the event's going leaves them with no event to be
-// found by.
+// is handled by it. The reports are found first and marked once the event is gone, by id, since its
+// going leaves them with no event to be found by; a removal that fails leaves them as they were.
 export async function deleteEventAsOperator(eventId: string): Promise<void> {
-  await getDb().update(report).set({ handledAt: new Date() }).where(and(eq(report.eventId, eventId), isNull(report.handledAt)));
+  const waiting = await getDb().select({ id: report.id }).from(report).where(and(eq(report.eventId, eventId), isNull(report.handledAt)));
   await removeEvents(eq(event.id, eventId));
+  if (waiting.length > 0) await getDb().update(report).set({ handledAt: new Date() }).where(inArray(report.id, waiting.map(({ id }) => id)));
 }

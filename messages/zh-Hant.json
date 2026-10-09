@@ -224,7 +224,7 @@
       "title": "檢舉",
       "description": "訪客對這個實例上活動頁面的檢舉。尚未處理的排在最前面。",
       "back": "實例設定",
-      "link": "{count, plural, other {檢舉（#）}}",
+      "link": "{count, plural, =0 {檢舉} other {檢舉（#）}}",
       "empty": "還沒有檢舉。",
       "eventDeleted": "活動已刪除",
       "contact": "聯絡方式",
@@ -934,7 +934,7 @@
       "reasonTooLong": "內容太長了，請控制在 1,000 個字元以內。",
       "contactInvalid": "請填寫有效的電子郵件地址，或者留空。",
       "closed": "這個頁面無法檢舉。",
-      "tooFast": "你操作得太快了，請稍後再試。"
+      "tooFast": "操作太頻繁了，請稍後再試。"
     }
   },
   "Legal": {

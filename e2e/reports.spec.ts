@@ -29,9 +29,13 @@ async function operatorOnReports(browser: Browser) {
 // One report in the inbox, found by its reason.
 const inbox = (page: Page, reason: string) => page.getByRole("listitem").filter({ hasText: reason });
 
-async function sendReport(page: Page, link: string, reason: string, contact?: string) {
-  await page.goto(link);
-  await footer(page).getByRole("link", { name: "Report this event" }).click();
+async function sendReport(page: Page, link: string, reason: string, contact?: string, viaFooter = true) {
+  if (viaFooter) {
+    await page.goto(link);
+    await footer(page).getByRole("link", { name: "Report this event" }).click();
+  } else {
+    await page.goto(`${link}/report`);
+  }
   await page.getByLabel("What’s wrong with this page?").fill(reason);
   if (contact) await page.getByLabel("Your email (optional)").fill(contact);
   await page.getByRole("button", { name: "Send report" }).click();
@@ -152,10 +156,10 @@ test("the sixth report from one client in a minute is refused as too fast", asyn
   test.slow();
   const host = await createPublished(browser, request, "report-fast", { title: "Many reports", start: "2027-07-01T12:00" });
   for (let sent = 1; sent <= 5; sent++) {
-    await sendReport(page, host.link, reasonFor(`fast ${sent}`));
+    await sendReport(page, host.link, reasonFor(`fast ${sent}`), undefined, sent === 1);
     await expect(page.getByText("Thank you. Your report has reached the operator of this instance.")).toBeVisible();
   }
-  await sendReport(page, host.link, reasonFor("fast 6"));
+  await sendReport(page, host.link, reasonFor("fast 6"), undefined, false);
   await expect(page.getByText("You’re going too fast. Try again shortly.")).toBeVisible();
   await expect(page.getByText("Thank you.")).toHaveCount(0);
   await host.context.close();

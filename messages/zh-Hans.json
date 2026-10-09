@@ -224,7 +224,7 @@
       "title": "举报",
       "description": "访客对这个实例上活动页面的举报。尚未处理的排在最前面。",
       "back": "实例设置",
-      "link": "{count, plural, other {举报（#）}}",
+      "link": "{count, plural, =0 {举报} other {举报（#）}}",
       "empty": "还没有举报。",
       "eventDeleted": "活动已删除",
       "contact": "联系方式",
@@ -234,7 +234,7 @@
       "markHandled": "标为已处理",
       "deleteEvent": "删除活动",
       "deleteTitle": "删除“{title}”？",
-      "deleteText": "这场活动、它的嘉宾名单以及与它有关的一切都会被删除，无法恢复。",
+      "deleteText": "这场活动、它的宾客名单以及与它有关的一切都会被删除，无法恢复。",
       "deleteConfirm": "删除活动",
       "keep": "取消"
     }
@@ -934,7 +934,7 @@
       "reasonTooLong": "内容太长了，请控制在 1,000 个字符以内。",
       "contactInvalid": "请填写有效的邮箱地址，或者留空。",
       "closed": "这个页面无法举报。",
-      "tooFast": "你操作得太快了，请稍后再试。"
+      "tooFast": "操作太频繁了，请稍后再试。"
     }
   },
   "Legal": {

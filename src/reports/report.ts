@@ -1,4 +1,4 @@
-// A report (CONTEXT.md): a visitor telling the operator that an event page does not belong on the
+// A report: a visitor telling the operator that an event page does not belong on the
 // instance (spec, "Report an event"). The reason says what is wrong; the contact, an email, is
 // only there for the operator to write back, and is optional.
 export const REASON_MIN = 20;

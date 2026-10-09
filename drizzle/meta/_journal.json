@@ -176,6 +176,13 @@
       "when": 1791538021074,
       "tag": "0024_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791539540881,
+      "tag": "0025_report_event_index",
+      "breakpoints": true
     }
   ]
 }
