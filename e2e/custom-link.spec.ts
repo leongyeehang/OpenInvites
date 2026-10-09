@@ -62,6 +62,10 @@ test("a custom link opens the page beside the random one, and the host's pages s
   await page.getByRole("link", { name: "Report this event" }).click();
   await expect(page).toHaveURL(new RegExp(`/e/${custom}/report$`));
   await expect(page.getByRole("heading", { name: /Report/ })).toBeVisible();
+  expect(await page.content()).not.toContain(randomSlug);
+  await page.getByLabel("What’s wrong with this page?").fill("This page is a test report, long enough to be sent.");
+  await page.getByRole("button", { name: "Send report" }).click();
+  await expect(page.getByText("Thank you. Your report has reached the operator of this instance.")).toBeVisible({ timeout: 15_000 });
 
   await host.page.goto(manage);
   await expect(host.page.getByText(customUrl, { exact: true })).toBeVisible();

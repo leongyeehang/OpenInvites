@@ -38,7 +38,7 @@ export default async function ReportPage({ params }: PageProps<"/e/[slug]/report
         </CardHeader>
         <CardContent>
           <ClientMessages namespaces={["Report"]}>
-            <ReportForm slug={event.slug} eventPath={eventPath(event)} />
+            <ReportForm slug={slug} eventPath={eventPath(event)} />
           </ClientMessages>
         </CardContent>
       </Card>
