@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql, type SQL } from "drizzle-orm";
 import { cache } from "react";
 import { getDb } from "@/db/client";
 import { event, retiredSlug, upload, user } from "@/db/schema";
@@ -26,13 +26,13 @@ const UNIQUE_VIOLATION = "23505";
 
 // Drizzle wraps the driver's error; the Postgres fields are on its cause. Named exactly, because
 // the retired slugs table has a unique constraint with "slug" in its name too.
-const EVENT_SLUG_UNIQUE = "event_slug_unique";
+const EVENT_SLUG_UNIQUES = ["event_slug_unique", "event_custom_slug_unique"];
 
 function isSlugCollision(error: unknown): boolean {
   const cause = (error as { cause?: unknown })?.cause ?? error;
   if (typeof cause !== "object" || cause === null) return false;
   const { code, constraint_name } = cause as { code?: string; constraint_name?: string };
-  return code === UNIQUE_VIOLATION && constraint_name === EVENT_SLUG_UNIQUE;
+  return code === UNIQUE_VIOLATION && constraint_name !== undefined && EVENT_SLUG_UNIQUES.includes(constraint_name);
 }
 
 // What saving the event form writes: the form, and the language it was saved in.
@@ -133,11 +133,13 @@ export async function resetEventLink(hostId: string, id: string): Promise<Event 
         // carry "slug" in their names, so without this a second reset of the same link would
         // look like a slug clash and retry until it gave up.
         await tx.insert(retiredSlug).values({ slug: current.slug, eventId: current.id }).onConflictDoNothing();
+        // The custom link goes with it: a reset starts again from the random link alone.
+        if (current.customSlug) await tx.insert(retiredSlug).values({ slug: current.customSlug, eventId: current.id }).onConflictDoNothing();
         // Keyed on the slug this reset actually read, so two resets at once cannot both retire
         // the same link and leave the second's new one unretired: the loser changes nothing.
         const [reset] = await tx
           .update(event)
-          .set({ slug, updatedAt: new Date() })
+          .set({ slug, customSlug: null, updatedAt: new Date() })
           .where(and(eq(event.id, current.id), hostedBy(hostId), eq(event.slug, current.slug)))
           .returning();
         return reset && withTheme(reset);
@@ -149,12 +151,41 @@ export async function resetEventLink(hostId: string, id: string): Promise<Event 
   });
 }
 
+export const CUSTOM_SLUG_TAKEN = Symbol("custom slug taken");
+
+// Gives the event a custom link, or takes it away with null. Locked on the event row so two
+// changes at once go one after the other; the link is taken when any event's random or custom
+// link, or any retired link, already is it, this event's own included. The custom link it replaces is retired. Undefined
+// when the event is not this host's.
+export async function setCustomSlug(hostId: string, id: string, custom: string | null): Promise<Event | typeof CUSTOM_SLUG_TAKEN | undefined> {
+  try {
+    return await getDb().transaction(async (tx) => {
+      const [current] = await tx.select().from(event).where(and(eq(event.id, id), hostedBy(hostId))).for("update");
+      if (!current) return undefined;
+      if (current.customSlug === custom) return withTheme(current);
+      if (custom !== null) {
+        const [clash] = await tx.execute<{ found: boolean }>(
+          sql`select exists (select 1 from ${event} where ${event.slug} = ${custom} or ${event.customSlug} = ${custom})
+            or exists (select 1 from ${retiredSlug} where ${retiredSlug.slug} = ${custom}) as found`,
+        );
+        if (clash.found) return CUSTOM_SLUG_TAKEN;
+      }
+      if (current.customSlug) await tx.insert(retiredSlug).values({ slug: current.customSlug, eventId: id }).onConflictDoNothing();
+      const [changed] = await tx.update(event).set({ customSlug: custom, updatedAt: new Date() }).where(eq(event.id, id)).returning();
+      return withTheme(changed);
+    });
+  } catch (error) {
+    if (isSlugCollision(error)) return CUSTOM_SLUG_TAKEN;
+    throw error;
+  }
+}
+
 // Whether an event link leads to a page: an event's, or the one that says its host reset it. The
 // proxy asks this before every guest's first view of an event page (src/proxy.ts), so it only
 // looks the slug up, in both places, in one query, and reads nothing else of the event.
 export async function eventLinkExists(slug: string): Promise<boolean> {
   const [row] = await getDb().execute<{ found: boolean }>(
-    sql`select exists (select 1 from ${event} where ${event.slug} = ${slug}) or exists (select 1 from ${retiredSlug} where ${retiredSlug.slug} = ${slug}) as found`,
+    sql`select exists (select 1 from ${event} where ${event.slug} = ${slug} or ${event.customSlug} = ${slug}) or exists (select 1 from ${retiredSlug} where ${retiredSlug.slug} = ${slug}) as found`,
   );
   return row.found;
 }
@@ -225,7 +256,7 @@ export const findEventBySlug = cache(async (slug: string): Promise<EventWithHost
     .select({ event, hostName: user.name })
     .from(event)
     .innerJoin(user, eq(user.id, event.hostId))
-    .where(eq(event.slug, slug))
+    .where(or(eq(event.slug, slug), eq(event.customSlug, slug)))
     .limit(1);
   return row ? { ...withTheme(row.event), hostName: row.hostName } : undefined;
 });

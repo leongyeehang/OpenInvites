@@ -20,9 +20,9 @@ export const findRsvpByToken = cache(async (eventId: string, token: string): Pro
 
 // An edit token names its event as well as its RSVP, so an edit link works on a device that has
 // never opened the invitation.
-export async function findEventForToken(token: string): Promise<{ eventId: string; slug: string } | undefined> {
+export async function findEventForToken(token: string): Promise<{ eventId: string; slug: string; customSlug: string | null } | undefined> {
   const [row] = await getDb()
-    .select({ eventId: rsvp.eventId, slug: event.slug })
+    .select({ eventId: rsvp.eventId, slug: event.slug, customSlug: event.customSlug })
     .from(rsvp)
     .innerJoin(event, eq(event.id, rsvp.eventId))
     .where(eq(rsvp.editTokenHash, hashEditToken(token)))

@@ -8,6 +8,7 @@ const source: Event = {
   id: "0194f0a0-0000-7000-8000-000000000001",
   hostId: "owner",
   slug: "abcde12345",
+  customSlug: null,
   state: "published",
   title: "Ada’s birthday",
   startsAt: new Date("2027-03-06T11:00:00Z"),

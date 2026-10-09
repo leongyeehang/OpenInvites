@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { event, report } from "@/db/schema";
 import { removeEvents } from "@/events/repository";
@@ -6,7 +6,7 @@ import { removeEvents } from "@/events/repository";
 export type Report = typeof report.$inferSelect;
 
 // A report with what the inbox needs of its event while it still exists.
-export type ReportListed = Report & { eventSlug: string | null; eventState: "draft" | "published" | "cancelled" | null };
+export type ReportListed = Report & { eventSlug: string | null; eventCustomSlug: string | null; eventState: "draft" | "published" | "cancelled" | null };
 
 // A report names a published or a cancelled event, whose title is copied now so it can still be
 // read once the event is gone.
@@ -24,7 +24,7 @@ export async function reportableEventExists(slug: string): Promise<boolean> {
   const [row] = await getDb()
     .select({ id: event.id })
     .from(event)
-    .where(and(eq(event.slug, slug), ne(event.state, "draft")))
+    .where(and(or(eq(event.slug, slug), eq(event.customSlug, slug)), ne(event.state, "draft")))
     .limit(1);
   return row !== undefined;
 }
@@ -32,11 +32,11 @@ export async function reportableEventExists(slug: string): Promise<boolean> {
 // The inbox: what is not yet handled first, then the newest first.
 export async function listReports(): Promise<ReportListed[]> {
   const rows = await getDb()
-    .select({ report, eventSlug: event.slug, eventState: event.state })
+    .select({ report, eventSlug: event.slug, eventCustomSlug: event.customSlug, eventState: event.state })
     .from(report)
     .leftJoin(event, eq(event.id, report.eventId))
     .orderBy(sql`(${report.handledAt} is not null or ${report.eventId} is null)`, desc(report.createdAt), asc(report.id));
-  return rows.map((row) => ({ ...row.report, eventSlug: row.eventSlug, eventState: row.eventState }));
+  return rows.map((row) => ({ ...row.report, eventSlug: row.eventSlug, eventCustomSlug: row.eventCustomSlug, eventState: row.eventState }));
 }
 
 // How many reports are waiting, for the link on the instance settings page. A report whose event

@@ -439,7 +439,24 @@
       "resetHint": "產生新連結，並停用舊連結。已回覆的賓客會保留他們的回覆。",
       "resetTitle": "要重設這個活動的連結嗎？",
       "resetText": "你分享過的連結將會失效，開啟它的人會看到提示。你需要把新連結重新傳出去。",
-      "resetConfirm": "確認重設"
+      "resetConfirm": "確認重設",
+      "customLink": {
+        "title": "自訂連結",
+        "label": "自訂連結",
+        "guessable": "任何人都猜得到自訂連結，隨機連結仍是私密的那一個。",
+        "save": "儲存",
+        "saved": "已儲存。",
+        "removed": "已移除。",
+        "copy": "複製自訂連結",
+        "copied": "已複製",
+        "remove": "移除",
+        "resetRetires": "重設時，自訂連結也會一併停用。",
+        "errors": {
+          "taken": "這個連結已被使用。",
+          "shape": "請使用 3 到 40 個小寫字母、數字或連字號。",
+          "notFound": "這個活動已不存在。"
+        }
+      }
     }
   },
   "EventPage": {

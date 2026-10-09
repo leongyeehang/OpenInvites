@@ -3,13 +3,13 @@ import { getDb } from "@/db/client";
 import { event } from "@/db/schema";
 import type { Event } from "@/events/repository";
 import { formatWhen } from "@/events/time";
-import { baseUrl } from "@/instance/env";
 import type { Translator } from "@/locale/messages";
 import { guestMails, type GuestMailContent } from "@/mail/guest-mail";
 import { queueMail } from "@/mail/outbox";
 import { recipients } from "@/rsvps/audience";
 import { listMailableRsvps, type MailableRsvp } from "@/rsvps/repository";
 import { REMINDERS, remindersDue, type ReminderKind } from "./due";
+import { eventUrl } from "@/events/slug";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -92,7 +92,7 @@ const MESSAGES = { week: "reminderWeek", day: "reminderDay" } as const;
 // (the guest's own is unknown), where when there is a place, their reply, and the event link.
 function reminder(
   kind: ReminderKind,
-  event: Pick<Event, "title" | "slug" | "startsAt" | "endsAt" | "allDay" | "timeZone" | "location">,
+  event: Pick<Event, "title" | "slug" | "customSlug" | "startsAt" | "endsAt" | "allDay" | "timeZone" | "location">,
   guest: MailableRsvp,
   t: Translator,
 ): GuestMailContent {
@@ -102,7 +102,7 @@ function reminder(
     located: event.location ? "yes" : "no",
     location: event.location,
     plusOnes: guest.plusOnes,
-    url: `${baseUrl()}/e/${event.slug}`,
+    url: eventUrl(event),
   };
   return { subject: t(`Mail.${MESSAGES[kind]}.subject`, values), body: t(`Mail.${MESSAGES[kind]}.body`, values) };
 }

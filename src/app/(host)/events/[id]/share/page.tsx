@@ -16,10 +16,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { resetLinkAction } from "@/events/actions";
 import { findHostEvent } from "@/events/repository";
-import { baseUrl } from "@/instance/env";
 import { ClientMessages } from "@/locale/client-messages";
 import { qrSvg } from "@/sharing/qr";
+import { CustomLinkForm } from "./custom-link-form";
 import { ShareActions } from "./share-actions";
+import { eventUrl } from "@/events/slug";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Events.share");
@@ -32,7 +33,7 @@ export default async function SharePage({ params }: PageProps<"/events/[id]/shar
   const [host, { id }, t] = await Promise.all([requireHost(), params, getTranslations("Events")]);
   const event = await findHostEvent(host.id, id);
   if (!event) notFound();
-  const link = `${baseUrl()}/e/${event.slug}`;
+  const link = eventUrl(event);
 
   return (
     <>
@@ -62,11 +63,22 @@ export default async function SharePage({ params }: PageProps<"/events/[id]/shar
         />
       </section>
 
+      <section aria-labelledby="custom-link-heading" className="flex flex-col gap-3">
+        <h2 id="custom-link-heading" className="text-lg font-medium">
+          {t("share.customLink.title")}
+        </h2>
+        <p className="text-sm text-muted-foreground">{t("share.customLink.guessable")}</p>
+        <ClientMessages namespaces={["Events.share.customLink"]}>
+          <CustomLinkForm eventId={event.id} prefix={eventUrl({ slug: "", customSlug: null })} custom={event.customSlug} link={event.customSlug ? link : null} />
+        </ClientMessages>
+      </section>
+
       <section aria-labelledby="reset-heading" className="flex flex-col gap-3">
         <h2 id="reset-heading" className="text-lg font-medium">
           {t("share.reset")}
         </h2>
         <p className="text-sm text-muted-foreground">{t("share.resetHint")}</p>
+        <p className="text-sm text-muted-foreground">{t("share.customLink.resetRetires")}</p>
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="outline" className="self-start">

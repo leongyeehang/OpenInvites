@@ -132,6 +132,8 @@ export const event = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     slug: text("slug").notNull().unique(),
+    // The host's own, guessable link beside the random one (ADR-0004); null until they set one.
+    customSlug: text("custom_slug").unique(),
     state: eventState("state").notNull().default("draft"),
     title: text("title").notNull(),
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),

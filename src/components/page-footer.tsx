@@ -7,10 +7,10 @@ import { LocaleSwitcher } from "@/locale/locale-switcher";
 // language switcher. The root layout puts the plain one under every page. An event page wears its
 // own theme, so it carries a footer of its own inside it, on the veil that keeps bare text
 // readable on any background, and the plain one steps aside (the `themed` variant, globals.css).
-// An event page that can be reported (published or cancelled) passes its link as `reportSlug`, and
+// An event page that can be reported (published or cancelled) passes its path as `reportPath`, and
 // the footer offers "Report this event" there, in every layout. The links are rarely followed, so no
 // page fetches them ahead.
-export async function PageFooter({ themed = false, reportSlug }: { themed?: boolean; reportSlug?: string }) {
+export async function PageFooter({ themed = false, reportPath }: { themed?: boolean; reportPath?: string }) {
   const t = await getTranslations("Footer");
   const link = "underline-offset-4 hover:underline";
   const row = cn(
@@ -26,8 +26,8 @@ export async function PageFooter({ themed = false, reportSlug }: { themed?: bool
         <Link href="/terms" prefetch={false} className={link}>
           {t("terms")}
         </Link>
-        {reportSlug && (
-          <Link href={`/e/${reportSlug}/report`} prefetch={false} className={link}>
+        {reportPath && (
+          <Link href={`${reportPath}/report`} prefetch={false} className={link}>
             {t("report")}
           </Link>
         )}

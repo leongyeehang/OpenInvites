@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { deleteReportedEventAction, markReportHandledAction } from "@/reports/actions";
 import { listReports, type ReportListed } from "@/reports/repository";
 import { HostHeader } from "../../(host)/host-header";
+import { eventPath } from "@/events/slug";
 
 // The page's heading, where the focus goes once an event is deleted, since its Delete button goes
 // with it.
@@ -72,7 +73,7 @@ async function ReportRow({ report }: { report: ReportListed }) {
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="font-medium break-words">
           {eventExists ? (
-            <Link href={`/e/${report.eventSlug}`} className="underline underline-offset-4">
+            <Link href={eventPath({ slug: report.eventSlug!, customSlug: report.eventCustomSlug })} className="underline underline-offset-4">
               {report.eventTitle}
             </Link>
           ) : (

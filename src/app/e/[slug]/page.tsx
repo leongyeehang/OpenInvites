@@ -14,8 +14,8 @@ import { acceptsRsvps, eventPageFor } from "@/events/access";
 import { eventHosts } from "@/events/hosts";
 import { findEventBySlug, isRetiredSlug, recordView, type EventWithHost } from "@/events/repository";
 import { countsAsView } from "@/events/views";
-import { baseUrl, maxUploadBytes } from "@/instance/env";
-import { isSlug } from "@/events/slug";
+import { eventPath, eventUrl, isSlug } from "@/events/slug";
+import { maxUploadBytes } from "@/instance/env";
 import { ClientMessages } from "@/locale/client-messages";
 import { answersStillOffered } from "@/questions/answers";
 import { findAnswers, listQuestions } from "@/questions/repository";
@@ -107,7 +107,7 @@ export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Prom
   // A draft unfurls as nothing: its title is not public until the host says so.
   if (eventPageFor(event.state, { isHost: false }) === "notReady") return { title: t("notReadyTitle"), robots: noindex };
 
-  const link = `${baseUrl()}/e/${event.slug}`;
+  const link = eventUrl(event);
   // The version in the URL is what makes the card change when the event or its theme does,
   // while each version stays cacheable forever.
   const preview = `${link}/preview.png?v=${event.updatedAt.getTime()}`;
@@ -160,7 +160,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   if (countsAsView({ method, headers: requestHeaders }, event, { isHost })) await recordView(event.id);
 
   const locale = await getLocale();
-  const link = `${baseUrl()}/e/${event.slug}`;
+  const link = eventUrl(event);
   // The cookie tells us whether the guest in front of us has already replied on this device.
   const mine = await findRsvpOnThisDevice(event.id);
   // Whether this guest may see the list decides whether it is even loaded.
@@ -272,7 +272,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             guestList={guestList && <GuestList {...guestList} />}
           />
         )}
-        <PageFooter themed reportSlug={isDraft ? undefined : event.slug} />
+        <PageFooter themed reportPath={isDraft ? undefined : eventPath(event)} />
       </ThemedPage>
     </ClientMessages>
   );

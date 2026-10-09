@@ -439,7 +439,24 @@
       "resetHint": "Issues a new link and stops the old one working. Anyone who already replied keeps their RSVP.",
       "resetTitle": "Reset this event's link?",
       "resetText": "The link you have shared stops working, and anyone who opens it is told so. You will need to send the new one out.",
-      "resetConfirm": "Reset it"
+      "resetConfirm": "Reset it",
+      "customLink": {
+        "title": "Custom link",
+        "label": "Custom link",
+        "guessable": "Anyone can guess a custom link. The random link stays the private one.",
+        "save": "Save",
+        "saved": "Saved.",
+        "removed": "Removed.",
+        "copy": "Copy custom link",
+        "copied": "Copied",
+        "remove": "Remove",
+        "resetRetires": "Reset retires the custom link too.",
+        "errors": {
+          "taken": "That link is taken.",
+          "shape": "Use 3 to 40 lowercase letters, digits and hyphens.",
+          "notFound": "This event no longer exists."
+        }
+      }
     }
   },
   "EventPage": {

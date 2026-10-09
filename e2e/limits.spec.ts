@@ -107,7 +107,7 @@ test("a third guest is refused at the replies limit, while the first can still c
   await operator.getByRole("link", { name: /First party/ }).click();
   await operator.getByRole("button", { name: "Publish" }).click();
   await expect(operator.getByText("Published", { exact: true })).toBeVisible();
-  eventLink = (await operator.getByText(/^https?:\/\/\S+\/e\/[A-Za-z0-9]{10}$/).textContent())!.trim();
+  eventLink = (await operator.getByText(/^https?:\/\/\S+\/e\/[A-Za-z0-9-]+$/).textContent())!.trim();
 
   const first = await reply(browser, eventLink, "Priya Nair");
   await expect(first.getByText("You’re going!")).toBeVisible();

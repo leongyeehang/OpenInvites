@@ -78,7 +78,7 @@ test("resetting the link retires the old one and tells whoever still has it", as
 
   // The share screen comes back carrying the new link, so wait for the old one to go.
   await expect(host.page.getByText(old, { exact: true })).toHaveCount(0, { timeout: 15_000 });
-  const fresh = (await host.page.getByText(/^https?:\/\/\S+\/e\/[A-Za-z0-9]{10}$/).textContent())!.trim();
+  const fresh = (await host.page.getByText(/^https?:\/\/\S+\/e\/[A-Za-z0-9-]+$/).textContent())!.trim();
   expect(fresh).not.toBe(old);
 
   // The new one works, and the old one says what happened rather than looking like a typo.

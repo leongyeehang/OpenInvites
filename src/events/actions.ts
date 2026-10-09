@@ -16,7 +16,8 @@ import { findEventUpload } from "@/uploads/repository";
 import { duplicateInput } from "./duplicate";
 import { parseEventForm } from "./form";
 import { eventsOwnedAtLimit } from "./limit";
-import { cancelEvent, createEvent, deleteEvent, findHostEvent, publishEvent, resetEventLink, updateEvent } from "./repository";
+import { cancelEvent, createEvent, CUSTOM_SLUG_TAKEN, deleteEvent, findHostEvent, publishEvent, resetEventLink, setCustomSlug, updateEvent } from "./repository";
+import { eventPaths, isCustomSlug, normaliseCustomSlug } from "./slug";
 
 // The editor writes its document into one field, as the questions editor does. An empty field
 // is an empty description; a field that will not parse is a mistake worth saying out loud,
@@ -142,11 +143,49 @@ export async function deleteEventAction(id: string): Promise<void> {
 export async function resetLinkAction(id: string): Promise<void> {
   const host = await requireHost();
   const event = await findHostEvent(host.id, id);
-  if (event && can(event.role, "resetLink")) await resetEventLink(host.id, id);
-  // The manage page shows the link too, so it must not keep showing the retired one.
+  const reset = event && can(event.role, "resetLink") ? await resetEventLink(host.id, id) : undefined;
+  // The manage page shows the link too, so it must not keep showing the retired one; the pages
+  // the event answered at before are now the retired page.
+  if (event && reset) for (const path of [...eventPaths(event), ...eventPaths(reset)]) revalidatePath(path);
   revalidatePath(`/events/${id}`);
   revalidatePath(`/events/${id}/share`);
   redirect(`/events/${id}/share`);
+}
+
+// Gives the event a custom link, or takes it away when the field is empty. A refusal says why,
+// under the field; a success refreshes every page that shows the link.
+// A refusal hands back what was typed, as a form action's reset would otherwise empty the field.
+export type CustomLinkState = (NonNullable<FormState> & { typed?: string }) | undefined;
+
+export async function setCustomLinkAction(id: string, _: CustomLinkState, formData: FormData): Promise<CustomLinkState> {
+  const host = await requireHost();
+  const event = await findHostEvent(host.id, id);
+  const t = await getTranslations("Events.share.customLink");
+  if (!event || !can(event.role, "share")) return { error: t("errors.notFound") };
+  const posted = formData.get("customSlug");
+  const typed = typeof posted === "string" ? posted : "";
+  const custom = normaliseCustomSlug(typed);
+  if (custom !== "" && !isCustomSlug(custom)) return { error: t("errors.shape"), typed };
+  const changed = await setCustomSlug(host.id, id, custom === "" ? null : custom);
+  if (changed === CUSTOM_SLUG_TAKEN) return { error: t("errors.taken"), typed };
+  if (!changed) return { error: t("errors.notFound") };
+  refreshLinkPages(event, changed);
+  return { success: custom === "" ? t("removed") : t("saved") };
+}
+
+export async function removeCustomLinkAction(id: string): Promise<void> {
+  const host = await requireHost();
+  const event = await findHostEvent(host.id, id);
+  const changed = event && can(event.role, "share") ? await setCustomSlug(host.id, id, null) : undefined;
+  if (event && changed && changed !== CUSTOM_SLUG_TAKEN) refreshLinkPages(event, changed);
+}
+
+// The link is on the manage page, the share page and the event page itself, under both the old and
+// the new custom link.
+function refreshLinkPages(before: { id: string; slug: string; customSlug: string | null }, after: { slug: string; customSlug: string | null }) {
+  for (const path of [...eventPaths(before), ...eventPaths(after)]) revalidatePath(path);
+  revalidatePath(`/events/${before.id}`);
+  revalidatePath(`/events/${before.id}/share`);
 }
 
 // A new draft with the same details, look, questions, settings and picture, owned by the host who

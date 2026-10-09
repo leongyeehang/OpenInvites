@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { findEventBySlug } from "@/events/repository";
-import { isSlug } from "@/events/slug";
+import { eventPath, isSlug } from "@/events/slug";
 import { ClientMessages } from "@/locale/client-messages";
 import { ReportForm } from "./report-form";
 
@@ -38,7 +38,7 @@ export default async function ReportPage({ params }: PageProps<"/e/[slug]/report
         </CardHeader>
         <CardContent>
           <ClientMessages namespaces={["Report"]}>
-            <ReportForm slug={event.slug} />
+            <ReportForm slug={event.slug} eventPath={eventPath(event)} />
           </ClientMessages>
         </CardContent>
       </Card>

@@ -12,12 +12,12 @@ import { can } from "@/hosts/role";
 import { countAnswersByQuestion, listQuestions } from "@/questions/repository";
 import { countRsvpsByEvent } from "@/rsvps/repository";
 import { timeZones } from "@/events/time";
-import { baseUrl } from "@/instance/env";
 import { ClientMessages } from "@/locale/client-messages";
 import { EventForm } from "../event-form";
 import { DangerZone } from "../danger-zone";
 import { DuplicateButton } from "../duplicate-button";
 import { EventStateBadge } from "../event-state-badge";
+import { eventPath, eventUrl } from "@/events/slug";
 
 export async function generateMetadata({ params }: PageProps<"/events/[id]">): Promise<Metadata> {
   const [host, { id }] = await Promise.all([requireHost(), params]);
@@ -34,7 +34,7 @@ export default async function ManageEventPage({ params, searchParams }: PageProp
   if (!event) notFound();
   // Where a duplicate came from, said only when the host can see that event themselves.
   const source = typeof from === "string" ? await findHostEvent(host.id, from) : undefined;
-  const link = `${baseUrl()}/e/${event.slug}`;
+  const link = eventUrl(event);
   const [questions, answerCounts, counts] = await Promise.all([
     listQuestions(event.id),
     countAnswersByQuestion(event.id),
@@ -72,7 +72,7 @@ export default async function ManageEventPage({ params, searchParams }: PageProp
           <p className="text-sm text-muted-foreground">{t("manage.opened", { count: event.views })}</p>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
-              <Link href={`/e/${event.slug}`}>{t("manage.view")}</Link>
+              <Link href={eventPath(event)}>{t("manage.view")}</Link>
             </Button>
             <Button asChild variant="outline">
               <Link href={`/events/${event.id}/guests`}>{t("manage.guests")}</Link>

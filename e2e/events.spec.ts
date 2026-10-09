@@ -29,7 +29,7 @@ test("a host creates a draft, previews it, publishes it, and edits it", async ({
     description: "Bring nothing.\nDress code: sparkly.",
   });
   await expect(page.getByText("Draft", { exact: true })).toBeVisible();
-  expect(link).toMatch(/\/e\/[A-Za-z0-9]{10}$/);
+  expect(link).toMatch(/\/e\/[A-Za-z0-9-]+$/);
 
   await page.goto("/dashboard");
   const upcoming = page.getByRole("region", { name: "Upcoming" });

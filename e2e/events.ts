@@ -53,7 +53,7 @@ export async function createDraft(page: Page, fields: DraftFields) {
   if (fields.questions) await addQuestions(page, fields.questions);
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page).toHaveURL(/\/events\/[0-9a-f-]{36}$/, { timeout: 15_000 });
-  return (await page.getByText(/^https?:\/\/\S+\/e\/[A-Za-z0-9]{10}$/).textContent())!.trim();
+  return (await page.getByText(/^https?:\/\/\S+\/e\/[A-Za-z0-9-]+$/).textContent())!.trim();
 }
 
 // A host of their own, signed up and verified, with one published event. Guest tests drive the

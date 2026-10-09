@@ -18,6 +18,7 @@ import { findRsvpOnThisDevice, guestRsvp, type SaveRsvpResult } from "./guest";
 import { notifyHostsOfRsvp } from "./notify-hosts";
 import { countEventRsvps, deleteRsvp, editRsvpAsHost, saveRsvp } from "./repository";
 import { rsvpCookieName, rsvpCookieOptions } from "./token";
+import { eventPaths } from "@/events/slug";
 
 function fields(formData: FormData): RsvpFormFields {
   const text = (name: string) => {
@@ -77,7 +78,7 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
   // Once the RSVP is saved and remembered, so that nothing about the hosts' email can undo either.
   await notifyHostsOfRsvp(event, mine?.rsvp, saved.rsvp);
   // The guest list is a reward for answering, so it unlocks without waiting for a reload.
-  revalidatePath(`/e/${slug}`);
+  for (const path of eventPaths(event)) revalidatePath(path);
   return { saved: guestRsvp(saved) };
 }
 
@@ -92,7 +93,7 @@ export async function removeRsvpAction(slug: string): Promise<{ error?: "tooFast
   const removed = mine && (await deleteRsvp(event.id, mine.rsvp.id));
   (await cookies()).delete(rsvpCookieName(event.id));
   await notifyHostsOfRsvp(event, removed, undefined);
-  revalidatePath(`/e/${slug}`);
+  for (const path of eventPaths(event)) revalidatePath(path);
   return {};
 }
 

@@ -439,7 +439,24 @@
       "resetHint": "生成新链接，并停用旧链接。已回复的宾客会保留他们的回复。",
       "resetTitle": "要重置这个活动的链接吗？",
       "resetText": "你分享过的链接将失效，打开它的人会看到提示。你需要把新链接重新发出去。",
-      "resetConfirm": "确认重置"
+      "resetConfirm": "确认重置",
+      "customLink": {
+        "title": "自定义链接",
+        "label": "自定义链接",
+        "guessable": "任何人都能猜到自定义链接，随机链接仍是私密的那一个。",
+        "save": "保存",
+        "saved": "已保存。",
+        "removed": "已移除。",
+        "copy": "复制自定义链接",
+        "copied": "已复制",
+        "remove": "移除",
+        "resetRetires": "重置时，自定义链接也会一并停用。",
+        "errors": {
+          "taken": "这个链接已被占用。",
+          "shape": "请使用 3 到 40 个小写字母、数字或连字符。",
+          "notFound": "这个活动已不存在。"
+        }
+      }
     }
   },
   "EventPage": {

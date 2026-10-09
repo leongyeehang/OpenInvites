@@ -12,7 +12,7 @@ import { sendReportAction, type ReportState } from "@/reports/actions";
 // What the reporter has to say, and an email to reach them by if they like. A refusal leaves what
 // they typed as it was, with the reason under the field it belongs to; once sent, the form is
 // replaced by the thanks and the way back to the page.
-export function ReportForm({ slug }: { slug: string }) {
+export function ReportForm({ slug, eventPath }: { slug: string; eventPath: string }) {
   const t = useTranslations("Report");
   const [state, send, sending] = useActionState((previous: ReportState, formData: FormData) => sendReportAction(slug, previous, formData), undefined);
 
@@ -20,7 +20,7 @@ export function ReportForm({ slug }: { slug: string }) {
     return (
       <div className="flex flex-col gap-4">
         <p role="status">{t("thanks")}</p>
-        <Link href={`/e/${slug}`} className="text-sm underline underline-offset-4">
+        <Link href={eventPath} className="text-sm underline underline-offset-4">
           {t("back")}
         </Link>
       </div>

@@ -12,6 +12,7 @@ import { mayDelete, parseComment, type CommentError } from "./comment";
 import { notifyHostsOfComment } from "./notify-hosts";
 import { createComment, deleteComment, findComment, type CommentAuthor } from "./repository";
 import { takesComments, type CommentViewer } from "./visibility";
+import { eventPaths } from "@/events/slug";
 
 // Why a comment was refused. The guest's own browser turns it into a sentence. Closed is an event
 // that takes no comment from this viewer (gone, cancelled, comments off, or not replied); too fast
@@ -54,7 +55,7 @@ export async function postCommentAction(slug: string, _: CommentState, formData:
   if (!created) return { error: "tooMany" };
   await notifyHostsOfComment(event, { name, body: created.body, hostId: created.hostId });
   // The page shows comments as loaded, so the one just posted appears with the page drawn again.
-  revalidatePath(`/e/${event.slug}`);
+  for (const path of eventPaths(event)) revalidatePath(path);
   return { posted: true };
 }
 
@@ -68,6 +69,6 @@ export async function deleteCommentAction(slug: string, id: string): Promise<{ e
   const [{ viewer }, found] = await Promise.all([commenter(event.id), findComment(event.id, id)]);
   if (!found || !mayDelete(viewer, found)) return {};
   await deleteComment(event.id, found.id);
-  revalidatePath(`/e/${event.slug}`);
+  for (const path of eventPaths(event)) revalidatePath(path);
   return {};
 }
