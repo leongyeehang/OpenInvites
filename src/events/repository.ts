@@ -126,7 +126,9 @@ export async function resetEventLink(hostId: string, id: string): Promise<Event 
   return withFreshSlug(async (slug) => {
     try {
       return await getDb().transaction(async (tx) => {
-        const current = await tx.query.event.findFirst({ where: and(eq(event.id, id), hostedBy(hostId)) });
+        // Locked, as setCustomSlug locks it, so a custom link changed meanwhile is neither lost nor left
+        // unretired.
+        const [current] = await tx.select().from(event).where(and(eq(event.id, id), hostedBy(hostId))).for("update");
         if (!current) return undefined;
 
         // Retiring a slug twice is not a collision worth retrying: both unique constraints
@@ -154,9 +156,9 @@ export async function resetEventLink(hostId: string, id: string): Promise<Event 
 export const CUSTOM_SLUG_TAKEN = Symbol("custom slug taken");
 
 // Gives the event a custom link, or takes it away with null. Locked on the event row so two
-// changes at once go one after the other; the link is taken when any event's random or custom
-// link, or any retired link, already is it, this event's own included. The custom link it replaces is retired. Undefined
-// when the event is not this host's.
+// changes at once go one after the other. The link is refused as taken when it is any event's
+// random or custom link, or any retired link, this event's own retired links included. The custom
+// link it replaces is retired. Undefined when the event is not this host's.
 export async function setCustomSlug(hostId: string, id: string, custom: string | null): Promise<Event | typeof CUSTOM_SLUG_TAKEN | undefined> {
   try {
     return await getDb().transaction(async (tx) => {

@@ -455,7 +455,9 @@
           "taken": "That link is taken.",
           "shape": "Use 3 to 40 lowercase letters, digits and hyphens.",
           "notFound": "This event no longer exists."
-        }
+        },
+        "randomStillWorks": "The random link still works:",
+        "copyRandom": "Copy random link"
       }
     }
   },

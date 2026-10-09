@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CUSTOM_SLUG_MAX, CUSTOM_SLUG_MIN, eventPath, eventUrl, generateSlug, isCustomSlug, isSlug, normaliseCustomSlug, SLUG_TAKEN, withFreshSlug } from "./slug";
 
+const draws = vi.hoisted(() => ({ queue: [] as number[] }));
+vi.mock("node:crypto", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:crypto")>();
+  return { ...actual, randomInt: (max: number) => draws.queue.shift() ?? actual.randomInt(max) };
+});
+
 describe("event link slug", () => {
   it("is ten characters from the 62-character alphabet", () => {
     for (let i = 0; i < 200; i++) {
@@ -10,6 +16,16 @@ describe("event link slug", () => {
 
   it("differs between calls", () => {
     expect(new Set(Array.from({ length: 50 }, generateSlug)).size).toBe(50);
+  });
+
+  it("never draws a slug of the custom shape", () => {
+    // The first draw is ten lowercase letters (index 0 of the alphabet is "A", 26 is "a"); the
+    // second has capitals.
+    draws.queue.push(...Array.from({ length: 10 }, () => 26), ...Array.from({ length: 10 }, () => 0));
+    const slug = generateSlug();
+    expect(isCustomSlug(slug)).toBe(false);
+    expect(slug).toBe("AAAAAAAAAA");
+    for (let i = 0; i < 1000; i++) expect(isCustomSlug(generateSlug())).toBe(false);
   });
 
   it("recognises a slug and rejects anything else", () => {

@@ -454,8 +454,10 @@
         "errors": {
           "taken": "这个链接已被占用。",
           "shape": "请使用 3 到 40 个小写字母、数字或连字符。",
-          "notFound": "这个活动已不存在。"
-        }
+          "notFound": "这个活动已经不存在了。"
+        },
+        "randomStillWorks": "随机链接仍然有效：",
+        "copyRandom": "复制随机链接"
       }
     }
   },

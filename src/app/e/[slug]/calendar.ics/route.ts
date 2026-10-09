@@ -18,7 +18,7 @@ export async function GET(_request: Request, context: RouteContext<"/e/[slug]/ca
   return new Response(buildIcs(event, link, new Date()), {
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${event.slug}.ics"`,
+      "Content-Disposition": `attachment; filename="${slug}.ics"`,
     },
   });
 }

@@ -163,7 +163,8 @@ export async function setCustomLinkAction(id: string, _: CustomLinkState, formDa
   const t = await getTranslations("Events.share.customLink");
   if (!event || !can(event.role, "share")) return { error: t("errors.notFound") };
   const posted = formData.get("customSlug");
-  const typed = typeof posted === "string" ? posted : "";
+  // Remove is the same form's other button, so the refusal it answers goes with the field.
+  const typed = formData.has("remove") ? "" : typeof posted === "string" ? posted : "";
   const custom = normaliseCustomSlug(typed);
   if (custom !== "" && !isCustomSlug(custom)) return { error: t("errors.shape"), typed };
   const changed = await setCustomSlug(host.id, id, custom === "" ? null : custom);
@@ -171,13 +172,6 @@ export async function setCustomLinkAction(id: string, _: CustomLinkState, formDa
   if (!changed) return { error: t("errors.notFound") };
   refreshLinkPages(event, changed);
   return { success: custom === "" ? t("removed") : t("saved") };
-}
-
-export async function removeCustomLinkAction(id: string): Promise<void> {
-  const host = await requireHost();
-  const event = await findHostEvent(host.id, id);
-  const changed = event && can(event.role, "share") ? await setCustomSlug(host.id, id, null) : undefined;
-  if (event && changed && changed !== CUSTOM_SLUG_TAKEN) refreshLinkPages(event, changed);
 }
 
 // The link is on the manage page, the share page and the event page itself, under both the old and

@@ -133,11 +133,15 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const { slug } = await params;
   if (!(await redrawAllowed(slug))) return <TooFast />;
   if (!isSlug(slug)) notFound();
-  const event = await findEventBySlug(slug);
-  if (!event) {
+  const found = await findEventBySlug(slug);
+  if (!found) {
     if (await isRetiredSlug(slug)) return <RetiredLink />;
     notFound();
   }
+  // Everything below hands the event to client components, which are sent whole. The slug it
+  // carries is the one this page was opened at, so a page opened at the custom link never holds
+  // the random link, the private one (ADR-0004).
+  const event = { ...found, slug };
 
   // Who is looking decides whether a draft shows at all, and whether the Design drawer is here.
   // A guest has no session cookie, and the lookup returns without touching the database.
@@ -196,7 +200,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const notice = isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined;
   const flow: RsvpFlowProps = {
     slug: event.slug,
-    settings: event,
+    settings: { plusOnesAllowed: event.plusOnesAllowed, requirePlusOneNames: event.requirePlusOneNames, askEmail: event.askEmail },
     mine: mine && guestRsvp(mine),
     open: acceptsRsvps(event.state),
     questions,

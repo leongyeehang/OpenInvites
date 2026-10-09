@@ -48,6 +48,13 @@ test("a custom link opens the page beside the random one, and the host's pages s
 
   await page.goto(`/e/${custom}`);
   await expect(page.getByRole("heading", { name: "Ada’s birthday" })).toBeVisible();
+  // Opened at the custom link, nothing the visitor can read holds the random one, the private link.
+  const randomSlug = random.replace(/^.*\/e\//, "");
+  expect(await page.content()).not.toContain(randomSlug);
+  const calendar = await request.get(`/e/${custom}/calendar.ics`);
+  expect(calendar.status()).toBe(200);
+  expect(calendar.headers()["content-disposition"]).toBe(`attachment; filename="${custom}.ics"`);
+  expect(await calendar.text()).not.toContain(randomSlug);
   await page.goto(random);
   await expect(page.getByRole("heading", { name: "Ada’s birthday" })).toBeVisible();
   // The report page answers at the custom link too, and the page's footer points at it.
@@ -70,9 +77,12 @@ test("a link typed in capitals is saved in lowercase, and the field can be empti
   await expect(host.page.getByRole("textbox", { name: "Custom link" })).toHaveValue(`adas-birthday-${word}`, { timeout: 15_000 });
   await expect(host.page.getByText(new RegExp(`/e/adas-birthday-${word}$`))).toBeVisible();
 
-  await host.page.getByRole("button", { name: "Remove" }).click();
-  await expect(host.page.getByRole("textbox", { name: "Custom link" })).toHaveValue("", { timeout: 15_000 });
+  await host.page.getByRole("textbox", { name: "Custom link" }).fill("");
+  await host.page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(host.page.getByRole("status")).toHaveText("Removed.", { timeout: 15_000 });
+  await expect(host.page.getByRole("textbox", { name: "Custom link" })).toHaveValue("");
   await expect(host.page.getByText(host.link, { exact: true })).toBeVisible();
+  await expect(host.page.getByRole("button", { name: "Remove" })).toHaveCount(0);
   await host.context.close();
 });
 
@@ -90,10 +100,20 @@ test("another event cannot take a link that is in use, and a link of the wrong s
   await saveCustom(second.page, custom);
   await expect(second.page.getByText("That link is taken.")).toBeVisible({ timeout: 15_000 });
   for (const refused of ["ab", "-abc", "abc-", "a--bc", "a".repeat(41), "café-party"]) {
+    await openShare(second.page);
+    await expect(second.page.getByText("Use 3 to 40 lowercase letters, digits and hyphens.")).toHaveCount(0);
     await saveCustom(second.page, refused);
     await expect(second.page.getByText("Use 3 to 40 lowercase letters, digits and hyphens.")).toBeVisible({ timeout: 15_000 });
   }
   await expect(second.page.getByRole("button", { name: "Remove" })).toHaveCount(0);
+  // Remove on the first event also shows the random link while a custom one is set, and clears a refusal.
+  await expect(first.page.getByText("The random link still works:")).toBeVisible();
+  await first.page.getByRole("textbox", { name: "Custom link" }).fill("x");
+  await first.page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(first.page.getByText("Use 3 to 40 lowercase letters, digits and hyphens.")).toBeVisible({ timeout: 15_000 });
+  await first.page.getByRole("button", { name: "Remove" }).click();
+  await expect(first.page.getByRole("status")).toHaveText("Removed.", { timeout: 15_000 });
+  await expect(first.page.getByText("Use 3 to 40 lowercase letters, digits and hyphens.")).toHaveCount(0);
   await first.context.close();
   await second.context.close();
 });

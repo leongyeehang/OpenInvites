@@ -454,8 +454,10 @@
         "errors": {
           "taken": "這個連結已被使用。",
           "shape": "請使用 3 到 40 個小寫字母、數字或連字號。",
-          "notFound": "這個活動已不存在。"
-        }
+          "notFound": "這個活動已經不存在了。"
+        },
+        "randomStillWorks": "隨機連結仍然有效：",
+        "copyRandom": "複製隨機連結"
       }
     }
   },

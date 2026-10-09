@@ -6,9 +6,17 @@ import { baseUrl } from "@/instance/env";
 export const SLUG_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 export const SLUG_LENGTH = 10;
 
-export function generateSlug(): string {
+function drawSlug(): string {
   let slug = "";
   for (let i = 0; i < SLUG_LENGTH; i++) slug += SLUG_ALPHABET[randomInt(SLUG_ALPHABET.length)];
+  return slug;
+}
+
+// Never of the custom shape (all lowercase letters and digits, about one draw in 10^6), so the two
+// kinds of link are told apart by their shape and a custom link can never be someone's random one.
+export function generateSlug(): string {
+  let slug = drawSlug();
+  while (isCustomSlug(slug)) slug = drawSlug();
   return slug;
 }
 

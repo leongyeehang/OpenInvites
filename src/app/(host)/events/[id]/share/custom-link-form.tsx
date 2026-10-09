@@ -6,23 +6,22 @@ import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { removeCustomLinkAction, setCustomLinkAction, type CustomLinkState } from "@/events/actions";
+import { setCustomLinkAction, type CustomLinkState } from "@/events/actions";
 
 // The host's own link, beside the random one: the field with the instance's address before it,
 // and once one is set, the link with Copy and Remove. A refusal stays under the field.
-export function CustomLinkForm({ eventId, prefix, custom, link }: { eventId: string; prefix: string; custom: string | null; link: string | null }) {
+export function CustomLinkForm({ eventId, prefix, custom, link, randomLink }: { eventId: string; prefix: string; custom: string | null; link: string | null; randomLink: string }) {
   const t = useTranslations("Events.share.customLink");
   const [state, save, saving] = useActionState((previous: CustomLinkState, formData: FormData) => setCustomLinkAction(eventId, previous, formData), undefined);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"custom" | "random" | null>(null);
 
-  const copy = async () => {
-    if (!link) return;
+  const copy = async (which: "custom" | "random", text: string) => {
     try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2_000);
+      await navigator.clipboard.writeText(text);
+      setCopied(which);
+      setTimeout(() => setCopied(null), 2_000);
     } catch {
-      setCopied(false);
+      setCopied(null);
     }
   };
 
@@ -49,21 +48,32 @@ export function CustomLinkForm({ eventId, prefix, custom, link }: { eventId: str
           </div>
           {state?.error && <FieldError>{state.error}</FieldError>}
         </Field>
-        <Button type="submit" disabled={saving} className="self-start">
-          {t("save")}
-        </Button>
-      </form>
-      {custom && link && (
+        {state?.success && <p role="status" className="text-sm text-muted-foreground">{state.success}</p>}
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={copy} aria-live="polite">
-            {copied ? <Check /> : <Copy />}
-            {copied ? t("copied") : t("copy")}
+          <Button type="submit" disabled={saving}>
+            {t("save")}
           </Button>
-          <form action={removeCustomLinkAction.bind(null, eventId)}>
-            <Button type="submit" variant="outline">
-              {t("remove")}
-            </Button>
-          </form>
+          {custom && link && (
+            <>
+              <Button type="button" variant="outline" onClick={() => copy("custom", link)} aria-live="polite">
+                {copied === "custom" ? <Check /> : <Copy />}
+                {copied === "custom" ? t("copied") : t("copy")}
+              </Button>
+              <Button type="submit" name="remove" value="1" variant="outline" disabled={saving}>
+                {t("remove")}
+              </Button>
+            </>
+          )}
+        </div>
+      </form>
+      {custom && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-muted-foreground">{t("randomStillWorks")}</p>
+          <p className="break-all font-mono text-sm">{randomLink}</p>
+          <Button type="button" variant="outline" className="self-start" onClick={() => copy("random", randomLink)} aria-live="polite">
+            {copied === "random" ? <Check /> : <Copy />}
+            {copied === "random" ? t("copied") : t("copyRandom")}
+          </Button>
         </div>
       )}
     </div>

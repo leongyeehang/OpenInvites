@@ -69,7 +69,7 @@ export default async function SharePage({ params }: PageProps<"/events/[id]/shar
         </h2>
         <p className="text-sm text-muted-foreground">{t("share.customLink.guessable")}</p>
         <ClientMessages namespaces={["Events.share.customLink"]}>
-          <CustomLinkForm eventId={event.id} prefix={eventUrl({ slug: "", customSlug: null })} custom={event.customSlug} link={event.customSlug ? link : null} />
+          <CustomLinkForm eventId={event.id} prefix={eventUrl({ slug: "", customSlug: null })} custom={event.customSlug} link={event.customSlug ? link : null} randomLink={eventUrl({ slug: event.slug, customSlug: null })} />
         </ClientMessages>
       </section>
 
