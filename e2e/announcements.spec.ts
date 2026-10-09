@@ -17,7 +17,7 @@ const EVENT = {
 } as const;
 
 const STOP_LINK = /https?:\/\/\S+\/m\/[A-Za-z0-9]{24}/;
-const FOOTER = /^You are getting this because you gave your email when you replied to Ada’s birthday\. To stop emails about this event: https?:\/\/\S+\/m\/[A-Za-z0-9]{24}$/;
+const FOOTER = /^You’re getting this because your email is on your reply to Ada’s birthday\. To stop emails about this event: https?:\/\/\S+\/m\/[A-Za-z0-9]{24}$/;
 
 const STATUSES = ["Going", "Maybe", "Can’t go"] as const;
 type Status = (typeof STATUSES)[number];

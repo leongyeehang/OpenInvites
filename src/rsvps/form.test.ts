@@ -9,7 +9,7 @@ describe("parseRsvpForm", () => {
   it("turns the form's strings into an answer, trimming what the guest typed", () => {
     expect(parseRsvpForm({ ...going, name: "  Priya Nair ", plusOnes: "2", plusOneNames: ["Arjun", " "] }, settings)).toEqual({
       ok: true,
-      input: { status: "going", name: "Priya Nair", plusOnes: 2, plusOneNames: ["Arjun", ""], email: null, phone: null },
+      input: { status: "going", name: "Priya Nair", plusOnes: 2, plusOneNames: ["Arjun", ""], email: undefined, phone: undefined },
     });
   });
 
@@ -32,7 +32,7 @@ describe("parseRsvpForm", () => {
   it("brings nobody along for a guest who can’t go", () => {
     expect(parseRsvpForm({ ...going, status: "cant", plusOnes: "2", plusOneNames: ["Arjun", "Meera"] }, settings)).toEqual({
       ok: true,
-      input: { status: "cant", name: "Priya Nair", plusOnes: 0, plusOneNames: [], email: null, phone: null },
+      input: { status: "cant", name: "Priya Nair", plusOnes: 0, plusOneNames: [], email: undefined, phone: undefined },
     });
   });
 
@@ -51,7 +51,8 @@ describe("parseRsvpForm", () => {
     });
   });
 
-  // What the form makes of a contact field, or why it refuses it.
+  // What the form makes of a contact field, or why it refuses it. A field the host does not ask
+  // for is undefined: the guest's save leaves what is stored there alone.
   const contactOf = (fields: Parameters<typeof parseRsvpForm>[0], of: RsvpSettings) => {
     const parsed = parseRsvpForm(fields, of);
     return parsed.ok ? { email: parsed.input.email, phone: parsed.input.phone } : parsed.error;
@@ -60,16 +61,18 @@ describe("parseRsvpForm", () => {
 
   it("takes an email only when the host asks for one, and only a plausible one", () => {
     for (const field of ["optional", "required"] as const) {
-      expect(contactOf({ ...going, email: " priya@example.com " }, asking(field, "none"))).toEqual({ email: "priya@example.com", phone: null });
+      expect(contactOf({ ...going, email: " priya@example.com " }, asking(field, "none"))).toStrictEqual({ email: "priya@example.com", phone: undefined });
       expect(contactOf({ ...going, email: "priya at example" }, asking(field, "none"))).toBe("emailInvalid");
     }
-    // The host is not asking, so an address posted anyway is ignored.
-    expect(contactOf({ ...going, email: "priya@example.com" }, settings)).toEqual({ email: null, phone: null });
+    // The host is not asking, so an address posted anyway is ignored, and the one stored, which
+    // the host may have given, is left as it is.
+    expect(contactOf({ ...going, email: "priya@example.com" }, settings)).toStrictEqual({ email: undefined, phone: undefined });
   });
 
   it("lets a guest leave the email blank unless the host requires it", () => {
-    expect(contactOf({ ...going, email: "  " }, asking("none", "none"))).toEqual({ email: null, phone: null });
-    expect(contactOf({ ...going, email: "  " }, asking("optional", "none"))).toEqual({ email: null, phone: null });
+    expect(contactOf({ ...going, email: "  " }, asking("none", "none"))).toStrictEqual({ email: undefined, phone: undefined });
+    // Asked, and left blank: the guest takes back an email they gave.
+    expect(contactOf({ ...going, email: "  " }, asking("optional", "none"))).toStrictEqual({ email: null, phone: undefined });
     expect(contactOf({ ...going, email: "  " }, asking("required", "none"))).toBe("emailRequired");
     // Required whatever the answer: a guest who can't go is asked it too.
     expect(contactOf({ ...going, status: "cant", email: "" }, asking("required", "none"))).toBe("emailRequired");
@@ -77,15 +80,15 @@ describe("parseRsvpForm", () => {
 
   it("takes a phone number only when the host asks for one, as typed, and only a plausible one", () => {
     for (const field of ["optional", "required"] as const) {
-      expect(contactOf({ ...going, phone: " +65 9123 4567 " }, asking("none", field))).toEqual({ email: null, phone: "+65 9123 4567" });
+      expect(contactOf({ ...going, phone: " +65 9123 4567 " }, asking("none", field))).toStrictEqual({ email: undefined, phone: "+65 9123 4567" });
       expect(contactOf({ ...going, phone: "12" }, asking("none", field))).toBe("phoneInvalid");
     }
-    expect(contactOf({ ...going, phone: "+65 9123 4567" }, settings)).toEqual({ email: null, phone: null });
+    expect(contactOf({ ...going, phone: "+65 9123 4567" }, settings)).toStrictEqual({ email: undefined, phone: undefined });
   });
 
   it("lets a guest leave the phone number blank unless the host requires it", () => {
-    expect(contactOf({ ...going, phone: " " }, asking("none", "none"))).toEqual({ email: null, phone: null });
-    expect(contactOf({ ...going, phone: " " }, asking("none", "optional"))).toEqual({ email: null, phone: null });
+    expect(contactOf({ ...going, phone: " " }, asking("none", "none"))).toStrictEqual({ email: undefined, phone: undefined });
+    expect(contactOf({ ...going, phone: " " }, asking("none", "optional"))).toStrictEqual({ email: undefined, phone: null });
     expect(contactOf({ ...going, phone: " " }, asking("none", "required"))).toBe("phoneRequired");
   });
 
@@ -121,6 +124,14 @@ describe("isPhone", () => {
     expect(isPhone("+65 9123 4567")).toBe(true);
     expect(isPhone("(02) 555-1234")).toBe(true);
     expect(isPhone("030.1234.5678")).toBe(true);
+  });
+
+  it("wants at least five digits among them", () => {
+    expect(isPhone("-----")).toBe(false);
+    expect(isPhone("(((((")).toBe(false);
+    expect(isPhone("+ + +")).toBe(false);
+    expect(isPhone("(1234)")).toBe(false);
+    expect(isPhone("(12345)")).toBe(true);
   });
 
   it("refuses letters and anything else", () => {

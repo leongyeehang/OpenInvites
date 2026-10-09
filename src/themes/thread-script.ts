@@ -25,7 +25,8 @@ export type ThreadReply = {
 export type ThreadState = {
   step: ThreadStep;
   // The turn the step is on (threadTurns): the name, the email, the phone number; how many
-  // plus-ones, then each one's name; each question. One past the step's last turn, all of it is answered.
+  // plus-ones, then each one's name; each question. One past the step's last turn, all of it is
+  // answered.
   at: number;
   reply: ThreadReply;
 };

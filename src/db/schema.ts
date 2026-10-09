@@ -253,6 +253,9 @@ export const rsvp = pgTable(
     // the link can only blank the email. Made the first time the RSVP has an email, then kept; an
     // RSVP that had an email before mail tokens existed got 32 hex digits instead (migration 0015).
     mailToken: text("mail_token").unique(),
+    // When the guest stopped email about the event with that link, until they give an email again
+    // themselves. While it is set, a host cannot give them one (rsvps/plan.ts, planHostEdit).
+    mailStoppedAt: timestamp("mail_stopped_at", { withTimezone: true }),
     // The language the guest last saved their RSVP in, which their mail is written in.
     locale: text("locale").$type<Locale>().notNull().default(defaultLocale),
     repliedAt: timestamp("replied_at", { withTimezone: true }).notNull().defaultNow(),

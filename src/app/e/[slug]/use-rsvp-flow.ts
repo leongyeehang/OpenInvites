@@ -14,8 +14,8 @@ import { useTheme } from "@/themes/themed-page";
 
 // Where the guest is in the flow (PROTOTYPE.md): choosing a status, then their name (with their
 // email and phone number, when the host asks for them), then who they are bringing, then the
-// host's questions, then the confirmation. A layout that asks
-// everything at once treats every step but idle and done as "answering".
+// host's questions, then the confirmation. A layout that asks everything at once treats every
+// step but idle and done as "answering".
 export type Step = "idle" | "name" | "plusones" | "questions" | "done";
 
 // Which step holds the field a refusal is about, so a guest is never shown "fix your email"

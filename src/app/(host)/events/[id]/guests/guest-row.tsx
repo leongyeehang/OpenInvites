@@ -59,7 +59,11 @@ export function GuestRow({
             {changed && <span> · {t("changed", { when: changed })}</span>}
           </p>
           {named.length > 0 && <p className="text-sm text-muted-foreground">{t("bringing", { names: format.list(named) })}</p>}
-          {guest.email && <p className="text-sm break-all text-muted-foreground">{guest.email}</p>}
+          {guest.mailStoppedAt ? (
+            <p className="text-sm text-muted-foreground">{t("row.mailStopped")}</p>
+          ) : (
+            guest.email && <p className="text-sm break-all text-muted-foreground">{guest.email}</p>
+          )}
           {guest.phone && <p className="text-sm break-all text-muted-foreground">{guest.phone}</p>}
           {answers.length > 0 && (
             <dl className="mt-2 flex flex-col gap-1 text-sm">
@@ -150,13 +154,17 @@ function EditGuest({
             <Input id={`plus-one-${guest.id}-${index}`} name="plusOneNames" defaultValue={guest.plusOneNames[index] ?? ""} />
           </Field>
         ))}
-        {/* Always both, whatever the guests are asked: the host may know them from elsewhere, and
-            a field left out of the form would blank what is stored. Not type="email": an address
-            the browser doubts but the guest gave would block every save; the action checks it. */}
-        <Field>
-          <FieldLabel htmlFor={`email-${guest.id}`}>{t("emailLabel")}</FieldLabel>
-          <Input id={`email-${guest.id}`} name="email" inputMode="email" autoComplete="off" defaultValue={guest.email ?? ""} />
-        </Field>
+        {/* Both, whatever the guests are asked: the host may know them from elsewhere, and a field
+            left out of the form would blank what is stored. Not the email of a guest who stopped
+            email about the event, which only they can give again (the action ignores one posted).
+            Not type="email": an address the browser doubts but the guest gave would block every
+            save; the action checks it. */}
+        {!guest.mailStoppedAt && (
+          <Field>
+            <FieldLabel htmlFor={`email-${guest.id}`}>{t("emailLabel")}</FieldLabel>
+            <Input id={`email-${guest.id}`} name="email" inputMode="email" autoComplete="off" defaultValue={guest.email ?? ""} />
+          </Field>
+        )}
         <Field>
           <FieldLabel htmlFor={`phone-${guest.id}`}>{t("phoneLabel")}</FieldLabel>
           <Input id={`phone-${guest.id}`} name="phone" type="tel" autoComplete="off" defaultValue={guest.phone ?? ""} />

@@ -197,6 +197,13 @@
       "when": 1791542690642,
       "tag": "0027_contact_details",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791547218461,
+      "tag": "0028_mail_stopped",
+      "breakpoints": true
     }
   ]
 }

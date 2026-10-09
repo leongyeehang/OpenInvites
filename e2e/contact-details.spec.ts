@@ -112,6 +112,73 @@ test("a phone number asked for optionally reaches the host's guest list, and the
   expect(mail).toContain("Doors open at seven.");
   expect(new URL(linkIn(mail)).pathname).toMatch(/^\/m\/[A-Za-z0-9]{24}$/);
 
+  // The guest changes their answer on a form that asks for no email: the one the host gave stays.
+  await page.getByRole("button", { name: "Change my answer" }).click();
+  await page.getByRole("button", { name: "Maybe" }).click();
+  await expect(page.getByLabel("Email")).toHaveCount(0);
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByText("You’re a maybe.")).toBeVisible();
+  await expect(page.getByText(`We’ll reach you at ${email}.`)).toBeVisible();
+  await host.page.goto(`${manage}/guests`);
+  const maybe = host.page.getByRole("region", { name: /^Maybe/ });
+  await expect(maybe.getByText(email, { exact: true })).toBeVisible();
+  await expect(maybe.getByText("+65 8123 0000", { exact: true })).toBeVisible();
+
+  await host.context.close();
+});
+
+test("a guest who stops email with the stop link is given no email by the host, until they give one again", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "contact-stopped", { ...PARTY, plusOnes: "0", askEmail: true, phone: "optional" });
+  const manage = host.page.url();
+  const email = newHost("contact-stopped-guest").email;
+  const stopped = "Stopped email about this event";
+
+  await page.goto(host.link);
+  await page.getByRole("button", { name: "Going" }).click();
+  await page.getByLabel("Your name").fill("Priya Nair");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Phone number").fill("+65 9123 4567");
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByText(`We’ll reach you at ${email}.`)).toBeVisible();
+
+  // An announcement brings the stop link, and the guest uses it.
+  await host.page.getByRole("link", { name: "Announcements" }).click();
+  await host.page.getByLabel("Message").fill("Doors open at seven.");
+  await host.page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(host.page.getByRole("status")).toHaveText("Posted to the event page and emailed to 1 guest.", { timeout: 15_000 });
+  await page.goto(new URL(linkIn(await latestMailTo(request, email))).pathname);
+  await page.getByRole("button", { name: "Stop emails about this event" }).click();
+  await expect(page.getByText("Done. You will get no more email about Ada’s birthday.")).toBeVisible({ timeout: 15_000 });
+
+  // The host's list says so in place of the address, and the host's form has no email to fill.
+  await host.page.goto(`${manage}/guests`);
+  const going = host.page.getByRole("region", { name: /^Going/ });
+  await expect(going.getByText(stopped, { exact: true })).toBeVisible();
+  await expect(going.getByText("+65 9123 4567", { exact: true })).toBeVisible();
+  await host.page.getByRole("button", { name: "Edit" }).click();
+  await expect(host.page.getByLabel("Phone number")).toHaveValue("+65 9123 4567");
+  await expect(host.page.getByLabel("Email")).toHaveCount(0);
+  // A save of something else keeps the stop. The row moves to Maybe, its form closing as it goes.
+  await host.page.getByLabel("Status").selectOption("maybe");
+  await host.page.getByRole("button", { name: "Save" }).click();
+  await expect(host.page.getByRole("heading", { name: /^Maybe \(1\)/ })).toBeVisible();
+  const maybe = host.page.getByRole("region", { name: /^Maybe/ });
+  await expect(maybe.getByText(stopped, { exact: true })).toBeVisible();
+
+  // The guest gives the email again themselves, and the host sees it.
+  await page.goto(host.link);
+  await expect(page.getByText("You’re a maybe.")).toBeVisible();
+  await page.getByRole("button", { name: "Edit details" }).click();
+  await expect(page.getByLabel("Email")).toHaveValue("");
+  await page.getByLabel("Email").fill(email);
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByText(`We’ll reach you at ${email}.`)).toBeVisible();
+  await host.page.reload();
+  await expect(maybe.getByText(email, { exact: true })).toBeVisible();
+  await expect(host.page.getByText(stopped)).toHaveCount(0);
+
   await host.context.close();
 });
 

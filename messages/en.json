@@ -288,7 +288,7 @@
       "subject": "{title} is tomorrow",
       "body": "{title} is tomorrow.\n\nWhen: {when}{located, select, yes {\nWhere: {location}} other {}}\n\nYou said Going{plusOnes, plural, =0 {} one {, with # plus-one} other {, with # plus-ones}}.\n\nThe event page:\n{url}"
     },
-    "guestFooter": "You are getting this because you gave your email when you replied to {title}. To stop emails about this event: {url}",
+    "guestFooter": "You’re getting this because your email is on your reply to {title}. To stop emails about this event: {url}",
     "magicLink": {
       "subject": "Your sign-in link for OpenInvites",
       "body": "Hi {name},\n\nOpen the link below to sign in. It is valid for 15 minutes and works once.\n\n{url}\n\nIf you did not ask for this, you can ignore this message and nobody is signed in."
@@ -739,6 +739,9 @@
     "plusOnes": "{count, plural, =1 {1 plus-one} other {# plus-ones}}",
     "replied": "Replied {when}",
     "changed": "Changed {when}",
+    "row": {
+      "mailStopped": "Stopped email about this event"
+    },
     "edit": "Edit",
     "close": "Close",
     "status": "Status",

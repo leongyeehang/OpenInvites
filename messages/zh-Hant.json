@@ -288,7 +288,7 @@
       "subject": "「{title}」就在明天",
       "body": "「{title}」就在明天。\n\n時間：{when}{located, select, yes {\n地點：{location}} other {}}\n\n你的回覆是：參加{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n活動頁面：\n{url}"
     },
-    "guestFooter": "你收到這封郵件，是因為你回覆「{title}」時留下了電子郵件。如果不想再收到關於這個活動的郵件，請開啟這個連結：{url}",
+    "guestFooter": "你收到這封郵件，是因為你對「{title}」的回覆上留有這個電子郵件。如果不想再收到關於這個活動的郵件，請開啟這個連結：{url}",
     "magicLink": {
       "subject": "你的 OpenInvites 登入連結",
       "body": "{name}，你好：\n\n請開啟下方連結登入。連結 15 分鐘內有效，且只能使用一次。\n\n{url}\n\n如果這不是你本人的操作，可以忽略這封郵件，不會有人因此登入。"
@@ -739,6 +739,9 @@
     "plusOnes": "{count, plural, other {# 位同伴}}",
     "replied": "回覆於 {when}",
     "changed": "修改於 {when}",
+    "row": {
+      "mailStopped": "已停止接收這個活動的郵件"
+    },
     "edit": "編輯",
     "close": "關閉",
     "status": "狀態",

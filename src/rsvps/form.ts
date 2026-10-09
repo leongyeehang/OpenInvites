@@ -28,8 +28,9 @@ export type RsvpAnswer = {
 };
 
 // One guest's answer, once trusted, with how they can be reached. A host's edit of it sets the
-// same.
-export type RsvpInput = RsvpAnswer & { email: string | null; phone: string | null };
+// same. An email or a phone number the host does not ask for is undefined: saving leaves what is
+// stored there alone, which may be one the host gave (ticket 04, review).
+export type RsvpInput = RsvpAnswer & { email: string | null | undefined; phone: string | null | undefined };
 
 // What the guest's own RSVP form posts, and a host's edit of someone else's RSVP, as strings,
 // before any of it is trusted.
@@ -71,12 +72,13 @@ export function isEmail(value: string): boolean {
 }
 
 // A phone number as people write one (spec, "Contact details"): 5 to 20 characters of digits,
-// spaces, plus, hyphens, brackets and dots. It is kept as typed, never formatted or dialled, and
-// never proven: it is shown to the hosts and used for nothing else.
+// spaces, plus, hyphens, brackets and dots, at least five of them digits. It is kept as typed,
+// never formatted or dialled, and never proven: it is shown to the hosts and used for nothing else.
 const PHONE = /^[0-9 +\-().]{5,20}$/;
+const MIN_DIGITS = 5;
 
 export function isPhone(value: string): boolean {
-  return PHONE.test(value);
+  return PHONE.test(value) && (value.match(/[0-9]/g)?.length ?? 0) >= MIN_DIGITS;
 }
 
 // The rules of the RSVP form (ticket 07). The settings are the host's, so what counts as a valid
@@ -93,13 +95,18 @@ export function parseRsvpForm(fields: RsvpFormFields, settings: RsvpSettings): P
   if (!phone && settings.phoneField === "required") return { ok: false, error: "phoneRequired" };
   if (phone && !isPhone(phone)) return { ok: false, error: "phoneInvalid" };
 
-  return { ok: true, input: { ...parsed.answer, email: email || null, phone: phone || null } };
+  return { ok: true, input: { ...parsed.answer, email: given(email), phone: given(phone) } };
 }
 
 // What the guest gave for one way of reaching them, trimmed. The field only exists when the host
-// asks for it, so a value posted anyway is ignored.
-function asked(typed: string, field: ContactField): string {
-  return field === "none" ? "" : typed.trim();
+// asks for it, so a value posted anyway is ignored: undefined, which leaves the stored one alone.
+function asked(typed: string, field: ContactField): string | undefined {
+  return field === "none" ? undefined : typed.trim();
+}
+
+// A field the guest was asked and left blank is null, which takes back what they gave before.
+function given(value: string | undefined): string | null | undefined {
+  return value === undefined ? undefined : value || null;
 }
 
 // What a host may change on a guest's RSVP (spec, story 53, and "Contact details"): the status,

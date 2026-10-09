@@ -5,7 +5,7 @@ import { event, rsvp } from "@/db/schema";
 import type { Locale } from "@/locale/resolve-locale";
 import { countRsvps, type RsvpCounts, type StatusTally } from "./counts";
 import type { RsvpInput, RsvpStatus } from "./form";
-import { planRsvp } from "./plan";
+import { planHostEdit, planRsvp } from "./plan";
 import { generateEditToken, generateMailToken, hashEditToken } from "./token";
 
 export type Rsvp = typeof rsvp.$inferSelect;
@@ -42,7 +42,8 @@ export type MyRsvp = { rsvp: Rsvp; token: string };
 // Saves one answer, in the language the guest gave it in. A guest who already has an RSVP here
 // changes it and keeps their edit token; anyone else gets a new RSVP with a fresh one. The first
 // save with an email makes the RSVP's mail token, and every later save keeps it, even one that
-// blanks the email, so the stop link in an old email still finds its page (spec, "Guest mail").
+// blanks the email, so the stop link in an old email still finds its page (spec, "Guest mail"). An
+// email or phone number the host does not ask for is undefined in the input, and left as stored.
 export async function saveRsvp(eventId: string, input: RsvpInput & { locale: Locale }, mine: MyRsvp | undefined): Promise<MyRsvp> {
   const plan = planRsvp(eventId, input, mine && { id: mine.rsvp.id, token: mine.token }, new Date());
   if (plan.replaces) {
@@ -78,6 +79,8 @@ export type HostGuest = {
   plusOneNames: string[];
   email: string | null;
   phone: string | null;
+  // When the guest stopped email about the event with the stop link, if they have.
+  mailStoppedAt: Date | null;
   repliedAt: Date;
   updatedAt: Date;
 };
@@ -92,6 +95,7 @@ export async function listGuestList(eventId: string): Promise<HostGuest[]> {
       plusOneNames: rsvp.plusOneNames,
       email: rsvp.email,
       phone: rsvp.phone,
+      mailStoppedAt: rsvp.mailStoppedAt,
       repliedAt: rsvp.repliedAt,
       updatedAt: rsvp.updatedAt,
     })
@@ -114,10 +118,11 @@ export async function listPublicGuestList(eventId: string): Promise<PublicGuest[
 
 // A host changing a guest's RSVP on their behalf (spec, story 53, and "Contact details"). It
 // writes only what a host may set, so the guest's edit token survives untouched and the link in
-// their pocket keeps working. An email the host gives gets the RSVP its mail token, as a guest's
-// does in saveRsvp, so every email to it can end with its stop link. Returns the RSVP as it was,
-// read under the same lock as the write, so the hosts are told of the change that was made
-// (notify-hosts.ts).
+// their pocket keeps working, and never an email for a guest who stopped email about the event
+// (planHostEdit, decided under the same lock as the write). An email the host gives gets the RSVP
+// its mail token, as a guest's does in saveRsvp, so every email to it can end with its stop link.
+// Returns the RSVP as it was, read under the same lock as the write, so the hosts are told of the
+// change that was made (notify-hosts.ts).
 export async function editRsvpAsHost(eventId: string, id: string, edit: RsvpInput): Promise<Rsvp | undefined> {
   return getDb().transaction(async (tx) => {
     const [previous] = await tx
@@ -125,8 +130,10 @@ export async function editRsvpAsHost(eventId: string, id: string, edit: RsvpInpu
       .from(rsvp)
       .where(and(eq(rsvp.id, id), eq(rsvp.eventId, eventId)))
       .for("update");
-    const mailToken = edit.email ? sql`coalesce(${rsvp.mailToken}, ${generateMailToken()})` : undefined;
-    if (previous) await tx.update(rsvp).set({ ...edit, mailToken, updatedAt: new Date() }).where(eq(rsvp.id, id));
+    if (!previous) return previous;
+    const allowed = planHostEdit(edit, previous);
+    const mailToken = allowed.email ? sql`coalesce(${rsvp.mailToken}, ${generateMailToken()})` : undefined;
+    await tx.update(rsvp).set({ ...allowed, mailToken, updatedAt: new Date() }).where(eq(rsvp.id, id));
     return previous;
   });
 }
@@ -164,12 +171,13 @@ export async function findByMailToken(mailToken: string): Promise<{ title: strin
 }
 
 // The stop link's one power: blanking the email, so no more mail about the event reaches the
-// guest. The token stays, so the link keeps landing on its page. Returns the event's title, or
-// nothing when no RSVP has the token.
+// guest, and marking when, so a host cannot give them an email again (planHostEdit). The token
+// stays, so the link keeps landing on its page. Returns the event's title, or nothing when no
+// RSVP has the token.
 export async function blankEmailByMailToken(mailToken: string): Promise<{ title: string } | undefined> {
   const [stopped] = await getDb()
     .update(rsvp)
-    .set({ email: null })
+    .set({ email: null, mailStoppedAt: new Date() })
     .from(event)
     .where(and(eq(rsvp.mailToken, mailToken), eq(event.id, rsvp.eventId)))
     .returning({ title: event.title });

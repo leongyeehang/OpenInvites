@@ -107,7 +107,7 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
                 </label>
                 {settings.emailField !== "none" && (
                   <label className="block">
-                    <Contact label={t("name.email")} required={settings.emailField === "required"} />
+                    <ContactLabel label={t("name.email")} required={settings.emailField === "required"} />
                     <input
                       // Not type="email" nor required, as on the Poster: the action checks the
                       // address and says what is wrong with it in the guest's language.
@@ -126,7 +126,7 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
                 )}
                 {settings.phoneField !== "none" && (
                   <label className="block">
-                    <Contact label={t("name.phone")} required={settings.phoneField === "required"} />
+                    <ContactLabel label={t("name.phone")} required={settings.phoneField === "required"} />
                     <input
                       inputMode="tel"
                       autoComplete="tel"
@@ -264,7 +264,7 @@ const FIELD = "h-11 w-full border-b border-theme-text/40 bg-transparent text-lg 
 
 // The label of a way of reaching the guest, with the asterisk the Poster shows when the host
 // requires it; the input itself says so to a screen reader.
-function Contact({ label, required }: { label: string; required: boolean }) {
+function ContactLabel({ label, required }: { label: string; required: boolean }) {
   return (
     <span className={LABEL}>
       {label}
