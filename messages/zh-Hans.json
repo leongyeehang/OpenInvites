@@ -219,6 +219,24 @@
         "expired": "已过期"
       },
       "tooFast": "操作太频繁了，请稍后再试。"
+    },
+    "reports": {
+      "title": "举报",
+      "description": "访客对这个实例上活动页面的举报。尚未处理的排在最前面。",
+      "back": "实例设置",
+      "link": "{count, plural, other {举报（#）}}",
+      "empty": "还没有举报。",
+      "eventDeleted": "活动已删除",
+      "contact": "联系方式",
+      "noContact": "未留联系方式",
+      "sent": "发送于 {time}",
+      "handled": "已处理",
+      "markHandled": "标为已处理",
+      "deleteEvent": "删除活动",
+      "deleteTitle": "删除“{title}”？",
+      "deleteText": "这场活动、它的嘉宾名单以及与它有关的一切都会被删除，无法恢复。",
+      "deleteConfirm": "删除活动",
+      "keep": "取消"
     }
   },
   "Mail": {
@@ -274,6 +292,11 @@
     "magicLink": {
       "subject": "你的 OpenInvites 登录链接",
       "body": "{name}，你好：\n\n请打开下面的链接登录。链接 15 分钟内有效，且只能使用一次。\n\n{url}\n\n如果这不是你本人的操作，可以忽略这封邮件，不会有人因此登录。"
+    },
+    "report": {
+      "subject": "关于“{title}”的举报",
+      "body": "有人举报了活动页面“{title}”。\n\n活动页面：\n{url}\n\n举报内容：\n{reason}\n\n联系方式：{contact}\n\n这条举报也在你的实例的举报页面上：\n{reportsUrl}",
+      "noContact": "未留联系方式"
     }
   },
   "Events": {
@@ -895,7 +918,24 @@
   },
   "Footer": {
     "privacy": "隐私政策",
-    "terms": "使用条款"
+    "terms": "使用条款",
+    "report": "举报这个活动"
+  },
+  "Report": {
+    "title": "举报“{title}”",
+    "reason": "这个页面有什么问题？",
+    "contact": "你的邮箱（选填）",
+    "contactHint": "如果需要了解更多情况，实例运营者可以回复你。",
+    "submit": "发送举报",
+    "thanks": "谢谢。你的举报已经送达这个实例的运营者。",
+    "back": "返回活动页面",
+    "errors": {
+      "reasonTooShort": "请再多写一点：至少 20 个字符。",
+      "reasonTooLong": "内容太长了，请控制在 1,000 个字符以内。",
+      "contactInvalid": "请填写有效的邮箱地址，或者留空。",
+      "closed": "这个页面无法举报。",
+      "tooFast": "你操作得太快了，请稍后再试。"
+    }
   },
   "Legal": {
     "privacy": "隐私政策",

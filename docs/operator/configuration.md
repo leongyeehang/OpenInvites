@@ -66,6 +66,15 @@ else that address is a page that does not exist.
   the event can't take more replies, while guests who have replied can still change or withdraw
   theirs. Each is a whole number from 1 to 100,000. Lowering a limit below what exists leaves
   the existing events and replies alone and refuses only new ones.
+- **Reports**: every published or cancelled event page has a "Report this event" link in its
+  footer, which opens a form for a reason (20 to 1,000 characters) and an optional email to reach
+  the reporter. A report is always kept on the **Reports** page (`/instance/reports`, linked from
+  Instance settings with the number not yet handled), and, with mail configured, also emailed to
+  the email of your operator account (not `OPERATOR_CONTACT_EMAIL`, which is the public
+  address). For each report you can open the event, **Delete event** (the event, its guest list
+  and everything else about it are deleted, and its reports are marked handled), or **Mark
+  handled**. A report whose event was deleted, by you or by its host, reads "Event deleted".
+  `RATE_LIMIT_REPORT` (5 an hour) bounds how many a client can send.
 - Emailed host invitations count against the mail rate limit (`RATE_LIMIT_MAIL`, 10 an hour by
   default) together with every other email your own address asks for. To send more host
   invitations than that in an hour, copy the links instead, or raise the limit.
@@ -280,6 +289,7 @@ runs.
 | `RATE_LIMIT_PASSWORD_RESET` | `10/1h` | Asking for a password reset link, and setting the new password. |
 | `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an account email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, asking for a sign-in link, and the operator's emailed host invitations. Also each announcement a host emails to guests, counted once however many guests it reaches. |
 | `RATE_LIMIT_COMMENT` | `30/10m` | Posting a comment on an event page, and deleting one, by a guest or a host. This also bounds the emails that tell hosts about comments. |
+| `RATE_LIMIT_REPORT` | `5/1h` | Sending a report about an event page. This also bounds the emails that tell you about reports. |
 
 Each limit is written `count/window`, the window in seconds, minutes or hours: `120/1m`,
 `60/10m`, `10/1h`. The defaults are for people, some of whom share an address (an office, a

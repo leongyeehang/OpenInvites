@@ -352,6 +352,19 @@ export const mailOutbox = pgTable(
   (table) => [index("mail_outbox_event_id_idx").on(table.eventId)],
 );
 
+// A report: someone telling the operator that an event page does not belong on the instance (spec,
+// "Report an event"). It outlives its event, which the operator may delete from the reports page:
+// the title is copied at creation so the inbox can still say what it was about.
+export const report = pgTable("report", {
+  id: id(),
+  eventId: uuid("event_id").references(() => event.id, { onDelete: "set null" }),
+  eventTitle: text("event_title").notNull(),
+  reason: text("reason").notNull(),
+  contact: text("contact"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  handledAt: timestamp("handled_at", { withTimezone: true }),
+});
+
 // A message the host posts to the event page, and emails to the guests whose status is one they
 // ticked (spec, "Announcements"). The audience is kept as ticked, so the host's list can say whom
 // it went to. At most ten per event, which the Announcements module checks.

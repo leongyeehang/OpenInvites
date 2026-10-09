@@ -219,6 +219,24 @@
         "expired": "已過期"
       },
       "tooFast": "操作太頻繁了，請稍後再試。"
+    },
+    "reports": {
+      "title": "檢舉",
+      "description": "訪客對這個實例上活動頁面的檢舉。尚未處理的排在最前面。",
+      "back": "實例設定",
+      "link": "{count, plural, other {檢舉（#）}}",
+      "empty": "還沒有檢舉。",
+      "eventDeleted": "活動已刪除",
+      "contact": "聯絡方式",
+      "noContact": "未留聯絡方式",
+      "sent": "送出於 {time}",
+      "handled": "已處理",
+      "markHandled": "標為已處理",
+      "deleteEvent": "刪除活動",
+      "deleteTitle": "刪除「{title}」？",
+      "deleteText": "這場活動、它的賓客名單以及與它有關的一切都會被刪除，無法復原。",
+      "deleteConfirm": "刪除活動",
+      "keep": "取消"
     }
   },
   "Mail": {
@@ -274,6 +292,11 @@
     "magicLink": {
       "subject": "你的 OpenInvites 登入連結",
       "body": "{name}，你好：\n\n請開啟下方連結登入。連結 15 分鐘內有效，且只能使用一次。\n\n{url}\n\n如果這不是你本人的操作，可以忽略這封郵件，不會有人因此登入。"
+    },
+    "report": {
+      "subject": "關於「{title}」的檢舉",
+      "body": "有人檢舉了活動頁面「{title}」。\n\n活動頁面：\n{url}\n\n檢舉內容：\n{reason}\n\n聯絡方式：{contact}\n\n這則檢舉也在你的實例的檢舉頁面上：\n{reportsUrl}",
+      "noContact": "未留聯絡方式"
     }
   },
   "Events": {
@@ -895,7 +918,24 @@
   },
   "Footer": {
     "privacy": "隱私權政策",
-    "terms": "使用條款"
+    "terms": "使用條款",
+    "report": "檢舉這個活動"
+  },
+  "Report": {
+    "title": "檢舉「{title}」",
+    "reason": "這個頁面有什麼問題？",
+    "contact": "你的電子郵件（選填）",
+    "contactHint": "如果需要了解更多情況，實例營運者可以回覆你。",
+    "submit": "送出檢舉",
+    "thanks": "謝謝。你的檢舉已經送達這個實例的營運者。",
+    "back": "返回活動頁面",
+    "errors": {
+      "reasonTooShort": "請再多寫一點：至少 20 個字元。",
+      "reasonTooLong": "內容太長了，請控制在 1,000 個字元以內。",
+      "contactInvalid": "請填寫有效的電子郵件地址，或者留空。",
+      "closed": "這個頁面無法檢舉。",
+      "tooFast": "你操作得太快了，請稍後再試。"
+    }
   },
   "Legal": {
     "privacy": "隱私權政策",

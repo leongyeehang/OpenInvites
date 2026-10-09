@@ -219,6 +219,24 @@
         "expired": "Expired"
       },
       "tooFast": "You’re going too fast. Try again shortly."
+    },
+    "reports": {
+      "title": "Reports",
+      "description": "What visitors have reported about event pages on this instance. Unhandled reports come first.",
+      "back": "Instance settings",
+      "link": "{count, plural, =0 {Reports} other {Reports (#)}}",
+      "empty": "No reports yet.",
+      "eventDeleted": "Event deleted",
+      "contact": "Contact",
+      "noContact": "No contact given",
+      "sent": "Sent {time}",
+      "handled": "Handled",
+      "markHandled": "Mark handled",
+      "deleteEvent": "Delete event",
+      "deleteTitle": "Delete {title}?",
+      "deleteText": "The event, its guest list and everything else about it will be deleted. This can’t be undone.",
+      "deleteConfirm": "Delete event",
+      "keep": "Never mind"
     }
   },
   "Mail": {
@@ -274,6 +292,11 @@
     "magicLink": {
       "subject": "Your sign-in link for OpenInvites",
       "body": "Hi {name},\n\nOpen the link below to sign in. It is valid for 15 minutes and works once.\n\n{url}\n\nIf you did not ask for this, you can ignore this message and nobody is signed in."
+    },
+    "report": {
+      "subject": "Report about {title}",
+      "body": "Someone reported the event page “{title}”.\n\nThe event page:\n{url}\n\nWhat they said:\n{reason}\n\nHow to reach them: {contact}\n\nThe report is also on your instance’s reports page:\n{reportsUrl}",
+      "noContact": "no contact given"
     }
   },
   "Events": {
@@ -895,7 +918,24 @@
   },
   "Footer": {
     "privacy": "Privacy policy",
-    "terms": "Terms of use"
+    "terms": "Terms of use",
+    "report": "Report this event"
+  },
+  "Report": {
+    "title": "Report {title}",
+    "reason": "What’s wrong with this page?",
+    "contact": "Your email (optional)",
+    "contactHint": "So the operator can write back if they need to know more.",
+    "submit": "Send report",
+    "thanks": "Thank you. Your report has reached the operator of this instance.",
+    "back": "Back to the event page",
+    "errors": {
+      "reasonTooShort": "Tell us a little more: at least 20 characters.",
+      "reasonTooLong": "That’s too long. Keep it to 1,000 characters.",
+      "contactInvalid": "Enter a valid email address, or leave it blank.",
+      "closed": "This page can’t be reported.",
+      "tooFast": "You’re going too fast. Try again shortly."
+    }
   },
   "Legal": {
     "privacy": "Privacy policy",

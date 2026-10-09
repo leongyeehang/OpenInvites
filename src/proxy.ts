@@ -5,6 +5,7 @@ import { isSlug } from "@/events/slug";
 import { findCoHostLink } from "@/hosts/repository";
 import { findHostInvitation, isOperator } from "@/instance/repository";
 import { consume, retryAfter } from "@/rate-limit/rate-limit";
+import { reportableEventExists } from "@/reports/repository";
 import { findByMailToken, findEventForToken } from "@/rsvps/repository";
 
 // Requests the rate limits count before any route sees them (spec, "Operator configuration").
@@ -43,7 +44,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/e/:path*", "/r/:path*", "/m/:path*", "/host-invitation/:path*", "/co-host/:path*", "/events/:path*", "/instance"],
+  matcher: ["/e/:path*", "/r/:path*", "/m/:path*", "/host-invitation/:path*", "/co-host/:path*", "/events/:path*", "/instance", "/instance/reports"],
 };
 
 // A page's notFound() cannot be drawn on the server. React's server renderer has no error
@@ -62,6 +63,12 @@ async function notFoundHere(pathname: string, headers: Headers): Promise<boolean
   if (eventLink) {
     const slug = decoded(eventLink[1]);
     return !isSlug(slug) || !(await eventLinkExists(slug));
+  }
+  // The report form of an event that is not a draft (e/[slug]/report); a retired link has none.
+  const reportLink = pathname.match(/^\/e\/([^/]+)\/report$/);
+  if (reportLink) {
+    const slug = decoded(reportLink[1]);
+    return !isSlug(slug) || !(await reportableEventExists(slug));
   }
   // An edit link no RSVP has (r/[token]).
   const editLink = pathname.match(/^\/r\/([^/]+)$/);
@@ -86,7 +93,7 @@ async function notFoundHere(pathname: string, headers: Headers): Promise<boolean
     return session !== null && !(await findHostEvent(session.user.id, decoded(hostEvent[1])));
   }
   // The instance settings, for anyone but the operator (auth/session.ts, requireOperator).
-  if (pathname === "/instance") {
+  if (pathname === "/instance" || pathname === "/instance/reports") {
     const session = await getAuth().api.getSession({ headers });
     return session === null || !(await isOperator(session.user.id));
   }

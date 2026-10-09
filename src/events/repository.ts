@@ -193,7 +193,7 @@ export async function deleteHostEvents(hostId: string): Promise<void> {
 // events are locked first, so an upload arriving meanwhile either lands before and is found here,
 // or finds its event gone. The files are removed once the rows are, so no page is ever shown
 // whose picture is missing.
-async function removeEvents(which: SQL | undefined): Promise<void> {
+export async function removeEvents(which: SQL | undefined): Promise<void> {
   const uploads = await getDb().transaction(async (tx) => {
     const doomed = (await tx.select({ id: event.id }).from(event).where(which).for("update")).map(({ id }) => id);
     if (doomed.length === 0) return [];

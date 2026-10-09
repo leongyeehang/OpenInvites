@@ -36,6 +36,16 @@ export const isOperator = cache(async (hostId: string): Promise<boolean> => {
   return settings.operatorId === hostId;
 });
 
+// The operator account's email, which is where reports go (not OPERATOR_CONTACT_EMAIL, the public
+// address); nothing while the instance has no operator.
+export async function operatorEmail(): Promise<string | undefined> {
+  const [row] = await getDb()
+    .select({ email: user.email })
+    .from(instanceSettings)
+    .innerJoin(user, eq(user.id, instanceSettings.operatorId));
+  return row?.email;
+}
+
 export async function hasAccounts(): Promise<boolean> {
   const [any] = await getDb().select({ id: user.id }).from(user).limit(1);
   return any !== undefined;

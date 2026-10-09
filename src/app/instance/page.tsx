@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import Link from "next/link";
 import { requireOperator } from "@/auth/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { HOST_INVITATION_DAYS, hostInvitationDaysLeft, hostInvitationState, type
 import { instanceLimits, listHostInvitations, registrationMode, type HostInvitation } from "@/instance/repository";
 import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
+import { countUnhandledReports } from "@/reports/repository";
 import { HostHeader } from "../(host)/host-header";
 import { HostInvitationForm, LimitsForm, RegistrationForm } from "./instance-forms";
 
@@ -22,11 +24,12 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function InstancePage() {
   const host = await requireOperator();
-  const [t, mode, limits, invitations] = await Promise.all([
+  const [t, mode, limits, invitations, unhandledReports] = await Promise.all([
     getTranslations("Instance"),
     registrationMode(),
     instanceLimits(),
     listHostInvitations(),
+    countUnhandledReports(),
   ]);
   const now = new Date();
 
@@ -34,7 +37,12 @@ export default async function InstancePage() {
     <>
       <HostHeader host={host} />
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8">
-        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+          <Button asChild variant="outline">
+            <Link href="/instance/reports">{t("reports.link", { count: unhandledReports })}</Link>
+          </Button>
+        </div>
         <Card>
           <CardHeader>
             <CardTitle>

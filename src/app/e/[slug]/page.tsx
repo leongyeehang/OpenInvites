@@ -272,7 +272,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             guestList={guestList && <GuestList {...guestList} />}
           />
         )}
-        <PageFooter themed />
+        <PageFooter themed reportSlug={isDraft ? undefined : event.slug} />
       </ThemedPage>
     </ClientMessages>
   );
