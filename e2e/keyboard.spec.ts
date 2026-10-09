@@ -152,7 +152,7 @@ test("a guest answers Going with a plus-one and a required question by keyboard 
   await page.keyboard.press("Enter");
 
   // The done bubble takes the focus, so it is what a screen reader reads next.
-  const done = page.locator('[data-slot="done"] p');
+  const done = page.locator('[data-slot="done-text"]');
   await expect(done).toBeFocused();
   await expect(done).toContainText("You’re in, Priya!");
 

@@ -552,7 +552,7 @@ function DoneBubble({
   const link = useCopyLink(answer.editLink, shownLink);
   return (
     <HostBubble data-slot="done" className={className}>
-      <p ref={lineRef} tabIndex={-1} className="outline-none">
+      <p ref={lineRef} data-slot="done-text" tabIndex={-1} className="outline-none">
         {line} {t("thread.done.link")}
       </p>
       <p ref={shownLink} className={cn("mt-2 font-mono text-[13px]", link.failed ? "break-all" : "truncate")}>
