@@ -11,6 +11,7 @@ const valid = {
   description: { blocks: [{ type: "paragraph" as const, spans: [{ text: "Bring nothing." }] }] },
   plusOnesAllowed: "1",
   requirePlusOneNames: false,
+  capacity: "40",
   emailField: "optional",
   phoneField: "none",
   verifyEmail: true,
@@ -37,6 +38,7 @@ describe("parseEventForm", () => {
         descriptionRich: valid.description,
         plusOnesAllowed: 1,
         requirePlusOneNames: false,
+        capacity: 40,
         emailField: "optional",
         phoneField: "none",
         verifyEmail: true,
@@ -99,6 +101,16 @@ describe("parseEventForm", () => {
     expect(parseEventForm({ ...valid, plusOnesAllowed: "11" })).toEqual({ ok: false, error: "plusOnesAllowedInvalid" });
     expect(parseEventForm({ ...valid, plusOnesAllowed: "-1" })).toEqual({ ok: false, error: "plusOnesAllowedInvalid" });
     expect(parseEventForm({ ...valid, plusOnesAllowed: "lots" })).toEqual({ ok: false, error: "plusOnesAllowedInvalid" });
+  });
+
+  it("takes a capacity from 1 to 5000, and none when left empty", () => {
+    for (const [typed, capacity] of [["1", 1], ["5000", 5000], [" 30 ", 30], ["", null], ["  ", null]] as const) {
+      const parsed = parseEventForm({ ...valid, capacity: typed });
+      expect(parsed.ok && parsed.input.capacity).toBe(capacity);
+    }
+    for (const typed of ["0", "5001", "-3", "2.5", "1e3", "forty"]) {
+      expect(parseEventForm({ ...valid, capacity: typed })).toEqual({ ok: false, error: "capacityInvalid" });
+    }
   });
 });
 

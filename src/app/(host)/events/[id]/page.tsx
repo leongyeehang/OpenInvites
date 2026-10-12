@@ -10,6 +10,7 @@ import { publishEventAction, updateEventAction } from "@/events/actions";
 import { findHostEvent } from "@/events/repository";
 import { can } from "@/hosts/role";
 import { countAnswersByQuestion, listQuestions } from "@/questions/repository";
+import { instanceLimits } from "@/instance/repository";
 import { countRsvpsByEvent } from "@/rsvps/repository";
 import { timeZones } from "@/events/time";
 import { ClientMessages } from "@/locale/client-messages";
@@ -36,10 +37,11 @@ export default async function ManageEventPage({ params, searchParams }: PageProp
   // Where a duplicate came from, said only when the host can see that event themselves.
   const source = typeof from === "string" ? await findHostEvent(host.id, from) : undefined;
   const link = eventUrl(event);
-  const [questions, answerCounts, counts] = await Promise.all([
+  const [questions, answerCounts, counts, limits] = await Promise.all([
     listQuestions(event.id),
     countAnswersByQuestion(event.id),
     countRsvpsByEvent([event.id]),
+    instanceLimits(),
   ]);
   const replies = counts.get(event.id);
 
@@ -71,6 +73,11 @@ export default async function ManageEventPage({ params, searchParams }: PageProp
         <CardContent className="flex flex-col gap-4">
           <p className="break-all font-mono text-sm">{link}</p>
           <p className="text-sm text-muted-foreground">{t("manage.opened", { count: event.views })}</p>
+          {event.capacity !== null && (
+            <p className="text-sm text-muted-foreground">
+              {t("manage.headcountOf", { count: replies?.headcount ?? 0, capacity: event.capacity })}
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
               <Link href={eventPath(event)}>{t("manage.view")}</Link>
@@ -108,6 +115,7 @@ export default async function ManageEventPage({ params, searchParams }: PageProp
           action={updateEventAction.bind(null, event.id)}
           event={event}
           mail={isMailConfigured()}
+          maxReplies={limits.maxRsvpsPerEvent}
           timeZones={timeZones()}
           submitLabel={t("edit.submit")}
           questions={questions}
@@ -119,7 +127,7 @@ export default async function ManageEventPage({ params, searchParams }: PageProp
         title={event.title}
         cancellable={event.state === "published"}
         deletable={can(event.role, "delete")}
-        rsvps={(replies?.going ?? 0) + (replies?.maybe ?? 0) + (replies?.cant ?? 0)}
+        rsvps={(replies?.going ?? 0) + (replies?.maybe ?? 0) + (replies?.cant ?? 0) + (replies?.waitlisted ?? 0)}
       />
     </ClientMessages>
   );

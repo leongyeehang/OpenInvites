@@ -19,6 +19,18 @@ export const RSVP_STATUSES = ["going", "maybe", "cant"] as const;
 
 export type RsvpStatus = (typeof RSVP_STATUSES)[number];
 
+// What an RSVP can be once stored: the three answers, and Waitlisted, which a guest never chooses.
+// A reply that asked for Going when the event had no place for its party is saved as waitlisted
+// (spec, "Capacity and the waitlist"; admission.ts). The database enum is built from this list.
+export const SAVED_STATUSES = [...RSVP_STATUSES, "waitlisted"] as const;
+
+export type SavedStatus = (typeof SAVED_STATUSES)[number];
+
+// The status the guest chose for a stored one: a waitlisted guest asked for Going.
+export function chosenStatus(status: SavedStatus): RsvpStatus {
+  return status === "waitlisted" ? "going" : status;
+}
+
 // The part of an answer that says who is coming.
 export type RsvpAnswer = {
   status: RsvpStatus;

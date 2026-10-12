@@ -8,9 +8,10 @@ import { useCopyLink } from "./use-copy-link";
 const LINK = "cursor-pointer underline decoration-theme-accent decoration-2 underline-offset-4 hover:opacity-80 disabled:cursor-default disabled:opacity-50";
 
 // The Broadsheet's confirmation, in the ballot's card once the RSVP is saved (spec, "Broadsheet"):
-// a "Received" stamp in the accent, what the guest answered, the calendar for a guest who is
-// coming, the private link that changes the RSVP from any device, and the three ways on. It sits
-// on the card's glass as the Poster's confirmation does, the stamp's word as accent ink on it.
+// a "Received" stamp in the accent ("Waitlisted" for a guest on the waitlist, with their place),
+// what the guest answered, the calendar for a guest who may come, the private link that changes
+// the RSVP from any device, and the three ways on. It sits on the card's glass as the Poster's
+// confirmation does, the stamp's word as accent ink on it.
 export function BroadsheetReceipt({
   answer,
   headingRef,
@@ -45,10 +46,15 @@ export function BroadsheetReceipt({
           data-slot="received-stamp"
           className="absolute -top-1 right-0 -rotate-8 border-[3px] border-theme-accent px-2 py-0.5 font-mono text-xs font-bold tracking-[0.2em] text-theme-accent-ink uppercase motion-safe:animate-theme-stamp-in"
         >
-          {t("ballot.received")}
+          {answer.status === "waitlisted" ? t("ballot.waitlisted") : t("ballot.received")}
         </p>
-        <h3 ref={headingRef} tabIndex={-1} className="pr-28 font-title text-4xl leading-tight outline-none">
-          {t(`done.${answer.status}`)}
+        {/* Clear of the stamp, whose longer word on the waitlist takes more room. */}
+        <h3
+          ref={headingRef}
+          tabIndex={-1}
+          className={`${answer.status === "waitlisted" ? "pr-32" : "pr-28"} font-title text-4xl leading-tight outline-none`}
+        >
+          {t(`done.${answer.status}`, { position: answer.waitlistPosition ?? 0 })}
         </h3>
         <p className="mt-1 text-theme-text-muted">
           {answer.status === "cant" ? t("summary.cant", { name: answer.name }) : t("summary.coming", { name: answer.name, count: answer.plusOnes })}

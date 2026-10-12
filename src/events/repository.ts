@@ -7,6 +7,7 @@ import { roleOf, type Role } from "@/hosts/role";
 import { isUuid } from "@/lib/uuid";
 import type { Locale } from "@/locale/resolve-locale";
 import { DEFAULT_THEME, parseTheme, type Theme } from "@/themes/theme";
+import { promoteWaitlist } from "@/rsvps/repository";
 import { removeRenditions } from "@/uploads/files";
 import type { EventInput } from "./form";
 import { SLUG_TAKEN, withFreshSlug } from "./slug";
@@ -75,13 +76,22 @@ export async function recordView(id: string): Promise<void> {
   }
 }
 
-export async function updateEvent(hostId: string, id: string, input: EventChanges): Promise<Event | undefined> {
-  const [updated] = await getDb()
-    .update(event)
-    .set({ ...input, updatedAt: new Date() })
-    .where(and(eq(event.id, id), hostedBy(hostId)))
-    .returning();
-  return updated && withTheme(updated);
+// Saving the event form. The row is locked as a reply's write locks it (rsvps/repository.ts), so
+// that a capacity raised or removed promotes from the waitlist in the same transaction, against
+// the headcount as it stands; `mailed` says whether a promoted guest was queued an email.
+export async function updateEvent(hostId: string, id: string, input: EventChanges): Promise<{ updated: Event; mailed: boolean } | undefined> {
+  const now = new Date();
+  return getDb().transaction(async (tx) => {
+    const [before] = await tx
+      .select({ capacity: event.capacity })
+      .from(event)
+      .where(and(eq(event.id, id), hostedBy(hostId)))
+      .for("no key update");
+    if (!before) return undefined;
+    const [updated] = await tx.update(event).set({ ...input, updatedAt: now }).where(eq(event.id, id)).returning();
+    const { mailed } = updated.capacity === before.capacity ? { mailed: false } : await promoteWaitlist(updated, tx, now);
+    return { updated: withTheme(updated), mailed };
+  });
 }
 
 // The host changing the look. The theme is read and written under a row lock, so two changes

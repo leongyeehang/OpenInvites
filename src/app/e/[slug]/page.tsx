@@ -21,8 +21,9 @@ import { answersStillOffered } from "@/questions/answers";
 import { findAnswers, listQuestions } from "@/questions/repository";
 import { asTally, countRsvps } from "@/rsvps/counts";
 import { consume } from "@/rate-limit/rate-limit";
+import { isFull } from "@/rsvps/admission";
 import { findRsvpOnThisDevice, guestRsvp } from "@/rsvps/guest";
-import { listPublicGuestList } from "@/rsvps/repository";
+import { countHeadcount, findWaitlistPosition, listPublicGuestList } from "@/rsvps/repository";
 import { guestListView } from "@/rsvps/visibility";
 import { BroadsheetLayout } from "@/themes/broadsheet-layout";
 import { derivedUpload, isDerivedBackground } from "@/themes/derived";
@@ -175,13 +176,17 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // What this event asks, what this guest has already said, so coming back prefills, the host's
   // own picture if there is one, what the host has announced, which every viewer reads, and the
   // comments as this viewer may see them.
-  const [questions, answers, upload, announcements, hosts, comments] = await Promise.all([
+  // Whether the event is full is said beside the reply controls whatever the guest list shows, so
+  // the headcount is counted apart from it; and a guest on the waitlist is told their place.
+  const [questions, answers, upload, announcements, hosts, comments, headcount, waitlistPosition] = await Promise.all([
     listQuestions(event.id),
     mine ? findAnswers(mine.rsvp.id) : Promise.resolve({}),
     findEventUpload(event.id),
     listAnnouncements(event.id),
     hostsOf(event.id),
     commentsFor(event, viewer),
+    event.capacity === null ? Promise.resolve(0) : countHeadcount(event.id),
+    mine ? findWaitlistPosition(mine.rsvp) : Promise.resolve(null),
   ]);
 
   // Guests are sent the host's picture only while the page shows it: one the host put aside
@@ -206,8 +211,9 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
       emailField: event.emailField,
       phoneField: event.phoneField,
     },
-    mine: mine && guestRsvp(mine),
+    mine: mine && guestRsvp(mine, waitlistPosition),
     open: acceptsRsvps(event.state),
+    full: isFull(event.capacity, headcount),
     questions,
     answers: answersStillOffered(answers, questions),
     calendar,

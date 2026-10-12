@@ -16,6 +16,7 @@ export type EventInput = {
   descriptionRich: RichText;
   plusOnesAllowed: number;
   requirePlusOneNames: boolean;
+  capacity: number | null;
   emailField: ContactField;
   phoneField: ContactField;
   verifyEmail: boolean;
@@ -37,6 +38,7 @@ export type EventFormFields = {
   description: RichText;
   plusOnesAllowed: string;
   requirePlusOneNames: boolean;
+  capacity: string;
   emailField: string;
   phoneField: string;
   verifyEmail: boolean;
@@ -50,6 +52,10 @@ export type EventFormFields = {
 // How many people one guest may bring at most (spec, "Per-event settings").
 export const MAX_PLUS_ONES = 10;
 
+// The capacity a host may set, when they set one (spec, "Capacity and the waitlist").
+export const CAPACITY_MIN = 1;
+export const CAPACITY_MAX = 5000;
+
 export type EventFormError =
   | "titleRequired"
   | "startRequired"
@@ -58,6 +64,7 @@ export type EventFormError =
   | "endBeforeStart"
   | "timeZoneInvalid"
   | "plusOnesAllowedInvalid"
+  | "capacityInvalid"
   | "contactFieldInvalid"
   | "guestListVisibilityInvalid";
 
@@ -100,6 +107,9 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
     return { ok: false, error: "plusOnesAllowedInvalid" };
   }
 
+  const capacity = parseCapacity(fields.capacity);
+  if (capacity === undefined) return { ok: false, error: "capacityInvalid" };
+
   const emailField = CONTACT_FIELDS.find((each) => each === fields.emailField);
   const phoneField = CONTACT_FIELDS.find((each) => each === fields.phoneField);
   if (!emailField || !phoneField) return { ok: false, error: "contactFieldInvalid" };
@@ -120,6 +130,7 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
       descriptionRich: fields.description,
       plusOnesAllowed,
       requirePlusOneNames: fields.requirePlusOneNames,
+      capacity,
       emailField,
       phoneField,
       verifyEmail: fields.verifyEmail,
@@ -130,4 +141,14 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
       notifyOnComment: fields.notifyOnComment,
     },
   };
+}
+
+// A capacity is a whole number written in digits, within the range; empty is no capacity at all.
+// Undefined when it is neither.
+function parseCapacity(raw: string): number | null | undefined {
+  const text = raw.trim();
+  if (!text) return null;
+  if (!/^\d+$/.test(text)) return undefined;
+  const capacity = Number(text);
+  return capacity >= CAPACITY_MIN && capacity <= CAPACITY_MAX ? capacity : undefined;
 }

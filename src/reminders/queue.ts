@@ -57,9 +57,10 @@ export async function queueDueReminders(now: Date): Promise<void> {
 
 // One event's due reminders, queued and marked sent in one transaction, which claims the event's
 // row first. Another app container on the same database skips a row that is claimed, and finds
-// the mark once it is free, so a reminder is sent once. The claim is NO KEY UPDATE, which guests'
-// RSVPs (whose foreign key takes KEY SHARE) do not wait for. The mark is set even when no guest is
-// reminded: guests who reply after a reminder was sent do not get it.
+// the mark once it is free, so a reminder is sent once. The claim is NO KEY UPDATE, the lock every
+// write of an RSVP takes first (rsvps/repository.ts): a reply waits the moment it takes to queue
+// them, and an event whose reply is being written is left for the next run. The mark is set even
+// when no guest is reminded: guests who reply after a reminder was sent do not get it.
 async function remind(id: string, now: Date): Promise<void> {
   await getDb().transaction(async (tx) => {
     const [claimed] = await tx

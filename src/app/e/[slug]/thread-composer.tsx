@@ -7,7 +7,7 @@ import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils";
 import { answerAfterPicking, offeredBy } from "@/questions/answers";
 import type { Question } from "@/questions/question";
-import { RSVP_STATUSES, type RsvpStatus } from "@/rsvps/form";
+import { chosenStatus, RSVP_STATUSES, type RsvpStatus } from "@/rsvps/form";
 import type { GuestRsvp, RsvpRefusal } from "@/rsvps/guest";
 import { Confetti, useReducedMotion } from "@/themes/effects/confetti";
 import { Glass } from "@/themes/glass";
@@ -54,10 +54,19 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
     focusNext.current = target === "confirmation" ? "done" : target === "code" ? "controls" : status;
   });
   const { step, draft, confirmed, working, refusal } = flow;
-  // The code asked for, and the one given, stay in the conversation once the RSVP is saved.
+  // The code asked for, and the one given, stay in the conversation once the RSVP is saved. A guest
+  // on the waitlist said they were in, and is told their place.
   const proving = { codeSentTo: flow.codeSentTo, code: draft.code };
   const reply: ThreadReply = confirmed
-    ? { ...confirmed, email: confirmed.email ?? "", phone: confirmed.phone ?? "", answers: draft.answers, ...proving }
+    ? {
+        ...confirmed,
+        status: chosenStatus(confirmed.status),
+        waitlisted: confirmed.status === "waitlisted" ? (confirmed.waitlistPosition ?? 0) : undefined,
+        email: confirmed.email ?? "",
+        phone: confirmed.phone ?? "",
+        answers: draft.answers,
+        ...proving,
+      }
     : { ...draft, ...proving };
   const event: ThreadEvent = { closed: open ? undefined : (closedAs ?? "cancelled"), settings, questions };
 
@@ -345,9 +354,10 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
   // Why the RSVP was just refused, while the guest answers; why it could not be removed, with the
   // done bubble.
   const why = flow.answering ? (working ? undefined : refusal) : flow.withdrawRefusal;
-  const alert = why && r(`errors.${why}`, { count: flow.triesLeft ?? 0 });
+  const alert = why && r(`errors.${why}`, { count: flow.refusalCount });
   // The composer is there while there is something to answer or wait for: not on an event that
-  // takes no replies, to a guest who has not replied.
+  // takes no replies, to a guest who has not replied. On a full event it says, over the guest's
+  // controls, that a Going reply joins the waitlist.
   const barShown = controls !== null || alert !== undefined || typing || (working && flow.answering);
 
   return (
@@ -380,6 +390,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
       <div ref={bar} tabIndex={-1} className="sticky bottom-0 z-20 pt-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] outline-none">
         {barShown && (
           <Glass className="flex min-h-16 flex-col justify-center gap-2 rounded-[28px] p-2.5">
+            {flow.fullNotice && <p className="px-2 text-sm text-theme-text-muted">{r("full")}</p>}
             {alert && (
               <p role="alert" className="px-2 text-sm font-medium">
                 {alert}
@@ -409,8 +420,8 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
 
 // Where a refusal about one field sends the guest back to, within the step the flow sends them to
 // (use-rsvp-flow.ts): the email's, the phone number's or the code's turn, or the first plus-one's
-// name; anything else about a field starts its step again. A refusal about none (too fast,
-// closed) leaves them where they were.
+// name; anything else about a field starts its step again, so a party too big for the places left
+// is asked how many again. A refusal about none (too fast, closed) leaves them where they were.
 function refusedAt(refusal: RsvpRefusal, turns: Turn[]): number | undefined {
   switch (refusal) {
     case "codeWrong":
@@ -431,6 +442,7 @@ function refusedAt(refusal: RsvpRefusal, turns: Turn[]): number | undefined {
     case "nameRequired":
     case "nameTooLong":
     case "plusOnesInvalid":
+    case "capacityFull":
     case "answerRequired":
     case "answerNotOffered":
     case "answerTooLong":

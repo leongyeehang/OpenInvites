@@ -3,10 +3,12 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { requireHost } from "@/auth/session";
 import { hostNeedsVerification } from "@/auth/verification";
 import { can } from "@/hosts/role";
 import type { FormState } from "@/lib/form-state";
+import { kickMailWorker } from "@/mail/worker";
 import { parseQuestions } from "@/questions/question";
 import { parseRichText } from "@/rich-text/rich-text";
 import { listQuestions, saveQuestions } from "@/questions/repository";
@@ -48,6 +50,7 @@ function fields(formData: FormData) {
     location: text("location"),
     plusOnesAllowed: text("plusOnesAllowed"),
     requirePlusOneNames: formData.get("requirePlusOneNames") === "on",
+    capacity: text("capacity"),
     emailField: text("emailField"),
     phoneField: text("phoneField"),
     verifyEmail: formData.get("verifyEmail") === "on",
@@ -111,9 +114,11 @@ export async function updateEventAction(id: string, _: FormState, formData: Form
   const questions = parseQuestions(postedQuestions(formData));
   if (!questions.ok) return { error: t(`errors.${questions.error}`) };
 
-  const updated = await updateEvent(host.id, id, { ...parsed.input, locale: await getLocale() });
-  if (!updated) return { error: t("errors.notFound") };
-  await saveQuestions(updated.id, questions.questions);
+  const saved = await updateEvent(host.id, id, { ...parsed.input, locale: await getLocale() });
+  if (!saved) return { error: t("errors.notFound") };
+  // A capacity raised or removed may have promoted guests from the waitlist, whose email goes now.
+  if (saved.mailed) after(kickMailWorker);
+  await saveQuestions(saved.updated.id, questions.questions);
   // The heading and link card on the manage page show the event too.
   revalidatePath(`/events/${id}`);
   return { success: t("edit.saved") };

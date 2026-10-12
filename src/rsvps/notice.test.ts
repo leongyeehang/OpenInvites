@@ -14,6 +14,18 @@ describe("rsvpNotice", () => {
     expect(rsvpNotice("cant", "going")).toBe("changed");
   });
 
+  it("tells the hosts when a reply joins the waitlist, first time or from another status", () => {
+    expect(rsvpNotice(null, "waitlisted")).toBe("waitlisted");
+    expect(rsvpNotice("maybe", "waitlisted")).toBe("waitlisted");
+    expect(rsvpNotice("cant", "waitlisted")).toBe("waitlisted");
+  });
+
+  it("tells the hosts when a reply leaves the waitlist by a change, as of any change of status", () => {
+    expect(rsvpNotice("waitlisted", "maybe")).toBe("changed");
+    expect(rsvpNotice("waitlisted", "going")).toBe("changed");
+    expect(rsvpNotice("waitlisted", null)).toBe("removed");
+  });
+
   it("tells the hosts when the RSVP is removed", () => {
     expect(rsvpNotice("going", null)).toBe("removed");
     expect(rsvpNotice("cant", null)).toBe("removed");
@@ -22,6 +34,7 @@ describe("rsvpNotice", () => {
   it("says nothing about an edit that keeps the status, such as a new name or plus-ones", () => {
     expect(rsvpNotice("going", "going")).toBeNull();
     expect(rsvpNotice("maybe", "maybe")).toBeNull();
+    expect(rsvpNotice("waitlisted", "waitlisted")).toBeNull();
   });
 
   it("says nothing when there was no RSVP before or after", () => {

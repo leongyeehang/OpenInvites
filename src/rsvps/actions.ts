@@ -3,22 +3,23 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
+import { after } from "next/server";
 import { requireHost } from "@/auth/session";
 import { acceptsRsvps } from "@/events/access";
 import { findEventBySlug, findHostEvent } from "@/events/repository";
 import { can } from "@/hosts/role";
-import { atLimit } from "@/instance/limits";
-import { instanceLimits } from "@/instance/repository";
 import { parseAnswers, type AnswerFields } from "@/questions/answers";
 import { listQuestions, saveAnswers } from "@/questions/repository";
 import type { FormState } from "@/lib/form-state";
 import { isMailConfigured } from "@/mail/config";
+import { kickMailWorker } from "@/mail/worker";
 import { consume } from "@/rate-limit/rate-limit";
 import { proveEmail } from "./email-code";
 import { parseHostEdit, parseRsvpForm, type RsvpFormFields } from "./form";
 import { findRsvpOnThisDevice, guestRsvp, type SaveRsvpResult } from "./guest";
+import { repliesAtLimit } from "./limit";
 import { notifyHostsOfRsvp } from "./notify-hosts";
-import { countEventRsvps, deleteRsvp, editRsvpAsHost, saveRsvp } from "./repository";
+import { deleteRsvp, editRsvpAsHost, moveToGoing, saveRsvp } from "./repository";
 import { rsvpCookieName, rsvpCookieOptions } from "./token";
 import { needsCode } from "./verification";
 import { eventPaths } from "@/events/slug";
@@ -47,11 +48,10 @@ function answersFrom(formData: FormData): AnswerFields {
   return given;
 }
 
-// Whether the event already has as many replies as the operator allows. A guest with a reply on
-// this device is never turned away by it: they are changing theirs, not adding one.
-async function repliesAtLimit(eventId: string): Promise<boolean> {
-  const [limits, replies] = await Promise.all([instanceLimits(), countEventRsvps(eventId)]);
-  return atLimit(replies, limits.maxRsvpsPerEvent);
+// A write of an RSVP that promoted guests from the waitlist queued their email in its transaction:
+// it goes as soon as the action has answered.
+function sendPromotionMail(mailed: boolean): void {
+  if (mailed) after(kickMailWorker);
 }
 
 // Every answer counts against the RSVP limit before anything is looked up, so that neither a
@@ -70,6 +70,8 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
   const answers = parseAnswers(answersFrom(formData), await listQuestions(event.id), parsed.input.status);
   if (!answers.ok) return { error: answers.error };
 
+  // Checked again under the event's lock as the reply is written (repository.ts); here first, so
+  // that no code is sent for a reply the event cannot take.
   const mine = await findRsvpOnThisDevice(event.id);
   if (!mine && (await repliesAtLimit(event.id))) return { error: "limitReached" };
 
@@ -84,19 +86,27 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
 
   // The language the guest answers in is the one their mail about the event is written in.
   const locale = await getLocale();
+  // The capacity decides what the reply becomes, in the transaction that writes it: Going, on the
+  // waitlist, or refused when a Going guest brings more people than there is room for.
+  const outcome = await saveRsvp(event.id, { ...parsed.input, locale }, mine, proven);
+  if ("refused" in outcome) {
+    return outcome.refused === "capacityFull" ? { error: "capacityFull", placesLeft: outcome.placesLeft } : { error: outcome.refused };
+  }
+  const { saved, written, previous, waitlistPosition, mailed } = outcome;
+  sendPromotionMail(mailed);
   // Two writes rather than one transaction: a failure between them leaves the RSVP saved with
   // its previous answers, which the guest can put right by answering again.
-  const saved = await saveRsvp(event.id, { ...parsed.input, locale }, mine, proven);
   await saveAnswers(saved.rsvp.id, answers.answers);
-  if (!mine) {
+  if (saved.token !== mine?.token) {
     // A new RSVP: this device now remembers the guest, so the link finds their answer next time.
     (await cookies()).set(rsvpCookieName(event.id), saved.token, rsvpCookieOptions());
   }
   // Once the RSVP is saved and remembered, so that nothing about the hosts' email can undo either.
-  await notifyHostsOfRsvp(event, mine?.rsvp, saved.rsvp);
+  // The hosts hear of what the guest did, not of a promotion it led to.
+  await notifyHostsOfRsvp(event, previous, written);
   // The guest list is a reward for answering, so it unlocks without waiting for a reload.
   for (const path of eventPaths(event)) revalidatePath(path);
-  return { saved: guestRsvp(saved) };
+  return { saved: guestRsvp(saved, waitlistPosition) };
 }
 
 // Withdrawing: the RSVP goes, and so does this device's memory of it. A guest may withdraw from
@@ -107,7 +117,8 @@ export async function removeRsvpAction(slug: string): Promise<{ error?: "tooFast
   const event = await findEventBySlug(slug);
   if (!event) return {};
   const mine = await findRsvpOnThisDevice(event.id);
-  const removed = mine && (await deleteRsvp(event.id, mine.rsvp.id));
+  const { removed, mailed } = mine ? await deleteRsvp(event.id, mine.rsvp.id) : { removed: undefined, mailed: false };
+  sendPromotionMail(mailed);
   (await cookies()).delete(rsvpCookieName(event.id));
   await notifyHostsOfRsvp(event, removed, undefined);
   for (const path of eventPaths(event)) revalidatePath(path);
@@ -130,17 +141,36 @@ export async function editGuestAction(
   const parsed = parseHostEdit(fields(formData), event);
   if (!parsed.ok) return { error: t(`errors.${parsed.error}`) };
 
-  const previous = await editRsvpAsHost(event.id, rsvpId, parsed.edit);
-  if (previous) await notifyHostsOfRsvp(event, previous, parsed.edit);
+  const changed = await editRsvpAsHost(event.id, rsvpId, parsed.edit);
+  if (changed) {
+    sendPromotionMail(changed.mailed);
+    await notifyHostsOfRsvp(event, changed.previous, changed.current);
+  }
   revalidatePath(`/events/${eventId}/guests`);
   return { success: t("saved") };
+}
+
+// The host's Move to Going on a waitlisted guest's row (spec, story 145): never refused by the
+// capacity. The guest is emailed as a promoted guest is, and the hosts are told as of any change a
+// host makes.
+export async function moveToGoingAction(eventId: string, rsvpId: string): Promise<void> {
+  const host = await requireHost();
+  const event = await findHostEvent(host.id, eventId);
+  if (!event || !can(event.role, "guests")) return;
+  const moved = await moveToGoing(event.id, rsvpId);
+  if (moved) {
+    sendPromotionMail(moved.mailed);
+    await notifyHostsOfRsvp(event, moved.previous, moved.current);
+  }
+  revalidatePath(`/events/${eventId}/guests`);
 }
 
 export async function removeGuestAction(eventId: string, rsvpId: string): Promise<void> {
   const host = await requireHost();
   const event = await findHostEvent(host.id, eventId);
   if (!event || !can(event.role, "guests")) return;
-  const removed = await deleteRsvp(event.id, rsvpId);
+  const { removed, mailed } = await deleteRsvp(event.id, rsvpId);
+  sendPromotionMail(mailed);
   await notifyHostsOfRsvp(event, removed, undefined);
   revalidatePath(`/events/${eventId}/guests`);
 }

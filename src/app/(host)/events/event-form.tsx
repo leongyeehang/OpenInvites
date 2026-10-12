@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { MAX_PLUS_ONES } from "@/events/form";
+import { CAPACITY_MAX, CAPACITY_MIN, MAX_PLUS_ONES } from "@/events/form";
 import type { QuestionDraft } from "@/questions/question";
 import { EMPTY_RICH_TEXT } from "@/rich-text/rich-text";
 import { CONTACT_FIELDS, type ContactField } from "@/rsvps/form";
@@ -31,6 +31,8 @@ type Props = {
   event?: Event;
   // Whether the instance has mail, without which no code can prove a guest's email.
   mail: boolean;
+  // How many replies the operator lets an event take, which the capacity's hint names.
+  maxReplies: number;
   timeZones: string[];
   submitLabel: string;
   questions: QuestionDraft[];
@@ -38,7 +40,7 @@ type Props = {
 };
 
 // One form for creating and editing. Times are typed in the event's zone; the action converts them.
-export function EventForm({ action, event, mail, timeZones, submitLabel, questions, answerCounts }: Props) {
+export function EventForm({ action, event, mail, maxReplies, timeZones, submitLabel, questions, answerCounts }: Props) {
   const t = useTranslations("Events.form");
   const [state, formAction, pending] = useActionState(action, undefined);
   const [allDay, setAllDay] = useState(event?.allDay ?? false);
@@ -118,6 +120,26 @@ export function EventForm({ action, event, mail, timeZones, submitLabel, questio
           <Checkbox id="require-plus-one-names" name="requirePlusOneNames" defaultChecked={event?.requirePlusOneNames} />
           <FieldLabel htmlFor="require-plus-one-names">{t("requirePlusOneNames")}</FieldLabel>
         </Field>
+        {/* How many may come (spec, "Capacity and the waitlist"). Empty is no limit. */}
+        <FieldSet className="gap-3">
+          <FieldLegend variant="label">{t("guests.title")}</FieldLegend>
+          <Field>
+            <FieldLabel htmlFor="capacity">{t("guests.capacity")}</FieldLabel>
+            <Input
+              id="capacity"
+              name="capacity"
+              type="number"
+              inputMode="numeric"
+              min={CAPACITY_MIN}
+              max={CAPACITY_MAX}
+              step={1}
+              defaultValue={event?.capacity ?? ""}
+              aria-describedby="capacity-hint"
+              className="max-w-40"
+            />
+            <FieldDescription id="capacity-hint">{t("guests.capacityHint", { max: maxReplies })}</FieldDescription>
+          </Field>
+        </FieldSet>
         {/* How the RSVP form asks guests to be reached (spec, "Contact details"). */}
         <FieldSet className="gap-3">
           <FieldLegend variant="label">{t("contact.title")}</FieldLegend>

@@ -2,7 +2,7 @@
 
 import { Check } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { DeleteDialogContent } from "@/components/delete-dialog-content";
 import { FormOutcome } from "@/components/form-outcome";
 import {
@@ -19,16 +19,18 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import type { FormState } from "@/lib/form-state";
-import { editGuestAction, removeGuestAction } from "@/rsvps/actions";
-import { RSVP_STATUSES } from "@/rsvps/form";
+import { editGuestAction, moveToGoingAction, removeGuestAction } from "@/rsvps/actions";
+import { chosenStatus, RSVP_STATUSES } from "@/rsvps/form";
 import type { GuestAnswer } from "@/questions/repository";
 import type { HostGuest } from "@/rsvps/repository";
 
 // One guest on the host's list: who they are and what they answered, and, when the host opens
-// it, the form that changes it on their behalf.
+// it, the form that changes it on their behalf. A guest on the waitlist is shown with their place
+// in it and their party as "+N", and can be moved to Going.
 export function GuestRow({
   eventId,
   guest,
+  position,
   replied,
   changed,
   answers,
@@ -37,6 +39,8 @@ export function GuestRow({
 }: {
   eventId: string;
   guest: HostGuest;
+  // The guest's place on the waitlist, when they are on it.
+  position?: number;
   replied: string;
   changed?: string;
   answers: GuestAnswer[];
@@ -53,9 +57,18 @@ export function GuestRow({
     <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <div className="min-w-0">
-          <p className="font-medium">{guest.name}</p>
+          <p className="font-medium">
+            {/* The list numbers itself for a screen reader (page.tsx); the number is for the eye. */}
+            {position !== undefined && (
+              <span aria-hidden className="mr-1.5 text-muted-foreground tabular-nums">
+                {position}.
+              </span>
+            )}
+            {guest.name}
+            {position !== undefined && guest.plusOnes > 0 && <span className="ml-1.5 text-muted-foreground">+{guest.plusOnes}</span>}
+          </p>
           <p className="text-sm text-muted-foreground">
-            {guest.plusOnes > 0 && <span>{t("plusOnes", { count: guest.plusOnes })} · </span>}
+            {guest.plusOnes > 0 && position === undefined && <span>{t("plusOnes", { count: guest.plusOnes })} · </span>}
             <span>{t("replied", { when: replied })}</span>
             {changed && <span> · {t("changed", { when: changed })}</span>}
           </p>
@@ -88,9 +101,12 @@ export function GuestRow({
             </dl>
           )}
         </div>
-        <Button variant="ghost" size="sm" aria-expanded={open} onClick={() => setOpen(!open)}>
-          {open ? t("close") : t("edit")}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {guest.status === "waitlisted" && <MoveToGoing eventId={eventId} guestId={guest.id} />}
+          <Button variant="ghost" size="sm" aria-expanded={open} onClick={() => setOpen(!open)}>
+            {open ? t("close") : t("edit")}
+          </Button>
+        </div>
       </div>
 
       {open && (
@@ -137,7 +153,9 @@ function EditGuest({
         </Field>
         <Field>
           <FieldLabel htmlFor={`status-${guest.id}`}>{t("status")}</FieldLabel>
-          <NativeSelect id={`status-${guest.id}`} name="status" defaultValue={guest.status}>
+          {/* The three a guest chooses from; a guest on the waitlist asked for Going, and saving
+              it keeps them waiting (rsvps/admission.ts, hostStatus). */}
+          <NativeSelect id={`status-${guest.id}`} name="status" defaultValue={chosenStatus(guest.status)}>
             {RSVP_STATUSES.map((status) => (
               <NativeSelectOption key={status} value={status}>
                 {t(`group.${status}`)}
@@ -190,6 +208,28 @@ function EditGuest({
         </div>
       </FieldGroup>
     </form>
+  );
+}
+
+// Going at once, whatever the capacity (spec, story 145). The row moves to Going and this button
+// goes with it, so the focus goes to the page's heading, as after a removal.
+function MoveToGoing({ eventId, guestId }: { eventId: string; guestId: string }) {
+  const t = useTranslations("Guests");
+  const [moving, startMoving] = useTransition();
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={moving}
+      onClick={() =>
+        startMoving(async () => {
+          await moveToGoingAction(eventId, guestId);
+          document.getElementById("guest-list-heading")?.focus();
+        })
+      }
+    >
+      {t("moveToGoing")}
+    </Button>
   );
 }
 

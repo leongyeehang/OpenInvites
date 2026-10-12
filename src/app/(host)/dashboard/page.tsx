@@ -94,7 +94,12 @@ async function EventList({
                   <span className="text-sm text-muted-foreground">{formatWhen(event, locale)}</span>
                   <span className="text-sm text-muted-foreground">
                     {t("counts", { going: replies.going, maybe: replies.maybe, declined: replies.cant })}
-                    {` · ${t("headcount", { count: replies.headcount })}`}
+                    {replies.waitlisted > 0 && ` · ${t("waitlisted", { count: replies.waitlisted })}`}
+                    {` · ${
+                      event.capacity === null
+                        ? t("headcount", { count: replies.headcount })
+                        : t("headcountOf", { count: replies.headcount, capacity: event.capacity })
+                    }`}
                   </span>
                 </Link>
               </li>

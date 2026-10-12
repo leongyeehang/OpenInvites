@@ -11,9 +11,11 @@ import type { RsvpSettings, RsvpStatus } from "@/rsvps/form";
 // Where the guest is in the RSVP flow, as use-rsvp-flow.ts names it.
 export type ThreadStep = "idle" | "name" | "plusones" | "questions" | "code" | "done";
 
-// What the guest has said: the answer they are giving, or the one they saved.
+// What the guest has said: the answer they are giving, or the one they saved. A Going reply saved
+// on the waitlist carries the guest's place in it (rsvps/admission.ts).
 export type ThreadReply = {
   status: RsvpStatus;
+  waitlisted?: number;
   name: string;
   email: string;
   phone: string;
@@ -60,7 +62,8 @@ export type ThreadLine =
   | "questionOptional"
   | "askCode"
   | "skipped"
-  | `done.${RsvpStatus}`;
+  | `done.${RsvpStatus}`
+  | "done.waitlisted";
 
 // What a bubble says: a line of the script; the same words as the other layouts' controls (yes,
 // no, just me); something written by the guest or by the host (a name, a prompt, an option); or
@@ -192,8 +195,8 @@ function answered(question: Question, values: string[]): Said {
 
 // The conversation so far, for where the guest is: the host's ask; once they have chosen, what
 // they chose, then each turn they have answered and the one they are on; once their RSVP is saved,
-// the done bubble. An event that takes no replies says so in place of the ask, and after a
-// conversation saved before it closed.
+// the done bubble, which tells a guest put on the waitlist their place in it. An event that takes
+// no replies says so in place of the ask, and after a conversation saved before it closed.
 export function threadMessages({ step, at, reply }: ThreadState, event: ThreadEvent): Bubble[] {
   const closed: Said | undefined = event.closed && { line: event.closed };
   if (step === "idle") return [{ key: "ask", from: "host", said: closed ?? { line: "ask" } }];
@@ -214,7 +217,12 @@ export function threadMessages({ step, at, reply }: ThreadState, event: ThreadEv
   }
   if (step !== "done") return bubbles;
 
-  bubbles.push({ key: "done", from: "host", said: { line: `done.${reply.status}`, values: { firstName: firstNameOf(reply.name) } }, done: true });
+  const firstName = firstNameOf(reply.name);
+  const done: Said =
+    reply.waitlisted === undefined
+      ? { line: `done.${reply.status}`, values: { firstName } }
+      : { line: "done.waitlisted", values: { firstName, position: reply.waitlisted } };
+  bubbles.push({ key: "done", from: "host", said: done, done: true });
   if (closed) bubbles.push({ key: "closed", from: "host", said: closed });
   return bubbles;
 }

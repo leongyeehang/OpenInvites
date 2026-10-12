@@ -5,7 +5,7 @@ import { DEFAULT_LIMITS } from "../instance/limits";
 import { defaultLocale, type Locale } from "../locale/resolve-locale";
 import { QUESTION_TYPES } from "../questions/question";
 import { EMPTY_RICH_TEXT, type RichText } from "../rich-text/rich-text";
-import { CONTACT_FIELDS, RSVP_STATUSES } from "../rsvps/form";
+import { CONTACT_FIELDS, SAVED_STATUSES } from "../rsvps/form";
 import { DEFAULT_GUEST_LIST_VISIBILITY, GUEST_LIST_VISIBILITIES } from "../rsvps/visibility";
 import type { Theme } from "../themes/theme";
 
@@ -151,6 +151,9 @@ export const event = pgTable(
     // What the host asks of guests on the RSVP form (spec, "Per-event settings").
     plusOnesAllowed: integer("plus_ones_allowed").notNull().default(1),
     requirePlusOneNames: boolean("require_plus_one_names").notNull().default(false),
+    // How many people may be Going, counted as the headcount is; none when null. Going replies
+    // that do not fit wait on the waitlist (spec, "Capacity and the waitlist").
+    capacity: integer("capacity"),
     // Whether guests are asked for an email and a phone number: not at all, optionally, or as a
     // must (spec, "Contact details"). Events from before 0.4 that asked for an email ask for it
     // optionally, which is what asking meant then (migration 0027).
@@ -228,7 +231,7 @@ export const coHostLink = pgTable(
   (table) => [index("co_host_link_event_id_idx").on(table.eventId)],
 );
 
-export const rsvpStatus = pgEnum("rsvp_status", RSVP_STATUSES);
+export const rsvpStatus = pgEnum("rsvp_status", SAVED_STATUSES);
 
 // One guest's answer to one event. Guests have no accounts: the edit token, stored hashed, is
 // the only thing that proves an RSVP is yours, and it reaches the guest as an edit link and as a
@@ -247,6 +250,10 @@ export const rsvp = pgTable(
     plusOnes: integer("plus_ones").notNull().default(0),
     // As many entries as there are plus-ones; an entry is empty when the host does not ask for names.
     plusOneNames: text("plus_one_names").array().notNull().default(sql`'{}'::text[]`),
+    // When a waitlisted RSVP joined the waitlist, which is its place in the order; null for any
+    // other status. When it left the waitlist for Going, if it did (rsvps/repository.ts).
+    waitlistedAt: timestamp("waitlisted_at", { withTimezone: true }),
+    promotedAt: timestamp("promoted_at", { withTimezone: true }),
     email: text("email"),
     // When the guest proved the email above by entering a code sent to it; null once it changes
     // without one, whoever changes it (rsvps/plan.ts).

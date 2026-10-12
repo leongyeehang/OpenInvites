@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { cancellationAudience } from "./cancellation";
-import type { RsvpStatus } from "./form";
+import type { SavedStatus } from "./form";
 
-function guest(status: RsvpStatus, email: string | null, mailToken: string | null = email && `token-${email}`) {
+function guest(status: SavedStatus, email: string | null, mailToken: string | null = email && `token-${email}`) {
   return { status, email, mailToken };
 }
 
@@ -11,6 +11,11 @@ describe("cancellationAudience", () => {
     const going = guest("going", "priya@example.test");
     const maybe = guest("maybe", "mei@example.test");
     expect(cancellationAudience([going, maybe])).toEqual([going, maybe]);
+  });
+
+  it("tells the guests on the waitlist, who were hoping to come", () => {
+    const waiting = guest("waitlisted", "sam@example.test");
+    expect(cancellationAudience([waiting])).toEqual([waiting]);
   });
 
   it("does not tell the guests who can’t go, though they gave an email", () => {

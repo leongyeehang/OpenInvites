@@ -100,6 +100,7 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
               ))}
             </fieldset>
             {!open && <p className="-mt-2 text-sm text-theme-text-muted">{t("errors.closed")}</p>}
+            {flow.fullNotice && <p className="-mt-2 text-sm text-theme-text-muted">{t("full")}</p>}
 
             {answering && (
               <>
@@ -288,7 +289,7 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
 
                 {flow.refusal && (
                   <p role="alert" className="text-sm font-medium">
-                    {t(`errors.${flow.refusal}`, { count: flow.triesLeft ?? 0 })}
+                    {t(`errors.${flow.refusal}`, { count: flow.refusalCount })}
                   </p>
                 )}
                 {/* In the theme's RSVP button style: the ballot's one button. */}

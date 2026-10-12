@@ -16,6 +16,8 @@ export type DraftFields = {
   description?: string;
   plusOnes?: string;
   requirePlusOneNames?: boolean;
+  // The Guests group's Capacity; no limit when left out.
+  capacity?: string;
   // Email "Optional", which is what asking for one meant before it could be required.
   askEmail?: boolean;
   // The Contact details choices; Don't ask when left out.
@@ -54,6 +56,7 @@ export async function createDraft(page: Page, fields: DraftFields) {
   if (fields.description) await page.getByLabel("Description").fill(fields.description);
   if (fields.plusOnes) await page.getByLabel("Plus-ones per guest").selectOption(fields.plusOnes);
   if (fields.requirePlusOneNames) await page.getByLabel("Ask for each plus-one’s name").check();
+  if (fields.capacity) await page.getByRole("group", { name: "Guests", exact: true }).getByLabel("Capacity").fill(fields.capacity);
   const contact = page.getByRole("group", { name: "Contact details" });
   const email = fields.email ?? (fields.askEmail ? "optional" : undefined);
   if (email) await contact.getByLabel("Email", { exact: true }).selectOption(email);

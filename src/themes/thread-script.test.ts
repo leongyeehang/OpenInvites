@@ -155,6 +155,20 @@ describe("threadMessages", () => {
     }
   });
 
+  it("ends a Going reply saved on the waitlist with the guest's place in it, the guest having said they're in", () => {
+    const bubbles = threadMessages({ step: "done", at: 0, reply: reply({ status: "going", waitlisted: 2, name: "Priya Nair" }) }, { ...PARTY, questions: [] });
+    expect(said(bubbles)).toEqual([
+      ASK,
+      ["guest", { line: "going" }],
+      ["host", { line: "askName" }],
+      ["guest", { text: "Priya Nair" }],
+      ["host", { line: "askPlusOnes", values: { firstName: "Priya", max: 2 } }],
+      ["guest", { rsvp: "plusOnes.justMe" }],
+      ["host", { line: "done.waitlisted", values: { firstName: "Priya", position: 2 } }],
+    ]);
+    expect(bubbles.filter((bubble) => bubble.done)).toHaveLength(1);
+  });
+
   it("asks a guest who can't go nothing but their name before the done bubble", () => {
     expect(said(threadMessages({ step: "done", at: 0, reply: reply({ status: "cant", name: "Priya" }) }, PARTY))).toEqual([
       ASK,

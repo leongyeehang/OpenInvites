@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useEffectEvent, useRef, useState, useTransit
 import { answerAfterPicking, type AnswerFields } from "@/questions/answers";
 import type { Question } from "@/questions/question";
 import { removeRsvpAction, saveRsvpAction } from "@/rsvps/actions";
-import type { RsvpSettings, RsvpStatus } from "@/rsvps/form";
+import { chosenStatus, type RsvpSettings, type RsvpStatus } from "@/rsvps/form";
 import type { GuestRsvp, RsvpRefusal } from "@/rsvps/guest";
 import { confettiFor } from "@/themes/effects/trigger";
 import { useTheme } from "@/themes/themed-page";
@@ -30,6 +30,7 @@ const STEP_OF: Partial<Record<RsvpRefusal, Step>> = {
   phoneRequired: "name",
   phoneInvalid: "name",
   plusOnesInvalid: "plusones",
+  capacityFull: "plusones",
   plusOneNameRequired: "plusones",
   plusOneNameTooLong: "plusones",
   answerRequired: "questions",
@@ -56,14 +57,15 @@ export type Draft = {
 
 const BLANK: Draft = { status: "going", name: "", plusOnes: 0, plusOneNames: [], email: "", phone: "", answers: {}, code: "" };
 
-// Coming back to change an answer starts from the answer that is already there, except that a
-// host who has since lowered the plus-ones allowance wins: otherwise the guest would carry an
-// impossible number into every attempt to save, and never be able to change their RSVP again.
+// Coming back to change an answer starts from the answer that is already there, a waitlisted one
+// as the Going it asked for, except that a host who has since lowered the plus-ones allowance
+// wins: otherwise the guest would carry an impossible number into every attempt to save, and never
+// be able to change their RSVP again.
 function draftFrom(mine: GuestRsvp | undefined, settings: RsvpSettings, answers: AnswerFields): Draft {
   if (!mine) return { ...BLANK, answers };
-  const { status, name, plusOneNames, email, phone } = mine;
+  const { name, plusOneNames, email, phone } = mine;
   const plusOnes = Math.min(mine.plusOnes, settings.plusOnesAllowed);
-  return { status, name, plusOnes, plusOneNames: plusOneNames.slice(0, plusOnes), email: email ?? "", phone: phone ?? "", answers, code: "" };
+  return { status: chosenStatus(mine.status), name, plusOnes, plusOneNames: plusOneNames.slice(0, plusOnes), email: email ?? "", phone: phone ?? "", answers, code: "" };
 }
 
 // What the event page hands whichever presentation of the flow its layout uses.
@@ -73,6 +75,9 @@ export type RsvpFlowProps = {
   mine: GuestRsvp | undefined;
   // Whether the event takes answers now (published), which decides whether a status can be chosen.
   open: boolean;
+  // Whether the event has a capacity and the headcount has reached it, so a Going reply joins the
+  // waitlist (rsvps/admission.ts, isFull).
+  full: boolean;
   questions: Question[];
   answers: AnswerFields;
   calendar?: ReactNode;
@@ -85,7 +90,7 @@ export type RsvpFlowProps = {
 export type Landing = "confirmation" | "status" | "code";
 
 export function useRsvpFlow(
-  { slug, settings, mine, questions, answers }: RsvpFlowProps,
+  { slug, settings, mine, open, full, questions, answers }: RsvpFlowProps,
   land: (target: Landing, status: RsvpStatus) => void,
 ) {
   const { effect } = useTheme().theme;
@@ -107,6 +112,9 @@ export function useRsvpFlow(
   const [codesSent, setCodesSent] = useState(0);
   const [resendIn, setResendIn] = useState(0);
   const [triesLeft, setTriesLeft] = useState<number>();
+  // After a Going guest asked to bring more people than there is room for, how many places their
+  // party may have.
+  const [placesLeft, setPlacesLeft] = useState<number>();
   // The code step belongs to the email the code went to: a guest who changes the email is sent a
   // code to the new one when they answer again.
   const codeSentTo = codeTo !== undefined && codeTo === draft.email.trim() ? codeTo : undefined;
@@ -123,6 +131,10 @@ export function useRsvpFlow(
   // The saved answer while the confirmation shows it.
   const confirmed = step === "done" ? answer : undefined;
   const answering = step !== "idle" && !confirmed;
+  // Whether to say beside the choice of status that the event is full and a Going reply joins the
+  // waitlist (spec, "Capacity and the waitlist"): whenever a guest may choose, not over their
+  // saved answer.
+  const fullNotice = full && open && !confirmed;
 
   const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
   const recordAnswer = (questionId: string, values: string[]) =>
@@ -175,6 +187,7 @@ export function useRsvpFlow(
       const result = await saveRsvpAction(slug, formData);
       setRefusal(result.error);
       setTriesLeft(result.triesLeft);
+      setPlacesLeft(result.placesLeft);
       if (result.codeSent) {
         // A code is on its way to the email the guest gave, or went there moments ago: they enter
         // it next, in a field emptied for it.
@@ -252,10 +265,12 @@ export function useRsvpFlow(
     confirmed,
     answering,
     refusal,
-    triesLeft,
+    // The number a refusal's sentence counts: tries left on a code, or places left for a party.
+    refusalCount: placesLeft ?? triesLeft ?? 0,
     withdrawRefusal,
     working,
     falls,
+    fullNotice,
     codeSentTo,
     resendIn,
     pick,

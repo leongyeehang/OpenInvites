@@ -21,6 +21,7 @@ const source: Event = {
   theme: { ...DEFAULT_THEME, backgroundId: "dusk", uploadId: "0194f0a0-0000-7000-8000-0000000000aa", font: "serif" },
   plusOnesAllowed: 3,
   requirePlusOneNames: true,
+  capacity: 30,
   emailField: "required",
   phoneField: "optional",
   verifyEmail: true,
@@ -65,6 +66,7 @@ describe("duplicateInput", () => {
     expect(copy.event).toMatchObject({
       plusOnesAllowed: 3,
       requirePlusOneNames: true,
+      capacity: 30,
       emailField: "required",
       phoneField: "optional",
       verifyEmail: true,

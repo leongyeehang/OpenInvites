@@ -125,7 +125,9 @@
       "emptyUpcoming": "近期没有活动。",
       "emptyPast": "还没有已结束的活动。",
       "counts": "{going} 人参加 · {maybe} 人待定 · {declined} 人无法参加",
+      "waitlisted": "{count} 人候补",
       "headcount": "{count, plural, =0 {还没有人确定要来} other {预计 # 人}}",
+      "headcountOf": "预计 {count} 人（共 {capacity} 个名额）",
       "coHost": "共同主办人",
       "limitReached": "你已有 {count, plural, other {# 场活动}}，这是本实例允许的上限。删除一场不再需要的活动，才能再创建新的。"
     }
@@ -256,17 +258,20 @@
       "subject": {
         "replied": "{name} 回复了“{title}”：{status}",
         "changed": "{name} 对“{title}”的回复现在是：{status}",
-        "removed": "{name} 对“{title}”的回复已移除"
+        "removed": "{name} 对“{title}”的回复已移除",
+        "waitlisted": "{name} 进入了“{title}”的候补名单（共 {party} 人）"
       },
       "body": {
         "replied": "{name} 回复了“{title}”：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
         "changed": "{name} 对“{title}”的回复现在是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
-        "removed": "{name} 对“{title}”的回复已移除。原来的回复是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
+        "removed": "{name} 对“{title}”的回复已移除。原来的回复是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
+        "waitlisted": "{name} 进入了“{title}”的候补名单（共 {party} 人）。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
       },
       "status": {
         "going": "参加",
         "maybe": "待定",
-        "cant": "无法参加"
+        "cant": "无法参加",
+        "waitlisted": "参加（候补中）"
       }
     },
     "cancelled": {
@@ -287,6 +292,10 @@
     "reminderDay": {
       "subject": "“{title}”就在明天",
       "body": "“{title}”就在明天。\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}\n\n你的回复是：参加{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n活动页面：\n{url}"
+    },
+    "promoted": {
+      "subject": "有空位了：你可以参加“{title}”了",
+      "body": "有空位了：你可以参加“{title}”了。\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}\n\n活动页面：\n{url}"
     },
     "guestFooter": "你收到这封邮件，是因为你对“{title}”的回复上留有这个邮箱。如果不想再收到关于这个活动的邮件，请打开这个链接：{url}",
     "magicLink": {
@@ -337,6 +346,11 @@
       "plusOnesNone": "不可带",
       "plusOnesAllowedHint": "一位宾客最多可以带几个人。",
       "requirePlusOneNames": "要求填写每位同伴的名字",
+      "guests": {
+        "title": "宾客",
+        "capacity": "人数上限",
+        "capacityHint": "和预计人数的算法一样：回复“参加”的宾客及其同伴都算在内，待定的不算。留空表示不设上限。本实例每场活动最多接受 {max, number} 条回复。"
+      },
       "contact": {
         "title": "联系方式",
         "email": "邮箱",
@@ -392,6 +406,7 @@
       "timeZoneInvalid": "请从列表中选择时区。",
       "notFound": "这个活动已经不存在了。",
       "plusOnesAllowedInvalid": "请选择 0 到 10 之间的同伴人数。",
+      "capacityInvalid": "请为人数上限填写 1 到 5,000 之间的整数，或留空表示不设上限。",
       "contactFieldInvalid": "请选择如何询问邮箱和电话号码。",
       "guestListVisibilityInvalid": "请选择谁可以看到宾客名单。",
       "questionsInvalid": "无法读取这些问题，请重试。",
@@ -408,6 +423,7 @@
     "manage": {
       "link": "活动链接",
       "opened": "活动页面已被打开 {count, plural, other {#}} 次",
+      "headcountOf": "预计 {count} 人（共 {capacity} 个名额）",
       "view": "打开活动页面",
       "publish": "发布",
       "publishHint": "发布后，任何拿到活动链接的人都能打开它。",
@@ -546,6 +562,7 @@
         "going": "{firstName}，记下你啦！好期待见到你。",
         "maybe": "先记作待定啦，{firstName}。确定了再回来这里说一声。",
         "cant": "真可惜见不到你，{firstName}。要是计划有变，再回复一次就好。",
+        "waitlisted": "{firstName}，现在名额已满，不过你在候补名单上排第 {position} 位。一有空位我就告诉你。",
         "link": "这是你的专属链接，之后想改什么都可以用它。这个浏览器里也存了一份。"
       },
       "copyLink": "复制修改链接",
@@ -734,10 +751,13 @@
     "title": "宾客名单",
     "backToEvent": "返回活动",
     "headcount": "{count, plural, =0 {还没有人确定要来} other {预计 # 人}}",
+    "headcountOf": "预计 {count} 人（共 {capacity} 个名额）",
     "counts": "{going} 人参加 · {maybe} 人待定 · {declined} 人无法参加",
+    "waitlistedCount": "{count} 人候补",
     "empty": "还没有人回复。分享活动链接后，宾客会出现在这里。",
     "group": {
       "going": "参加",
+      "waitlisted": "候补名单",
       "maybe": "待定",
       "cant": "无法参加"
     },
@@ -752,6 +772,7 @@
     },
     "edit": "编辑",
     "close": "关闭",
+    "moveToGoing": "改为参加",
     "status": "状态",
     "plusOnesLabel": "同伴人数",
     "nameLabel": "名字",
@@ -793,7 +814,8 @@
     "status": {
       "going": "参加",
       "maybe": "待定",
-      "cant": "无法参加"
+      "cant": "无法参加",
+      "waitlisted": "候补名单"
     },
     "send": "发送",
     "sent": "{count, plural, =0 {已发布到活动页面。你选中的宾客都没有留下邮箱，所以没有发出邮件。} other {已发布到活动页面，并已发邮件给 # 位宾客。}}",
@@ -849,6 +871,7 @@
     "going": "参加",
     "maybe": "待定",
     "cant": "无法参加",
+    "full": "这场活动已满员。你可以加入候补名单。",
     "step": "第 {step} 步，共 {total} 步",
     "back": "返回",
     "continue": "继续",
@@ -875,7 +898,8 @@
     "done": {
       "going": "期待你的到来！",
       "maybe": "那就先待定吧。",
-      "cant": "可惜你来不了。"
+      "cant": "可惜你来不了。",
+      "waitlisted": "你在候补名单上，排第 {position} 位。"
     },
     "summary": {
       "coming": "{count, plural, =0 {{name}，就你自己。} other {{name}，另带 # 位同伴。}}",
@@ -916,6 +940,7 @@
       "answerTooLong": "回答太长了。",
       "tooFast": "操作太频繁了，请稍后再试。",
       "limitReached": "这场活动无法再接受更多回复了。",
+      "capacityFull": "{count, plural, =0 {已经没有空位了。} other {只剩 # 个空位了。}}",
       "codeWrong": "验证码不正确。{count, plural, =0 {已没有剩余次数，再次确认即可收到新的验证码。} other {还可以再试 # 次。}}",
       "codeExpired": "验证码已过期，我们已重新发送了一个。",
       "codeResent": "尝试次数太多，我们已重新发送了一个验证码。",
@@ -942,6 +967,7 @@
       "title": "回复",
       "pending": "请回复",
       "received": "已收到",
+      "waitlisted": "候补中",
       "going": "我会来",
       "cant": "来不了",
       "plusOnes": "同伴人数",

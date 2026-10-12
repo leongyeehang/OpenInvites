@@ -8,7 +8,7 @@ import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils";
 import { offeredBy } from "@/questions/answers";
 import type { Question } from "@/questions/question";
-import { RSVP_STATUSES, type RsvpStatus } from "@/rsvps/form";
+import { chosenStatus, RSVP_STATUSES, type RsvpStatus } from "@/rsvps/form";
 import type { GuestRsvp } from "@/rsvps/guest";
 import { Confetti } from "@/themes/effects/confetti";
 import { Glass } from "@/themes/glass";
@@ -375,7 +375,7 @@ export function RsvpFlow(props: RsvpFlowProps) {
 
       {flow.refusal && (
         <p role="alert" className="text-sm font-medium">
-          {t(`errors.${flow.refusal}`, { count: flow.triesLeft ?? 0 })}
+          {t(`errors.${flow.refusal}`, { count: flow.refusalCount })}
         </p>
       )}
 
@@ -392,8 +392,9 @@ export function RsvpFlow(props: RsvpFlowProps) {
     </form>
   );
 
-  // What the buttons show as chosen: the saved answer once there is one, else the one being given.
-  const chosen = confirmed ? confirmed.status : answering ? draft.status : undefined;
+  // What the buttons show as chosen: the saved answer once there is one (Going for a guest on the
+  // waitlist, which they asked for), else the one being given.
+  const chosen = confirmed ? chosenStatus(confirmed.status) : answering ? draft.status : undefined;
   const buttons = (
     <>
       <div className="grid grid-cols-3 gap-2">
@@ -414,6 +415,9 @@ export function RsvpFlow(props: RsvpFlowProps) {
       </div>
       {/* Set on the page itself, so on the veil that keeps bare text readable. */}
       {!open && <p className="mx-auto mt-2 w-fit rounded-full bg-theme-veil px-3 py-1 text-center text-xs text-theme-text-faint backdrop-blur-xl">{t("errors.closed")}</p>}
+      {flow.fullNotice && (
+        <p className="mx-auto mt-2 w-fit rounded-full bg-theme-veil px-3 py-1.5 text-center text-xs text-theme-text-muted backdrop-blur-xl">{t("full")}</p>
+      )}
     </>
   );
 
@@ -552,8 +556,8 @@ function Labelled({ label, hint, required, children }: { label: string; hint?: s
   );
 }
 
-// What the guest sees once they have answered: their reply, the private link that changes it
-// from any device, and the three ways out.
+// What the guest sees once they have answered: their reply (or their place on the waitlist), the
+// private link that changes it from any device, and the three ways out.
 function Confirmation({
   answer,
   headingRef,
@@ -592,7 +596,7 @@ function Confirmation({
         </span>
         <div className="flex-1">
           <h2 ref={headingRef} tabIndex={-1} className="font-title text-3xl leading-tight outline-none">
-            {t(`done.${answer.status}`)}
+            {t(`done.${answer.status}`, { position: answer.waitlistPosition ?? 0 })}
           </h2>
           <p className="text-sm text-theme-text-muted">
             {answer.status === "cant"

@@ -27,6 +27,7 @@ export function duplicateInput(
       theme: { ...source.theme, uploadId: null },
       plusOnesAllowed: source.plusOnesAllowed,
       requirePlusOneNames: source.requirePlusOneNames,
+      capacity: source.capacity,
       emailField: source.emailField,
       phoneField: source.phoneField,
       verifyEmail: source.verifyEmail,
