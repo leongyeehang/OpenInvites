@@ -448,6 +448,7 @@
       "publishedHint": "Anyone with the link can open the event page. Edits show up there straight away.",
       "draftHint": "Only the hosts can open the link while the event is a draft.",
       "guests": "Guest list",
+      "invites": "Invites",
       "cancel": "Cancel event",
       "cancelHint": "The page stays up with a notice, and no more RSVPs are taken.",
       "cancelTitle": "Cancel “{title}”?",
@@ -783,9 +784,14 @@
       "waitlisted": "Waitlist",
       "maybe": "Maybe",
       "cant": "Can’t go",
-      "declined": "Declined"
+      "declined": "Declined",
+      "invited": "Invited"
     },
     "nobody": "Nobody.",
+    "invited": {
+      "opened": "Opened",
+      "notOpened": "Not opened"
+    },
     "bringing": "Bringing {names}.",
     "plusOnes": "{count, plural, =1 {1 plus-one} other {# plus-ones}}",
     "replied": "Replied {when}",
@@ -825,6 +831,44 @@
       "emailInvalid": "That does not look like an email address.",
       "phoneRequired": "A guest needs a phone number.",
       "phoneInvalid": "Enter a phone number of 5 to 20 digits."
+    }
+  },
+  "Invites": {
+    "title": "Invites",
+    "backToEvent": "Back to the event",
+    "explainer": "A personal invite link is for one guest. When they open it, their name is filled in, and their email if you give one, and their reply is tied to the link, which then works as their edit link. Copy each link and send it to its guest yourself.",
+    "name": "Name",
+    "email": "Email",
+    "emailHint": "Optional. It is filled in for them and counts as checked.",
+    "make": "Make link",
+    "made": "Made a link for {name}.",
+    "full": "This event has {max} invites, the most it can have. Delete one to make another.",
+    "empty": "No invites yet.",
+    "state": {
+      "notOpened": "Not opened",
+      "opened": "Opened",
+      "replied": "Replied · {status}"
+    },
+    "status": {
+      "going": "Going",
+      "maybe": "Maybe",
+      "cant": "Can’t go",
+      "waitlisted": "On the waitlist"
+    },
+    "copy": "Copy link",
+    "copyLabel": "Copy link for {name}",
+    "copied": "Copied",
+    "delete": "Delete",
+    "deleteLabel": "Delete the invite for {name}",
+    "deleteTitle": "Delete the invite for {name}?",
+    "deleteText": "The link stops working. A reply made with it stays on your guest list.",
+    "keep": "Never mind",
+    "deleteConfirm": "Delete invite",
+    "errors": {
+      "notFound": "This event no longer exists.",
+      "nameRequired": "An invite needs the guest’s name.",
+      "nameTooLong": "That name is too long.",
+      "emailInvalid": "That does not look like an email address."
     }
   },
   "Announcements": {

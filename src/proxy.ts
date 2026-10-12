@@ -4,6 +4,7 @@ import { eventLinkExists, findHostEvent } from "@/events/repository";
 import { isSlug } from "@/events/slug";
 import { findCoHostLink } from "@/hosts/repository";
 import { findHostInvitation, isOperator } from "@/instance/repository";
+import { findInviteByToken } from "@/invites/repository";
 import { consume, retryAfter } from "@/rate-limit/rate-limit";
 import { reportableEventExists } from "@/reports/repository";
 import { findByMailToken, findEventForToken } from "@/rsvps/repository";
@@ -11,9 +12,11 @@ import { findByMailToken, findEventForToken } from "@/rsvps/repository";
 // Requests the rate limits count before any route sees them (spec, "Operator configuration").
 // Every request under an event link counts against one limit per client, whatever its method:
 // the page, its preview card, and its calendar file, whether the slug belongs to an event, has
-// been retired, or never existed, so that event links cannot be found by trying them. A host
-// invitation link counts as signing up, and a co-host link as signing in; an edit link or a stop
-// link counts as nothing. A refused request gets a page that says so, as 429 with Retry-After.
+// been retired, or never existed, so that event links cannot be found by trying them. A personal
+// invite link counts as an event link does, so its tokens cannot be found by trying them either
+// (spec, "Personal invite links"). A host invitation link counts as signing up, and a co-host link
+// as signing in; an edit link or a stop link counts as nothing. A refused request gets a page that
+// says so, as 429 with Retry-After.
 //
 // A server action (a POST naming one in Next-Action) is let through: it is the page's own form
 // (a guest's RSVP, the host's Design drawer), whose answer must be the action's own, with its
@@ -21,13 +24,14 @@ import { findByMailToken, findEventForToken } from "@/rsvps/repository";
 // belongs to another page to that page, without drawing this one either way; one of the page's
 // own whose answer draws the page again is counted by the page (e/[slug]/page.tsx).
 //
-// Then a page that is not there for this visitor, or an edit link, a stop link, a host invitation
-// link or a co-host link that was never made, is answered with the not-found page, drawn on the
-// server as it is for an address nothing lives at (below, notFoundHere).
+// Then a page that is not there for this visitor, or an edit link, a personal invite link, a stop
+// link, a host invitation link or a co-host link that was never made, is answered with the
+// not-found page, drawn on the server as it is for an address nothing lives at (below,
+// notFoundHere).
 export async function proxy(request: NextRequest) {
   if (request.method === "POST" && request.headers.has("next-action")) return;
   const { pathname } = request.nextUrl;
-  const limit = pathname.startsWith("/e/")
+  const limit = pathname.startsWith("/e/") || pathname.startsWith("/i/")
     ? "eventPage"
     : pathname.startsWith("/host-invitation/")
       ? "signUp"
@@ -44,7 +48,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/e/:path*", "/r/:path*", "/m/:path*", "/host-invitation/:path*", "/co-host/:path*", "/events/:path*", "/instance", "/instance/reports"],
+  matcher: ["/e/:path*", "/i/:path*", "/r/:path*", "/m/:path*", "/host-invitation/:path*", "/co-host/:path*", "/events/:path*", "/instance", "/instance/reports"],
 };
 
 // A page's notFound() cannot be drawn on the server. React's server renderer has no error
@@ -73,6 +77,9 @@ async function notFoundHere(pathname: string, headers: Headers): Promise<boolean
   // An edit link no RSVP has (r/[token]).
   const editLink = pathname.match(/^\/r\/([^/]+)$/);
   if (editLink) return !(await findEventForToken(decoded(editLink[1])));
+  // A personal invite link no invite has, never made or deleted (i/[token]).
+  const inviteLink = pathname.match(/^\/i\/([^/]+)$/);
+  if (inviteLink) return !(await findInviteByToken(decoded(inviteLink[1])));
   // A stop link, at the foot of an email to a guest, that no RSVP has (m/[token]).
   const stopLink = pathname.match(/^\/m\/([^/]+)$/);
   if (stopLink) return !(await findByMailToken(decoded(stopLink[1])));
@@ -85,9 +92,9 @@ async function notFoundHere(pathname: string, headers: Headers): Promise<boolean
   const coHostLink = pathname.match(/^\/co-host\/([^/]+)$/);
   if (coHostLink) return !(await findCoHostLink(decoded(coHostLink[1])));
   // An event the signed-in host neither owns nor co-hosts, or none ((host)/events/[id], share,
-  // guests, announcements, hosts), which /events/new/share and the rest are too: only /events/new
-  // is a page of its own. A visitor who is not signed in is sent to sign in by the page.
-  const hostEvent = pathname.match(/^\/events\/([^/]+)(?:\/share|\/guests|\/announcements|\/hosts)?$/);
+  // guests, invites, announcements, hosts), which /events/new/share and the rest are too: only
+  // /events/new is a page of its own. A visitor who is not signed in is sent to sign in by the page.
+  const hostEvent = pathname.match(/^\/events\/([^/]+)(?:\/share|\/guests|\/invites|\/announcements|\/hosts)?$/);
   if (hostEvent && pathname !== "/events/new") {
     const session = await getAuth().api.getSession({ headers });
     return session !== null && !(await findHostEvent(session.user.id, decoded(hostEvent[1])));

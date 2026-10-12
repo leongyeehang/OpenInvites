@@ -85,6 +85,11 @@ export default async function ManageEventPage({ params, searchParams }: PageProp
             <Button asChild variant="outline">
               <Link href={`/events/${event.id}/guests`}>{t("manage.guests")}</Link>
             </Button>
+            {can(event.role, "guests") && (
+              <Button asChild variant="outline">
+                <Link href={`/events/${event.id}/invites`}>{t("manage.invites")}</Link>
+              </Button>
+            )}
             <Button asChild variant="outline">
               <Link href={`/events/${event.id}/share`}>{t("manage.share")}</Link>
             </Button>

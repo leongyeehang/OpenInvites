@@ -72,7 +72,7 @@ export type ParsedRsvpForm = { ok: true; input: RsvpInput } | { ok: false; error
 export type ParsedHostEdit = { ok: true; edit: RsvpInput } | { ok: false; error: RsvpFormError };
 
 // Long enough for any real name; short enough that the field cannot be used as storage.
-const MAX_NAME = 80;
+export const MAX_NAME = 80;
 
 // Enough to catch a typo or a wrong field. The one rule for an email a guest or a visitor types:
 // the RSVP form's, and the report form's contact (reports/report.ts).

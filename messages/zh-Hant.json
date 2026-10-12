@@ -448,6 +448,7 @@
       "publishedHint": "任何持有連結的人都能開啟活動頁面。你做的修改會馬上顯示在那裡。",
       "draftHint": "活動還是草稿時，只有主辦人能開啟這個連結。",
       "guests": "賓客名單",
+      "invites": "專屬邀請",
       "cancel": "取消活動",
       "cancelHint": "頁面會保留並顯示取消通知，不再接受回覆。",
       "cancelTitle": "取消「{title}」？",
@@ -783,9 +784,14 @@
       "waitlisted": "候補名單",
       "maybe": "待定",
       "cant": "無法參加",
-      "declined": "已婉拒"
+      "declined": "已婉拒",
+      "invited": "已邀請"
     },
     "nobody": "目前沒有。",
+    "invited": {
+      "opened": "已開啟",
+      "notOpened": "未開啟"
+    },
     "bringing": "同伴：{names}",
     "plusOnes": "{count, plural, other {# 位同伴}}",
     "replied": "回覆於 {when}",
@@ -825,6 +831,44 @@
       "emailInvalid": "這看起來不像電子郵件地址。",
       "phoneRequired": "賓客需要有電話號碼。",
       "phoneInvalid": "請輸入 5 到 20 位的電話號碼。"
+    }
+  },
+  "Invites": {
+    "title": "專屬邀請",
+    "backToEvent": "返回活動",
+    "explainer": "專屬邀請連結只給一位賓客使用。對方開啟後，名字會自動填好；如果你留了電子郵件，電子郵件也會填好。對方的回覆會和這個連結綁定，之後這個連結就是對方的修改連結。請複製每個連結，自行傳給對應的賓客。",
+    "name": "名字",
+    "email": "電子郵件",
+    "emailHint": "選填。會替對方填好，並視為已確認。",
+    "make": "產生連結",
+    "made": "已為 {name} 產生連結。",
+    "full": "這個活動已有 {max} 個專屬邀請，已達上限。要產生新的，請先刪除一個。",
+    "empty": "還沒有專屬邀請。",
+    "state": {
+      "notOpened": "未開啟",
+      "opened": "已開啟",
+      "replied": "已回覆 · {status}"
+    },
+    "status": {
+      "going": "參加",
+      "maybe": "待定",
+      "cant": "無法參加",
+      "waitlisted": "在候補名單上"
+    },
+    "copy": "複製連結",
+    "copyLabel": "複製連結給 {name}",
+    "copied": "已複製",
+    "delete": "刪除",
+    "deleteLabel": "刪除給 {name} 的邀請",
+    "deleteTitle": "要刪除給 {name} 的邀請嗎？",
+    "deleteText": "連結會失效。透過它送出的回覆會保留在賓客名單上。",
+    "keep": "算了",
+    "deleteConfirm": "刪除邀請",
+    "errors": {
+      "notFound": "這個活動已經不存在了。",
+      "nameRequired": "請填寫賓客的名字。",
+      "nameTooLong": "名字太長了。",
+      "emailInvalid": "這看起來不像電子郵件地址。"
     }
   },
   "Announcements": {

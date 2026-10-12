@@ -7,6 +7,8 @@ import { requireHost } from "@/auth/session";
 import { findHostEvent } from "@/events/repository";
 import { formatMoment } from "@/events/time";
 import { ClientMessages } from "@/locale/client-messages";
+import { inviteState } from "@/invites/invite";
+import { listInvites } from "@/invites/repository";
 import { listAnswersByGuest } from "@/questions/repository";
 import { asTally, countRsvps, groupByStatus } from "@/rsvps/counts";
 import { listGuestList } from "@/rsvps/repository";
@@ -22,7 +24,10 @@ export async function generateMetadata(): Promise<Metadata> {
 // waitlist in its order, Maybe, Can't go, declined), with the headcount the host is really after,
 // against the capacity when there is one. The waitlist is shown once the event has a capacity, or
 // anyone is on it; the replies waiting for approval and those declined once the event asks for
-// approval, or anyone is in them. The list refreshes itself while the host watches.
+// approval, or anyone is in them. Last, once the host has made any personal invites, the guests
+// invited who have not replied (spec, "Personal invite links"): not RSVPs, so not grouped with them
+// and counted nowhere, in the headline or anywhere else. The list refreshes itself while the host
+// watches.
 export default async function GuestListPage({ params }: PageProps<"/events/[id]/guests">) {
   const [host, { id }, t, locale] = await Promise.all([
     requireHost(),
@@ -33,7 +38,8 @@ export default async function GuestListPage({ params }: PageProps<"/events/[id]/
   const event = await findHostEvent(host.id, id);
   if (!event) notFound();
 
-  const [guests, answers] = await Promise.all([listGuestList(event.id), listAnswersByGuest(event.id)]);
+  const [guests, answers, invites] = await Promise.all([listGuestList(event.id), listAnswersByGuest(event.id), listInvites(event.id)]);
+  const unanswered = invites.filter((invite) => inviteState(invite) !== "replied");
   const counts = countRsvps(guests.map(asTally));
   const groups = groupByStatus(guests).filter(({ group, rsvps }) => {
     if (rsvps.length > 0) return true;
@@ -99,6 +105,26 @@ export default async function GuestListPage({ params }: PageProps<"/events/[id]/
             )}
           </section>
         ))
+      )}
+      {invites.length > 0 && (
+        <section aria-labelledby="invited-heading" className="flex flex-col gap-3">
+          <h2 id="invited-heading" className="text-lg font-medium">
+            {t("group.invited")} ({unanswered.length})
+          </h2>
+          {unanswered.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("nobody")}</p>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {unanswered.map((invite) => (
+                <li key={invite.id} className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+                  <p className="font-medium break-words">{invite.name}</p>
+                  {invite.email && <p className="text-sm break-all text-muted-foreground">{invite.email}</p>}
+                  <p className="text-sm text-muted-foreground">{invite.openedAt ? t("invited.opened") : t("invited.notOpened")}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
       <p className="text-sm text-muted-foreground">{t("live")}</p>
     </ClientMessages>

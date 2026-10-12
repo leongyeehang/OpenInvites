@@ -34,9 +34,11 @@ test("someone guessing at event links is held up like anyone asking for event pa
   await expect(page.getByText("Try again shortly.")).toBeVisible();
   await expect(page).toHaveTitle("You’re going too fast");
 
-  // So does everything else under an event link, whatever the slug.
+  // So does everything else under an event link, whatever the slug, and a personal invite link,
+  // whatever the token.
   expect((await request.get(`/e/${unknownSlug()}/preview.png`)).status()).toBe(429);
   expect((await request.get(`/e/${unknownSlug()}/calendar.ics`)).status()).toBe(429);
+  expect((await request.get(`/i/${unknownSlug()}${unknownSlug()}`)).status()).toBe(429);
 
   // Only the address the reverse proxy appended counts: one the client writes in front of it
   // changes nothing.

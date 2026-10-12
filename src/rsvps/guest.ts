@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { baseUrl } from "@/instance/env";
+import { inviteUrl } from "@/invites/invite";
 import type { AnswerError } from "@/questions/answers";
 import type { Approval } from "./admission";
 import type { RsvpFormError, SavedStatus } from "./form";
@@ -45,9 +46,13 @@ export type SaveRsvpResult = {
   placesLeft?: number;
 };
 
+// The edit link of an RSVP saved through a personal invite is the invite link, whose token is its
+// edit token (spec, "Personal invite links"); once the host deletes the invite, the RSVP's own
+// /r/ link opens it, with the same token.
 export function guestRsvp({ rsvp, token }: MyRsvp, waitlistPosition: number | null): GuestRsvp {
   const { status, approval, name, plusOnes, plusOneNames, email, phone } = rsvp;
-  return { status, approval, name, plusOnes, plusOneNames, email, phone, editLink: `${baseUrl()}/r/${token}`, waitlistPosition };
+  const editLink = rsvp.inviteId ? inviteUrl(token) : `${baseUrl()}/r/${token}`;
+  return { status, approval, name, plusOnes, plusOneNames, email, phone, editLink, waitlistPosition };
 }
 
 // The RSVP the guest in front of us holds on this device. The cookie carries their edit token,

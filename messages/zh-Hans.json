@@ -448,6 +448,7 @@
       "publishedHint": "任何持有链接的人都能打开活动页面。你做的修改会立刻显示在那里。",
       "draftHint": "活动还是草稿时，只有主办人能打开这个链接。",
       "guests": "宾客名单",
+      "invites": "专属邀请",
       "cancel": "取消活动",
       "cancelHint": "页面会保留并显示取消通知，不再接受回复。",
       "cancelTitle": "取消“{title}”？",
@@ -783,9 +784,14 @@
       "waitlisted": "候补名单",
       "maybe": "待定",
       "cant": "无法参加",
-      "declined": "已婉拒"
+      "declined": "已婉拒",
+      "invited": "已邀请"
     },
     "nobody": "暂无。",
+    "invited": {
+      "opened": "已打开",
+      "notOpened": "未打开"
+    },
     "bringing": "同伴：{names}",
     "plusOnes": "{count, plural, other {# 位同伴}}",
     "replied": "回复于 {when}",
@@ -825,6 +831,44 @@
       "emailInvalid": "这看起来不像邮箱地址。",
       "phoneRequired": "宾客需要有电话号码。",
       "phoneInvalid": "请输入 5 到 20 位的电话号码。"
+    }
+  },
+  "Invites": {
+    "title": "专属邀请",
+    "backToEvent": "返回活动",
+    "explainer": "专属邀请链接只给一位宾客使用。对方打开后，名字会自动填好；如果你留了邮箱，邮箱也会填好。对方的回复会和这个链接绑定，之后这个链接就是对方的修改链接。请复制每个链接，自己发给对应的宾客。",
+    "name": "名字",
+    "email": "邮箱",
+    "emailHint": "选填。会替对方填好，并视为已确认。",
+    "make": "生成链接",
+    "made": "已为 {name} 生成链接。",
+    "full": "这个活动已有 {max} 个专属邀请，已达上限。要生成新的，请先删除一个。",
+    "empty": "还没有专属邀请。",
+    "state": {
+      "notOpened": "未打开",
+      "opened": "已打开",
+      "replied": "已回复 · {status}"
+    },
+    "status": {
+      "going": "参加",
+      "maybe": "待定",
+      "cant": "无法参加",
+      "waitlisted": "在候补名单上"
+    },
+    "copy": "复制链接",
+    "copyLabel": "复制链接给 {name}",
+    "copied": "已复制",
+    "delete": "删除",
+    "deleteLabel": "删除给 {name} 的邀请",
+    "deleteTitle": "要删除给 {name} 的邀请吗？",
+    "deleteText": "链接会失效。通过它提交的回复会保留在宾客名单上。",
+    "keep": "算了",
+    "deleteConfirm": "删除邀请",
+    "errors": {
+      "notFound": "这个活动已经不存在了。",
+      "nameRequired": "请填写宾客的名字。",
+      "nameTooLong": "名字太长了。",
+      "emailInvalid": "这看起来不像邮箱地址。"
     }
   },
   "Announcements": {

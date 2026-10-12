@@ -8,6 +8,7 @@ import { requireHost } from "@/auth/session";
 import { acceptsRsvps } from "@/events/access";
 import { findEventBySlug, findHostEvent } from "@/events/repository";
 import { can } from "@/hosts/role";
+import { findInviteOnThisDevice } from "@/invites/device";
 import { parseAnswers, type AnswerFields } from "@/questions/answers";
 import { listQuestions, saveAnswers } from "@/questions/repository";
 import type { FormState } from "@/lib/form-state";
@@ -71,14 +72,19 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
   if (!answers.ok) return { error: answers.error };
 
   // Checked again under the event's lock as the reply is written (repository.ts); here first, so
-  // that no code is sent for a reply the event cannot take.
+  // that no code is sent for a reply the event cannot take. A guest with no RSVP on this device who
+  // opened a personal invite to the event that nobody has replied through replies through it; one
+  // who has an RSVP here changes that one, whatever invite they opened (invites/device.ts).
   const mine = await findRsvpOnThisDevice(event.id);
+  const invite = mine ? undefined : await findInviteOnThisDevice(event.id);
   if (!mine && (await repliesAtLimit(event.id))) return { error: "limitReached" };
 
-  // Once the answer would be taken, its email is proven first when the host asks for it.
+  // Once the answer would be taken, its email is proven first when the host asks for it. The email
+  // on the guest's personal invite is the host's word for it, so it is proven as it is, with no
+  // code (spec, "Contact details").
   const { email } = parsed.input;
-  let proven = false;
-  if (email && needsCode({ verifyEmail: event.verifyEmail, emailField: event.emailField, mailConfigured: isMailConfigured(), email, current: mine?.rsvp })) {
+  let proven = !!email && email === invite?.email;
+  if (!proven && email && needsCode({ verifyEmail: event.verifyEmail, emailField: event.emailField, mailConfigured: isMailConfigured(), email, current: mine?.rsvp })) {
     const proof = await proveEmail(event, email, formData.get("code"), requestHeaders);
     if (proof !== "proven") return proof;
     proven = true;
@@ -89,7 +95,7 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
   // The approval and the capacity decide what the reply becomes, in the transaction that writes it:
   // waiting for the host, Going, on the waitlist, or refused when a Going guest brings more people
   // than there is room for.
-  const outcome = await saveRsvp(event.id, { ...parsed.input, locale }, mine, proven);
+  const outcome = await saveRsvp(event.id, { ...parsed.input, locale }, mine, proven, invite);
   if ("refused" in outcome) {
     return outcome.refused === "capacityFull" ? { error: "capacityFull", placesLeft: outcome.placesLeft } : { error: outcome.refused };
   }
@@ -100,6 +106,7 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
   await saveAnswers(saved.rsvp.id, answers.answers);
   if (saved.token !== mine?.token) {
     // A new RSVP: this device now remembers the guest, so the link finds their answer next time.
+    // One through a personal invite is remembered by the invite's token, its edit token.
     (await cookies()).set(rsvpCookieName(event.id), saved.token, rsvpCookieOptions());
   }
   // Once the RSVP is saved and remembered, so that nothing about the hosts' email can undo either.

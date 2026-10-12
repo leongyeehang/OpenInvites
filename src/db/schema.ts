@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { DEFAULT_REGISTRATION_MODE, REGISTRATION_MODES } from "../instance/registration";
 import { DEFAULT_LIMITS } from "../instance/limits";
 import { defaultLocale, type Locale } from "../locale/resolve-locale";
@@ -281,10 +281,36 @@ export const rsvp = pgTable(
     mailStoppedAt: timestamp("mail_stopped_at", { withTimezone: true }),
     // The language the guest last saved their RSVP in, which their mail is written in.
     locale: text("locale").$type<Locale>().notNull().default(defaultLocale),
+    // The personal invite the RSVP was saved through, if it was; nothing once the host deletes it.
+    // Its edit token is then the invite's token (rsvps/repository.ts, saveRsvp).
+    inviteId: uuid("invite_id").references((): AnyPgColumn => invite.id, { onDelete: "set null" }),
     repliedAt: timestamp("replied_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("rsvp_event_id_idx").on(table.eventId)],
+);
+
+// A personal invite link (CONTEXT.md; invites/invite.ts): an event link a host made for one named
+// guest, with the email they gave for them, if any. The token is kept in clear, as the mail token
+// is, because the host may see the link again whenever they ask; it is the edit token of the RSVP
+// saved through it. Deleting the invite leaves that RSVP, unlinked; deleting the RSVP leaves the
+// invite, unanswered again.
+export const invite = pgTable(
+  "invite",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    email: text("email"),
+    token: text("token").notNull().unique(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // The first time the link was opened.
+    openedAt: timestamp("opened_at", { withTimezone: true }),
+    rsvpId: uuid("rsvp_id").references(() => rsvp.id, { onDelete: "set null" }),
+  },
+  (table) => [index("invite_event_id_idx").on(table.eventId)],
 );
 
 export const questionType = pgEnum("question_type", QUESTION_TYPES);

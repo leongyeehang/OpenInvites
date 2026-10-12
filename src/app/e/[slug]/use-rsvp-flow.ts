@@ -60,9 +60,10 @@ const BLANK: Draft = { status: "going", name: "", plusOnes: 0, plusOneNames: [],
 // Coming back to change an answer starts from the answer that is already there, a waitlisted one
 // as the Going it asked for, except that a host who has since lowered the plus-ones allowance
 // wins: otherwise the guest would carry an impossible number into every attempt to save, and never
-// be able to change their RSVP again.
-function draftFrom(mine: GuestRsvp | undefined, settings: RsvpSettings, answers: AnswerFields): Draft {
-  if (!mine) return { ...BLANK, answers };
+// be able to change their RSVP again. A first answer through a personal invite starts from the name
+// and the email the host gave, which the guest may change (spec, "Personal invite links").
+function draftFrom(mine: GuestRsvp | undefined, settings: RsvpSettings, answers: AnswerFields, invite: Invited | undefined): Draft {
+  if (!mine) return { ...BLANK, answers, ...(invite && { name: invite.name, email: invite.email ?? "" }) };
   const { name, plusOneNames, email, phone } = mine;
   const plusOnes = Math.min(mine.plusOnes, settings.plusOnesAllowed);
   return { status: chosenStatus(mine.status), name, plusOnes, plusOneNames: plusOneNames.slice(0, plusOnes), email: email ?? "", phone: phone ?? "", answers, code: "" };
@@ -82,11 +83,16 @@ export function offersCalendar(answer: GuestRsvp): boolean {
   return answer.approval === "approved" && answer.status !== "cant";
 }
 
+// Whom the personal invite this device opened was made for, when the guest has not replied yet
+// (invites/device.ts): the name, and the email the host gave, if any.
+export type Invited = { name: string; email: string | null };
+
 // What the event page hands whichever presentation of the flow its layout uses.
 export type RsvpFlowProps = {
   slug: string;
   settings: RsvpSettings;
   mine: GuestRsvp | undefined;
+  invite?: Invited;
   // Whether the event takes answers now (published), which decides whether a status can be chosen.
   open: boolean;
   // Whether the event has a capacity and the headcount has reached it, so a Going reply joins the
@@ -104,13 +110,13 @@ export type RsvpFlowProps = {
 export type Landing = "confirmation" | "status" | "code";
 
 export function useRsvpFlow(
-  { slug, settings, mine, open, full, questions, answers }: RsvpFlowProps,
+  { slug, settings, mine, invite, open, full, questions, answers }: RsvpFlowProps,
   land: (target: Landing, status: RsvpStatus) => void,
 ) {
   const { effect } = useTheme().theme;
   const [step, setStep] = useState<Step>(mine ? "done" : "idle");
   const [answer, setAnswer] = useState(mine);
-  const [draft, setDraft] = useState<Draft>(() => draftFrom(mine, settings, answers));
+  const [draft, setDraft] = useState<Draft>(() => draftFrom(mine, settings, answers, invite));
   const [refusal, setRefusal] = useState<RsvpRefusal>();
   // Why the guest's RSVP could not be removed just now, shown with their confirmation.
   const [withdrawRefusal, setWithdrawRefusal] = useState<"tooFast">();

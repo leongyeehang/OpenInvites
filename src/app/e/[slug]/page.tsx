@@ -16,6 +16,7 @@ import { findEventBySlug, isRetiredSlug, recordView, type EventWithHost } from "
 import { countsAsView } from "@/events/views";
 import { eventPath, eventUrl, isSlug } from "@/events/slug";
 import { maxUploadBytes } from "@/instance/env";
+import { findInviteOnThisDevice } from "@/invites/device";
 import { ClientMessages } from "@/locale/client-messages";
 import { answersStillOffered } from "@/questions/answers";
 import { findAnswers, listQuestions } from "@/questions/repository";
@@ -169,8 +170,11 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
 
   const locale = await getLocale();
   const link = eventUrl(event);
-  // The cookie tells us whether the guest in front of us has already replied on this device.
+  // The cookie tells us whether the guest in front of us has already replied on this device; if
+  // not, whether they opened a personal invite to the event, whose name and email their answer
+  // starts from (invites/device.ts).
   const mine = await findRsvpOnThisDevice(event.id);
+  const invite = mine ? undefined : await findInviteOnThisDevice(event.id);
   // Whether this guest may see the list decides whether it is even loaded: a reply the host has not
   // approved opens nothing (rsvps/visibility.ts).
   const view = guestListView(event.guestListVisibility, { rsvp: mine?.rsvp });
@@ -221,6 +225,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
       phoneField: event.phoneField,
     },
     mine: mine && guestRsvp(mine, waitlistPosition),
+    invite: invite && { name: invite.name, email: invite.email },
     open: acceptsRsvps(event.state),
     full: isFull(event.capacity, headcount),
     questions,

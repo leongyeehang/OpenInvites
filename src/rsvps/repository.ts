@@ -1,7 +1,7 @@
-import { and, asc, eq, inArray, lt, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import { cache } from "react";
 import { getDb, type Db } from "@/db/client";
-import { emailCode, event, rsvp } from "@/db/schema";
+import { emailCode, event, invite, rsvp } from "@/db/schema";
 import { acceptsRsvps } from "@/events/access";
 import type { Locale } from "@/locale/resolve-locale";
 import { isMailConfigured } from "@/mail/config";
@@ -64,6 +64,17 @@ async function lockRsvp(tx: Db, eventId: string, id: string): Promise<Rsvp | und
     .select()
     .from(rsvp)
     .where(and(eq(rsvp.id, id), eq(rsvp.eventId, eventId)))
+    .for("update");
+  return locked;
+}
+
+// A personal invite of the event that nobody has replied through yet, locked for the reply that is
+// about to be; nothing once it has been deleted, or answered from another device.
+async function lockOpenInvite(tx: Db, eventId: string, id: string): Promise<{ id: string; token: string } | undefined> {
+  const [locked] = await tx
+    .select({ id: invite.id, token: invite.token })
+    .from(invite)
+    .where(and(eq(invite.id, id), eq(invite.eventId, eventId), isNull(invite.rsvpId)))
     .for("update");
   return locked;
 }
@@ -153,21 +164,36 @@ export type SaveOutcome =
 // when the event asks for it. The first save with an email makes the RSVP's mail token, and every
 // later save keeps it, even one that blanks the email, so the stop link in an old email still
 // finds its page (spec, "Guest mail"). An email or phone number the host does not ask for is
-// undefined in the input, and left as stored. `proven` says the guest has just entered the code
-// sent to the email they gave (plan.ts).
-export async function saveRsvp(eventId: string, input: RsvpInput & { locale: Locale }, mine: MyRsvp | undefined, proven = false): Promise<SaveOutcome> {
+// undefined in the input, and left as stored. `proven` says the email the guest gave is proven:
+// they have just entered the code sent to it, or it is the one on their personal invite (plan.ts).
+//
+// A new RSVP through a personal invite (`throughInvite`, which the guest's device opened) is tied
+// to it both ways, and takes the invite's token as its edit token, so the invite link is the
+// guest's edit link (spec, "Personal invite links"). It is approved whatever the event's approval
+// setting, as the host issued it, and the capacity applies to it as to any reply (admission.ts). An
+// invite deleted or answered from another device since the guest's device found it is refused as
+// closed: the reply would be tied to nothing, or a second one to the same invite.
+export async function saveRsvp(
+  eventId: string,
+  input: RsvpInput & { locale: Locale },
+  mine: MyRsvp | undefined,
+  proven = false,
+  throughInvite?: { id: string },
+): Promise<SaveOutcome> {
   const now = new Date();
   return getDb().transaction(async (tx) => {
     const locked = await lockEvent(tx, eventId);
     if (!locked) return { refused: "closed" };
     const current = mine && (await lockRsvp(tx, eventId, mine.rsvp.id));
+    const invited = !current && throughInvite ? await lockOpenInvite(tx, eventId, throughInvite.id) : undefined;
+    if (!current && throughInvite && !invited) return { refused: "closed" };
     if (!current && (await repliesAtLimit(eventId, tx))) return { refused: "limitReached" };
 
     const admitted = admit({
       approvalRequired: locked.approvalRequired,
       capacity: locked.capacity,
       headcount: await countHeadcount(eventId, tx, current?.id),
-      invited: false,
+      invited: invited !== undefined,
       wanted: input.status,
       party: partyOf(input),
       current: current && { status: current.status, approval: current.approval, party: partyOf(current) },
@@ -188,7 +214,7 @@ export async function saveRsvp(eventId: string, input: RsvpInput & { locale: Loc
         .returning();
       written = { rsvp: replaced, token: plan.replaces.token };
     } else {
-      const token = generateEditToken();
+      const token = invited?.token ?? generateEditToken();
       const [created] = await tx
         .insert(rsvp)
         .values({
@@ -196,10 +222,12 @@ export async function saveRsvp(eventId: string, input: RsvpInput & { locale: Loc
           ...placed,
           approval: admitted.approval,
           locale: input.locale,
+          inviteId: invited?.id,
           editTokenHash: hashEditToken(token),
           mailToken: input.email ? generateMailToken() : null,
         })
         .returning();
+      if (invited) await tx.update(invite).set({ rsvpId: created.id }).where(eq(invite.id, invited.id));
       written = { rsvp: created, token };
     }
 
