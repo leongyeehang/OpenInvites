@@ -55,6 +55,11 @@ test("a guest opens their personal invite with their name and email filled in, r
   await host.page.getByRole("textbox", { name: "Custom link" }).fill(custom);
   await host.page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(host.page.getByText(customUrl, { exact: true })).toBeVisible({ timeout: 15_000 });
+  // Anyone with the link sees who is coming.
+  await host.page.goto(manage);
+  await host.page.getByLabel("Who can see the guest list").selectOption("always");
+  await host.page.getByRole("button", { name: "Save changes" }).click();
+  await expect(host.page.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
 
   // The host makes two invites from the manage page's Invites; nobody has opened either.
   await host.page.goto(manage);
@@ -95,6 +100,14 @@ test("a guest opens their personal invite with their name and email filled in, r
   await expect(mei.getByText(`We’ll reach you at ${meiEmail}.`)).toBeVisible();
   await expect(mei.getByText(meiLink, { exact: true })).toBeVisible();
   await expect(mei.getByText(/\/r\//)).toHaveCount(0);
+
+  // The list anyone can see names her, and never Dev, whose invite nobody has replied through.
+  const visitor = await newGuest(browser);
+  await visitor.goto(customUrl);
+  await expect(visitor.getByText("1 person expected")).toBeVisible();
+  await expect(visitor.getByRole("listitem").filter({ hasText: "Mei Lin" })).toBeVisible();
+  await expect(visitor.getByText("Dev Patel")).toHaveCount(0);
+  expect(await (await visitor.request.get(customUrl)).text()).not.toContain("Dev Patel");
 
   // The host's list reads Replied · Going, with no link to copy; on the guest list she is Going and
   // no longer under Invited.
@@ -148,7 +161,109 @@ test("a guest opens their personal invite with their name and email filled in, r
   await expect(host.page.getByRole("heading", { name: "Invited (1)" })).toBeVisible();
   await expect(invited.getByRole("listitem").filter({ hasText: "Dev Patel" })).toContainText("Not opened");
 
-  await closeAll(host.page, mei, meiPhone);
+  await closeAll(host.page, mei, meiPhone, visitor);
+});
+
+test("a guest who withdraws can reply through their invite again; a host who removes a reply made through an invite deletes the invite with it", async ({
+  browser,
+  request,
+}) => {
+  test.slow();
+  const host = await createPublished(browser, request, "invites-remove", SUPPER);
+  const manage = host.page.url();
+  const meiEmail = newHost("invites-remove-mei").email;
+  await host.page.goto(`${manage}/invites`);
+  const meiLink = await makeInvite(host.page, "Mei Lin", meiEmail);
+
+  const mei = await newGuest(browser);
+  await mei.goto(meiLink);
+  await mei.getByRole("button", { name: "Going", exact: true }).click();
+  await mei.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(mei.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+
+  // Her own withdrawal leaves the invite: it is hers to reply through again, filled in as before.
+  await mei.getByRole("button", { name: "Remove my RSVP" }).click();
+  await expect(mei.getByText("You’re going!")).toHaveCount(0);
+  await host.page.reload();
+  await expect(inviteRow(host.page, "Mei Lin").getByText("Opened", { exact: true })).toBeVisible();
+  await mei.reload();
+  await mei.getByRole("button", { name: "Going", exact: true }).click();
+  await expect(mei.getByLabel("Your name")).toHaveValue("Mei Lin");
+  await expect(mei.getByLabel("Email")).toHaveValue(meiEmail);
+  await mei.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(mei.getByText(meiLink, { exact: true })).toBeVisible({ timeout: 15_000 });
+
+  // The host removes her reply: the invite goes with it, so its link stops working, as the dialog
+  // says, and nobody is listed as invited.
+  await host.page.goto(`${manage}/guests`);
+  await host.page.getByRole("button", { name: "Edit" }).click();
+  await host.page.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(host.page.getByText("Remove Mei Lin?")).toBeVisible();
+  await host.page.getByRole("button", { name: "Remove guest" }).click();
+  await expect(host.page.getByText("Nobody has replied yet. Share the event link and your guests will appear here.")).toBeVisible();
+  await expect(host.page.getByRole("heading", { name: /^Invited/ })).toHaveCount(0);
+  await host.page.goto(`${manage}/invites`);
+  await expect(host.page.getByText("No invites yet.")).toBeVisible();
+  await expect(host.page.getByText("Mei Lin", { exact: true })).toHaveCount(0);
+  await expectNotFoundAsSent(await request.get(meiLink, { maxRedirects: 0 }));
+
+  // Her device has neither her reply nor the invite: the form is the plain one.
+  await mei.reload();
+  await expect(mei.getByText("You’re going!")).toHaveCount(0);
+  await mei.getByRole("button", { name: "Going", exact: true }).click();
+  await expect(mei.getByLabel("Your name")).toHaveValue("");
+  await expect(mei.getByLabel("Email")).toHaveValue("");
+
+  await closeAll(host.page, mei);
+});
+
+test("a device that opened an invite before its guest replied elsewhere holds that reply: reloaded it shows it, and a form left filled in changes it rather than adding another", async ({
+  browser,
+  request,
+}) => {
+  test.slow();
+  const host = await createPublished(browser, request, "invites-devices", SUPPER);
+  const manage = host.page.url();
+  const meiEmail = newHost("invites-devices-mei").email;
+  await host.page.goto(`${manage}/invites`);
+  const meiLink = await makeInvite(host.page, "Mei Lin", meiEmail);
+
+  // Her laptop and her tablet open the link; the laptop stops on the form, filled in.
+  const [laptop, tablet, phone] = [await newGuest(browser), await newGuest(browser), await newGuest(browser)];
+  await laptop.goto(meiLink);
+  await laptop.getByRole("button", { name: "Going", exact: true }).click();
+  await expect(laptop.getByLabel("Your name")).toHaveValue("Mei Lin");
+  await tablet.goto(meiLink);
+
+  // She replies Going from her phone.
+  await phone.goto(meiLink);
+  await phone.getByRole("button", { name: "Going", exact: true }).click();
+  await phone.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(phone.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+
+  // The tablet, reloaded, shows the phone's reply.
+  await tablet.reload();
+  await expect(tablet.getByText("You’re going!")).toBeVisible();
+  await expect(tablet.getByText(meiLink, { exact: true })).toBeVisible();
+
+  // The laptop's form, sent as a Maybe, changes that reply.
+  await laptop.getByRole("button", { name: "Maybe", exact: true }).click();
+  await laptop.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(laptop.getByText("You’re a maybe.")).toBeVisible({ timeout: 15_000 });
+  await expect(laptop.getByText(meiLink, { exact: true })).toBeVisible();
+  for (const device of [laptop, phone, tablet]) {
+    await device.reload();
+    await expect(device.getByText("You’re a maybe.")).toBeVisible();
+  }
+
+  // One reply, on the host's list as on the invites page.
+  await host.page.goto(`${manage}/guests`);
+  await expect(host.page.getByText("No one expected yet · 0 going · 1 maybe · 0 can’t go", { exact: true })).toBeVisible();
+  await expect(host.page.getByRole("region", { name: /^Maybe/ }).getByRole("listitem")).toHaveCount(1);
+  await host.page.goto(`${manage}/invites`);
+  await expect(inviteRow(host.page, "Mei Lin").getByText("Replied · Maybe", { exact: true })).toBeVisible();
+
+  await closeAll(host.page, laptop, tablet, phone);
 });
 
 test("with approval on and the email checked by a code, an invited guest with the invite's email is on the list at once with no code; another email is checked", async ({
@@ -189,6 +304,19 @@ test("with approval on and the email checked by a code, an invited guest with th
   await expect(going.getByText("Email checked")).toBeAttached();
   await expect(host.page.getByRole("heading", { name: "Waiting for approval (0)" })).toBeVisible();
 
+  // Asha replies from the event link, and waits for the host. Dev's invite link, opened on her
+  // device, leaves her with her own reply: no form filled in with his name.
+  const asha = await newGuest(browser);
+  await asha.goto(host.link);
+  await asha.getByRole("button", { name: "Going", exact: true }).click();
+  await asha.getByLabel("Your name").fill("Asha Menon");
+  await asha.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(asha.getByRole("heading", { name: "Your reply is waiting for the host’s approval." })).toBeVisible({ timeout: 15_000 });
+  await asha.goto(devLink);
+  await expect(asha.getByRole("heading", { name: "Your reply is waiting for the host’s approval." })).toBeVisible();
+  await expect(asha.getByText("Asha Menon, just you.")).toBeVisible();
+  await expect(asha.getByLabel("Your name")).toHaveCount(0);
+
   // Dev gives an email of his own instead: it is checked by a code, as anyone's is, and his reply,
   // through his invite, is on the list at once.
   const dev = await newGuest(browser);
@@ -205,7 +333,7 @@ test("with approval on and the email checked by a code, an invited guest with th
   await expect(dev.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
   await expect(dev.getByText("2 people expected")).toBeVisible();
 
-  await closeAll(host.page, mei, dev);
+  await closeAll(host.page, mei, dev, asha);
 });
 
 test("the Broadsheet and the Thread fill in the invite's name and email too, and the Thread's done bubble carries the invite link", async ({

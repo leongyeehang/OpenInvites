@@ -104,10 +104,12 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
   // Two writes rather than one transaction: a failure between them leaves the RSVP saved with
   // its previous answers, which the guest can put right by answering again.
   await saveAnswers(saved.rsvp.id, answers.answers);
-  if (saved.token !== mine?.token) {
-    // A new RSVP: this device now remembers the guest, so the link finds their answer next time.
-    // One through a personal invite is remembered by the invite's token, its edit token.
-    (await cookies()).set(rsvpCookieName(event.id), saved.token, rsvpCookieOptions());
+  const jar = await cookies();
+  if (jar.get(rsvpCookieName(event.id))?.value !== saved.token) {
+    // A new RSVP, or one this device held only by the personal invite it opened: this device now
+    // remembers the guest, so the link finds their answer next time. One saved through a personal
+    // invite is remembered by the invite's token, its edit token.
+    jar.set(rsvpCookieName(event.id), saved.token, rsvpCookieOptions());
   }
   // Once the RSVP is saved and remembered, so that nothing about the hosts' email can undo either.
   // The hosts hear of what the guest did, not of a promotion it led to.
@@ -125,7 +127,7 @@ export async function removeRsvpAction(slug: string): Promise<{ error?: "tooFast
   const event = await findEventBySlug(slug);
   if (!event) return {};
   const mine = await findRsvpOnThisDevice(event.id);
-  const { removed, mailed } = mine ? await deleteRsvp(event.id, mine.rsvp.id) : { removed: undefined, mailed: false };
+  const { removed, mailed } = mine ? await deleteRsvp(event.id, mine.rsvp.id, "guest") : { removed: undefined, mailed: false };
   sendQueuedMail(mailed);
   (await cookies()).delete(rsvpCookieName(event.id));
   await notifyHostsOfRsvp(event, removed, undefined);
@@ -195,12 +197,15 @@ export async function declineGuestAction(eventId: string, rsvpId: string): Promi
   revalidatePath(`/events/${eventId}/guests`);
 }
 
+// A host taking a guest's RSVP off the list. One made through a personal invite takes the invite
+// with it (repository.ts, deleteRsvp), so the invites page is drawn again too.
 export async function removeGuestAction(eventId: string, rsvpId: string): Promise<void> {
   const host = await requireHost();
   const event = await findHostEvent(host.id, eventId);
   if (!event || !can(event.role, "guests")) return;
-  const { removed, mailed } = await deleteRsvp(event.id, rsvpId);
+  const { removed, mailed } = await deleteRsvp(event.id, rsvpId, "host");
   sendQueuedMail(mailed);
   await notifyHostsOfRsvp(event, removed, undefined);
   revalidatePath(`/events/${eventId}/guests`);
+  revalidatePath(`/events/${eventId}/invites`);
 }

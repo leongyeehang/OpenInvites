@@ -290,11 +290,12 @@ export const rsvp = pgTable(
   (table) => [index("rsvp_event_id_idx").on(table.eventId)],
 );
 
-// A personal invite link (CONTEXT.md; invites/invite.ts): an event link a host made for one named
-// guest, with the email they gave for them, if any. The token is kept in clear, as the mail token
-// is, because the host may see the link again whenever they ask; it is the edit token of the RSVP
-// saved through it. Deleting the invite leaves that RSVP, unlinked; deleting the RSVP leaves the
-// invite, unanswered again.
+// A personal invite (invites/invite.ts): the personal invite link (CONTEXT.md) a host made for one
+// named guest, with the email they gave for them, if any. The token is kept in clear, as the mail
+// token is, because the host may see the link again whenever they ask; it is the edit token of the
+// RSVP saved through it. Deleting the invite leaves that RSVP, unlinked; the guest withdrawing the
+// RSVP leaves the invite, unanswered again, and a host removing it deletes the invite too
+// (rsvps/repository.ts, deleteRsvp).
 export const invite = pgTable(
   "invite",
   {

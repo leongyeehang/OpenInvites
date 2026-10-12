@@ -447,7 +447,13 @@ export async function declineRsvp(eventId: string, id: string): Promise<HostChan
 // Scoped to the event, so neither a stale cookie nor another host's page can reach an RSVP. Through
 // the one transaction, so the place a Going guest leaves goes to the waitlist. Returns the RSVP
 // that went, if there was one, and whether a promotion queued an email.
-export async function deleteRsvp(eventId: string, id: string): Promise<{ removed: Rsvp | undefined; mailed: boolean }> {
+//
+// An RSVP saved through a personal invite leaves the invite unanswered when the guest withdraws
+// it: the link is still theirs to reply through. When a host removes it, the invite goes too
+// (ticket 08, review): the guest's edit link stops working, as the host is told, and the guest is
+// no longer invited; the host makes a new invite to have them back. The row the delete hands back
+// still names its invite, though the invite's own reference to it is already gone (set null).
+export async function deleteRsvp(eventId: string, id: string, by: "guest" | "host"): Promise<{ removed: Rsvp | undefined; mailed: boolean }> {
   const now = new Date();
   return getDb().transaction(async (tx) => {
     const locked = await lockEvent(tx, eventId);
@@ -457,6 +463,7 @@ export async function deleteRsvp(eventId: string, id: string): Promise<{ removed
       .where(and(eq(rsvp.id, id), eq(rsvp.eventId, eventId)))
       .returning();
     if (!removed) return { removed, mailed: false };
+    if (by === "host" && removed.inviteId) await tx.delete(invite).where(eq(invite.id, removed.inviteId));
     const { mailed } = await promoteWaitlist(locked, tx, now);
     return { removed, mailed };
   });

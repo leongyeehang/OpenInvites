@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { baseUrl } from "@/instance/env";
+import { findInvitedRsvpOnThisDevice } from "@/invites/device";
 import { inviteUrl } from "@/invites/invite";
 import type { AnswerError } from "@/questions/answers";
 import type { Approval } from "./admission";
@@ -57,10 +58,13 @@ export function guestRsvp({ rsvp, token }: MyRsvp, waitlistPosition: number | nu
 
 // The RSVP the guest in front of us holds on this device. The cookie carries their edit token,
 // so coming back to the event link finds their answer, and an edit link opened on another device
-// leaves the same cookie behind (see the /r/[token] route).
+// leaves the same cookie behind (see the /r/[token] route). Without one, a device that opened a
+// personal invite holds the RSVP saved through it, wherever it was saved (invites/device.ts).
 export async function findRsvpOnThisDevice(eventId: string): Promise<MyRsvp | undefined> {
   const token = (await cookies()).get(rsvpCookieName(eventId))?.value;
-  if (!token) return undefined;
-  const found = await findRsvpByToken(eventId, token);
-  return found && { rsvp: found, token };
+  if (token) {
+    const found = await findRsvpByToken(eventId, token);
+    if (found) return { rsvp: found, token };
+  }
+  return findInvitedRsvpOnThisDevice(eventId);
 }

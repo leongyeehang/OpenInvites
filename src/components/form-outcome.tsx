@@ -6,7 +6,7 @@ export function FormOutcome({ state }: { state: FormState }) {
   if (state?.error) return <FieldError>{state.error}</FieldError>;
   if (state?.success) {
     return (
-      <p role="status" className="text-sm">
+      <p role="status" className="text-sm break-words">
         {state.success}
       </p>
     );

@@ -1,5 +1,5 @@
 import { and, count, desc, eq, isNull } from "drizzle-orm";
-import { getDb } from "@/db/client";
+import { getDb, type Db } from "@/db/client";
 import { event, invite, rsvp } from "@/db/schema";
 import type { SavedStatus } from "@/rsvps/form";
 import { generateInviteToken, roomForInvite, type InviteInput } from "./invite";
@@ -12,8 +12,7 @@ export type Invite = typeof invite.$inferSelect;
 export async function createInvite(eventId: string, input: InviteInput): Promise<Invite | null> {
   return getDb().transaction(async (tx) => {
     await tx.select({ id: event.id }).from(event).where(eq(event.id, eventId)).for("no key update");
-    const [{ made }] = await tx.select({ made: count() }).from(invite).where(eq(invite.eventId, eventId));
-    if (!roomForInvite(made)) return null;
+    if (!roomForInvite(await countInvites(eventId, tx))) return null;
     const [created] = await tx
       .insert(invite)
       .values({ eventId, ...input, token: generateInviteToken() })
@@ -22,8 +21,8 @@ export async function createInvite(eventId: string, input: InviteInput): Promise
   });
 }
 
-export async function countInvites(eventId: string): Promise<number> {
-  const [{ made }] = await getDb().select({ made: count() }).from(invite).where(eq(invite.eventId, eventId));
+export async function countInvites(eventId: string, db: Db = getDb()): Promise<number> {
+  const [{ made }] = await db.select({ made: count() }).from(invite).where(eq(invite.eventId, eventId));
   return made;
 }
 

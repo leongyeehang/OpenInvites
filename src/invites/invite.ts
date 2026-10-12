@@ -1,12 +1,11 @@
-import { randomInt } from "node:crypto";
-import { SLUG_ALPHABET } from "@/events/slug";
 import { baseUrl } from "@/instance/env";
 import { isEmail, MAX_NAME } from "@/rsvps/form";
+import { generateMailToken } from "@/rsvps/token";
 
-// A personal invite link (CONTEXT.md): an event link a host makes for one named guest, so their
-// RSVP is tied to them without asking who they are (spec, "Personal invite links"). Opening it fills
-// in the guest's name, and the email the host gave, which counts as proven; the RSVP saved from it
-// is tied to the invite, and the link then works as that guest's edit link.
+// A personal invite: the personal invite link (CONTEXT.md) a host makes for one named guest, so
+// their RSVP is tied to them without asking who they are (spec, "Personal invite links"). Opening
+// it fills in the guest's name, and the email the host gave, which counts as proven; the RSVP saved
+// from it is tied to the invite, and the link then works as that guest's edit link.
 
 // The most an event can have (spec, "Operator limits").
 export const MAX_INVITES = 500;
@@ -47,16 +46,12 @@ export function inviteState(invite: { openedAt: Date | null; rsvpId: string | nu
   return invite.openedAt ? "opened" : "notOpened";
 }
 
-// The link's secret: 24 characters of the event link's alphabet, about 143 bits, from a
-// cryptographic source, as the mail token is (rsvps/token.ts). It is stored as it is, since the host
-// may see the link again whenever they ask: it is the guest's key, not a secret from the host. It
-// is also the edit token of the RSVP saved through it, whose hash the RSVP keeps as any edit token's.
-const TOKEN_LENGTH = 24;
-
+// The link's secret, of the mail token's shape (rsvps/token.ts): 24 characters of the event link's
+// alphabet, about 143 bits, from a cryptographic source. It is stored as it is, since the host may
+// see the link again whenever they ask: it is the guest's key, not a secret from the host. It is
+// also the edit token of the RSVP saved through it, whose hash the RSVP keeps as any edit token's.
 export function generateInviteToken(): string {
-  let token = "";
-  for (let i = 0; i < TOKEN_LENGTH; i++) token += SLUG_ALPHABET[randomInt(SLUG_ALPHABET.length)];
-  return token;
+  return generateMailToken();
 }
 
 export function inviteUrl(token: string): string {
