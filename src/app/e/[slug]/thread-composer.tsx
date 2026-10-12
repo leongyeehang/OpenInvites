@@ -16,7 +16,7 @@ import { useTheme } from "@/themes/themed-page";
 import { ARRIVAL, arriving, BUBBLE_CHIP, GuestBubble, HOST_BUBBLE, HostBubble } from "@/themes/thread-bubble";
 import { threadMessages, threadTurns, type Said, type ThreadEvent, type ThreadReply, type Turn } from "@/themes/thread-script";
 import { useCopyLink } from "./use-copy-link";
-import { useRsvpFlow, type Draft, type RsvpFlowProps, type RsvpFlowState } from "./use-rsvp-flow";
+import { offersCalendar, useRsvpFlow, type Draft, type RsvpFlowProps, type RsvpFlowState } from "./use-rsvp-flow";
 
 // About as long as the host takes to type a line.
 const TYPING_MS = 650;
@@ -55,13 +55,15 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
   });
   const { step, draft, confirmed, working, refusal } = flow;
   // The code asked for, and the one given, stay in the conversation once the RSVP is saved. A guest
-  // on the waitlist said they were in, and is told their place.
+  // on the waitlist said they were in, and is told their place; one whose reply the host has not
+  // approved is told that it waits for them, or that they declined it.
   const proving = { codeSentTo: flow.codeSentTo, code: draft.code };
   const reply: ThreadReply = confirmed
     ? {
         ...confirmed,
         status: chosenStatus(confirmed.status),
         waitlisted: confirmed.status === "waitlisted" ? (confirmed.waitlistPosition ?? 0) : undefined,
+        approval: confirmed.approval === "approved" ? undefined : confirmed.approval,
         email: confirmed.email ?? "",
         phone: confirmed.phone ?? "",
         answers: draft.answers,
@@ -650,7 +652,7 @@ function DoneBubble({
         <button type="button" onClick={link.copy} className={BUBBLE_CHIP}>
           <Copy className="size-4" aria-hidden /> {link.copied ? r("editLink.copied") : t("thread.copyLink")}
         </button>
-        {answer.status !== "cant" && calendar}
+        {offersCalendar(answer) && calendar}
       </div>
     </HostBubble>
   );

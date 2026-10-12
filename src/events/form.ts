@@ -17,6 +17,7 @@ export type EventInput = {
   plusOnesAllowed: number;
   requirePlusOneNames: boolean;
   capacity: number | null;
+  approvalRequired: boolean;
   emailField: ContactField;
   phoneField: ContactField;
   verifyEmail: boolean;
@@ -39,6 +40,7 @@ export type EventFormFields = {
   plusOnesAllowed: string;
   requirePlusOneNames: boolean;
   capacity: string;
+  approvalRequired: boolean;
   emailField: string;
   phoneField: string;
   verifyEmail: boolean;
@@ -131,6 +133,7 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
       plusOnesAllowed,
       requirePlusOneNames: fields.requirePlusOneNames,
       capacity,
+      approvalRequired: fields.approvalRequired,
       emailField,
       phoneField,
       verifyEmail: fields.verifyEmail,

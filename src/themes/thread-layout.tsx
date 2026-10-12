@@ -6,6 +6,7 @@ import type { EventWithHost } from "@/events/repository";
 import { formatMoment, formatWhen } from "@/events/time";
 import { cn } from "@/lib/utils";
 import { RichTextView } from "@/rich-text/rich-text-view";
+import type { Approval } from "@/rsvps/admission";
 import type { RsvpCounts } from "@/rsvps/counts";
 import type { PublicGuest } from "@/rsvps/repository";
 import { Glass } from "./glass";
@@ -17,7 +18,8 @@ import { ThreadCard } from "./thread-card";
 
 // The guest list as the event page may show it to this viewer (rsvps/visibility.ts): the names,
 // or, under "after you reply", only a promise of them. Hidden, there is none, nor any count.
-export type ThreadGuests = { view: "open" | "locked"; guests: PublicGuest[]; counts: RsvpCounts; you?: string };
+// `approval` is whether the host has approved the viewer's own reply, which says why it is locked.
+export type ThreadGuests = { view: "open" | "locked"; guests: PublicGuest[]; counts: RsvpCounts; you?: string; approval?: Approval };
 
 // The Thread layout (spec, "Thread", from the prototype's layout-thread.tsx): the invitation as a
 // chat with the host, in one column at most 28rem wide at every width. A header names the hosts.
@@ -160,7 +162,7 @@ export async function ThreadLayout({
 // Who's coming, as a host's bubble: everyone who has replied, with what they said, the viewer's
 // own line marked; or, before the guest has replied under "after you reply", a blurred pile and
 // the promise of the names, of which nothing reaches the browser.
-async function WhoIsComing({ view, guests, counts, you, className }: ThreadGuests & { className: string }) {
+async function WhoIsComing({ view, guests, counts, you, approval, className }: ThreadGuests & { className: string }) {
   const t = await getTranslations("EventPage");
   return (
     <HostBubble data-slot="guests" className={className}>
@@ -173,7 +175,8 @@ async function WhoIsComing({ view, guests, counts, you, className }: ThreadGuest
             ))}
           </div>
           <p className="inline-flex items-center gap-1 text-sm text-theme-text-faint">
-            <Lock className="size-3.5" aria-hidden /> {t("thread.locked")}
+            <Lock className="size-3.5" aria-hidden />{" "}
+            {approval === "pending" ? t("lockedPending") : approval === "declined" ? t("lockedDeclined") : t("thread.locked")}
           </p>
         </div>
       ) : guests.length === 0 ? (

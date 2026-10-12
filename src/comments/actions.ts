@@ -15,7 +15,8 @@ import { takesComments, type CommentViewer } from "./visibility";
 import { eventPaths } from "@/events/slug";
 
 // Why a comment was refused. The guest's own browser turns it into a sentence. Closed is an event
-// that takes no comment from this viewer (gone, cancelled, comments off, or not replied); too fast
+// that takes no comment from this viewer (gone, cancelled, comments off, or not replied, or a
+// reply the host has not approved); too fast
 // is the rate limit; too many is the event's cap.
 export type CommentRefusal = CommentError | "closed" | "tooMany" | "tooFast";
 
@@ -25,8 +26,10 @@ type Commenter = { viewer: CommentViewer; author?: CommentAuthor; name?: string 
 
 // Who is in front of the event page, as the page itself decides it: a host of the event, found
 // through the one gate and let comment by their role, before anything else; then the guest whose
-// RSVP is on this device, under its name. A host who has also replied on this device comments as a
-// host. A signed-in host the gate refuses is simply not a host here.
+// RSVP is on this device, under its name, with whether the host has approved it (a guest whose
+// reply is not approved is refused as a visitor is, by takesComments). A host who has also
+// replied on this device comments as a host. A signed-in host the gate refuses is simply not a
+// host here.
 async function commenter(eventId: string): Promise<Commenter> {
   const session = await getSession();
   const hosted = session ? await findHostEvent(session.user.id, eventId) : undefined;
@@ -34,7 +37,9 @@ async function commenter(eventId: string): Promise<Commenter> {
     return { viewer: { kind: "host" }, author: { hostId: session.user.id }, name: session.user.name };
   }
   const mine = await findRsvpOnThisDevice(eventId);
-  if (mine) return { viewer: { kind: "guest", rsvpId: mine.rsvp.id }, author: { rsvpId: mine.rsvp.id }, name: mine.rsvp.name };
+  if (mine) {
+    return { viewer: { kind: "guest", rsvpId: mine.rsvp.id, approval: mine.rsvp.approval }, author: { rsvpId: mine.rsvp.id }, name: mine.rsvp.name };
+  }
   return { viewer: { kind: "visitor" } };
 }
 

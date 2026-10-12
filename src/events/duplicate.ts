@@ -28,6 +28,7 @@ export function duplicateInput(
       plusOnesAllowed: source.plusOnesAllowed,
       requirePlusOneNames: source.requirePlusOneNames,
       capacity: source.capacity,
+      approvalRequired: source.approvalRequired,
       emailField: source.emailField,
       phoneField: source.phoneField,
       verifyEmail: source.verifyEmail,

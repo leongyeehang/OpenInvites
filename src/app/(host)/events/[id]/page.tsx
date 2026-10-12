@@ -127,7 +127,14 @@ export default async function ManageEventPage({ params, searchParams }: PageProp
         title={event.title}
         cancellable={event.state === "published"}
         deletable={can(event.role, "delete")}
-        rsvps={(replies?.going ?? 0) + (replies?.maybe ?? 0) + (replies?.cant ?? 0) + (replies?.waitlisted ?? 0)}
+        rsvps={
+          (replies?.going ?? 0) +
+          (replies?.maybe ?? 0) +
+          (replies?.cant ?? 0) +
+          (replies?.waitlisted ?? 0) +
+          (replies?.pending ?? 0) +
+          (replies?.declined ?? 0)
+        }
       />
     </ClientMessages>
   );

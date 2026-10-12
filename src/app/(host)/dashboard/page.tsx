@@ -95,6 +95,7 @@ async function EventList({
                   <span className="text-sm text-muted-foreground">
                     {t("counts", { going: replies.going, maybe: replies.maybe, declined: replies.cant })}
                     {replies.waitlisted > 0 && ` · ${t("waitlisted", { count: replies.waitlisted })}`}
+                    {replies.pending > 0 && ` · ${t("pending", { count: replies.pending })}`}
                     {` · ${
                       event.capacity === null
                         ? t("headcount", { count: replies.headcount })

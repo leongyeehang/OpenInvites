@@ -19,7 +19,7 @@ import { parseHostEdit, parseRsvpForm, type RsvpFormFields } from "./form";
 import { findRsvpOnThisDevice, guestRsvp, type SaveRsvpResult } from "./guest";
 import { repliesAtLimit } from "./limit";
 import { notifyHostsOfRsvp } from "./notify-hosts";
-import { deleteRsvp, editRsvpAsHost, moveToGoing, saveRsvp } from "./repository";
+import { approveRsvp, declineRsvp, deleteRsvp, editRsvpAsHost, moveToGoing, saveRsvp } from "./repository";
 import { rsvpCookieName, rsvpCookieOptions } from "./token";
 import { needsCode } from "./verification";
 import { eventPaths } from "@/events/slug";
@@ -48,9 +48,9 @@ function answersFrom(formData: FormData): AnswerFields {
   return given;
 }
 
-// A write of an RSVP that promoted guests from the waitlist queued their email in its transaction:
-// it goes as soon as the action has answered.
-function sendPromotionMail(mailed: boolean): void {
+// A write of an RSVP that promoted guests from the waitlist, or that a host approved, queued their
+// email in its transaction: it goes as soon as the action has answered.
+function sendQueuedMail(mailed: boolean): void {
   if (mailed) after(kickMailWorker);
 }
 
@@ -86,14 +86,15 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
 
   // The language the guest answers in is the one their mail about the event is written in.
   const locale = await getLocale();
-  // The capacity decides what the reply becomes, in the transaction that writes it: Going, on the
-  // waitlist, or refused when a Going guest brings more people than there is room for.
+  // The approval and the capacity decide what the reply becomes, in the transaction that writes it:
+  // waiting for the host, Going, on the waitlist, or refused when a Going guest brings more people
+  // than there is room for.
   const outcome = await saveRsvp(event.id, { ...parsed.input, locale }, mine, proven);
   if ("refused" in outcome) {
     return outcome.refused === "capacityFull" ? { error: "capacityFull", placesLeft: outcome.placesLeft } : { error: outcome.refused };
   }
   const { saved, written, previous, waitlistPosition, mailed } = outcome;
-  sendPromotionMail(mailed);
+  sendQueuedMail(mailed);
   // Two writes rather than one transaction: a failure between them leaves the RSVP saved with
   // its previous answers, which the guest can put right by answering again.
   await saveAnswers(saved.rsvp.id, answers.answers);
@@ -118,7 +119,7 @@ export async function removeRsvpAction(slug: string): Promise<{ error?: "tooFast
   if (!event) return {};
   const mine = await findRsvpOnThisDevice(event.id);
   const { removed, mailed } = mine ? await deleteRsvp(event.id, mine.rsvp.id) : { removed: undefined, mailed: false };
-  sendPromotionMail(mailed);
+  sendQueuedMail(mailed);
   (await cookies()).delete(rsvpCookieName(event.id));
   await notifyHostsOfRsvp(event, removed, undefined);
   for (const path of eventPaths(event)) revalidatePath(path);
@@ -143,7 +144,7 @@ export async function editGuestAction(
 
   const changed = await editRsvpAsHost(event.id, rsvpId, parsed.edit);
   if (changed) {
-    sendPromotionMail(changed.mailed);
+    sendQueuedMail(changed.mailed);
     await notifyHostsOfRsvp(event, changed.previous, changed.current);
   }
   revalidatePath(`/events/${eventId}/guests`);
@@ -159,9 +160,31 @@ export async function moveToGoingAction(eventId: string, rsvpId: string): Promis
   if (!event || !can(event.role, "guests")) return;
   const moved = await moveToGoing(event.id, rsvpId);
   if (moved) {
-    sendPromotionMail(moved.mailed);
+    sendQueuedMail(moved.mailed);
     await notifyHostsOfRsvp(event, moved.previous, moved.current);
   }
+  revalidatePath(`/events/${eventId}/guests`);
+}
+
+// The host's Approve on a reply waiting for their approval, or one they declined (spec,
+// "Approval"): the guest is on the list, Going or on the waitlist as the capacity has it, and is
+// emailed. A host's own decision, so the hosts are not emailed about it.
+export async function approveGuestAction(eventId: string, rsvpId: string): Promise<void> {
+  const host = await requireHost();
+  const event = await findHostEvent(host.id, eventId);
+  if (!event || !can(event.role, "guests")) return;
+  const approved = await approveRsvp(event.id, rsvpId);
+  if (approved) sendQueuedMail(approved.mailed);
+  revalidatePath(`/events/${eventId}/guests`);
+}
+
+// The host's Decline on a reply waiting for their approval (spec, "Approval"). Nobody is emailed:
+// the guest's page says so when they return.
+export async function declineGuestAction(eventId: string, rsvpId: string): Promise<void> {
+  const host = await requireHost();
+  const event = await findHostEvent(host.id, eventId);
+  if (!event || !can(event.role, "guests")) return;
+  await declineRsvp(event.id, rsvpId);
   revalidatePath(`/events/${eventId}/guests`);
 }
 
@@ -170,7 +193,7 @@ export async function removeGuestAction(eventId: string, rsvpId: string): Promis
   const event = await findHostEvent(host.id, eventId);
   if (!event || !can(event.role, "guests")) return;
   const { removed, mailed } = await deleteRsvp(event.id, rsvpId);
-  sendPromotionMail(mailed);
+  sendQueuedMail(mailed);
   await notifyHostsOfRsvp(event, removed, undefined);
   revalidatePath(`/events/${eventId}/guests`);
 }

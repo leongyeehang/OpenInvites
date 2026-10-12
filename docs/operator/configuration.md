@@ -139,17 +139,22 @@ With mail configured:
 - a host can sign in with a link emailed to them;
 - changing an account's email is confirmed from the new address;
 - the operator can have a host invitation emailed;
-- an event's hosts, co-hosts included, are emailed when a guest replies, joins the waitlist,
-  changes their answer or removes their RSVP, unless they turn it off for the event;
+- an event's hosts, co-hosts included, are emailed when a guest replies, waits for their approval,
+  joins the waitlist, changes their answer or removes their RSVP, unless they turn it off for the
+  event;
 - the hosts are emailed when someone comments on the event page, unless they turn it off for the
   event;
 - guests who gave an email are told when the host cancels the event, if they said Going or Maybe
-  or are on the waitlist;
+  or are on the waitlist, whether or not the host had approved their reply yet;
 - the hosts can email an announcement to the guests who gave an email, chosen by their answer or
-  their place on the waitlist;
+  their place on the waitlist; on an event where the hosts approve each reply, only to the guests
+  they approved;
 - a guest on an event's waitlist who gave an email is told when a place opens up for them;
+- a guest who gave an email is told when the host approves their reply, and whether that put
+  them on the waitlist; a declined guest is not emailed;
 - guests who gave an email are reminded of an event a week before if they said Maybe, and the day
-  before if they said Going, unless the host turns reminders off for the event;
+  before if they said Going, unless the host turns reminders off for the event or has not
+  approved their reply;
 - a guest proving their email is sent a code to it, when the host asks for it;
 - every email to a guest ends with a link to a page where one tap stops email about that event,
   except the code, which is sent before their RSVP is kept.

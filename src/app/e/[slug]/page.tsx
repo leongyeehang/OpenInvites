@@ -59,11 +59,14 @@ async function isHostOf(eventId: string): Promise<boolean> {
 }
 
 // What the comments section shows this viewer, or nothing when the host has turned comments off:
-// to the hosts and to a guest who has replied, the comments themselves; to anyone else only how
-// many there are, so not one of them is sent to that browser.
+// to the hosts and to a guest whose reply the host has approved, the comments themselves; to anyone
+// else only how many there are, so not one of them is sent to that browser, and to a guest whose
+// reply is not approved, why.
 async function commentsFor(event: EventWithHost, viewer: CommentViewer): Promise<CommentsShown | undefined> {
   if (!event.commentsEnabled) return undefined;
-  if (commentsView(viewer) === "locked") return { view: "locked", count: await countComments(event.id) };
+  if (commentsView(viewer) === "locked") {
+    return { view: "locked", count: await countComments(event.id), approval: viewer.kind === "guest" ? viewer.approval : undefined };
+  }
   const comments = await listComments(event.id);
   return {
     view: "open",
@@ -168,11 +171,17 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const link = eventUrl(event);
   // The cookie tells us whether the guest in front of us has already replied on this device.
   const mine = await findRsvpOnThisDevice(event.id);
-  // Whether this guest may see the list decides whether it is even loaded.
-  const view = guestListView(event.guestListVisibility, { hasRsvp: mine !== undefined });
+  // Whether this guest may see the list decides whether it is even loaded: a reply the host has not
+  // approved opens nothing (rsvps/visibility.ts).
+  const view = guestListView(event.guestListVisibility, { rsvp: mine?.rsvp });
   const guests = view === "open" ? await listPublicGuestList(event.id) : [];
-  // A host comments as a host, even with an RSVP on this device; a guest under their RSVP's name.
-  const viewer: CommentViewer = isHost ? { kind: "host" } : mine ? { kind: "guest", rsvpId: mine.rsvp.id } : { kind: "visitor" };
+  // A host comments as a host, even with an RSVP on this device; a guest under their RSVP's name,
+  // once the host has approved it (comments/visibility.ts).
+  const viewer: CommentViewer = isHost
+    ? { kind: "host" }
+    : mine
+      ? { kind: "guest", rsvpId: mine.rsvp.id, approval: mine.rsvp.approval }
+      : { kind: "visitor" };
   // What this event asks, what this guest has already said, so coming back prefills, the host's
   // own picture if there is one, what the host has announced, which every viewer reads, and the
   // comments as this viewer may see them.
@@ -218,7 +227,8 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     answers: answersStillOffered(answers, questions),
     calendar,
   };
-  const guestList = view === "hidden" ? undefined : { view, guests, counts: countRsvps(guests.map(asTally)) };
+  // A guest whose reply is not approved is told why the list is locked for them.
+  const guestList = view === "hidden" ? undefined : { view, guests, counts: countRsvps(guests.map(asTally)), approval: mine?.rsvp.approval };
 
   // The client components below read their messages in the browser; the host's Design drawer, only
   // on the host's own page, brings its own.

@@ -126,6 +126,7 @@
       "emptyPast": "还没有已结束的活动。",
       "counts": "{going} 人参加 · {maybe} 人待定 · {declined} 人无法参加",
       "waitlisted": "{count} 人候补",
+      "pending": "{count} 人等待批准",
       "headcount": "{count, plural, =0 {还没有人确定要来} other {预计 # 人}}",
       "headcountOf": "预计 {count} 人（共 {capacity} 个名额）",
       "coHost": "共同主办人",
@@ -259,13 +260,15 @@
         "replied": "{name} 回复了“{title}”：{status}",
         "changed": "{name} 对“{title}”的回复现在是：{status}",
         "removed": "{name} 对“{title}”的回复已移除",
-        "waitlisted": "{name} 进入了“{title}”的候补名单（共 {party} 人）"
+        "waitlisted": "{name} 进入了“{title}”的候补名单（共 {party} 人）",
+        "pending": "{name} 回复了“{title}”，正在等待你的批准"
       },
       "body": {
         "replied": "{name} 回复了“{title}”：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
         "changed": "{name} 对“{title}”的回复现在是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
         "removed": "{name} 对“{title}”的回复已移除。原来的回复是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
-        "waitlisted": "{name} 进入了“{title}”的候补名单（共 {party} 人）。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
+        "waitlisted": "{name} 进入了“{title}”的候补名单（共 {party} 人）。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
+        "pending": "{name} 回复了“{title}”：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}，正在等待你的批准。\n\n请在宾客名单上批准或婉拒这条回复：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
       },
       "status": {
         "going": "参加",
@@ -296,6 +299,14 @@
     "promoted": {
       "subject": "有空位了：你可以参加“{title}”了",
       "body": "有空位了：你可以参加“{title}”了。\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}\n\n活动页面：\n{url}"
+    },
+    "approved": {
+      "subject": "你的回复已获批准：“{title}”",
+      "body": "主办人批准了你对“{title}”的回复，你已列入宾客名单。\n\n你的回复是：{status, select, going {参加} maybe {待定} other {无法参加}}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n活动页面：\n{url}"
+    },
+    "approvedWaitlisted": {
+      "subject": "你在“{title}”的候补名单上",
+      "body": "主办人批准了你对“{title}”的回复，不过活动已满员，你在候补名单上排第 {position} 位。一有空位，我们会发邮件告诉你。\n\n你的回复是：参加{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n活动页面：\n{url}"
     },
     "guestFooter": "你收到这封邮件，是因为你对“{title}”的回复上留有这个邮箱。如果不想再收到关于这个活动的邮件，请打开这个链接：{url}",
     "magicLink": {
@@ -349,7 +360,9 @@
       "guests": {
         "title": "宾客",
         "capacity": "人数上限",
-        "capacityHint": "和预计人数的算法一样：回复“参加”的宾客及其同伴都算在内，待定的不算。留空表示不设上限。本实例每场活动最多接受 {max, number} 条回复。"
+        "capacityHint": "和预计人数的算法一样：回复“参加”的宾客及其同伴都算在内，待定的不算。留空表示不设上限。本实例每场活动最多接受 {max, number} 条回复。",
+        "approval": "每位宾客须经你批准，才会列入宾客名单",
+        "approvalHint": "等待期间，宾客可以看到邀请，但看不到谁会来，也看不到留言。"
       },
       "contact": {
         "title": "联系方式",
@@ -502,6 +515,8 @@
       "title": "留言",
       "count": "{count, plural, =0 {还没有留言} other {# 条留言}}",
       "locked": "回复后就能加入大家的对话",
+      "lockedPending": "主办人批准你的回复后，你就能加入大家的对话。",
+      "lockedDeclined": "主办人未能接受你的回复。",
       "host": "主办人",
       "label": "写下留言",
       "post": "发布",
@@ -563,6 +578,8 @@
         "maybe": "先记作待定啦，{firstName}。确定了再回来这里说一声。",
         "cant": "真可惜见不到你，{firstName}。要是计划有变，再回复一次就好。",
         "waitlisted": "{firstName}，现在名额已满，不过你在候补名单上排第 {position} 位。一有空位我就告诉你。",
+        "pending": "谢谢你，{firstName}！我去问问主办人，有消息就告诉你。",
+        "declined": "主办人未能接受你的回复。",
         "link": "这是你的专属链接，之后想改什么都可以用它。这个浏览器里也存了一份。"
       },
       "copyLink": "复制修改链接",
@@ -576,6 +593,8 @@
     "headcount": "{count, plural, =0 {还没有人} other {预计 # 人}}",
     "alsoMaybe": "{count, plural, other {# 人待定}}",
     "locked": "回复后就能看到谁会来",
+    "lockedPending": "主办人批准你的回复后，你就能看到谁会来。",
+    "lockedDeclined": "主办人未能接受你的回复。",
     "nobodyYet": "还没有人回复，来做第一个吧。",
     "status": {
       "going": "参加",
@@ -754,12 +773,15 @@
     "headcountOf": "预计 {count} 人（共 {capacity} 个名额）",
     "counts": "{going} 人参加 · {maybe} 人待定 · {declined} 人无法参加",
     "waitlistedCount": "{count} 人候补",
+    "pendingCount": "{count} 人等待批准",
     "empty": "还没有人回复。分享活动链接后，宾客会出现在这里。",
     "group": {
+      "pending": "等待批准",
       "going": "参加",
       "waitlisted": "候补名单",
       "maybe": "待定",
-      "cant": "无法参加"
+      "cant": "无法参加",
+      "declined": "已婉拒"
     },
     "nobody": "暂无。",
     "bringing": "同伴：{names}",
@@ -773,6 +795,8 @@
     "edit": "编辑",
     "close": "关闭",
     "moveToGoing": "改为参加",
+    "approve": "批准",
+    "decline": "婉拒",
     "status": "状态",
     "plusOnesLabel": "同伴人数",
     "nameLabel": "名字",
@@ -899,7 +923,9 @@
       "going": "期待你的到来！",
       "maybe": "那就先待定吧。",
       "cant": "可惜你来不了。",
-      "waitlisted": "你在候补名单上，排第 {position} 位。"
+      "waitlisted": "你在候补名单上，排第 {position} 位。",
+      "pending": "你的回复正在等待主办人批准。",
+      "declined": "主办人未能接受你的回复。"
     },
     "summary": {
       "coming": "{count, plural, =0 {{name}，就你自己。} other {{name}，另带 # 位同伴。}}",

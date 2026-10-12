@@ -1,15 +1,18 @@
 import type { RsvpStatus, SavedStatus } from "./form";
 
-// What a saved reply becomes (spec, "Architecture" and "Capacity and the waitlist"): one pure rule,
-// called inside the one transaction that writes an RSVP with the event's row locked, so two replies
-// cannot both take the last place (repository.ts).
+// What a saved reply becomes (spec, "Architecture", "Capacity and the waitlist" and "Approval"):
+// one pure rule, called inside the one transaction that writes an RSVP with the event's row
+// locked, so two replies cannot both take the last place (repository.ts).
 
 // The status the guest asked for: one of the three they can choose.
 export type Wanted = RsvpStatus;
 
-// Whether the host has let the reply onto the list. Every reply is approved until approval exists
-// (ticket 07).
-export type Approval = "approved" | "pending" | "declined";
+// Whether the host has let the reply onto the list: approved, waiting for the host (pending), or
+// declined by them. A reply to an event without approval is approved. The list is the source, as
+// form.ts's RSVP_STATUSES is, and the database enum is built from it.
+export const APPROVALS = ["approved", "pending", "declined"] as const;
+
+export type Approval = (typeof APPROVALS)[number];
 
 // The event's settings, where the reply came from, what it asks and for how many, and what is
 // already counted. `headcount` is the approved Going replies other than this one, with their
@@ -27,21 +30,27 @@ export type AdmissionInput = {
 
 export type Admission = { status: SavedStatus; approval: Approval } | { refused: "capacityFull"; placesLeft: number };
 
+// A reply keeps the approval it has: only the host changes it (repository.ts, approveRsvp and
+// declineRsvp). A new one waits for the host when the event asks for approval, unless it came
+// through a personal invite, which the host issued (spec, "decided here").
+//
 // Maybe and Can't go are saved as asked: they take no place. Going takes the party's places when
 // it fits, the whole party or none of it (spec, "decided here"); otherwise it waits on the
 // waitlist. A Going guest keeps their place: only bringing more people than the room left is
 // refused, with the places their party may have, and nobody is moved by a capacity lowered below
-// the headcount. A guest already waiting stays waiting, however much room there is: promotion
-// takes the waitlist in order (waitlist.ts). `approvalRequired` and `invited` are taken but not
-// yet used: ticket 07 makes approval real.
-export function admit({ capacity, headcount, wanted, party, current }: AdmissionInput): Admission {
-  const approval = "approved";
+// the headcount. A reply the host has not let onto the list (pending or declined) takes no place
+// and waits for none: it is saved as asked, and approving it admits it as a new reply would. A
+// guest already waiting stays waiting, however much room there is: promotion takes the waitlist
+// in order (waitlist.ts).
+export function admit({ approvalRequired, capacity, headcount, invited, wanted, party, current }: AdmissionInput): Admission {
+  const approval: Approval = current?.approval ?? (approvalRequired && !invited ? "pending" : "approved");
   if (wanted !== "going" || capacity === null) return { status: wanted, approval };
   const fits = headcount + party <= capacity;
   if (current?.status === "going" && current.approval === "approved") {
     if (fits || party <= current.party) return { status: "going", approval };
     return { refused: "capacityFull", placesLeft: Math.max(0, capacity - headcount) };
   }
+  if (approval !== "approved") return { status: "going", approval };
   if (current?.status === "waitlisted") return { status: "waitlisted", approval };
   return { status: fits ? "going" : "waitlisted", approval };
 }

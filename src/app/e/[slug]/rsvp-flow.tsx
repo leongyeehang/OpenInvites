@@ -16,7 +16,7 @@ import { sheetVariables } from "@/themes/resolve";
 import { rsvpButtonClasses } from "@/themes/rsvp-buttons";
 import { useTheme } from "@/themes/themed-page";
 import { useCopyLink } from "./use-copy-link";
-import { useRsvpFlow, type RsvpFlowProps, type Step } from "./use-rsvp-flow";
+import { confirmedAs, offersCalendar, useRsvpFlow, type RsvpFlowProps, type Step } from "./use-rsvp-flow";
 
 // The guest's whole RSVP in the Poster layout: the three buttons under the poster, the steps, and
 // once they have answered, their confirmation. The flow's rules are use-rsvp-flow.ts's; this is
@@ -556,8 +556,9 @@ function Labelled({ label, hint, required, children }: { label: string; hint?: s
   );
 }
 
-// What the guest sees once they have answered: their reply (or their place on the waitlist), the
-// private link that changes it from any device, and the three ways out.
+// What the guest sees once they have answered: their reply (or their place on the waitlist, or
+// that it waits for the host's approval or was declined), the private link that changes it from
+// any device, and the three ways out.
 function Confirmation({
   answer,
   headingRef,
@@ -596,7 +597,7 @@ function Confirmation({
         </span>
         <div className="flex-1">
           <h2 ref={headingRef} tabIndex={-1} className="font-title text-3xl leading-tight outline-none">
-            {t(`done.${answer.status}`, { position: answer.waitlistPosition ?? 0 })}
+            {t(`done.${confirmedAs(answer)}`, { position: answer.waitlistPosition ?? 0 })}
           </h2>
           <p className="text-sm text-theme-text-muted">
             {answer.status === "cant"
@@ -610,7 +611,7 @@ function Confirmation({
         {dismiss}
       </div>
 
-      {calendar && answer.status !== "cant" && <div className="mt-4">{calendar}</div>}
+      {calendar && offersCalendar(answer) && <div className="mt-4">{calendar}</div>}
 
       <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-theme-glass-strong px-3 py-2.5">
         <div className="min-w-0">

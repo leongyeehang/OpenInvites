@@ -19,14 +19,15 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import type { FormState } from "@/lib/form-state";
-import { editGuestAction, moveToGoingAction, removeGuestAction } from "@/rsvps/actions";
+import { approveGuestAction, declineGuestAction, editGuestAction, moveToGoingAction, removeGuestAction } from "@/rsvps/actions";
 import { chosenStatus, RSVP_STATUSES } from "@/rsvps/form";
 import type { GuestAnswer } from "@/questions/repository";
 import type { HostGuest } from "@/rsvps/repository";
 
 // One guest on the host's list: who they are and what they answered, and, when the host opens
 // it, the form that changes it on their behalf. A guest on the waitlist is shown with their place
-// in it and their party as "+N", and can be moved to Going.
+// in it and their party as "+N", and can be moved to Going. A reply waiting for the host's
+// approval says what it answered and can be approved or declined; a declined one can be approved.
 export function GuestRow({
   eventId,
   guest,
@@ -68,6 +69,9 @@ export function GuestRow({
             {position !== undefined && guest.plusOnes > 0 && <span className="ml-1.5 text-muted-foreground">+{guest.plusOnes}</span>}
           </p>
           <p className="text-sm text-muted-foreground">
+            {/* The section says what an approved reply answered; one the host has yet to approve, or
+                declined, says it here. */}
+            {guest.approval !== "approved" && <span>{t(`group.${guest.status}`)} · </span>}
             {guest.plusOnes > 0 && position === undefined && <span>{t("plusOnes", { count: guest.plusOnes })} · </span>}
             <span>{t("replied", { when: replied })}</span>
             {changed && <span> · {t("changed", { when: changed })}</span>}
@@ -103,6 +107,7 @@ export function GuestRow({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {guest.status === "waitlisted" && <MoveToGoing eventId={eventId} guestId={guest.id} />}
+          {guest.approval !== "approved" && <Decide eventId={eventId} guestId={guest.id} declinable={guest.approval === "pending"} />}
           <Button variant="ghost" size="sm" aria-expanded={open} onClick={() => setOpen(!open)}>
             {open ? t("close") : t("edit")}
           </Button>
@@ -230,6 +235,31 @@ function MoveToGoing({ eventId, guestId }: { eventId: string; guestId: string })
     >
       {t("moveToGoing")}
     </Button>
+  );
+}
+
+// The host's word on a reply they have not approved (spec, "Approval"): Approve, and Decline while
+// it waits for them. Either moves the row to another section and takes these buttons with it, so
+// the focus goes to the page's heading, as after Move to Going.
+function Decide({ eventId, guestId, declinable }: { eventId: string; guestId: string; declinable: boolean }) {
+  const t = useTranslations("Guests");
+  const [deciding, startDeciding] = useTransition();
+  const decide = (action: (eventId: string, rsvpId: string) => Promise<void>) =>
+    startDeciding(async () => {
+      await action(eventId, guestId);
+      document.getElementById("guest-list-heading")?.focus();
+    });
+  return (
+    <>
+      <Button variant="outline" size="sm" disabled={deciding} onClick={() => decide(approveGuestAction)}>
+        {t("approve")}
+      </Button>
+      {declinable && (
+        <Button variant="outline" size="sm" disabled={deciding} onClick={() => decide(declineGuestAction)}>
+          {t("decline")}
+        </Button>
+      )}
+    </>
   );
 }
 

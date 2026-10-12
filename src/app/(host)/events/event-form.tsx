@@ -120,7 +120,8 @@ export function EventForm({ action, event, mail, maxReplies, timeZones, submitLa
           <Checkbox id="require-plus-one-names" name="requirePlusOneNames" defaultChecked={event?.requirePlusOneNames} />
           <FieldLabel htmlFor="require-plus-one-names">{t("requirePlusOneNames")}</FieldLabel>
         </Field>
-        {/* How many may come (spec, "Capacity and the waitlist"). Empty is no limit. */}
+        {/* How many may come (spec, "Capacity and the waitlist"), empty for no limit, and whether
+            each reply waits for the host's approval (spec, "Approval"). */}
         <FieldSet className="gap-3">
           <FieldLegend variant="label">{t("guests.title")}</FieldLegend>
           <Field>
@@ -138,6 +139,13 @@ export function EventForm({ action, event, mail, maxReplies, timeZones, submitLa
               className="max-w-40"
             />
             <FieldDescription id="capacity-hint">{t("guests.capacityHint", { max: maxReplies })}</FieldDescription>
+          </Field>
+          <Field orientation="horizontal">
+            <Checkbox id="approval-required" name="approvalRequired" defaultChecked={event?.approvalRequired} aria-describedby="approval-required-hint" />
+            <FieldContent>
+              <FieldLabel htmlFor="approval-required">{t("guests.approval")}</FieldLabel>
+              <FieldDescription id="approval-required-hint">{t("guests.approvalHint")}</FieldDescription>
+            </FieldContent>
           </Field>
         </FieldSet>
         {/* How the RSVP form asks guests to be reached (spec, "Contact details"). */}

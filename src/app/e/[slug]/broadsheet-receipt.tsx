@@ -4,11 +4,13 @@ import { useFormatter, useTranslations } from "next-intl";
 import { useRef, type ReactNode, type RefObject } from "react";
 import type { GuestRsvp } from "@/rsvps/guest";
 import { useCopyLink } from "./use-copy-link";
+import { confirmedAs, offersCalendar } from "./use-rsvp-flow";
 
 const LINK = "cursor-pointer underline decoration-theme-accent decoration-2 underline-offset-4 hover:opacity-80 disabled:cursor-default disabled:opacity-50";
 
 // The Broadsheet's confirmation, in the ballot's card once the RSVP is saved (spec, "Broadsheet"):
-// a "Received" stamp in the accent ("Waitlisted" for a guest on the waitlist, with their place),
+// a "Received" stamp in the accent ("Waitlisted" for a guest on the waitlist, with their place;
+// "Received" too for a reply waiting for the host's approval or declined, which the heading says),
 // what the guest answered, the calendar for a guest who may come, the private link that changes
 // the RSVP from any device, and the three ways on. It sits on the card's glass as the Poster's
 // confirmation does, the stamp's word as accent ink on it.
@@ -54,7 +56,7 @@ export function BroadsheetReceipt({
           tabIndex={-1}
           className={`${answer.status === "waitlisted" ? "pr-32" : "pr-28"} font-title text-4xl leading-tight outline-none`}
         >
-          {t(`done.${answer.status}`, { position: answer.waitlistPosition ?? 0 })}
+          {t(`done.${confirmedAs(answer)}`, { position: answer.waitlistPosition ?? 0 })}
         </h3>
         <p className="mt-1 text-theme-text-muted">
           {answer.status === "cant" ? t("summary.cant", { name: answer.name }) : t("summary.coming", { name: answer.name, count: answer.plusOnes })}
@@ -64,7 +66,7 @@ export function BroadsheetReceipt({
         {answer.phone && <p className="text-sm text-theme-text-faint">{t("summary.phone", { phone: answer.phone })}</p>}
       </div>
 
-      {calendar && answer.status !== "cant" && <div className="mt-6">{calendar}</div>}
+      {calendar && offersCalendar(answer) && <div className="mt-6">{calendar}</div>}
 
       <div className="mt-6">
         <p className="label-mono text-theme-text-muted">{t("editLink.label")}</p>

@@ -126,6 +126,7 @@
       "emptyPast": "還沒有已結束的活動。",
       "counts": "{going} 人參加 · {maybe} 人待定 · {declined} 人無法參加",
       "waitlisted": "{count} 人候補",
+      "pending": "{count} 人等待核准",
       "headcount": "{count, plural, =0 {還沒有人確定要來} other {預計 # 人}}",
       "headcountOf": "預計 {count} 人（共 {capacity} 個名額）",
       "coHost": "共同主辦人",
@@ -259,13 +260,15 @@
         "replied": "{name} 回覆了「{title}」：{status}",
         "changed": "{name} 對「{title}」的回覆現在是：{status}",
         "removed": "{name} 對「{title}」的回覆已移除",
-        "waitlisted": "{name} 列入了「{title}」的候補名單（共 {party} 人）"
+        "waitlisted": "{name} 列入了「{title}」的候補名單（共 {party} 人）",
+        "pending": "{name} 回覆了「{title}」，正在等待你的核准"
       },
       "body": {
         "replied": "{name} 回覆了「{title}」：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。",
         "changed": "{name} 對「{title}」的回覆現在是：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。",
         "removed": "{name} 對「{title}」的回覆已移除。原本的回覆是：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。",
-        "waitlisted": "{name} 列入了「{title}」的候補名單（共 {party} 人）。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。"
+        "waitlisted": "{name} 列入了「{title}」的候補名單（共 {party} 人）。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。",
+        "pending": "{name} 回覆了「{title}」：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}，正在等待你的核准。\n\n請在賓客名單上核准或婉拒這則回覆：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。"
       },
       "status": {
         "going": "參加",
@@ -296,6 +299,14 @@
     "promoted": {
       "subject": "有空位了：你可以參加「{title}」了",
       "body": "有空位了：你可以參加「{title}」了。\n\n時間：{when}{located, select, yes {\n地點：{location}} other {}}\n\n活動頁面：\n{url}"
+    },
+    "approved": {
+      "subject": "你的回覆已獲核准：「{title}」",
+      "body": "主辦人核准了你對「{title}」的回覆，你已列入賓客名單。\n\n你的回覆是：{status, select, going {參加} maybe {待定} other {無法參加}}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n活動頁面：\n{url}"
+    },
+    "approvedWaitlisted": {
+      "subject": "你在「{title}」的候補名單上",
+      "body": "主辦人核准了你對「{title}」的回覆，不過活動已額滿，你在候補名單上排第 {position} 位。一有空位，我們會寄電子郵件通知你。\n\n你的回覆是：參加{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n活動頁面：\n{url}"
     },
     "guestFooter": "你收到這封郵件，是因為你對「{title}」的回覆上留有這個電子郵件。如果不想再收到關於這個活動的郵件，請開啟這個連結：{url}",
     "magicLink": {
@@ -349,7 +360,9 @@
       "guests": {
         "title": "賓客",
         "capacity": "人數上限",
-        "capacityHint": "和預計人數的算法一樣：回覆「參加」的賓客及其同伴都算在內，待定的不算。留空表示不設上限。本實例每場活動最多接受 {max, number} 則回覆。"
+        "capacityHint": "和預計人數的算法一樣：回覆「參加」的賓客及其同伴都算在內，待定的不算。留空表示不設上限。本實例每場活動最多接受 {max, number} 則回覆。",
+        "approval": "每位賓客須經你核准，才會列入賓客名單",
+        "approvalHint": "等待期間，賓客可以看到邀請，但看不到誰會來，也看不到留言。"
       },
       "contact": {
         "title": "聯絡方式",
@@ -502,6 +515,8 @@
       "title": "留言",
       "count": "{count, plural, =0 {還沒有留言} other {# 則留言}}",
       "locked": "回覆後就能加入大家的對話",
+      "lockedPending": "主辦人核准你的回覆後，你就能加入大家的對話。",
+      "lockedDeclined": "主辦人未能接受你的回覆。",
       "host": "主辦人",
       "label": "寫下留言",
       "post": "發布",
@@ -563,6 +578,8 @@
         "maybe": "先記作待定啦，{firstName}。確定了再回來這裡說一聲。",
         "cant": "真可惜見不到你，{firstName}。要是計畫有變，再回覆一次就好。",
         "waitlisted": "{firstName}，現在名額已滿，不過你在候補名單上排第 {position} 位。一有空位我就告訴你。",
+        "pending": "謝謝你，{firstName}！我去問問主辦人，有消息就告訴你。",
+        "declined": "主辦人未能接受你的回覆。",
         "link": "這是你的專屬連結，之後想改什麼都可以用它。這個瀏覽器裡也存了一份。"
       },
       "copyLink": "複製修改連結",
@@ -576,6 +593,8 @@
     "headcount": "{count, plural, =0 {還沒有人} other {預計 # 人}}",
     "alsoMaybe": "{count, plural, other {# 人待定}}",
     "locked": "回覆後就能看到誰會來",
+    "lockedPending": "主辦人核准你的回覆後，你就能看到誰會來。",
+    "lockedDeclined": "主辦人未能接受你的回覆。",
     "nobodyYet": "還沒有人回覆，來當第一個吧。",
     "status": {
       "going": "參加",
@@ -754,12 +773,15 @@
     "headcountOf": "預計 {count} 人（共 {capacity} 個名額）",
     "counts": "{going} 人參加 · {maybe} 人待定 · {declined} 人無法參加",
     "waitlistedCount": "{count} 人候補",
+    "pendingCount": "{count} 人等待核准",
     "empty": "還沒有人回覆。分享活動連結後，賓客會出現在這裡。",
     "group": {
+      "pending": "等待核准",
       "going": "參加",
       "waitlisted": "候補名單",
       "maybe": "待定",
-      "cant": "無法參加"
+      "cant": "無法參加",
+      "declined": "已婉拒"
     },
     "nobody": "目前沒有。",
     "bringing": "同伴：{names}",
@@ -773,6 +795,8 @@
     "edit": "編輯",
     "close": "關閉",
     "moveToGoing": "改為參加",
+    "approve": "核准",
+    "decline": "婉拒",
     "status": "狀態",
     "plusOnesLabel": "同伴人數",
     "nameLabel": "名字",
@@ -899,7 +923,9 @@
       "going": "期待你的到來！",
       "maybe": "那就先待定吧。",
       "cant": "可惜你來不了。",
-      "waitlisted": "你在候補名單上，排第 {position} 位。"
+      "waitlisted": "你在候補名單上，排第 {position} 位。",
+      "pending": "你的回覆正在等待主辦人核准。",
+      "declined": "主辦人未能接受你的回覆。"
     },
     "summary": {
       "coming": "{count, plural, =0 {{name}，就你自己。} other {{name}，另外帶 # 位同伴。}}",

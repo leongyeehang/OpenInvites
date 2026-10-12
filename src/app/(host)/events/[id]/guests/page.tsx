@@ -18,10 +18,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("title") };
 }
 
-// Everyone who has answered, grouped as the host plans (Going, the waitlist in its order, Maybe,
-// Can't go), with the headcount the host is really after, against the capacity when there is one.
-// The waitlist is shown once the event has a capacity, or anyone is on it. The list refreshes
-// itself while the host watches.
+// Everyone who has answered, grouped as the host plans (waiting for their approval, Going, the
+// waitlist in its order, Maybe, Can't go, declined), with the headcount the host is really after,
+// against the capacity when there is one. The waitlist is shown once the event has a capacity, or
+// anyone is on it; the replies waiting for approval and those declined once the event asks for
+// approval, or anyone is in them. The list refreshes itself while the host watches.
 export default async function GuestListPage({ params }: PageProps<"/events/[id]/guests">) {
   const [host, { id }, t, locale] = await Promise.all([
     requireHost(),
@@ -34,7 +35,12 @@ export default async function GuestListPage({ params }: PageProps<"/events/[id]/
 
   const [guests, answers] = await Promise.all([listGuestList(event.id), listAnswersByGuest(event.id)]);
   const counts = countRsvps(guests.map(asTally));
-  const groups = groupByStatus(guests).filter((group) => group.status !== "waitlisted" || event.capacity !== null || group.rsvps.length > 0);
+  const groups = groupByStatus(guests).filter(({ group, rsvps }) => {
+    if (rsvps.length > 0) return true;
+    if (group === "waitlisted") return event.capacity !== null;
+    if (group === "pending" || group === "declined") return event.approvalRequired;
+    return true;
+  });
 
   return (
     <ClientMessages namespaces={["Guests"]}>
@@ -43,7 +49,7 @@ export default async function GuestListPage({ params }: PageProps<"/events/[id]/
         <Link href={`/events/${event.id}`} className="text-sm text-muted-foreground hover:underline">
           {t("backToEvent")}
         </Link>
-        {/* Where the focus goes once a guest is removed or moved to Going (guest-row.tsx), since the button that did it goes too. */}
+        {/* Where the focus goes once a guest is removed, moved to Going, approved or declined (guest-row.tsx), since the button that did it goes too. */}
         <h1 id="guest-list-heading" tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
           {t("title")}
         </h1>
@@ -53,6 +59,7 @@ export default async function GuestListPage({ params }: PageProps<"/events/[id]/
             : t("headcountOf", { count: counts.headcount, capacity: event.capacity })}{" "}
           · {t("counts", { going: counts.going, maybe: counts.maybe, declined: counts.cant })}
           {counts.waitlisted > 0 && ` · ${t("waitlistedCount", { count: counts.waitlisted })}`}
+          {counts.pending > 0 && ` · ${t("pendingCount", { count: counts.pending })}`}
         </p>
       </div>
 
@@ -60,22 +67,22 @@ export default async function GuestListPage({ params }: PageProps<"/events/[id]/
         <p className="text-muted-foreground">{t("empty")}</p>
       ) : (
         groups.map((group) => (
-          <section key={group.status} aria-labelledby={`${group.status}-heading`} className="flex flex-col gap-3">
-            <h2 id={`${group.status}-heading`} className="text-lg font-medium">
-              {t(`group.${group.status}`)} ({group.rsvps.length})
+          <section key={group.group} aria-labelledby={`${group.group}-heading`} className="flex flex-col gap-3">
+            <h2 id={`${group.group}-heading`} className="text-lg font-medium">
+              {t(`group.${group.group}`)} ({group.rsvps.length})
             </h2>
             {group.rsvps.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("nobody")}</p>
             ) : (
               // The waitlist is in order, and numbered: a list that numbers itself for a screen
               // reader, the numbers on its rows for the eye.
-              <GuestItems ordered={group.status === "waitlisted"}>
+              <GuestItems ordered={group.group === "waitlisted"}>
                 {group.rsvps.map((guest, index) => (
                   <li key={guest.id}>
                     <GuestRow
                       eventId={event.id}
                       guest={guest}
-                      position={group.status === "waitlisted" ? index + 1 : undefined}
+                      position={group.group === "waitlisted" ? index + 1 : undefined}
                       replied={formatMoment(guest.repliedAt, event.timeZone, locale)}
                       changed={
                         guest.updatedAt > guest.repliedAt

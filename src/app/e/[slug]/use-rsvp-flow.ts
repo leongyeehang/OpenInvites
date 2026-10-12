@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useEffectEvent, useRef, useState, useTransit
 import { answerAfterPicking, type AnswerFields } from "@/questions/answers";
 import type { Question } from "@/questions/question";
 import { removeRsvpAction, saveRsvpAction } from "@/rsvps/actions";
-import { chosenStatus, type RsvpSettings, type RsvpStatus } from "@/rsvps/form";
+import { chosenStatus, type RsvpSettings, type RsvpStatus, type SavedStatus } from "@/rsvps/form";
 import type { GuestRsvp, RsvpRefusal } from "@/rsvps/guest";
 import { confettiFor } from "@/themes/effects/trigger";
 import { useTheme } from "@/themes/themed-page";
@@ -66,6 +66,20 @@ function draftFrom(mine: GuestRsvp | undefined, settings: RsvpSettings, answers:
   const { name, plusOneNames, email, phone } = mine;
   const plusOnes = Math.min(mine.plusOnes, settings.plusOnesAllowed);
   return { status: chosenStatus(mine.status), name, plusOnes, plusOneNames: plusOneNames.slice(0, plusOnes), email: email ?? "", phone: phone ?? "", answers, code: "" };
+}
+
+// How a saved answer stands, which its confirmation says in every layout: what it says, Going, on
+// the waitlist, Maybe or Can't go; or, until the host has approved it, that it waits for them or
+// that they declined it (spec, "Approval").
+export function confirmedAs(answer: GuestRsvp): SavedStatus | "pending" | "declined" {
+  return answer.approval === "approved" ? answer.status : answer.approval;
+}
+
+// Whether the confirmation offers the calendar: to a guest on the list who may come, Going, Maybe
+// or waiting for a place; not to one who can't go, nor to one whose reply the host has not
+// approved, who is not on the list.
+export function offersCalendar(answer: GuestRsvp): boolean {
+  return answer.approval === "approved" && answer.status !== "cant";
 }
 
 // What the event page hands whichever presentation of the flow its layout uses.
@@ -206,7 +220,7 @@ export function useRsvpFlow(
       }
       if (!result.saved) return;
       landing.current = "confirmation";
-      if (effect === "confetti" && confettiFor(answer?.status ?? null, result.saved.status)) setFalls((count) => count + 1);
+      if (effect === "confetti" && confettiFor(answer ?? null, result.saved)) setFalls((count) => count + 1);
       setAnswer(result.saved);
       setStep("done");
     });

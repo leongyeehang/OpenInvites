@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { admit, hostStatus, isFull, waitlistedSince, type AdmissionInput } from "./admission";
 
-// An event with room for ten, of whom six are already counted, and a guest coming alone who has
-// not replied before. Approval and personal invites change nothing yet (ticket 07 makes them real).
+// An event with room for ten, of whom six are already counted, that does not ask for approval, and
+// a guest coming alone, through the event link, who has not replied before.
 const base: AdmissionInput = { approvalRequired: false, capacity: 10, headcount: 6, invited: false, wanted: "going", party: 1 };
 const going = { status: "going", approval: "approved", party: 2 } as const;
 const waitlisted = { status: "waitlisted", approval: "approved", party: 2 } as const;
 const maybe = { status: "maybe", approval: "approved", party: 2 } as const;
 const cant = { status: "cant", approval: "approved", party: 1 } as const;
+// Replies the host has not let onto the list: one waiting for them, and one they declined.
+const pendingGoing = { status: "going", approval: "pending", party: 2 } as const;
+const pendingMaybe = { status: "maybe", approval: "pending", party: 2 } as const;
+const declinedGoing = { status: "going", approval: "declined", party: 2 } as const;
+const declinedCant = { status: "cant", approval: "declined", party: 1 } as const;
 
 describe("admit", () => {
   const cases: [string, Partial<AdmissionInput>, ReturnType<typeof admit>][] = [
@@ -43,9 +48,39 @@ describe("admit", () => {
     // A waitlisted guest asking for Going again waits: promotion decides, in order.
     ["Going from the waitlist, with room", { headcount: 0, current: waitlisted }, { status: "waitlisted", approval: "approved" }],
     ["Going from the waitlist, at capacity", { headcount: 10, current: waitlisted }, { status: "waitlisted", approval: "approved" }],
-    // Approval and invites are taken and change nothing yet.
-    ["Going, approval on", { approvalRequired: true }, { status: "going", approval: "approved" }],
+    // With approval on, a new reply waits for the host with the status it asked for, whatever the
+    // capacity: it takes no place and waits for none until the host approves it.
+    ["Going, approval on", { approvalRequired: true }, { status: "going", approval: "pending" }],
+    ["Going, approval on, at capacity", { approvalRequired: true, headcount: 10, party: 3 }, { status: "going", approval: "pending" }],
+    ["Going, approval on, no capacity", { approvalRequired: true, capacity: null }, { status: "going", approval: "pending" }],
+    ["Maybe, approval on", { approvalRequired: true, wanted: "maybe" }, { status: "maybe", approval: "pending" }],
+    ["Can't go, approval on", { approvalRequired: true, wanted: "cant" }, { status: "cant", approval: "pending" }],
+    // A reply through a personal invite, which the host issued, is approved, and capacity applies
+    // to it as to any reply.
+    ["Going, invited, approval on", { approvalRequired: true, invited: true }, { status: "going", approval: "approved" }],
+    ["Going, invited, approval on, at capacity", { approvalRequired: true, invited: true, headcount: 10 }, { status: "waitlisted", approval: "approved" }],
+    ["Maybe, invited, approval on", { approvalRequired: true, invited: true, wanted: "maybe" }, { status: "maybe", approval: "approved" }],
     ["Going, invited, at capacity", { invited: true, headcount: 10 }, { status: "waitlisted", approval: "approved" }],
+    // A pending reply stays pending when the guest changes it, as they ask, however the setting
+    // stands now and however full the event is: it holds no place, so bringing more is not refused.
+    ["Going, again, pending", { approvalRequired: true, party: 2, current: pendingGoing }, { status: "going", approval: "pending" }],
+    ["Going, again, pending, raised past capacity", { approvalRequired: true, party: 5, current: pendingGoing }, { status: "going", approval: "pending" }],
+    ["Going, again, pending, at capacity", { approvalRequired: true, headcount: 10, current: pendingGoing }, { status: "going", approval: "pending" }],
+    ["Going from Maybe, pending, at capacity", { approvalRequired: true, headcount: 10, current: pendingMaybe }, { status: "going", approval: "pending" }],
+    ["Maybe from Going, pending", { approvalRequired: true, wanted: "maybe", current: pendingGoing }, { status: "maybe", approval: "pending" }],
+    ["Going, again, pending, approval off", { party: 5, current: pendingGoing }, { status: "going", approval: "pending" }],
+    // A declined reply stays declined, as the guest changes it; only the host approves it.
+    ["Going, again, declined", { approvalRequired: true, party: 2, current: declinedGoing }, { status: "going", approval: "declined" }],
+    ["Going, again, declined, raised past capacity", { approvalRequired: true, party: 5, current: declinedGoing }, { status: "going", approval: "declined" }],
+    ["Going from Can't go, declined, at capacity", { approvalRequired: true, headcount: 10, current: declinedCant }, { status: "going", approval: "declined" }],
+    ["Can't go, declined", { approvalRequired: true, wanted: "cant", current: declinedGoing }, { status: "cant", approval: "declined" }],
+    ["Going, again, declined, approval off", { current: declinedGoing }, { status: "going", approval: "declined" }],
+    // An approved reply is admitted as without approval: turning approval on changes no reply.
+    ["Going, again, approved, approval on", { approvalRequired: true, party: 2, current: going }, { status: "going", approval: "approved" }],
+    ["Going, again, approved, approval on, raised past capacity", { approvalRequired: true, party: 5, current: going }, { refused: "capacityFull", placesLeft: 4 }],
+    ["Going from Maybe, approved, approval on, too many", { approvalRequired: true, party: 5, current: maybe }, { status: "waitlisted", approval: "approved" }],
+    ["Going from the waitlist, approval on", { approvalRequired: true, headcount: 0, current: waitlisted }, { status: "waitlisted", approval: "approved" }],
+    ["Can't go, approved, approval on", { approvalRequired: true, wanted: "cant", current: going }, { status: "cant", approval: "approved" }],
   ];
 
   it.each(cases)("%s", (_, given, admitted) => {

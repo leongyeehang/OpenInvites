@@ -1,5 +1,6 @@
 import type { AnswerFields } from "@/questions/answers";
 import type { Question } from "@/questions/question";
+import type { Approval } from "@/rsvps/admission";
 import type { RsvpSettings, RsvpStatus } from "@/rsvps/form";
 
 // The Thread layout's script (spec, "Thread"): the conversation the invitation holds with the
@@ -12,10 +13,12 @@ import type { RsvpSettings, RsvpStatus } from "@/rsvps/form";
 export type ThreadStep = "idle" | "name" | "plusones" | "questions" | "code" | "done";
 
 // What the guest has said: the answer they are giving, or the one they saved. A Going reply saved
-// on the waitlist carries the guest's place in it (rsvps/admission.ts).
+// on the waitlist carries the guest's place in it (rsvps/admission.ts); a saved reply the host has
+// not let onto the list carries where it stands, waiting for their approval or declined.
 export type ThreadReply = {
   status: RsvpStatus;
   waitlisted?: number;
+  approval?: Exclude<Approval, "approved">;
   name: string;
   email: string;
   phone: string;
@@ -63,7 +66,9 @@ export type ThreadLine =
   | "askCode"
   | "skipped"
   | `done.${RsvpStatus}`
-  | "done.waitlisted";
+  | "done.waitlisted"
+  | "done.pending"
+  | "done.declined";
 
 // What a bubble says: a line of the script; the same words as the other layouts' controls (yes,
 // no, just me); something written by the guest or by the host (a name, a prompt, an option); or
@@ -195,8 +200,10 @@ function answered(question: Question, values: string[]): Said {
 
 // The conversation so far, for where the guest is: the host's ask; once they have chosen, what
 // they chose, then each turn they have answered and the one they are on; once their RSVP is saved,
-// the done bubble, which tells a guest put on the waitlist their place in it. An event that takes
-// no replies says so in place of the ask, and after a conversation saved before it closed.
+// the done bubble, which tells a guest put on the waitlist their place in it, a guest waiting for
+// the host's approval that it will be asked for, and a guest the host declined that they were. An
+// event that takes no replies says so in place of the ask, and after a conversation saved before
+// it closed.
 export function threadMessages({ step, at, reply }: ThreadState, event: ThreadEvent): Bubble[] {
   const closed: Said | undefined = event.closed && { line: event.closed };
   if (step === "idle") return [{ key: "ask", from: "host", said: closed ?? { line: "ask" } }];
@@ -219,9 +226,13 @@ export function threadMessages({ step, at, reply }: ThreadState, event: ThreadEv
 
   const firstName = firstNameOf(reply.name);
   const done: Said =
-    reply.waitlisted === undefined
-      ? { line: `done.${reply.status}`, values: { firstName } }
-      : { line: "done.waitlisted", values: { firstName, position: reply.waitlisted } };
+    reply.approval === "declined"
+      ? { line: "done.declined" }
+      : reply.approval === "pending"
+        ? { line: "done.pending", values: { firstName } }
+        : reply.waitlisted === undefined
+          ? { line: `done.${reply.status}`, values: { firstName } }
+          : { line: "done.waitlisted", values: { firstName, position: reply.waitlisted } };
   bubbles.push({ key: "done", from: "host", said: done, done: true });
   if (closed) bubbles.push({ key: "closed", from: "host", said: closed });
   return bubbles;

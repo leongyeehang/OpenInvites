@@ -225,6 +225,13 @@
       "when": 1791558134089,
       "tag": "0031_capacity_and_waitlist",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791782180481,
+      "tag": "0032_approval",
+      "breakpoints": true
     }
   ]
 }

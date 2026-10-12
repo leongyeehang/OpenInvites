@@ -51,6 +51,7 @@ function fields(formData: FormData) {
     plusOnesAllowed: text("plusOnesAllowed"),
     requirePlusOneNames: formData.get("requirePlusOneNames") === "on",
     capacity: text("capacity"),
+    approvalRequired: formData.get("approvalRequired") === "on",
     emailField: text("emailField"),
     phoneField: text("phoneField"),
     verifyEmail: formData.get("verifyEmail") === "on",
@@ -116,7 +117,8 @@ export async function updateEventAction(id: string, _: FormState, formData: Form
 
   const saved = await updateEvent(host.id, id, { ...parsed.input, locale: await getLocale() });
   if (!saved) return { error: t("errors.notFound") };
-  // A capacity raised or removed may have promoted guests from the waitlist, whose email goes now.
+  // A capacity raised or removed may have promoted guests from the waitlist, and approval turned off
+  // approved the guests waiting for it, whose email goes now.
   if (saved.mailed) after(kickMailWorker);
   await saveQuestions(saved.updated.id, questions.questions);
   // The heading and link card on the manage page show the event too.

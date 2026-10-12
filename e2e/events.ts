@@ -18,6 +18,8 @@ export type DraftFields = {
   requirePlusOneNames?: boolean;
   // The Guests group's Capacity; no limit when left out.
   capacity?: string;
+  // The Guests group's "Approve each guest before they’re on the list"; off when left out.
+  approval?: boolean;
   // Email "Optional", which is what asking for one meant before it could be required.
   askEmail?: boolean;
   // The Contact details choices; Don't ask when left out.
@@ -32,6 +34,9 @@ export type DraftFields = {
   rsvpStyle?: "Inline" | "Sheet";
   layout?: "Broadsheet" | "Thread";
 };
+
+// The event form's approval setting, in its Guests group.
+export const APPROVAL = "Approve each guest before they’re on the list";
 
 // Fills the questions editor, which is a list the host builds before saving the event.
 export async function addQuestions(page: Page, questions: QuestionFields[]) {
@@ -57,6 +62,7 @@ export async function createDraft(page: Page, fields: DraftFields) {
   if (fields.plusOnes) await page.getByLabel("Plus-ones per guest").selectOption(fields.plusOnes);
   if (fields.requirePlusOneNames) await page.getByLabel("Ask for each plus-one’s name").check();
   if (fields.capacity) await page.getByRole("group", { name: "Guests", exact: true }).getByLabel("Capacity").fill(fields.capacity);
+  if (fields.approval) await page.getByRole("group", { name: "Guests", exact: true }).getByLabel(APPROVAL).check();
   const contact = page.getByRole("group", { name: "Contact details" });
   const email = fields.email ?? (fields.askEmail ? "optional" : undefined);
   if (email) await contact.getByLabel("Email", { exact: true }).selectOption(email);

@@ -1,6 +1,7 @@
 import { Lock, Users } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { cn } from "@/lib/utils";
+import type { Approval } from "@/rsvps/admission";
 import type { RsvpCounts } from "@/rsvps/counts";
 import type { PublicGuest } from "@/rsvps/repository";
 import type { GuestListView } from "@/rsvps/visibility";
@@ -8,15 +9,18 @@ import { initialsOf, SectionLabel } from "@/themes/poster-layout";
 
 // The guest list as a guest sees it: a pile of who is coming, the headcount, then everyone as a
 // chip. When the host has made it a reward for answering, the pile is there but blurred and
-// empty of names, so nothing is given away to anyone who opens the page source.
+// empty of names, so nothing is given away to anyone who opens the page source; a guest whose
+// reply the host has not approved (`approval`) is told why it stays locked for them.
 export async function GuestList({
   view,
   guests,
   counts,
+  approval,
 }: {
   view: GuestListView;
   guests: PublicGuest[];
   counts: RsvpCounts;
+  approval?: Approval;
 }) {
   const t = await getTranslations("EventPage");
 
@@ -32,7 +36,8 @@ export async function GuestList({
           ))}
         </div>
         <p className="mt-3 inline-flex items-center gap-1.5 text-sm text-theme-text-faint">
-          <Lock className="size-3.5" aria-hidden /> {t("locked")}
+          <Lock className="size-3.5" aria-hidden />{" "}
+          {approval === "pending" ? t("lockedPending") : approval === "declined" ? t("lockedDeclined") : t("locked")}
         </p>
       </>
     );

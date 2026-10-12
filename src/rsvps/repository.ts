@@ -7,10 +7,11 @@ import type { Locale } from "@/locale/resolve-locale";
 import { isMailConfigured } from "@/mail/config";
 import { guestMails } from "@/mail/guest-mail";
 import { queueMail } from "@/mail/outbox";
-import { admit, hostStatus, waitlistedSince } from "./admission";
+import { admit, hostStatus, waitlistedSince, type Approval } from "./admission";
+import { approvalMail } from "./approval-mail";
 import { recipients } from "./audience";
 import { countRsvps, type RsvpCounts, type StatusTally } from "./counts";
-import type { RsvpInput, RsvpStatus, SavedStatus } from "./form";
+import { chosenStatus, type RsvpInput, type RsvpStatus, type SavedStatus } from "./form";
 import { repliesAtLimit } from "./limit";
 import { planHostEdit, planRsvp } from "./plan";
 import { promotionMail } from "./promotion-mail";
@@ -67,22 +68,24 @@ async function lockRsvp(tx: Db, eventId: string, id: string): Promise<Rsvp | und
   return locked;
 }
 
-// The people expected (CONTEXT.md, "Headcount"): the Going guests and their plus-ones, without the
-// one RSVP being written when it is named, as admission counts it.
+// The people expected (CONTEXT.md, "Headcount"): the Going guests the host has approved and their
+// plus-ones, without the one RSVP being written when it is named, as admission counts it. A Going
+// reply waiting for the host's approval, or declined by them, takes no place (spec, "Approval").
 export async function countHeadcount(eventId: string, db: Db = getDb(), without?: string): Promise<number> {
   const [row] = await db
     .select({ headcount: sql<number>`coalesce(sum(1 + ${rsvp.plusOnes}), 0)::int` })
     .from(rsvp)
-    .where(and(eq(rsvp.eventId, eventId), eq(rsvp.status, "going"), without ? ne(rsvp.id, without) : undefined));
+    .where(and(eq(rsvp.eventId, eventId), eq(rsvp.status, "going"), eq(rsvp.approval, "approved"), without ? ne(rsvp.id, without) : undefined));
   return row.headcount;
 }
 
 // The waitlist in its order, the order its RSVPs joined it, which is the order they are promoted in.
+// Only an approved reply is ever on it (admission.ts).
 async function listWaitlist(eventId: string, db: Db): Promise<{ id: string; plusOnes: number }[]> {
   return db
     .select({ id: rsvp.id, plusOnes: rsvp.plusOnes })
     .from(rsvp)
-    .where(and(eq(rsvp.eventId, eventId), eq(rsvp.status, "waitlisted")))
+    .where(and(eq(rsvp.eventId, eventId), eq(rsvp.status, "waitlisted"), eq(rsvp.approval, "approved")))
     .orderBy(asc(rsvp.waitlistedAt), asc(rsvp.repliedAt), asc(rsvp.id));
 }
 
@@ -146,11 +149,12 @@ export type SaveOutcome =
 
 // Saves one answer, in the language the guest gave it in, through the one transaction above. A
 // guest who already has an RSVP here changes it and keeps their edit token; anyone else gets a new
-// RSVP with a fresh one, if the event has room for another reply. The first save with an email
-// makes the RSVP's mail token, and every later save keeps it, even one that blanks the email, so
-// the stop link in an old email still finds its page (spec, "Guest mail"). An email or phone
-// number the host does not ask for is undefined in the input, and left as stored. `proven` says
-// the guest has just entered the code sent to the email they gave (plan.ts).
+// RSVP with a fresh one, if the event has room for another reply, waiting for the host's approval
+// when the event asks for it. The first save with an email makes the RSVP's mail token, and every
+// later save keeps it, even one that blanks the email, so the stop link in an old email still
+// finds its page (spec, "Guest mail"). An email or phone number the host does not ask for is
+// undefined in the input, and left as stored. `proven` says the guest has just entered the code
+// sent to the email they gave (plan.ts).
 export async function saveRsvp(eventId: string, input: RsvpInput & { locale: Locale }, mine: MyRsvp | undefined, proven = false): Promise<SaveOutcome> {
   const now = new Date();
   return getDb().transaction(async (tx) => {
@@ -160,15 +164,17 @@ export async function saveRsvp(eventId: string, input: RsvpInput & { locale: Loc
     if (!current && (await repliesAtLimit(eventId, tx))) return { refused: "limitReached" };
 
     const admitted = admit({
-      approvalRequired: false,
+      approvalRequired: locked.approvalRequired,
       capacity: locked.capacity,
       headcount: await countHeadcount(eventId, tx, current?.id),
       invited: false,
       wanted: input.status,
       party: partyOf(input),
-      current: current && { status: current.status, approval: "approved", party: partyOf(current) },
+      current: current && { status: current.status, approval: current.approval, party: partyOf(current) },
     });
     if ("refused" in admitted) return admitted;
+    // A guest's save gives a new RSVP its approval and never changes an existing one's, which
+    // admission keeps as it is: only a host approves or declines (approveRsvp, declineRsvp).
     const placed = { status: admitted.status, waitlistedAt: waitlistedSince(admitted.status, current, now) };
 
     const plan = planRsvp(eventId, input, current && mine && { id: current.id, token: mine.token, email: current.email }, now, proven);
@@ -188,6 +194,7 @@ export async function saveRsvp(eventId: string, input: RsvpInput & { locale: Loc
         .values({
           ...plan.rsvp,
           ...placed,
+          approval: admitted.approval,
           locale: input.locale,
           editTokenHash: hashEditToken(token),
           mailToken: input.email ? generateMailToken() : null,
@@ -215,6 +222,8 @@ export type HostGuest = {
   id: string;
   name: string;
   status: SavedStatus;
+  // Whether the host has let the reply onto the list, which decides its section.
+  approval: Approval;
   plusOnes: number;
   plusOneNames: string[];
   email: string | null;
@@ -233,6 +242,7 @@ export async function listGuestList(eventId: string): Promise<HostGuest[]> {
       id: rsvp.id,
       name: rsvp.name,
       status: rsvp.status,
+      approval: rsvp.approval,
       plusOnes: rsvp.plusOnes,
       plusOneNames: rsvp.plusOneNames,
       email: rsvp.email,
@@ -251,14 +261,15 @@ export async function listGuestList(eventId: string): Promise<HostGuest[]> {
 // And as a guest reads it (spec, "RSVP flow"): names, statuses, and how many each is bringing.
 // The email and the edit token are never loaded, so they cannot leak into the page even blurred.
 // Nobody on the waitlist is listed, nor counted in what the page shows (spec, "Capacity and the
-// waitlist"), so every status here is one of the three a guest chooses.
-export type PublicGuest = { id: string; name: string; status: RsvpStatus; plusOnes: number };
+// waitlist"), so every status here is one of the three a guest chooses; nor is a reply waiting for
+// the host's approval or declined by them (spec, "Approval"), so every one here is approved.
+export type PublicGuest = { id: string; name: string; status: RsvpStatus; approval: Approval; plusOnes: number };
 
 export async function listPublicGuestList(eventId: string): Promise<PublicGuest[]> {
   const rows = await getDb()
-    .select({ id: rsvp.id, name: rsvp.name, status: rsvp.status, plusOnes: rsvp.plusOnes })
+    .select({ id: rsvp.id, name: rsvp.name, status: rsvp.status, approval: rsvp.approval, plusOnes: rsvp.plusOnes })
     .from(rsvp)
-    .where(and(eq(rsvp.eventId, eventId), ne(rsvp.status, "waitlisted")))
+    .where(and(eq(rsvp.eventId, eventId), ne(rsvp.status, "waitlisted"), eq(rsvp.approval, "approved")))
     .orderBy(asc(rsvp.repliedAt));
   return rows as PublicGuest[];
 }
@@ -275,7 +286,8 @@ export type HostChange = { previous: Rsvp; current: Rsvp; mailed: boolean };
 // write), nor a proven mark on an email the host changed. An email the host gives gets the RSVP
 // its mail token, as a guest's does in saveRsvp, so every email to it can end with its stop link.
 // The status is the host's choice, never refused by capacity (hostStatus); a place it frees goes
-// to the waitlist.
+// to the waitlist. It never changes the approval: the host approves or declines with their own
+// buttons (approveRsvp, declineRsvp).
 export async function editRsvpAsHost(eventId: string, id: string, edit: RsvpInput): Promise<HostChange | undefined> {
   const now = new Date();
   return getDb().transaction(async (tx) => {
@@ -317,6 +329,92 @@ export async function moveToGoing(eventId: string, id: string): Promise<HostChan
   });
 }
 
+// The host's Approve on a reply waiting for their approval, or on one they declined (spec,
+// "Approval"), through the one transaction: the guest is on the list. Nothing for an RSVP already
+// approved.
+export async function approveRsvp(eventId: string, id: string): Promise<HostChange | undefined> {
+  const now = new Date();
+  return getDb().transaction(async (tx) => {
+    const locked = await lockEvent(tx, eventId);
+    const previous = locked && (await lockRsvp(tx, eventId, id));
+    if (!locked || !previous || previous.approval === "approved") return undefined;
+    const { current, mailed } = await approveLocked(locked, previous, tx, now);
+    return { previous, current, mailed };
+  });
+}
+
+// Approves every reply still waiting for the host's approval, in the order they arrived, inside
+// the caller's transaction and under its lock on the event: what turning approval off does (spec,
+// "Approval"; events/repository.ts, updateEvent). Each goes through the path a host's Approve
+// takes, so the capacity takes them in that order, and each guest who gave an email is told.
+// Whether any email was queued.
+export async function approvePending(locked: LockedEvent, tx: Db, now: Date): Promise<boolean> {
+  const pending = await tx
+    .select()
+    .from(rsvp)
+    .where(and(eq(rsvp.eventId, locked.id), eq(rsvp.approval, "pending")))
+    .orderBy(asc(rsvp.repliedAt), asc(rsvp.id))
+    .for("update");
+  let mailed = false;
+  for (const held of pending) {
+    if ((await approveLocked(locked, held, tx, now)).mailed) mailed = true;
+  }
+  return mailed;
+}
+
+// Approving one reply, under the caller's locks on the event and on the reply: it is admitted as a
+// new reply to an event without approval would be (a pending or declined reply holds no place), so
+// a Going reply is Going when its party fits and waits on the waitlist otherwise; then whoever the
+// waitlist has room for is promoted, as after any write. The guest who gave an email is queued one
+// email while the event takes replies: "You're in", or their place on the waitlist (approval-mail.ts).
+// On a cancelled event the approval stands, but no email says "You're in" after the notice that
+// the event is off.
+async function approveLocked(locked: LockedEvent, held: Rsvp, tx: Db, now: Date): Promise<{ current: Rsvp; mailed: boolean }> {
+  const admitted = admit({
+    approvalRequired: false,
+    capacity: locked.capacity,
+    headcount: await countHeadcount(locked.id, tx, held.id),
+    invited: false,
+    wanted: chosenStatus(held.status),
+    party: partyOf(held),
+  });
+  // Admission refuses only a Going guest raising their party, and this reply holds no place yet.
+  if ("refused" in admitted) throw new Error(`Approving RSVP ${held.id} was refused by the capacity`);
+  const [approved] = await tx
+    .update(rsvp)
+    .set({ approval: "approved", status: admitted.status, waitlistedAt: waitlistedSince(admitted.status, undefined, now), updatedAt: now })
+    .where(eq(rsvp.id, held.id))
+    .returning();
+  const promotion = await promoteWaitlist(locked, tx, now);
+  const current = promotion.promoted.find((each) => each.id === approved.id) ?? approved;
+  const told = acceptsRsvps(locked.state) && (await queueApprovalMail(locked, current, tx));
+  return { current, mailed: promotion.mailed || told };
+}
+
+// The email that tells a guest the host approved them, queued with the write that approved them.
+// Whether it was queued.
+async function queueApprovalMail(locked: LockedEvent, approved: Rsvp, tx: Db): Promise<boolean> {
+  const guests = isMailConfigured() ? recipients([approved], [approved.status]) : [];
+  if (guests.length === 0) return false;
+  const position = await findWaitlistPosition(approved, tx);
+  await queueMail(await guestMails(locked, guests, (guest, t) => approvalMail(locked, guest, position, t)), tx);
+  return true;
+}
+
+// The host's Decline on a reply waiting for their approval (spec, "Approval"), through the one
+// transaction. It held no place, so nobody is promoted, and nobody is emailed (decided there): the
+// guest's page says so when they return. Nothing for an RSVP not waiting for approval.
+export async function declineRsvp(eventId: string, id: string): Promise<HostChange | undefined> {
+  const now = new Date();
+  return getDb().transaction(async (tx) => {
+    const locked = await lockEvent(tx, eventId);
+    const previous = locked && (await lockRsvp(tx, eventId, id));
+    if (!locked || previous?.approval !== "pending") return undefined;
+    const [current] = await tx.update(rsvp).set({ approval: "declined", updatedAt: now }).where(eq(rsvp.id, id)).returning();
+    return { previous, current, mailed: false };
+  });
+}
+
 // Scoped to the event, so neither a stale cookie nor another host's page can reach an RSVP. Through
 // the one transaction, so the place a Going guest leaves goes to the waitlist. Returns the RSVP
 // that went, if there was one, and whether a promotion queued an email.
@@ -336,13 +434,14 @@ export async function deleteRsvp(eventId: string, id: string): Promise<{ removed
 }
 
 // The RSVPs of one event as mail to its guests needs them, in the order they replied: who is told
-// is decided by the caller (audience.ts), the mail is written in each guest's language, and a
-// reminder repeats their reply. The reminders read them inside their own transaction.
-export type MailableRsvp = Pick<Rsvp, "status" | "plusOnes" | "email" | "mailToken" | "locale">;
+// is decided by the caller (audience.ts), from the status and the approval, the mail is written in
+// each guest's language, and a reminder repeats their reply. The reminders read them inside their
+// own transaction.
+export type MailableRsvp = Pick<Rsvp, "status" | "approval" | "plusOnes" | "email" | "mailToken" | "locale">;
 
 export async function listMailableRsvps(eventId: string, db: Db = getDb()): Promise<MailableRsvp[]> {
   return db
-    .select({ status: rsvp.status, plusOnes: rsvp.plusOnes, email: rsvp.email, mailToken: rsvp.mailToken, locale: rsvp.locale })
+    .select({ status: rsvp.status, approval: rsvp.approval, plusOnes: rsvp.plusOnes, email: rsvp.email, mailToken: rsvp.mailToken, locale: rsvp.locale })
     .from(rsvp)
     .where(eq(rsvp.eventId, eventId))
     .orderBy(asc(rsvp.repliedAt));
@@ -383,12 +482,13 @@ export async function countRsvpsByEvent(eventIds: string[]): Promise<Map<string,
     .select({
       eventId: rsvp.eventId,
       status: rsvp.status,
+      approval: rsvp.approval,
       rsvps: sql<number>`count(*)::int`,
       plusOnes: sql<number>`coalesce(sum(${rsvp.plusOnes}), 0)::int`,
     })
     .from(rsvp)
     .where(inArray(rsvp.eventId, eventIds))
-    .groupBy(rsvp.eventId, rsvp.status);
+    .groupBy(rsvp.eventId, rsvp.status, rsvp.approval);
 
   const tallies = new Map<string, StatusTally[]>();
   for (const { eventId, ...tally } of rows) {

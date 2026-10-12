@@ -126,6 +126,7 @@
       "emptyPast": "Nothing has happened yet.",
       "counts": "{going} going · {maybe} maybe · {declined} can’t go",
       "waitlisted": "{count} on the waitlist",
+      "pending": "{count} waiting for approval",
       "headcount": "{count, plural, =0 {no one expected yet} =1 {1 person expected} other {# people expected}}",
       "headcountOf": "{count} of {capacity} people expected",
       "coHost": "Co-host",
@@ -259,13 +260,15 @@
         "replied": "{name} replied to {title}: {status}",
         "changed": "{name}’s RSVP to {title} is now {status}",
         "removed": "{name}’s RSVP to {title} was removed",
-        "waitlisted": "{name} is on the waitlist for {title} (party of {party})"
+        "waitlisted": "{name} is on the waitlist for {title} (party of {party})",
+        "pending": "{name} replied to {title} and is waiting for your approval"
       },
       "body": {
         "replied": "{name} replied to {title}: {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest replies” in the event’s settings. That stops them for every host of the event.",
         "changed": "{name}’s RSVP to {title} is now {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest replies” in the event’s settings. That stops them for every host of the event.",
         "removed": "{name}’s RSVP to {title} was removed. It said {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest replies” in the event’s settings. That stops them for every host of the event.",
-        "waitlisted": "{name} is on the waitlist for {title} (party of {party}).\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest replies” in the event’s settings. That stops them for every host of the event."
+        "waitlisted": "{name} is on the waitlist for {title} (party of {party}).\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest replies” in the event’s settings. That stops them for every host of the event.",
+        "pending": "{name} replied to {title}: {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}, and is waiting for your approval.\n\nApprove or decline the reply on your guest list:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest replies” in the event’s settings. That stops them for every host of the event."
       },
       "status": {
         "going": "Going",
@@ -296,6 +299,14 @@
     "promoted": {
       "subject": "A place opened up: you’re going to {title}",
       "body": "A place opened up: you’re going to {title}.\n\nWhen: {when}{located, select, yes {\nWhere: {location}} other {}}\n\nThe event page:\n{url}"
+    },
+    "approved": {
+      "subject": "You’re in: {title}",
+      "body": "You’re in: the host approved your reply to {title}.\n\nYou said {status, select, going {Going} maybe {Maybe} other {Can’t go}}{plusOnes, plural, =0 {} one {, with # plus-one} other {, with # plus-ones}}.\n\nThe event page:\n{url}"
+    },
+    "approvedWaitlisted": {
+      "subject": "You’re on the waitlist for {title}",
+      "body": "The host approved your reply to {title}, but the event is full, so you’re number {position} on the waitlist. If a place opens up, you’ll get an email.\n\nYou said Going{plusOnes, plural, =0 {} one {, with # plus-one} other {, with # plus-ones}}.\n\nThe event page:\n{url}"
     },
     "guestFooter": "You’re getting this because your email is on your reply to {title}. To stop emails about this event: {url}",
     "magicLink": {
@@ -349,7 +360,9 @@
       "guests": {
         "title": "Guests",
         "capacity": "Capacity",
-        "capacityHint": "Counts guests who say Going and their plus-ones, as the headcount does. Maybe doesn’t count. Leave empty for no limit. This instance takes up to {max, number} replies per event."
+        "capacityHint": "Counts guests who say Going and their plus-ones, as the headcount does. Maybe doesn’t count. Leave empty for no limit. This instance takes up to {max, number} replies per event.",
+        "approval": "Approve each guest before they’re on the list",
+        "approvalHint": "Guests see the invitation while they wait, but not who’s coming or the comments."
       },
       "contact": {
         "title": "Contact details",
@@ -502,6 +515,8 @@
       "title": "Comments",
       "count": "{count, plural, =0 {No comments yet} =1 {1 comment} other {# comments}}",
       "locked": "Reply to join the conversation",
+      "lockedPending": "Once the host approves your reply you can join the conversation.",
+      "lockedDeclined": "The host wasn’t able to accept your reply.",
       "host": "Host",
       "label": "Add a comment",
       "post": "Post",
@@ -563,6 +578,8 @@
         "maybe": "Noted as a maybe, {firstName}. Come back here when you know.",
         "cant": "Sorry to miss you, {firstName}. If plans change, just reply again.",
         "waitlisted": "The party’s full right now, {firstName}, but you’re number {position} on the waitlist. I’ll let you know if a place opens up.",
+        "pending": "Thanks, {firstName}! I’ll check with the host and let you know.",
+        "declined": "The host wasn’t able to accept your reply.",
         "link": "Here’s your private link to change anything later. It’s saved in this browser too."
       },
       "copyLink": "Copy edit link",
@@ -576,6 +593,8 @@
     "headcount": "{count, plural, =0 {No one yet} =1 {1 person expected} other {# people expected}}",
     "alsoMaybe": "{count, plural, =1 {1 maybe} other {# maybes}}",
     "locked": "RSVP to see who’s coming",
+    "lockedPending": "Once the host approves your reply you’ll see who’s coming.",
+    "lockedDeclined": "The host wasn’t able to accept your reply.",
     "nobodyYet": "Nobody has replied yet. Be the first.",
     "status": {
       "going": "Going",
@@ -754,12 +773,15 @@
     "headcountOf": "{count} of {capacity} people expected",
     "counts": "{going} going · {maybe} maybe · {declined} can’t go",
     "waitlistedCount": "{count} on the waitlist",
+    "pendingCount": "{count} waiting for approval",
     "empty": "Nobody has replied yet. Share the event link and your guests will appear here.",
     "group": {
+      "pending": "Waiting for approval",
       "going": "Going",
       "waitlisted": "Waitlist",
       "maybe": "Maybe",
-      "cant": "Can’t go"
+      "cant": "Can’t go",
+      "declined": "Declined"
     },
     "nobody": "Nobody.",
     "bringing": "Bringing {names}.",
@@ -773,6 +795,8 @@
     "edit": "Edit",
     "close": "Close",
     "moveToGoing": "Move to Going",
+    "approve": "Approve",
+    "decline": "Decline",
     "status": "Status",
     "plusOnesLabel": "Plus-ones",
     "nameLabel": "Name",
@@ -899,7 +923,9 @@
       "going": "You’re going!",
       "maybe": "You’re a maybe.",
       "cant": "We’ll miss you.",
-      "waitlisted": "You’re on the waitlist, number {position}."
+      "waitlisted": "You’re on the waitlist, number {position}.",
+      "pending": "Your reply is waiting for the host’s approval.",
+      "declined": "The host wasn’t able to accept your reply."
     },
     "summary": {
       "coming": "{count, plural, =0 {{name}, just you.} =1 {{name}, plus one more.} other {{name}, plus # more.}}",

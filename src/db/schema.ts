@@ -5,6 +5,7 @@ import { DEFAULT_LIMITS } from "../instance/limits";
 import { defaultLocale, type Locale } from "../locale/resolve-locale";
 import { QUESTION_TYPES } from "../questions/question";
 import { EMPTY_RICH_TEXT, type RichText } from "../rich-text/rich-text";
+import { APPROVALS } from "../rsvps/admission";
 import { CONTACT_FIELDS, SAVED_STATUSES } from "../rsvps/form";
 import { DEFAULT_GUEST_LIST_VISIBILITY, GUEST_LIST_VISIBILITIES } from "../rsvps/visibility";
 import type { Theme } from "../themes/theme";
@@ -154,6 +155,9 @@ export const event = pgTable(
     // How many people may be Going, counted as the headcount is; none when null. Going replies
     // that do not fit wait on the waitlist (spec, "Capacity and the waitlist").
     capacity: integer("capacity"),
+    // Whether each new reply waits for a host to approve it before the guest is on the list (spec,
+    // "Approval"). Turning it off approves every reply still waiting (rsvps/repository.ts).
+    approvalRequired: boolean("approval_required").notNull().default(false),
     // Whether guests are asked for an email and a phone number: not at all, optionally, or as a
     // must (spec, "Contact details"). Events from before 0.4 that asked for an email ask for it
     // optionally, which is what asking meant then (migration 0027).
@@ -233,6 +237,8 @@ export const coHostLink = pgTable(
 
 export const rsvpStatus = pgEnum("rsvp_status", SAVED_STATUSES);
 
+export const rsvpApproval = pgEnum("rsvp_approval", APPROVALS);
+
 // One guest's answer to one event. Guests have no accounts: the edit token, stored hashed, is
 // the only thing that proves an RSVP is yours, and it reaches the guest as an edit link and as a
 // cookie on the device they answered from. Answering again replaces the RSVP the token names, so
@@ -246,6 +252,10 @@ export const rsvp = pgTable(
       .notNull()
       .references(() => event.id, { onDelete: "cascade" }),
     status: rsvpStatus("status").notNull(),
+    // Whether a host has let the reply onto the list: every reply to an event without approval is
+    // approved; one to an event with it waits, pending, until a host approves or declines it
+    // (spec, "Approval"; rsvps/admission.ts).
+    approval: rsvpApproval("approval").notNull().default("approved"),
     name: text("name").notNull(),
     plusOnes: integer("plus_ones").notNull().default(0),
     // As many entries as there are plus-ones; an entry is empty when the host does not ask for names.

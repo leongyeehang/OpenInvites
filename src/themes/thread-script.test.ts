@@ -169,6 +169,22 @@ describe("threadMessages", () => {
     expect(bubbles.filter((bubble) => bubble.done)).toHaveLength(1);
   });
 
+  it("ends a reply waiting for the host's approval with the promise to ask them, whatever it answered", () => {
+    for (const status of ["going", "maybe", "cant"] as const) {
+      const bubbles = threadMessages({ step: "done", at: 0, reply: reply({ status, approval: "pending", name: "Priya Nair" }) }, { ...PARTY, questions: [] });
+      expect(said(bubbles).at(-1)).toEqual(["host", { line: "done.pending", values: { firstName: "Priya" } }]);
+      expect(bubbles.filter((bubble) => bubble.done)).toHaveLength(1);
+    }
+  });
+
+  it("ends a reply the host declined by saying so, whatever it answered", () => {
+    for (const status of ["going", "cant"] as const) {
+      const bubbles = threadMessages({ step: "done", at: 0, reply: reply({ status, approval: "declined", name: "Priya Nair" }) }, { ...PARTY, questions: [] });
+      expect(said(bubbles).at(-1)).toEqual(["host", { line: "done.declined" }]);
+      expect(bubbles.filter((bubble) => bubble.done)).toHaveLength(1);
+    }
+  });
+
   it("asks a guest who can't go nothing but their name before the done bubble", () => {
     expect(said(threadMessages({ step: "done", at: 0, reply: reply({ status: "cant", name: "Priya" }) }, PARTY))).toEqual([
       ASK,

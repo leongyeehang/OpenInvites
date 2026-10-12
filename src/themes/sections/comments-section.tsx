@@ -22,10 +22,10 @@ import { DeleteCommentForm } from "./delete-comment-form";
 export const COMMENTS_HEADING = "comments-heading";
 
 // The comments as every layout shows them (comments/visibility.ts decides what this viewer may
-// see): to a guest who has not replied, only how many there are; to everyone else the comments,
-// shown as written, with their line breaks and spaces, and dated as everything on the page is,
-// then `form`, the box that posts one, where they may. The layout frames it and gives it its
-// heading.
+// see): to a guest who has not replied, only how many there are, as to a guest whose reply the
+// host has not approved, who is told why; to everyone else the comments, shown as written, with
+// their line breaks and spaces, and dated as everything on the page is, then `form`, the box that
+// posts one, where they may. The layout frames it and gives it its heading.
 export async function CommentsSection({
   comments,
   form,
@@ -45,7 +45,12 @@ export async function CommentsSection({
       <>
         <p className="text-lg font-medium">{t("comments.count", { count: comments.count })}</p>
         <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-theme-text-faint">
-          <Lock className="size-3.5" aria-hidden /> {t("comments.locked")}
+          <Lock className="size-3.5" aria-hidden />{" "}
+          {comments.approval === "pending"
+            ? t("comments.lockedPending")
+            : comments.approval === "declined"
+              ? t("comments.lockedDeclined")
+              : t("comments.locked")}
         </p>
       </>
     );
