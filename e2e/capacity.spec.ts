@@ -1,5 +1,5 @@
 import { createPublished, type DraftFields } from "./events";
-import { latestMailTo, linkIn, newHost } from "./hosts";
+import { latestMailTo, linkIn, mailCountTo, newHost } from "./hosts";
 import { clientAddress, expect, test, type Browser, type Page } from "./test";
 
 // Ticket 06 (M3): capacity and the waitlist. A host sets a capacity, counted as the headcount is;
@@ -30,6 +30,15 @@ async function replyGoing(page: Page, link: string, name: string, plusOnes: numb
 }
 
 const waitlisted = (page: Page, position: number) => page.getByRole("heading", { name: `You’re on the waitlist, number ${position}.` });
+
+// The host changes the capacity on the event form, from the manage page: a number, or empty for
+// no limit.
+async function setCapacity(hostPage: Page, manage: string, capacity: string) {
+  await hostPage.goto(manage);
+  await hostPage.getByRole("group", { name: "Guests", exact: true }).getByLabel("Capacity").fill(capacity);
+  await hostPage.getByRole("button", { name: "Save changes" }).click();
+  await expect(hostPage.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
+}
 
 async function closeAll(...pages: Page[]) {
   for (const page of pages) await page.context().close();
@@ -171,6 +180,151 @@ test("a large party at the front of the waitlist is not skipped for a small one,
   await expect(waitlisted(chen, 1)).toBeVisible();
 
   await closeAll(arjun, bea, chen, host.page);
+});
+
+test("the host's capacity moves the waitlist: raised, the party at the front is promoted with an email; lowered below the headcount, nobody moves; removed, everyone waiting is promoted", async ({
+  browser,
+  request,
+}) => {
+  test.slow();
+  const host = await createPublished(browser, request, "capacity-host", { ...PARTY, capacity: "2" });
+  const manage = host.page.url();
+  const [arjun, bea, chen, dev] = [await newGuest(browser), await newGuest(browser), await newGuest(browser), await newGuest(browser)];
+  const beaEmail = newHost("capacity-host-bea").email;
+  const chenEmail = newHost("capacity-host-chen").email;
+
+  // Arjun's party of two fills both places; Bea's party of two, then Chen and Dev alone, wait.
+  await replyGoing(arjun, host.link, "Arjun Rao", 1);
+  await expect(arjun.getByText("You’re going!")).toBeVisible();
+  await replyGoing(bea, host.link, "Bea Lim", 1, beaEmail);
+  await expect(waitlisted(bea, 1)).toBeVisible();
+  await replyGoing(chen, host.link, "Chen Wei", 0, chenEmail);
+  await expect(waitlisted(chen, 2)).toBeVisible();
+  await replyGoing(dev, host.link, "Dev Shah", 0);
+  await expect(waitlisted(dev, 3)).toBeVisible();
+
+  // Raised to four: the two places that open go to Bea's party, at the front, who is told; nothing
+  // is left for Chen.
+  await setCapacity(host.page, manage, "4");
+  await bea.reload();
+  await expect(bea.getByText("You’re going!")).toBeVisible();
+  const mail = await latestMailTo(request, beaEmail);
+  expect(mail).toContain("A place opened up: you’re going to Ada’s birthday.");
+  expect(new URL(linkIn(mail)).pathname).toBe(new URL(host.link).pathname);
+  await chen.reload();
+  await expect(waitlisted(chen, 1)).toBeVisible();
+
+  // Lowered to three, below the four expected: nobody is moved, and the list reads over full.
+  await setCapacity(host.page, manage, "3");
+  await host.page.goto(`${manage}/guests`);
+  await expect(host.page.getByText(/^4 of 3 people expected · 2 going · 0 maybe · 0 can’t go · 2 on the waitlist$/)).toBeVisible();
+  await expect(host.page.getByRole("region", { name: /^Waitlist/ }).getByRole("listitem")).toHaveText([/^1\.\s*Chen Wei/, /^2\.\s*Dev Shah/]);
+  await bea.reload();
+  await expect(bea.getByText("You’re going!")).toBeVisible();
+
+  // Removed: no limit, so everyone waiting is promoted, and the list has no waitlist left.
+  await setCapacity(host.page, manage, "");
+  await host.page.goto(`${manage}/guests`);
+  await expect(host.page.getByText(/^6 people expected · 4 going · 0 maybe · 0 can’t go$/)).toBeVisible();
+  await expect(host.page.getByRole("heading", { name: /^Waitlist/ })).toHaveCount(0);
+  await dev.reload();
+  await expect(dev.getByText("You’re going!")).toBeVisible();
+  expect(await latestMailTo(request, chenEmail)).toContain("A place opened up: you’re going to Ada’s birthday.");
+
+  await closeAll(arjun, bea, chen, dev, host.page);
+});
+
+test("a Going guest who can no longer come, and one the host makes a maybe, each open a place for the next guest waiting", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "capacity-change", { ...PARTY, capacity: "2" });
+  const manage = host.page.url();
+  const [arjun, bea, chen, dev] = [await newGuest(browser), await newGuest(browser), await newGuest(browser), await newGuest(browser)];
+  const chenEmail = newHost("capacity-change-chen").email;
+
+  await replyGoing(arjun, host.link, "Arjun Rao", 0);
+  await expect(arjun.getByText("You’re going!")).toBeVisible();
+  await replyGoing(bea, host.link, "Bea Lim", 0);
+  await expect(bea.getByText("You’re going!")).toBeVisible();
+  await replyGoing(chen, host.link, "Chen Wei", 0, chenEmail);
+  await expect(waitlisted(chen, 1)).toBeVisible();
+  await replyGoing(dev, host.link, "Dev Shah", 0);
+  await expect(waitlisted(dev, 2)).toBeVisible();
+
+  // Arjun can't come after all: his place goes to Chen, first in line, who is told.
+  await arjun.getByRole("button", { name: "Change my answer" }).click();
+  await arjun.getByRole("button", { name: "Can’t go" }).click();
+  await arjun.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(arjun.getByText("We’ll miss you.")).toBeVisible();
+  await chen.reload();
+  await expect(chen.getByText("You’re going!")).toBeVisible();
+  expect(await latestMailTo(request, chenEmail)).toContain("A place opened up: you’re going to Ada’s birthday.");
+  await dev.reload();
+  await expect(waitlisted(dev, 1)).toBeVisible();
+
+  // The host makes Bea a maybe from the guest list: her place goes to Dev.
+  await host.page.goto(`${manage}/guests`);
+  const going = host.page.getByRole("region", { name: /^Going/ });
+  await going.getByRole("listitem").filter({ hasText: "Bea Lim" }).getByRole("button", { name: "Edit", exact: true }).click();
+  await host.page.getByLabel("Status").selectOption("maybe");
+  await host.page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(host.page.getByRole("heading", { name: /^Maybe \(1\)/ })).toBeVisible();
+  await expect(host.page.getByText(/^2 of 2 people expected · 2 going · 1 maybe · 1 can’t go$/)).toBeVisible();
+  await expect(going.getByRole("listitem")).toHaveText([/Chen Wei/, /Dev Shah/]);
+  await expect(host.page.getByRole("heading", { name: /^Waitlist \(0\)/ })).toBeVisible();
+  await dev.reload();
+  await expect(dev.getByText("You’re going!")).toBeVisible();
+
+  await closeAll(arjun, bea, chen, dev, host.page);
+});
+
+test("a cancelled event promotes nobody: a Going guest who withdraws leaves the next guest waiting, emailed only that the event is off", async ({
+  browser,
+  request,
+}) => {
+  test.slow();
+  const host = await createPublished(browser, request, "capacity-cancel", { ...PARTY, capacity: "1" });
+  const manage = host.page.url();
+  const [arjun, bea] = [await newGuest(browser), await newGuest(browser)];
+  const beaEmail = newHost("capacity-cancel-bea").email;
+
+  await replyGoing(arjun, host.link, "Arjun Rao", 0);
+  await expect(arjun.getByText("You’re going!")).toBeVisible();
+  await replyGoing(bea, host.link, "Bea Lim", 0, beaEmail);
+  await expect(waitlisted(bea, 1)).toBeVisible();
+
+  // The host calls it off, and Bea, who was hoping to come, is told.
+  await host.page.getByRole("button", { name: "Cancel event" }).click();
+  await host.page.getByRole("button", { name: "Cancel the event" }).click();
+  await expect(host.page.getByText("Cancelled", { exact: true })).toBeVisible();
+  await expect.poll(() => mailCountTo(request, beaEmail), { timeout: 30_000, message: "the cancellation notice to Bea" }).toBe(1);
+  expect(await latestMailTo(request, beaEmail)).toContain("The host has cancelled Ada’s birthday.");
+
+  // Arjun withdraws, as a guest still may. The hosts' notice of it is queued after anything the
+  // withdrawal queues for Bea, and mail goes in the order it was queued: once it is in, Bea has
+  // still had the notice alone, and her page still has her waiting.
+  await arjun.reload();
+  await arjun.getByRole("button", { name: "Remove my RSVP" }).click();
+  await expect(arjun.getByRole("button", { name: "Going", exact: true })).toBeVisible();
+  await expect
+    .poll(() => latestMailTo(request, host.email), { timeout: 30_000, message: "the hosts told Arjun withdrew" })
+    .toContain("Arjun Rao’s RSVP to Ada’s birthday was removed.");
+  expect(await mailCountTo(request, beaEmail)).toBe(1);
+  await bea.reload();
+  await expect(bea.getByText("This event is cancelled")).toBeVisible();
+  await expect(waitlisted(bea, 1)).toBeVisible();
+  await expect(bea.getByText("You’re going!")).toHaveCount(0);
+
+  // The host may still move her to Going themselves; on an event that is off, she is not told a
+  // place opened up.
+  await host.page.goto(`${manage}/guests`);
+  await host.page.getByRole("region", { name: /^Waitlist/ }).getByRole("button", { name: "Move to Going" }).click();
+  await expect(host.page.getByRole("heading", { name: /^Going \(1\)/ })).toBeVisible();
+  await expect
+    .poll(() => latestMailTo(request, host.email), { timeout: 30_000, message: "the hosts told Bea is now Going" })
+    .toContain("Bea Lim’s RSVP to Ada’s birthday is now Going.");
+  expect(await mailCountTo(request, beaEmail)).toBe(1);
+
+  await closeAll(arjun, bea, host.page);
 });
 
 test("a Going guest who brings more people than there is room for is told how many places are left, and keeps their place", async ({

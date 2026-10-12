@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, lt, ne, sql } from "drizzle-orm";
 import { cache } from "react";
 import { getDb, type Db } from "@/db/client";
 import { emailCode, event, rsvp } from "@/db/schema";
+import { acceptsRsvps } from "@/events/access";
 import type { Locale } from "@/locale/resolve-locale";
 import { isMailConfigured } from "@/mail/config";
 import { guestMails } from "@/mail/guest-mail";
@@ -101,7 +102,11 @@ export type Promotion = { promoted: Rsvp[]; mailed: boolean };
 // (waitlist.ts). Without a capacity there is room for all. Each is set to Going, leaves the
 // waitlist and records when; each guest who gave an email is queued one email when the instance
 // has mail (promotion-mail.ts). The hosts are not told: a promotion is not the guest's doing.
+// Only an event that takes replies promotes anyone (events/access.ts): on a cancelled one a guest
+// may still withdraw, and the place they leave is no place at all, so nobody on the waitlist is
+// told "A place opened up" after the notice that the event is off.
 export async function promoteWaitlist(locked: LockedEvent, tx: Db, now: Date): Promise<Promotion> {
+  if (!acceptsRsvps(locked.state)) return { promoted: [], mailed: false };
   const waitlist = await listWaitlist(locked.id, tx);
   if (waitlist.length === 0) return { promoted: [], mailed: false };
   const space = locked.capacity === null ? Infinity : locked.capacity - (await countHeadcount(locked.id, tx));
@@ -292,7 +297,10 @@ export async function editRsvpAsHost(eventId: string, id: string, edit: RsvpInpu
 
 // The host's Move to Going on a waitlisted guest (spec, story 145): Going at once, whatever the
 // capacity, which a host's change never answers to. It is a promotion made by hand, so the guest
-// who gave an email is told as a promoted guest is. Nothing for an RSVP no longer on the waitlist.
+// who gave an email is told as a promoted guest is, while the event takes replies: on a cancelled
+// event the host's change still stands, but "A place opened up" would contradict the notice that
+// the event is off, so no email goes (promoteWaitlist). Nothing for an RSVP no longer on the
+// waitlist.
 export async function moveToGoing(eventId: string, id: string): Promise<HostChange | undefined> {
   const now = new Date();
   return getDb().transaction(async (tx) => {
@@ -304,7 +312,8 @@ export async function moveToGoing(eventId: string, id: string): Promise<HostChan
       .set({ status: "going", waitlistedAt: null, promotedAt: now, updatedAt: now })
       .where(eq(rsvp.id, id))
       .returning();
-    return { previous, current, mailed: await queuePromotionMail(locked, [current], tx) };
+    const mailed = acceptsRsvps(locked.state) && (await queuePromotionMail(locked, [current], tx));
+    return { previous, current, mailed };
   });
 }
 
