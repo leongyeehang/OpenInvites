@@ -28,3 +28,11 @@ export function addressed<T extends Addressable>(
 export function recipients<T extends Addressable>(rsvps: T[], audience: readonly SavedStatus[]): (T & { email: string; mailToken: string })[] {
   return addressed(rsvps, audience, ["approved"]);
 }
+
+// Who is told that the host approved their reply (spec, "Approval"; approval-mail.ts): a guest who
+// may come, Going, on the waitlist or Maybe, and gave an email. Approving opens the guest list and
+// the comments to them; a guest who said they can't go asked for nothing, as the cancellation
+// notice leaves them out too (ticket 07, review).
+export function approvalAudience<T extends Addressable>(rsvps: T[]): (T & { email: string; mailToken: string })[] {
+  return recipients(rsvps, ["going", "waitlisted", "maybe"]);
+}

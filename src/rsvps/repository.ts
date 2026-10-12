@@ -9,7 +9,7 @@ import { guestMails } from "@/mail/guest-mail";
 import { queueMail } from "@/mail/outbox";
 import { admit, hostStatus, waitlistedSince, type Approval } from "./admission";
 import { approvalMail } from "./approval-mail";
-import { recipients } from "./audience";
+import { approvalAudience, recipients } from "./audience";
 import { countRsvps, type RsvpCounts, type StatusTally } from "./counts";
 import { chosenStatus, type RsvpInput, type RsvpStatus, type SavedStatus } from "./form";
 import { repliesAtLimit } from "./limit";
@@ -365,8 +365,9 @@ export async function approvePending(locked: LockedEvent, tx: Db, now: Date): Pr
 // Approving one reply, under the caller's locks on the event and on the reply: it is admitted as a
 // new reply to an event without approval would be (a pending or declined reply holds no place), so
 // a Going reply is Going when its party fits and waits on the waitlist otherwise; then whoever the
-// waitlist has room for is promoted, as after any write. The guest who gave an email is queued one
-// email while the event takes replies: "You're in", or their place on the waitlist (approval-mail.ts).
+// waitlist has room for is promoted, as after any write. The guest who gave an email, and may come,
+// is queued one email while the event takes replies: "You're in", or their place on the waitlist
+// (approval-mail.ts).
 // On a cancelled event the approval stands, but no email says "You're in" after the notice that
 // the event is off.
 async function approveLocked(locked: LockedEvent, held: Rsvp, tx: Db, now: Date): Promise<{ current: Rsvp; mailed: boolean }> {
@@ -391,10 +392,10 @@ async function approveLocked(locked: LockedEvent, held: Rsvp, tx: Db, now: Date)
   return { current, mailed: promotion.mailed || told };
 }
 
-// The email that tells a guest the host approved them, queued with the write that approved them.
-// Whether it was queued.
+// The email that tells a guest the host approved them, queued with the write that approved them,
+// for a guest who may come (audience.ts, approvalAudience). Whether it was queued.
 async function queueApprovalMail(locked: LockedEvent, approved: Rsvp, tx: Db): Promise<boolean> {
-  const guests = isMailConfigured() ? recipients([approved], [approved.status]) : [];
+  const guests = isMailConfigured() ? approvalAudience([approved]) : [];
   if (guests.length === 0) return false;
   const position = await findWaitlistPosition(approved, tx);
   await queueMail(await guestMails(locked, guests, (guest, t) => approvalMail(locked, guest, position, t)), tx);

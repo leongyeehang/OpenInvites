@@ -145,13 +145,14 @@ With mail configured:
 - the hosts are emailed when someone comments on the event page, unless they turn it off for the
   event;
 - guests who gave an email are told when the host cancels the event, if they said Going or Maybe
-  or are on the waitlist, whether or not the host had approved their reply yet;
+  or are on the waitlist, whether or not the host had approved their reply yet; guests the host
+  declined are not written to;
 - the hosts can email an announcement to the guests who gave an email, chosen by their answer or
   their place on the waitlist; on an event where the hosts approve each reply, only to the guests
   they approved;
 - a guest on an event's waitlist who gave an email is told when a place opens up for them;
 - a guest who gave an email is told when the host approves their reply, and whether that put
-  them on the waitlist; a declined guest is not emailed;
+  them on the waitlist, unless they said Can't go; a declined guest is not emailed;
 - guests who gave an email are reminded of an event a week before if they said Maybe, and the day
   before if they said Going, unless the host turns reminders off for the event or has not
   approved their reply;

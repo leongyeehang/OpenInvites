@@ -261,14 +261,16 @@
         "changed": "{name} 对“{title}”的回复现在是：{status}",
         "removed": "{name} 对“{title}”的回复已移除",
         "waitlisted": "{name} 进入了“{title}”的候补名单（共 {party} 人）",
-        "pending": "{name} 回复了“{title}”，正在等待你的批准"
+        "pending": "{name} 回复了“{title}”，正在等待你的批准",
+        "pendingChanged": "{name} 对“{title}”的回复现在是：{status}，仍在等待你的批准"
       },
       "body": {
         "replied": "{name} 回复了“{title}”：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
         "changed": "{name} 对“{title}”的回复现在是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
         "removed": "{name} 对“{title}”的回复已移除。原来的回复是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
         "waitlisted": "{name} 进入了“{title}”的候补名单（共 {party} 人）。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
-        "pending": "{name} 回复了“{title}”：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}，正在等待你的批准。\n\n请在宾客名单上批准或婉拒这条回复：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
+        "pending": "{name} 回复了“{title}”：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}，正在等待你的批准。\n\n请在宾客名单上批准或婉拒这条回复：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
+        "pendingChanged": "{name} 对“{title}”的回复现在是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}，仍在等待你的批准。\n\n请在宾客名单上批准或婉拒这条回复：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
       },
       "status": {
         "going": "参加",

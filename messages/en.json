@@ -261,14 +261,16 @@
         "changed": "{name}’s RSVP to {title} is now {status}",
         "removed": "{name}’s RSVP to {title} was removed",
         "waitlisted": "{name} is on the waitlist for {title} (party of {party})",
-        "pending": "{name} replied to {title} and is waiting for your approval"
+        "pending": "{name} replied to {title} and is waiting for your approval",
+        "pendingChanged": "{name}’s reply to {title} is now {status}, still waiting for your approval"
       },
       "body": {
         "replied": "{name} replied to {title}: {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest replies” in the event’s settings. That stops them for every host of the event.",
         "changed": "{name}’s RSVP to {title} is now {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest replies” in the event’s settings. That stops them for every host of the event.",
         "removed": "{name}’s RSVP to {title} was removed. It said {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}.\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest replies” in the event’s settings. That stops them for every host of the event.",
         "waitlisted": "{name} is on the waitlist for {title} (party of {party}).\n\nYour guest list:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest replies” in the event’s settings. That stops them for every host of the event.",
-        "pending": "{name} replied to {title}: {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}, and is waiting for your approval.\n\nApprove or decline the reply on your guest list:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest replies” in the event’s settings. That stops them for every host of the event."
+        "pending": "{name} replied to {title}: {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}, and is waiting for your approval.\n\nApprove or decline the reply on your guest list:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest replies” in the event’s settings. That stops them for every host of the event.",
+        "pendingChanged": "{name}’s reply to {title} is now {status}{plusOnes, plural, =0 {} one {, bringing one more person} other {, bringing # more people}}. It is still waiting for your approval.\n\nApprove or decline the reply on your guest list:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest replies” in the event’s settings. That stops them for every host of the event."
       },
       "status": {
         "going": "Going",

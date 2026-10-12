@@ -133,6 +133,10 @@ test("a reply waits for the host, who approves it with an email; a guest waiting
   await expect(mei.getByRole("heading", { name: WAITING })).toBeVisible({ timeout: 15_000 });
   expect(await (await mei.request.get(host.link)).text()).not.toContain("Asha Menon");
   expect(await replay(mei)).toContain('"error":"closed"');
+  // The list Asha sees leaves Mei out while she waits, in its names and in its count.
+  await asha.reload();
+  await expect(asha.getByText("1 person expected")).toBeVisible();
+  await expect(asha.getByText("Mei Lin")).toHaveCount(0);
 
   // The host declines her: her page says so, with the list and the comments still locked, and her
   // crafted comment is still refused.
@@ -149,9 +153,11 @@ test("a reply waits for the host, who approves it with an email; a guest waiting
   expect(await replay(mei)).toContain('"error":"closed"');
 
   // No comment appeared from any of it; the same post from Asha's browser is taken, so what was
-  // refused was the action itself.
+  // refused was the action itself. The list Asha sees still leaves Mei out, declined.
   await asha.reload();
   await expect(asha.getByText(comment)).toHaveCount(0);
+  await expect(asha.getByText("1 person expected")).toBeVisible();
+  await expect(asha.getByText("Mei Lin")).toHaveCount(0);
   expect(await replay(asha)).toContain('"posted":true');
   await asha.reload();
   await expect(asha.getByText(comment)).toHaveCount(1);
@@ -176,9 +182,10 @@ test("approving applies the capacity, with the waitlist's email, and turning app
   const host = await createPublished(browser, request, "approval-capacity", { ...SUPPER, title: "Supper for one", plusOnes: "0", capacity: "1" });
   const manage = host.page.url();
   const guests = `${manage}/guests`;
-  const [arjun, bea, chen] = [await newGuest(browser), await newGuest(browser), await newGuest(browser)];
+  const [arjun, bea, chen, dev] = [await newGuest(browser), await newGuest(browser), await newGuest(browser), await newGuest(browser)];
   const beaEmail = newHost("approval-bea").email;
   const chenEmail = newHost("approval-chen").email;
+  const devEmail = newHost("approval-dev").email;
 
   // Two Going replies wait, and neither takes the one place while it waits.
   await replyGoing(arjun, host.link, "Arjun Rao");
@@ -201,16 +208,21 @@ test("approving applies the capacity, with the waitlist's email, and turning app
   await bea.reload();
   await expect(bea.getByRole("heading", { name: "You’re on the waitlist, number 1." })).toBeVisible();
 
-  // Chen's reply waits when the host turns approval off: it is approved, behind Bea.
+  // Chen's reply and then Dev's wait when the host turns approval off: both are approved, in the
+  // order they replied, behind Bea.
   await replyGoing(chen, host.link, "Chen Wei", chenEmail);
   await expect(chen.getByRole("heading", { name: WAITING })).toBeVisible({ timeout: 15_000 });
+  await replyGoing(dev, host.link, "Dev Patel", devEmail);
+  await expect(dev.getByRole("heading", { name: WAITING })).toBeVisible({ timeout: 15_000 });
   await setApproval(host.page, manage, false);
-  const chenMail = await latestMailTo(request, chenEmail);
-  expect(chenMail).toContain("so you’re number 2 on the waitlist.");
+  expect(await latestMailTo(request, chenEmail)).toContain("so you’re number 2 on the waitlist.");
+  expect(await latestMailTo(request, devEmail)).toContain("so you’re number 3 on the waitlist.");
   await chen.reload();
   await expect(chen.getByRole("heading", { name: "You’re on the waitlist, number 2." })).toBeVisible();
+  await dev.reload();
+  await expect(dev.getByRole("heading", { name: "You’re on the waitlist, number 3." })).toBeVisible();
   await host.page.goto(guests);
-  await expect(host.page.getByRole("heading", { name: "Waitlist (2)" })).toBeVisible();
+  await expect(host.page.getByRole("heading", { name: "Waitlist (3)" })).toBeVisible();
   await expect(host.page.getByRole("heading", { name: /^Waiting for approval/ })).toHaveCount(0);
 
   // Turning it on again changes no reply.
@@ -218,12 +230,15 @@ test("approving applies the capacity, with the waitlist's email, and turning app
   await host.page.goto(guests);
   await expect(host.page.getByRole("heading", { name: "Waiting for approval (0)" })).toBeVisible();
   await expect(host.page.getByRole("heading", { name: "Going (1)" })).toBeVisible();
-  await expect(host.page.getByRole("heading", { name: "Waitlist (2)" })).toBeVisible();
+  await expect(host.page.getByRole("heading", { name: "Waitlist (3)" })).toBeVisible();
 
-  await closeAll(arjun, bea, chen, host.page);
+  await closeAll(arjun, bea, chen, dev, host.page);
 });
 
-test("the Broadsheet confirms a reply waiting for the host, then says it was declined, and one replied again waits again", async ({ browser, request }) => {
+test("the Broadsheet confirms a reply waiting for the host, which still waits once changed, then says it was declined, and one replied again waits again", async ({
+  browser,
+  request,
+}) => {
   test.slow();
   const host = await createPublished(browser, request, "approval-broadsheet", {
     layout: "Broadsheet",
@@ -245,6 +260,15 @@ test("the Broadsheet confirms a reply waiting for the host, then says it was dec
   await expect(priya.getByText(WAITING)).toHaveCount(1);
   await expect(priya.getByText(LIST_WAITING)).toBeVisible();
 
+  // Changed to Maybe, the reply still waits, and the host is told it still waits.
+  await priya.getByRole("button", { name: "Change answer" }).click();
+  await priya.getByRole("radio", { name: "Maybe", exact: true }).check();
+  await priya.getByRole("button", { name: "Post my reply" }).click();
+  await expect(priya.getByRole("heading", { name: WAITING })).toBeVisible({ timeout: 15_000 });
+  await expect
+    .poll(() => latestMailTo(request, host.email), { timeout: 30_000, message: "the host told Priya's changed reply still waits" })
+    .toContain("Priya Nair’s reply to Supper at Mei’s is now Maybe. It is still waiting for your approval.");
+
   await host.page.goto(`${host.page.url()}/guests`);
   await decide(host.page, /^Waiting for approval/, "Priya Nair", "Decline");
   await expect(host.page.getByRole("region", { name: /^Declined/ }).getByText("Priya Nair")).toBeVisible();
@@ -259,7 +283,10 @@ test("the Broadsheet confirms a reply waiting for the host, then says it was dec
   await closeAll(priya, host.page);
 });
 
-test("the Thread promises to ask the host, then says the reply was declined, in its own voice", async ({ browser, request }) => {
+test("the Thread promises to ask the host, then says the reply was declined, in its own voice, and counts neither among the replies", async ({
+  browser,
+  request,
+}) => {
   test.slow();
   const host = await createPublished(browser, request, "approval-thread", {
     layout: "Thread",
@@ -268,26 +295,47 @@ test("the Thread promises to ask the host, then says the reply was declined, in 
     plusOnes: "0",
     approval: true,
   });
-  const priya = await newGuest(browser);
-  const doneBubble = priya.locator('[data-slot="done"]');
+  const guests = `${host.page.url()}/guests`;
+  const [mei, priya] = [await newGuest(browser), await newGuest(browser)];
+  const doneBubble = (page: Page) => page.locator('[data-slot="done"]');
+  const replyAlone = async (page: Page, name: string) => {
+    await page.goto(host.link);
+    await page.getByRole("button", { name: "Going", exact: true }).click();
+    await page.getByLabel("Your name").fill(name);
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+  };
+  // What an approved guest's page counts: the replies in its header, and the names in its list.
+  const countedFor = async (page: Page) => {
+    await page.reload();
+    await expect(page.getByText("Invitation · 1 reply", { exact: true })).toBeVisible();
+    await expect(page.locator('[data-slot="guests"]').getByText("Priya Nair")).toHaveCount(0);
+  };
 
-  await priya.goto(host.link);
-  await priya.getByRole("button", { name: "Going", exact: true }).click();
-  await priya.getByLabel("Your name").fill("Priya Nair");
-  await priya.getByRole("button", { name: "Send", exact: true }).click();
+  // Mei is approved, so her page shows the replies.
+  await replyAlone(mei, "Mei Lin");
+  await expect(doneBubble(mei)).toContainText("Thanks, Mei! I’ll check with the host and let you know.", { timeout: 15_000 });
+  await host.page.goto(guests);
+  await decide(host.page, /^Waiting for approval/, "Mei Lin", "Approve");
+  await expect(host.page.getByRole("region", { name: /^Going/ }).getByText("Mei Lin")).toBeVisible();
+  await mei.reload();
+  await expect(doneBubble(mei)).toContainText("You’re in, Mei!");
+
+  // Priya's reply waits: the Thread promises to ask, and Mei's page counts only Mei.
+  await replyAlone(priya, "Priya Nair");
   const promise = "Thanks, Priya! I’ll check with the host and let you know.";
-  await expect(doneBubble).toContainText(promise, { timeout: 15_000 });
+  await expect(doneBubble(priya)).toContainText(promise, { timeout: 15_000 });
   await expect(priya.getByText(promise)).toHaveCount(1);
   await expect(priya.getByText(LIST_WAITING)).toBeVisible();
-  // Nobody waiting is counted in the replies the page shows.
-  await expect(priya.getByText("Invitation", { exact: true })).toBeVisible();
+  await countedFor(mei);
 
-  await host.page.goto(`${host.page.url()}/guests`);
+  // Declined, Priya is told so in the Thread's done bubble, and still not counted.
+  await host.page.goto(guests);
   await decide(host.page, /^Waiting for approval/, "Priya Nair", "Decline");
   await expect(host.page.getByRole("region", { name: /^Declined/ }).getByText("Priya Nair")).toBeVisible();
   await priya.reload();
-  await expect(doneBubble).toContainText(DECLINED);
+  await expect(doneBubble(priya)).toContainText(DECLINED);
   await expect(priya.getByRole("button", { name: "Edit my details" })).toBeVisible();
+  await countedFor(mei);
 
-  await closeAll(priya, host.page);
+  await closeAll(mei, priya, host.page);
 });

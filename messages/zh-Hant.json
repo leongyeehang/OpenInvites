@@ -261,14 +261,16 @@
         "changed": "{name} 對「{title}」的回覆現在是：{status}",
         "removed": "{name} 對「{title}」的回覆已移除",
         "waitlisted": "{name} 列入了「{title}」的候補名單（共 {party} 人）",
-        "pending": "{name} 回覆了「{title}」，正在等待你的核准"
+        "pending": "{name} 回覆了「{title}」，正在等待你的核准",
+        "pendingChanged": "{name} 對「{title}」的回覆現在是：{status}，仍在等待你的核准"
       },
       "body": {
         "replied": "{name} 回覆了「{title}」：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。",
         "changed": "{name} 對「{title}」的回覆現在是：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。",
         "removed": "{name} 對「{title}」的回覆已移除。原本的回覆是：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。",
         "waitlisted": "{name} 列入了「{title}」的候補名單（共 {party} 人）。\n\n你的賓客名單：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。",
-        "pending": "{name} 回覆了「{title}」：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}，正在等待你的核准。\n\n請在賓客名單上核准或婉拒這則回覆：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。"
+        "pending": "{name} 回覆了「{title}」：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}，正在等待你的核准。\n\n請在賓客名單上核准或婉拒這則回覆：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。",
+        "pendingChanged": "{name} 對「{title}」的回覆現在是：{status}{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}，仍在等待你的核准。\n\n請在賓客名單上核准或婉拒這則回覆：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客回覆時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。"
       },
       "status": {
         "going": "參加",

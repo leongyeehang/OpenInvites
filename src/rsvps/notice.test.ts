@@ -28,8 +28,12 @@ describe("rsvpNotice", () => {
     expect(rsvpNotice(approved("cant"), approved("going"))).toBe("changed");
   });
 
-  it("tells the hosts when a reply waiting for them, or one they declined, changes its status", () => {
-    expect(rsvpNotice(pending("going"), pending("maybe"))).toBe("changed");
+  it("tells the hosts when a reply waiting for them changes its status, and that it still waits", () => {
+    expect(rsvpNotice(pending("going"), pending("maybe"))).toBe("pendingChanged");
+    expect(rsvpNotice(pending("cant"), pending("going"))).toBe("pendingChanged");
+  });
+
+  it("tells the hosts when a reply they declined changes its status", () => {
     expect(rsvpNotice(declined("cant"), declined("going"))).toBe("changed");
   });
 
