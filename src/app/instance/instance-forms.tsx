@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { createHostInvitationAction, setInstanceLimitsAction, setRegistrationModeAction } from "@/instance/actions";
 import { LIMIT_MAX, LIMIT_MIN, type Limits } from "@/instance/limits";
 import { REGISTRATION_MODES, type RegistrationMode } from "@/instance/registration";
+import { DEFAULT_RETENTION_DAYS, RETENTION_MAX_DAYS, RETENTION_MIN_DAYS } from "@/retention/plan";
 
 export function RegistrationForm({ mode }: { mode: RegistrationMode }) {
   const t = useTranslations("Instance.registration");
@@ -49,6 +50,9 @@ export function RegistrationForm({ mode }: { mode: RegistrationMode }) {
 export function LimitsForm({ limits }: { limits: Limits }) {
   const t = useTranslations("Instance.limits");
   const [state, action, pending] = useActionState(setInstanceLimitsAction, undefined);
+  // Keep forever turns the days off: the field then sends nothing and asks for nothing, and keeps
+  // what it showed for when the box is unticked.
+  const [forever, setForever] = useState(limits.retentionDays === null);
   return (
     <form action={action}>
       <FieldGroup>
@@ -59,6 +63,26 @@ export function LimitsForm({ limits }: { limits: Limits }) {
             <FieldDescription>{t(`${name}Hint`)}</FieldDescription>
           </Field>
         ))}
+        <Field>
+          <FieldLabel htmlFor="retentionDays">{t("retentionDays")}</FieldLabel>
+          <Input
+            id="retentionDays"
+            name="retentionDays"
+            type="number"
+            inputMode="numeric"
+            min={RETENTION_MIN_DAYS}
+            max={RETENTION_MAX_DAYS}
+            step={1}
+            defaultValue={limits.retentionDays ?? DEFAULT_RETENTION_DAYS}
+            disabled={forever}
+            required={!forever}
+          />
+          <FieldDescription>{t("retentionDaysHint")}</FieldDescription>
+        </Field>
+        <Field orientation="horizontal">
+          <Checkbox id="keepForever" name="keepForever" checked={forever} onCheckedChange={(checked) => setForever(checked === true)} />
+          <FieldLabel htmlFor="keepForever">{t("keepForever")}</FieldLabel>
+        </Field>
         <FormOutcome state={state} />
         <Button type="submit" disabled={pending} className="self-start">
           {t("submit")}

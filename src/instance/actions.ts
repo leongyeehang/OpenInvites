@@ -27,7 +27,8 @@ export async function setRegistrationModeAction(_: FormState, formData: FormData
   return { success: t("saved") };
 }
 
-// Read each time a limit is checked, so a change takes effect at once, as the registration mode does.
+// Read each time a limit is checked, so a change takes effect at once, as the registration mode does;
+// the retention period at the clock's next sweep.
 export async function setInstanceLimitsAction(_: FormState, formData: FormData): Promise<FormState> {
   await requireOperator();
   const t = await getTranslations("Instance.limits");
@@ -35,7 +36,12 @@ export async function setInstanceLimitsAction(_: FormState, formData: FormData):
     const value = formData.get(name);
     return typeof value === "string" ? value : "";
   };
-  const parsed = parseLimits({ maxEventsPerHost: text("maxEventsPerHost"), maxRsvpsPerEvent: text("maxRsvpsPerEvent") });
+  const parsed = parseLimits({
+    maxEventsPerHost: text("maxEventsPerHost"),
+    maxRsvpsPerEvent: text("maxRsvpsPerEvent"),
+    retentionDays: text("retentionDays"),
+    keepForever: formData.get("keepForever") === "on",
+  });
   if (!parsed.ok) return { error: t(`${parsed.field}Invalid`) };
   await setInstanceLimits(parsed.limits);
   revalidatePath("/instance");

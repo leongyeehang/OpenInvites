@@ -33,6 +33,10 @@ type Props = {
   mail: boolean;
   // How many replies the operator lets an event take, which the capacity's hint names.
   maxReplies: number;
+  // How many days after it ends the instance keeps an event, said beneath the dates of an event
+  // being edited (spec, "Retention"); nothing on a new event, or when the instance keeps events for
+  // ever.
+  retentionDays?: number | null;
   timeZones: string[];
   submitLabel: string;
   questions: QuestionDraft[];
@@ -40,7 +44,7 @@ type Props = {
 };
 
 // One form for creating and editing. Times are typed in the event's zone; the action converts them.
-export function EventForm({ action, event, mail, maxReplies, timeZones, submitLabel, questions, answerCounts }: Props) {
+export function EventForm({ action, event, mail, maxReplies, retentionDays, timeZones, submitLabel, questions, answerCounts }: Props) {
   const t = useTranslations("Events.form");
   const [state, formAction, pending] = useActionState(action, undefined);
   const [allDay, setAllDay] = useState(event?.allDay ?? false);
@@ -99,6 +103,7 @@ export function EventForm({ action, event, mail, maxReplies, timeZones, submitLa
           </NativeSelect>
           <FieldDescription>{t("timeZoneHint")}</FieldDescription>
         </Field>
+        {typeof retentionDays === "number" && <p className="text-sm text-muted-foreground">{t("retention", { days: retentionDays })}</p>}
         <Field>
           <FieldLabel htmlFor="location">{t("location")}</FieldLabel>
           <Input id="location" name="location" defaultValue={event?.location} />

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireHost } from "@/auth/session";
@@ -12,9 +12,10 @@ import { can } from "@/hosts/role";
 import { countAnswersByQuestion, listQuestions } from "@/questions/repository";
 import { instanceLimits } from "@/instance/repository";
 import { countRsvpsByEvent } from "@/rsvps/repository";
-import { timeZones } from "@/events/time";
+import { formatDay, timeZones } from "@/events/time";
 import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
+import { deletionDate } from "@/retention/plan";
 import { EventForm } from "../event-form";
 import { DangerZone } from "../danger-zone";
 import { DuplicateButton } from "../duplicate-button";
@@ -31,7 +32,7 @@ export async function generateMetadata({ params }: PageProps<"/events/[id]">): P
 // gets the same page, marked as theirs to co-host, without what is the owner's alone: deleting the
 // event and choosing its co-hosts (hosts/role.ts).
 export default async function ManageEventPage({ params, searchParams }: PageProps<"/events/[id]">) {
-  const [host, { id }, { from }, t] = await Promise.all([requireHost(), params, searchParams, getTranslations("Events")]);
+  const [host, { id }, { from }, t, locale] = await Promise.all([requireHost(), params, searchParams, getTranslations("Events"), getLocale()]);
   const event = await findHostEvent(host.id, id);
   if (!event) notFound();
   // Where a duplicate came from, said only when the host can see that event themselves.
@@ -44,6 +45,9 @@ export default async function ManageEventPage({ params, searchParams }: PageProp
     instanceLimits(),
   ]);
   const replies = counts.get(event.id);
+  // Once the clock's sweep has marked the event, the day it will be deleted for its age (spec,
+  // "Retention"), with or without mail.
+  const deletion = deletionDate(event, limits.retentionDays);
 
   return (
     <ClientMessages namespaces={["Events.form", "Events.manage"]}>
@@ -78,6 +82,7 @@ export default async function ManageEventPage({ params, searchParams }: PageProp
               {t("manage.headcountOf", { count: replies?.headcount ?? 0, capacity: event.capacity })}
             </p>
           )}
+          {deletion && <p className="text-sm font-medium">{t("manage.deletionDate", { date: formatDay(deletion, event.timeZone, locale) })}</p>}
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
               <Link href={eventPath(event)}>{t("manage.view")}</Link>
@@ -121,6 +126,7 @@ export default async function ManageEventPage({ params, searchParams }: PageProp
           event={event}
           mail={isMailConfigured()}
           maxReplies={limits.maxRsvpsPerEvent}
+          retentionDays={limits.retentionDays}
           timeZones={timeZones()}
           submitLabel={t("edit.submit")}
           questions={questions}

@@ -7,6 +7,8 @@ const isCI = !!process.env.CI;
 const FRESH_INSTANCE = /registration(-without-mail)?\.spec\.ts/;
 // The spec that takes `app-fresh` after the fresh-instance specs have left it.
 const LIMITS_INSTANCE = /(^|\/)limits\.spec\.ts$/;
+// The spec that takes `app-fresh` and `app-no-mail` after the limits spec has left them.
+const RETENTION_INSTANCE = /(^|\/)retention\.spec\.ts$/;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -34,13 +36,13 @@ export default defineConfig({
     {
       name: "mobile",
       dependencies: ["operator"],
-      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE],
+      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE],
       use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
     },
     {
       name: "desktop",
       dependencies: ["operator"],
-      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE],
+      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } },
     },
     // One instance per spec, so one project: each spec's scenarios run in order and change what
@@ -56,6 +58,14 @@ export default defineConfig({
       name: "limits-instance",
       testMatch: LIMITS_INSTANCE,
       dependencies: ["fresh-instance"],
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, baseURL: "http://localhost:3002" },
+    },
+    // After the limits spec, as it recreates app-fresh, and app-no-mail, which the fresh-instance
+    // project has used. It also signs up a host on `app`, whose registration the operator opens.
+    {
+      name: "retention-instance",
+      testMatch: RETENTION_INSTANCE,
+      dependencies: ["limits-instance", "operator"],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, baseURL: "http://localhost:3002" },
     },
   ],

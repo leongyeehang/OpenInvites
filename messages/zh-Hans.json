@@ -130,6 +130,7 @@
       "pending": "{count} 人等待批准",
       "headcount": "{count, plural, =0 {还没有人确定要来} other {预计 # 人}}",
       "headcountOf": "预计 {count} 人（共 {capacity} 个名额）",
+      "deletedOn": "将于 {date} 删除",
       "coHost": "共同主办人",
       "limitReached": "你已有 {count, plural, other {# 场活动}}，这是本实例允许的上限。删除一场不再需要的活动，才能再创建新的。"
     }
@@ -185,15 +186,19 @@
     },
     "limits": {
       "title": "上限",
-      "description": "一位主办人或一场活动最多能容纳的数量。更改立即生效，已有的内容保持不变。",
+      "description": "一位主办人或一场活动最多能容纳的数量，以及活动结束后保留多久。更改立即生效；调低上限时，已有的内容保持不变。",
       "maxEventsPerHost": "每位主办人的活动数",
       "maxEventsPerHostHint": "计入主办人名下的每一场活动，包括草稿和已结束的活动。",
       "maxRsvpsPerEvent": "每场活动的回复数",
       "maxRsvpsPerEventHint": "计入一场活动收到的每一条回复，无论回复的是什么。",
+      "retentionDays": "活动保留天数",
+      "retentionDaysHint": "活动结束后保留的天数，可填 30 到 3,650。到期后，活动连同宾客名单和其他所有相关内容都会被删除。删除前 30 天会提醒活动的主办人，提醒后至少过 30 天才会删除。",
+      "keepForever": "永久保留",
       "submit": "保存",
       "saved": "已保存。",
       "maxEventsPerHostInvalid": "请为每位主办人的活动数填写 1 到 100,000 之间的整数。",
-      "maxRsvpsPerEventInvalid": "请为每场活动的回复数填写 1 到 100,000 之间的整数。"
+      "maxRsvpsPerEventInvalid": "请为每场活动的回复数填写 1 到 100,000 之间的整数。",
+      "retentionDaysInvalid": "请为活动保留天数填写 30 到 3,650 之间的整数，或勾选“永久保留”。"
     },
     "invitations": {
       "title": "主办人邀请",
@@ -324,6 +329,10 @@
     "code": {
       "subject": "“{title}”的验证码",
       "body": "你在“{title}”的验证码是：\n\n{code}\n\n验证码十分钟内有效。\n\n你收到这封邮件，是因为有人在“{title}”的回复表单中填写了这个邮箱。如果不是你本人填写的，请忽略这封邮件。"
+    },
+    "retentionWarning": {
+      "subject": "“{title}”将于 {date} 删除",
+      "body": "“{title}”将于 {date} 删除，宾客名单和其他所有相关内容也会一并删除。\n\n这个实例上的活动会在结束 {days, plural, other {# 天}}后删除，这是实例对所有活动的规定。\n\n如果想保留活动详情以后再用，请在删除前打开活动，选择“复制活动”。副本会保留详情、外观、问题和设置，但不包括宾客。记得给副本设定新的日期。\n\n你的活动：\n{url}"
     }
   },
   "Events": {
@@ -352,6 +361,7 @@
       "endHint": "选填。",
       "timeZone": "时区",
       "timeZoneHint": "身在别处的宾客，看到的也是这个时区的时间。",
+      "retention": "这个实例上的活动会在结束 {days, plural, other {# 天}}后删除。",
       "location": "地点",
       "locationHint": "填地址，或写“奶奶家三楼”也行。选填。",
       "description": "活动介绍",
@@ -440,6 +450,7 @@
       "link": "活动链接",
       "opened": "活动页面已被打开 {count, plural, other {#}} 次",
       "headcountOf": "预计 {count} 人（共 {capacity} 个名额）",
+      "deletionDate": "这个活动将于 {date} 删除。",
       "view": "打开活动页面",
       "publish": "发布",
       "publishHint": "发布后，任何拿到活动链接的人都能打开它。",
@@ -618,7 +629,8 @@
     "yourTime": "你当地时间为 {time}。",
     "openInMaps": "在地图中打开",
     "retiredTitle": "这个链接已失效",
-    "retired": "主办人已经换了新链接，请向主办人索取。"
+    "retired": "主办人已经换了新链接，请向主办人索取。",
+    "retiredDeleted": "这个活动已被删除。"
   },
   "DesignDrawer": {
     "open": "设计",

@@ -97,6 +97,9 @@ export const instanceSettings = pgTable(
     // The operator's limits (spec, "Operator limits"); see instance/limits.ts for their range.
     maxEventsPerHost: integer("max_events_per_host").notNull().default(DEFAULT_LIMITS.maxEventsPerHost),
     maxRsvpsPerEvent: integer("max_rsvps_per_event").notNull().default(DEFAULT_LIMITS.maxRsvpsPerEvent),
+    // How many days after it ends an event is deleted (spec, "Retention"; retention/plan.ts), or
+    // null to keep events for ever. The migration that added it set the one row to a year.
+    retentionDays: integer("retention_days"),
   },
   (table) => [check("instance_settings_one_row", sql`${table.id}`)],
 );
@@ -191,6 +194,10 @@ export const event = pgTable(
     // changes under its host (spec, story 141).
     commentsEnabled: boolean("comments_enabled").notNull().default(true),
     notifyOnComment: boolean("notify_on_comment").notNull().default(true),
+    // When the clock's sweep warned the hosts that the event will be deleted for its age (spec,
+    // "Retention"), with or without mail; it is deleted no sooner than 30 days later. Keep forever
+    // clears it on every event.
+    retentionWarnedAt: timestamp("retention_warned_at", { withTimezone: true }),
     ...timestamps,
   },
   (table) => [index("event_host_id_idx").on(table.hostId)],
@@ -352,16 +359,16 @@ export const answer = pgTable(
   (table) => [index("answer_rsvp_id_idx").on(table.rsvpId), unique("answer_rsvp_question_unique").on(table.rsvpId, table.questionId)],
 );
 
-// A link a host has reset. The old slug is kept so that whoever still has it is told the link
-// is no longer valid, rather than being shown a page that looks like a mistake (ADR-0004).
+// A link a host has reset, or the links of an event that was deleted. The old slug is kept so that
+// whoever still has it is told the link is no longer valid, rather than being shown a page that
+// looks like a mistake (ADR-0004), and so that no other event is ever given it. A deleted event's
+// slugs outlive it with no event: a bare slug is not personal data.
 export const retiredSlug = pgTable(
   "retired_slug",
   {
     id: id(),
     slug: text("slug").notNull().unique(),
-    eventId: uuid("event_id")
-      .notNull()
-      .references(() => event.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id").references(() => event.id, { onDelete: "set null" }),
     retiredAt: timestamp("retired_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("retired_slug_event_id_idx").on(table.eventId)],

@@ -100,7 +100,7 @@ test("a guest reports an event from its footer, and the operator reads it, by em
   await host.context.close();
 });
 
-test("the operator deletes a reported event from the inbox: its link is gone and the report says so", async ({ page, browser, request }) => {
+test("the operator deletes a reported event from the inbox: its link says it was deleted, and the report says so", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "report-deleted", { title: "Grace’s reunion", start: "2027-04-10T18:00" });
   const reason = reasonFor("deleted");
@@ -118,7 +118,8 @@ test("the operator deletes a reported event from the inbox: its link is gone and
   await expect(report.getByRole("link", { name: "Grace’s reunion" })).toHaveCount(0);
   await expect(report.getByRole("button", { name: "Delete event" })).toHaveCount(0);
 
-  await expectNotFoundAsSent(await page.goto(host.link));
+  await page.goto(host.link);
+  await expect(page.getByText("This event has been deleted.")).toBeVisible();
   await operator.context.close();
   await host.context.close();
 });

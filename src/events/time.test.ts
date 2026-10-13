@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eventEnd, formatDateSticker, formatWhen, isTimeZone, partitionByEnd, timeZones, toInstant, toWallTime } from "./time";
+import { eventEnd, formatDateSticker, formatDay, formatWhen, isTimeZone, partitionByEnd, timeZones, toInstant, toWallTime } from "./time";
 
 describe("toInstant", () => {
   it("reads a wall-clock time in the event's zone", () => {
@@ -64,6 +64,16 @@ describe("formatWhen", () => {
     );
     expect(text).toContain("October 3, 2026");
     expect(text).not.toMatch(/\d:\d\d/);
+  });
+});
+
+describe("formatDay", () => {
+  it("gives the day in the event's zone, in the reader's language", () => {
+    // 20:00 on 12 November in London is already the 13th in Singapore.
+    const instant = new Date("2026-11-12T20:00:00Z");
+    expect(formatDay(instant, "Asia/Singapore", "en")).toBe("November 13, 2026");
+    expect(formatDay(instant, "Europe/London", "en")).toBe("November 12, 2026");
+    expect(formatDay(instant, "Asia/Singapore", "zh-Hans")).toBe("2026年11月13日");
   });
 });
 

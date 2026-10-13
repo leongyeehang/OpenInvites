@@ -1,7 +1,7 @@
-import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { cache } from "react";
 import { getDb } from "@/db/client";
-import { hostInvitation, instanceSettings, user } from "@/db/schema";
+import { event, hostInvitation, instanceSettings, user } from "@/db/schema";
 import { hostInvitationExpiry } from "./host-invitation";
 import { hashHostInvitationToken } from "./host-invitation-token";
 import type { Limits } from "./limits";
@@ -21,13 +21,23 @@ export async function setRegistrationMode(mode: RegistrationMode): Promise<void>
 // Cached per request: the settings page and the checks that act on a limit may both ask.
 export const instanceLimits = cache(async (): Promise<Limits> => {
   const [settings] = await getDb()
-    .select({ maxEventsPerHost: instanceSettings.maxEventsPerHost, maxRsvpsPerEvent: instanceSettings.maxRsvpsPerEvent })
+    .select({
+      maxEventsPerHost: instanceSettings.maxEventsPerHost,
+      maxRsvpsPerEvent: instanceSettings.maxRsvpsPerEvent,
+      retentionDays: instanceSettings.retentionDays,
+    })
     .from(instanceSettings);
   return settings;
 });
 
+// Keep forever also takes the retention mark off every event, so that a period set again later
+// warns their hosts afresh and gives them their 30 days again, rather than deleting at its first
+// sweep an event warned before (spec, "Retention").
 export async function setInstanceLimits(limits: Limits): Promise<void> {
-  await getDb().update(instanceSettings).set(limits);
+  await getDb().transaction(async (tx) => {
+    await tx.update(instanceSettings).set(limits);
+    if (limits.retentionDays === null) await tx.update(event).set({ retentionWarnedAt: null }).where(isNotNull(event.retentionWarnedAt));
+  });
 }
 
 // Cached per request: the header and the page both ask.

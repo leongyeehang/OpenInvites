@@ -6,7 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { eventsOwnedAtLimit } from "@/events/limit";
 import { listHostEvents, type HostEvent } from "@/events/repository";
-import { formatWhen, partitionByEnd } from "@/events/time";
+import { formatDay, formatWhen, partitionByEnd } from "@/events/time";
+import { instanceLimits } from "@/instance/repository";
+import { deletionDate } from "@/retention/plan";
 import { NO_RSVPS, type RsvpCounts } from "@/rsvps/counts";
 import { countRsvpsByEvent } from "@/rsvps/repository";
 import { EventStateBadge } from "../events/event-state-badge";
@@ -16,14 +18,16 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("title") };
 }
 
-// Upcoming and past, decided by when the event ends, each card carrying how its RSVPs stand. The
-// events the host co-hosts are among them, marked so.
+// Upcoming and past, decided by when the event ends, each card carrying how its RSVPs stand, and
+// the day it will be deleted once it is marked for its age (spec, "Retention"). The events the host
+// co-hosts are among them, marked so.
 export default async function DashboardPage() {
   const host = await requireHost();
-  const [t, locale, events] = await Promise.all([
+  const [t, locale, events, { retentionDays }] = await Promise.all([
     getTranslations("Host.dashboard"),
     getLocale(),
     listHostEvents(host.id),
+    instanceLimits(),
   ]);
   const { upcoming, past } = partitionByEnd(events, new Date());
   const counts = await countRsvpsByEvent(events.map((event) => event.id));
@@ -45,8 +49,8 @@ export default async function DashboardPage() {
         <p className="text-muted-foreground">{t("empty")}</p>
       ) : (
         <>
-          <EventList id="upcoming" heading={t("upcoming")} events={upcoming} empty={t("emptyUpcoming")} locale={locale} counts={counts} />
-          <EventList id="past" heading={t("past")} events={past} empty={t("emptyPast")} locale={locale} counts={counts} />
+          <EventList id="upcoming" heading={t("upcoming")} events={upcoming} empty={t("emptyUpcoming")} locale={locale} counts={counts} retentionDays={retentionDays} />
+          <EventList id="past" heading={t("past")} events={past} empty={t("emptyPast")} locale={locale} counts={counts} retentionDays={retentionDays} />
         </>
       )}
     </>
@@ -60,6 +64,7 @@ async function EventList({
   empty,
   locale,
   counts,
+  retentionDays,
 }: {
   id: string;
   heading: string;
@@ -67,6 +72,7 @@ async function EventList({
   empty: string;
   locale: string;
   counts: Map<string, RsvpCounts>;
+  retentionDays: number | null;
 }) {
   const t = await getTranslations("Host.dashboard");
   return (
@@ -80,6 +86,7 @@ async function EventList({
         <ul className="flex flex-col gap-3">
           {events.map((event) => {
             const replies = counts.get(event.id) ?? NO_RSVPS;
+            const deletion = deletionDate(event, retentionDays);
             return (
               <li key={event.id}>
                 <Link
@@ -92,6 +99,7 @@ async function EventList({
                     {event.role === "coHost" && <Badge variant="outline">{t("coHost")}</Badge>}
                   </div>
                   <span className="text-sm text-muted-foreground">{formatWhen(event, locale)}</span>
+                  {deletion && <span className="text-sm font-medium">{t("deletedOn", { date: formatDay(deletion, event.timeZone, locale) })}</span>}
                   <span className="text-sm text-muted-foreground">
                     {t("counts", { going: replies.going, maybe: replies.maybe, declined: replies.cant })}
                     {replies.waitlisted > 0 && ` · ${t("waitlisted", { count: replies.waitlisted })}`}

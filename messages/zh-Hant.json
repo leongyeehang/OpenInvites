@@ -130,6 +130,7 @@
       "pending": "{count} 人等待核准",
       "headcount": "{count, plural, =0 {還沒有人確定要來} other {預計 # 人}}",
       "headcountOf": "預計 {count} 人（共 {capacity} 個名額）",
+      "deletedOn": "將於 {date} 刪除",
       "coHost": "共同主辦人",
       "limitReached": "你已有 {count, plural, other {# 場活動}}，這是本實例允許的上限。刪除一場不再需要的活動，才能再建立新的。"
     }
@@ -185,15 +186,19 @@
     },
     "limits": {
       "title": "上限",
-      "description": "一位主辦人或一場活動最多能容納的數量。變更立即生效，已有的內容維持不變。",
+      "description": "一位主辦人或一場活動最多能容納的數量，以及活動結束後保留多久。變更立即生效；調低上限時，已有的內容維持不變。",
       "maxEventsPerHost": "每位主辦人的活動數",
       "maxEventsPerHostHint": "計入主辦人名下的每一場活動，包括草稿和已結束的活動。",
       "maxRsvpsPerEvent": "每場活動的回覆數",
       "maxRsvpsPerEventHint": "計入一場活動收到的每一則回覆，無論回覆的是什麼。",
+      "retentionDays": "活動保留天數",
+      "retentionDaysHint": "活動結束後保留的天數，可填 30 到 3,650。到期後，活動連同賓客名單和其他所有相關內容都會被刪除。刪除前 30 天會提醒活動的主辦人，提醒後至少過 30 天才會刪除。",
+      "keepForever": "永久保留",
       "submit": "儲存",
       "saved": "已儲存。",
       "maxEventsPerHostInvalid": "請為每位主辦人的活動數填寫 1 到 100,000 之間的整數。",
-      "maxRsvpsPerEventInvalid": "請為每場活動的回覆數填寫 1 到 100,000 之間的整數。"
+      "maxRsvpsPerEventInvalid": "請為每場活動的回覆數填寫 1 到 100,000 之間的整數。",
+      "retentionDaysInvalid": "請為活動保留天數填寫 30 到 3,650 之間的整數，或勾選「永久保留」。"
     },
     "invitations": {
       "title": "主辦人邀請",
@@ -324,6 +329,10 @@
     "code": {
       "subject": "「{title}」的驗證碼",
       "body": "你在「{title}」的驗證碼是：\n\n{code}\n\n驗證碼十分鐘內有效。\n\n你收到這封郵件，是因為有人在「{title}」的回覆表單中填寫了這個電子郵件。如果不是你本人填寫的，請忽略這封郵件。"
+    },
+    "retentionWarning": {
+      "subject": "「{title}」將於 {date} 刪除",
+      "body": "「{title}」將於 {date} 刪除，賓客名單和其他所有相關內容也會一併刪除。\n\n這個實例上的活動會在結束 {days, plural, other {# 天}}後刪除，這是實例對所有活動的規定。\n\n如果想保留活動詳情日後再用，請在刪除前開啟活動，選擇「複製活動」。副本會保留詳情、外觀、問題和設定，但不包括賓客。記得為副本設定新的日期。\n\n你的活動：\n{url}"
     }
   },
   "Events": {
@@ -352,6 +361,7 @@
       "endHint": "選填。",
       "timeZone": "時區",
       "timeZoneHint": "身在他處的賓客，看到的也是這個時區的時間。",
+      "retention": "這個實例上的活動會在結束 {days, plural, other {# 天}}後刪除。",
       "location": "地點",
       "locationHint": "填地址，或寫「阿嬤家三樓」也可以。選填。",
       "description": "活動介紹",
@@ -440,6 +450,7 @@
       "link": "活動連結",
       "opened": "活動頁面已被開啟 {count, plural, other {#}} 次",
       "headcountOf": "預計 {count} 人（共 {capacity} 個名額）",
+      "deletionDate": "這個活動將於 {date} 刪除。",
       "view": "開啟活動頁面",
       "publish": "發布",
       "publishHint": "發布後，任何拿到活動連結的人都能開啟。",
@@ -618,7 +629,8 @@
     "yourTime": "你當地時間為 {time}。",
     "openInMaps": "在地圖中開啟",
     "retiredTitle": "這個連結已失效",
-    "retired": "主辦人已經換了新連結，請向主辦人索取。"
+    "retired": "主辦人已經換了新連結，請向主辦人索取。",
+    "retiredDeleted": "這個活動已被刪除。"
   },
   "DesignDrawer": {
     "open": "設計",

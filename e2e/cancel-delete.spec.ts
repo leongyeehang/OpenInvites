@@ -1,4 +1,4 @@
-import { expect, expectNotFoundAsSent, test, type Page } from "./test";
+import { expect, test, type Page } from "./test";
 import { createPublished } from "./events";
 import { PASSWORD } from "./hosts";
 
@@ -41,7 +41,7 @@ test("a cancelled event keeps its page, with the news and no way to reply", asyn
   await host.context.close();
 });
 
-test("a host is told what deleting an event costs, and then the link is gone", async ({ page, browser, request }) => {
+test("a host is told what deleting an event costs, and then the link says the event was deleted", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "delete-event", {
     title: "Ada’s birthday",
@@ -65,9 +65,10 @@ test("a host is told what deleting an event costs, and then the link is gone", a
   await expect(host.page).toHaveURL(/\/dashboard$/);
   await expect(host.page.getByText("Ada’s birthday")).toHaveCount(0);
 
-  await expectNotFoundAsSent(await request.get(host.link));
+  // The link stays retired, so no other event is ever given it, and says what became of the event.
   await page.goto(host.link);
-  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "This link is no longer valid" })).toBeVisible();
+  await expect(page.getByText("This event has been deleted.")).toBeVisible();
 
   await host.context.close();
 });
@@ -87,6 +88,7 @@ test("deleting an account takes its events and its guests' answers with it", asy
   await host.page.getByRole("button", { name: "Delete my account" }).click();
   await expect(host.page).toHaveURL(/\/sign-in/);
 
-  expect((await request.get(host.link)).status()).toBe(404);
+  await page.goto(host.link);
+  await expect(page.getByText("This event has been deleted.")).toBeVisible();
   await host.context.close();
 });

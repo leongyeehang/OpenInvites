@@ -205,10 +205,11 @@ export async function eventLinkExists(slug: string): Promise<boolean> {
   return row.found;
 }
 
-// Whether this link used to work, which is a different thing from never having existed.
-export async function isRetiredSlug(slug: string): Promise<boolean> {
+// Whether this link used to work, which is a different thing from never having existed, and if so
+// whether its event was deleted rather than given a new link.
+export async function findRetiredSlug(slug: string): Promise<{ eventDeleted: boolean } | undefined> {
   const found = await getDb().query.retiredSlug.findFirst({ where: eq(retiredSlug.slug, slug) });
-  return found !== undefined;
+  return found && { eventDeleted: found.eventId === null };
 }
 
 // Calling it off: the page stays up with its notice and takes no more answers (spec, story 28).
@@ -223,8 +224,9 @@ export async function cancelEvent(hostId: string, id: string): Promise<Event | u
   return cancelled && withTheme(cancelled);
 }
 
-// Leaves no trace: the event's RSVPs, their answers, its questions, its retired slugs, its upload and
-// its co-hosts all cascade with it, and the upload's stored files go too. Only its owner deletes it.
+// Leaves no trace but its links, kept retired: the event's RSVPs, their answers, its questions, its
+// upload and its co-hosts all cascade with it, and the upload's stored files go too. Only its
+// owner deletes it.
 export async function deleteEvent(hostId: string, id: string): Promise<void> {
   await removeEvents(and(eq(event.id, id), eq(event.hostId, hostId)));
 }
@@ -237,12 +239,17 @@ export async function deleteHostEvents(hostId: string): Promise<void> {
 
 // Every way an event is deleted comes through here, so its upload's files never outlive it. The
 // events are locked first, so an upload arriving meanwhile either lands before and is found here,
-// or finds its event gone. The files are removed once the rows are, so no page is ever shown
-// whose picture is missing.
+// or finds its event gone. Their links are retired before they go, so that whoever still has one
+// is told it is no longer valid, and no other event is ever given it, the custom link above all
+// (ADR-0004); the retired slugs outlive the event. The files are removed once the rows are, so no
+// page is ever shown whose picture is missing.
 export async function removeEvents(which: SQL | undefined): Promise<void> {
   const uploads = await getDb().transaction(async (tx) => {
-    const doomed = (await tx.select({ id: event.id }).from(event).where(which).for("update")).map(({ id }) => id);
-    if (doomed.length === 0) return [];
+    const locked = await tx.select({ id: event.id, slug: event.slug, customSlug: event.customSlug }).from(event).where(which).for("update");
+    if (locked.length === 0) return [];
+    const doomed = locked.map(({ id }) => id);
+    const slugs = locked.flatMap(({ id, slug, customSlug }) => [{ slug, eventId: id }, ...(customSlug ? [{ slug: customSlug, eventId: id }] : [])]);
+    await tx.insert(retiredSlug).values(slugs).onConflictDoNothing();
     const removed = await tx.delete(upload).where(inArray(upload.eventId, doomed)).returning({ id: upload.id });
     await tx.delete(event).where(inArray(event.id, doomed));
     return removed.map(({ id }) => id);

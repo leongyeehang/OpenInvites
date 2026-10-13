@@ -12,7 +12,7 @@ import { PageFooter } from "@/components/page-footer";
 import { TooFast } from "@/components/too-fast";
 import { acceptsRsvps, eventPageFor } from "@/events/access";
 import { eventHosts } from "@/events/hosts";
-import { findEventBySlug, isRetiredSlug, recordView, type EventWithHost } from "@/events/repository";
+import { findEventBySlug, findRetiredSlug, recordView, type EventWithHost } from "@/events/repository";
 import { countsAsView } from "@/events/views";
 import { eventPath, eventUrl, isSlug } from "@/events/slug";
 import { maxUploadBytes } from "@/instance/env";
@@ -107,7 +107,7 @@ export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Prom
   const event = isSlug(slug) ? await findEventBySlug(slug) : undefined;
   const [t, notFound] = await Promise.all([getTranslations("EventPage"), getTranslations("NotFound")]);
   if (!event) {
-    const retired = isSlug(slug) && (await isRetiredSlug(slug));
+    const retired = isSlug(slug) && (await findRetiredSlug(slug)) !== undefined;
     return { title: retired ? t("retiredTitle") : notFound("title"), robots: noindex };
   }
   // A draft unfurls as nothing: its title is not public until the host says so.
@@ -141,7 +141,8 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   if (!isSlug(slug)) notFound();
   const found = await findEventBySlug(slug);
   if (!found) {
-    if (await isRetiredSlug(slug)) return <RetiredLink />;
+    const retired = await findRetiredSlug(slug);
+    if (retired) return <RetiredLink eventDeleted={retired.eventDeleted} />;
     notFound();
   }
   // Everything below hands the event to client components, which are sent whole. The slug it

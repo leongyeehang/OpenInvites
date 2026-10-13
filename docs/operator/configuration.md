@@ -65,7 +65,8 @@ else that address is a page that does not exist.
   counts every reply to an event, whatever its answer; a guest who has not yet replied is told
   the event can't take more replies, while guests who have replied can still change or withdraw
   theirs. Each is a whole number from 1 to 100,000. Lowering a limit below what exists leaves
-  the existing events and replies alone and refuses only new ones.
+  the existing events and replies alone and refuses only new ones. The same card sets how long
+  events are kept ([Retention](#retention)).
 - **Reports**: every published or cancelled event page has a "Report this event" link in its
   footer, which opens a form for a reason (20 to 1,000 characters) and an optional email to reach
   the reporter. A report is always kept on the **Reports** page (`/instance/reports`, linked from
@@ -110,6 +111,39 @@ recover it by resetting its password by email, then verifying it:
    out too.
 2. Sign in with the new password and choose **Resend email** in the banner on your dashboard.
    Open the link it sends: the account is now the operator.
+
+### Retention
+
+Events are deleted a set time after they end: **Keep events for**, on the Limits card of
+Instance settings, from 30 to 3,650 days, 365 (a year) by default, on a new instance and on one
+upgraded from 0.3 alike. An event ends at its end time, or its start time if it has none; an
+all-day event at the end of its last day, in its own time zone. Drafts and cancelled events are
+counted the same way.
+
+Once an event ended the period less 30 days ago, it is marked to be deleted. Its manage page then
+says "This event will be deleted on" the day, and the host's dashboard says "Deleted on" it; with
+mail, each of its hosts, co-hosts included, is emailed once, with that day, the period, and that
+**Duplicate** keeps the event's details for another time. Every manage page also names the period.
+An event is deleted once it ended the whole period ago and its mark is at least 30 days old, so
+nothing is ever deleted sooner than 30 days after its hosts were warned, with mail or without.
+Raising the period later puts off the deletion of an event already marked (its pages show the new
+day); lowering it never deletes one sooner than 30 days after the mark.
+
+Deleting is the same as a host's own **Delete event**: the event goes with its replies and their
+answers, questions, comments, announcements, invites, co-hosts, any mail about it still queued,
+and its picture's files. Its links stay retired, so whoever opens one is told the event has been
+deleted, and no other event is ever given them. Reports about it stay on the Reports page, as
+"Event deleted". Hosts' accounts are not touched.
+
+The check runs in the app container a minute after it starts, then every hour; several app
+containers on one database share it without marking or deleting anything twice. On an instance
+upgraded with years of events behind it, the first check only marks: every event already old
+enough is marked at once, its hosts are emailed, and none is deleted for 30 days.
+
+To keep every event, tick **Keep forever** and save. Nothing is marked or deleted then, and the
+marks already made are cleared, so if you set a period again later, hosts are warned afresh and
+have their 30 days again. On an upgraded instance, an old event's hosts are already emailed by the
+first check, a minute after the start, unless Keep forever is saved before it.
 
 ## Mail
 
@@ -157,6 +191,8 @@ With mail configured:
   before if they said Going, unless the host turns reminders off for the event or has not
   approved their reply;
 - a guest proving their email is sent a code to it, when the host asks for it;
+- an event's hosts are warned 30 days before the instance deletes it for its age
+  ([Retention](#retention));
 - every email to a guest ends with a link to a page where one tap stops email about that event,
   except the code, which is sent before their RSVP is kept.
 

@@ -25,7 +25,7 @@ export async function register(): Promise<void> {
   // with mail, has verified its email.
   const { promoteOperatorAtStart } = await import("./instance/admission");
   await promoteOperatorAtStart();
-  // Mail about events goes out from the outbox every minute, when the instance has mail.
+  // The instance's clock: the retention sweep every hour, and with mail the outbox every minute.
   const { startMailWorker } = await import("./mail/worker");
   startMailWorker();
 }
