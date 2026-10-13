@@ -20,8 +20,14 @@ const daysAfter = (time: Date, days: number) => new Date(time.getTime() + days *
 // is the end of its day) is the period less 30 days ago. A marked event is deleted once its end is
 // the whole period ago and the mark is 30 days old, so a period lowered after the mark, or the
 // first sweep on an instance with years of events behind it, deletes nothing for 30 days, and a
-// period raised after the mark puts the deletion off.
-export function retentionPlan(events: RetainedEvent[], now: Date, retentionDays: number | null): { warn: string[]; remove: string[] } {
+// period raised after the mark puts the deletion off. `floorDays` is how old the mark must be:
+// 30 days, but for the test profile's instance without mail (retention/floor.ts).
+export function retentionPlan(
+  events: RetainedEvent[],
+  now: Date,
+  retentionDays: number | null,
+  floorDays = WARNING_DAYS,
+): { warn: string[]; remove: string[] } {
   if (retentionDays === null) return { warn: [], remove: [] };
   const passed = (time: Date) => time <= now;
   return {
@@ -29,7 +35,7 @@ export function retentionPlan(events: RetainedEvent[], now: Date, retentionDays:
     remove: events
       .filter(
         (event) =>
-          event.retentionWarnedAt !== null && passed(daysAfter(event.retentionWarnedAt, WARNING_DAYS)) && passed(daysAfter(eventEnd(event), retentionDays)),
+          event.retentionWarnedAt !== null && passed(daysAfter(event.retentionWarnedAt, floorDays)) && passed(daysAfter(eventEnd(event), retentionDays)),
       )
       .map(({ id }) => id),
   };
@@ -38,9 +44,19 @@ export function retentionPlan(events: RetainedEvent[], now: Date, retentionDays:
 // The day a marked event will be deleted, as its manage page, the dashboard and the warning say:
 // the later of 30 days after the mark and the end plus the period. None before the mark, or while
 // the instance keeps events for ever.
-export function deletionDate(event: Omit<RetainedEvent, "id">, retentionDays: number | null): Date | undefined {
+export function deletionDate(event: Omit<RetainedEvent, "id">, retentionDays: number | null, floorDays = WARNING_DAYS): Date | undefined {
   if (event.retentionWarnedAt === null || retentionDays === null) return undefined;
-  const afterWarning = daysAfter(event.retentionWarnedAt, WARNING_DAYS);
+  const afterWarning = daysAfter(event.retentionWarnedAt, floorDays);
   const afterPeriod = daysAfter(eventEnd(event), retentionDays);
   return afterWarning > afterPeriod ? afterWarning : afterPeriod;
+}
+
+// The marks a newly saved period no longer bears out, which saving it takes off (spec,
+// "Retention"): every mark with Keep forever, and with a period, those of events whose end plus the
+// period less 30 days is still ahead. Should the period bring such an event back, its hosts are
+// warned afresh and have their 30 days again. A shorter period takes off nothing.
+export function staleMarks(events: RetainedEvent[], now: Date, retentionDays: number | null): string[] {
+  return events
+    .filter((event) => event.retentionWarnedAt !== null && (retentionDays === null || daysAfter(eventEnd(event), retentionDays - WARNING_DAYS) > now))
+    .map(({ id }) => id);
 }

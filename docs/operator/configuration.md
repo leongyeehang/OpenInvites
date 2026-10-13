@@ -126,8 +126,12 @@ mail, each of its hosts, co-hosts included, is emailed once, with that day, the 
 **Duplicate** keeps the event's details for another time. Every manage page also names the period.
 An event is deleted once it ended the whole period ago and its mark is at least 30 days old, so
 nothing is ever deleted sooner than 30 days after its hosts were warned, with mail or without.
-Raising the period later puts off the deletion of an event already marked (its pages show the new
-day); lowering it never deletes one sooner than 30 days after the mark.
+Raising the period takes the mark off every event it no longer brings within 30 days of deletion;
+such an event is marked, and its hosts warned, afresh when its time comes again. A marked event
+still within those 30 days keeps its mark, and its deletion is put off (its pages show the new
+day). Lowering the period never deletes an event sooner than 30 days after its mark. A host who
+changes an event's dates so that its end moves takes its mark off too; the next check marks it
+again if it is still old enough.
 
 Deleting is the same as a host's own **Delete event**: the event goes with its replies and their
 answers, questions, comments, announcements, invites, co-hosts, any mail about it still queued,

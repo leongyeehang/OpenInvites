@@ -8,6 +8,7 @@ import { eventsOwnedAtLimit } from "@/events/limit";
 import { listHostEvents, type HostEvent } from "@/events/repository";
 import { formatDay, formatWhen, partitionByEnd } from "@/events/time";
 import { instanceLimits } from "@/instance/repository";
+import { retentionFloorDays } from "@/retention/floor";
 import { deletionDate } from "@/retention/plan";
 import { NO_RSVPS, type RsvpCounts } from "@/rsvps/counts";
 import { countRsvpsByEvent } from "@/rsvps/repository";
@@ -86,7 +87,7 @@ async function EventList({
         <ul className="flex flex-col gap-3">
           {events.map((event) => {
             const replies = counts.get(event.id) ?? NO_RSVPS;
-            const deletion = deletionDate(event, retentionDays);
+            const deletion = deletionDate(event, retentionDays, retentionFloorDays());
             return (
               <li key={event.id}>
                 <Link

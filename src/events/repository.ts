@@ -11,6 +11,7 @@ import { approvePending, promoteWaitlist } from "@/rsvps/repository";
 import { removeRenditions } from "@/uploads/files";
 import type { EventInput } from "./form";
 import { SLUG_TAKEN, withFreshSlug } from "./slug";
+import { eventEnd } from "./time";
 
 export type Event = typeof event.$inferSelect;
 export type EventState = Event["state"];
@@ -80,17 +81,31 @@ export async function recordView(id: string): Promise<void> {
 // that a capacity raised or removed promotes from the waitlist in the same transaction, against
 // the headcount as it stands, and approval turned off approves every reply still waiting for it,
 // those already waiting for a place first (spec, "Approval"); turning it on changes no reply.
-// `mailed` says whether a promoted or approved guest was queued an email.
+// Dates that move the event's end take off its retention mark (spec, "Retention"): the next sweep
+// marks it again, and warns its hosts afresh, if it is still old enough. `mailed` says whether a
+// promoted or approved guest was queued an email.
 export async function updateEvent(hostId: string, id: string, input: EventChanges): Promise<{ updated: Event; mailed: boolean } | undefined> {
   const now = new Date();
   return getDb().transaction(async (tx) => {
     const [before] = await tx
-      .select({ capacity: event.capacity, approvalRequired: event.approvalRequired })
+      .select({
+        capacity: event.capacity,
+        approvalRequired: event.approvalRequired,
+        startsAt: event.startsAt,
+        endsAt: event.endsAt,
+        allDay: event.allDay,
+        timeZone: event.timeZone,
+      })
       .from(event)
       .where(and(eq(event.id, id), hostedBy(hostId)))
       .for("no key update");
     if (!before) return undefined;
-    const [updated] = await tx.update(event).set({ ...input, updatedAt: now }).where(eq(event.id, id)).returning();
+    const redated = eventEnd(input).getTime() !== eventEnd(before).getTime();
+    const [updated] = await tx
+      .update(event)
+      .set({ ...input, updatedAt: now, ...(redated ? { retentionWarnedAt: null } : {}) })
+      .where(eq(event.id, id))
+      .returning();
     const promotionMailed = updated.capacity === before.capacity ? false : (await promoteWaitlist(updated, tx, now)).mailed;
     const approvalMailed = before.approvalRequired && !updated.approvalRequired ? await approvePending(updated, tx, now) : false;
     return { updated: withTheme(updated), mailed: promotionMailed || approvalMailed };

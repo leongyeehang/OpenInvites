@@ -164,6 +164,10 @@ services:
       OPERATOR_EMAIL: operator@no-mail.openinvites.test
       # Where a host without mail is sent to reset their password, and the legal pages' contact.
       OPERATOR_CONTACT_EMAIL: help@no-mail.openinvites.test
+      # Test only, never an operator's setting: a retention mark need not be 30 days old before its
+      # event is deleted, so e2e/retention.spec.ts sees an old event deleted at the sweep after the
+      # one that marked it (src/retention/floor.ts). app-fresh keeps the real 30 days.
+      RETENTION_TEST_FLOOR_DAYS: "0"
     ports:
       - "3003:3000"
     depends_on:

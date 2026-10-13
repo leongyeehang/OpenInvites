@@ -1,7 +1,9 @@
-import { and, desc, eq, gt, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { cache } from "react";
 import { getDb } from "@/db/client";
 import { event, hostInvitation, instanceSettings, user } from "@/db/schema";
+import { chunks } from "@/lib/chunks";
+import { staleMarks } from "@/retention/plan";
 import { hostInvitationExpiry } from "./host-invitation";
 import { hashHostInvitationToken } from "./host-invitation-token";
 import type { Limits } from "./limits";
@@ -30,13 +32,29 @@ export const instanceLimits = cache(async (): Promise<Limits> => {
   return settings;
 });
 
-// Keep forever also takes the retention mark off every event, so that a period set again later
-// warns their hosts afresh and gives them their 30 days again, rather than deleting at its first
-// sweep an event warned before (spec, "Retention").
+// Saving the period takes off every retention mark it no longer bears out (retention/plan.ts,
+// staleMarks): with Keep forever all of them, so that a period set again later warns the hosts
+// afresh and gives them their 30 days again, rather than deleting at its first sweep an event warned
+// before (spec, "Retention"). Updating the row waits for a sweep under way, which holds it shared,
+// so the marks that sweep makes are among those read here, and the next sweep waits for this one.
 export async function setInstanceLimits(limits: Limits): Promise<void> {
+  const now = new Date();
   await getDb().transaction(async (tx) => {
     await tx.update(instanceSettings).set(limits);
-    if (limits.retentionDays === null) await tx.update(event).set({ retentionWarnedAt: null }).where(isNotNull(event.retentionWarnedAt));
+    const marked = await tx
+      .select({
+        id: event.id,
+        startsAt: event.startsAt,
+        endsAt: event.endsAt,
+        allDay: event.allDay,
+        timeZone: event.timeZone,
+        retentionWarnedAt: event.retentionWarnedAt,
+      })
+      .from(event)
+      .where(isNotNull(event.retentionWarnedAt));
+    for (const ids of chunks(staleMarks(marked, now, limits.retentionDays), 1000)) {
+      await tx.update(event).set({ retentionWarnedAt: null }).where(inArray(event.id, ids));
+    }
   });
 }
 

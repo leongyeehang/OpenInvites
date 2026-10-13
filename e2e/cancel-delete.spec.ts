@@ -2,6 +2,14 @@ import { expect, test, type Page } from "./test";
 import { createPublished } from "./events";
 import { PASSWORD } from "./hosts";
 
+// On the event's share page: the custom link set and shown.
+async function setCustomLink(hostPage: Page, custom: string) {
+  await hostPage.goto(`${hostPage.url()}/share`);
+  await hostPage.getByRole("textbox", { name: "Custom link" }).fill(custom);
+  await hostPage.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(hostPage.getByText(new RegExp(`/e/${custom}$`))).toBeVisible({ timeout: 15_000 });
+}
+
 async function rsvp(page: Page, link: string, name: string) {
   await page.goto(link);
   await page.getByRole("button", { name: "Going" }).click();
@@ -41,7 +49,11 @@ test("a cancelled event keeps its page, with the news and no way to reply", asyn
   await host.context.close();
 });
 
-test("a host is told what deleting an event costs, and then the link says the event was deleted", async ({ page, browser, request }) => {
+test("a host is told what deleting an event costs, and then its links say the event was deleted and no other event takes them", async ({
+  page,
+  browser,
+  request,
+}) => {
   test.slow();
   const host = await createPublished(browser, request, "delete-event", {
     title: "Ada’s birthday",
@@ -57,7 +69,12 @@ test("a host is told what deleting an event costs, and then the link says the ev
   await page.getByRole("button", { name: "Send RSVP" }).click();
   await expect(page.getByText("You’re going!")).toBeVisible();
 
-  await host.page.reload();
+  // A custom link beside the random one, which the delete retires with it.
+  const manage = host.page.url();
+  const custom = `adas-birthday-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  await setCustomLink(host.page, custom);
+
+  await host.page.goto(manage);
   await host.page.getByRole("button", { name: "Delete event" }).click();
   await expect(host.page.getByText("Delete “Ada’s birthday”?")).toBeVisible();
   await expect(host.page.getByText("One RSVP, and the answers with it, are deleted.")).toBeVisible();
@@ -65,10 +82,18 @@ test("a host is told what deleting an event costs, and then the link says the ev
   await expect(host.page).toHaveURL(/\/dashboard$/);
   await expect(host.page.getByText("Ada’s birthday")).toHaveCount(0);
 
-  // The link stays retired, so no other event is ever given it, and says what became of the event.
-  await page.goto(host.link);
-  await expect(page.getByRole("heading", { name: "This link is no longer valid" })).toBeVisible();
-  await expect(page.getByText("This event has been deleted.")).toBeVisible();
+  // Both links stay retired, so no other event is ever given them, and say what became of the event.
+  for (const link of [host.link, `/e/${custom}`]) {
+    await page.goto(link);
+    await expect(page.getByRole("heading", { name: "This link is no longer valid" })).toBeVisible();
+    await expect(page.getByText("This event has been deleted.")).toBeVisible();
+  }
+  const other = await createPublished(browser, request, "delete-event-other", { title: "Grace’s picnic", start: "2027-04-10T12:00" });
+  await other.page.goto(`${other.page.url()}/share`);
+  await other.page.getByRole("textbox", { name: "Custom link" }).fill(custom);
+  await other.page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(other.page.getByText("That link is taken.")).toBeVisible({ timeout: 15_000 });
+  await other.context.close();
 
   await host.context.close();
 });

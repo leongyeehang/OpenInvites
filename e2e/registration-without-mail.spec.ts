@@ -69,3 +69,12 @@ test("a host who forgets their password is told how to reach the operator, as re
     await expect(page.getByRole("link", { name: contact }), path).toHaveAttribute("href", `mailto:${contact}`);
   }
 });
+
+// From magic-link.spec.ts, here so that no spec of the mobile or desktop project opens this
+// instance while the fresh-instance or retention projects restart it.
+test("the sign-in page of an instance without mail has no sign-in link form", async ({ page }) => {
+  await page.goto("/sign-in");
+  await expect(page.getByLabel("Password")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Email me a sign-in link" })).toHaveCount(0);
+  await expect(page.getByLabel("Email for the sign-in link")).toHaveCount(0);
+});

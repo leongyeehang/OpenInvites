@@ -15,6 +15,7 @@ import { countRsvpsByEvent } from "@/rsvps/repository";
 import { formatDay, timeZones } from "@/events/time";
 import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
+import { retentionFloorDays } from "@/retention/floor";
 import { deletionDate } from "@/retention/plan";
 import { EventForm } from "../event-form";
 import { DangerZone } from "../danger-zone";
@@ -47,7 +48,7 @@ export default async function ManageEventPage({ params, searchParams }: PageProp
   const replies = counts.get(event.id);
   // Once the clock's sweep has marked the event, the day it will be deleted for its age (spec,
   // "Retention"), with or without mail.
-  const deletion = deletionDate(event, limits.retentionDays);
+  const deletion = deletionDate(event, limits.retentionDays, retentionFloorDays());
 
   return (
     <ClientMessages namespaces={["Events.form", "Events.manage"]}>

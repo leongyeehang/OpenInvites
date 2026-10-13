@@ -186,7 +186,7 @@
     },
     "limits": {
       "title": "Limits",
-      "description": "The most a host or an event can take, and how long an event is kept once it has ended. A change takes effect at once; a lower limit leaves what already exists as it is.",
+      "description": "The most a host or an event can take, and how long events are kept once they have ended. A change takes effect at once. A lower limit on events or replies leaves what already exists as it is; the period applies to every event, those that exist included.",
       "maxEventsPerHost": "Events per host",
       "maxEventsPerHostHint": "Counts every event a host owns, drafts and past events included.",
       "maxRsvpsPerEvent": "Replies per event",
