@@ -1,5 +1,5 @@
 import { createPublished } from "./events";
-import { expect, test, type Page } from "./test";
+import { expect, scriptsNotFromTheApp, test, type Page } from "./test";
 
 // Ticket 18: the operator's privacy policy and terms of use, linked from every page's footer, and
 // the operator's own analytics snippet. `app` (the default base URL) has neither, so it shows the
@@ -13,13 +13,6 @@ const footer = (page: Page) => page.getByRole("contentinfo");
 // The operator's address under a legal page (OPERATOR_CONTACT_EMAIL, which differs between the
 // Compose test profile and .env.development).
 const contact = (page: Page) => page.getByText("Questions? Contact the operator of this instance at").getByRole("link");
-
-// The scripts in the page's head that did not come from the app itself.
-function scriptsNotFromTheApp(page: Page) {
-  return page.evaluate(() =>
-    [...document.head.querySelectorAll("script")].filter((script) => !script.src || !new URL(script.src).pathname.startsWith("/_next/")).map((script) => script.outerHTML),
-  );
-}
 
 test.describe("on an instance whose operator has written nothing", () => {
   test("the legal pages say what is missing, and who to ask", async ({ page }) => {

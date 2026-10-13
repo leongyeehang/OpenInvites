@@ -27,8 +27,8 @@ export type GuestRsvp = {
 // Why an answer was refused. The guest's own browser turns it into a sentence, and uses it to
 // send them back to the step holding the field that needs them. Too fast is the rate limit; limit
 // reached is the operator's cap on replies per event; capacity full is a Going guest bringing more
-// people than the event has room for (admission.ts).
-export type RsvpRefusal = RsvpFormError | AnswerError | CodeRefusal | "closed" | "limitReached" | "capacityFull" | "tooFast";
+// people than the event has room for (admission.ts); check failed is Turnstile's (turnstile/verify.ts).
+export type RsvpRefusal = RsvpFormError | AnswerError | CodeRefusal | "closed" | "limitReached" | "capacityFull" | "tooFast" | "checkFailed";
 
 // Why the code step stopped short of saving the reply (email-code.ts): a wrong code; a dead one,
 // expired or out of tries, for which a new one was sent; or no code sent, because one went to the

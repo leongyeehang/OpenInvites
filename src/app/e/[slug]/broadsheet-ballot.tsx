@@ -11,6 +11,7 @@ import { Confetti } from "@/themes/effects/confetti";
 import { Glass } from "@/themes/glass";
 import { cardButtonClasses } from "@/themes/rsvp-buttons";
 import { useTheme } from "@/themes/themed-page";
+import { Turnstile } from "@/turnstile/turnstile";
 import { BroadsheetReceipt } from "./broadsheet-receipt";
 import { Asked } from "./rsvp-flow";
 import { useRsvpFlow, type RsvpFlowProps } from "./use-rsvp-flow";
@@ -268,7 +269,7 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
                       <button
                         type="button"
                         onClick={(event) => flow.resend(event.currentTarget.form)}
-                        disabled={working || flow.resendIn > 0}
+                        disabled={working || flow.resendIn > 0 || flow.awaitingCheck}
                         className={LINK}
                       >
                         {flow.resendIn > 0 ? t("code.resendIn", { seconds: flow.resendIn }) : t("code.resend")}
@@ -287,6 +288,9 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
                   </div>
                 )}
 
+                {/* Turnstile, beside "Post my reply" and, on the code step, "Send it again"; Confirm
+                    goes without it. */}
+                {flow.turnstile && <Turnstile {...flow.turnstile} />}
                 {flow.refusal && (
                   <p role="alert" className="text-sm font-medium">
                     {t(`errors.${flow.refusal}`, { count: flow.refusalCount })}
@@ -295,7 +299,7 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
                 {/* In the theme's RSVP button style: the ballot's one button. */}
                 <button
                   type="submit"
-                  disabled={working || !draft.name.trim() || (confirming && !draft.code.trim())}
+                  disabled={working || !draft.name.trim() || (confirming && !draft.code.trim()) || (!confirming && flow.awaitingCheck)}
                   className={cn(cardButtonClasses(buttonStyle), "h-14 justify-between px-5 text-lg font-bold tracking-tight")}
                 >
                   {confirming ? t("code.confirm") : t("ballot.post")} <span aria-hidden>→</span>

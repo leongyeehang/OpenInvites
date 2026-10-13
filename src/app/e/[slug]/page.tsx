@@ -32,6 +32,7 @@ import { PosterLayout } from "@/themes/poster-layout";
 import { resolveTheme } from "@/themes/resolve";
 import { ThemedPage } from "@/themes/themed-page";
 import { ThreadLayout } from "@/themes/thread-layout";
+import { turnstileSiteKey } from "@/turnstile/config";
 import { findEventUpload } from "@/uploads/repository";
 import { themeUpload } from "@/uploads/uploads";
 import { AddToCalendar } from "./add-to-calendar";
@@ -232,6 +233,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     questions,
     answers: answersStillOffered(answers, questions),
     calendar,
+    turnstileSiteKey: turnstileSiteKey(),
   };
   // A guest whose reply is not approved is told why the list is locked for them.
   const guestList = view === "hidden" ? undefined : { view, guests, counts: countRsvps(guests.map(asTally)), approval: mine?.rsvp.approval };
@@ -239,7 +241,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // The client components below read their messages in the browser; the host's Design drawer, only
   // on the host's own page, brings its own.
   return (
-    <ClientMessages namespaces={["EventPage", "Rsvp"]}>
+    <ClientMessages namespaces={["EventPage", "Rsvp", "Turnstile"]}>
       <ThemedPage
         theme={event.theme}
         upload={isHost ? picture : guestPicture}

@@ -1,4 +1,4 @@
-import { expect, test as base, type APIResponse, type Response } from "@playwright/test";
+import { expect, test as base, type APIResponse, type Page, type Response } from "@playwright/test";
 
 export * from "@playwright/test";
 
@@ -21,6 +21,14 @@ export async function expectNotFoundAsSent(response: APIResponse | Response | nu
   const html = (await response?.text()) ?? "";
   expect(html).toContain(`<html lang="${lang}"`);
   expect(html.replace(/<script[\s\S]*?<\/script>/g, "")).toMatch(new RegExp(`<h1[^>]*>${heading}</h1>`));
+}
+
+// The scripts in the page's head that did not come from the app itself (e2e/legal-and-analytics,
+// e2e/turnstile).
+export function scriptsNotFromTheApp(page: Page) {
+  return page.evaluate(() =>
+    [...document.head.querySelectorAll("script")].filter((script) => !script.src || !new URL(script.src).pathname.startsWith("/_next/")).map((script) => script.outerHTML),
+  );
 }
 
 // An address from a private range, a different one for every test in the run.

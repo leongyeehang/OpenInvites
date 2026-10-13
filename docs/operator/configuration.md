@@ -329,6 +329,37 @@ The app's port must be reachable only through the proxy. A visitor who could tal
 directly could write `X-Forwarded-For` themselves and pass for anyone, a new client with each
 request. `compose.yaml` publishes it on `127.0.0.1` only; keep it that way.
 
+## Bot protection
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `TURNSTILE_SITE_KEY` | None | The site key of a Cloudflare Turnstile widget made for this instance. |
+| `TURNSTILE_SECRET_KEY` | None | That widget's secret key. |
+
+Set both to put [Cloudflare Turnstile](https://www.cloudflare.com/application-services/products/turnstile/)'s
+check on three forms: signing up with an email and password, a guest's RSVP in every layout, and
+reporting an event page. Each form's submit waits until the check has passed, which for most
+visitors happens by itself in a second or two, and the app asks Cloudflare whether each check
+really passed before it does anything with the form. A form that fails it says "Please complete
+the check and try again." and can be sent again. Signing in, signing up with Google or GitHub,
+comments and everything a host does are not checked: they need a session or an RSVP, and the
+rate limits cover them. Setting only one of the two keeps the app from starting; with neither,
+nothing changes and nothing is loaded from Cloudflare.
+
+The check runs in the visitor's browser: on the pages with those forms, the browser loads
+Cloudflare's script and talks to Cloudflare, which learns the visitor's address and what it
+needs to tell a person from a script. Your privacy policy should say so. The app itself sends
+Cloudflare each form's token and the visitor's address, as the rate limits see it.
+
+To get the keys, sign in to the [Cloudflare dashboard](https://dash.cloudflare.com/), open
+Turnstile, add a widget with the hostname of `BASE_URL` (without `https://`) and the Managed
+mode, and copy its site key and secret key. A widget answers only on the hostnames it was made
+for, so a check on any other address fails.
+
+Cloudflare publishes test keys that make the widget pass for anyone: site key
+`1x00000000000000000000AA` with secret key `1x0000000000000000000000000000000AA`. They are for
+trying the forms out, and protect nothing.
+
 ## Privacy policy and terms of use
 
 | Variable | Default | Meaning |

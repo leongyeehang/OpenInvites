@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { findEventBySlug } from "@/events/repository";
 import { eventPath, isSlug } from "@/events/slug";
 import { ClientMessages } from "@/locale/client-messages";
+import { turnstileSiteKey } from "@/turnstile/config";
 import { ReportForm } from "./report-form";
 
 // A published or cancelled event's report form; a draft is not public, so for everyone it is a page
@@ -37,8 +38,8 @@ export default async function ReportPage({ params }: PageProps<"/e/[slug]/report
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ClientMessages namespaces={["Report"]}>
-            <ReportForm slug={slug} eventPath={eventPath(event)} />
+          <ClientMessages namespaces={["Report", "Turnstile"]}>
+            <ReportForm slug={slug} eventPath={eventPath(event)} turnstileSiteKey={turnstileSiteKey()} />
           </ClientMessages>
         </CardContent>
       </Card>

@@ -7,14 +7,15 @@ import { findEventBySlug } from "@/events/repository";
 import { isSlug } from "@/events/slug";
 import { isUuid } from "@/lib/uuid";
 import { consume } from "@/rate-limit/rate-limit";
+import { checkTurnstile } from "@/turnstile/verify";
 import { notifyOperatorOfReport } from "./notify-operator";
 import { parseReport, type ReportError } from "./report";
 import { createReport, deleteEventAsOperator, markReportHandled } from "./repository";
 
 // Why a report was refused. The reporter's own browser turns it into a sentence. Closed is an event
-// that is gone, or a draft; too fast is the rate limit. What was typed comes back with a refusal, so
-// the form keeps it.
-export type ReportRefusal = ReportError | "closed" | "tooFast";
+// that is gone, or a draft; too fast is the rate limit; check failed is Turnstile's. What was typed
+// comes back with a refusal, so the form keeps it.
+export type ReportRefusal = ReportError | "closed" | "tooFast" | "checkFailed";
 
 export type ReportState = { error?: ReportRefusal; sent?: true; reason?: string; contact?: string } | undefined;
 
@@ -23,12 +24,14 @@ function text(formData: FormData, name: string): string {
   return typeof value === "string" ? value : "";
 }
 
-// Sending a report: counted against the report limit before anything is looked up, then stored and
-// told to the operator. A published or a cancelled event can be reported; nothing says whether a
-// draft exists.
+// Sending a report: counted against the report limit before anything is looked up, then checked by
+// Turnstile when the operator has it on (spec, "Turnstile"), then stored and told to the operator.
+// A published or a cancelled event can be reported; nothing says whether a draft exists.
 export async function sendReportAction(slug: string, _: ReportState, formData: FormData): Promise<ReportState> {
   const typed = { reason: text(formData, "reason"), contact: text(formData, "contact") };
-  if (!(await consume("report", await headers())).allowed) return { error: "tooFast", ...typed };
+  const requestHeaders = await headers();
+  if (!(await consume("report", requestHeaders)).allowed) return { error: "tooFast", ...typed };
+  if ((await checkTurnstile(formData, requestHeaders)) === "failed") return { error: "checkFailed", ...typed };
   const event = isSlug(slug) ? await findEventBySlug(slug) : undefined;
   if (!event || event.state === "draft") return { error: "closed", ...typed };
 

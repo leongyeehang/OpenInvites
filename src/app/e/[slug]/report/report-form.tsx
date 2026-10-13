@@ -2,19 +2,25 @@
 
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { sendReportAction, type ReportState } from "@/reports/actions";
+import { Turnstile } from "@/turnstile/turnstile";
 
 // What the reporter has to say, and an email to reach them by if they like. A refusal leaves what
 // they typed as it was, with the reason under the field it belongs to; once sent, the form is
-// replaced by the thanks and the way back to the page.
-export function ReportForm({ slug, eventPath }: { slug: string; eventPath: string }) {
+// replaced by the thanks and the way back to the page. With Turnstile on, Send report waits for its
+// check, and each report sent spends the token.
+export function ReportForm({ slug, eventPath, turnstileSiteKey }: { slug: string; eventPath: string; turnstileSiteKey?: string }) {
   const t = useTranslations("Report");
-  const [state, send, sending] = useActionState((previous: ReportState, formData: FormData) => sendReportAction(slug, previous, formData), undefined);
+  const [checkPassed, setCheckPassed] = useState(false);
+  const [state, send, sending] = useActionState((previous: ReportState, formData: FormData) => {
+    setCheckPassed(false);
+    return sendReportAction(slug, previous, formData);
+  }, undefined);
 
   if (state?.sent) {
     return (
@@ -42,8 +48,9 @@ export function ReportForm({ slug, eventPath }: { slug: string; eventPath: strin
           <FieldDescription>{t("contactHint")}</FieldDescription>
           {error === "contactInvalid" && <FieldError>{t("errors.contactInvalid")}</FieldError>}
         </Field>
-        {(error === "closed" || error === "tooFast") && <FieldError>{t(`errors.${error}`)}</FieldError>}
-        <Button type="submit" disabled={sending}>
+        {turnstileSiteKey && <Turnstile siteKey={turnstileSiteKey} onToken={setCheckPassed} resets={state} />}
+        {(error === "closed" || error === "tooFast" || error === "checkFailed") && <FieldError>{t(`errors.${error}`)}</FieldError>}
+        <Button type="submit" disabled={sending || (turnstileSiteKey !== undefined && !checkPassed)}>
           {t("submit")}
         </Button>
       </FieldGroup>

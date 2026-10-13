@@ -10,6 +10,7 @@ import { getDb } from "@/db/client";
 import { user } from "@/db/schema";
 import type { FormState } from "@/lib/form-state";
 import { isMailConfigured } from "@/mail/config";
+import { checkTurnstile } from "@/turnstile/verify";
 import { getAuth } from "./auth";
 import { authErrorMessage } from "./errors";
 import { nextPath } from "./next-path";
@@ -25,7 +26,13 @@ function field(formData: FormData, name: string): string {
   return typeof value === "string" ? value : "";
 }
 
+// Turnstile, when the operator has it on, checks the form before anything else (spec, "Turnstile");
+// signing in, and signing up with Google or GitHub, are not checked.
 export async function signUp(_: FormState, formData: FormData): Promise<FormState> {
+  if ((await checkTurnstile(formData, await headers())) === "failed") {
+    const t = await getTranslations("Auth.errors");
+    return { error: t("checkFailed") };
+  }
   const name = field(formData, "name").trim();
   if (!name) {
     const t = await getTranslations("Auth.errors");

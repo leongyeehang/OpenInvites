@@ -1,17 +1,24 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { signUp } from "@/auth/actions";
 import { Button } from "@/components/ui/button";
 import { FormOutcome } from "@/components/form-outcome";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import type { FormState } from "@/lib/form-state";
+import { Turnstile } from "@/turnstile/turnstile";
 
-// A host invitation addressed to someone fills in their email, which they may still change.
-export function SignUpForm({ email }: { email?: string }) {
+// A host invitation addressed to someone fills in their email, which they may still change. With
+// Turnstile on, Create account waits for its check, and each sign-up sent spends the token.
+export function SignUpForm({ email, turnstileSiteKey }: { email?: string; turnstileSiteKey?: string }) {
   const t = useTranslations("Auth.signUp");
-  const [state, action, pending] = useActionState(signUp, undefined);
+  const [checkPassed, setCheckPassed] = useState(false);
+  const [state, action, pending] = useActionState((previous: FormState, formData: FormData) => {
+    setCheckPassed(false);
+    return signUp(previous, formData);
+  }, undefined);
   return (
     <form action={action}>
       <FieldGroup>
@@ -29,8 +36,9 @@ export function SignUpForm({ email }: { email?: string }) {
           <Input id="password" name="password" type="password" autoComplete="new-password" required minLength={8} />
           <FieldDescription>{t("passwordHint")}</FieldDescription>
         </Field>
+        {turnstileSiteKey && <Turnstile siteKey={turnstileSiteKey} onToken={setCheckPassed} resets={state} />}
         <FormOutcome state={state} />
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending || (turnstileSiteKey !== undefined && !checkPassed)}>
           {t("submit")}
         </Button>
       </FieldGroup>

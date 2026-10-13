@@ -107,7 +107,8 @@
       "CREDENTIAL_ACCOUNT_NOT_FOUND": "这个账号没有设置密码。",
       "HOST_INVITATION_REQUIRED": "此实例仅限受邀注册。你需要运营者发出的主办人邀请才能创建账号。",
       "HOST_INVITATION_UNUSABLE": "此主办人邀请已无法使用。请向此实例的运营者索取新的邀请。",
-      "TOO_MANY_REQUESTS": "操作太频繁了，请稍后再试。"
+      "TOO_MANY_REQUESTS": "操作太频繁了，请稍后再试。",
+      "checkFailed": "请先完成人机验证，再试一次。"
     }
   },
   "Host": {
@@ -1017,7 +1018,8 @@
       "codeExpired": "验证码已过期，我们已重新发送了一个。",
       "codeResent": "尝试次数太多，我们已重新发送了一个验证码。",
       "codeTooFast": "目前无法再发送验证码，请过几分钟再试。",
-      "codeTooSoon": "我们刚刚已发送验证码，请查看你的邮箱。"
+      "codeTooSoon": "我们刚刚已发送验证码，请查看你的邮箱。",
+      "checkFailed": "请先完成人机验证，再试一次。"
     },
     "questions": {
       "title": "几个小问题",
@@ -1100,8 +1102,13 @@
       "reasonTooLong": "内容太长了，请控制在 1,000 个字符以内。",
       "contactInvalid": "请填写有效的邮箱地址，或者留空。",
       "closed": "这个页面无法举报。",
-      "tooFast": "操作太频繁了，请稍后再试。"
+      "tooFast": "操作太频繁了，请稍后再试。",
+      "checkFailed": "请先完成人机验证，再试一次。"
     }
+  },
+  "Turnstile": {
+    "label": "人机验证",
+    "unavailable": "人机验证没能加载出来。请在这个页面关闭广告拦截器，然后再试一次。"
   },
   "Legal": {
     "privacy": "隐私政策",

@@ -12,6 +12,7 @@ export async function register(): Promise<void> {
   const { storageConfig } = await import("./storage/config");
   const { checkRateLimitsAtStart } = await import("./rate-limit/rate-limit");
   const { checkLegalPagesAtStart } = await import("./legal/documents");
+  const { turnstileConfig } = await import("./turnstile/config");
   baseUrl();
   authSecret();
   mailConfig();
@@ -19,6 +20,7 @@ export async function register(): Promise<void> {
   maxUploadBytes();
   checkRateLimitsAtStart();
   checkLegalPagesAtStart();
+  turnstileConfig();
   // The account OPERATOR_EMAIL names becomes the operator at every start, if it exists yet and,
   // with mail, has verified its email.
   const { promoteOperatorAtStart } = await import("./instance/admission");

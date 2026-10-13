@@ -15,6 +15,7 @@ import { Glass } from "@/themes/glass";
 import { sheetVariables } from "@/themes/resolve";
 import { rsvpButtonClasses } from "@/themes/rsvp-buttons";
 import { useTheme } from "@/themes/themed-page";
+import { Turnstile } from "@/turnstile/turnstile";
 import { useCopyLink } from "./use-copy-link";
 import { confirmedAs, offersCalendar, useRsvpFlow, type RsvpFlowProps, type Step } from "./use-rsvp-flow";
 
@@ -361,7 +362,7 @@ export function RsvpFlow(props: RsvpFlowProps) {
             <button
               type="button"
               onClick={() => flow.resend(form.current)}
-              disabled={working || flow.resendIn > 0}
+              disabled={working || flow.resendIn > 0 || flow.awaitingCheck}
               className="cursor-pointer underline underline-offset-2 hover:opacity-80 disabled:cursor-default disabled:no-underline disabled:opacity-70"
             >
               {flow.resendIn > 0 ? t("code.resendIn", { seconds: flow.resendIn }) : t("code.resend")}
@@ -372,6 +373,10 @@ export function RsvpFlow(props: RsvpFlowProps) {
           </div>
         </div>
       )}
+
+      {/* Turnstile, on the last step, whose button sends the answer, and on the code step, beside
+          "Send it again"; the code itself goes without it. */}
+      {last && flow.turnstile && <Turnstile {...flow.turnstile} />}
 
       {flow.refusal && (
         <p role="alert" className="text-sm font-medium">
@@ -384,7 +389,7 @@ export function RsvpFlow(props: RsvpFlowProps) {
         // changes, mid-click, and the browser would then send the half-filled form.
         type="button"
         onClick={() => (last ? form.current?.requestSubmit() : flow.forward())}
-        disabled={working || !draft.name.trim() || (confirming && !draft.code.trim())}
+        disabled={working || !draft.name.trim() || (confirming && !draft.code.trim()) || (last && !confirming && flow.awaitingCheck)}
         className="h-12 cursor-pointer rounded-2xl bg-theme-accent text-base font-medium text-theme-on-accent transition-opacity hover:opacity-90 disabled:cursor-default motion-reduce:transition-none disabled:opacity-50"
       >
         {confirming ? t("code.confirm") : last ? t("send") : t("continue")}

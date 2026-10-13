@@ -8,13 +8,8 @@ import { isIP } from "node:net";
 // further left were written by the client and are never believed. Fewer entries than proxies
 // means some proxy was skipped, and every entry there is still one of theirs, so the leftmost is
 // the nearest to the client. Null when nothing can be believed: no trusted proxy, no header, or
-// an entry that is not an address.
-//
-// The key is the client as the limits count it. An IPv4 address is its own client. An IPv6
-// client usually holds a whole /64 (a home line, a server) and can take any address in it, so
-// the /64 is the client; an IPv4 address carried in IPv6 (::ffff:a.b.c.d) is the IPv4 client it
-// names.
-export function clientKey(forwardedFor: string | null, trustedHops: number): string | null {
+// an entry that is not an address. The address as written is what Turnstile's check is told.
+export function clientAddress(forwardedFor: string | null, trustedHops: number): string | null {
   if (trustedHops < 1 || !forwardedFor) return null;
   const entries = forwardedFor
     .split(",")
@@ -22,9 +17,17 @@ export function clientKey(forwardedFor: string | null, trustedHops: number): str
     .filter(Boolean);
   if (entries.length === 0) return null;
   const address = entries[Math.max(0, entries.length - trustedHops)];
-  const family = isIP(address);
-  if (family === 4) return address;
-  if (family !== 6) return null;
+  return isIP(address) ? address : null;
+}
+
+// The key is the client as the limits count it. An IPv4 address is its own client. An IPv6
+// client usually holds a whole /64 (a home line, a server) and can take any address in it, so
+// the /64 is the client; an IPv4 address carried in IPv6 (::ffff:a.b.c.d) is the IPv4 client it
+// names.
+export function clientKey(forwardedFor: string | null, trustedHops: number): string | null {
+  const address = clientAddress(forwardedFor, trustedHops);
+  if (address === null) return null;
+  if (isIP(address) === 4) return address;
   const groups = hextets(address);
   if (groups.slice(0, 5).every((group) => group === 0) && groups[5] === 0xffff) {
     return [groups[6] >> 8, groups[6] & 0xff, groups[7] >> 8, groups[7] & 0xff].join(".");

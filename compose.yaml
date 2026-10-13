@@ -59,7 +59,8 @@ services:
   # ever calls Google or GitHub with these credentials. It counts sign-ins as low as `app`, for
   # the spec's refused Google sign-in. It also has the operator's own analytics snippet and legal
   # pages, one from the environment and one from a mounted file, for
-  # e2e/legal-and-analytics.spec.ts; `app` has neither, and shows the shipped placeholders.
+  # e2e/legal-and-analytics.spec.ts; `app` has neither, and shows the shipped placeholders. And it
+  # has Turnstile on, with Cloudflare's published test keys, for e2e/turnstile.spec.ts.
   app-social:
     build: .
     profiles: [test]
@@ -83,6 +84,10 @@ services:
 
         Markup such as <b>this</b> is shown as it was typed.
       TERMS_FILE: /legal/terms.md
+      # Cloudflare's published always-pass test keys: the widget shows and passes for anyone, and
+      # siteverify accepts its token. Not keys for a real instance.
+      TURNSTILE_SITE_KEY: 1x00000000000000000000AA
+      TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
     volumes:
       - ./e2e/legal/terms.md:/legal/terms.md:ro
     ports:

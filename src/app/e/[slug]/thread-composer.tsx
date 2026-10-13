@@ -2,7 +2,7 @@
 
 import { ArrowUp, Copy } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils";
 import { answerAfterPicking, offeredBy } from "@/questions/answers";
@@ -15,6 +15,7 @@ import { cardButtonClasses } from "@/themes/rsvp-buttons";
 import { useTheme } from "@/themes/themed-page";
 import { ARRIVAL, arriving, BUBBLE_CHIP, GuestBubble, HOST_BUBBLE, HostBubble } from "@/themes/thread-bubble";
 import { threadMessages, threadTurns, type Said, type ThreadEvent, type ThreadReply, type Turn } from "@/themes/thread-script";
+import { Turnstile } from "@/turnstile/turnstile";
 import { useCopyLink } from "./use-copy-link";
 import { offersCalendar, useRsvpFlow, type Draft, type RsvpFlowProps, type RsvpFlowState } from "./use-rsvp-flow";
 
@@ -43,6 +44,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
   const { buttonStyle } = useTheme().resolved;
   const reduce = useReducedMotion();
   const sendForm = useRef<HTMLFormElement>(null);
+  const sendFormId = useId();
   const bar = useRef<HTMLDivElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const doneLine = useRef<HTMLParagraphElement>(null);
@@ -84,7 +86,14 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
   }
 
   const bubbles = threadMessages({ step, at, reply }, event);
-  const turn = threadTurns(reply, event).find((each) => each.step === step && each.at === at);
+  const turns = threadTurns(reply, event);
+  const turn = turns.find((each) => each.step === step && each.at === at);
+  // With Turnstile on, the check stands over the turn whose answer sends the reply, the last (or,
+  // every turn answered, the Send that sends it again), and over the code's turn, beside "Send it
+  // again" (spec, "Turnstile"). The answer that sends the reply is offered once the check has
+  // passed; the code goes without it.
+  const checkShown = flow.turnstile !== undefined && flow.answering && (turn === undefined || turn === turns.at(-1));
+  const held = checkShown && flow.awaitingCheck && step !== "code";
 
   // How much of the conversation shows. What is there when the page opens shows at once; after
   // that, whatever the guest says shows as they say it, and each host line once the host has been
@@ -123,7 +132,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
   // Once what is wanted is there, the focus goes to it.
   useEffect(() => {
     const wanted = focusNext.current;
-    if (!wanted || typing || (working && flow.answering)) return;
+    if (!wanted || typing || (working && flow.answering) || held) return;
     const target =
       wanted === "done"
         ? doneLine.current
@@ -190,7 +199,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
     );
 
   const controls = ((): ReactNode => {
-    if (typing || (working && flow.answering)) return null;
+    if (typing || (working && flow.answering) || held) return null;
     if (step === "idle") {
       if (!open) return null;
       return (
@@ -304,7 +313,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
                 handOff();
                 flow.resend(sendForm.current);
               }}
-              disabled={working || flow.resendIn > 0}
+              disabled={working || flow.resendIn > 0 || flow.awaitingCheck}
               className={chip()}
             >
               {flow.resendIn > 0 ? r("code.resendIn", { seconds: flow.resendIn }) : r("code.resend")}
@@ -360,7 +369,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
   // The composer is there while there is something to answer or wait for: not on an event that
   // takes no replies, to a guest who has not replied. On a full event it says, over the guest's
   // controls, that a Going reply joins the waitlist.
-  const barShown = controls !== null || alert !== undefined || typing || (working && flow.answering);
+  const barShown = controls !== null || alert !== undefined || typing || (working && flow.answering) || checkShown;
 
   return (
     <>
@@ -398,10 +407,11 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
                 {alert}
               </p>
             )}
+            {checkShown && flow.turnstile && <Turnstile {...flow.turnstile} form={sendFormId} />}
             {controls}
           </Glass>
         )}
-        <form ref={sendForm} action={flow.send} hidden>
+        <form ref={sendForm} id={sendFormId} action={flow.send} hidden>
           <input type="hidden" name="status" value={draft.status} />
           <input type="hidden" name="name" value={draft.name} />
           <input type="hidden" name="email" value={draft.email} />

@@ -12,6 +12,7 @@ import { HOST_INVITATION_COOKIE } from "@/instance/host-invitation-token";
 import { signUpNotice } from "@/instance/registration";
 import { findHostInvitation, hasAccounts, registrationMode } from "@/instance/repository";
 import { ClientMessages } from "@/locale/client-messages";
+import { turnstileSiteKey } from "@/turnstile/config";
 import { SocialSignIn } from "../social-sign-in";
 import { SignUpForm } from "./sign-up-form";
 
@@ -49,8 +50,8 @@ export default async function SignUpPage() {
           <CardDescription>{t("description")}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <ClientMessages namespaces={["Auth.signUp"]}>
-            <SignUpForm email={pending?.email ?? undefined} />
+          <ClientMessages namespaces={["Auth.signUp", "Turnstile"]}>
+            <SignUpForm email={pending?.email ?? undefined} turnstileSiteKey={turnstileSiteKey()} />
           </ClientMessages>
           <SocialSignIn providers={enabledSocialProviders()} namespace="Auth.signUp" />
         </CardContent>

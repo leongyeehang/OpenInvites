@@ -107,7 +107,8 @@
       "CREDENTIAL_ACCOUNT_NOT_FOUND": "This account has no password to check.",
       "HOST_INVITATION_REQUIRED": "This instance is invitation only. You need a host invitation from its operator to create an account.",
       "HOST_INVITATION_UNUSABLE": "This host invitation can no longer be used. Ask the operator of this instance for a new one.",
-      "TOO_MANY_REQUESTS": "You’re going too fast. Try again shortly."
+      "TOO_MANY_REQUESTS": "You’re going too fast. Try again shortly.",
+      "checkFailed": "Please complete the check and try again."
     }
   },
   "Host": {
@@ -1017,7 +1018,8 @@
       "codeExpired": "That code has expired. We sent a new one.",
       "codeResent": "Too many tries. We sent a new one.",
       "codeTooFast": "We can’t send another code right now. Try again in a few minutes.",
-      "codeTooSoon": "We just sent you a code. Look for it in your email."
+      "codeTooSoon": "We just sent you a code. Look for it in your email.",
+      "checkFailed": "Please complete the check and try again."
     },
     "questions": {
       "title": "A couple of questions",
@@ -1100,8 +1102,13 @@
       "reasonTooLong": "That’s too long. Keep it to 1,000 characters.",
       "contactInvalid": "Enter a valid email address, or leave it blank.",
       "closed": "This page can’t be reported.",
-      "tooFast": "You’re going too fast. Try again shortly."
+      "tooFast": "You’re going too fast. Try again shortly.",
+      "checkFailed": "Please complete the check and try again."
     }
+  },
+  "Turnstile": {
+    "label": "Bot check",
+    "unavailable": "The check couldn’t load. Turn off your ad blocker for this page and try again."
   },
   "Legal": {
     "privacy": "Privacy policy",
