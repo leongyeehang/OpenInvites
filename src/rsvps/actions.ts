@@ -61,16 +61,13 @@ function sendQueuedMail(mailed: boolean): void {
 // proven by a code, an answer is saved only once the guest has entered the code sent to it
 // (email-code.ts); until then nothing is written but the code.
 //
-// When the operator has Turnstile on, an answer posted without a code passes its check next
-// (spec, "Turnstile"): the first answer and "Send it again" alike, which the server cannot tell
-// apart, since either may send a code to whatever address it names. One posted with a code is
-// checked by the code instead, which only the email's owner was sent; where no code is asked for,
-// a code proves nothing, and that answer passes the check before it is saved.
+// When the operator has Turnstile on, every answer passes its check next, before anything else
+// (spec, "Turnstile"): the first, "Send it again", and the one with the code, since a wrong, dead
+// or made-up code is answered with a new one, sent to whatever address the answer names.
 export async function saveRsvpAction(slug: string, formData: FormData): Promise<SaveRsvpResult> {
   const requestHeaders = await headers();
   if (!(await consume("rsvp", requestHeaders)).allowed) return { error: "tooFast" };
-  const code = formData.get("code");
-  if (code === null && (await checkTurnstile(formData, requestHeaders)) === "failed") return { error: "checkFailed" };
+  if ((await checkTurnstile(formData, requestHeaders)) === "failed") return { error: "checkFailed" };
   const event = await findEventBySlug(slug);
   if (!event || !acceptsRsvps(event.state)) return { error: "closed" };
 
@@ -94,11 +91,9 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
   const { email } = parsed.input;
   let proven = !!email && email === invite?.email;
   if (!proven && email && needsCode({ verifyEmail: event.verifyEmail, emailField: event.emailField, mailConfigured: isMailConfigured(), email, current: mine?.rsvp })) {
-    const proof = await proveEmail(event, email, code, requestHeaders);
+    const proof = await proveEmail(event, email, formData.get("code"), requestHeaders);
     if (proof !== "proven") return proof;
     proven = true;
-  } else if (code !== null && (await checkTurnstile(formData, requestHeaders)) === "failed") {
-    return { error: "checkFailed" };
   }
 
   // The language the guest answers in is the one their mail about the event is written in.

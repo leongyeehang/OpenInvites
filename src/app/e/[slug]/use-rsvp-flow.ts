@@ -140,10 +140,10 @@ export function useRsvpFlow(
   // The code step belongs to the email the code went to: a guest who changes the email is sent a
   // code to the new one when they answer again.
   const codeSentTo = codeTo !== undefined && codeTo === draft.email.trim() ? codeTo : undefined;
-  // With Turnstile on, every post without a code waits for the widget beside the layout's submit
-  // to pass (spec, "Turnstile"): the answer that saves the reply or sends the code, and "Send it
-  // again". A token passes one check, so each of those posts spends it, and once the answer is
-  // back the widget starts again.
+  // With Turnstile on, every post waits for the widget beside the layout's submit to pass (spec,
+  // "Turnstile"): the answer that saves the reply or sends the code, "Send it again", and the code.
+  // A token passes one check, so each post spends it, and once the answer is back the widget
+  // starts again.
   const [checkPassed, setCheckPassed] = useState(false);
   const [checksSent, setChecksSent] = useState(0);
   const awaitingCheck = turnstileSiteKey !== undefined && !checkPassed;
@@ -213,11 +213,10 @@ export function useRsvpFlow(
       setStep("code");
       return;
     }
-    const checked = turnstileSiteKey !== undefined && !formData.has("code");
-    if (checked) setCheckPassed(false);
+    setCheckPassed(false);
     startWorking(async () => {
       const result = await saveRsvpAction(slug, formData);
-      if (checked) setChecksSent((count) => count + 1);
+      setChecksSent((count) => count + 1);
       setRefusal(result.error);
       setTriesLeft(result.triesLeft);
       setPlacesLeft(result.placesLeft);

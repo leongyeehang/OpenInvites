@@ -34,6 +34,10 @@ function loadTurnstile(): Promise<TurnstileApi> {
   return loading;
 }
 
+// How long the script may take before the form says it could not load: a request an ad blocker
+// holds rather than refuses never fails. Should it arrive after all, the widget appears.
+const PATIENCE_MS = 10_000;
+
 // The languages the widget speaks that are the instance's (Cloudflare's codes).
 const LANGUAGES: Record<string, string> = { en: "en", "zh-Hans": "zh-cn", "zh-Hant": "zh-tw" };
 
@@ -43,7 +47,7 @@ const LANGUAGES: Record<string, string> = { en: "en", "zh-Hans": "zh-cn", "zh-Ha
 // it stands outside it (the Thread's composer). The form keeps its submit disabled until
 // `onToken` says a token is there, and changes `resets` after each post the token went with: a
 // token passes one check, so the widget starts again. When the script cannot load (an ad blocker,
-// most often), it says so, and the form stays waiting.
+// most often), or has not come in ten seconds, it says so, and the form stays waiting.
 export function Turnstile({ siteKey, form, onToken, resets }: { siteKey: string; form?: string; onToken: (present: boolean) => void; resets?: unknown }) {
   const t = useTranslations("Turnstile");
   const locale = useLocale();
@@ -65,9 +69,12 @@ export function Turnstile({ siteKey, form, onToken, resets }: { siteKey: string;
 
   useEffect(() => {
     let gone = false;
+    const slow = setTimeout(() => setUnavailable(true), PATIENCE_MS);
     loadTurnstile().then(
       (turnstile) => {
+        clearTimeout(slow);
         if (gone || !container.current) return;
+        setUnavailable(false);
         widget.current = turnstile.render(container.current, {
           sitekey: siteKey,
           theme: "auto",
@@ -80,11 +87,13 @@ export function Turnstile({ siteKey, form, onToken, resets }: { siteKey: string;
         });
       },
       () => {
+        clearTimeout(slow);
         if (!gone) setUnavailable(true);
       },
     );
     return () => {
       gone = true;
+      clearTimeout(slow);
       if (widget.current !== undefined) window.turnstile?.remove(widget.current);
       widget.current = undefined;
       tell(false);

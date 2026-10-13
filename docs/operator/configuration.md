@@ -339,12 +339,18 @@ request. `compose.yaml` publishes it on `127.0.0.1` only; keep it that way.
 Set both to put [Cloudflare Turnstile](https://www.cloudflare.com/application-services/products/turnstile/)'s
 check on three forms: signing up with an email and password, a guest's RSVP in every layout, and
 reporting an event page. Each form's submit waits until the check has passed, which for most
-visitors happens by itself in a second or two, and the app asks Cloudflare whether each check
-really passed before it does anything with the form. A form that fails it says "Please complete
-the check and try again." and can be sent again. Signing in, signing up with Google or GitHub,
-comments and everything a host does are not checked: they need a session or an RSVP, and the
-rate limits cover them. Setting only one of the two keeps the app from starting; with neither,
-nothing changes and nothing is loaded from Cloudflare.
+visitors happens by itself in a second or two. Every time a form is sent, a guest's code to prove
+their email included, the app asks Cloudflare whether the check really passed before it does
+anything with the form beyond counting it against the rate limits. A form that fails it says
+"Please complete the check and try again." and can be sent again once the check has passed anew.
+
+Not checked: signing in, which takes an account's password, or sends a link only to an account's
+own verified address; signing up with Google or GitHub, which goes through the provider's own
+sign-in; comments, which only a host or a guest whose reply is on the list can post; and
+everything a host does, which needs a host's session. The rate limits cover all of them.
+
+Setting only one of the two keys keeps the app from starting; with neither, nothing changes and
+nothing is loaded from Cloudflare.
 
 The check runs in the visitor's browser: on the pages with those forms, the browser loads
 Cloudflare's script and talks to Cloudflare, which learns the visitor's address and what it

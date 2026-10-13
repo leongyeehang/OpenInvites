@@ -128,6 +128,12 @@ export function RsvpFlow(props: RsvpFlowProps) {
       // Enter in a field finishes its step rather than sending a half-filled RSVP. On a button it
       // does what the button says, so Back goes back and a plus-one chip is chosen.
       onKeyDown={(event) => {
+        // While the last step waits for Turnstile's check, Enter in a field sends nothing, as its
+        // button does not: the browser would otherwise send a step with one field by itself.
+        if (event.key === "Enter" && last && flow.awaitingCheck && event.target instanceof HTMLInputElement) {
+          event.preventDefault();
+          return;
+        }
         // In the code's field, Enter confirms it.
         if (event.key === "Enter" && confirming && event.target === codeField.current) {
           event.preventDefault();
@@ -374,8 +380,8 @@ export function RsvpFlow(props: RsvpFlowProps) {
         </div>
       )}
 
-      {/* Turnstile, on the last step, whose button sends the answer, and on the code step, beside
-          "Send it again"; the code itself goes without it. */}
+      {/* Turnstile, on the last step, whose button sends the answer: on the code step, beside
+          "Send it again" and Confirm. */}
       {last && flow.turnstile && <Turnstile {...flow.turnstile} />}
 
       {flow.refusal && (
@@ -389,7 +395,7 @@ export function RsvpFlow(props: RsvpFlowProps) {
         // changes, mid-click, and the browser would then send the half-filled form.
         type="button"
         onClick={() => (last ? form.current?.requestSubmit() : flow.forward())}
-        disabled={working || !draft.name.trim() || (confirming && !draft.code.trim()) || (last && !confirming && flow.awaitingCheck)}
+        disabled={working || !draft.name.trim() || (confirming && !draft.code.trim()) || (last && flow.awaitingCheck)}
         className="h-12 cursor-pointer rounded-2xl bg-theme-accent text-base font-medium text-theme-on-accent transition-opacity hover:opacity-90 disabled:cursor-default motion-reduce:transition-none disabled:opacity-50"
       >
         {confirming ? t("code.confirm") : last ? t("send") : t("continue")}

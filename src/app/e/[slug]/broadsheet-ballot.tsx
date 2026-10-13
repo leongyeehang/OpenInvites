@@ -288,8 +288,8 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
                   </div>
                 )}
 
-                {/* Turnstile, beside "Post my reply" and, on the code step, "Send it again"; Confirm
-                    goes without it. */}
+                {/* Turnstile, beside "Post my reply" and, on the code step, "Send it again" and
+                    Confirm. */}
                 {flow.turnstile && <Turnstile {...flow.turnstile} />}
                 {flow.refusal && (
                   <p role="alert" className="text-sm font-medium">
@@ -299,7 +299,7 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
                 {/* In the theme's RSVP button style: the ballot's one button. */}
                 <button
                   type="submit"
-                  disabled={working || !draft.name.trim() || (confirming && !draft.code.trim()) || (!confirming && flow.awaitingCheck)}
+                  disabled={working || !draft.name.trim() || (confirming && !draft.code.trim()) || flow.awaitingCheck}
                   className={cn(cardButtonClasses(buttonStyle), "h-14 justify-between px-5 text-lg font-bold tracking-tight")}
                 >
                   {confirming ? t("code.confirm") : t("ballot.post")} <span aria-hidden>→</span>

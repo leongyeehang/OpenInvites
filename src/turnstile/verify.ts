@@ -9,21 +9,22 @@ export const TURNSTILE_FIELD = "cf-turnstile-response";
 const SITEVERIFY = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 const TIMEOUT_MS = 5000;
 
-// What Cloudflare's siteverify answered, read as JSON: the token passed only when the answer says
-// so in as many words. Anything else, an answer of another shape included, is a failure.
-export function turnstileVerdict(json: unknown): TurnstileVerdict {
-  return (json as { success?: unknown } | null | undefined)?.success === true ? "ok" : "failed";
+// What Cloudflare's siteverify answered: its HTTP status, and its body read as JSON (undefined when
+// it was not). The token passed only when the answer is a success and says so in as many words.
+// Anything else, an answer of another shape included, is a failure.
+export function turnstileVerdict(status: number, json: unknown): TurnstileVerdict {
+  const said = (json as { success?: unknown } | null | undefined)?.success === true;
+  return status >= 200 && status < 300 && said ? "ok" : "failed";
 }
 
 // Asks Cloudflare whether a token is good, once: a token passes one check only. The address is
 // the client's as the rate limits believe it, which Cloudflare compares with the one that solved
 // the challenge. No token, no answer within five seconds, or an answer that is not a verdict
 // fails the check, and each failure is logged once with its reason, never with the secret.
+// checkTurnstile calls it only once the keys are set.
 export async function verifyTurnstile(token: string | null, remoteIp: string | undefined): Promise<TurnstileVerdict> {
-  const secret = turnstileConfig()?.secretKey;
-  if (!secret) return failed("TURNSTILE_SECRET_KEY is not set");
   if (!token) return failed("the form came without a token");
-  const body = new URLSearchParams({ secret, response: token });
+  const body = new URLSearchParams({ secret: turnstileConfig()!.secretKey, response: token });
   if (remoteIp) body.set("remoteip", remoteIp);
   let answer: Response;
   try {
@@ -31,14 +32,10 @@ export async function verifyTurnstile(token: string | null, remoteIp: string | u
   } catch (error) {
     return failed(`Cloudflare could not be reached (${error instanceof Error ? error.message : String(error)})`);
   }
+  const json: unknown = await answer.json().catch(() => undefined);
+  if (turnstileVerdict(answer.status, json) === "ok") return "ok";
   if (!answer.ok) return failed(`Cloudflare answered ${answer.status}`);
-  let json: unknown;
-  try {
-    json = await answer.json();
-  } catch {
-    return failed("Cloudflare's answer was not JSON");
-  }
-  if (turnstileVerdict(json) === "ok") return "ok";
+  if (json === undefined) return failed("Cloudflare's answer was not JSON");
   const codes = (json as { "error-codes"?: unknown } | null)?.["error-codes"];
   return failed(`Cloudflare refused the token (${Array.isArray(codes) && codes.length > 0 ? codes.join(", ") : "no reason given"})`);
 }

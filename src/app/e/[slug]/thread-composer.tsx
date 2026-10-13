@@ -88,12 +88,11 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
   const bubbles = threadMessages({ step, at, reply }, event);
   const turns = threadTurns(reply, event);
   const turn = turns.find((each) => each.step === step && each.at === at);
-  // With Turnstile on, the check stands over the turn whose answer sends the reply, the last (or,
-  // every turn answered, the Send that sends it again), and over the code's turn, beside "Send it
-  // again" (spec, "Turnstile"). The answer that sends the reply is offered once the check has
-  // passed; the code goes without it.
+  // With Turnstile on, the check stands over the turn whose answer sends the reply, the last (the
+  // code's, once a code is sent), or, every turn answered, the Send that sends it again (spec,
+  // "Turnstile"). That turn's answers are offered once the check has passed.
   const checkShown = flow.turnstile !== undefined && flow.answering && (turn === undefined || turn === turns.at(-1));
-  const held = checkShown && flow.awaitingCheck && step !== "code";
+  const held = checkShown && flow.awaitingCheck;
 
   // How much of the conversation shows. What is there when the page opens shows at once; after
   // that, whatever the guest says shows as they say it, and each host line once the host has been
@@ -313,7 +312,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
                 handOff();
                 flow.resend(sendForm.current);
               }}
-              disabled={working || flow.resendIn > 0 || flow.awaitingCheck}
+              disabled={working || flow.resendIn > 0}
               className={chip()}
             >
               {flow.resendIn > 0 ? r("code.resendIn", { seconds: flow.resendIn }) : r("code.resend")}
