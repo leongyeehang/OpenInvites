@@ -129,7 +129,7 @@
       "waitlisted": "{count} 人候补",
       "pending": "{count} 人等待批准",
       "headcount": "{count, plural, =0 {还没有人确定要来} other {预计 # 人}}",
-      "headcountOf": "预计 {count, plural, other {# 人}}（共 {capacity} 个名额）",
+      "headcountOf": "预计 {count, plural, other {# 人}}（共 {capacity, plural, other {# 个名额}}）",
       "deletedOn": "将于 {date} 删除",
       "coHost": "共同主办人",
       "limitReached": "你已有 {count, plural, other {# 场活动}}，这是本实例允许的上限。删除一场不再需要的活动，才能再创建新的。"
@@ -451,7 +451,7 @@
     "manage": {
       "link": "活动链接",
       "opened": "活动页面已被打开 {count, plural, other {#}} 次",
-      "headcountOf": "预计 {count, plural, other {# 人}}（共 {capacity} 个名额）",
+      "headcountOf": "预计 {count, plural, other {# 人}}（共 {capacity, plural, other {# 个名额}}）",
       "deletionDate": "这个活动将于 {date} 删除。",
       "view": "打开活动页面",
       "publish": "发布",
@@ -788,7 +788,7 @@
     "title": "宾客名单",
     "backToEvent": "返回活动",
     "headcount": "{count, plural, =0 {还没有人确定要来} other {预计 # 人}}",
-    "headcountOf": "预计 {count, plural, other {# 人}}（共 {capacity} 个名额）",
+    "headcountOf": "预计 {count, plural, other {# 人}}（共 {capacity, plural, other {# 个名额}}）",
     "counts": "{going} 人参加 · {maybe} 人待定 · {declined} 人无法参加",
     "waitlistedCount": "{count} 人候补",
     "pendingCount": "{count} 人等待批准",

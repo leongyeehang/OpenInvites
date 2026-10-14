@@ -129,7 +129,7 @@
       "waitlisted": "{count} 人候補",
       "pending": "{count} 人等待核准",
       "headcount": "{count, plural, =0 {還沒有人確定要來} other {預計 # 人}}",
-      "headcountOf": "預計 {count, plural, other {# 人}}（共 {capacity} 個名額）",
+      "headcountOf": "預計 {count, plural, other {# 人}}（共 {capacity, plural, other {# 個名額}}）",
       "deletedOn": "將於 {date} 刪除",
       "coHost": "共同主辦人",
       "limitReached": "你已有 {count, plural, other {# 場活動}}，這是本實例允許的上限。刪除一場不再需要的活動，才能再建立新的。"
@@ -451,7 +451,7 @@
     "manage": {
       "link": "活動連結",
       "opened": "活動頁面已被開啟 {count, plural, other {#}} 次",
-      "headcountOf": "預計 {count, plural, other {# 人}}（共 {capacity} 個名額）",
+      "headcountOf": "預計 {count, plural, other {# 人}}（共 {capacity, plural, other {# 個名額}}）",
       "deletionDate": "這個活動將於 {date} 刪除。",
       "view": "開啟活動頁面",
       "publish": "發布",
@@ -788,7 +788,7 @@
     "title": "賓客名單",
     "backToEvent": "返回活動",
     "headcount": "{count, plural, =0 {還沒有人確定要來} other {預計 # 人}}",
-    "headcountOf": "預計 {count, plural, other {# 人}}（共 {capacity} 個名額）",
+    "headcountOf": "預計 {count, plural, other {# 人}}（共 {capacity, plural, other {# 個名額}}）",
     "counts": "{going} 人參加 · {maybe} 人待定 · {declined} 人無法參加",
     "waitlistedCount": "{count} 人候補",
     "pendingCount": "{count} 人等待核准",

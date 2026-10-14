@@ -90,16 +90,16 @@ test("a party that does not fit waits, the page says the event is full, and a wi
 
   // The host's list: three of three places, and nobody waiting.
   await host.page.goto(`${manage}/guests`);
-  await expect(host.page.getByText(/^3 people expected of 3 · 2 going · 0 maybe · 0 can’t go$/)).toBeVisible();
+  await expect(host.page.getByText(/^3 people expected of 3 places · 2 going · 0 maybe · 0 can’t go$/)).toBeVisible();
   await expect(host.page.getByRole("heading", { name: /^Waitlist \(0\)/ })).toBeVisible();
   await expect(host.page.getByRole("region", { name: /^Going/ }).getByText("Bea Lim")).toBeVisible();
 
   // The manage page and the dashboard read the headcount against the capacity too, and the
   // announcement form offers the waitlist, unticked.
   await host.page.goto(manage);
-  await expect(host.page.getByText("3 people expected of 3", { exact: true })).toBeVisible();
+  await expect(host.page.getByText("3 people expected of 3 places", { exact: true })).toBeVisible();
   await host.page.goto("/dashboard");
-  await expect(host.page.getByText(/ · 3 people expected of 3$/)).toBeVisible();
+  await expect(host.page.getByText(/ · 3 people expected of 3 places$/)).toBeVisible();
   await host.page.goto(`${manage}/announcements`);
   await expect(host.page.getByRole("checkbox", { name: "Waitlist" })).not.toBeChecked();
 
@@ -128,7 +128,7 @@ test("two guests replying Going at once for the last place: one is Going and the
   await host.page.goto(`${host.page.url()}/guests`);
   await expect(host.page.getByRole("heading", { name: /^Going \(1\)/ })).toBeVisible();
   await expect(host.page.getByRole("heading", { name: /^Waitlist \(1\)/ })).toBeVisible();
-  await expect(host.page.getByText(/^1 person expected of 1/)).toBeVisible();
+  await expect(host.page.getByText(/^1 person expected of 1 place/)).toBeVisible();
 
   await closeAll(priya, mei, host.page);
 });
@@ -163,14 +163,14 @@ test("a large party at the front of the waitlist is not skipped for a small one,
 
   // The host sees the waitlist in order, numbered, with each party.
   await host.page.goto(`${manage}/guests`);
-  await expect(host.page.getByText(/^1 person expected of 2 · 1 going · 0 maybe · 0 can’t go · 2 on the waitlist$/)).toBeVisible();
+  await expect(host.page.getByText(/^1 person expected of 2 places · 1 going · 0 maybe · 0 can’t go · 2 on the waitlist$/)).toBeVisible();
   const waitlist = host.page.getByRole("region", { name: /^Waitlist/ });
   await expect(waitlist.getByRole("listitem")).toHaveText([/^1\.\s*Bea Lim\s*\+2/, /^2\.\s*Chen Wei/]);
 
   // The host moves Bea's party to Going, past the capacity, which a host's change never answers to.
   await waitlist.getByRole("listitem").filter({ hasText: "Bea Lim" }).getByRole("button", { name: "Move to Going" }).click();
   await expect(host.page.getByRole("heading", { name: /^Going \(2\)/ })).toBeVisible();
-  await expect(host.page.getByText(/^4 people expected of 2/)).toBeVisible();
+  await expect(host.page.getByText(/^4 people expected of 2 places/)).toBeVisible();
   await expect(host.page.getByRole("heading", { name: "Guest list" })).toBeFocused();
   await expect(waitlist.getByRole("listitem")).toHaveText([/^1\.\s*Chen Wei/]);
   await bea.reload();
@@ -217,7 +217,7 @@ test("the host's capacity moves the waitlist: raised, the party at the front is 
   // Lowered to three, below the four expected: nobody is moved, and the list reads over full.
   await setCapacity(host.page, manage, "3");
   await host.page.goto(`${manage}/guests`);
-  await expect(host.page.getByText(/^4 people expected of 3 · 2 going · 0 maybe · 0 can’t go · 2 on the waitlist$/)).toBeVisible();
+  await expect(host.page.getByText(/^4 people expected of 3 places · 2 going · 0 maybe · 0 can’t go · 2 on the waitlist$/)).toBeVisible();
   await expect(host.page.getByRole("region", { name: /^Waitlist/ }).getByRole("listitem")).toHaveText([/^1\.\s*Chen Wei/, /^2\.\s*Dev Shah/]);
   await bea.reload();
   await expect(bea.getByText("You’re going!")).toBeVisible();
@@ -268,7 +268,7 @@ test("a Going guest who can no longer come, and one the host makes a maybe, each
   await host.page.getByLabel("Status").selectOption("maybe");
   await host.page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(host.page.getByRole("heading", { name: /^Maybe \(1\)/ })).toBeVisible();
-  await expect(host.page.getByText(/^2 people expected of 2 · 2 going · 1 maybe · 1 can’t go$/)).toBeVisible();
+  await expect(host.page.getByText(/^2 people expected of 2 places · 2 going · 1 maybe · 1 can’t go$/)).toBeVisible();
   await expect(going.getByRole("listitem")).toHaveText([/Chen Wei/, /Dev Shah/]);
   await expect(host.page.getByRole("heading", { name: /^Waitlist \(0\)/ })).toBeVisible();
   await dev.reload();
