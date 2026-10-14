@@ -74,6 +74,10 @@ retention. Read the first point before you upgrade: it is the one change that de
   edit link once they reply, and deleting it keeps their reply.
 - **Nothing else changes on existing events.** None has a capacity or asks for approval, and every
   existing reply stays on the guest list as it was, approved.
+- **The limits apply at once, to what exists too.** A host who already owns 50 events or more
+  cannot create or duplicate another, and an event that already has 500 replies takes no new guest
+  (those who replied can still change or withdraw theirs). If a host or an event is past them, raise
+  **Events per host** or **Replies per event** in Instance settings first.
 
 The instance settings page gains the **Limits** card (Events per host, 50; Replies per event, 500;
 Keep events for, 365 days) and a link to the **Reports** page; with mail, each report is also
@@ -82,8 +86,9 @@ emailed to your operator account. There are three new settings, all optional:
 RSVP and report forms when both are set ([configuration.md](configuration.md#bot-protection)), and
 `RATE_LIMIT_REPORT` ([configuration.md](configuration.md#rate-limits)). `compose.yaml` gains no
 service. If you have published a privacy policy, it may now need to mention guests' phone numbers,
-how long events are kept, that reports reach you, and the bot check if you turn it on; the
-placeholder at `/privacy` lists them.
+how long events are kept, that reports reach you and are kept, and the bot check if you turn it
+on: the placeholder OpenInvites shows at `/privacy` while no policy is set, in the repository's
+`src/legal/placeholders.ts`, covers each.
 
 ### Upgrading to 0.3
 

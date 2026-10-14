@@ -200,12 +200,12 @@ test("approving applies the capacity, with the waitlist's email, and turning app
 
   // Arjun approved takes the place; Bea approved after him waits for one, and is told her place.
   await host.page.goto(guests);
-  await expect(host.page.getByText(/^0 of 1 person expected/)).toBeVisible();
+  await expect(host.page.getByText(/^0 people expected of 1/)).toBeVisible();
   await decide(host.page, /^Waiting for approval/, "Arjun Rao", "Approve");
   await expect(host.page.getByRole("region", { name: /^Going/ }).getByText("Arjun Rao")).toBeVisible();
   await decide(host.page, /^Waiting for approval/, "Bea Lim", "Approve");
   await expect(host.page.getByRole("region", { name: /^Waitlist/ }).getByText("Bea Lim")).toBeVisible();
-  await expect(host.page.getByText(/^1 of 1 person expected · 1 going · 0 maybe · 0 can’t go · 1 on the waitlist$/)).toBeVisible();
+  await expect(host.page.getByText(/^1 person expected of 1 · 1 going · 0 maybe · 0 can’t go · 1 on the waitlist$/)).toBeVisible();
   const beaMail = await latestMailTo(request, beaEmail);
   expect(beaMail).toContain("The host approved your reply to Supper for one, but the event is full, so you’re number 1 on the waitlist.");
   expect(new URL(linkIn(beaMail)).pathname).toBe(new URL(host.link).pathname);
@@ -215,7 +215,7 @@ test("approving applies the capacity, with the waitlist's email, and turning app
   // The event is full now. A guest whose reply waits for the host is told it joins the waitlist once
   // approved.
   await chen.goto(host.link);
-  await expect(chen.getByText("This event is full. If the host approves your reply, you’ll join the waitlist.")).toBeVisible();
+  await expect(chen.getByText("This event is full. A Going reply joins the waitlist once the host approves it.")).toBeVisible();
   await expect(chen.getByText("This event is full. You can join the waitlist.")).toHaveCount(0);
 
   // Chen's reply and then Dev's wait when the host turns approval off: both are approved, in the

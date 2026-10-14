@@ -126,6 +126,25 @@ test("the operator deletes a reported event from the inbox: its link says it was
   await host.context.close();
 });
 
+test("a cancelled event's page keeps its report link, and a report from it reaches the operator", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "report-cancelled", { title: "Called off", start: "2027-08-01T12:00" });
+  await host.page.getByRole("button", { name: "Cancel event" }).click();
+  await host.page.getByRole("button", { name: "Cancel the event" }).click();
+  await expect(host.page.getByText("Cancelled", { exact: true })).toBeVisible({ timeout: 15_000 });
+
+  await page.goto(host.link);
+  await expect(page.getByText("This event is cancelled")).toBeVisible();
+  const reason = reasonFor("cancelled");
+  await sendReport(page, host.link, reason);
+  await expect(page.getByText("Thank you. Your report has reached the operator of this instance.")).toBeVisible();
+
+  const operator = await operatorOnReports(browser);
+  await expect(inbox(operator.page, reason).getByRole("link", { name: "Called off" })).toHaveAttribute("href", new URL(host.link).pathname);
+  await operator.context.close();
+  await host.context.close();
+});
+
 test("a draft's page, seen by its host, has no report link, and nobody can open its report page", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "report-draft", { title: "Not yet", start: "2027-05-01T12:00" });

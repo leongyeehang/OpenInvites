@@ -129,7 +129,7 @@
       "waitlisted": "{count} 人候补",
       "pending": "{count} 人等待批准",
       "headcount": "{count, plural, =0 {还没有人确定要来} other {预计 # 人}}",
-      "headcountOf": "预计 {count} 人（共 {capacity, plural, other {# 个名额}}）",
+      "headcountOf": "预计 {count, plural, other {# 人}}（共 {capacity} 个名额）",
       "deletedOn": "将于 {date} 删除",
       "coHost": "共同主办人",
       "limitReached": "你已有 {count, plural, other {# 场活动}}，这是本实例允许的上限。删除一场不再需要的活动，才能再创建新的。"
@@ -382,7 +382,7 @@
       "contact": {
         "title": "联系方式",
         "email": "邮箱",
-        "verifyEmail": "用验证码确认邮箱",
+        "verifyEmail": "用验证码验证邮箱",
         "verifyEmailHint": "宾客须输入我们发到其邮箱的六位数验证码，回复才会保存。",
         "phone": "电话号码",
         "none": "不询问",
@@ -451,7 +451,7 @@
     "manage": {
       "link": "活动链接",
       "opened": "活动页面已被打开 {count, plural, other {#}} 次",
-      "headcountOf": "预计 {count} 人（共 {capacity, plural, other {# 个名额}}）",
+      "headcountOf": "预计 {count, plural, other {# 人}}（共 {capacity} 个名额）",
       "deletionDate": "这个活动将于 {date} 删除。",
       "view": "打开活动页面",
       "publish": "发布",
@@ -503,7 +503,7 @@
       "customLink": {
         "title": "自定义链接",
         "label": "自定义链接",
-        "guessable": "任何人都能猜到自定义链接，随机链接仍是私密的那一个。",
+        "guessable": "任何人都能猜到自定义链接；随机链接仍只有你分享过的人才知道。",
         "save": "保存",
         "saved": "已保存。",
         "removed": "已移除。",
@@ -788,7 +788,7 @@
     "title": "宾客名单",
     "backToEvent": "返回活动",
     "headcount": "{count, plural, =0 {还没有人确定要来} other {预计 # 人}}",
-    "headcountOf": "预计 {count} 人（共 {capacity, plural, other {# 个名额}}）",
+    "headcountOf": "预计 {count, plural, other {# 人}}（共 {capacity} 个名额）",
     "counts": "{going} 人参加 · {maybe} 人待定 · {declined} 人无法参加",
     "waitlistedCount": "{count} 人候补",
     "pendingCount": "{count} 人等待批准",
@@ -813,7 +813,7 @@
     "changed": "修改于 {when}",
     "row": {
       "mailStopped": "已停止接收这个活动的邮件",
-      "emailChecked": "邮箱已确认"
+      "emailChecked": "邮箱已验证"
     },
     "edit": "编辑",
     "close": "关闭",
@@ -854,7 +854,7 @@
     "explainer": "专属邀请链接只给一位宾客使用。对方打开后，名字会自动填好；如果你留了邮箱，邮箱也会填好。对方的回复会和这个链接绑定，之后这个链接就是对方的修改链接。请复制每个链接，自己发给对应的宾客。",
     "name": "名字",
     "email": "邮箱",
-    "emailHint": "选填。会替对方填好，并视为已确认。",
+    "emailHint": "选填。会替对方填好，并视为已验证。",
     "make": "生成链接",
     "made": "已为 {name} 生成链接。",
     "full": "这个活动已有 {max} 个专属邀请，已达上限。要生成新的，请先删除一个。",
@@ -957,7 +957,7 @@
     "maybe": "待定",
     "cant": "无法参加",
     "full": "这场活动已满员。你可以加入候补名单。",
-    "fullApproval": "这场活动已满员。主办人批准你的回复后，你会加入候补名单。",
+    "fullApproval": "这场活动已满员。回复“参加”的宾客，经主办人批准后会加入候补名单。",
     "step": "第 {step} 步，共 {total} 步",
     "back": "返回",
     "continue": "继续",

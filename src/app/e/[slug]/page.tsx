@@ -236,7 +236,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     invite: invite && { name: invite.name, email: event.emailField === "none" ? null : invite.email },
     open: acceptsRsvps(event.state),
     full: isFull(event.capacity, headcount),
-    awaitsApproval: event.approvalRequired && (mine ? mine.rsvp.approval !== "approved" : !invite),
+    needsApproval: event.approvalRequired && (mine ? mine.rsvp.approval !== "approved" : !invite),
     questions,
     answers: answersStillOffered(answers, questions),
     calendar,

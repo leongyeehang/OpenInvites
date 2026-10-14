@@ -703,7 +703,7 @@ for (const layout of LAYOUTS) {
 
     // Bea finds the event full, then waits for the host; so does Chen.
     await bea.goto(host.link);
-    await expect(bea.getByText("This event is full. If the host approves your reply, you’ll join the waitlist.")).toBeVisible();
+    await expect(bea.getByText("This event is full. A Going reply joins the waitlist once the host approves it.")).toBeVisible();
     await expectNoSeriousViolations(bea, `${where}, full, to a guest whose reply waits for the host`);
     await replyGoing(bea, layout, host.link, "Bea Lim");
     await expect(standing(bea, layout, "Bea", "pending")).toBeVisible({ timeout: 15_000 });

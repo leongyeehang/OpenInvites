@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { after } from "next/server";
 import { requireHost } from "@/auth/session";
+import { getDb } from "@/db/client";
 import { acceptsRsvps } from "@/events/access";
 import { findEventBySlug, findHostEvent } from "@/events/repository";
 import { can } from "@/hosts/role";
@@ -16,12 +17,13 @@ import { isMailConfigured } from "@/mail/config";
 import { kickMailWorker } from "@/mail/worker";
 import { consume } from "@/rate-limit/rate-limit";
 import { checkTurnstile } from "@/turnstile/verify";
+import { admit } from "./admission";
 import { proveEmail } from "./email-code";
 import { parseHostEdit, parseRsvpForm, type RsvpFormFields } from "./form";
 import { findRsvpOnThisDevice, guestRsvp, type SaveRsvpResult } from "./guest";
 import { repliesAtLimit } from "./limit";
 import { notifyHostsOfRsvp } from "./notify-hosts";
-import { approveRsvp, declineRsvp, deleteRsvp, editRsvpAsHost, moveToGoing, saveRsvp } from "./repository";
+import { approveRsvp, countHeadcount, declineRsvp, deleteRsvp, editRsvpAsHost, moveToGoing, saveRsvp } from "./repository";
 import { rsvpCookieName, rsvpCookieOptions } from "./token";
 import { needsCode } from "./verification";
 import { eventPaths } from "@/events/slug";
@@ -84,6 +86,21 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
   const mine = await findRsvpOnThisDevice(event.id);
   const invite = mine ? undefined : await findInviteOnThisDevice(event.id);
   if (!mine && (await repliesAtLimit(event.id))) return { error: "limitReached" };
+  // So too a Going guest who brings more people than there is room for: they are told how many may
+  // come before their email is proven, so no code is sent, nor a right one used up, for a save the
+  // event cannot take. Only a guest already Going can be refused so (admission.ts).
+  if (mine && event.capacity !== null) {
+    const admitted = admit({
+      approvalRequired: event.approvalRequired,
+      capacity: event.capacity,
+      headcount: await countHeadcount(event.id, getDb(), mine.rsvp.id),
+      invited: false,
+      wanted: parsed.input.status,
+      party: 1 + parsed.input.plusOnes,
+      current: { status: mine.rsvp.status, approval: mine.rsvp.approval, party: 1 + mine.rsvp.plusOnes },
+    });
+    if ("refused" in admitted) return { error: "capacityFull", placesLeft: admitted.placesLeft };
+  }
 
   // Once the answer would be taken, its email is proven first when the host asks for it. The email
   // on the guest's personal invite is the host's word for it, so it is proven as it is, with no

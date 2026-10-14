@@ -39,7 +39,7 @@ test("a custom link opens the page beside the random one, and the host's pages s
   const customUrl = random.replace(/\/e\/.*$/, `/e/${custom}`);
 
   await openShare(host.page);
-  await expect(host.page.getByText("Anyone can guess a custom link. The random link stays the private one.")).toBeVisible();
+  await expect(host.page.getByText("Anyone can guess a custom link. The random link stays known only to those you share it with.")).toBeVisible();
   await expect(host.page.getByText("Reset retires the custom link too.")).toBeVisible();
   await saveCustom(host.page, custom);
   await expect(host.page.getByText(customUrl, { exact: true })).toBeVisible({ timeout: 15_000 });

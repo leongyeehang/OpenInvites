@@ -98,10 +98,10 @@ export type RsvpFlowProps = {
   // Whether the event has a capacity and the headcount has reached it, so a Going reply joins the
   // waitlist (rsvps/admission.ts, isFull).
   full: boolean;
-  // Whether this guest's reply waits for the host's approval before it can take a place or wait for
+  // Whether this guest's reply needs the host's approval before it can take a place or wait for
   // one (spec, "Approval"): the event asks for approval, and the guest has no approved reply and did
   // not open a personal invite, whose reply is approved whatever the setting.
-  awaitsApproval: boolean;
+  needsApproval: boolean;
   questions: Question[];
   answers: AnswerFields;
   calendar?: ReactNode;
@@ -116,7 +116,7 @@ export type RsvpFlowProps = {
 export type Landing = "confirmation" | "status" | "code";
 
 export function useRsvpFlow(
-  { slug, settings, mine, invite, open, full, awaitsApproval, questions, answers, turnstileSiteKey }: RsvpFlowProps,
+  { slug, settings, mine, invite, open, full, needsApproval, questions, answers, turnstileSiteKey }: RsvpFlowProps,
   land: (target: Landing, status: RsvpStatus) => void,
 ) {
   const { effect } = useTheme().theme;
@@ -166,9 +166,9 @@ export function useRsvpFlow(
   const confirmed = step === "done" ? answer : undefined;
   const answering = step !== "idle" && !confirmed;
   // What to say beside the choice of status when the event is full (spec, "Capacity and the
-  // waitlist"): that a Going reply joins the waitlist, or, when it waits for the host's approval
-  // first, that it joins it once approved. Whenever a guest may choose, not over their saved answer.
-  const fullNotice: "full" | "fullApproval" | undefined = full && open && !confirmed ? (awaitsApproval ? "fullApproval" : "full") : undefined;
+  // waitlist"): that a Going reply joins the waitlist, or, when it needs the host's approval first,
+  // that it joins it once approved. Whenever a guest may choose, not over their saved answer.
+  const fullNotice: "full" | "fullApproval" | undefined = full && open && !confirmed ? (needsApproval ? "fullApproval" : "full") : undefined;
 
   const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
   const recordAnswer = (questionId: string, values: string[]) =>

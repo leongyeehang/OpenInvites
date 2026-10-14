@@ -94,7 +94,7 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await expectStill(page, "the RSVP sheet, grown by a step");
   await sheet.getByRole("button", { name: "Continue" }).click();
   await sheet.getByRole("button", { name: "Send RSVP" }).click();
-  await expect(sheet.getByText("You’re going!")).toBeVisible();
+  await expect(sheet.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
   await expectStill(page, "the RSVP sheet, the confirmation");
   await sheet.getByRole("button", { name: "Close" }).click();
   await expect(sheet).toBeHidden();
@@ -121,7 +121,7 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await inline.getByRole("button", { name: "Continue" }).click();
   await expectStill(inline, "the Inline RSVP flow, the questions step");
   await inline.getByRole("button", { name: "Send RSVP" }).click();
-  await expect(inline.getByText("You’re going!")).toBeVisible();
+  await expect(inline.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
   // It would come with the confirmation, so none now is none at all.
   expect(await inline.locator('[data-effect="confetti"]').count()).toBe(0);
   await expectStill(inline, "the Inline RSVP flow, the confirmation, with confetti chosen");
@@ -160,7 +160,7 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await ballot.getByRole("button", { name: "One guest more" }).click();
   await expectStill(ballot, "the Broadsheet's ballot, filled in");
   await ballot.getByRole("button", { name: "Post my reply" }).click();
-  await expect(ballot.getByText("Received", { exact: true })).toBeVisible();
+  await expect(ballot.getByText("Received", { exact: true })).toBeVisible({ timeout: 15_000 });
   await expectStill(ballot, "the Broadsheet's receipt");
   await third.close();
 
@@ -182,7 +182,7 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await chat.getByRole("button", { name: "+1", exact: true }).click();
   await expectStill(chat, "the Thread's conversation, a question");
   await chat.getByRole("button", { name: "Skip", exact: true }).click();
-  await expect(chat.locator('[data-slot="done"]')).toBeVisible();
+  await expect(chat.locator('[data-slot="done"]')).toBeVisible({ timeout: 15_000 });
   expect(await chat.locator('[data-slot="typing"]').count()).toBe(0);
   await expectStill(chat, "the Thread's done bubble");
   await fourth.close();
@@ -271,7 +271,7 @@ test("under reduced motion nothing M3 added moves: the code step, approval and t
   // declines Chen.
   const [bea, chen] = [await stillGuest(browser), await stillGuest(browser)];
   await bea.goto(link);
-  await expect(bea.getByText("This event is full. If the host approves your reply, you’ll join the waitlist.")).toBeVisible();
+  await expect(bea.getByText("This event is full. A Going reply joins the waitlist once the host approves it.")).toBeVisible();
   await expectStill(bea, "the event page, full");
   await expect((await reply(bea, "Bea Lim")).getByRole("heading", { name: "Your reply is waiting for the host’s approval." })).toBeVisible({ timeout: 15_000 });
   await expect((await reply(chen, "Chen Wei")).getByRole("heading", { name: "Your reply is waiting for the host’s approval." })).toBeVisible({ timeout: 15_000 });
