@@ -77,7 +77,7 @@
     },
     "verifyEmail": {
       "verifiedTitle": "電子郵件已驗證",
-      "verified": "謝謝，你的電子郵件地址已確認。",
+      "verified": "謝謝，你的電子郵件地址已驗證。",
       "toDashboard": "前往我的活動",
       "failedTitle": "這個連結無法使用",
       "failed": "這個驗證連結無效或已過期。請登入，然後在「我的活動」頁面上方的提示中重新取得。",

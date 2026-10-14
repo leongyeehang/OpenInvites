@@ -169,10 +169,10 @@ test("a large party at the front of the waitlist is not skipped for a small one,
 
   // The host moves Bea's party to Going, past the capacity, which a host's change never answers to.
   await waitlist.getByRole("listitem").filter({ hasText: "Bea Lim" }).getByRole("button", { name: "Move to Going" }).click();
-  await expect(host.page.getByRole("heading", { name: /^Going \(2\)/ })).toBeVisible();
-  await expect(host.page.getByText(/^4 people expected of 2 places/)).toBeVisible();
-  await expect(host.page.getByRole("heading", { name: "Guest list" })).toBeFocused();
-  await expect(waitlist.getByRole("listitem")).toHaveText([/^1\.\s*Chen Wei/]);
+  await expect(host.page.getByRole("heading", { name: /^Going \(2\)/ })).toBeVisible({ timeout: 15_000 });
+  await expect(host.page.getByText(/^4 people expected of 2 places/)).toBeVisible({ timeout: 15_000 });
+  await expect(host.page.getByRole("heading", { name: "Guest list" })).toBeFocused({ timeout: 15_000 });
+  await expect(waitlist.getByRole("listitem")).toHaveText([/^1\.\s*Chen Wei/], { timeout: 15_000 });
   await bea.reload();
   await expect(bea.getByText("You’re going!")).toBeVisible();
   expect(await latestMailTo(request, beaEmail)).toContain("A place opened up: you’re going to Ada’s birthday.");

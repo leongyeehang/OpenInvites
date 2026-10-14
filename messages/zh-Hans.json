@@ -77,7 +77,7 @@
     },
     "verifyEmail": {
       "verifiedTitle": "邮箱已验证",
-      "verified": "谢谢，你的邮箱地址已确认。",
+      "verified": "谢谢，你的邮箱地址已验证。",
       "toDashboard": "前往我的活动",
       "failedTitle": "这个链接用不了",
       "failed": "这个验证链接无效或已过期。请登录，然后在“我的活动”页面顶部的提示里重新获取。",

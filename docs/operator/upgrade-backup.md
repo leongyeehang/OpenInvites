@@ -72,12 +72,12 @@ retention. Read the first point before you upgrade: it is the one change that de
   Invited once it has a personal invite link. A personal invite link is one the host makes for a
   named guest and sends them themselves: the instance never emails it, it becomes the guest's
   edit link once they reply, and deleting it keeps their reply.
-- **Nothing else changes on existing events.** None has a capacity or asks for approval, and every
-  existing reply stays on the guest list as it was, approved.
 - **The limits apply at once, to what exists too.** A host who already owns 50 events or more
   cannot create or duplicate another, and an event that already has 500 replies takes no new guest
   (those who replied can still change or withdraw theirs). If a host or an event is past them, raise
   **Events per host** or **Replies per event** in Instance settings first.
+- **Nothing else changes on existing events.** None has a capacity or asks for approval, and every
+  existing reply stays on the guest list as it was, approved.
 
 The instance settings page gains the **Limits** card (Events per host, 50; Replies per event, 500;
 Keep events for, 365 days) and a link to the **Reports** page; with mail, each report is also
