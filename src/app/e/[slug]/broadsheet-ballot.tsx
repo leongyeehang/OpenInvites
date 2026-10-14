@@ -101,7 +101,7 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
               ))}
             </fieldset>
             {!open && <p className="-mt-2 text-sm text-theme-text-muted">{t("errors.closed")}</p>}
-            {flow.fullNotice && <p className="-mt-2 text-sm text-theme-text-muted">{t("full")}</p>}
+            {flow.fullNotice && <p className="-mt-2 text-sm text-theme-text-muted">{t(flow.fullNotice)}</p>}
 
             {answering && (
               <>

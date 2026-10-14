@@ -90,7 +90,9 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
   const turn = turns.find((each) => each.step === step && each.at === at);
   // With Turnstile on, the check stands over the turn whose answer sends the reply, the last (the
   // code's, once a code is sent), or, every turn answered, the Send that sends it again (spec,
-  // "Turnstile"). That turn's answers are offered once the check has passed.
+  // "Turnstile"). While it runs, that turn is there as any other, its field usable, and only what
+  // sends the reply waits for it, as the other layouts' submit does: Send, a chip that answers,
+  // Skip, "Send it again". A check that lapses mid-answer holds them again and leaves the field be.
   const checkShown = flow.turnstile !== undefined && flow.answering && (turn === undefined || turn === turns.at(-1));
   const held = checkShown && flow.awaitingCheck;
 
@@ -128,15 +130,17 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
     if (top > window.scrollY) window.scrollTo({ top, behavior: reduce ? "instant" : "smooth" });
   }, [shown, typing, reduce]);
 
-  // Once what is wanted is there, the focus goes to it.
+  // Once what is wanted is there, the focus goes to it. While the bot check holds a turn of chips,
+  // the focus waits for them on the composer.
   useEffect(() => {
     const wanted = focusNext.current;
-    if (!wanted || typing || (working && flow.answering) || held) return;
+    if (!wanted || typing || (working && flow.answering)) return;
+    const control = bar.current?.querySelector<HTMLElement>('input:not([type="hidden"])') ?? bar.current?.querySelector<HTMLElement>("button:enabled");
     const target =
       wanted === "done"
         ? doneLine.current
         : wanted === "controls"
-          ? (bar.current?.querySelector<HTMLElement>('input:not([type="hidden"])') ?? bar.current?.querySelector<HTMLElement>("button:enabled") ?? bar.current)
+          ? (control ?? (held ? null : bar.current))
           : (bar.current?.querySelector<HTMLElement>(`[data-status="${wanted}"]`) ?? bar.current);
     if (!target) return;
     focusNext.current = null;
@@ -198,7 +202,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
     );
 
   const controls = ((): ReactNode => {
-    if (typing || (working && flow.answering) || held) return null;
+    if (typing || (working && flow.answering)) return null;
     if (step === "idle") {
       if (!open) return null;
       return (
@@ -253,6 +257,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
               handOff();
               sendForm.current?.requestSubmit();
             }}
+            disabled={held}
             className={chip()}
           >
             {r("send")}
@@ -271,6 +276,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
           value={draft.name}
           onChange={(name) => flow.change({ name })}
           onSend={() => advance()}
+          waiting={held}
         />
       );
     }
@@ -284,7 +290,8 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
           value={draft.email}
           onChange={(email) => flow.change({ email })}
           onSend={() => advance()}
-          skip={!asks.required && <Skip className={chip()} onSkip={() => advance({ email: "" })} />}
+          waiting={held}
+          skip={!asks.required && <Skip className={chip()} disabled={held} onSkip={() => advance({ email: "" })} />}
         />
       );
     }
@@ -298,7 +305,8 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
           value={draft.phone}
           onChange={(phone) => flow.change({ phone })}
           onSend={() => advance()}
-          skip={!asks.required && <Skip className={chip()} onSkip={() => advance({ phone: "" })} />}
+          waiting={held}
+          skip={!asks.required && <Skip className={chip()} disabled={held} onSkip={() => advance({ phone: "" })} />}
         />
       );
     }
@@ -312,7 +320,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
                 handOff();
                 flow.resend(sendForm.current);
               }}
-              disabled={working || flow.resendIn > 0}
+              disabled={working || flow.resendIn > 0 || held}
               className={chip()}
             >
               {flow.resendIn > 0 ? r("code.resendIn", { seconds: flow.resendIn }) : r("code.resend")}
@@ -328,6 +336,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
             value={draft.code}
             onChange={(code) => flow.change({ code })}
             onSend={() => advance()}
+            waiting={held}
           />
         </>
       );
@@ -336,7 +345,13 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
       return (
         <Chips>
           {Array.from({ length: settings.plusOnesAllowed + 1 }, (_, count) => (
-            <button key={count} type="button" onClick={() => advance({ plusOnes: count, plusOneNames: draft.plusOneNames.slice(0, count) })} className={chip()}>
+            <button
+              key={count}
+              type="button"
+              onClick={() => advance({ plusOnes: count, plusOneNames: draft.plusOneNames.slice(0, count) })}
+              disabled={held}
+              className={chip()}
+            >
               {count === 0 ? r("plusOnes.justMe") : `+${count}`}
             </button>
           ))}
@@ -355,10 +370,11 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
             flow.change({ plusOneNames: names });
           }}
           onSend={() => advance()}
+          waiting={held}
         />
       );
     }
-    return <QuestionComposer question={asks.question} given={draft.answers[asks.question.id] ?? []} chip={chip} flow={flow} advance={advance} />;
+    return <QuestionComposer question={asks.question} given={draft.answers[asks.question.id] ?? []} chip={chip} flow={flow} advance={advance} held={held} />;
   })();
 
   // Why the RSVP was just refused, while the guest answers; why it could not be removed, with the
@@ -400,7 +416,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
       <div ref={bar} tabIndex={-1} className="sticky bottom-0 z-20 pt-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] outline-none">
         {barShown && (
           <Glass className="flex min-h-16 flex-col justify-center gap-2 rounded-[28px] p-2.5">
-            {flow.fullNotice && <p className="px-2 text-sm text-theme-text-muted">{r("full")}</p>}
+            {flow.fullNotice && <p className="px-2 text-sm text-theme-text-muted">{r(flow.fullNotice)}</p>}
             {alert && (
               <p role="alert" className="px-2 text-sm font-medium">
                 {alert}
@@ -480,17 +496,18 @@ function Chips({ children, label }: { children: ReactNode; label?: string }) {
   );
 }
 
-function Skip({ className, onSkip }: { className: string; onSkip: () => void }) {
+function Skip({ className, disabled, onSkip }: { className: string; disabled?: boolean; onSkip: () => void }) {
   const t = useTranslations("EventPage");
   return (
-    <button type="button" onClick={onSkip} className={className}>
+    <button type="button" onClick={onSkip} disabled={disabled} className={className}>
       {t("thread.skip")}
     </button>
   );
 }
 
 // A line the guest writes, and Send. Enter sends it too; there is nothing to send until it holds
-// something, and an optional turn is skipped instead.
+// something, and an optional turn is skipped instead. `waiting` holds Send back, and Enter with it,
+// while the field stays as it is (the bot check, above).
 function TextComposer({
   label,
   placeholder,
@@ -500,6 +517,7 @@ function TextComposer({
   value,
   onChange,
   onSend,
+  waiting,
   skip,
 }: {
   label: string;
@@ -512,6 +530,7 @@ function TextComposer({
   value: string;
   onChange: (value: string) => void;
   onSend: () => void;
+  waiting?: boolean;
   skip?: ReactNode;
 }) {
   const t = useTranslations("EventPage");
@@ -519,7 +538,7 @@ function TextComposer({
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        if (value.trim()) onSend();
+        if (value.trim() && !waiting) onSend();
       }}
       className="flex items-center gap-2"
     >
@@ -539,7 +558,7 @@ function TextComposer({
         <button
           type="submit"
           aria-label={t("thread.send")}
-          disabled={!value.trim()}
+          disabled={!value.trim() || waiting}
           className="absolute top-1.5 right-1.5 grid size-9 cursor-pointer place-items-center rounded-full bg-theme-accent text-theme-on-accent disabled:cursor-default disabled:opacity-40"
         >
           <ArrowUp className="size-5" aria-hidden />
@@ -560,18 +579,22 @@ function QuestionComposer({
   chip,
   flow,
   advance,
+  held,
 }: {
   question: Question;
   given: string[];
   chip: (pressed?: boolean) => string;
   flow: RsvpFlowState;
   advance: () => void;
+  // Whether what answers it waits for the bot check (ThreadComposer, above).
+  held: boolean;
 }) {
   const t = useTranslations("EventPage");
   const r = useTranslations("Rsvp");
   const skip = !question.required && (
     <Skip
       className={chip()}
+      disabled={held}
       onSkip={() => {
         flow.recordAnswer(question.id, []);
         advance();
@@ -586,6 +609,7 @@ function QuestionComposer({
         value={given[0] ?? ""}
         onChange={(typed) => flow.recordAnswer(question.id, [typed])}
         onSend={advance}
+        waiting={held}
         skip={skip}
       />
     );
@@ -601,7 +625,7 @@ function QuestionComposer({
             {label(option)}
           </button>
         ))}
-        <button type="button" onClick={() => advance()} disabled={question.required && given.length === 0} className={chip()}>
+        <button type="button" onClick={() => advance()} disabled={held || (question.required && given.length === 0)} className={chip()}>
           {t("thread.finish")}
         </button>
       </Chips>
@@ -619,6 +643,7 @@ function QuestionComposer({
             flow.pickOption(question, option);
             if (after.length > 0) advance();
           }}
+          disabled={held}
           className={chip(given.includes(option))}
         >
           {label(option)}

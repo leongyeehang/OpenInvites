@@ -68,7 +68,7 @@ test("a guest proves their email with the code it was sent, keeps it proven whil
   const mail = await latestMailTo(request, email);
   expect(mail).toContain("Your code for Ada’s birthday:");
   expect(mail).toContain("It lasts ten minutes.");
-  expect(mail).toContain("You’re getting this because this address was entered on Ada’s birthday’s RSVP form. If it wasn’t you, ignore this email.");
+  expect(mail).toContain("You’re getting this because this address was entered on the RSVP form for Ada’s birthday. If it wasn’t you, ignore this email.");
   expect(mail).not.toMatch(/https?:\/\//);
   const sent = await codeSentTo(request, email);
 

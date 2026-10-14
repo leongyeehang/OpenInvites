@@ -129,7 +129,7 @@
       "waitlisted": "{count} 人候补",
       "pending": "{count} 人等待批准",
       "headcount": "{count, plural, =0 {还没有人确定要来} other {预计 # 人}}",
-      "headcountOf": "预计 {count} 人（共 {capacity} 个名额）",
+      "headcountOf": "预计 {count} 人（共 {capacity, plural, other {# 个名额}}）",
       "deletedOn": "将于 {date} 删除",
       "coHost": "共同主办人",
       "limitReached": "你已有 {count, plural, other {# 场活动}}，这是本实例允许的上限。删除一场不再需要的活动，才能再创建新的。"
@@ -186,7 +186,7 @@
     },
     "limits": {
       "title": "上限",
-      "description": "一位主办人或一场活动最多能容纳的数量，以及活动结束后保留多久。更改立即生效。调低活动数或回复数的上限时，已有的内容保持不变；保留期限适用于所有活动，包括已有的活动。",
+      "description": "每位主办人最多能有多少场活动、每场活动最多能收到多少条回复，以及活动结束后保留多久。更改立即生效。调低活动数或回复数的上限时，已有的内容保持不变；保留期限适用于所有活动，包括已有的活动。",
       "maxEventsPerHost": "每位主办人的活动数",
       "maxEventsPerHostHint": "计入主办人名下的每一场活动，包括草稿和已结束的活动。",
       "maxRsvpsPerEvent": "每场活动的回复数",
@@ -245,7 +245,7 @@
       "deleteTitle": "删除“{title}”？",
       "deleteText": "这场活动、它的宾客名单以及与它有关的一切都会被删除，无法恢复。",
       "deleteConfirm": "删除活动",
-      "keep": "取消"
+      "keep": "算了"
     }
   },
   "Mail": {
@@ -266,17 +266,19 @@
         "replied": "{name} 回复了“{title}”：{status}",
         "changed": "{name} 对“{title}”的回复现在是：{status}",
         "removed": "{name} 对“{title}”的回复已移除",
-        "waitlisted": "{name} 进入了“{title}”的候补名单（共 {party} 人）",
+        "waitlisted": "{name} 在“{title}”的候补名单上（共 {party} 人）",
         "pending": "{name} 回复了“{title}”，正在等待你的批准",
-        "pendingChanged": "{name} 对“{title}”的回复现在是：{status}，仍在等待你的批准"
+        "pendingChanged": "{name} 对“{title}”的回复现在是：{status}，仍在等待你的批准",
+        "declinedChanged": "{name} 对“{title}”的回复（已婉拒）现在是：{status}"
       },
       "body": {
         "replied": "{name} 回复了“{title}”：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
         "changed": "{name} 对“{title}”的回复现在是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
         "removed": "{name} 对“{title}”的回复已移除。原来的回复是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
-        "waitlisted": "{name} 进入了“{title}”的候补名单（共 {party} 人）。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
+        "waitlisted": "{name} 在“{title}”的候补名单上（共 {party} 人）。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
         "pending": "{name} 回复了“{title}”：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}，正在等待你的批准。\n\n请在宾客名单上批准或婉拒这条回复：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
-        "pendingChanged": "{name} 对“{title}”的回复现在是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}，仍在等待你的批准。\n\n请在宾客名单上批准或婉拒这条回复：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
+        "pendingChanged": "{name} 对“{title}”的回复现在是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}，仍在等待你的批准。\n\n请在宾客名单上批准或婉拒这条回复：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
+        "declinedChanged": "{name} 对“{title}”的回复（已婉拒）现在是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。除非你批准这条回复，否则对方不在宾客名单上。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
       },
       "status": {
         "going": "参加",
@@ -309,7 +311,7 @@
       "body": "有空位了：你可以参加“{title}”了。\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}\n\n活动页面：\n{url}"
     },
     "approved": {
-      "subject": "你的回复已获批准：“{title}”",
+      "subject": "你已列入宾客名单：“{title}”",
       "body": "主办人批准了你对“{title}”的回复，你已列入宾客名单。\n\n你的回复是：{status, select, going {参加} maybe {待定} other {无法参加}}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n活动页面：\n{url}"
     },
     "approvedWaitlisted": {
@@ -375,7 +377,7 @@
         "capacity": "人数上限",
         "capacityHint": "和预计人数的算法一样：回复“参加”的宾客及其同伴都算在内，待定的不算。留空表示不设上限。本实例每场活动最多接受 {max, number} 条回复。",
         "approval": "每位宾客须经你批准，才会列入宾客名单",
-        "approvalHint": "等待期间，宾客可以看到邀请，但看不到谁会来，也看不到留言。"
+        "approvalHint": "等待期间，宾客可以看到邀请，但看不到留言；只有当所有打开链接的人都能看到宾客名单时，他们才能看到。"
       },
       "contact": {
         "title": "联系方式",
@@ -399,7 +401,7 @@
       "commentsEnabledHint": "已回复的宾客和主办人可以在活动页面上留言。",
       "notifyOnComment": "有宾客留言时给主办人发邮件",
       "questions": "问题",
-      "questionsHint": "宾客回复时作答，答案只有你能看到。",
+      "questionsHint": "宾客回复时作答，只有主办人能看到答案。",
       "questionAdd": "添加问题",
       "questionPrompt": "问题 {number}",
       "questionPromptHint": "例如：有什么忌口吗？",
@@ -449,13 +451,13 @@
     "manage": {
       "link": "活动链接",
       "opened": "活动页面已被打开 {count, plural, other {#}} 次",
-      "headcountOf": "预计 {count} 人（共 {capacity} 个名额）",
+      "headcountOf": "预计 {count} 人（共 {capacity, plural, other {# 个名额}}）",
       "deletionDate": "这个活动将于 {date} 删除。",
       "view": "打开活动页面",
       "publish": "发布",
       "publishHint": "发布后，任何拿到活动链接的人都能打开它。",
       "duplicate": "复制活动",
-      "duplicateHint": "生成一份新的草稿，沿用相同的详情、外观、问题、设置和图片。回复、留言和公告不会复制。",
+      "duplicateHint": "生成一份新的草稿，沿用相同的详情、外观、问题、设置和图片。回复、专属邀请、共同主办人、留言、公告和自定义链接不会复制。",
       "duplicatedFrom": "复制自“{title}”",
       "publishedHint": "任何持有链接的人都能打开活动页面。你做的修改会立刻显示在那里。",
       "draftHint": "活动还是草稿时，只有主办人能打开这个链接。",
@@ -786,7 +788,7 @@
     "title": "宾客名单",
     "backToEvent": "返回活动",
     "headcount": "{count, plural, =0 {还没有人确定要来} other {预计 # 人}}",
-    "headcountOf": "预计 {count} 人（共 {capacity} 个名额）",
+    "headcountOf": "预计 {count} 人（共 {capacity, plural, other {# 个名额}}）",
     "counts": "{going} 人参加 · {maybe} 人待定 · {declined} 人无法参加",
     "waitlistedCount": "{count} 人候补",
     "pendingCount": "{count} 人等待批准",
@@ -869,14 +871,14 @@
       "waitlisted": "在候补名单上"
     },
     "copy": "复制链接",
-    "copyLabel": "复制链接给 {name}",
+    "copyLabel": "复制给 {name} 的链接",
     "copied": "已复制",
     "delete": "删除",
-    "deleteLabel": "删除给 {name} 的邀请",
-    "deleteTitle": "要删除给 {name} 的邀请吗？",
+    "deleteLabel": "删除给 {name} 的专属邀请",
+    "deleteTitle": "要删除给 {name} 的专属邀请吗？",
     "deleteText": "链接会失效。通过它提交的回复会保留在宾客名单上。",
     "keep": "算了",
-    "deleteConfirm": "删除邀请",
+    "deleteConfirm": "删除专属邀请",
     "errors": {
       "notFound": "这个活动已经不存在了。",
       "nameRequired": "请填写宾客的名字。",
@@ -955,6 +957,7 @@
     "maybe": "待定",
     "cant": "无法参加",
     "full": "这场活动已满员。你可以加入候补名单。",
+    "fullApproval": "这场活动已满员。主办人批准你的回复后，你会加入候补名单。",
     "step": "第 {step} 步，共 {total} 步",
     "back": "返回",
     "continue": "继续",
@@ -1025,7 +1028,7 @@
       "answerTooLong": "回答太长了。",
       "tooFast": "操作太频繁了，请稍后再试。",
       "limitReached": "这场活动无法再接受更多回复了。",
-      "capacityFull": "{count, plural, =0 {已经没有空位了。} other {只剩 # 个空位了。}}",
+      "capacityFull": "{count, plural, =0 {已经没有空位了。} =1 {名额只够你自己，不能再带同伴了。} other {名额只够你们 # 人（包括你自己）。}}",
       "codeWrong": "验证码不正确。{count, plural, =0 {已没有剩余次数，再次确认即可收到新的验证码。} other {还可以再试 # 次。}}",
       "codeExpired": "验证码已过期，我们已重新发送了一个。",
       "codeResent": "尝试次数太多，我们已重新发送了一个验证码。",

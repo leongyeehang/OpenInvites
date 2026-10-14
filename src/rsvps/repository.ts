@@ -397,7 +397,8 @@ export async function approvePending(locked: LockedEvent, tx: Db, now: Date): Pr
 // is queued one email while the event takes replies: "You're in", or their place on the waitlist
 // (approval-mail.ts).
 // On a cancelled event the approval stands, but no email says "You're in" after the notice that
-// the event is off.
+// the event is off. `updated_at` is left as it was: it is when the guest last changed their mind,
+// and the host's list would read the host's own decision as a change of theirs.
 async function approveLocked(locked: LockedEvent, held: Rsvp, tx: Db, now: Date): Promise<{ current: Rsvp; mailed: boolean }> {
   const admitted = admit({
     approvalRequired: false,
@@ -411,7 +412,7 @@ async function approveLocked(locked: LockedEvent, held: Rsvp, tx: Db, now: Date)
   if ("refused" in admitted) throw new Error(`Approving RSVP ${held.id} was refused by the capacity`);
   const [approved] = await tx
     .update(rsvp)
-    .set({ approval: "approved", status: admitted.status, waitlistedAt: waitlistedSince(admitted.status, undefined, now), updatedAt: now })
+    .set({ approval: "approved", status: admitted.status, waitlistedAt: waitlistedSince(admitted.status, undefined, now) })
     .where(eq(rsvp.id, held.id))
     .returning();
   const promotion = await promoteWaitlist(locked, tx, now);
@@ -432,14 +433,14 @@ async function queueApprovalMail(locked: LockedEvent, approved: Rsvp, tx: Db): P
 
 // The host's Decline on a reply waiting for their approval (spec, "Approval"), through the one
 // transaction. It held no place, so nobody is promoted, and nobody is emailed (decided there): the
-// guest's page says so when they return. Nothing for an RSVP not waiting for approval.
+// guest's page says so when they return. Nothing for an RSVP not waiting for approval. As
+// approving does, it leaves `updated_at`, the guest's own last change, as it was.
 export async function declineRsvp(eventId: string, id: string): Promise<HostChange | undefined> {
-  const now = new Date();
   return getDb().transaction(async (tx) => {
     const locked = await lockEvent(tx, eventId);
     const previous = locked && (await lockRsvp(tx, eventId, id));
     if (!locked || previous?.approval !== "pending") return undefined;
-    const [current] = await tx.update(rsvp).set({ approval: "declined", updatedAt: now }).where(eq(rsvp.id, id)).returning();
+    const [current] = await tx.update(rsvp).set({ approval: "declined" }).where(eq(rsvp.id, id)).returning();
     return { previous, current, mailed: false };
   });
 }

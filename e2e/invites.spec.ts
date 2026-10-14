@@ -371,3 +371,56 @@ test("the Broadsheet and the Thread fill in the invite's name and email too, and
 
   await closeAll(host.page, mei);
 });
+
+test("an event with 500 invites offers no form and says why, the server refuses one more, and deleting one brings the form back", async ({
+  browser,
+  request,
+}) => {
+  test.setTimeout(300_000);
+  const host = await createPublished(browser, request, "invites-full", SUPPER);
+  await host.page.goto(`${host.page.url()}/invites`);
+
+  // The first invite is made through the form, its request kept as it goes; the other 499 are that
+  // request sent again from the host's browser, each with a name of its own, as the form would send
+  // them one by one.
+  let sent: { url: string; headers: Record<string, string>; body: Buffer } | undefined;
+  await host.page.route("**/*", async (route) => {
+    const made = route.request();
+    if (made.method() === "POST" && made.headers()["next-action"]) sent ??= { url: made.url(), headers: made.headers(), body: made.postDataBuffer()! };
+    await route.fallback();
+  });
+  await makeInvite(host.page, "Guest 001");
+  await host.page.unrouteAll({ behavior: "ignoreErrors" });
+  const make = async (name: string) => {
+    const response = await host.page.request.post(sent!.url, {
+      headers: Object.fromEntries(
+        ["next-action", "next-router-state-tree", "content-type", "accept", "origin"].filter((header) => sent!.headers[header] !== undefined).map((header) => [header, sent!.headers[header]]),
+      ),
+      data: Buffer.from(sent!.body.toString("latin1").replace("Guest 001", name), "latin1"),
+    });
+    expect(response.ok()).toBe(true);
+  };
+  for (let from = 2; from <= 500; from += 10) {
+    await Promise.all(Array.from({ length: Math.min(10, 501 - from) }, (_, at) => make(`Guest ${String(from + at).padStart(3, "0")}`)));
+  }
+
+  // At 500 the page says so in place of the form, and the server refuses another sent anyway.
+  const full = "This event has 500 invites, the most it can have. Delete one to make another.";
+  await host.page.reload();
+  await expect(host.page.getByText(full)).toBeVisible({ timeout: 15_000 });
+  await expect(host.page.getByRole("button", { name: "Make link" })).toHaveCount(0);
+  await expect(host.page.getByRole("button", { name: /^Delete the invite for / })).toHaveCount(500);
+  await make("Guest 501");
+  await host.page.reload();
+  await expect(host.page.getByRole("button", { name: /^Delete the invite for / })).toHaveCount(500);
+  await expect(host.page.getByText("Guest 501", { exact: true })).toHaveCount(0);
+
+  // One deleted, the form is back.
+  await host.page.getByRole("button", { name: "Delete the invite for Guest 250" }).click();
+  await host.page.getByRole("alertdialog").getByRole("button", { name: "Delete invite" }).click();
+  await expect(host.page.getByText("Guest 250", { exact: true })).toHaveCount(0, { timeout: 15_000 });
+  await expect(host.page.getByRole("button", { name: "Make link" })).toBeVisible();
+  await expect(host.page.getByText(full)).toHaveCount(0);
+
+  await closeAll(host.page);
+});

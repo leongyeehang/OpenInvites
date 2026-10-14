@@ -128,7 +128,7 @@ test("two guests replying Going at once for the last place: one is Going and the
   await host.page.goto(`${host.page.url()}/guests`);
   await expect(host.page.getByRole("heading", { name: /^Going \(1\)/ })).toBeVisible();
   await expect(host.page.getByRole("heading", { name: /^Waitlist \(1\)/ })).toBeVisible();
-  await expect(host.page.getByText(/^1 of 1 people expected/)).toBeVisible();
+  await expect(host.page.getByText(/^1 of 1 person expected/)).toBeVisible();
 
   await closeAll(priya, mei, host.page);
 });
@@ -345,7 +345,7 @@ test("a Going guest who brings more people than there is room for is told how ma
   await arjun.getByRole("button", { name: "Continue" }).click();
   await arjun.getByRole("radio", { name: "+2" }).click();
   await arjun.getByRole("button", { name: "Send RSVP" }).click();
-  await expect(arjun.getByText("Only 2 places left.")).toBeVisible();
+  await expect(arjun.getByText("There’s room for 2 people in your party, you included.")).toBeVisible();
   // Back at the step that holds the plus-ones.
   await expect(arjun.getByRole("radio", { name: "+2" })).toBeVisible();
 
@@ -432,7 +432,7 @@ test("the Thread says the event is full by the answers, tells a waitlisted guest
   await priya.getByRole("button", { name: "Edit my details" }).click();
   await priya.getByRole("button", { name: "Send", exact: true }).click();
   await priya.getByRole("button", { name: "+1" }).click();
-  await expect(priya.getByText("Only 1 place left.")).toBeVisible({ timeout: 15_000 });
+  await expect(priya.getByText("There’s room for you, but no one else.")).toBeVisible({ timeout: 15_000 });
   await expect(priya.getByRole("button", { name: "Just me" })).toBeVisible();
   await priya.reload();
   await expect(doneBubble(priya)).toContainText("You’re in, Priya!");

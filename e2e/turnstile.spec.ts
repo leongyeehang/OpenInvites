@@ -1,6 +1,6 @@
 import { createPublished } from "./events";
 import { latestMailTo, mailCountTo, MAILPIT, newHost, OPERATOR, PASSWORD, signIn, submitSignUp } from "./hosts";
-import { clientAddress, expect, scriptsNotFromTheApp, test, type APIRequestContext, type Page } from "./test";
+import { clientAddress, expect, scriptsNotFromTheApp, test, type APIRequestContext, type Page, type Route } from "./test";
 
 // Ticket 09 (M3): Cloudflare Turnstile guards the email sign-up form, the RSVP form in every
 // layout, and the report form. `app-social` (port 3001) runs with Cloudflare's published
@@ -41,6 +41,20 @@ function plantACode(page: Page) {
     const code = Object.assign(document.createElement("input"), { type: "hidden", name: "code", value: "000000", id: "planted-code" });
     document.querySelector<HTMLInputElement>('input[name="cf-turnstile-response"]')!.form!.append(code);
   });
+}
+
+// Holds every request to Cloudflare, as some blockers hold a request rather than refuse it, until
+// `release` lets them through and every one after them.
+async function holdCloudflare(page: Page) {
+  const held: Route[] = [];
+  let released = false;
+  await page.route("https://challenges.cloudflare.com/**", (route) => (released ? route.continue() : void held.push(route)));
+  return {
+    release: async () => {
+      released = true;
+      for (const route of held.splice(0)) await route.continue();
+    },
+  };
 }
 
 // How many emails the operator has had about reports whose reason holds these words.
@@ -99,14 +113,18 @@ test.describe("on an instance whose operator has set Turnstile's keys", () => {
     await expect(page.getByRole("button", { name: "Create account" })).toBeDisabled();
   });
 
-  test("a check whose script never arrives says so after ten seconds, and the form waits for it", async ({ page }) => {
-    // Held, as some blockers hold a request rather than refuse it.
-    await page.route("https://challenges.cloudflare.com/**", () => {});
+  test("a check whose script is held says so after ten seconds, and the form waits for it; once the script comes, the line goes", async ({ page }) => {
+    // Held, as some blockers hold a request rather than refuse it, until the test lets it through.
+    const held = await holdCloudflare(page);
     await page.goto("/sign-up");
     const unavailable = page.getByText("The check couldn’t load. Turn off your ad blocker for this page and try again.");
     await expect(unavailable).toBeHidden();
     await expect(unavailable).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("button", { name: "Create account" })).toBeDisabled();
+
+    await held.release();
+    await expect(unavailable).toBeHidden({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "Create account" })).toBeEnabled({ timeout: 15_000 });
   });
 
   test("a guest's reply sent without its token is refused, and goes once sent again", async ({ page, browser, request }) => {
@@ -240,6 +258,50 @@ test.describe("on an instance whose operator has set Turnstile's keys", () => {
     await operator.close();
     await expect.poll(() => reportMailsWith(request, `${marker}, second try`), { timeout: 15_000 }).toBe(1);
     expect(await reportMailsWith(request, `${marker}, first try`)).toBe(0);
+
+    await host.context.close();
+  });
+
+  test("in the Thread a guest types their name while the check runs, which holds only Send, and sends it once the check has passed", async ({
+    page,
+    browser,
+    request,
+  }) => {
+    test.slow();
+    const host = await createPublished(browser, request, "turnstile-thread-typing", { layout: "Thread", title: "Ada’s party", start: "2027-03-06T15:00", plusOnes: "0" });
+    // Cloudflare's script is held until the guest has typed, so the check is running while they do.
+    const held = await holdCloudflare(page);
+    await page.goto(host.link);
+    await page.getByRole("button", { name: "Going", exact: true }).click();
+
+    // The name's turn sends the reply: the check stands over it (empty until Cloudflare's script
+    // comes, and named for a screen reader all the same), and the field is there at once, with the
+    // focus.
+    await expect(botCheck(page)).toHaveCount(1);
+    const name = page.getByLabel("Your name");
+    const send = page.getByRole("button", { name: "Send", exact: true });
+    await expect(name).toBeFocused();
+    await page.keyboard.type("Priya Nair");
+    await expect(name).toHaveValue("Priya Nair");
+    await expect(send).toBeDisabled();
+    // Enter sends nothing while the check runs.
+    const posted = page
+      .waitForRequest((sent) => sent.method() === "POST" && sent.url().startsWith(TURNSTILE_INSTANCE), { timeout: 3_000 })
+      .then(
+        () => true,
+        () => false,
+      );
+    await page.keyboard.press("Enter");
+    expect(await posted).toBe(false);
+    await expect(name).toBeFocused();
+
+    await held.release();
+    await expect(botCheck(page)).toBeVisible({ timeout: 15_000 });
+    await expect(send).toBeEnabled({ timeout: 15_000 });
+    await expect(name).toHaveValue("Priya Nair");
+    await expect(name).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page.locator('[data-slot="done"]')).toContainText("You’re in, Priya!", { timeout: 15_000 });
 
     await host.context.close();
   });

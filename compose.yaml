@@ -101,8 +101,9 @@ services:
   # A second instance of the same image, for what depends on the whole instance being in one
   # state: who the first account is, and the registration mode. `app` cannot offer that, as every
   # other spec shares its database and it persists between runs. This one's database lives in
-  # memory, so it is empty whenever db-fresh starts, and e2e/registration.spec.ts recreates both
-  # containers before it runs: every run starts from nothing, on CI and on a laptop alike.
+  # memory, so it is empty whenever db-fresh starts, and e2e/registration.spec.ts, then
+  # e2e/limits.spec.ts and e2e/retention.spec.ts in turn, recreate both containers before they run:
+  # every run starts from nothing, on CI and on a laptop alike.
   db-fresh:
     image: postgres:18-alpine
     profiles: [test]
@@ -137,8 +138,8 @@ services:
         condition: service_started
 
   # The same again without mail, where no email can be verified: there the account OPERATOR_EMAIL
-  # names takes over from an operator only at a restart. e2e/registration-without-mail.spec.ts
-  # recreates both containers before it runs, as registration.spec.ts does for app-fresh.
+  # names takes over from an operator only at a restart. e2e/registration-without-mail.spec.ts, then
+  # e2e/retention.spec.ts, recreate both containers before they run, as for app-fresh.
   db-no-mail:
     image: postgres:18-alpine
     profiles: [test]

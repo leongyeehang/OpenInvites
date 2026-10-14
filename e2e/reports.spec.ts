@@ -86,6 +86,8 @@ test("a guest reports an event from its footer, and the operator reads it, by em
   const report = inbox(operator.page, reason);
   await expect(report.getByRole("link", { name: "Ada’s birthday" })).toHaveAttribute("href", new URL(host.link).pathname);
   await expect(report.getByRole("link", { name: contact })).toHaveAttribute("href", `mailto:${contact}`);
+  // When it was sent, in UTC, which it says.
+  await expect(report.getByText(/^Sent [A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2}\s[AP]M UTC$/)).toBeVisible();
   await expect(report.getByText("Handled", { exact: true })).toHaveCount(0);
 
   await operator.page.goto("/instance");

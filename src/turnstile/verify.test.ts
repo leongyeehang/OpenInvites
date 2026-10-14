@@ -69,6 +69,15 @@ describe("verifyTurnstile", () => {
     expect(warned).toEqual([]);
   });
 
+  it("gives Cloudflare five seconds to answer", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const fetched = answering(async () => Response.json({ success: true }));
+    await verifyTurnstile("token", undefined);
+    expect(timeout).toHaveBeenCalledWith(5000);
+    const [, init] = fetched.mock.calls[0] as unknown as [string, RequestInit];
+    expect(init.signal).toBe(timeout.mock.results[0].value);
+  });
+
   it("fails a form without a token, asking nobody", async () => {
     const fetched = answering(async () => Response.json({ success: true }));
     expect(await verifyTurnstile("", "203.0.113.7")).toBe("failed");

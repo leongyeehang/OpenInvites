@@ -86,6 +86,10 @@ test("a reply waits for the host, who approves it with an email; a guest waiting
   await decide(host.page, /^Waiting for approval/, "Asha Menon", "Approve");
   await expect(host.page.getByRole("region", { name: /^Going/ }).getByText("Asha Menon")).toBeVisible();
   await expect(host.page.getByRole("heading", { name: "Waiting for approval (0)" })).toBeVisible();
+  // The host's decision is not a change of hers: her row says when she replied, and no more.
+  const ashaRow = host.page.getByRole("region", { name: /^Going/ }).getByRole("listitem").filter({ hasText: "Asha Menon" });
+  await expect(ashaRow).toContainText("Replied");
+  await expect(ashaRow).not.toContainText("Changed");
 
   // Back on her page she is Going with the list open, and Mailpit has "You're in" with the event's
   // path.
@@ -192,21 +196,27 @@ test("approving applies the capacity, with the waitlist's email, and turning app
   await expect(arjun.getByRole("heading", { name: WAITING })).toBeVisible({ timeout: 15_000 });
   await replyGoing(bea, host.link, "Bea Lim", beaEmail);
   await expect(bea.getByRole("heading", { name: WAITING })).toBeVisible({ timeout: 15_000 });
-  await expect(bea.getByText("This event is full. You can join the waitlist.")).toHaveCount(0);
+  await expect(bea.getByText(/^This event is full\./)).toHaveCount(0);
 
   // Arjun approved takes the place; Bea approved after him waits for one, and is told her place.
   await host.page.goto(guests);
-  await expect(host.page.getByText(/^0 of 1 people expected/)).toBeVisible();
+  await expect(host.page.getByText(/^0 of 1 person expected/)).toBeVisible();
   await decide(host.page, /^Waiting for approval/, "Arjun Rao", "Approve");
   await expect(host.page.getByRole("region", { name: /^Going/ }).getByText("Arjun Rao")).toBeVisible();
   await decide(host.page, /^Waiting for approval/, "Bea Lim", "Approve");
   await expect(host.page.getByRole("region", { name: /^Waitlist/ }).getByText("Bea Lim")).toBeVisible();
-  await expect(host.page.getByText(/^1 of 1 people expected · 1 going · 0 maybe · 0 can’t go · 1 on the waitlist$/)).toBeVisible();
+  await expect(host.page.getByText(/^1 of 1 person expected · 1 going · 0 maybe · 0 can’t go · 1 on the waitlist$/)).toBeVisible();
   const beaMail = await latestMailTo(request, beaEmail);
   expect(beaMail).toContain("The host approved your reply to Supper for one, but the event is full, so you’re number 1 on the waitlist.");
   expect(new URL(linkIn(beaMail)).pathname).toBe(new URL(host.link).pathname);
   await bea.reload();
   await expect(bea.getByRole("heading", { name: "You’re on the waitlist, number 1." })).toBeVisible();
+
+  // The event is full now. A guest whose reply waits for the host is told it joins the waitlist once
+  // approved.
+  await chen.goto(host.link);
+  await expect(chen.getByText("This event is full. If the host approves your reply, you’ll join the waitlist.")).toBeVisible();
+  await expect(chen.getByText("This event is full. You can join the waitlist.")).toHaveCount(0);
 
   // Chen's reply and then Dev's wait when the host turns approval off: both are approved, in the
   // order they replied, behind Bea.
@@ -274,6 +284,15 @@ test("the Broadsheet confirms a reply waiting for the host, which still waits on
   await expect(host.page.getByRole("region", { name: /^Declined/ }).getByText("Priya Nair")).toBeVisible();
   await priya.reload();
   await expect(priya.getByRole("heading", { name: DECLINED })).toBeVisible();
+
+  // Changed to Can't go, the reply is still declined, and the host is told so.
+  await priya.getByRole("button", { name: "Change answer" }).click();
+  await priya.getByRole("radio", { name: "Can’t make it", exact: true }).check();
+  await priya.getByRole("button", { name: "Post my reply" }).click();
+  await expect(priya.getByRole("heading", { name: DECLINED })).toBeVisible({ timeout: 15_000 });
+  await expect
+    .poll(() => latestMailTo(request, host.email), { timeout: 30_000, message: "the host told Priya's changed reply is still declined" })
+    .toContain("Priya Nair’s declined reply to Supper at Mei’s is now Can’t go. They are not on the guest list unless you approve the reply.");
 
   // Withdrawn and sent again, the reply waits for the host again.
   await priya.getByRole("button", { name: "Remove my RSVP" }).click();

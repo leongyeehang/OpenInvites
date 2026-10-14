@@ -67,7 +67,9 @@ async function ReportRow({ report }: { report: ReportListed }) {
   // A report whose event is gone counts as handled, whoever deleted the event.
   const eventExists = report.eventId !== null && report.eventSlug !== null;
   const handled = report.handledAt !== null || !eventExists;
-  const sent = format.dateTime(report.createdAt, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC", timeZoneName: "short" });
+  // In UTC, and saying so: the operator has no time zone of their own here. Named fields, as Intl
+  // refuses a time zone's name beside dateStyle and timeStyle.
+  const sent = format.dateTime(report.createdAt, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC", timeZoneName: "short" });
   return (
     <li className="flex flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
       <div className="flex flex-wrap items-center gap-2">

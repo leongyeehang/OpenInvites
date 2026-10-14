@@ -15,6 +15,7 @@ import { eventHosts } from "@/events/hosts";
 import { findEventBySlug, findRetiredSlug, recordView, type EventWithHost } from "@/events/repository";
 import { countsAsView } from "@/events/views";
 import { eventPath, eventUrl, isSlug } from "@/events/slug";
+import type { EventTime } from "@/events/time";
 import { maxUploadBytes } from "@/instance/env";
 import { findInviteOnThisDevice } from "@/invites/device";
 import { ClientMessages } from "@/locale/client-messages";
@@ -218,6 +219,10 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   ) : undefined;
 
   const notice = isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined;
+  // The browser shows the time in the viewer's own zone and counts down to it, from the event's
+  // time alone: a client component is sent all it is handed, and the event holds more than a guest
+  // should be sent.
+  const time: EventTime = { startsAt: event.startsAt, endsAt: event.endsAt, allDay: event.allDay, timeZone: event.timeZone };
   const flow: RsvpFlowProps = {
     slug: event.slug,
     settings: {
@@ -231,6 +236,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     invite: invite && { name: invite.name, email: event.emailField === "none" ? null : invite.email },
     open: acceptsRsvps(event.state),
     full: isFull(event.capacity, headcount),
+    awaitsApproval: event.approvalRequired && (mine ? mine.rsvp.approval !== "approved" : !invite),
     questions,
     answers: answersStillOffered(answers, questions),
     calendar,
@@ -244,7 +250,10 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   return (
     <ClientMessages namespaces={["EventPage", "Rsvp", "Turnstile"]}>
       <ThemedPage
-        theme={event.theme}
+        // The theme guests are sent names no upload, so a picture the host put aside is named
+        // nowhere on their page; the host's Design drawer works with it (spec, "Events, guests and
+        // the page").
+        theme={isHost ? event.theme : { ...event.theme, uploadId: null }}
         upload={isHost ? picture : guestPicture}
         designer={
           isHost ? (
@@ -266,8 +275,8 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             guests={guestList && { ...guestList, you: mine?.rsvp.id }}
             underWhen={
               <>
-                <ViewerTime event={event} locale={locale} />
-                <Countdown event={event} />
+                <ViewerTime event={time} locale={locale} />
+                <Countdown event={time} />
               </>
             }
             underWhere={event.location ? <MapLink location={event.location} chip /> : undefined}
@@ -282,8 +291,8 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             notice={notice}
             rsvp={<BroadsheetBallot {...flow} />}
             guests={guestList && { ...guestList, you: mine?.rsvp.id }}
-            underWhen={<ViewerTime event={event} locale={locale} />}
-            countdown={<CountdownFigure event={event} />}
+            underWhen={<ViewerTime event={time} locale={locale} />}
+            countdown={<CountdownFigure event={time} />}
             underWhere={event.location ? <MapLink location={event.location} /> : undefined}
           />
         ) : (
@@ -297,8 +306,8 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             rsvp={<RsvpFlow {...flow} />}
             underWhen={
               <>
-                <ViewerTime event={event} locale={locale} />
-                <Countdown event={event} />
+                <ViewerTime event={time} locale={locale} />
+                <Countdown event={time} />
               </>
             }
             underWhere={event.location ? <MapLink location={event.location} /> : undefined}

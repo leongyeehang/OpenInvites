@@ -105,6 +105,15 @@ describe("resolveTheme", () => {
     expect(resolveTheme({ ...onUpload, backgroundId: "dusk" }, upload()).upload).toBeNull();
   });
 
+  it("paints the upload it is handed when the theme names none, as the theme guests are sent does", () => {
+    const asSent: Theme = { ...onUpload, uploadId: null };
+    expect(resolveTheme(asSent, upload()).upload).toEqual(upload());
+    expect(resolveTheme({ ...asSent, uploadMode: "poster" }, upload()).poster?.src).toBe(POSTER.src);
+    // Put aside, the picture is not handed to them at all.
+    expect(resolveTheme({ ...asSent, backgroundId: "dusk" }, upload()).upload).toBeNull();
+    expect(resolveTheme(asSent).background.id).toBe(resolveTheme(DEFAULT_THEME).background.id);
+  });
+
   it("solves the page against the upload's own light and dark, so a dark photo keeps the light frost", () => {
     // Measured, a dark photo reads under the settled 10% white frost; assumed to be anything, it
     // would have been smoked.

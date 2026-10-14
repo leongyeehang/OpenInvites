@@ -2,7 +2,7 @@ import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
 import { createDraft, createPublished, type DraftFields } from "./events";
 import { latestMailTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
-import { expect, test, type APIRequestContext, type Locator, type Page } from "./test";
+import { clientAddress, expect, test, type APIRequestContext, type Browser, type Locator, type Page } from "./test";
 
 // Ticket 20: axe-core finds nothing serious or critical on any page a person meets, at 390px and
 // at desktop width (the two projects), and on the event page in both text tones. Each check is
@@ -155,13 +155,27 @@ test("a host's own pages: the dashboard, the event form, the share screen and th
   await expectNoSeriousViolations(page, "the guest list, editing a guest");
 });
 
-test("the instance settings page", async ({ page }) => {
+test("the instance settings page, and its Limits card refusing a value and with Keep forever ticked", async ({ page }) => {
   test.slow();
   await signIn(page, OPERATOR.email, PASSWORD);
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
   await page.goto("/instance");
   await expect(page.getByRole("heading", { level: 1, name: "Instance settings" })).toBeVisible();
   await expectNoSeriousViolations(page, "the instance settings page");
+
+  // A value the server refuses, which the browser's own check would stop first; nothing is saved,
+  // as every other spec shares this instance's limits.
+  const limits = page.locator("form").filter({ has: page.getByLabel("Events per host") });
+  await limits.evaluate((form) => form.setAttribute("novalidate", ""));
+  await page.getByLabel("Replies per event").fill("0");
+  await limits.getByRole("button", { name: "Save" }).click();
+  await expect(limits.getByText("Enter a whole number from 1 to 100,000 for replies per event.")).toBeVisible();
+  await expectNoSeriousViolations(page, "the Limits card, a value refused");
+  // Ticked and not saved.
+  await page.reload();
+  await page.getByLabel("Keep forever").check();
+  await expect(page.getByLabel("Keep events for")).toBeDisabled();
+  await expectNoSeriousViolations(page, "the Limits card, Keep forever ticked");
 });
 
 test("the Design drawer, open with Details expanded, in both text tones", async ({ browser, request }) => {
@@ -584,4 +598,216 @@ test("the sign-in link form, sent, and the sign-in page after a link that has ex
   await page.goto("/sign-in?linkError=1");
   await expect(page.getByText("That sign-in link has expired or was already used.")).toBeVisible();
   await expectNoSeriousViolations(page, "the sign-in page, a sign-in link expired");
+});
+
+// M3 (ticket 11): what M3 added, in every layout it shows in. Each guest is on a device of their
+// own, reaching the instance from an address of their own, so that the replies of several guests in
+// one test never share the RSVP rate limit.
+const LAYOUTS = ["Poster", "Broadsheet", "Thread"] as const;
+type Layout = (typeof LAYOUTS)[number];
+
+// An event a guest answers with their name alone, in the layout; the Poster's inline.
+const inLayout = (layout: Layout): DraftFields => (layout === "Poster" ? SIMPLE : { ...SIMPLE, layout });
+
+async function newGuest(browser: Browser): Promise<Page> {
+  const context = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
+  return context.newPage();
+}
+
+// A Going reply in the layout, with the email when one is given, sent.
+async function replyGoing(page: Page, layout: Layout, link: string, name: string, email?: string) {
+  await page.goto(link);
+  if (layout === "Broadsheet") {
+    await page.getByRole("radio", { name: "I’ll be there", exact: true }).check();
+    await page.getByLabel("Your name").fill(name);
+    if (email) await page.getByLabel("Email").fill(email);
+    await page.getByRole("button", { name: "Post my reply" }).click();
+  } else if (layout === "Thread") {
+    await page.getByRole("button", { name: "Going", exact: true }).click();
+    await page.getByLabel("Your name").fill(name);
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    if (email) {
+      await page.getByLabel("Email").fill(email);
+      await page.getByRole("button", { name: "Send", exact: true }).click();
+    }
+  } else {
+    await page.getByRole("button", { name: "Going", exact: true }).click();
+    await page.getByLabel("Your name").fill(name);
+    if (email) await page.getByLabel("Email").fill(email);
+    await page.getByRole("button", { name: "Send RSVP" }).click();
+  }
+}
+
+// How a guest's reply stands, as the layout says it: the heading of the Poster's confirmation and
+// of the Broadsheet's receipt, or the Thread's done bubble, in its own voice and by first name.
+function standing(page: Page, layout: Layout, first: string, as: "pending" | "waitlisted" | "declined") {
+  if (layout !== "Thread") {
+    const heading = { pending: "Your reply is waiting for the host’s approval.", waitlisted: "You’re on the waitlist, number 1.", declined: "The host wasn’t able to accept your reply." };
+    return page.getByRole("heading", { name: heading[as] });
+  }
+  const line = {
+    pending: `Thanks, ${first}! I’ll check with the host and let you know.`,
+    waitlisted: `The party’s full right now, ${first}, but you’re number 1 on the waitlist.`,
+    declined: "The host wasn’t able to accept your reply.",
+  };
+  return page.locator('[data-slot="done"]').filter({ hasText: line[as] });
+}
+
+// The code step (ticket 05) in each layout, on an event that proves the guest's email: as it opens,
+// and with a wrong code refused.
+for (const layout of LAYOUTS) {
+  test(`the code step on the ${layout}, as it opens and with a wrong code refused`, async ({ browser, request }) => {
+    test.slow();
+    const host = await createPublished(browser, request, `a11y-code-${layout.toLowerCase()}`, { ...inLayout(layout), email: "optional", verifyEmail: true });
+    const email = newHost("a11y-code-guest").email;
+    const page = await newGuest(browser);
+    await replyGoing(page, layout, host.link, "Priya Nair", email);
+    const code = page.getByLabel("Code");
+    await expect(code).toBeFocused({ timeout: 15_000 });
+    await expectNoSeriousViolations(page, `the ${layout}'s code step`);
+
+    const sent = (await latestMailTo(request, email)).match(/^([0-9]{6})\r?$/m)![1];
+    await code.fill(String((Number(sent) + 1) % 1_000_000).padStart(6, "0"));
+    await page.getByRole("button", { name: layout === "Thread" ? "Send" : "Confirm", exact: true }).click();
+    await expect(page.getByText("That code isn’t right. 4 tries left.")).toBeVisible({ timeout: 15_000 });
+    await expectNoSeriousViolations(page, `the ${layout}'s code step, a wrong code refused`);
+    await page.context().close();
+    await host.context.close();
+  });
+}
+
+// Capacity and approval (tickets 06 and 07) in each layout: the event full, as a guest whose reply
+// will wait for the host finds it; the reply waiting; approved onto the waitlist; declined. And the
+// host's guest list with its sections, before and after the host decides.
+for (const layout of LAYOUTS) {
+  test(`the ${layout} full, and its confirmations waiting for approval, on the waitlist and declined, with the guest list's sections`, async ({
+    browser,
+    request,
+  }) => {
+    test.setTimeout(240_000);
+    const host = await createPublished(browser, request, `a11y-standing-${layout.toLowerCase()}`, { ...inLayout(layout), capacity: "1", approval: true });
+    const guests = `${host.page.url()}/guests`;
+    // The host's word on a reply waiting for it, and the section it lands in.
+    const decide = async (name: string, button: "Approve" | "Decline", lands: RegExp) => {
+      await host.page.goto(guests);
+      await host.page.getByRole("region", { name: /^Waiting for approval/ }).getByRole("listitem").filter({ hasText: name }).getByRole("button", { name: button }).click();
+      await expect(host.page.getByRole("region", { name: lands }).getByText(name)).toBeVisible({ timeout: 15_000 });
+    };
+    const [arjun, bea, chen] = [await newGuest(browser), await newGuest(browser), await newGuest(browser)];
+    const where = `the ${layout}`;
+
+    // Arjun takes the one place once the host approves him.
+    await replyGoing(arjun, layout, host.link, "Arjun Rao");
+    await expect(standing(arjun, layout, "Arjun", "pending")).toBeVisible({ timeout: 15_000 });
+    await decide("Arjun Rao", "Approve", /^Going/);
+
+    // Bea finds the event full, then waits for the host; so does Chen.
+    await bea.goto(host.link);
+    await expect(bea.getByText("This event is full. If the host approves your reply, you’ll join the waitlist.")).toBeVisible();
+    await expectNoSeriousViolations(bea, `${where}, full, to a guest whose reply waits for the host`);
+    await replyGoing(bea, layout, host.link, "Bea Lim");
+    await expect(standing(bea, layout, "Bea", "pending")).toBeVisible({ timeout: 15_000 });
+    await expectNoSeriousViolations(bea, `${where}: a reply waiting for the host's approval`);
+    await replyGoing(chen, layout, host.link, "Chen Wei");
+    await expect(standing(chen, layout, "Chen", "pending")).toBeVisible({ timeout: 15_000 });
+
+    await host.page.goto(guests);
+    await expect(host.page.getByRole("heading", { name: "Waiting for approval (2)" })).toBeVisible();
+    await expectNoSeriousViolations(host.page, `${where}'s guest list, two replies waiting for approval`);
+
+    // Approved, Bea waits for a place; Chen is declined.
+    await decide("Bea Lim", "Approve", /^Waitlist/);
+    await decide("Chen Wei", "Decline", /^Declined/);
+    await expectNoSeriousViolations(host.page, `${where}'s guest list, with the waitlist and a reply declined`);
+    await bea.reload();
+    await expect(standing(bea, layout, "Bea", "waitlisted")).toBeVisible();
+    await expectNoSeriousViolations(bea, `${where}: on the waitlist`);
+    await chen.reload();
+    await expect(standing(chen, layout, "Chen", "declined")).toBeVisible();
+    await expectNoSeriousViolations(chen, `${where}: declined`);
+
+    for (const page of [arjun, bea, chen]) await page.context().close();
+    await host.context.close();
+  });
+}
+
+// Personal invite links (ticket 08): the invites page with none made, an invite refused, one made
+// with its link to copy, and its delete dialog; and the guest list's Invited section.
+test("the invites page: none made, one refused, one made, its delete dialog, and the guest list's Invited section", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "a11y-invites", { ...SIMPLE, askEmail: true });
+  const page = host.page;
+  const manage = page.url();
+  await page.goto(`${manage}/invites`);
+  await expect(page.getByRole("heading", { level: 1, name: "Invites" })).toBeVisible();
+  await expect(page.getByText("No invites yet.")).toBeVisible();
+  await expectNoSeriousViolations(page, "the invites page, none made");
+
+  await page.getByLabel("Name", { exact: true }).fill("Mei Lin");
+  await page.getByLabel("Email", { exact: true }).fill("not an address");
+  await page.getByRole("button", { name: "Make link" }).click();
+  await expect(page.getByText("That does not look like an email address.")).toBeVisible({ timeout: 15_000 });
+  await expectNoSeriousViolations(page, "the invites page, an invite refused");
+  await page.getByLabel("Email", { exact: true }).fill(newHost("a11y-invitee").email);
+  await page.getByRole("button", { name: "Make link" }).click();
+  await expect(page.getByRole("status")).toHaveText("Made a link for Mei Lin.", { timeout: 15_000 });
+  await expectNoSeriousViolations(page, "the invites page, one made, with its link to copy");
+
+  await page.getByRole("button", { name: "Delete the invite for Mei Lin" }).click();
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+  await expectNoSeriousViolations(page, "the invites page, the delete dialog");
+  await page.getByRole("alertdialog").getByRole("button", { name: "Never mind" }).click();
+
+  await page.goto(`${manage}/guests`);
+  await expect(page.getByRole("heading", { name: "Invited (1)" })).toBeVisible();
+  await expectNoSeriousViolations(page, "the guest list, with the Invited section");
+  await host.context.close();
+});
+
+// Reports (ticket 02): the report form, with a reason refused and once sent, and the operator's
+// reports page.
+test("the report form, a reason refused and a report sent, and the reports page", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "a11y-report", SIMPLE);
+  await page.goto(host.link);
+  await page.getByRole("contentinfo").getByRole("link", { name: "Report this event" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Report Ada’s birthday" })).toBeVisible();
+  await expectNoSeriousViolations(page, "the report form");
+  const reason = page.getByLabel("What’s wrong with this page?");
+  await reason.fill("Too short.");
+  await page.getByRole("button", { name: "Send report" }).click();
+  await expect(page.getByText("Tell us a little more: at least 20 characters.")).toBeVisible();
+  await expectNoSeriousViolations(page, "the report form, a reason refused");
+  const words = `This page is not what it says it is (a11y ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}).`;
+  await reason.fill(words);
+  await page.getByRole("button", { name: "Send report" }).click();
+  await expect(page.getByText("Thank you. Your report has reached the operator of this instance.")).toBeVisible({ timeout: 15_000 });
+  await expectNoSeriousViolations(page, "the report form, sent");
+
+  const operator = await browser.newContext();
+  const operatorPage = await operator.newPage();
+  await signIn(operatorPage, OPERATOR.email, PASSWORD);
+  await expect(operatorPage).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
+  await operatorPage.goto("/instance/reports");
+  await expect(operatorPage.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();
+  await expect(operatorPage.getByRole("listitem").filter({ hasText: words })).toBeVisible();
+  await expectNoSeriousViolations(operatorPage, "the reports page");
+  // Its delete dialog is the one the invites page's is (read above): over a page as long as every
+  // run's reports make this one, read a view at a time under the dialog, it would take minutes.
+  await operator.close();
+  await host.context.close();
+});
+
+// The bot check (ticket 09) on `app-social`, which runs with Cloudflare's always-pass test keys:
+// the sign-up page with the widget, once it has passed. Its controls are Cloudflare's, in a frame
+// of its own; the group around it and its name are the app's.
+test.describe("on an instance whose operator has set Turnstile's keys", () => {
+  test.use({ baseURL: "http://localhost:3001" });
+
+  test("the sign-up page with the bot check, passed", async ({ page }) => {
+    await page.goto("/sign-up");
+    await expect(page.getByRole("group", { name: "Bot check" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create account" })).toBeEnabled({ timeout: 15_000 });
+    await expectNoSeriousViolations(page, "the sign-up page, with the bot check");
+  });
 });

@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from "./test";
+import { APPROVAL } from "./events";
 import { mailCountTo, newHost, signUp, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
 
@@ -67,7 +68,7 @@ test("the operator sets the limits to two and sees them saved", async ({ browser
   await expect(operator.getByLabel("Replies per event")).toHaveValue("2");
 });
 
-test("a limit outside the range is refused where it is typed", async () => {
+test("a limit outside the range is refused", async () => {
   await operator.goto("/instance");
   const limits = operator.locator("form").filter({ has: operator.getByLabel("Events per host") });
   // The browser's own check would stop these; the server's answer is what is under test.
@@ -101,7 +102,9 @@ test("a host at the events limit cannot create or duplicate an event", async () 
   await expect(operator).toHaveURL(second);
 });
 
-test("a third guest is refused at the replies limit, while the first can still change their answer", async ({ browser }) => {
+test("a third guest is refused at the replies limit, a reply waiting for approval counted, while the first can still change their answer", async ({
+  browser,
+}) => {
   test.slow();
   await operator.goto("/dashboard");
   await operator.getByRole("link", { name: /First party/ }).click();
@@ -111,8 +114,12 @@ test("a third guest is refused at the replies limit, while the first can still c
 
   const first = await reply(browser, eventLink, "Priya Nair");
   await expect(first.getByText("You’re going!")).toBeVisible();
+  // The host now approves each reply, so the second waits; it counts against the limit all the same.
+  await operator.getByRole("group", { name: "Guests", exact: true }).getByLabel(APPROVAL).check();
+  await operator.getByRole("button", { name: "Save changes" }).click();
+  await expect(operator.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
   const second = await reply(browser, eventLink, "Arjun Rao");
-  await expect(second.getByText("You’re going!")).toBeVisible();
+  await expect(second.getByText("Your reply is waiting for the host’s approval.")).toBeVisible();
 
   const third = await reply(browser, eventLink, "Meera Das");
   await expect(third.getByText(REPLIES_REFUSAL)).toBeVisible();

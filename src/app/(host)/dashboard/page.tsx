@@ -31,8 +31,7 @@ export default async function DashboardPage() {
     instanceLimits(),
   ]);
   const { upcoming, past } = partitionByEnd(events, new Date());
-  const counts = await countRsvpsByEvent(events.map((event) => event.id));
-  const atLimit = await eventsOwnedAtLimit(host.id);
+  const [counts, atLimit] = await Promise.all([countRsvpsByEvent(events.map((event) => event.id)), eventsOwnedAtLimit(host.id)]);
 
   return (
     <>

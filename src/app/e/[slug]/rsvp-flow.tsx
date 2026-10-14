@@ -427,7 +427,7 @@ export function RsvpFlow(props: RsvpFlowProps) {
       {/* Set on the page itself, so on the veil that keeps bare text readable. */}
       {!open && <p className="mx-auto mt-2 w-fit rounded-full bg-theme-veil px-3 py-1 text-center text-xs text-theme-text-faint backdrop-blur-xl">{t("errors.closed")}</p>}
       {flow.fullNotice && (
-        <p className="mx-auto mt-2 w-fit rounded-full bg-theme-veil px-3 py-1.5 text-center text-xs text-theme-text-muted backdrop-blur-xl">{t("full")}</p>
+        <p className="mx-auto mt-2 w-fit rounded-full bg-theme-veil px-3 py-1.5 text-center text-xs text-theme-text-muted backdrop-blur-xl">{t(flow.fullNotice)}</p>
       )}
     </>
   );
@@ -599,16 +599,18 @@ function Confirmation({
   const shownLink = useRef<HTMLParagraphElement>(null);
   const link = useCopyLink(answer.editLink, shownLink);
   const named = answer.plusOneNames.filter(Boolean);
+  const standing = confirmedAs(answer);
 
   return (
     <>
       <div className="flex items-start gap-3">
+        {/* A tick for a reply the hosts took or have yet to answer; a declined one is not ticked. */}
         <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-full bg-theme-accent text-theme-on-accent">
-          <Check className="size-5" />
+          {standing === "declined" ? <X className="size-5" /> : <Check className="size-5" />}
         </span>
         <div className="flex-1">
           <h2 ref={headingRef} tabIndex={-1} className="font-title text-3xl leading-tight outline-none">
-            {t(`done.${confirmedAs(answer)}`, { position: answer.waitlistPosition ?? 0 })}
+            {t(`done.${standing}`, { position: answer.waitlistPosition ?? 0 })}
           </h2>
           <p className="text-sm text-theme-text-muted">
             {answer.status === "cant"

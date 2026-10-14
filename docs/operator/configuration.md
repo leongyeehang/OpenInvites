@@ -53,11 +53,6 @@ else that address is a page that does not exist.
   invitation can create an account, by email, Google, or GitHub alike. Open lets anyone sign up.
   A change takes effect at once. With mail configured, Open also lets anyone who signs up have the
   instance email addresses of their choosing ([Mail](#mail)).
-- **Host invitations** are single-use links the operator makes on the same page, optionally
-  addressed to an email, which then fills in the sign-up form (anyone with the link can still
-  use it). The link is shown once, to copy; with mail configured, the operator can have it
-  emailed instead. A link works for one account and expires after 14 days, and can be revoked
-  while it is pending. The page lists every invitation as Pending, Used, Revoked, or Expired.
 - **Limits** are two caps, set on the same page and read each time they are checked, so a change
   takes effect at once. **Events per host** (50 by default) counts every event a host owns,
   drafts and past events included but not events they only co-host; a host at the limit cannot
@@ -67,6 +62,14 @@ else that address is a page that does not exist.
   theirs. Each is a whole number from 1 to 100,000. Lowering a limit below what exists leaves
   the existing events and replies alone and refuses only new ones. The same card sets how long
   events are kept ([Retention](#retention)).
+- **Host invitations** are single-use links the operator makes on the same page, optionally
+  addressed to an email, which then fills in the sign-up form (anyone with the link can still
+  use it). The link is shown once, to copy; with mail configured, the operator can have it
+  emailed instead. A link works for one account and expires after 14 days, and can be revoked
+  while it is pending. The page lists every invitation as Pending, Used, Revoked, or Expired.
+- Emailed host invitations count against the mail rate limit (`RATE_LIMIT_MAIL`, 10 an hour by
+  default) together with every other email your own address asks for. To send more host
+  invitations than that in an hour, copy the links instead, or raise the limit.
 - **Reports**: every published or cancelled event page has a "Report this event" link in its
   footer, which opens a form for a reason (20 to 1,000 characters) and an optional email to reach
   the reporter. A report is always kept on the **Reports** page (`/instance/reports`, linked from
@@ -76,9 +79,6 @@ else that address is a page that does not exist.
   and everything else about it are deleted, and its reports are marked handled), or **Mark
   handled**. A report whose event was deleted, by you or by its host, reads "Event deleted".
   `RATE_LIMIT_REPORT` (5 an hour) bounds how many a client can send.
-- Emailed host invitations count against the mail rate limit (`RATE_LIMIT_MAIL`, 10 an hour by
-  default) together with every other email your own address asks for. To send more host
-  invitations than that in an hour, copy the links instead, or raise the limit.
 
 An instance upgraded from before there was an operator makes its earliest account the operator
 and starts Invitation only.
@@ -121,9 +121,10 @@ all-day event at the end of its last day, in its own time zone. Drafts and cance
 counted the same way.
 
 Once an event ended the period less 30 days ago, it is marked to be deleted. Its manage page then
-says "This event will be deleted on" the day, and the host's dashboard says "Deleted on" it; with
-mail, each of its hosts, co-hosts included, is emailed once, with that day, the period, and that
-**Duplicate** keeps the event's details for another time. Every manage page also names the period.
+says "This event will be deleted on" the day, and the host's dashboard says "Will be deleted on"
+it; with mail, each of its hosts, co-hosts included, is emailed once, with that day, the period,
+and that **Duplicate** keeps the event's details for another time. Every manage page also names the
+period.
 An event is deleted once it ended the whole period ago and its mark is at least 30 days old, so
 nothing is ever deleted sooner than 30 days after its hosts were warned, with mail or without.
 Raising the period takes the mark off every event it no longer brings within 30 days of deletion;
@@ -136,13 +137,14 @@ again if it is still old enough.
 Deleting is the same as a host's own **Delete event**: the event goes with its replies and their
 answers, questions, comments, announcements, invites, co-hosts, any mail about it still queued,
 and its picture's files. Its links stay retired, so whoever opens one is told the event has been
-deleted, and no other event is ever given them. Reports about it stay on the Reports page, as
-"Event deleted". Hosts' accounts are not touched.
+deleted, and its custom link can never be taken by another event. Reports about it stay on the
+Reports page, as "Event deleted". Hosts' accounts are not touched.
 
 The check runs in the app container a minute after it starts, then every hour; several app
-containers on one database share it without marking or deleting anything twice. On an instance
-upgraded with years of events behind it, the first check only marks: every event already old
-enough is marked at once, its hosts are emailed, and none is deleted for 30 days.
+containers on one database share it without marking or deleting anything twice. An event is
+deleted at the first check after its time comes, so up to an hour after it, never before. On an
+instance upgraded with years of events behind it, the first check only marks: every event already
+old enough is marked at once, its hosts are emailed, and none is deleted for 30 days.
 
 To keep every event, tick **Keep forever** and save. Nothing is marked or deleted then, and the
 marks already made are cleared, so if you set a period again later, hosts are warned afresh and
@@ -197,6 +199,8 @@ With mail configured:
 - a guest proving their email is sent a code to it, when the host asks for it;
 - an event's hosts are warned 30 days before the instance deletes it for its age
   ([Retention](#retention));
+- the operator is emailed each report about an event page, at their account's address (Reports,
+  above);
 - every email to a guest ends with a link to a page where one tap stops email about that event,
   except the code, which is sent before their RSVP is kept.
 
@@ -206,10 +210,10 @@ mail.
 Mail also lets a host have the instance email anyone. A host can reply to their own event as many
 times as they like, typing any addresses into its RSVP form, and then post announcements to them;
 nothing checks that an address belongs to someone who asked. Only `RATE_LIMIT_RSVP` and
-`RATE_LIMIT_MAIL` bound it, and they count per client address. With registration Invitation only,
-the default, the hosts are people you admitted. If you open registration on an instance with mail,
-anyone who signs up can do this. Operator limits on guests per event and events per host, planned
-for a later release, are meant to close it.
+`RATE_LIMIT_MAIL` bound how fast, and they count per client address; the operator's limits on
+replies per event and events per host (Limits, above) bound how many addresses one host can gather.
+With registration Invitation only, the default, the hosts are people you admitted. If you open
+registration on an instance with mail, anyone who signs up can do this.
 
 The app sends event mail (everything above about an event but a guest's code, which goes at once
 because the guest is waiting for it) from a queue inside the app container, so there is nothing
@@ -333,7 +337,7 @@ runs.
 | --- | --- | --- |
 | `TRUSTED_PROXY_HOPS` | `1` | Not a limit: how many reverse proxies stand in front of the app (below). |
 | `RATE_LIMIT_EVENT_PAGE` | `120/1m` | Every request under an event link: the page, its preview card, its calendar file, whether the link exists or not, so links cannot be found by trying them. Opening a personal invite link counts too, whether it exists or not. The host's own changes in the Design drawer on their event page do not count; their visits to the page do, and so does the refresh that shows a picture they have just uploaded. |
-| `RATE_LIMIT_RSVP` | `60/10m` | Sending an RSVP, and removing one. This also bounds the emails that tell hosts about replies. |
+| `RATE_LIMIT_RSVP` | `60/10m` | Sending an RSVP, and removing one. Asking for a code to prove a guest's email, and entering it, each count as sending. This also bounds the emails that tell hosts about replies. |
 | `RATE_LIMIT_UPLOAD` | `20/10m` | Uploading a picture. |
 | `RATE_LIMIT_SIGN_UP` | `10/1h` | Signing up, and opening a host invitation link. |
 | `RATE_LIMIT_SIGN_IN` | `10/15m` | Signing in, and everything else that checks a password (changing it, deleting an account), starting a Google or GitHub sign-in, and opening a co-host link. |

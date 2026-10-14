@@ -188,7 +188,7 @@ test("the first sweep after a restart marks the old events and deletes nothing: 
   await expect(operator.getByText(POLICY)).toBeVisible();
   await operator.goto("/dashboard");
   const card = operator.getByRole("region", { name: "Past" }).getByRole("link", { name: new RegExp(TITLE) });
-  await expect(card.getByText(new RegExp(`^Deleted on (${thirtyDaysOn.join("|")})$`))).toBeVisible();
+  await expect(card.getByText(new RegExp(`^Will be deleted on (${thirtyDaysOn.join("|")})$`))).toBeVisible();
   await expect(noMailHost.getByText(markedOn(today))).toBeVisible();
   await expect(noMailHost.getByText(POLICY)).toBeVisible();
 
@@ -240,7 +240,7 @@ test("new dates, a longer period and Keep forever take off the marks they no lon
   await operator.reload();
   await expect(operator.getByLabel("Keep forever")).toBeChecked();
   await operator.goto("/dashboard");
-  await expect(operator.getByText(/^Deleted on /)).toHaveCount(0);
+  await expect(operator.getByText(/^Will be deleted on /)).toHaveCount(0);
   await operator.goto(reunion);
   await expect(operator.getByRole("heading", { name: ANCIENT, level: 1 })).toBeVisible();
   await expect(operator.getByText(/^Events on this instance are deleted /)).toHaveCount(0);

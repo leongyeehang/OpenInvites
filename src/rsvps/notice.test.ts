@@ -33,8 +33,9 @@ describe("rsvpNotice", () => {
     expect(rsvpNotice(pending("cant"), pending("going"))).toBe("pendingChanged");
   });
 
-  it("tells the hosts when a reply they declined changes its status", () => {
-    expect(rsvpNotice(declined("cant"), declined("going"))).toBe("changed");
+  it("tells the hosts when a reply they declined changes its status, and that it is still declined", () => {
+    expect(rsvpNotice(declined("cant"), declined("going"))).toBe("declinedChanged");
+    expect(rsvpNotice(declined("going"), declined("maybe"))).toBe("declinedChanged");
   });
 
   it("tells the hosts when a reply joins the waitlist, first time or from another status", () => {
