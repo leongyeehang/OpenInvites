@@ -246,16 +246,17 @@ test("a guest tabs to the code step's Send it again while it waits, and pressing
   await page.getByRole("button", { name: "Send RSVP" }).click();
   await expect(page.getByLabel("Code")).toBeFocused({ timeout: 15_000 });
 
-  // The next stop after the code is the button, waiting, under the name it always has.
+  // The next stop after the code is the button, waiting, under the name it always has, with the
+  // seconds left as its description, which a screen reader reads on reaching it.
   const again = page.getByRole("button", { name: "Send it again", exact: true });
   await expect(again).toHaveAttribute("aria-disabled", "true");
-  await tabTo(page, again);
+  await page.keyboard.press("Tab");
   await expect(again).toBeFocused();
+  await expectVisibleFocus(page);
+  await expect(again).toHaveAccessibleDescription(/^Send it again in \d+s$/);
   await page.keyboard.press("Enter");
   await expect(again).toBeFocused();
   await expect(page.getByText("We sent a code to")).toBeVisible();
-  // The seconds are in a polite live region, which a screen reader announces as they change.
-  await expect(page.locator('[aria-live="polite"]').filter({ hasText: /^Send it again in \d+s$/ })).toHaveCount(1);
   await expect.poll(() => mailCountTo(request, email), { timeout: 15_000 }).toBe(1);
 
   await guest.close();

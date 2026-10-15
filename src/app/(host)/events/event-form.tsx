@@ -125,7 +125,7 @@ export function EventForm({ action, event, mail, maxReplies, retentionDays, time
           <Checkbox id="require-plus-one-names" name="requirePlusOneNames" defaultChecked={event?.requirePlusOneNames} />
           <FieldLabel htmlFor="require-plus-one-names">{t("requirePlusOneNames")}</FieldLabel>
         </Field>
-        {/* How many may come (spec, "Capacity and the waitlist"), empty for no limit, and whether
+        {/* How many may come (spec, "Capacity and the waitlist"), empty to take everyone, and whether
             each reply waits for the host's approval (spec, "Approval"). */}
         <FieldSet className="gap-3">
           <FieldLegend variant="label">{t("guests.title")}</FieldLegend>

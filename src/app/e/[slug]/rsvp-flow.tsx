@@ -346,6 +346,12 @@ export function RsvpFlow(props: RsvpFlowProps) {
         </ol>
       </div>
 
+      {/* What the wait for "Send it again" is, said as the code step comes and as the wait ends
+          (use-rsvp-flow.ts, resendNotice); here from the first step, so it is heard. */}
+      <span aria-live="polite" className="sr-only">
+        {flow.resendNotice === "now" ? t("code.resendNow") : flow.resendNotice && t("code.resendLater", { seconds: flow.resendNotice.waitFor })}
+      </span>
+
       {/* The code sent to the guest's email, posted with the rest of the answer. */}
       {flow.codeSentTo !== undefined && (
         <div data-step="code" hidden={!confirming} className="flex flex-col gap-4">
@@ -366,19 +372,17 @@ export function RsvpFlow(props: RsvpFlowProps) {
           </Labelled>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-theme-text-muted">
             {/* While it waits the button stays in the tab order, `aria-disabled` and a no-op, under the
-                name it always has; the live region says the seconds. */}
+                name it always has; the seconds it shows are its description, heard on reaching it. */}
             <button
               type="button"
               onClick={() => !(working || flow.resendIn > 0 || flow.awaitingCheck) && flow.resend(form.current)}
               aria-disabled={working || flow.resendIn > 0 || flow.awaitingCheck}
               aria-label={t("code.resend")}
+              aria-describedby={flow.resendIn > 0 ? `${id}-resend-in` : undefined}
               className="cursor-pointer underline underline-offset-2 hover:opacity-80 aria-disabled:cursor-default aria-disabled:no-underline aria-disabled:opacity-70"
             >
-              {flow.resendIn > 0 ? t("code.resendIn", { seconds: flow.resendIn }) : t("code.resend")}
+              <span id={`${id}-resend-in`}>{flow.resendIn > 0 ? t("code.resendIn", { seconds: flow.resendIn }) : t("code.resend")}</span>
             </button>
-            <span aria-live="polite" className="sr-only">
-              {flow.resendIn > 0 ? t("code.resendIn", { seconds: flow.resendIn }) : ""}
-            </span>
             <button type="button" onClick={changeEmail} className="cursor-pointer underline underline-offset-2 hover:opacity-80">
               {t("code.changeEmail")}
             </button>

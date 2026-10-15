@@ -664,6 +664,10 @@ for (const layout of LAYOUTS) {
     await replyGoing(page, layout, host.link, "Priya Nair", email);
     const code = page.getByLabel("Code");
     await expect(code).toBeFocused({ timeout: 15_000 });
+    // "Send it again" waits, unavailable but in the tab order, and the code step's polite region
+    // has said once how long for (ticket 12).
+    await expect(page.getByRole("button", { name: "Send it again", exact: true })).toHaveAttribute("aria-disabled", "true");
+    await expect(page.locator('[aria-live="polite"]').filter({ hasText: "You can send another code in 30 seconds." })).toHaveCount(1);
     await expectNoSeriousViolations(page, `the ${layout}'s code step`);
 
     const sent = (await latestMailTo(request, email)).match(/^([0-9]{6})\r?$/m)![1];
@@ -676,19 +680,31 @@ for (const layout of LAYOUTS) {
   });
 }
 
-// Ticket 12 (after 0.4): the Poster's code step with "Send it again" counting down: the seconds are
-// announced in a polite live region and the button says it is unavailable (aria-disabled, which
-// keeps it in the tab order: e2e/keyboard.spec.ts tabs to it).
-test("the code step on the Poster with the resend countdown running", async ({ browser, request }) => {
+// Ticket 12 (after 0.4, review): the Poster's code step while "Send it again" waits, and once it
+// may be pressed. The button says it is unavailable (aria-disabled, which keeps it in the tab
+// order: e2e/keyboard.spec.ts tabs to it). The seconds tick on it, outside any live region, so a
+// guest typing the code is not interrupted every second; the code step's polite region speaks as
+// the wait starts and as it ends, and keeps still in between.
+test("the code step on the Poster with the resend countdown running, and once it has run out", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "a11y-resend", { ...inLayout("Poster"), email: "optional", verifyEmail: true });
   const page = await newGuest(browser);
   await replyGoing(page, "Poster", host.link, "Priya Nair", newHost("a11y-resend-guest").email);
   await expect(page.getByLabel("Code")).toBeFocused({ timeout: 15_000 });
   const again = page.getByRole("button", { name: "Send it again", exact: true });
+  const said = page.locator('[aria-live="polite"]').filter({ hasText: /^You can send/ });
   await expect(again).toHaveAttribute("aria-disabled", "true");
-  await expect(page.locator('[aria-live="polite"]').filter({ hasText: /^Send it again in \d+s$/ })).toHaveCount(1);
+  await expect(said).toHaveText("You can send another code in 30 seconds.");
+  await expect(page.locator("[aria-live]").filter({ hasText: /Send it again in/ })).toHaveCount(0);
   await expectNoSeriousViolations(page, "the Poster's code step, the resend countdown running");
+
+  // A second later the button reads one less, and the region has not spoken again.
+  await expect(again).not.toHaveText("Send it again in 30s");
+  await expect(said).toHaveText("You can send another code in 30 seconds.");
+  // The thirty seconds run out, as the email-code spec waits for them, and the region says so.
+  await expect(again).toHaveText("Send it again", { timeout: 40_000 });
+  await expect(again).toHaveAttribute("aria-disabled", "false");
+  await expect(said).toHaveText("You can send it again now.");
   await page.context().close();
   await host.context.close();
 });

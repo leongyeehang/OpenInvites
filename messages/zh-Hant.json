@@ -1050,6 +1050,8 @@
       "confirm": "確認",
       "resend": "重新寄送",
       "resendIn": "{seconds} 秒後可重新寄送",
+      "resendLater": "{seconds, plural, other {# 秒}}後可以重新寄送驗證碼。",
+      "resendNow": "現在可以重新寄送了。",
       "changeEmail": "更換電子郵件"
     },
     "ballot": {

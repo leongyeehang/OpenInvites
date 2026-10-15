@@ -22,7 +22,7 @@ describe("promotable", () => {
     expect(promotable([party("a", 4)], 3)).toEqual([]);
   });
 
-  it("promotes everyone when there is no limit to the room", () => {
+  it("promotes everyone when there is no capacity", () => {
     expect(promotable([party("a", 3), party("b", 11)], Infinity)).toEqual(["a", "b"]);
   });
 

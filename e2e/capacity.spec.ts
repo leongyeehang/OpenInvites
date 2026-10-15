@@ -31,8 +31,8 @@ async function replyGoing(page: Page, link: string, name: string, plusOnes: numb
 
 const waitlisted = (page: Page, position: number) => page.getByRole("heading", { name: `You’re on the waitlist, number ${position}.` });
 
-// The host changes the capacity on the event form, from the manage page: a number, or empty for
-// no limit.
+// The host changes the capacity on the event form, from the manage page: a number, or empty to
+// take everyone.
 async function setCapacity(hostPage: Page, manage: string, capacity: string) {
   await hostPage.goto(manage);
   await hostPage.getByRole("group", { name: "Guests", exact: true }).getByLabel("Capacity").fill(capacity);
@@ -225,7 +225,7 @@ test("the host's capacity moves the waitlist: raised, the party at the front is 
   await bea.reload();
   await expect(bea.getByText("You’re going!")).toBeVisible();
 
-  // Removed: no limit, so everyone waiting is promoted, and the list has no waitlist left.
+  // Removed: no capacity, so everyone waiting is promoted, and the list has no waitlist left.
   await setCapacity(host.page, manage, "");
   await host.page.goto(`${manage}/guests`);
   await expect(host.page.getByText(/^6 people expected · 4 going · 0 maybe · 0 can’t go$/)).toBeVisible();

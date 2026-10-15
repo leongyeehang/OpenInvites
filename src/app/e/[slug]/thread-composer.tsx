@@ -45,6 +45,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
   const reduce = useReducedMotion();
   const sendForm = useRef<HTMLFormElement>(null);
   const sendFormId = useId();
+  const resendInId = useId();
   const bar = useRef<HTMLDivElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const doneLine = useRef<HTMLParagraphElement>(null);
@@ -315,7 +316,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
         <>
           <Chips>
             {/* While it waits the button stays in the tab order, `aria-disabled` and a no-op, under the
-                name it always has; the live region says the seconds. */}
+                name it always has; the seconds it shows are its description, heard on reaching it. */}
             <button
               type="button"
               onClick={() => {
@@ -325,13 +326,11 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
               }}
               aria-disabled={working || flow.resendIn > 0 || held}
               aria-label={r("code.resend")}
+              aria-describedby={flow.resendIn > 0 ? resendInId : undefined}
               className={cn(chip(), "aria-disabled:cursor-default aria-disabled:opacity-50")}
             >
-              {flow.resendIn > 0 ? r("code.resendIn", { seconds: flow.resendIn }) : r("code.resend")}
+              <span id={resendInId}>{flow.resendIn > 0 ? r("code.resendIn", { seconds: flow.resendIn }) : r("code.resend")}</span>
             </button>
-            <span aria-live="polite" className="sr-only">
-              {flow.resendIn > 0 ? r("code.resendIn", { seconds: flow.resendIn }) : ""}
-            </span>
             <button type="button" onClick={changeEmail} className={chip()}>
               {r("code.changeEmail")}
             </button>
@@ -421,6 +420,11 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
       </div>
 
       <div ref={bar} tabIndex={-1} className="sticky bottom-0 z-20 pt-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] outline-none">
+        {/* What the wait for "Send it again" is, said as the code turn comes and as the wait ends
+            (use-rsvp-flow.ts, resendNotice); here with the composer from the start, so it is heard. */}
+        <span aria-live="polite" className="sr-only">
+          {flow.resendNotice === "now" ? r("code.resendNow") : flow.resendNotice && r("code.resendLater", { seconds: flow.resendNotice.waitFor })}
+        </span>
         {barShown && (
           <Glass className="flex min-h-16 flex-col justify-center gap-2 rounded-[28px] p-2.5">
             {flow.fullNotice && <p className="px-2 text-sm text-theme-text-muted">{r(flow.fullNotice)}</p>}

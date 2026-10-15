@@ -137,6 +137,9 @@ export function useRsvpFlow(
   const [codeTo, setCodeTo] = useState<string>();
   const [codesSent, setCodesSent] = useState(0);
   const [resendIn, setResendIn] = useState(0);
+  // How many seconds "Send it again" had left when the guest came to the code step: as the code
+  // was sent, or coming back to it.
+  const [waitFrom, setWaitFrom] = useState<number>();
   const [triesLeft, setTriesLeft] = useState<number>();
   // After a Going guest asked to bring more people than there is room for, how many places their
   // party may have.
@@ -184,7 +187,10 @@ export function useRsvpFlow(
     change({ status, plusOnes: status === "cant" ? 0 : draft.plusOnes });
     setStep("name");
   };
-  const forward = () => setStep(steps[position + 1]);
+  const forward = () => {
+    if (steps[position + 1] === "code") setWaitFrom(resendIn);
+    setStep(steps[position + 1]);
+  };
   const back = () => setStep(position === 0 ? "idle" : steps[position - 1]);
   // Leaving part-way leaves the RSVP as it was: the saved one, if there is one.
   const stopAnswering = () => {
@@ -206,6 +212,13 @@ export function useRsvpFlow(
     const timer = setTimeout(() => setResendIn((left) => left - 1), 1000);
     return () => clearTimeout(timer);
   }, [resendIn]);
+  // What the code step's polite region says (ticket 12, review): how long the wait is, once, as the
+  // guest comes to the step, and that it is over, once, when it is; nothing while the seconds tick,
+  // which they do on "Send it again" itself, so a guest typing the code is not interrupted every
+  // second. Each layout keeps the region on the page from before the code step, since words a live
+  // region appears with are not read out.
+  const resendNotice: { waitFor: number } | "now" | undefined =
+    step !== "code" || waitFrom === undefined ? undefined : resendIn > 0 ? { waitFor: waitFrom } : "now";
 
   const send = (formData: FormData) => {
     // The code sent to this email moments ago is still the one to enter: an answer posted again
@@ -214,6 +227,7 @@ export function useRsvpFlow(
     if (codeSentTo !== undefined && resendIn > 0 && !formData.has("code")) {
       setRefusal(undefined);
       landing.current = "code";
+      setWaitFrom(resendIn);
       setStep("code");
       return;
     }
@@ -231,6 +245,7 @@ export function useRsvpFlow(
         setCodeTo(result.codeSent.email);
         setCodesSent((count) => count + 1);
         setResendIn(result.codeSent.resendIn);
+        setWaitFrom(result.codeSent.resendIn);
         change({ code: "" });
         setStep("code");
         return;
@@ -311,6 +326,7 @@ export function useRsvpFlow(
     awaitingCheck,
     codeSentTo,
     resendIn,
+    resendNotice,
     pick,
     forward,
     back,

@@ -16,7 +16,7 @@ export type DraftFields = {
   description?: string;
   plusOnes?: string;
   requirePlusOneNames?: boolean;
-  // The Guests group's Capacity; no limit when left out.
+  // The Guests group's Capacity; no capacity when left out.
   capacity?: string;
   // The Guests group's "Approve each guest before they’re on the list"; off when left out.
   approval?: boolean;

@@ -434,7 +434,7 @@
       "timeZoneInvalid": "Choose a time zone from the list.",
       "notFound": "This event no longer exists.",
       "plusOnesAllowedInvalid": "Choose a number of plus-ones between none and ten.",
-      "capacityInvalid": "Enter a whole number from 1 to 5,000 for the capacity, or leave it empty for no limit.",
+      "capacityInvalid": "Enter a whole number from 1 to 5,000 for the capacity, or leave it empty to take everyone.",
       "contactFieldInvalid": "Choose how to ask for an email and a phone number.",
       "guestListVisibilityInvalid": "Choose who can see the guest list.",
       "questionsInvalid": "Those questions could not be read. Try again.",
@@ -1050,6 +1050,8 @@
       "confirm": "Confirm",
       "resend": "Send it again",
       "resendIn": "Send it again in {seconds}s",
+      "resendLater": "You can send another code in {seconds, plural, one {# second} other {# seconds}}.",
+      "resendNow": "You can send it again now.",
       "changeEmail": "Change email"
     },
     "ballot": {
