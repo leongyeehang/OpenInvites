@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { createDraft, createPublished, type DraftFields } from "./events";
-import { latestMailTo, newHost, PASSWORD, signUpVerified } from "./hosts";
+import { latestMailTo, mailCountTo, newHost, PASSWORD, signUpVerified } from "./hosts";
 import { clientAddress, expect, test, type Locator, type Page } from "./test";
 
 // Ticket 20: a guest can answer, and a host can design their invitation, with the keyboard alone.
@@ -228,6 +228,60 @@ test("a guest proves their email with the code by keyboard alone, on the Poster,
     await guest.close();
     await host.context.close();
   }
+});
+
+// Ticket 12 (after 0.4): "Send it again" waits thirty seconds after each code, and a guest on the
+// keyboard can still reach it while it waits: it keeps its place in the tab order, says it is
+// unavailable, and does nothing when it is pressed.
+test("a guest tabs to the code step's Send it again while it waits, and pressing it sends nothing", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-resend", { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0", email: "optional", verifyEmail: true, rsvpStyle: "Inline" });
+  const email = newHost("keyboard-resend-guest").email;
+  const guest = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
+  const page = await guest.newPage();
+  await page.goto(host.link);
+  await page.getByRole("button", { name: "Going", exact: true }).click();
+  await page.getByLabel("Your name").fill("Priya Nair");
+  await page.getByLabel("Email").fill(email);
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByLabel("Code")).toBeFocused({ timeout: 15_000 });
+
+  // The next stop after the code is the button, waiting, under the name it always has.
+  const again = page.getByRole("button", { name: "Send it again", exact: true });
+  await expect(again).toHaveAttribute("aria-disabled", "true");
+  await tabTo(page, again);
+  await expect(again).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(again).toBeFocused();
+  await expect(page.getByText("We sent a code to")).toBeVisible();
+  // The seconds are in a polite live region, which a screen reader announces as they change.
+  await expect(page.locator('[aria-live="polite"]').filter({ hasText: /^Send it again in \d+s$/ })).toHaveCount(1);
+  await expect.poll(() => mailCountTo(request, email), { timeout: 15_000 }).toBe(1);
+
+  await guest.close();
+  await host.context.close();
+});
+
+// Ticket 12 (after 0.4): a host who asks for a phone number, optionally, is given one by a guest
+// who answers on the Broadsheet's ballot by keyboard alone, and the host's guest list shows it.
+test("a guest gives the phone number the host asked for by keyboard alone, on the Broadsheet's ballot, and the host's list shows it", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-phone", { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0", layout: "Broadsheet", phone: "optional" });
+  await page.goto(host.link);
+  await tabTo(page, page.getByRole("radio", { name: "I’ll be there" }));
+  await page.keyboard.press("Space");
+  await tabTo(page, page.getByLabel("Your name"));
+  await page.keyboard.type("Priya Nair");
+  await tabTo(page, page.getByLabel("Phone number"));
+  await page.keyboard.type("(02) 555-1234");
+  await tabTo(page, page.getByRole("button", { name: "Post my reply" }));
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "You’re going!" })).toBeFocused({ timeout: 15_000 });
+  await expect(page.getByText("Phone: (02) 555-1234", { exact: true })).toBeVisible();
+
+  await host.page.goto(`${host.page.url()}/guests`);
+  await expect(host.page.getByRole("region", { name: /^Going/ }).getByText("(02) 555-1234", { exact: true })).toBeVisible();
+  await host.context.close();
 });
 
 // Ticket 02 (M3): a guest reports an event page by keyboard alone, from the link in its footer to

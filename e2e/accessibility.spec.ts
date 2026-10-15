@@ -676,6 +676,46 @@ for (const layout of LAYOUTS) {
   });
 }
 
+// Ticket 12 (after 0.4): the Poster's code step with "Send it again" counting down: the seconds are
+// announced in a polite live region and the button, still reachable, says it is unavailable.
+test("the code step on the Poster with the resend countdown running", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "a11y-resend", { ...inLayout("Poster"), email: "optional", verifyEmail: true });
+  const page = await newGuest(browser);
+  await replyGoing(page, "Poster", host.link, "Priya Nair", newHost("a11y-resend-guest").email);
+  await expect(page.getByLabel("Code")).toBeFocused({ timeout: 15_000 });
+  const again = page.getByRole("button", { name: "Send it again", exact: true });
+  await expect(again).toHaveAttribute("aria-disabled", "true");
+  await expect(again).toBeEnabled();
+  await expect(page.locator('[aria-live="polite"]').filter({ hasText: /^Send it again in \d+s$/ })).toHaveCount(1);
+  await expectNoSeriousViolations(page, "the Poster's code step, the resend countdown running");
+  await page.context().close();
+  await host.context.close();
+});
+
+// Ticket 12 (after 0.4): a host who asks for a phone number, optionally, is given one by a guest on
+// the Poster, and the host's guest list shows it; both pages are read.
+test("the Poster asking for a phone number, the confirmation that shows it, and the host's guest list with it", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "a11y-phone", { ...inLayout("Poster"), phone: "optional" });
+  const page = await newGuest(browser);
+  await page.goto(host.link);
+  await page.getByRole("button", { name: "Going", exact: true }).click();
+  await page.getByLabel("Your name").fill("Priya Nair");
+  await page.getByLabel("Phone number").fill("(02) 555-1234");
+  await expect(page.getByText("Optional. Only the hosts see it.", { exact: true })).toBeVisible();
+  await expectNoSeriousViolations(page, "the Poster's name step, with the phone number asked for");
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByText("Phone: (02) 555-1234", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expectNoSeriousViolations(page, "the Poster's confirmation, with the phone number");
+
+  await host.page.goto(`${host.page.url()}/guests`);
+  await expect(host.page.getByRole("region", { name: /^Going/ }).getByText("(02) 555-1234", { exact: true })).toBeVisible();
+  await expectNoSeriousViolations(host.page, "the host's guest list, a guest's phone number shown");
+  await page.context().close();
+  await host.context.close();
+});
+
 // Capacity and approval (tickets 06 and 07) in each layout: the event full, as a guest whose reply
 // will wait for the host finds it; the reply waiting; approved onto the waitlist; declined. And the
 // host's guest list with its sections, before and after the host decides.

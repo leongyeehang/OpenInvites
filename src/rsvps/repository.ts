@@ -7,7 +7,7 @@ import type { Locale } from "@/locale/resolve-locale";
 import { isMailConfigured } from "@/mail/config";
 import { guestMails } from "@/mail/guest-mail";
 import { queueMail } from "@/mail/outbox";
-import { admit, hostStatus, waitlistedSince, type Approval } from "./admission";
+import { admit, hostStatus, promotedSince, waitlistedSince, type Approval } from "./admission";
 import { approvalMail } from "./approval-mail";
 import { approvalAudience, recipients } from "./audience";
 import { countRsvps, type RsvpCounts, type StatusTally } from "./counts";
@@ -201,7 +201,11 @@ export async function saveRsvp(
     if ("refused" in admitted) return admitted;
     // A guest's save gives a new RSVP its approval and never changes an existing one's, which
     // admission keeps as it is: only a host approves or declines (approveRsvp, declineRsvp).
-    const placed = { status: admitted.status, waitlistedAt: waitlistedSince(admitted.status, current, now) };
+    const placed = {
+      status: admitted.status,
+      waitlistedAt: waitlistedSince(admitted.status, current, now),
+      promotedAt: promotedSince(admitted.status, current),
+    };
 
     const plan = planRsvp(eventId, input, current && mine && { id: current.id, token: mine.token, email: current.email }, now, proven);
     let written: MyRsvp;
@@ -327,7 +331,14 @@ export async function editRsvpAsHost(eventId: string, id: string, edit: RsvpInpu
     const mailToken = allowed.email ? sql`coalesce(${rsvp.mailToken}, ${generateMailToken()})` : undefined;
     const [current] = await tx
       .update(rsvp)
-      .set({ ...allowed, status, waitlistedAt: waitlistedSince(status, previous, now), mailToken, updatedAt: now })
+      .set({
+        ...allowed,
+        status,
+        waitlistedAt: waitlistedSince(status, previous, now),
+        promotedAt: promotedSince(status, previous),
+        mailToken,
+        updatedAt: now,
+      })
       .where(eq(rsvp.id, id))
       .returning();
     const { mailed } = await promoteWaitlist(locked, tx, now);

@@ -9,8 +9,10 @@ type Answer = { status: SavedStatus; approval: Approval };
 // that keeps them Going, not for a Going reply saved on the waitlist (spec, "Capacity and the
 // waitlist"): only a reply that asked for Going is saved as Going; and not for one waiting for the
 // host's approval, or declined by them: the guest is not in yet, and the email that tells them
-// they are is the celebration (ticket 07). `before` is the answer they had, null for none; `after`
-// is the one just saved, null when they removed it.
+// they are is the celebration (ticket 07); nor for a waitlisted guest whose own save promoted them
+// (they lowered their party until it fit), the place being theirs by that change (ticket 12).
+// `before` is the answer they had, null for none; `after` is the one just saved, null when they
+// removed it.
 export function confettiFor(before: Answer | null, after: Answer | null): boolean {
-  return after?.status === "going" && after.approval === "approved" && before?.status !== "going";
+  return after?.status === "going" && after.approval === "approved" && before?.status !== "going" && before?.status !== "waitlisted";
 }

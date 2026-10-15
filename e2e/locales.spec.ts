@@ -203,6 +203,32 @@ test("a guest whose browser asks for zh-TW replies in the Thread's conversation 
   await host.context.close();
 });
 
+// Ticket 12 (after 0.4): a host who asks for a phone number, optionally, is given one by a guest in
+// the Thread's conversation in Simplified Chinese, and the host's guest list shows it.
+test("a guest whose browser asks for zh-CN gives the Thread a phone number the host asked for, and the host's list shows it", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "locale-thread-phone", { ...EVENT, layout: "Thread", phone: "optional" });
+  const page = await guestWithBrowserIn(browser, "zh-CN,zh;q=0.9");
+  await page.goto(host.link);
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hans");
+
+  const conversation = page.getByRole("log");
+  await page.getByRole("button", { name: COPY["zh-Hans"].going, exact: true }).click();
+  await page.getByLabel(COPY["zh-Hans"].name).fill("Priya");
+  await page.getByRole("button", { name: "发送", exact: true }).click();
+  await expect(conversation.getByText("再留个电话号码吗？万一需要打给你。（不想留可以跳过）", { exact: true })).toBeVisible();
+  await page.getByLabel("电话号码").fill("(02) 555-1234");
+  await page.getByRole("button", { name: "发送", exact: true }).click();
+  await expect(conversation.getByText("(02) 555-1234", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "只有我", exact: true }).click();
+  await expect(page.locator('[data-slot="done"]')).toContainText("Priya", { timeout: 15_000 });
+
+  await host.page.goto(`${host.page.url()}/guests`);
+  await expect(host.page.getByRole("region", { name: /^Going/ }).getByText("(02) 555-1234", { exact: true })).toBeVisible();
+  await page.context().close();
+  await host.context.close();
+});
+
 // M3 (ticket 11): a guest reports an event page in Simplified Chinese, its refusal included, and a
 // host makes a personal invite link in Traditional Chinese, chosen in the footer.
 test("a guest whose browser asks for zh-CN reports an event page in Simplified Chinese", async ({ browser, request }) => {

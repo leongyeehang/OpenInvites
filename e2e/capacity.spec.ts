@@ -193,6 +193,9 @@ test("the host's capacity moves the waitlist: raised, the party at the front is 
   const beaEmail = newHost("capacity-host-bea").email;
   const chenEmail = newHost("capacity-host-chen").email;
 
+  // The field's hint says what an empty capacity means, in the instance's words and not "limit".
+  await expect(host.page.getByRole("group", { name: "Guests", exact: true }).getByText("Leave empty to take everyone.")).toBeVisible();
+
   // Arjun's party of two fills both places; Bea's party of two, then Chen and Dev alone, wait.
   await replyGoing(arjun, host.link, "Arjun Rao", 1);
   await expect(arjun.getByText("You’re going!")).toBeVisible();

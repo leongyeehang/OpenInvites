@@ -266,14 +266,20 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
                       />
                     </label>
                     <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                      {/* While it waits the button stays in the tab order, `aria-disabled` and a no-op,
+                          under the name it always has; the live region says the seconds. */}
                       <button
                         type="button"
-                        onClick={(event) => flow.resend(event.currentTarget.form)}
-                        disabled={working || flow.resendIn > 0 || flow.awaitingCheck}
+                        onClick={(event) => !(working || flow.resendIn > 0 || flow.awaitingCheck) && flow.resend(event.currentTarget.form)}
+                        aria-disabled={working || flow.resendIn > 0 || flow.awaitingCheck}
+                        aria-label={t("code.resend")}
                         className={LINK}
                       >
                         {flow.resendIn > 0 ? t("code.resendIn", { seconds: flow.resendIn }) : t("code.resend")}
                       </button>
+                      <span aria-live="polite" className="sr-only">
+                        {flow.resendIn > 0 ? t("code.resendIn", { seconds: flow.resendIn }) : ""}
+                      </span>
                       <button
                         type="button"
                         onClick={() => {
@@ -314,7 +320,7 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
 }
 
 const LABEL = "label-mono mb-1.5 block text-theme-text-muted";
-const LINK = "cursor-pointer underline decoration-theme-accent decoration-2 underline-offset-4 hover:opacity-80 disabled:cursor-default disabled:no-underline disabled:opacity-70";
+const LINK = "cursor-pointer underline decoration-theme-accent decoration-2 underline-offset-4 hover:opacity-80 aria-disabled:cursor-default aria-disabled:no-underline aria-disabled:opacity-70";
 const PROMPT = "mb-2 block font-medium";
 const FIELD = "h-11 w-full border-b border-theme-text/40 bg-transparent text-lg text-theme-text placeholder:text-theme-text-faint";
 

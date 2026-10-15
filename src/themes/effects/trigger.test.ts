@@ -29,6 +29,9 @@ describe("when confetti falls", () => {
     ["a first Going, waitlisted", null, approved("waitlisted"), false],
     ["Maybe to Going, waitlisted", approved("maybe"), approved("waitlisted"), false],
     ["waitlisted kept", approved("waitlisted"), approved("waitlisted"), false],
+    // A waitlisted guest whose own save promoted them, by lowering their party until it fits: the
+    // place is theirs by that change, and the email saying so is the celebration.
+    ["waitlisted to Going, a self-promotion", approved("waitlisted"), approved("going"), false],
     // A Going reply waiting for the host's approval, or one they declined: the guest is not in
     // yet, so no confetti; the email saying they are in is the celebration.
     ["a first Going, pending", null, pending("going"), false],

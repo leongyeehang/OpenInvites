@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { admit, hostStatus, isFull, waitlistedSince, type AdmissionInput } from "./admission";
+import { admit, hostStatus, isFull, promotedSince, waitlistedSince, type AdmissionInput } from "./admission";
 
 // An event with room for ten, of whom six are already counted, that does not ask for approval, and
 // a guest coming alone, through the event link, who has not replied before.
@@ -117,6 +117,26 @@ describe("waitlistedSince", () => {
     expect(waitlistedSince("maybe", { status: "waitlisted", waitlistedAt: then }, now)).toBeNull();
     expect(waitlistedSince("going", { status: "waitlisted", waitlistedAt: then }, now)).toBeNull();
     expect(waitlistedSince("going", undefined, now)).toBeNull();
+  });
+});
+
+describe("promotedSince", () => {
+  const then = new Date("2027-03-01T10:00:00Z");
+
+  it("keeps the mark of a promoted reply that stays Going", () => {
+    expect(promotedSince("going", { promotedAt: then })).toEqual(then);
+  });
+
+  it("takes the mark off a reply that leaves Going", () => {
+    expect(promotedSince("maybe", { promotedAt: then })).toBeNull();
+    expect(promotedSince("cant", { promotedAt: then })).toBeNull();
+    expect(promotedSince("waitlisted", { promotedAt: then })).toBeNull();
+  });
+
+  it("leaves a reply that was never promoted without one", () => {
+    expect(promotedSince("going", { promotedAt: null })).toBeNull();
+    expect(promotedSince("going", undefined)).toBeNull();
+    expect(promotedSince("maybe", undefined)).toBeNull();
   });
 });
 

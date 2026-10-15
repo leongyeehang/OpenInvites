@@ -314,17 +314,24 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
       return (
         <>
           <Chips>
+            {/* While it waits the button stays in the tab order, `aria-disabled` and a no-op, under the
+                name it always has; the live region says the seconds. */}
             <button
               type="button"
               onClick={() => {
+                if (working || flow.resendIn > 0 || held) return;
                 handOff();
                 flow.resend(sendForm.current);
               }}
-              disabled={working || flow.resendIn > 0 || held}
-              className={chip()}
+              aria-disabled={working || flow.resendIn > 0 || held}
+              aria-label={r("code.resend")}
+              className={cn(chip(), "aria-disabled:cursor-default aria-disabled:opacity-50")}
             >
               {flow.resendIn > 0 ? r("code.resendIn", { seconds: flow.resendIn }) : r("code.resend")}
             </button>
+            <span aria-live="polite" className="sr-only">
+              {flow.resendIn > 0 ? r("code.resendIn", { seconds: flow.resendIn }) : ""}
+            </span>
             <button type="button" onClick={changeEmail} className={chip()}>
               {r("code.changeEmail")}
             </button>

@@ -73,6 +73,14 @@ export function waitlistedSince(
   return current?.status === "waitlisted" ? current.waitlistedAt : now;
 }
 
+// When a reply was promoted from the waitlist, which only a promotion sets (repository.ts,
+// promoteWaitlist, moveToGoing): kept while the reply stays Going, and taken off in the same write
+// that takes it out of Going, so a later return to Going into a full event is not read as a
+// promotion.
+export function promotedSince(status: SavedStatus, current: { promotedAt: Date | null } | undefined): Date | null {
+  return status === "going" ? (current?.promotedAt ?? null) : null;
+}
+
 // The status a host's edit gives a reply: the one the host chose, never refused by capacity (spec,
 // "decided here"). The host's form offers the three a guest can choose, and Going is what a
 // waitlisted guest asked for, so saving them as Going keeps them waiting; the host moves them to

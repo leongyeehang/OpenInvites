@@ -375,7 +375,7 @@
       "guests": {
         "title": "Guests",
         "capacity": "Capacity",
-        "capacityHint": "Counts guests who say Going and their plus-ones, as the headcount does. Maybe doesn’t count. Leave empty for no limit. This instance takes up to {max, number} replies per event.",
+        "capacityHint": "Counts guests who say Going and their plus-ones, as the headcount does. Maybe doesn’t count. Leave empty to take everyone. This instance takes up to {max, number} replies per event.",
         "approval": "Approve each guest before they’re on the list",
         "approvalHint": "Guests see the invitation while they wait, but not the comments, and the guest list only if everyone who opens the link can."
       },

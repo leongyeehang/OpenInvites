@@ -365,14 +365,20 @@ export function RsvpFlow(props: RsvpFlowProps) {
             />
           </Labelled>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-theme-text-muted">
+            {/* While it waits the button stays in the tab order, `aria-disabled` and a no-op, under the
+                name it always has; the live region says the seconds. */}
             <button
               type="button"
-              onClick={() => flow.resend(form.current)}
-              disabled={working || flow.resendIn > 0 || flow.awaitingCheck}
-              className="cursor-pointer underline underline-offset-2 hover:opacity-80 disabled:cursor-default disabled:no-underline disabled:opacity-70"
+              onClick={() => !(working || flow.resendIn > 0 || flow.awaitingCheck) && flow.resend(form.current)}
+              aria-disabled={working || flow.resendIn > 0 || flow.awaitingCheck}
+              aria-label={t("code.resend")}
+              className="cursor-pointer underline underline-offset-2 hover:opacity-80 aria-disabled:cursor-default aria-disabled:no-underline aria-disabled:opacity-70"
             >
               {flow.resendIn > 0 ? t("code.resendIn", { seconds: flow.resendIn }) : t("code.resend")}
             </button>
+            <span aria-live="polite" className="sr-only">
+              {flow.resendIn > 0 ? t("code.resendIn", { seconds: flow.resendIn }) : ""}
+            </span>
             <button type="button" onClick={changeEmail} className="cursor-pointer underline underline-offset-2 hover:opacity-80">
               {t("code.changeEmail")}
             </button>
