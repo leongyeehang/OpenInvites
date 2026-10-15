@@ -1,18 +1,25 @@
-import { Clock, MapPin } from "lucide-react";
-import { getLocale, getTranslations } from "next-intl/server";
+import { Clock, MapPin, MessageCircle } from "lucide-react";
+import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
+import type { CommentsShown } from "@/comments/visibility";
 import type { EventWithHost } from "@/events/repository";
 import { formatDateSticker, formatWhen } from "@/events/time";
 import { cn } from "@/lib/utils";
 import { RichTextView } from "@/rich-text/rich-text-view";
 import { Glass } from "./glass";
 import { PosterCard } from "./poster-card";
+import { AnnouncementsSection, type ShownAnnouncement } from "./sections/announcements-section";
+import { COMMENTS_HEADING, CommentsSection } from "./sections/comments-section";
 
 // The Poster layout (PROTOTYPE.md, the verdict): a frosted poster card with the title in the
 // theme's font (or the host's own poster), the RSVP buttons beneath it, then the details in
 // glass tiles. It renders inside a ThemedPage, which carries the theme.
 export async function PosterLayout({
   event,
+  hosts,
+  announcements,
+  comments,
+  commentForm,
   notice,
   rsvp,
   guestList,
@@ -21,6 +28,14 @@ export async function PosterLayout({
   calendar,
 }: {
   event: EventWithHost;
+  // Every host's display name, owner first, then co-hosts in the order they were added.
+  hosts: string[];
+  // The host's announcements, newest first, which every viewer reads.
+  announcements: ShownAnnouncement[];
+  // The comments as this viewer may see them (comments/visibility.ts), absent when the host has
+  // turned them off; and the form that posts one, shown where they may.
+  comments?: CommentsShown;
+  commentForm?: ReactNode;
   notice?: ReactNode;
   rsvp?: ReactNode;
   guestList?: ReactNode;
@@ -29,7 +44,7 @@ export async function PosterLayout({
   underWhere?: ReactNode;
   calendar?: ReactNode;
 }) {
-  const [t, locale] = await Promise.all([getTranslations("EventPage"), getLocale()]);
+  const [t, locale, format] = await Promise.all([getTranslations("EventPage"), getLocale(), getFormatter()]);
   const sticker = formatDateSticker(event, locale);
 
   return (
@@ -45,7 +60,7 @@ export async function PosterLayout({
             <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-theme-accent text-xs font-semibold text-theme-on-accent">
               {initialsOf(event.hostName)}
             </span>
-            <p className="text-sm text-theme-text-muted">{t("hostedBy", { name: event.hostName })}</p>
+            <p className="text-sm text-theme-text-muted">{t("hostedBy", { hosts: format.list(hosts, { type: "conjunction" }) })}</p>
           </div>
         }
         className={cn(invitationEntrance, "motion-safe:delay-0")}
@@ -75,9 +90,25 @@ export async function PosterLayout({
         </Glass>
       )}
 
+      {announcements.length > 0 && (
+        <Glass data-slot="announcements" className={cn("mt-3 p-5", entrance, "motion-safe:delay-300")}>
+          <SectionLabel>{t("announcements")}</SectionLabel>
+          <AnnouncementsSection announcements={announcements} timeZone={event.timeZone} />
+        </Glass>
+      )}
+
       {calendar && <Glass className={cn("mt-3 p-5", entrance, "motion-safe:delay-400")}>{calendar}</Glass>}
 
       {guestList && <Glass className={cn("mt-3 p-5", entrance, "motion-safe:delay-500")}>{guestList}</Glass>}
+
+      {comments && (
+        <Glass data-slot="comments" className={cn("mt-3 p-5", entrance, "motion-safe:delay-500")}>
+          <SectionLabel icon={MessageCircle} id={COMMENTS_HEADING}>
+            {t("comments.title")}
+          </SectionLabel>
+          <CommentsSection comments={comments} form={commentForm} slug={event.slug} timeZone={event.timeZone} />
+        </Glass>
+      )}
     </main>
   );
 }
@@ -96,9 +127,11 @@ const invitationEntrance = cn(rise, "motion-safe:fade-in-1");
 // The small spaced capitals used for the eyebrow, the tile headings, and the sticker.
 const label = "text-xs font-medium tracking-label uppercase";
 
-export function SectionLabel({ icon: Icon, children }: { icon?: React.ComponentType<{ className?: string }>; children: ReactNode }) {
+// A heading with an `id` is where the focus is sent once something under it is deleted, so it can
+// take the focus, though it is never a stop for Tab.
+export function SectionLabel({ icon: Icon, id, children }: { icon?: React.ComponentType<{ className?: string }>; id?: string; children: ReactNode }) {
   return (
-    <h2 className={cn(label, "mb-3 flex items-center gap-2 text-theme-text-faint")}>
+    <h2 id={id} tabIndex={id ? -1 : undefined} className={cn(label, "mb-3 flex items-center gap-2 text-theme-text-faint outline-none")}>
       {Icon && <Icon className="size-3.5" aria-hidden />}
       {children}
     </h2>

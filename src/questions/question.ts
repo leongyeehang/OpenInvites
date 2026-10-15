@@ -1,6 +1,6 @@
 // A prompt the host adds to an event that guests answer while responding (CONTEXT.md,
-// "Question"). Free text, one choice from a list, or yes or no; multiple choice is M2.
-export const QUESTION_TYPES = ["text", "choice", "yesNo"] as const;
+// "Question"). Free text, one choice from a list, several choices from a list, or yes or no.
+export const QUESTION_TYPES = ["text", "choice", "multiple", "yesNo"] as const;
 
 export type QuestionType = (typeof QUESTION_TYPES)[number];
 
@@ -74,7 +74,7 @@ function asDraft(value: unknown): QuestionDraft | undefined {
 }
 
 // The rules of the questions editor (ticket 09). Order is the order the host arranged, so the
-// list's own index is the position; only a single-choice question carries options.
+// list's own index is the position; only a choice or multiple-choice question carries options.
 export function parseQuestions(posted: unknown): ParsedQuestions {
   if (!Array.isArray(posted)) return { ok: false, error: "questionsInvalid" };
   if (posted.length > MAX_QUESTIONS) return { ok: false, error: "tooManyQuestions" };
@@ -92,8 +92,9 @@ export function parseQuestions(posted: unknown): ParsedQuestions {
     if (prompt.length > MAX_PROMPT) return { ok: false, error: "questionPromptTooLong" };
 
     // Only a choice question has choices, and a choice of one is not a choice.
-    const options = type === "choice" ? draft.options.map((option) => option.trim()).filter(Boolean) : [];
-    if (type === "choice" && (options.length < 2 || options.length > MAX_OPTIONS)) {
+    const hasOptions = type === "choice" || type === "multiple";
+    const options = hasOptions ? draft.options.map((option) => option.trim()).filter(Boolean) : [];
+    if (hasOptions && (options.length < 2 || options.length > MAX_OPTIONS)) {
       return { ok: false, error: "questionChoicesRequired" };
     }
     if (options.some((option) => option.length > MAX_OPTION)) return { ok: false, error: "questionChoiceTooLong" };

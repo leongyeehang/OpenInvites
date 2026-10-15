@@ -4,8 +4,10 @@ import { createContext, use, useOptimistic, useState, type CSSProperties, type R
 import { preload } from "react-dom";
 import { cn } from "@/lib/utils";
 import { applyChange, type ThemeChange } from "./changes";
+import { Doodles } from "./effects/doodles";
+import { Sparkles } from "./effects/sparkles";
 import { resolveTheme, themeVariables, type ResolvedTheme, type ThemeUpload } from "./resolve";
-import type { Theme } from "./theme";
+import type { Effect, Theme } from "./theme";
 import { TITLE_FONT_CLASSES, TITLE_FONT_FILES } from "./title-fonts";
 
 // The theme the page is wearing right now. For a guest that is the saved theme, always. For the
@@ -65,7 +67,7 @@ export function ThemedPage({
         )}
         style={themeVariables(resolved) as CSSProperties}
       >
-        <Backdrop theme={resolved} />
+        <Backdrop theme={resolved} effect={theme.effect} />
         {children}
       </div>
       {designer}
@@ -75,22 +77,28 @@ export function ThemedPage({
 
 // The warm layered background with grain: the gradient or scene, two soft blobs of colour that
 // drift when motion is welcome, and a fade into the base colour at the foot of the page. A host's
-// upload is painted as a scene is; behind the host's poster, its small copy blurred to a wash of
-// its own colours, far enough past the screen's edges that they stay full, under a stronger
-// scrim. The lightest and darkest points of each background are measured with all of this in
-// place (backgrounds.ts, and uploads/process.ts for an upload and its copy), so change them
-// together.
+// upload is painted as a scene is; behind the host's poster, and as Soft blur, its small copy
+// blurred to a wash of its own colours, far enough past the screen's edges that they stay full,
+// under a stronger scrim. Colour wash is a gradient like the curated ones. The lightest and
+// darkest points of each background are measured with all of this in place (backgrounds.ts, and
+// uploads/process.ts for an upload and its copy), so change them together.
 //
 // A scene or a photo covers the screen from its centre. It is fetched at low priority, behind the
 // stylesheet and the title's font: it fills the whole screen, so the browser never counts it as
 // the page's largest paint, and the invitation reads over the base colour until it comes. A
 // screen up to 2:3, a phone held upright, is sent the host's photo cut to what it shows of it
 // (uploads/renditions.ts, portraitCut), any other the whole one.
-function Backdrop({ theme }: { theme: ResolvedTheme }) {
-  const { background, poster } = theme;
+//
+// The theme's effect, sparkles or doodles, is drawn here too, over the rest of the backdrop and so
+// under everything every layout puts on it (confetti alone falls over the page, from the RSVP
+// flow). Where there is text, the glass is between it and the effect: effects never sit over
+// text, so legibility.ts, which solves the glass against the backdrop, needs no change for them.
+// Under reduced motion neither is drawn.
+function Backdrop({ theme, effect }: { theme: ResolvedTheme; effect: Effect }) {
+  const { background } = theme;
   return (
-    <div aria-hidden className="grain fixed inset-0 -z-10 overflow-hidden bg-theme-base">
-      {poster && background.kind === "photo" ? (
+    <div aria-hidden data-slot="backdrop" className="grain fixed inset-0 -z-10 overflow-hidden bg-theme-base">
+      {background.kind === "photo" && background.blurred ? (
         <>
           <div className="absolute -inset-32 bg-cover bg-center blur-3xl" style={{ backgroundImage: `url(${background.src})` }} />
           <div className="absolute inset-0 bg-theme-scrim" />
@@ -113,6 +121,8 @@ function Backdrop({ theme }: { theme: ResolvedTheme }) {
         </>
       )}
       <div className="absolute inset-x-0 bottom-0 h-2/5 bg-linear-to-t from-theme-base to-transparent" />
+      {effect === "sparkles" && <Sparkles />}
+      {effect === "doodles" && <Doodles />}
     </div>
   );
 }

@@ -13,6 +13,10 @@ const valid = {
   requirePlusOneNames: false,
   askEmail: false,
   guestListVisibility: "afterReply",
+  notifyOnRsvp: true,
+  remindersEnabled: true,
+  commentsEnabled: true,
+  notifyOnComment: true,
 };
 
 describe("parseEventForm", () => {
@@ -33,6 +37,10 @@ describe("parseEventForm", () => {
         requirePlusOneNames: false,
         askEmail: false,
         guestListVisibility: "afterReply",
+        notifyOnRsvp: true,
+        remindersEnabled: true,
+        commentsEnabled: true,
+        notifyOnComment: true,
       },
     });
   });

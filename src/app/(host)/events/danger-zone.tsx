@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -16,11 +17,13 @@ import { cancelEventAction, deleteEventAction } from "@/events/actions";
 
 // Calling an event off and deleting it: the two things a host cannot take back, so both say
 // what they cost before they happen. Cancelling is offered only while there is something to
-// call off; an event that has been cancelled stays cancelled.
-export function DangerZone({ eventId, title, cancellable, rsvps }: {
+// call off; an event that has been cancelled stays cancelled. Only the owner deletes an event; a
+// co-host is offered the way to leave it instead, on the hosts page, which confirms it.
+export function DangerZone({ eventId, title, cancellable, deletable, rsvps }: {
   eventId: string;
   title: string;
   cancellable: boolean;
+  deletable: boolean;
   rsvps: number;
 }) {
   const t = useTranslations("Events.manage");
@@ -36,14 +39,20 @@ export function DangerZone({ eventId, title, cancellable, rsvps }: {
           action={cancelEventAction.bind(null, eventId)}
         />
       )}
-      <Confirm
-        trigger={<Button variant="destructive">{t("delete")}</Button>}
-        title={t("deleteTitle", { title })}
-        description={t("deleteText", { count: rsvps })}
-        confirm={t("deleteConfirm")}
-        cancel={t("keep")}
-        action={deleteEventAction.bind(null, eventId)}
-      />
+      {deletable ? (
+        <Confirm
+          trigger={<Button variant="destructive">{t("delete")}</Button>}
+          title={t("deleteTitle", { title })}
+          description={t("deleteText", { count: rsvps })}
+          confirm={t("deleteConfirm")}
+          cancel={t("keep")}
+          action={deleteEventAction.bind(null, eventId)}
+        />
+      ) : (
+        <Button asChild variant="outline">
+          <Link href={`/events/${eventId}/hosts`}>{t("leave")}</Link>
+        </Button>
+      )}
     </div>
   );
 }

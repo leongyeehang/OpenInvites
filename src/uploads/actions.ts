@@ -2,6 +2,8 @@
 
 import { refresh } from "next/cache";
 import { requireHost } from "@/auth/session";
+import { findHostEvent } from "@/events/repository";
+import { can } from "@/hosts/role";
 import { describeUpload } from "./repository";
 import { parseAltText } from "./validate";
 
@@ -9,6 +11,8 @@ import { parseAltText } from "./validate";
 // who use a screen reader; this saves it and refreshes the page, so the host's view has it too.
 export async function describeUploadAction(eventId: string, posted: unknown): Promise<{ saved: boolean }> {
   const host = await requireHost();
+  const event = await findHostEvent(host.id, eventId);
+  if (!event || !can(event.role, "design")) return { saved: false };
   const altText = parseAltText(posted);
   if (altText === undefined) return { saved: false };
   const saved = await describeUpload(host.id, eventId, altText);

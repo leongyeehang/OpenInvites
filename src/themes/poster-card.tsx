@@ -11,7 +11,7 @@ import { useTheme } from "./themed-page";
 // The poster is as wide as the card, unless that would make it taller than the screen: then it
 // is as tall as the screen allows, with room to see the page goes on, and narrower, so a guest
 // sees all of it at once. It is never narrower than 20rem, where a title still fits on it.
-const fitted = ({ width, height }: ResolvedPoster): CSSProperties => ({ width: `min(100%, max(20rem, calc((100svh - 6rem) * ${width / height})))` });
+export const fitted = ({ width, height }: ResolvedPoster): CSSProperties => ({ width: `min(100%, max(20rem, calc((100svh - 6rem) * ${width / height})))` });
 
 // The invitation at the top of the Poster layout: a frosted card with the title large, the date
 // and who is hosting. In poster mode the host's picture is the invitation itself, at its own
@@ -30,13 +30,14 @@ export function PosterCard({
   host: ReactNode;
   className?: string;
 }) {
-  const { resolved } = useTheme();
+  const { theme, resolved } = useTheme();
   const { poster } = resolved;
+  const date = <StickerHolder tilted={theme.effect === "doodles"}>{sticker}</StickerHolder>;
 
   if (!poster) {
     return (
       <Glass data-slot="poster-card" className={cn("relative overflow-hidden rounded-4xl p-6 shadow-poster sm:p-8", className)}>
-        <div className="absolute top-5 right-5 sm:top-7 sm:right-7">{sticker}</div>
+        <div className="absolute top-5 right-5 sm:top-7 sm:right-7">{date}</div>
         {eyebrow}
         <PosterTitle title={title} className="mt-12 sm:mt-14" />
         <div className="mt-6">{host}</div>
@@ -82,7 +83,7 @@ export function PosterCard({
             {eyebrow}
             <PosterTitle title={title} compact className="mt-3" />
           </div>
-          {sticker}
+          {date}
         </div>
         <div className="mt-6">{host}</div>
       </Glass>
@@ -90,20 +91,56 @@ export function PosterCard({
   );
 }
 
+// Holds the date sticker the layout drew. The Doodles effect tilts it about 6 degrees and fills it
+// with the accent, as round one's B had it (PROTOTYPE.md, "Effect"): when motion is welcome it
+// lands at its tilt with a small spring, once; under reduced motion it is simply there, tilted.
+// On the accent its three lines take the accent's own text colour, as everything filled with the
+// accent does (legibility.ts, onAccent), so the holder sets the glass and the text strengths the
+// sticker draws with on itself.
+function StickerHolder({ tilted, children }: { tilted: boolean; children: ReactNode }) {
+  return (
+    <div
+      data-slot="date-sticker"
+      className={cn("shrink-0", tilted && "-rotate-6 text-theme-on-accent motion-safe:animate-theme-sticker-in")}
+      style={tilted ? ON_ACCENT : undefined}
+    >
+      {children}
+    </div>
+  );
+}
+
+const ON_ACCENT = {
+  "--theme-glass-strong": "var(--theme-accent)",
+  "--theme-glass-border": "var(--theme-accent)",
+  "--theme-text-muted": "var(--theme-on-accent)",
+  "--theme-text-faint": "var(--theme-on-accent)",
+} as CSSProperties;
+
 // The poster itself, at its own proportions: its size is known before it arrives, so the page
 // keeps its place. It is the first thing a guest sees, and the largest, so it is fetched first.
 // It was made on upload in the widths the card needs (uploads/renditions.ts), and the browser
 // takes the one the card's width at its screen's density calls for: the card is the page's
 // 36rem less its margins, or the screen less them. What the host says it shows is its
-// alternative text, and without a description it is decoration.
-function Picture({ poster, className, style }: { poster: ResolvedPoster; className?: string; style?: CSSProperties }) {
+// alternative text, and without a description it is decoration. A layout that sets the poster
+// at another width says so in `sizes`.
+export function Picture({
+  poster,
+  sizes = "(min-width: 36rem) 34rem, calc(100vw - 2rem)",
+  className,
+  style,
+}: {
+  poster: ResolvedPoster;
+  sizes?: string;
+  className?: string;
+  style?: CSSProperties;
+}) {
   return (
     // A plain <img>: next/image would add its optimiser's widths to pictures already made to size.
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={poster.src}
       srcSet={poster.srcSet}
-      sizes={poster.srcSet && "(min-width: 36rem) 34rem, calc(100vw - 2rem)"}
+      sizes={poster.srcSet && sizes}
       alt={poster.altText}
       width={poster.width}
       height={poster.height}

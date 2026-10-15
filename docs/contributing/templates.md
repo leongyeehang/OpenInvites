@@ -28,7 +28,7 @@ export const birthday: Template = {
 | Field | What it is |
 | --- | --- |
 | `id` | Stored on every event that starts from the template. Lowercase, and never renamed once shipped: an event whose template id is gone reads as plain "Custom". It is also the key of the template's two messages (below). |
-| `theme.layout` | `"poster"`, `"broadsheet"` or `"thread"`. Only Poster is offered today; a template made for another layout applies with Poster until that layout ships. |
+| `theme.layout` | `"poster"`, `"broadsheet"` or `"thread"`. Applying the template applies its layout, as with every other knob. |
 | `theme.backgroundId` | The `id` of a curated background in [`src/themes/backgrounds.ts`](../../src/themes/backgrounds.ts) ([backgrounds.md](backgrounds.md)). |
 | `theme.titlePlacement` | `"on"` or `"below"`: where the title goes when the host's upload is the poster. |
 | `theme.font` | `"serif"`, `"grotesque"`, `"display"` or `"rounded"` (the faces are in [`src/themes/fonts.ts`](../../src/themes/fonts.ts)). |
@@ -36,7 +36,7 @@ export const birthday: Template = {
 | `theme.textTone` | `"auto"`, `"light"` or `"dark"`. Leave it on `"auto"` unless the template is about the tone. |
 | `theme.buttonStyle` | `"glass"`, `"solid"` or `"outline"`. |
 | `theme.rsvpStyle` | `"inline"` or `"sheet"`: how guests answer in the Poster layout. |
-| `theme.effect` | `"none"`, `"confetti"`, `"sparkles"` or `"doodles"`. Stored now, drawn from M2. |
+| `theme.effect` | `"none"`, `"confetti"`, `"sparkles"` or `"doodles"`. Confetti falls once when a guest says Going; sparkles twinkle and doodles float in the background (and on the Poster layout the date sticker tilts). Nothing moves for a guest who asks for reduced motion. |
 
 A template sets every knob. What it never sets is the host's own: their upload and whether it is used as the background or as the poster. Applying a template keeps the upload in the host's gallery and shows the template's background instead.
 
@@ -60,6 +60,6 @@ If you cannot write one of the languages, say so in the pull request and ask for
 5. Run `pnpm typecheck` and `pnpm test`. These must pass:
    - **The template tests** (`src/themes/templates/templates.test.ts`): every knob is set to a value the drawer can show, the background exists, and English names exactly the templates that ship, each with a blurb.
    - **The translation tests** (`src/locale/translations.test.ts`): every language has every message English has, with the same placeholders.
-   - **The legibility tests** (`src/themes/legibility.test.ts`, "every combination the drawer offers"): every curated background reads at WCAG AA in both text tones with every accent, on every surface the Poster layout stacks, and so with every button style. A template is made of those knobs, so it reads too; nothing about it is tested alone.
+   - **The legibility tests** (`src/themes/legibility.test.ts`, "every combination the drawer offers"): every curated background reads at WCAG AA in both text tones with every accent, on every surface the layouts stack, and so with every button style. A template is made of those knobs, so it reads too; nothing about it is tested alone.
 
 Look at it in both text tones and with each button style before sending it (`pnpm dev`, then a published event's Design drawer): the tests prove it is readable, not that it is lovely.

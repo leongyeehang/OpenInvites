@@ -2,11 +2,11 @@
 
 import { useFormatter, useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
+import { DeleteDialogContent } from "@/components/delete-dialog-content";
 import { FormOutcome } from "@/components/form-outcome";
 import {
   AlertDialog,
   AlertDialogCancel,
-  AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
@@ -65,7 +65,7 @@ export function GuestRow({
               {answers.map((given) => (
                 <div key={given.questionId} className="flex flex-wrap gap-x-2">
                   <dt className="text-muted-foreground">{given.prompt}</dt>
-                  <dd className="font-medium">{given.value}</dd>
+                  <dd className="font-medium">{format.list(given.values, { type: "conjunction" })}</dd>
                 </div>
               ))}
             </dl>
@@ -162,7 +162,8 @@ function EditGuest({
 }
 
 // Removing a guest cannot be undone and takes their edit link with it, so it is confirmed, the
-// way deleting an account is. The dialog's own form is portalled out of the edit form above.
+// way deleting an account is. The dialog's own form is portalled out of the edit form above. Once
+// the guest is gone, with this button, the focus goes to the page's heading (page.tsx).
 function RemoveGuest({ eventId, guest }: { eventId: string; guest: HostGuest }) {
   const t = useTranslations("Guests");
   return (
@@ -172,7 +173,7 @@ function RemoveGuest({ eventId, guest }: { eventId: string; guest: HostGuest }) 
           {t("remove")}
         </Button>
       </AlertDialogTrigger>
-      <AlertDialogContent>
+      <DeleteDialogContent focusAfter="guest-list-heading">
         <form action={removeGuestAction.bind(null, eventId, guest.id)}>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("removeTitle", { name: guest.name })}</AlertDialogTitle>
@@ -185,7 +186,7 @@ function RemoveGuest({ eventId, guest }: { eventId: string; guest: HostGuest }) 
             </Button>
           </AlertDialogFooter>
         </form>
-      </AlertDialogContent>
+      </DeleteDialogContent>
     </AlertDialog>
   );
 }

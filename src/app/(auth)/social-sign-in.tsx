@@ -11,13 +11,16 @@ const LABEL_KEY: Record<SocialProviderId, "continueWithGoogle" | "continueWithGi
 
 // Rendered on both the sign-in and sign-up pages; nothing renders when the operator has
 // configured no provider. A click posts straight to the server action, which sends the
-// browser to the provider - there is no client-side auth library here.
+// browser to the provider - there is no client-side auth library here. The browser comes back to
+// `next`, when the sign-in page was given one.
 export async function SocialSignIn({
   providers,
   namespace,
+  next,
 }: {
   providers: SocialProviderId[];
   namespace: "Auth.signIn" | "Auth.signUp";
+  next?: string;
 }) {
   if (providers.length === 0) return null;
   const t = await getTranslations(namespace);
@@ -29,7 +32,7 @@ export async function SocialSignIn({
         <Separator className="flex-1" />
       </div>
       {providers.map((provider) => (
-        <form key={provider} action={signInSocial.bind(null, provider)}>
+        <form key={provider} action={signInSocial.bind(null, provider, next)}>
           <Button type="submit" variant="outline" className="w-full">
             {t(LABEL_KEY[provider])}
           </Button>

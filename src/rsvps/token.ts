@@ -1,4 +1,5 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomInt } from "node:crypto";
+import { SLUG_ALPHABET } from "@/events/slug";
 import { baseUrl } from "@/instance/env";
 
 // The edit token is the only thing that proves an RSVP is yours (spec, "Events and RSVPs"):
@@ -12,6 +13,18 @@ export function generateEditToken(): string {
 // enough where a slow hash is not: the token is random, so there is nothing to guess at.
 export function hashEditToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
+}
+
+// The mail token is the stop link's secret, at the foot of every email to the guest (spec, "Guest
+// mail"): 24 characters of the event link's alphabet, about 143 bits, from the same cryptographic
+// source. It is stored as it is, as the mail that carries it is written long after the guest's
+// request, and it opens nothing but a page that can blank the email. Never an edit link.
+const MAIL_TOKEN_LENGTH = 24;
+
+export function generateMailToken(): string {
+  let token = "";
+  for (let i = 0; i < MAIL_TOKEN_LENGTH; i++) token += SLUG_ALPHABET[randomInt(SLUG_ALPHABET.length)];
+  return token;
 }
 
 // The cookie that remembers this guest on this device. Named after the event, so one device can

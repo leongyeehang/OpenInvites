@@ -9,11 +9,12 @@ import { cn } from "@/lib/utils";
 import { changeThemeAction } from "@/themes/actions";
 import { BACKGROUNDS, type Background } from "@/themes/backgrounds";
 import { themeReadout, type ThemeChange } from "@/themes/changes";
+import { DERIVED_BACKGROUND_IDS, derivedBackground } from "@/themes/derived";
 import { TITLE_FONTS } from "@/themes/fonts";
 import { resolveTheme, themeVariables, type ThemeUpload } from "@/themes/resolve";
 import { SWATCHES } from "@/themes/swatches";
 import { TEMPLATES, type TemplateId } from "@/themes/templates";
-import { applyTemplate, BUTTON_STYLES, FONTS, LAYOUTS, OFFERED_LAYOUTS, RSVP_STYLES, TEXT_TONES, TITLE_PLACEMENTS, type Layout, type UploadMode } from "@/themes/theme";
+import { applyTemplate, BUTTON_STYLES, EFFECTS, FONTS, OFFERED_LAYOUTS, RSVP_STYLES, TEXT_TONES, TITLE_PLACEMENTS, type Layout, type UploadMode } from "@/themes/theme";
 import { useTheme } from "@/themes/themed-page";
 import { TITLE_FONT_CLASSES } from "@/themes/title-fonts";
 import { describeUploadAction } from "@/uploads/actions";
@@ -212,28 +213,19 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
 
         <Choices legend={t("layout")}>
           <div className="grid grid-cols-3 gap-2">
-            {LAYOUTS.map((layout) => {
-              const offered = OFFERED_LAYOUTS.includes(layout);
-              return (
-                <Choice
-                  key={layout}
-                  name="layout"
-                  checked={resolved.layout === layout}
-                  disabled={!offered}
-                  // Poster is the only layout offered, so there is nothing to change to yet.
-                  onSelect={() => undefined}
-                  className="flex-col items-start gap-2 bg-accent/40 p-2.5"
-                >
-                  <LayoutSketch layout={layout} />
-                  <span className="text-sm font-medium">{t(`layouts.${layout}.name`)}</span>
-                  {offered ? (
-                    <span className="text-[11px] leading-snug text-muted-foreground">{t(`layouts.${layout}.note`)}</span>
-                  ) : (
-                    <Badge>{t("comingSoon")}</Badge>
-                  )}
-                </Choice>
-              );
-            })}
+            {OFFERED_LAYOUTS.map((layout) => (
+              <Choice
+                key={layout}
+                name="layout"
+                checked={resolved.layout === layout}
+                onSelect={() => choose({ knob: "layout", value: layout })}
+                className="flex-col items-start gap-2 bg-accent/40 p-2.5"
+              >
+                <LayoutSketch layout={layout} />
+                <span className="text-sm font-medium">{t(`layouts.${layout}.name`)}</span>
+                <span className="text-[11px] leading-snug text-muted-foreground">{t(`layouts.${layout}.note`)}</span>
+              </Choice>
+            ))}
           </div>
         </Choices>
 
@@ -263,6 +255,37 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
               </Choice>
             )}
           </div>
+          {/* Two more made from it, while there is one: its copy blurred as the page blurs it, and
+              a wash of its colours. */}
+          {upload && (
+            <div role="group" aria-labelledby={`${id}-derived`} className="mt-3">
+              <p id={`${id}-derived`} className="mb-2 text-xs font-medium text-muted-foreground">
+                {t("fromYourPicture")}
+              </p>
+              <div className="grid grid-cols-5 gap-2">
+                {DERIVED_BACKGROUND_IDS.map((derived) => {
+                  const background = derivedBackground(derived, upload);
+                  const checked = theme.backgroundId === derived;
+                  return (
+                    <Choice
+                      key={derived}
+                      name="background"
+                      checked={checked}
+                      onSelect={() => choose({ knob: "backgroundId", value: derived })}
+                      className="aspect-[3/4]"
+                      style={background.kind === "gradient" ? fill(background) : undefined}
+                    >
+                      {background.kind === "photo" && (
+                        <span className="absolute -inset-4 bg-cover bg-center blur-md" style={{ backgroundImage: `url(${background.src})` }} />
+                      )}
+                      {checked && <Tick />}
+                      <TileName>{t(`derivedNames.${derived}`)}</TileName>
+                    </Choice>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </Choices>
 
         <section>
@@ -342,14 +365,17 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
               onSelect={(value) => choose({ knob: "buttonStyle", value })}
             />
 
-            <Segmented
-              legend={t("rsvpStyle")}
-              hint={t(`rsvpStyleHints.${theme.rsvpStyle}`)}
-              name="rsvpStyle"
-              value={theme.rsvpStyle}
-              options={RSVP_STYLES.map((style) => ({ value: style, label: t(`rsvpStyles.${style}`) }))}
-              onSelect={(value) => choose({ knob: "rsvpStyle", value })}
-            />
+            {/* Only the Poster has an RSVP style; under another layout it is kept, unseen. */}
+            {resolved.layout === "poster" && (
+              <Segmented
+                legend={t("rsvpStyle")}
+                hint={t(`rsvpStyleHints.${theme.rsvpStyle}`)}
+                name="rsvpStyle"
+                value={theme.rsvpStyle}
+                options={RSVP_STYLES.map((style) => ({ value: style, label: t(`rsvpStyles.${style}`) }))}
+                onSelect={(value) => choose({ knob: "rsvpStyle", value })}
+              />
+            )}
 
             {/* Only a poster has a title placement: on its foot, or below it. */}
             {resolved.poster && (
@@ -362,6 +388,23 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
                 onSelect={(value) => choose({ knob: "titlePlacement", value })}
               />
             )}
+
+            <Choices legend={t("effect")} hint={t("effectHint")}>
+              <div className="grid grid-cols-2 gap-2">
+                {EFFECTS.map((effect) => (
+                  <Choice
+                    key={effect}
+                    name="effect"
+                    checked={theme.effect === effect}
+                    onSelect={() => choose({ knob: "effect", value: effect })}
+                    className="flex-col items-start gap-1 bg-accent/40 p-2.5"
+                  >
+                    <span className="text-sm font-medium">{t(`effects.${effect}.name`)}</span>
+                    <span className="text-[11px] leading-snug text-muted-foreground">{t(`effects.${effect}.note`)}</span>
+                  </Choice>
+                ))}
+              </div>
+            </Choices>
           </div>
         </section>
       </div>
@@ -535,7 +578,6 @@ function Choices({ legend, hint, children }: { legend: string; hint?: string; ch
 function Choice({
   name,
   checked,
-  disabled = false,
   onSelect,
   className,
   style,
@@ -543,7 +585,6 @@ function Choice({
 }: {
   name: string;
   checked: boolean;
-  disabled?: boolean;
   onSelect: () => void;
   className?: string;
   style?: CSSProperties;
@@ -554,7 +595,7 @@ function Choice({
       className={cn(
         "relative flex overflow-hidden rounded-xl ring-offset-2 ring-offset-popover has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-4 has-[:focus-visible]:outline-ring",
         checked ? "ring-2 ring-foreground" : "ring-1 ring-border",
-        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:ring-foreground/50",
+        "cursor-pointer hover:ring-foreground/50",
         className,
       )}
       style={style}
@@ -563,7 +604,6 @@ function Choice({
         type="radio"
         name={name}
         checked={checked}
-        disabled={disabled}
         onChange={onSelect}
         className="absolute inset-0 z-10 m-0 cursor-[inherit] appearance-none opacity-0"
       />
@@ -611,10 +651,6 @@ function Segmented<T extends string>({
       </div>
     </Choices>
   );
-}
-
-function Badge({ children }: { children: ReactNode }) {
-  return <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-muted-foreground">{children}</span>;
 }
 
 // The mark on a chosen tile, so the choice never rests on colour alone.

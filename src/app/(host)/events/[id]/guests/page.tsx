@@ -39,7 +39,10 @@ export default async function GuestListPage({ params }: PageProps<"/events/[id]/
         <Link href={`/events/${event.id}`} className="text-sm text-muted-foreground hover:underline">
           {t("backToEvent")}
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        {/* Where the focus goes once a guest is removed (guest-row.tsx), since the button that did it goes too. */}
+        <h1 id="guest-list-heading" tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
+          {t("title")}
+        </h1>
         <p className="text-muted-foreground">
           {t("headcount", { count: counts.headcount })} ·{" "}
           {t("counts", { going: counts.going, maybe: counts.maybe, declined: counts.cant })}

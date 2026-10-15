@@ -1,5 +1,5 @@
 import { expect, expectNotFoundAsSent, test } from "./test";
-import { createDraft } from "./events";
+import { createDraft, createPublished } from "./events";
 import { newHost, signUp, signUpVerified, verifyEmail } from "./hosts";
 
 test("a host must verify their email before creating an event, and the page offers a resend", async ({
@@ -45,7 +45,7 @@ test("a host creates a draft, previews it, publishes it, and edits it", async ({
 
   await page.goto(link);
   await expect(page.getByRole("heading", { name: "Ada’s birthday" })).toBeVisible();
-  await expect(page.getByText("Draft. Only you can see this page until you publish it.")).toBeVisible();
+  await expect(page.getByText("Draft. Only the hosts can see this page until you publish it.")).toBeVisible();
   await page.getByRole("link", { name: "Edit event" }).click();
   await page.getByRole("button", { name: "Publish" }).click();
   await expect(page.getByText("Published", { exact: true })).toBeVisible();
@@ -122,10 +122,14 @@ test("an event address a host mistypes is not found, on each of the event's page
     "/events/not-an-event",
     "/events/not-an-event/share",
     "/events/not-an-event/guests",
+    "/events/not-an-event/announcements",
+    "/events/not-an-event/hosts",
     "/events/0192a7b8-0000-7000-8000-00000000000",
     // Next.js routes these to the event pages, with "new" for the event.
     "/events/new/share",
     "/events/new/guests",
+    "/events/new/announcements",
+    "/events/new/hosts",
   ]) {
     await expectNotFoundAsSent(await page.goto(path));
     await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
@@ -144,4 +148,48 @@ test("a host cannot open another host's event settings", async ({ page, request,
   await otherPage.goto(manageUrl);
   await expect(otherPage.getByRole("heading", { name: "Page not found" })).toBeVisible();
   await other.close();
+});
+
+test("the host sees how often the event page was opened by people other than the hosts", async ({ browser, request }) => {
+  test.slow();
+  const { context, page, link } = await createPublished(browser, request, "views", { title: "Counted", start: "2027-07-01T12:00" });
+  const manage = page.url();
+  const opened = (count: string) => expect(page.getByText(`Opened ${count}`)).toBeVisible();
+
+  await page.goto(link);
+  await page.goto(link);
+  await page.goto(link);
+  await page.goto(manage);
+  await opened("0 times");
+
+  const guest = await browser.newContext();
+  const guestPage = await guest.newPage();
+  await guestPage.goto(link);
+  await guestPage.goto(link);
+  await page.goto(manage);
+  await opened("2 times");
+
+  await guest.close();
+  await context.close();
+});
+
+test("a draft a guest opens is not counted, and one opening reads once", async ({ browser, page, request }) => {
+  test.slow();
+  await signUpVerified(page, request, "draftviews");
+  const link = await createDraft(page, { title: "Not yet", start: "2027-07-02T12:00" });
+  const manage = page.url();
+
+  const guest = await browser.newContext();
+  const guestPage = await guest.newPage();
+  await guestPage.goto(link);
+  await expect(guestPage.getByRole("heading", { name: "This invitation isn’t ready yet" })).toBeVisible();
+  await page.goto(manage);
+  await expect(page.getByText("Opened 0 times")).toBeVisible();
+
+  await page.getByRole("button", { name: "Publish" }).click();
+  await expect(page.getByText("Published", { exact: true })).toBeVisible();
+  await guestPage.goto(link);
+  await page.goto(manage);
+  await expect(page.getByText("Opened once")).toBeVisible();
+  await guest.close();
 });

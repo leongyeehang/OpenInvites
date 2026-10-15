@@ -36,9 +36,14 @@ describe("applying a template", () => {
     expect(applied).toMatchObject({ backgroundId: "slate", uploadId: withUpload.uploadId, uploadMode: "poster" });
   });
 
-  it("applies Supper club and Kids' party with the Poster layout while theirs are coming", () => {
-    expect(applyTemplate(DEFAULT_THEME, template("supper")).layout).toBe("poster");
-    expect(applyTemplate(DEFAULT_THEME, template("kids")).layout).toBe("poster");
+  it("applies Supper club with the Broadsheet layout and Kids' party with the Thread layout", () => {
+    expect(applyTemplate(DEFAULT_THEME, template("supper")).layout).toBe("broadsheet");
+    expect(applyTemplate(DEFAULT_THEME, template("kids")).layout).toBe("thread");
+  });
+
+  it("brings its own layout when applied over another, as it does every knob", () => {
+    const supper = applyTemplate(DEFAULT_THEME, template("supper"));
+    expect(applyTemplate(supper, template("birthday")).layout).toBe("poster");
   });
 
   it("changes nothing when the template is already on and untouched", () => {
@@ -61,6 +66,9 @@ describe("changing a knob", () => {
     [{ knob: "buttonStyle", value: "outline" }, { buttonStyle: "outline" }],
     [{ knob: "rsvpStyle", value: "inline" }, { rsvpStyle: "inline" }],
     [{ knob: "titlePlacement", value: "on" }, { titlePlacement: "on" }],
+    [{ knob: "effect", value: "doodles" }, { effect: "doodles" }],
+    [{ knob: "layout", value: "broadsheet" }, { layout: "broadsheet" }],
+    [{ knob: "layout", value: "thread" }, { layout: "thread" }],
   ];
 
   it.each(changes)("sets the knob and marks the template dirty: %j", (change, knob) => {
@@ -136,12 +144,48 @@ describe("changing a knob", () => {
     });
   });
 
+  describe("a background made from the host's picture", () => {
+    // The picture as the poster, with the host's own accent on it.
+    const asPoster = applyChange(applyChange(withUpload, { knob: "uploadMode", value: "poster" }), { knob: "accentOverride", value: "#8fe6c2" });
+    const onWash = applyChange(asPoster, { knob: "backgroundId", value: "upload-wash" });
+
+    it("is chosen as any background is: the accent goes back to auto, and the picture stays in the gallery", () => {
+      expect(onWash).toEqual({ ...asPoster, backgroundId: "upload-wash", accentOverride: null, template: { id: "birthday", dirty: true } });
+      expect(applyChange(onWash, { knob: "backgroundId", value: "upload-blur" })).toEqual({ ...onWash, backgroundId: "upload-blur" });
+    });
+
+    it("gives way to the picture itself when the host chooses it again", () => {
+      expect(applyChange(onWash, { knob: "uploadMode", value: "background" })).toMatchObject({ backgroundId: null, uploadId: UPLOAD, uploadMode: "background" });
+      expect(applyChange(onWash, { knob: "uploadMode", value: "poster" })).toMatchObject({ backgroundId: null, uploadId: UPLOAD, uploadMode: "poster" });
+    });
+
+    it("stays when the picture is replaced, so the new picture's blur or wash shows, with its own accent", () => {
+      const ownAccent = applyChange(onWash, { knob: "accentOverride", value: "#ff7a59" });
+      expect(applyChange(ownAccent, { knob: "uploadId", value: OTHER_UPLOAD })).toEqual({ ...ownAccent, uploadId: OTHER_UPLOAD, accentOverride: null });
+      const onBlur = applyChange(onWash, { knob: "backgroundId", value: "upload-blur" });
+      expect(applyChange(onBlur, { knob: "uploadId", value: OTHER_UPLOAD })).toMatchObject({ backgroundId: "upload-blur", uploadId: OTHER_UPLOAD });
+      expect(applyChange(onWash, { knob: "uploadId", value: UPLOAD })).toBe(onWash);
+    });
+  });
+
   it("changes nothing, dirty flag included, when the host picks what is already chosen", () => {
     expect(applyChange(DEFAULT_THEME, { knob: "font", value: "serif" })).toBe(DEFAULT_THEME);
     expect(applyChange(DEFAULT_THEME, { knob: "backgroundId", value: "golden" })).toBe(DEFAULT_THEME);
     expect(applyChange(DEFAULT_THEME, { knob: "accentOverride", value: null })).toBe(DEFAULT_THEME);
     const onUpload = applyChange(DEFAULT_THEME, { knob: "uploadId", value: UPLOAD });
     expect(applyChange(onUpload, { knob: "uploadId", value: UPLOAD })).toBe(onUpload);
+  });
+
+  it("keeps every other knob, the RSVP style included, when the layout changes and changes back", () => {
+    const own = [
+      { knob: "backgroundId", value: "dusk" },
+      { knob: "font", value: "display" },
+      { knob: "rsvpStyle", value: "inline" },
+      { knob: "effect", value: "confetti" },
+    ].reduce<Theme>((theme, change) => applyChange(theme, change as ThemeChange), DEFAULT_THEME);
+    const broadsheet = applyChange(own, { knob: "layout", value: "broadsheet" });
+    expect(broadsheet).toEqual({ ...own, layout: "broadsheet" });
+    expect(applyChange(broadsheet, { knob: "layout", value: "poster" })).toEqual(own);
   });
 
   it("leaves a theme that started from no template without one", () => {
@@ -179,6 +223,13 @@ describe("reading a change the drawer sent", () => {
       { knob: "rsvpStyle", value: "inline" },
       { knob: "titlePlacement", value: "on" },
       { knob: "titlePlacement", value: "below" },
+      { knob: "effect", value: "none" },
+      { knob: "effect", value: "confetti" },
+      { knob: "effect", value: "sparkles" },
+      { knob: "effect", value: "doodles" },
+      { knob: "layout", value: "poster" },
+      { knob: "layout", value: "broadsheet" },
+      { knob: "layout", value: "thread" },
     ];
     for (const change of offered) expect(parseThemeChange(JSON.parse(JSON.stringify(change)))).toEqual(change);
   });
@@ -189,6 +240,14 @@ describe("reading a change the drawer sent", () => {
     expect(parseThemeChange({ knob: "uploadMode", value: "wallpaper" }, UPLOAD)).toBeUndefined();
     // An event without an upload has none to show.
     expect(parseThemeChange({ knob: "uploadMode", value: "poster" }, null)).toBeUndefined();
+  });
+
+  it("accepts a background made from the event's upload only when it has one", () => {
+    expect(parseThemeChange({ knob: "backgroundId", value: "upload-blur" }, UPLOAD)).toEqual({ knob: "backgroundId", value: "upload-blur" });
+    expect(parseThemeChange({ knob: "backgroundId", value: "upload-wash" }, UPLOAD)).toEqual({ knob: "backgroundId", value: "upload-wash" });
+    expect(parseThemeChange({ knob: "backgroundId", value: "upload-blur" }, null)).toBeUndefined();
+    expect(parseThemeChange({ knob: "backgroundId", value: "upload-wash" })).toBeUndefined();
+    expect(parseThemeChange({ knob: "backgroundId", value: "upload-sepia" }, UPLOAD)).toBeUndefined();
   });
 
   it("takes a new picture only from an upload, never from the drawer", () => {
@@ -213,7 +272,11 @@ describe("reading a change the drawer sent", () => {
       { knob: "rsvpStyle", value: null },
       { knob: "titlePlacement", value: "above" },
       { knob: "titlePlacement", value: null },
-      { knob: "layout", value: "broadsheet" },
+      { knob: "effect", value: "fireworks" },
+      { knob: "effect", value: null },
+      // Only the layouts there are.
+      { knob: "layout", value: "zine" },
+      { knob: "layout", value: null },
       { knob: "uploadId", value: "0192f0a1-7b3c-7d4e-8f00-123456789abc" },
       { knob: "template", value: { id: "birthday", dirty: false } },
     ];

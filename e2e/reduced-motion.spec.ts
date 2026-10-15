@@ -71,6 +71,8 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await expectStill(host, "the Design drawer, open");
   // Vows, like Birthday, has guests answer in the sheet.
   await drawer.getByRole("radio", { name: "Vows" }).check();
+  // It sparkles too, and under reduced motion the sparkles are not drawn.
+  await expect(host.locator('[data-effect="sparkles"]')).toBeHidden();
   await drawer.getByRole("button", { name: "Details" }).click();
   await drawer.getByRole("radio", { name: "Glass" }).check();
   await expect(drawer.getByText("Theme: Custom, started from Vows")).toBeVisible();
@@ -98,11 +100,14 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await expect(sheet).toBeHidden();
   await expectStill(page, "the event page, the sheet closed");
 
-  // Inline, another guest answers under the buttons, step by step.
+  // Inline, another guest answers under the buttons, step by step, and their Going brings no
+  // confetti.
   await host.getByRole("button", { name: "Design" }).click();
   await drawer.getByRole("button", { name: "Details" }).click();
   await drawer.getByRole("group", { name: "RSVP style" }).getByRole("radio", { name: "Inline" }).check();
   await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain('rsvpStyle\\":\\"inline');
+  await drawer.getByRole("group", { name: "Effect" }).getByRole("radio", { name: "Confetti" }).check();
+  await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain('effect\\":\\"confetti');
   const second = await browser.newContext({ reducedMotion: "reduce" });
   const inline = await second.newPage();
   await inline.goto(link);
@@ -117,8 +122,19 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await expectStill(inline, "the Inline RSVP flow, the questions step");
   await inline.getByRole("button", { name: "Send RSVP" }).click();
   await expect(inline.getByText("You’re going!")).toBeVisible();
-  await expectStill(inline, "the Inline RSVP flow, the confirmation");
+  // It would come with the confirmation, so none now is none at all.
+  expect(await inline.locator('[data-effect="confetti"]').count()).toBe(0);
+  await expectStill(inline, "the Inline RSVP flow, the confirmation, with confetti chosen");
   await second.close();
+
+  // Doodles: the shapes are not drawn, and the date sticker sits tilted and still, here and on the
+  // poster below.
+  await drawer.getByRole("group", { name: "Effect" }).getByRole("radio", { name: "Doodles" }).check();
+  await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain('effect\\":\\"doodles');
+  await expectStill(host, "the Design drawer, with doodles");
+  await page.reload();
+  await expect(page.locator('[data-effect="doodles"]')).toBeHidden();
+  await expectStill(page, "the event page, with doodles");
 
   // The host's picture as the poster.
   await drawer.getByLabel("Upload your photo or poster").setInputFiles(await picture());
@@ -129,6 +145,47 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await page.reload();
   await expect(page.locator('[data-slot="poster-card"] img')).toBeVisible();
   await expectStill(page, "the event page, poster mode");
+
+  // The Broadsheet: its page rises into place, and its receipt's stamp comes down, only when
+  // motion is welcome. A guest replies on its ballot.
+  await drawer.getByRole("group", { name: "Layout" }).getByRole("radio", { name: /^Broadsheet/ }).check();
+  await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain('data-layout="broadsheet"');
+  await expectStill(host, "the Design drawer, the Broadsheet chosen");
+  const third = await browser.newContext({ reducedMotion: "reduce" });
+  const ballot = await third.newPage();
+  await ballot.goto(link);
+  await expectStill(ballot, "the Broadsheet");
+  await ballot.getByRole("radio", { name: "I’ll be there" }).check();
+  await ballot.getByLabel("Your name").fill("Tom Ong");
+  await ballot.getByRole("button", { name: "One guest more" }).click();
+  await expectStill(ballot, "the Broadsheet's ballot, filled in");
+  await ballot.getByRole("button", { name: "Post my reply" }).click();
+  await expect(ballot.getByText("Received", { exact: true })).toBeVisible();
+  await expectStill(ballot, "the Broadsheet's receipt");
+  await third.close();
+
+  // The Thread: everything is there at once, the host is never seen typing, and the page jumps to
+  // the newest line rather than scrolling. A guest answers in its conversation.
+  await drawer.getByRole("group", { name: "Layout" }).getByRole("radio", { name: /^Thread/ }).check();
+  await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain('data-layout="thread"');
+  await expectStill(host, "the Design drawer, the Thread chosen");
+  const fourth = await browser.newContext({ reducedMotion: "reduce" });
+  const chat = await fourth.newPage();
+  await chat.goto(link);
+  await expectStill(chat, "the Thread");
+  await chat.getByRole("button", { name: "Going", exact: true }).click();
+  expect(await chat.locator('[data-slot="typing"]').count()).toBe(0);
+  await chat.getByLabel("Your name").fill("Ana Lim");
+  await expectStill(chat, "the Thread's conversation, the name in the composer");
+  await chat.getByRole("button", { name: "Send", exact: true }).click();
+  expect(await chat.locator('[data-slot="typing"]').count()).toBe(0);
+  await chat.getByRole("button", { name: "+1", exact: true }).click();
+  await expectStill(chat, "the Thread's conversation, a question");
+  await chat.getByRole("button", { name: "Skip", exact: true }).click();
+  await expect(chat.locator('[data-slot="done"]')).toBeVisible();
+  expect(await chat.locator('[data-slot="typing"]').count()).toBe(0);
+  await expectStill(chat, "the Thread's done bubble");
+  await fourth.close();
 
   // The host's guest list, with the guest opened for editing, and the share screen.
   await host.goto(`${manage}/guests`);

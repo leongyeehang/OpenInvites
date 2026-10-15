@@ -51,7 +51,8 @@ else that address is a page that does not exist.
 
 - **Registration** is Invitation only on a fresh instance: only someone holding a host
   invitation can create an account, by email, Google, or GitHub alike. Open lets anyone sign up.
-  A change takes effect at once.
+  A change takes effect at once. With mail configured, Open also lets anyone who signs up have the
+  instance email addresses of their choosing ([Mail](#mail)).
 - **Host invitations** are single-use links the operator makes on the same page, optionally
   addressed to an email, which then fills in the sign-up form (anyone with the link can still
   use it). The link is shown once, to copy; with mail configured, the operator can have it
@@ -118,15 +119,46 @@ With mail configured:
 - a new host verifies their email before they can create an event;
 - a host who forgot their password gets a reset link by email, and setting the new password
   signs them out on every device;
+- a host can sign in with a link emailed to them;
 - changing an account's email is confirmed from the new address;
-- the operator can have a host invitation emailed.
+- the operator can have a host invitation emailed;
+- an event's hosts, co-hosts included, are emailed when a guest replies, changes their answer or
+  removes their RSVP, unless they turn it off for the event;
+- the hosts are emailed when someone comments on the event page, unless they turn it off for the
+  event;
+- guests who gave an email are told when the host cancels the event, if they said Going or Maybe;
+- the hosts can email an announcement to the guests who gave an email, chosen by their answer;
+- guests who gave an email are reminded of an event a week before if they said Maybe, and the day
+  before if they said Going, unless the host turns reminders off for the event;
+- every email to a guest ends with a link to a page where one tap stops email about that event.
+
+A guest gives an email only when the host asks for one on the RSVP form, so only those guests get
+mail.
+
+Mail also lets a host have the instance email anyone. A host can reply to their own event as many
+times as they like, typing any addresses into its RSVP form, and then post announcements to them;
+nothing checks that an address belongs to someone who asked. Only `RATE_LIMIT_RSVP` and
+`RATE_LIMIT_MAIL` bound it, and they count per client address. With registration Invitation only,
+the default, the hosts are people you admitted. If you open registration on an instance with mail,
+anyone who signs up can do this. Operator limits on guests per event and events per host, planned
+for a later release, are meant to close it.
+
+The app sends event mail (everything above about an event) from a queue inside the app container,
+so there is nothing else to run. It sends what someone has just queued at once, and checks the
+queue once a minute, which is also when it queues the reminders that have fallen due. A message
+that fails is retried a few times over about an hour and a half; if it still fails, it is dropped
+and the log says why.
 
 Without mail, none of those emails exist: hosts are not asked to verify, and you reset a
 forgotten password with the command in [upgrade-backup.md](upgrade-backup.md#resetting-a-hosts-password).
 
 To check mail works after setting it up, sign up a host with an address you can read, or ask for
 a password reset for one. If nothing arrives, `docker compose logs app` shows the SMTP server's
-answer. Every request that sends an email counts against `RATE_LIMIT_MAIL`.
+answer. Every request that sends one of the account emails (verification, password reset, an email
+change, a sign-in link, a host invitation) counts against `RATE_LIMIT_MAIL`, and so does a host's
+announcement that emails guests, once however many it reaches. The hosts' reply emails come from
+guests' RSVPs, so `RATE_LIMIT_RSVP` bounds them, and their comment emails come from comments, which
+`RATE_LIMIT_COMMENT` bounds.
 
 ## Sign in with Google and GitHub
 
@@ -233,12 +265,13 @@ runs.
 | --- | --- | --- |
 | `TRUSTED_PROXY_HOPS` | `1` | Not a limit: how many reverse proxies stand in front of the app (below). |
 | `RATE_LIMIT_EVENT_PAGE` | `120/1m` | Every request under an event link: the page, its preview card, its calendar file, whether the link exists or not, so links cannot be found by trying them. The host's own changes in the Design drawer on their event page do not count; their visits to the page do, and so does the refresh that shows a picture they have just uploaded. |
-| `RATE_LIMIT_RSVP` | `60/10m` | Sending an RSVP, and removing one. |
+| `RATE_LIMIT_RSVP` | `60/10m` | Sending an RSVP, and removing one. This also bounds the emails that tell hosts about replies. |
 | `RATE_LIMIT_UPLOAD` | `20/10m` | Uploading a picture. |
 | `RATE_LIMIT_SIGN_UP` | `10/1h` | Signing up, and opening a host invitation link. |
-| `RATE_LIMIT_SIGN_IN` | `10/15m` | Signing in, and everything else that checks a password (changing it, deleting an account), and starting a Google or GitHub sign-in. |
+| `RATE_LIMIT_SIGN_IN` | `10/15m` | Signing in, and everything else that checks a password (changing it, deleting an account), starting a Google or GitHub sign-in, and opening a co-host link. |
 | `RATE_LIMIT_PASSWORD_RESET` | `10/1h` | Asking for a password reset link, and setting the new password. |
-| `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, and the operator's emailed host invitations. |
+| `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an account email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, asking for a sign-in link, and the operator's emailed host invitations. Also each announcement a host emails to guests, counted once however many guests it reaches. |
+| `RATE_LIMIT_COMMENT` | `30/10m` | Posting a comment on an event page, and deleting one, by a guest or a host. This also bounds the emails that tell hosts about comments. |
 
 Each limit is written `count/window`, the window in seconds, minutes or hours: `120/1m`,
 `60/10m`, `10/1h`. The defaults are for people, some of whom share an address (an office, a
@@ -312,6 +345,10 @@ ANALYTICS_SNIPPET='<script defer src="https://analytics.example.org/script.js" d
 
 When it is empty, nothing at all is added to any page. OpenInvites itself never sends anything
 to the project or anyone else (ADR-0005): no usage counts, no version checks, no crash reports.
+
+The one thing it counts itself is how often each event page was opened by someone other than its
+hosts, which the host sees on the event's page. The count is kept in your database, it counts every
+open of the page including link previews fetched by chat apps, and nothing about it is sent anywhere.
 
 ## Set by the image
 

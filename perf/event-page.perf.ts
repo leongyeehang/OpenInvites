@@ -5,9 +5,9 @@ import { fairPoster, gardenPhoto } from "./pictures";
 
 // Ticket 20: the event page scores at least 90 for performance in a Lighthouse mobile audit, a
 // mid-range phone on slow 4G, against the production image (pnpm perf, README "Tests"). An event
-// in each kind of theme a host can give the page is made through the product, as the browser
-// tests make theirs, and then audited as a guest opening the link, three times in each language;
-// the median must be 90 or more. Not part of CI: scores vary between machines, and a gate that
+// in each kind of theme a host can give the page, in each layout (ticket 15), is made through the
+// product, as the browser tests make theirs, and then audited as a guest opening the link, three
+// times in each language; the median must be 90 or more. Not part of CI: scores vary between machines, and a gate that
 // fails at random is worse than none.
 
 const RUNS = 3;
@@ -35,11 +35,14 @@ const LANGUAGES = [
 type Themed = { name: string; make: (browser: Browser, request: APIRequestContext) => Promise<string> };
 
 const THEMES: Themed[] = [
-  // Every event starts on Golden hour with the Sheet style (the Birthday template).
-  { name: "Curated background, Sheet RSVP style", make: (browser, request) => published(browser, request, { ...EVENT, rsvpStyle: "Sheet" }) },
-  { name: "Curated background, Inline RSVP style", make: (browser, request) => published(browser, request, { ...EVENT, rsvpStyle: "Inline" }) },
+  // Every event starts from the Birthday template: Golden hour, sparkles, and the Sheet style.
+  { name: "Curated background with sparkles, Sheet RSVP style", make: (browser, request) => published(browser, request, { ...EVENT, rsvpStyle: "Sheet" }) },
+  { name: "Curated background with sparkles, Inline RSVP style", make: (browser, request) => published(browser, request, { ...EVENT, rsvpStyle: "Inline" }) },
   { name: "Uploaded photo as background", make: (browser, request) => withPicture(browser, request, "background") },
   { name: "Portrait poster", make: (browser, request) => withPicture(browser, request, "poster") },
+  // The other two layouts, as their templates apply them.
+  { name: "Supper club template, Broadsheet layout", make: (browser, request) => withTemplate(browser, request, "Supper club", "broadsheet") },
+  { name: "Kids’ party template, Thread layout", make: (browser, request) => withTemplate(browser, request, "Kids’ party", "thread") },
 ];
 
 async function published(browser: Browser, request: APIRequestContext, fields: DraftFields) {
@@ -68,6 +71,18 @@ async function withPicture(browser: Browser, request: APIRequestContext, as: "ba
     // Only the poster is an <img>, and so only the poster carries its description as alt.
     await expect.poll(guestHtml, { timeout: 15_000 }).toContain(`alt="${alt}"`);
   }
+  await host.context.close();
+  return host.link;
+}
+
+// The host applies a template in the Design drawer, which brings its layout with it.
+async function withTemplate(browser: Browser, request: APIRequestContext, template: string, layout: "broadsheet" | "thread") {
+  const host = await createPublished(browser, request, "perf", EVENT);
+  await host.page.goto(host.link);
+  await host.page.getByRole("button", { name: "Design" }).click();
+  const drawer = host.page.getByRole("dialog", { name: "Design" });
+  await drawer.getByRole("group", { name: "Templates" }).getByRole("radio", { name: template }).check();
+  await expect.poll(async () => (await request.get(host.link)).text(), { timeout: 15_000 }).toContain(`data-layout="${layout}"`);
   await host.context.close();
   return host.link;
 }

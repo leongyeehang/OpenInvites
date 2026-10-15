@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
+import { magicLink } from "better-auth/plugins";
 import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
 import { deleteHostEvents } from "@/events/repository";
@@ -11,7 +12,7 @@ import { HOST_INVITATION_COOKIE } from "@/instance/host-invitation-token";
 import { isMailConfigured } from "@/mail/config";
 import { consumeAll, retryAfter, type LimitName } from "@/rate-limit/rate-limit";
 import { fallbackDisplayName } from "./display-name";
-import { sendPasswordResetEmail, sendVerificationEmail } from "./emails";
+import { sendMagicLinkEmail, sendPasswordResetEmail, sendVerificationEmail } from "./emails";
 import { socialProviders } from "./providers";
 
 // The Better Auth endpoints the rate limits count, whether a form's server action calls them
@@ -31,6 +32,7 @@ function limitsByEndpoint(mail: boolean): Record<string, readonly LimitName[]> {
     "/sign-up/email": mail ? ["signUp", "mail"] : ["signUp"],
     "/sign-in/email": ["signIn"],
     "/sign-in/social": ["signIn"],
+    "/sign-in/magic-link": ["signIn", "mail"],
     "/change-password": ["signIn"],
     "/verify-password": ["signIn"],
     "/delete-user": ["signIn"],
@@ -120,7 +122,12 @@ function createAuth() {
     advanced: { database: { generateId: false }, ipAddress: { disableIpTracking: true } },
     // Nothing leaves the instance (ADR-0005). Better Auth's telemetry is off by default; said explicitly.
     telemetry: { enabled: false },
-    plugins: [nextCookies()],
+    // With mail, a host can ask for a link that signs them in (sign-in link, never a new account).
+    // The link is valid for 15 minutes and works once.
+    plugins: [
+      nextCookies(),
+      ...(mail ? [magicLink({ disableSignUp: true, expiresIn: 900, sendMagicLink: sendMagicLinkEmail })] : []),
+    ],
   });
 }
 

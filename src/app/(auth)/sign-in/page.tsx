@@ -2,12 +2,15 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { nextPath } from "@/auth/next-path";
 import { getSession } from "@/auth/session";
 import { enabledSocialProviders } from "@/auth/providers";
+import { isMailConfigured } from "@/mail/config";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientMessages } from "@/locale/client-messages";
 import { SocialSignIn } from "../social-sign-in";
+import { SignInLinkForm } from "./sign-in-link-form";
 import { SignInForm } from "./sign-in-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -18,8 +21,11 @@ export async function generateMetadata(): Promise<Metadata> {
 const REFUSALS = ["HOST_INVITATION_REQUIRED", "HOST_INVITATION_UNUSABLE", "TOO_MANY_REQUESTS"] as const;
 
 export default async function SignInPage({ searchParams }: PageProps<"/sign-in">) {
-  if (await getSession()) redirect("/dashboard");
   const [t, params] = await Promise.all([getTranslations("Auth.signIn"), searchParams]);
+  // Where signing in leads: back to the page that sent the visitor here (a co-host link), or the
+  // dashboard.
+  const next = nextPath(params.next);
+  if (await getSession()) redirect(next);
   // A Google or GitHub sign-up the registration mode refused, or a click the rate limits refused,
   // comes back with its code as `error`.
   const refusal = REFUSALS.find((code) => code === params.error);
@@ -27,9 +33,11 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
     ? t("passwordChanged")
     : params.accountDeleted
       ? t("accountDeleted")
-      : params.socialError
-        ? t(refusal ?? "socialError")
-        : undefined;
+      : params.linkError
+        ? t("linkExpired")
+        : params.socialError
+          ? t(refusal ?? "socialError")
+          : undefined;
   return (
     <>
       {notice && (
@@ -45,9 +53,14 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <ClientMessages namespaces={["Auth.signIn"]}>
-            <SignInForm />
+            <SignInForm next={next} />
           </ClientMessages>
-          <SocialSignIn providers={enabledSocialProviders()} namespace="Auth.signIn" />
+          <SocialSignIn providers={enabledSocialProviders()} namespace="Auth.signIn" next={next} />
+          {isMailConfigured() && (
+            <ClientMessages namespaces={["Auth.signIn"]}>
+              <SignInLinkForm next={next} />
+            </ClientMessages>
+          )}
         </CardContent>
         <CardFooter className="flex-col items-start gap-2 text-sm text-muted-foreground">
           <Link href="/forgot-password" className="text-foreground underline underline-offset-4">

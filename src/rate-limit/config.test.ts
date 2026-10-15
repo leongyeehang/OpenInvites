@@ -15,6 +15,7 @@ describe("rateLimitConfigFromEnv", () => {
         signIn: { limit: 10, windowMs: 15 * MINUTE },
         passwordReset: { limit: 10, windowMs: 60 * MINUTE },
         mail: { limit: 10, windowMs: 60 * MINUTE },
+        comment: { limit: 30, windowMs: 10 * MINUTE },
       },
     });
   });
@@ -28,6 +29,7 @@ describe("rateLimitConfigFromEnv", () => {
       RATE_LIMIT_SIGN_IN: "4/10m",
       RATE_LIMIT_PASSWORD_RESET: "1/30s",
       RATE_LIMIT_MAIL: "6/1h",
+      RATE_LIMIT_COMMENT: "7/5m",
     });
     expect(rules).toEqual({
       eventPage: { limit: 30, windowMs: MINUTE },
@@ -37,6 +39,7 @@ describe("rateLimitConfigFromEnv", () => {
       signIn: { limit: 4, windowMs: 10 * MINUTE },
       passwordReset: { limit: 1, windowMs: 30_000 },
       mail: { limit: 6, windowMs: 60 * MINUTE },
+      comment: { limit: 7, windowMs: 5 * MINUTE },
     });
   });
 

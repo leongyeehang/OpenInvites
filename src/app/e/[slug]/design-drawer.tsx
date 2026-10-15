@@ -33,10 +33,11 @@ export function DesignDrawer({ eventId, title, maxUploadBytes }: { eventId: stri
       type="button"
       onClick={() => setOpen(true)}
       aria-expanded={false}
-      // It sits bottom right, and moves to the top while a guest's RSVP sheet is open there. It sits
-      // on the invitation's backdrop, which can be any colour, so focus rings it inside, in its
-      // own label's colour.
-      className="dark fixed right-4 bottom-[max(env(safe-area-inset-bottom),1rem)] z-40 inline-flex h-11 cursor-pointer items-center gap-2 rounded-full border bg-popover/90 pr-4 pl-3 text-sm font-medium text-popover-foreground shadow-xl backdrop-blur-xl transition-colors hover:bg-popover focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-current rsvp-sheet-open:top-[max(env(safe-area-inset-top),1rem)] rsvp-sheet-open:bottom-auto"
+      // It sits bottom right, and moves to the top while a guest's RSVP sheet is open there. Where
+      // the Thread's composer spans the foot of a narrow screen, it sits above two rows of its
+      // chips. It sits on the invitation's backdrop, which can be any colour, so focus rings it
+      // inside, in its own label's colour.
+      className="dark fixed right-4 bottom-[max(env(safe-area-inset-bottom),1rem)] z-40 inline-flex h-11 cursor-pointer items-center gap-2 rounded-full border bg-popover/90 pr-4 pl-3 text-sm font-medium text-popover-foreground shadow-xl backdrop-blur-xl transition-colors hover:bg-popover focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-current rsvp-sheet-open:top-[max(env(safe-area-inset-top),1rem)] rsvp-sheet-open:bottom-auto thread-page:max-md:bottom-[calc(max(env(safe-area-inset-bottom),0.75rem)+9rem)]"
     >
       <span aria-hidden className="size-3 rounded-full ring-2 ring-foreground/40" style={{ background: accent }} />
       <Palette className="size-4" aria-hidden />

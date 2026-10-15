@@ -1,16 +1,21 @@
 "use server";
 
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireHost } from "@/auth/session";
 import { hostNeedsVerification } from "@/auth/verification";
+import { can } from "@/hosts/role";
 import type { FormState } from "@/lib/form-state";
 import { parseQuestions } from "@/questions/question";
 import { parseRichText } from "@/rich-text/rich-text";
-import { saveQuestions } from "@/questions/repository";
+import { listQuestions, saveQuestions } from "@/questions/repository";
+import { notifyGuestsOfCancellation } from "@/rsvps/notify-cancellation";
+import { copyPicture } from "@/uploads/copy";
+import { findEventUpload } from "@/uploads/repository";
+import { duplicateInput } from "./duplicate";
 import { parseEventForm } from "./form";
-import { cancelEvent, createEvent, deleteEvent, publishEvent, resetEventLink, updateEvent } from "./repository";
+import { cancelEvent, createEvent, deleteEvent, findHostEvent, publishEvent, resetEventLink, updateEvent } from "./repository";
 
 // The editor writes its document into one field, as the questions editor does. An empty field
 // is an empty description; a field that will not parse is a mistake worth saying out loud,
@@ -43,6 +48,10 @@ function fields(formData: FormData) {
     requirePlusOneNames: formData.get("requirePlusOneNames") === "on",
     askEmail: formData.get("askEmail") === "on",
     guestListVisibility: text("guestListVisibility"),
+    notifyOnRsvp: formData.get("notifyOnRsvp") === "on",
+    remindersEnabled: formData.get("remindersEnabled") === "on",
+    commentsEnabled: formData.get("commentsEnabled") === "on",
+    notifyOnComment: formData.get("notifyOnComment") === "on",
   };
 }
 
@@ -73,14 +82,20 @@ export async function createEventAction(_: FormState, formData: FormData): Promi
   const questions = parseQuestions(postedQuestions(formData));
   if (!questions.ok) return { error: t(`errors.${questions.error}`) };
 
-  const created = await createEvent(host.id, parsed.input);
+  // The language the host saves in is the one their event's mail to its hosts is written in.
+  const created = await createEvent(host.id, { ...parsed.input, locale: await getLocale() });
   await saveQuestions(created.id, questions.questions);
   redirect(`/events/${created.id}`);
 }
 
+// Every action below finds the event through the one gate, which answers for its owner and its
+// co-hosts, and asks whether their role may do this (hosts/role.ts). One it may not is answered as
+// an event that is not theirs would be, so nothing tells them more.
 export async function updateEventAction(id: string, _: FormState, formData: FormData): Promise<FormState> {
   const host = await requireHost();
   const t = await getTranslations("Events");
+  const event = await findHostEvent(host.id, id);
+  if (!event || !can(event.role, "edit")) return { error: t("errors.notFound") };
   const posted = postedDescription(formData);
   if (posted === UNREADABLE) return { error: t("errors.descriptionUnreadable") };
   const description = parseRichText(posted);
@@ -90,7 +105,7 @@ export async function updateEventAction(id: string, _: FormState, formData: Form
   const questions = parseQuestions(postedQuestions(formData));
   if (!questions.ok) return { error: t(`errors.${questions.error}`) };
 
-  const updated = await updateEvent(host.id, id, parsed.input);
+  const updated = await updateEvent(host.id, id, { ...parsed.input, locale: await getLocale() });
   if (!updated) return { error: t("errors.notFound") };
   await saveQuestions(updated.id, questions.questions);
   // The heading and link card on the manage page show the event too.
@@ -100,28 +115,55 @@ export async function updateEventAction(id: string, _: FormState, formData: Form
 
 export async function publishEventAction(id: string): Promise<void> {
   const host = await requireHost();
-  await publishEvent(host.id, id);
+  const event = await findHostEvent(host.id, id);
+  if (event && can(event.role, "publish")) await publishEvent(host.id, id);
   redirect(`/events/${id}`);
 }
 
 export async function cancelEventAction(id: string): Promise<void> {
   const host = await requireHost();
-  await cancelEvent(host.id, id);
+  const event = await findHostEvent(host.id, id);
+  const cancelled = event && can(event.role, "cancel") ? await cancelEvent(host.id, id) : undefined;
+  if (cancelled) await notifyGuestsOfCancellation(cancelled);
   revalidatePath(`/events/${id}`);
   redirect(`/events/${id}`);
 }
 
 export async function deleteEventAction(id: string): Promise<void> {
   const host = await requireHost();
-  await deleteEvent(host.id, id);
+  const event = await findHostEvent(host.id, id);
+  if (event && can(event.role, "delete")) await deleteEvent(host.id, id);
   redirect("/dashboard");
 }
 
 export async function resetLinkAction(id: string): Promise<void> {
   const host = await requireHost();
-  await resetEventLink(host.id, id);
+  const event = await findHostEvent(host.id, id);
+  if (event && can(event.role, "resetLink")) await resetEventLink(host.id, id);
   // The manage page shows the link too, so it must not keep showing the retired one.
   revalidatePath(`/events/${id}`);
   revalidatePath(`/events/${id}/share`);
   redirect(`/events/${id}/share`);
+}
+
+// A new draft with the same details, look, questions, settings and picture, owned by the host who
+// asks, who is taken to its manage page, which names the event it came from.
+export async function duplicateEventAction(id: string): Promise<void> {
+  const host = await requireHost();
+  const source = await findHostEvent(host.id, id);
+  if (!source || !can(source.role, "duplicate")) redirect(`/events/${id}`);
+  const t = await getTranslations("Events");
+  const { event, questions } = duplicateInput(source, await listQuestions(id), await getLocale(), t("duplicate.copySuffix"));
+
+  const created = await createEvent(host.id, event);
+  try {
+    await saveQuestions(created.id, questions);
+    const picture = await findEventUpload(id);
+    if (picture) await copyPicture(picture, host.id, created.id);
+  } catch (error) {
+    // Nothing half-made is left in the host's dashboard; the host can try again.
+    await deleteEvent(host.id, created.id);
+    throw error;
+  }
+  redirect(`/events/${created.id}?from=${id}`);
 }

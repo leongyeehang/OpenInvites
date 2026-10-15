@@ -273,3 +273,134 @@ test("deleting an account removes the pictures on its events", async ({ browser,
   for (const file of filesOf(src)) expect((await request.get(file)).status(), file).toBe(404);
   await host.context.close();
 });
+
+// Ticket 14 (M2): two more backgrounds made from the host's picture, a soft blur of it and a wash
+// of its colours, offered after it in the gallery while there is one.
+
+// What the page's backdrop is painted with: the image of its first layer, and its blur.
+async function backdrop(page: Page) {
+  return page.locator('[data-slot="backdrop"] > :first-child').evaluate((layer) => {
+    const { backgroundImage, filter } = getComputedStyle(layer);
+    return { image: backgroundImage, filter };
+  });
+}
+
+const WASH = /^linear-gradient\(135deg, rgb\(\d+, \d+, \d+\), rgb\(\d+, \d+, \d+\), rgb\(\d+, \d+, \d+\)\)$/;
+// The page blurs the picture's small copy as it does behind a poster.
+const BLUR = "blur(64px)";
+const copyOf = (page: Page, id: string) => `url("${new URL(`/uploads/${id}/poster-copy.webp`, page.url()).href}")`;
+const idOf = (src: string) => src.split("/")[2];
+
+// The link's preview card, as the guest's page points at it.
+async function previewCard(page: Page, request: APIRequestContext) {
+  const card = await request.get((await page.locator('meta[property="og:image"]').getAttribute("content"))!);
+  expect(card.status()).toBe(200);
+  expect(card.headers()["content-type"]).toBe("image/png");
+}
+
+test("a picture brings a soft blur and a colour wash to the gallery, which guests see and a new picture keeps", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "upload-derived", EVENT);
+  await host.page.goto(host.link);
+  const drawer = await openDrawer(host.page);
+  const gallery = drawer.getByRole("group", { name: "Background" });
+
+  // Without a picture there is nothing to make them from.
+  await expect(gallery.getByRole("radio", { name: "Golden hour" })).toBeChecked();
+  await expect(drawer.getByText("From your picture")).toHaveCount(0);
+  await expect(drawer.getByRole("radio", { name: "Soft blur" })).toHaveCount(0);
+  await expect(drawer.getByRole("radio", { name: "Colour wash" })).toHaveCount(0);
+
+  const id = idOf(await upload(host.page, request, host.link, await darkPhoto()));
+  const fromPicture = gallery.getByRole("group", { name: "From your picture" });
+  const blur = fromPicture.getByRole("radio", { name: "Soft blur" });
+  const wash = fromPicture.getByRole("radio", { name: "Colour wash" });
+  await expect(blur).not.toBeChecked();
+  await expect(wash).not.toBeChecked();
+
+  // Colour wash: a gradient of the picture's colours, on the page as in its tile. The picture
+  // itself is put aside and stays in the gallery.
+  await wash.check();
+  await expect(wash).toBeChecked();
+  await expect(gallery.getByRole("radio", { name: "Your picture" })).not.toBeChecked();
+  await expect.poll(async () => (await backdrop(host.page)).image).toMatch(WASH);
+  const washed = (await backdrop(host.page)).image;
+  await expect(wash.locator("..")).toHaveCSS("background-image", washed);
+  await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('backgroundId\\":\\"upload-wash');
+  // A guest sees it too, and is sent no file of the picture it is made from.
+  await page.goto(host.link);
+  expect((await backdrop(page)).image).toBe(washed);
+  expect(await guestHtml(request, host.link)).not.toContain(`/uploads/${id}/`);
+  await previewCard(page, request);
+
+  // Soft blur: the picture's small copy blurred, on the page as behind a poster, and in its tile.
+  await blur.check();
+  await expect(blur).toBeChecked();
+  await expect.poll(() => backdrop(host.page)).toEqual({ image: copyOf(host.page, id), filter: BLUR });
+  const tile = blur.locator("..").locator('[style*="poster-copy.webp"]');
+  await expect(tile).toHaveCSS("background-image", copyOf(host.page, id));
+  await expect(tile).toHaveCSS("filter", /^blur\(\d+px\)$/);
+  await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('backgroundId\\":\\"upload-blur');
+  await page.reload();
+  expect(await backdrop(page)).toEqual({ image: copyOf(page, id), filter: BLUR });
+  // The guest is sent the copy it is painted with, and no other file of the picture.
+  const sent = await guestHtml(request, host.link);
+  for (const file of FILES) expect(sent.includes(`/uploads/${id}/${file}`), file).toBe(file === "poster-copy.webp");
+  await previewCard(page, request);
+
+  // Back on the wash, a new picture keeps it, made from the new picture's colours.
+  await wash.check();
+  await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('backgroundId\\":\\"upload-wash');
+  await drawer.getByLabel("Replace").setInputFiles(await lightPhoto());
+  await expect.poll(async () => (await backdrop(host.page)).image, { timeout: 20_000 }).not.toBe(washed);
+  const rewashed = (await backdrop(host.page)).image;
+  expect(rewashed).toMatch(WASH);
+  await expect(wash).toBeChecked();
+  await expect(wash.locator("..")).toHaveCSS("background-image", rewashed);
+  // The pale garden's wash wears dark text, as the picture itself does.
+  await expect(host.page.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
+  await expect
+    .poll(
+      async () => {
+        await page.reload();
+        return (await backdrop(page)).image;
+      },
+      { timeout: 15_000 },
+    )
+    .toBe(rewashed);
+  await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
+  await previewCard(page, request);
+
+  await host.context.close();
+});
+
+test("the Thread and the Broadsheet paint both backgrounds made from the picture, the Thread's card too", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "upload-derived-layouts", { ...EVENT, layout: "Thread" });
+  await host.page.goto(host.link);
+  const drawer = await openDrawer(host.page);
+  const id = idOf(await upload(host.page, request, host.link, await darkPhoto()));
+  const card = host.page.locator('[data-slot="thread-card"]');
+
+  // The Thread's card paints the page's background itself: the wash as it is, the copy blurred
+  // inside the card's frame as the backdrop blurs it.
+  await drawer.getByRole("radio", { name: "Colour wash" }).check();
+  await expect.poll(async () => (await backdrop(host.page)).image).toMatch(WASH);
+  const washed = (await backdrop(host.page)).image;
+  await expect(card.locator('[style*="linear-gradient"]')).toHaveCSS("background-image", washed);
+
+  await drawer.getByRole("radio", { name: "Soft blur" }).check();
+  await expect.poll(() => backdrop(host.page)).toEqual({ image: copyOf(host.page, id), filter: BLUR });
+  const blurred = card.locator('[style*="poster-copy.webp"]');
+  await expect(blurred).toHaveCSS("background-image", copyOf(host.page, id));
+  await expect(blurred).toHaveCSS("filter", BLUR);
+
+  // The Broadsheet paints no background of its own: the backdrop's shows, each in turn.
+  await drawer.getByRole("group", { name: "Layout" }).getByRole("radio", { name: /^Broadsheet/ }).check();
+  await expect(host.page.locator("[data-layout]")).toHaveAttribute("data-layout", "broadsheet");
+  expect(await backdrop(host.page)).toEqual({ image: copyOf(host.page, id), filter: BLUR });
+  await drawer.getByRole("radio", { name: "Colour wash" }).check();
+  await expect.poll(async () => (await backdrop(host.page)).image).toBe(washed);
+
+  await host.context.close();
+});

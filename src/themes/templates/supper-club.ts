@@ -1,6 +1,6 @@
 import type { Template } from "./template";
 
-// Made for the Broadsheet layout, which ships in M2. Until then it applies with the Poster layout.
+// Made for the Broadsheet layout, and applied with it.
 export const supperClub: Template = {
   id: "supper",
   theme: {
