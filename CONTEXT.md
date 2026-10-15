@@ -22,6 +22,10 @@ _Avoid_: collaborator, editor, co-organizer
 The person who runs an instance and configures it.
 _Avoid_: admin, sysadmin, superuser
 
+**Host invitation**:
+Permission from the operator for one person to become a host on an instance, carried by a single-use link. Unrelated to inviting guests to an event.
+_Avoid_: invite, signup link, access code, beta code
+
 ### Events
 
 **Event**:
@@ -79,18 +83,30 @@ _Avoid_: private link, guest link, unique link
 ### Look
 
 **Theme**:
-The visual identity of an event page: its background and its title font.
-_Avoid_: design, skin, template, style
+The look of one event page: its layout, background, title font, accent colour, text tone, button style, RSVP style, and effect. Every event has exactly one.
+_Avoid_: design, skin, style, look
+
+**Layout**:
+The arrangement of an event page's parts, chosen from a shipped set such as Poster, Broadsheet, or Thread. Part of the theme.
+_Avoid_: variant, template (a template sets a layout, it is not one), view, mode
+
+**Template**:
+A named, ready-made theme that ships with the software. A host starts from a template and may change any part of it; the event's theme is then its own.
+_Avoid_: preset, starter, style pack, theme (for the shipped set)
 
 **Background**:
 The full-page image or gradient behind an event page, chosen from the curated gallery or uploaded by the host.
 _Avoid_: cover, banner, hero image, wallpaper
 
+**Poster**:
+A host-uploaded image shown as the invitation itself, at its own proportions, with the title placed on it or beneath it. An alternative to using the upload as a background.
+_Avoid_: cover image, flyer, card image
+
 ### Responses
 
 **RSVP**:
 A guest's answer to an event. One guest has at most one RSVP per event, and answering again replaces it.
-_Avoid_: response, reply, registration, signup
+_Avoid_: response, registration, signup
 
 **RSVP status**:
 Which of Going, Maybe, or Can't go an RSVP says.
@@ -107,6 +123,10 @@ _Avoid_: awaiting, unapproved, requested
 **Edit link**:
 A private URL a guest receives after responding that lets them change or withdraw their RSVP.
 _Avoid_: magic link, manage link, token link
+
+**Headcount**:
+The number of people expected at an event: every Going guest plus their plus-ones. Maybe does not count.
+_Avoid_: attendee count, total guests, guest count, RSVP count (which counts responses, not people)
 
 **Guest list**:
 All RSVPs for one event, as seen by the host and, when the host allows it, by guests.
