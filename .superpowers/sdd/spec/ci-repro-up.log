@@ -1,0 +1,264 @@
+ Image oi-ci-app-social Building 
+ Image oi-ci-app-no-mail Building 
+ Image oi-ci-app-fresh Building 
+ Image oi-ci-app Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.70kB done
+#1 DONE 0.0s
+
+#2 [app-social internal] load build definition from Dockerfile
+#2 transferring dockerfile: 2.26kB done
+#2 DONE 0.1s
+
+#3 [app] resolve image config for docker-image://docker.io/docker/dockerfile:1
+#3 DONE 2.4s
+
+#4 [app] docker-image://docker.io/docker/dockerfile:1@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32
+#4 resolve docker.io/docker/dockerfile:1@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32 0.0s done
+#4 CACHED
+
+#5 [app-fresh internal] load metadata for docker.io/library/node:22-alpine
+#5 DONE 1.4s
+
+#6 [app-fresh internal] load .dockerignore
+#6 transferring context: 474B done
+#6 DONE 0.0s
+
+#7 [app-no-mail internal] load build context
+#7 DONE 0.0s
+
+#8 [app-no-mail base 1/3] FROM docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+#8 resolve docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+#8 resolve docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 0.0s done
+#8 DONE 0.0s
+
+#7 [app-social internal] load build context
+#7 transferring context: 4.14MB 0.1s done
+#7 transferring context: 4.14MB 0.1s done
+#7 DONE 0.1s
+
+#9 [app deps 1/2] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .pnpmfile.cjs ./
+#9 CACHED
+
+#10 [app deps 2/2] RUN pnpm install --frozen-lockfile
+#10 CACHED
+
+#11 [app base 2/3] RUN corepack enable
+#11 CACHED
+
+#12 [app base 3/3] WORKDIR /app
+#12 CACHED
+
+#13 [app build 1/3] COPY --from=deps /app/node_modules ./node_modules
+#13 CACHED
+
+#14 [app build 2/3] COPY . .
+#14 DONE 0.2s
+
+#15 [app build 3/3] RUN pnpm build
+#15 2.862 
+#15 2.862 > openinvites@0.1.0 build /app
+#15 2.862 > NEXT_TELEMETRY_DISABLED=1 next build
+#15 2.862 
+#15 3.712 ▲ Next.js 16.3.5 (Turbopack)
+#15 3.925 ✓ Running next.config.ts took 215ms
+#15 3.941 
+#15 4.013   Creating an optimized production build ...
+#15 29.05 ✓ Compiled successfully in 24.6s
+#15 29.09   Running TypeScript ...
+#15 45.94   Finished TypeScript in 16.8s ...
+#15 45.96   Collecting page data using 3 workers ...
+#15 48.46   Generating static pages using 3 workers (0/15) ...
+#15 48.60   Generating static pages using 3 workers (3/15) 
+#15 48.62   Generating static pages using 3 workers (7/15) 
+#15 48.72   Generating static pages using 3 workers (11/15) 
+#15 48.75 ✓ Generating static pages using 3 workers (15/15) in 284ms
+#15 48.76   Finalizing page optimization ...
+#15 49.38 
+#15 49.39 Route (app)
+#15 49.39 ┌ ƒ /
+#15 49.39 ├ ƒ /_not-found
+#15 49.39 ├ ƒ /account
+#15 49.39 ├ ƒ /api/auth/[...all]
+#15 49.39 ├ ƒ /api/events/[id]/upload
+#15 49.39 ├ ƒ /api/health
+#15 49.39 ├ ƒ /dashboard
+#15 49.39 ├ ƒ /e/[slug]
+#15 49.39 ├ ƒ /e/[slug]/calendar.ics
+#15 49.39 ├ ƒ /e/[slug]/preview.png
+#15 49.39 ├ ƒ /events/[id]
+#15 49.39 ├ ƒ /events/[id]/guests
+#15 49.39 ├ ƒ /events/[id]/share
+#15 49.39 ├ ƒ /events/new
+#15 49.39 ├ ƒ /forgot-password
+#15 49.39 ├ ƒ /host-invitation/[token]
+#15 49.39 ├ ƒ /instance
+#15 49.39 ├ ƒ /privacy
+#15 49.39 ├ ƒ /r/[token]
+#15 49.39 ├ ƒ /reset-password
+#15 49.39 ├ ƒ /sign-in
+#15 49.39 ├ ƒ /sign-up
+#15 49.39 ├ ƒ /terms
+#15 49.39 ├ ƒ /too-fast
+#15 49.39 ├ ƒ /uploads/[id]/[file]
+#15 49.39 └ ƒ /verify-email
+#15 49.39 
+#15 49.39 
+#15 49.39 ƒ Proxy (Middleware)
+#15 49.39 
+#15 49.39 ƒ  (Dynamic)  server-rendered on demand
+#15 49.39 
+#15 DONE 49.9s
+
+#16 [app-no-mail runner 2/9] WORKDIR /app
+#16 CACHED
+
+#17 [app-no-mail runner 3/9] COPY --from=build --chown=node:node /app/.next/standalone ./
+#17 DONE 0.4s
+
+#18 [app runner 4/9] COPY --from=build --chown=node:node /app/.next/static ./.next/static
+#18 DONE 0.2s
+
+#19 [app-fresh runner 5/9] COPY --from=build --chown=node:node /app/public ./public
+#19 DONE 0.2s
+
+#20 [app-social runner 6/9] COPY --from=build --chown=node:node /app/drizzle ./drizzle
+#20 DONE 0.1s
+
+#21 [app-no-mail runner 7/9] COPY --from=build --chown=node:node /app/scripts ./scripts
+#21 DONE 0.1s
+
+#22 [app runner 8/9] RUN cd node_modules && ln -s "$(find .pnpm -maxdepth 3 -type d -path '*/node_modules/postgres')" postgres   && test -f postgres/package.json
+#22 DONE 0.3s
+
+#23 [app-no-mail runner 9/9] RUN mkdir uploads && chown node:node uploads
+#23 DONE 1.1s
+
+#24 [app-fresh] exporting to image
+#24 exporting layers
+#24 exporting layers 2.0s done
+#24 exporting manifest sha256:d88273b4d47d0e7645f1fba2c163bcea37f0483cabcc239c58d7c355c8c331f1
+#24 exporting manifest sha256:d88273b4d47d0e7645f1fba2c163bcea37f0483cabcc239c58d7c355c8c331f1 0.1s done
+#24 exporting config sha256:deac38dc5fb23ca573f2d9155d6e78703ea2aaf55932ff1c37fa88afeb133c7d 0.1s done
+#24 exporting attestation manifest sha256:a5095d2cfb69ea66ac251631020db82587097b9bcdecfb96621d801b51c7fdc0
+#24 exporting attestation manifest sha256:a5095d2cfb69ea66ac251631020db82587097b9bcdecfb96621d801b51c7fdc0 0.1s done
+#24 exporting manifest list sha256:b45ac9b18e5c02a975a11b9e644182f58cf3eb1e4ae0ca15927a2fab91aa95eb 0.1s done
+#24 naming to docker.io/library/oi-ci-app-fresh:latest
+#24 naming to docker.io/library/oi-ci-app-fresh:latest 0.0s done
+#24 unpacking to docker.io/library/oi-ci-app-fresh:latest
+#24 unpacking to docker.io/library/oi-ci-app-fresh:latest 1.4s done
+#24 DONE 4.0s
+
+#25 [app] exporting to image
+#25 exporting layers 2.0s done
+#25 exporting manifest sha256:9b4ce756398e383d928e9e65190ecf4bda2b7ecf84f61891c2c4e6cb2628d538 0.1s done
+#25 exporting config sha256:640e372f35c7d7cfaf15be76dde8f3b9342e01f4f13da8f945c3fcfa1b27de80 0.1s done
+#25 exporting attestation manifest sha256:730827b612e6258f2bfe6673d9e739a7283058de7b8675147b2667f64fac03a3 0.1s done
+#25 exporting manifest list sha256:7528e36f84589a79e7a0ecd77e110b39bf257473304220e141d6f9da80b38a6b 0.1s done
+#25 naming to docker.io/library/oi-ci-app:latest 0.0s done
+#25 unpacking to docker.io/library/oi-ci-app:latest 1.4s done
+#25 DONE 3.9s
+
+#26 [app-no-mail] exporting to image
+#26 exporting layers 2.0s done
+#26 exporting manifest sha256:6d77e091f15e9f761123346b3cc48478e39e975623fdf40acb66baa905024d6d 0.1s done
+#26 exporting config sha256:6aba8d7ad7deee4dced6c0aa214ee39f579ec39f074d2e59b9cd1966b345f7b5 0.1s done
+#26 exporting attestation manifest sha256:1804170ae4bf011fe227e80a2cf68b4cdae0976464b806b11b71fafe8b2fa8ea 0.1s done
+#26 exporting manifest list sha256:25ba7049247b99b5bbba9215da8075e58acff86f887f5f21e100be0ffcf2f5a2 0.1s done
+#26 naming to docker.io/library/oi-ci-app-no-mail:latest 0.0s done
+#26 unpacking to docker.io/library/oi-ci-app-no-mail:latest 1.4s done
+#26 DONE 3.9s
+
+#27 [app-social] exporting to image
+#27 exporting layers 2.0s done
+#27 exporting manifest sha256:549ef3765b02454493baec7af900b6376a3747518c1726c58640107f1904e1a0 0.1s done
+#27 exporting config sha256:62f8bb5cf175c408657b9a7a8a79abfcd3de15b826c9de8172c9c6fdd873068f 0.1s done
+#27 exporting attestation manifest sha256:4baceb72e7dbda2edeb3b3b88d086abb0e351328e9548dbf06e337248bdf2c71 0.1s done
+#27 exporting manifest list sha256:0c3d59a34d2f4d405c382d042398a5e7f20d1f3440d34b3f202956b6c45a1406 0.1s done
+#27 naming to docker.io/library/oi-ci-app-social:latest 0.0s done
+#27 unpacking to docker.io/library/oi-ci-app-social:latest 1.4s done
+#27 DONE 4.0s
+
+#28 [app-no-mail] resolving provenance for metadata file
+#28 DONE 0.6s
+
+#29 [app-social] resolving provenance for metadata file
+#29 DONE 0.3s
+
+#30 [app-fresh] resolving provenance for metadata file
+#30 DONE 0.0s
+
+#31 [app] resolving provenance for metadata file
+#31 DONE 0.5s
+ Image oi-ci-app Built 
+ Image oi-ci-app-fresh Built 
+ Image oi-ci-app-no-mail Built 
+ Image oi-ci-app-social Built 
+ Volume oi-ci_db-data Creating 
+ Volume oi-ci_db-data Creating 
+ Volume oi-ci_uploads Creating 
+ Volume oi-ci_uploads Creating 
+ Network oi-ci_default Creating 
+ Network oi-ci_default Creating 
+ Volume oi-ci_db-data Created 
+ Volume oi-ci_db-data Created 
+ Volume oi-ci_uploads Created 
+ Volume oi-ci_uploads Created 
+ Network oi-ci_default Created 
+ Network oi-ci_default Created 
+ Container oi-ci-mail-1 Creating 
+ Container oi-ci-db-fresh-1 Creating 
+ Container oi-ci-db-1 Creating 
+ Container oi-ci-db-no-mail-1 Creating 
+ Container oi-ci-mail-1 Created 
+ Container oi-ci-db-fresh-1 Created 
+ Container oi-ci-app-fresh-1 Creating 
+ Container oi-ci-db-no-mail-1 Created 
+ Container oi-ci-app-no-mail-1 Creating 
+ Container oi-ci-db-1 Created 
+ Container oi-ci-app-social-1 Creating 
+ Container oi-ci-app-1 Creating 
+ Container oi-ci-app-fresh-1 Created 
+ Container oi-ci-app-no-mail-1 Created 
+ Container oi-ci-app-1 Created 
+ Container oi-ci-app-social-1 Created 
+ Container oi-ci-mail-1 Starting 
+ Container oi-ci-db-fresh-1 Starting 
+ Container oi-ci-db-1 Starting 
+ Container oi-ci-db-no-mail-1 Starting 
+ Container oi-ci-mail-1 Started 
+ Container oi-ci-db-fresh-1 Started 
+ Container oi-ci-db-fresh-1 Waiting 
+ Container oi-ci-db-1 Started 
+ Container oi-ci-db-1 Waiting 
+ Container oi-ci-db-1 Waiting 
+ Container oi-ci-db-no-mail-1 Started 
+ Container oi-ci-db-no-mail-1 Waiting 
+ Container oi-ci-db-fresh-1 Healthy 
+ Container oi-ci-app-fresh-1 Starting 
+ Container oi-ci-app-fresh-1 Started 
+ Container oi-ci-db-no-mail-1 Healthy 
+ Container oi-ci-app-no-mail-1 Starting 
+ Container oi-ci-app-no-mail-1 Started 
+ Container oi-ci-db-1 Healthy 
+ Container oi-ci-app-1 Starting 
+ Container oi-ci-db-1 Healthy 
+ Container oi-ci-app-social-1 Starting 
+ Container oi-ci-app-1 Started 
+ Container oi-ci-app-social-1 Started 
+ Container oi-ci-db-no-mail-1 Waiting 
+ Container oi-ci-db-fresh-1 Waiting 
+ Container oi-ci-db-1 Waiting 
+ Container oi-ci-mail-1 Waiting 
+ Container oi-ci-app-fresh-1 Waiting 
+ Container oi-ci-app-1 Waiting 
+ Container oi-ci-app-social-1 Waiting 
+ Container oi-ci-app-no-mail-1 Waiting 
+ Container oi-ci-db-fresh-1 Healthy 
+ Container oi-ci-db-1 Healthy 
+ Container oi-ci-db-no-mail-1 Healthy 
+ Container oi-ci-mail-1 Healthy 
+ Container oi-ci-app-fresh-1 Healthy 
+ Container oi-ci-app-no-mail-1 Healthy 
+ Container oi-ci-app-1 Healthy 
+ Container oi-ci-app-social-1 Healthy 

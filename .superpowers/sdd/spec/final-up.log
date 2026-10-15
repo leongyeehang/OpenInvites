@@ -1,0 +1,236 @@
+ Image openinvites-app Building 
+ Image openinvites-app-fresh Building 
+ Image openinvites-app-social Building 
+ Image openinvites-app-no-mail Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.74kB done
+#1 DONE 0.0s
+
+#2 [app-social internal] load build definition from Dockerfile
+#2 transferring dockerfile: 2.26kB done
+#2 DONE 0.0s
+
+#3 [app-social] resolve image config for docker-image://docker.io/docker/dockerfile:1
+#3 DONE 1.5s
+
+#4 [app-fresh] docker-image://docker.io/docker/dockerfile:1@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32
+#4 resolve docker.io/docker/dockerfile:1@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32 0.0s done
+#4 CACHED
+
+#5 [app internal] load metadata for docker.io/library/node:22-alpine
+#5 DONE 1.1s
+
+#6 [app-social internal] load .dockerignore
+#6 transferring context: 474B done
+#6 DONE 0.0s
+
+#7 [app base 1/3] FROM docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+#7 resolve docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 0.0s done
+#7 DONE 0.0s
+
+#8 [app-fresh internal] load build context
+#8 transferring context: 653.83kB 0.0s done
+#8 transferring context: 653.83kB 0.0s done
+#8 DONE 0.0s
+
+#9 [app-no-mail base 3/3] WORKDIR /app
+#9 CACHED
+
+#10 [app-no-mail deps 1/2] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .pnpmfile.cjs ./
+#10 CACHED
+
+#11 [app-no-mail deps 2/2] RUN pnpm install --frozen-lockfile
+#11 CACHED
+
+#12 [app-no-mail base 2/3] RUN corepack enable
+#12 CACHED
+
+#13 [app-social build 1/3] COPY --from=deps /app/node_modules ./node_modules
+#13 CACHED
+
+#14 [app-no-mail build 2/3] COPY . .
+#14 DONE 0.1s
+
+#15 [app-no-mail build 3/3] RUN pnpm build
+#15 2.071 
+#15 2.071 > openinvites@0.1.0 build /app
+#15 2.071 > NEXT_TELEMETRY_DISABLED=1 next build
+#15 2.071 
+#15 2.381 ▲ Next.js 16.3.5 (Turbopack)
+#15 2.426 ✓ Running next.config.ts took 45ms
+#15 2.435 
+#15 2.459   Creating an optimized production build ...
+#15 13.55 ✓ Compiled successfully in 10.9s
+#15 13.55   Running TypeScript ...
+#15 20.41   Finished TypeScript in 6.9s ...
+#15 20.41   Collecting page data using 3 workers ...
+#15 21.39   Generating static pages using 3 workers (0/15) ...
+#15 21.50   Generating static pages using 3 workers (3/15) 
+#15 21.52   Generating static pages using 3 workers (7/15) 
+#15 21.57   Generating static pages using 3 workers (11/15) 
+#15 21.59 ✓ Generating static pages using 3 workers (15/15) in 201ms
+#15 21.59   Finalizing page optimization ...
+#15 21.85 
+#15 21.86 Route (app)
+#15 21.86 ┌ ƒ /
+#15 21.86 ├ ƒ /_not-found
+#15 21.86 ├ ƒ /account
+#15 21.86 ├ ƒ /api/auth/[...all]
+#15 21.86 ├ ƒ /api/events/[id]/upload
+#15 21.86 ├ ƒ /api/health
+#15 21.86 ├ ƒ /dashboard
+#15 21.86 ├ ƒ /e/[slug]
+#15 21.86 ├ ƒ /e/[slug]/calendar.ics
+#15 21.86 ├ ƒ /e/[slug]/preview.png
+#15 21.86 ├ ƒ /events/[id]
+#15 21.86 ├ ƒ /events/[id]/guests
+#15 21.86 ├ ƒ /events/[id]/share
+#15 21.86 ├ ƒ /events/new
+#15 21.86 ├ ƒ /forgot-password
+#15 21.86 ├ ƒ /host-invitation/[token]
+#15 21.86 ├ ƒ /instance
+#15 21.86 ├ ƒ /privacy
+#15 21.86 ├ ƒ /r/[token]
+#15 21.86 ├ ƒ /reset-password
+#15 21.86 ├ ƒ /sign-in
+#15 21.86 ├ ƒ /sign-up
+#15 21.86 ├ ƒ /terms
+#15 21.86 ├ ƒ /too-fast
+#15 21.86 ├ ƒ /uploads/[id]/[file]
+#15 21.86 └ ƒ /verify-email
+#15 21.86 
+#15 21.86 
+#15 21.86 ƒ Proxy (Middleware)
+#15 21.86 
+#15 21.86 ƒ  (Dynamic)  server-rendered on demand
+#15 21.86 
+#15 DONE 22.2s
+
+#16 [app-fresh runner 2/9] WORKDIR /app
+#16 CACHED
+
+#17 [app runner 3/9] COPY --from=build --chown=node:node /app/.next/standalone ./
+#17 DONE 0.3s
+
+#18 [app-social runner 4/9] COPY --from=build --chown=node:node /app/.next/static ./.next/static
+#18 DONE 0.2s
+
+#19 [app-fresh runner 5/9] COPY --from=build --chown=node:node /app/public ./public
+#19 DONE 0.3s
+
+#20 [app-no-mail runner 6/9] COPY --from=build --chown=node:node /app/drizzle ./drizzle
+#20 DONE 0.1s
+
+#21 [app runner 7/9] COPY --from=build --chown=node:node /app/scripts ./scripts
+#21 DONE 0.1s
+
+#22 [app-fresh runner 8/9] RUN cd node_modules && ln -s "$(find .pnpm -maxdepth 3 -type d -path '*/node_modules/postgres')" postgres   && test -f postgres/package.json
+#22 DONE 0.3s
+
+#23 [app-no-mail runner 9/9] RUN mkdir uploads && chown node:node uploads
+#23 DONE 0.4s
+
+#24 [app-social] exporting to image
+#24 exporting layers
+#24 exporting layers 1.4s done
+#24 exporting manifest sha256:9960fb6945ad79a6c58783eec01a7057a7ed2a22d0e809fe6fd41943cfd15b23 0.0s done
+#24 exporting config sha256:d17473a3efdad775f631c3038d0eb4404bff41f37b67f5d07562c63764a534fa 0.1s done
+#24 exporting attestation manifest sha256:06eff20e908ca7f36456431341799c5e4372697310296b6bfc580c0e22747dc1 0.1s done
+#24 exporting manifest list sha256:85e494f8263284aac67f8bca5c8ab406d82e6a4158bd48878034e30e2ee6b07c
+#24 exporting manifest list sha256:85e494f8263284aac67f8bca5c8ab406d82e6a4158bd48878034e30e2ee6b07c 0.0s done
+#24 naming to docker.io/library/openinvites-app-social:latest 0.0s done
+#24 unpacking to docker.io/library/openinvites-app-social:latest
+#24 unpacking to docker.io/library/openinvites-app-social:latest 0.8s done
+#24 DONE 2.5s
+
+#25 [app-fresh] exporting to image
+#25 exporting layers 1.4s done
+#25 exporting manifest sha256:228a3426198e82f1c9430adec76d7e174a29f2eb4e97139751e12d5f7a2f4f90 0.0s done
+#25 exporting config sha256:410f261d653b6998d32d33741fa4ab27f34056a82c2b68dd1488f605902ccdc3 0.0s done
+#25 exporting attestation manifest sha256:1ecce7da0a9e3e779bd1a0f33a1f0de684c84a36093d2f7e9e99dbfe11fe23b3 0.1s done
+#25 exporting manifest list sha256:9db0a66327de613ea4d9e83a0945b5bb51a327b6f856bf8a102a8e0ac797ec6f 0.0s done
+#25 naming to docker.io/library/openinvites-app-fresh:latest 0.0s done
+#25 unpacking to docker.io/library/openinvites-app-fresh:latest 0.8s done
+#25 DONE 2.5s
+
+#26 [app-no-mail] exporting to image
+#26 exporting layers 1.4s done
+#26 exporting manifest sha256:9d04e10050b1e8d70543a14e68db0bbcc7cde3126968f2732bbaa50485cc116a 0.0s done
+#26 exporting config sha256:f084602fb97b63268e3ec953144da78521660728fc7a2b86bce6780b56e279ae 0.1s done
+#26 exporting attestation manifest sha256:e9a3fb914d23f0640a23522cd564565337397c167807b0a9c885210dc2b73278 0.1s done
+#26 exporting manifest list sha256:156f3918cbcb6344c208b41f9a02b3c689eeca8da4a629f62dcbd90e7bf668fa 0.0s done
+#26 naming to docker.io/library/openinvites-app-no-mail:latest 0.0s done
+#26 unpacking to docker.io/library/openinvites-app-no-mail:latest 0.8s done
+#26 DONE 2.5s
+
+#27 [app] exporting to image
+#27 exporting layers 1.4s done
+#27 exporting manifest sha256:df1f2ed13f9daa0a10f4c3eba8c0b74c42c2cfaf7b1a25a62d0ec42496b3e086 0.1s done
+#27 exporting config sha256:83faddc464690863da73191303b8774b759701aaea5d6007f90dafc8726fe80c 0.1s done
+#27 exporting attestation manifest sha256:39b22c844c4fb1a2359aa0c46df2fedb40c675b450578208d82348c78eec968f 0.1s done
+#27 exporting manifest list sha256:76b9320f8b9b31956f6b1c0358b289d23f8ee84fb4d36b7f71ea5b2b1cf6eb5d 0.0s done
+#27 naming to docker.io/library/openinvites-app:latest done
+#27 unpacking to docker.io/library/openinvites-app:latest 0.8s done
+#27 DONE 2.5s
+
+#28 [app-fresh] resolving provenance for metadata file
+#28 DONE 0.2s
+
+#29 [app-social] resolving provenance for metadata file
+#29 DONE 0.2s
+
+#30 [app-no-mail] resolving provenance for metadata file
+#30 DONE 0.1s
+
+#31 [app] resolving provenance for metadata file
+#31 DONE 0.0s
+ Image openinvites-app-fresh Built 
+ Image openinvites-app-no-mail Built 
+ Image openinvites-app-social Built 
+ Image openinvites-app Built 
+ Container openinvites-mail-1 Running 
+ Container openinvites-db-1 Running 
+ Container openinvites-app-no-mail-1 Recreate 
+ Container openinvites-app-1 Recreate 
+ Container openinvites-app-social-1 Recreate 
+ Container openinvites-app-fresh-1 Recreate 
+ Container openinvites-app-no-mail-1 Recreated 
+ Container openinvites-app-1 Recreated 
+ Container openinvites-app-fresh-1 Recreated 
+ Container openinvites-app-social-1 Recreated 
+ Container openinvites-db-fresh-1 Starting 
+ Container openinvites-db-no-mail-1 Starting 
+ Container openinvites-db-1 Waiting 
+ Container openinvites-db-1 Waiting 
+ Container openinvites-db-fresh-1 Started 
+ Container openinvites-db-fresh-1 Waiting 
+ Container openinvites-db-1 Healthy 
+ Container openinvites-app-1 Starting 
+ Container openinvites-db-1 Healthy 
+ Container openinvites-app-social-1 Starting 
+ Container openinvites-db-no-mail-1 Started 
+ Container openinvites-db-no-mail-1 Waiting 
+ Container openinvites-app-1 Started 
+ Container openinvites-app-social-1 Started 
+ Container openinvites-db-fresh-1 Healthy 
+ Container openinvites-app-fresh-1 Starting 
+ Container openinvites-db-no-mail-1 Healthy 
+ Container openinvites-app-no-mail-1 Starting 
+ Container openinvites-app-fresh-1 Started 
+ Container openinvites-app-no-mail-1 Started 
+ Container openinvites-db-1 Waiting 
+ Container openinvites-mail-1 Waiting 
+ Container openinvites-app-no-mail-1 Waiting 
+ Container openinvites-db-fresh-1 Waiting 
+ Container openinvites-app-1 Waiting 
+ Container openinvites-app-fresh-1 Waiting 
+ Container openinvites-db-no-mail-1 Waiting 
+ Container openinvites-app-social-1 Waiting 
+ Container openinvites-db-1 Healthy 
+ Container openinvites-db-no-mail-1 Healthy 
+ Container openinvites-db-fresh-1 Healthy 
+ Container openinvites-mail-1 Healthy 
+ Container openinvites-app-1 Healthy 
+ Container openinvites-app-social-1 Healthy 
+ Container openinvites-app-fresh-1 Healthy 
+ Container openinvites-app-no-mail-1 Healthy 

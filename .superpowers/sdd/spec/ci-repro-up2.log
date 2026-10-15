@@ -1,0 +1,257 @@
+ Image oi-ci-app-fresh Building 
+ Image oi-ci-app-social Building 
+ Image oi-ci-app Building 
+ Image oi-ci-app-no-mail Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.70kB done
+#1 DONE 0.0s
+
+#2 [app-fresh internal] load build definition from Dockerfile
+#2 transferring dockerfile: 2.26kB done
+#2 DONE 0.1s
+
+#3 [app-social] resolve image config for docker-image://docker.io/docker/dockerfile:1
+#3 DONE 2.1s
+
+#4 [app-fresh] docker-image://docker.io/docker/dockerfile:1@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32
+#4 resolve docker.io/docker/dockerfile:1@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32 0.0s done
+#4 CACHED
+
+#5 [app-social internal] load metadata for docker.io/library/node:22-alpine
+#5 DONE 1.3s
+
+#6 [app internal] load .dockerignore
+#6 transferring context: 474B done
+#6 DONE 0.0s
+
+#7 [app base 1/3] FROM docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+#7 resolve docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 0.0s done
+#7 DONE 0.0s
+
+#8 [app-social internal] load build context
+#8 transferring context: 80.36kB 0.0s done
+#8 DONE 0.1s
+
+#9 [app base 2/3] RUN corepack enable
+#9 CACHED
+
+#10 [app base 3/3] WORKDIR /app
+#10 CACHED
+
+#11 [app deps 1/2] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .pnpmfile.cjs ./
+#11 CACHED
+
+#12 [app deps 2/2] RUN pnpm install --frozen-lockfile
+#12 CACHED
+
+#13 [app build 1/3] COPY --from=deps /app/node_modules ./node_modules
+#13 CACHED
+
+#14 [app-no-mail build 2/3] COPY . .
+#14 DONE 0.1s
+
+#15 [app-social build 3/3] RUN pnpm build
+#15 1.741 
+#15 1.741 > openinvites@0.1.0 build /app
+#15 1.741 > NEXT_TELEMETRY_DISABLED=1 next build
+#15 1.741 
+#15 2.257 ▲ Next.js 16.3.5 (Turbopack)
+#15 2.394 ✓ Running next.config.ts took 136ms
+#15 2.407 
+#15 2.436   Creating an optimized production build ...
+#15 17.82 ✓ Compiled successfully in 15.1s
+#15 17.86   Running TypeScript ...
+#15 29.40   Finished TypeScript in 11.5s ...
+#15 29.41   Collecting page data using 3 workers ...
+#15 31.24   Generating static pages using 3 workers (0/15) ...
+#15 31.36   Generating static pages using 3 workers (3/15) 
+#15 31.39   Generating static pages using 3 workers (7/15) 
+#15 31.47   Generating static pages using 3 workers (11/15) 
+#15 31.50 ✓ Generating static pages using 3 workers (15/15) in 265ms
+#15 31.51   Finalizing page optimization ...
+#15 31.97 
+#15 31.97 Route (app)
+#15 31.97 ┌ ƒ /
+#15 31.97 ├ ƒ /_not-found
+#15 31.97 ├ ƒ /account
+#15 31.97 ├ ƒ /api/auth/[...all]
+#15 31.97 ├ ƒ /api/events/[id]/upload
+#15 31.97 ├ ƒ /api/health
+#15 31.97 ├ ƒ /dashboard
+#15 31.97 ├ ƒ /e/[slug]
+#15 31.97 ├ ƒ /e/[slug]/calendar.ics
+#15 31.97 ├ ƒ /e/[slug]/preview.png
+#15 31.97 ├ ƒ /events/[id]
+#15 31.97 ├ ƒ /events/[id]/guests
+#15 31.97 ├ ƒ /events/[id]/share
+#15 31.97 ├ ƒ /events/new
+#15 31.97 ├ ƒ /forgot-password
+#15 31.97 ├ ƒ /host-invitation/[token]
+#15 31.97 ├ ƒ /instance
+#15 31.97 ├ ƒ /privacy
+#15 31.97 ├ ƒ /r/[token]
+#15 31.97 ├ ƒ /reset-password
+#15 31.97 ├ ƒ /sign-in
+#15 31.97 ├ ƒ /sign-up
+#15 31.97 ├ ƒ /terms
+#15 31.97 ├ ƒ /too-fast
+#15 31.97 ├ ƒ /uploads/[id]/[file]
+#15 31.97 └ ƒ /verify-email
+#15 31.97 
+#15 31.97 
+#15 31.97 ƒ Proxy (Middleware)
+#15 31.97 
+#15 31.97 ƒ  (Dynamic)  server-rendered on demand
+#15 31.97 
+#15 DONE 32.6s
+
+#16 [app runner 2/9] WORKDIR /app
+#16 CACHED
+
+#17 [app runner 3/9] COPY --from=build --chown=node:node /app/.next/standalone ./
+#17 DONE 0.3s
+
+#18 [app runner 4/9] COPY --from=build --chown=node:node /app/.next/static ./.next/static
+#18 DONE 0.1s
+
+#19 [app-no-mail runner 5/9] COPY --from=build --chown=node:node /app/public ./public
+#19 DONE 0.1s
+
+#20 [app-fresh runner 6/9] COPY --from=build --chown=node:node /app/drizzle ./drizzle
+#20 DONE 0.1s
+
+#21 [app-fresh runner 7/9] COPY --from=build --chown=node:node /app/scripts ./scripts
+#21 DONE 0.1s
+
+#22 [app-fresh runner 8/9] RUN cd node_modules && ln -s "$(find .pnpm -maxdepth 3 -type d -path '*/node_modules/postgres')" postgres   && test -f postgres/package.json
+#22 DONE 0.2s
+
+#23 [app-social runner 9/9] RUN mkdir uploads && chown node:node uploads
+#23 DONE 0.2s
+
+#24 [app] exporting to image
+#24 exporting layers
+#24 exporting layers 1.4s done
+#24 exporting manifest sha256:2d85511eed52bd9eedc414c73728f3b46e9d4056e3dc1f48d7cf56e68dd128a5 0.0s done
+#24 exporting config sha256:82fda93318f1c2486a6b338406484635010e29996bc3948554924f1af233239e 0.1s done
+#24 exporting attestation manifest sha256:1d23d7a3cae78d08fa733edb7e791e5a27562f4de0fc085ea95f9606135b1126 0.1s done
+#24 exporting manifest list sha256:8384fd3d06777932335c127d7842677d327c0df1f2ee3f9234300220c4894ee5
+#24 exporting manifest list sha256:8384fd3d06777932335c127d7842677d327c0df1f2ee3f9234300220c4894ee5 0.0s done
+#24 naming to docker.io/library/oi-ci-app:latest 0.0s done
+#24 unpacking to docker.io/library/oi-ci-app:latest
+#24 unpacking to docker.io/library/oi-ci-app:latest 0.9s done
+#24 DONE 2.6s
+
+#25 [app-no-mail] exporting to image
+#25 exporting layers 1.4s done
+#25 exporting manifest sha256:49764359645580c6d0743e7ff6f35928f163bcc297b76533a1b4738b0be42aae 0.1s done
+#25 exporting config sha256:3ae1659654b9dd820868eed2d27c31c75991978d83d4bbe539f18f28d7d20507 0.1s done
+#25 exporting attestation manifest sha256:e9d7824b012a80553e80ae8716f8123ca7b1741eee776259f2e1a0d6c6894fed 0.1s done
+#25 exporting manifest list sha256:b04bcb55f20d0d8c5adff2e13011d2edcd2ce88bfe856acda91c97868a992fcf 0.1s done
+#25 naming to docker.io/library/oi-ci-app-no-mail:latest 0.0s done
+#25 unpacking to docker.io/library/oi-ci-app-no-mail:latest 0.9s done
+#25 DONE 2.6s
+
+#26 [app-fresh] exporting to image
+#26 exporting layers 1.4s done
+#26 exporting manifest sha256:d91625ac8e04ce4721d73873571c8392986725d24e3e2503e7043178c7bfe6c5 0.0s done
+#26 exporting config sha256:78a107ccd657494f7ea93ad372c8c9add59915d1e97369b0cbfb478b6aa7349f 0.1s done
+#26 exporting attestation manifest sha256:da461bed6df522dfe852f93748f5b44b62150df740e5fa0a861de1a62d762630 0.1s done
+#26 exporting manifest list sha256:115575de3570df340715dec4189dfb4b064e7c24b93298c5a54cbbe7988840d1 0.0s done
+#26 naming to docker.io/library/oi-ci-app-fresh:latest 0.0s done
+#26 unpacking to docker.io/library/oi-ci-app-fresh:latest 0.9s done
+#26 DONE 2.6s
+
+#27 [app-social] exporting to image
+#27 exporting layers 1.4s done
+#27 exporting manifest sha256:243dba6ce51a640858aaa8b995fda573eb91d809b083376e29741603c546c381 0.1s done
+#27 exporting config sha256:8daecc3ab7b64a4720d4e80bec1c8ca33900a084df7081fd1641755daeee45c7 0.1s done
+#27 exporting attestation manifest sha256:eaa9a0580db4cba7730a484465ed997846668c53a98cc5108207beaa5615042c 0.1s done
+#27 exporting manifest list sha256:fc15fcd7dc344983f9936e9e7263b8b947c0272d896c54b07b59bb3500bfef20 0.1s done
+#27 naming to docker.io/library/oi-ci-app-social:latest done
+#27 unpacking to docker.io/library/oi-ci-app-social:latest 0.9s done
+#27 DONE 2.7s
+
+#28 [app] resolving provenance for metadata file
+#28 DONE 0.2s
+
+#29 [app-fresh] resolving provenance for metadata file
+#29 DONE 0.1s
+
+#30 [app-no-mail] resolving provenance for metadata file
+#30 DONE 0.2s
+
+#31 [app-social] resolving provenance for metadata file
+#31 DONE 0.0s
+ Image oi-ci-app Built 
+ Image oi-ci-app-fresh Built 
+ Image oi-ci-app-no-mail Built 
+ Image oi-ci-app-social Built 
+ Network oi-ci_default Creating 
+ Network oi-ci_default Creating 
+ Volume oi-ci_db-data Creating 
+ Volume oi-ci_db-data Creating 
+ Volume oi-ci_uploads Creating 
+ Volume oi-ci_uploads Creating 
+ Volume oi-ci_db-data Created 
+ Volume oi-ci_db-data Created 
+ Volume oi-ci_uploads Created 
+ Volume oi-ci_uploads Created 
+ Network oi-ci_default Created 
+ Network oi-ci_default Created 
+ Container oi-ci-db-fresh-1 Creating 
+ Container oi-ci-db-1 Creating 
+ Container oi-ci-mail-1 Creating 
+ Container oi-ci-db-no-mail-1 Creating 
+ Container oi-ci-db-no-mail-1 Created 
+ Container oi-ci-app-no-mail-1 Creating 
+ Container oi-ci-db-fresh-1 Created 
+ Container oi-ci-mail-1 Created 
+ Container oi-ci-app-fresh-1 Creating 
+ Container oi-ci-db-1 Created 
+ Container oi-ci-app-1 Creating 
+ Container oi-ci-app-social-1 Creating 
+ Container oi-ci-app-no-mail-1 Created 
+ Container oi-ci-app-fresh-1 Created 
+ Container oi-ci-app-social-1 Created 
+ Container oi-ci-app-1 Created 
+ Container oi-ci-db-no-mail-1 Starting 
+ Container oi-ci-db-1 Starting 
+ Container oi-ci-mail-1 Starting 
+ Container oi-ci-db-fresh-1 Starting 
+ Container oi-ci-db-no-mail-1 Started 
+ Container oi-ci-db-no-mail-1 Waiting 
+ Container oi-ci-db-1 Started 
+ Container oi-ci-mail-1 Started 
+ Container oi-ci-db-1 Waiting 
+ Container oi-ci-db-1 Waiting 
+ Container oi-ci-db-fresh-1 Started 
+ Container oi-ci-db-fresh-1 Waiting 
+ Container oi-ci-db-no-mail-1 Healthy 
+ Container oi-ci-app-no-mail-1 Starting 
+ Container oi-ci-app-no-mail-1 Started 
+ Container oi-ci-db-fresh-1 Healthy 
+ Container oi-ci-app-fresh-1 Starting 
+ Container oi-ci-app-fresh-1 Started 
+ Container oi-ci-db-1 Healthy 
+ Container oi-ci-app-social-1 Starting 
+ Container oi-ci-db-1 Healthy 
+ Container oi-ci-app-1 Starting 
+ Container oi-ci-app-social-1 Started 
+ Container oi-ci-app-1 Started 
+ Container oi-ci-app-fresh-1 Waiting 
+ Container oi-ci-db-1 Waiting 
+ Container oi-ci-db-fresh-1 Waiting 
+ Container oi-ci-app-social-1 Waiting 
+ Container oi-ci-mail-1 Waiting 
+ Container oi-ci-db-no-mail-1 Waiting 
+ Container oi-ci-app-1 Waiting 
+ Container oi-ci-app-no-mail-1 Waiting 
+ Container oi-ci-db-1 Healthy 
+ Container oi-ci-db-fresh-1 Healthy 
+ Container oi-ci-db-no-mail-1 Healthy 
+ Container oi-ci-mail-1 Healthy 
+ Container oi-ci-app-no-mail-1 Healthy 
+ Container oi-ci-app-fresh-1 Healthy 
+ Container oi-ci-app-social-1 Healthy 
+ Container oi-ci-app-1 Healthy 

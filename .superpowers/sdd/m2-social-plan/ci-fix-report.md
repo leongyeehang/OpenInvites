@@ -1,0 +1,1 @@
+CI fix: thread-composer.tsx done-bubble focus paragraph got data-slot="done-text"; e2e/keyboard.spec.ts:155 targets it (no other e2e use of `[data-slot="done"] p`). Lint, typecheck clean. Production-build loop: keyboard + thread specs 29 passed (desktop and mobile). Commits b495b49 (test fix), 7adf954 (CI timeout 45). Pushed. New CI run 37873436862.
