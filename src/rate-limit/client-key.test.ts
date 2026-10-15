@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clientKey } from "./client-key";
+import { clientAddress, clientKey } from "./client-key";
 
 // X-Forwarded-For grows by one entry at each proxy: every proxy appends the address of whoever
 // connected to it. Only the entries the operator's own proxies wrote can be believed; anything
@@ -75,5 +75,22 @@ describe("clientKey: one key per client", () => {
 
   it("keeps an IPv4 address as it is", () => {
     expect(clientKey("198.51.100.4", 1)).toBe("198.51.100.4");
+  });
+});
+
+// The address itself, for a service that asks where a request came from (Turnstile's check): the
+// entry the limits believe, as it was written, an IPv6 address whole rather than its /64.
+describe("clientAddress", () => {
+  it("is the entry the limits believe", () => {
+    expect(clientAddress("6.6.6.6, 203.0.113.7", 1)).toBe("203.0.113.7");
+    expect(clientAddress("6.6.6.6, 198.51.100.4, 10.0.0.2", 2)).toBe("198.51.100.4");
+    expect(clientAddress(" 2001:db8:1:2::1 ", 1)).toBe("2001:db8:1:2::1");
+    expect(clientAddress("::ffff:203.0.113.7", 1)).toBe("::ffff:203.0.113.7");
+  });
+
+  it("is nothing where the limits believe nothing", () => {
+    expect(clientAddress("203.0.113.7", 0)).toBeNull();
+    expect(clientAddress(null, 1)).toBeNull();
+    expect(clientAddress("203.0.113.7, not-an-address", 1)).toBeNull();
   });
 });

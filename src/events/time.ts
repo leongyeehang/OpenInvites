@@ -104,6 +104,12 @@ export function partitionByEnd<T extends EventTime>(events: T[], now: Date): { u
   };
 }
 
+// A day the host is told of, such as the day an event will be deleted for its age (spec,
+// "Retention"), in the event's own zone, as every time on the host's pages is: "November 12, 2026".
+export function formatDay(instant: Date, timeZone: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { timeZone, dateStyle: "long" }).format(instant);
+}
+
 // A moment on the host's guest list, shown in the event's own zone so every time on the page
 // belongs to the same clock: "3 Oct, 19:04".
 export function formatMoment(instant: Date, timeZone: string, locale: string): string {

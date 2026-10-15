@@ -111,7 +111,7 @@ test("the guests who said Going are reminded the day before, and an event with r
   // worker's claim lets either container queue a reminder, under its own BASE_URL (compose.yaml).
   expect(reminder.text).toMatch(new RegExp(`^https?://\\S+${new URL(birthday).pathname}$`, "m"));
   expect(reminder.text).toMatch(
-    /You are getting this because you gave your email when you replied to Ada’s birthday\. To stop emails about this event: https?:\/\/\S+\/m\/[A-Za-z0-9]{24}$/,
+    /You’re getting this because your email is on your reply to Ada’s birthday\. To stop emails about this event: https?:\/\/\S+\/m\/[A-Za-z0-9]{24}$/,
   );
   expect(await mailCountTo(request, maybe)).toBe(0);
   expect(await mailCountTo(request, fenced)).toBe(0);
@@ -120,8 +120,11 @@ test("the guests who said Going are reminded the day before, and an event with r
   await host.goto("/events/new");
   await expect(host.getByLabel(REMINDERS)).toBeChecked();
   await expect(host.getByText(ASK_EMAIL_HINT)).toBeVisible();
-  await host.getByLabel("Ask guests for an email address").check();
+  const email = host.getByRole("group", { name: "Contact details" }).getByLabel("Email", { exact: true });
+  await email.selectOption("optional");
   await expect(host.getByText(ASK_EMAIL_HINT)).toBeHidden();
+  await email.selectOption("none");
+  await expect(host.getByText(ASK_EMAIL_HINT)).toBeVisible();
 
   await context.close();
 });

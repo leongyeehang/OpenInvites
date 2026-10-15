@@ -2,10 +2,10 @@ import { getTranslations } from "next-intl/server";
 import { after } from "next/server";
 import { eventHosts } from "@/events/hosts";
 import type { Event } from "@/events/repository";
-import { baseUrl } from "@/instance/env";
 import { isMailConfigured } from "@/mail/config";
 import { queueMail } from "@/mail/outbox";
 import { kickMailWorker } from "@/mail/worker";
+import { eventUrl } from "@/events/slug";
 
 // Emails every host of the event about a new comment, when the event has it on and the instance has
 // mail (spec, "Host notifications"): who commented, what they wrote, and the event link. A host who
@@ -13,14 +13,14 @@ import { kickMailWorker } from "@/mail/worker";
 // language, as the hosts' reply emails are. It never throws: the comment is already posted, and a
 // failure here must not tell its author otherwise, so it is logged instead.
 export async function notifyHostsOfComment(
-  event: Pick<Event, "id" | "slug" | "title" | "notifyOnComment" | "locale">,
+  event: Pick<Event, "id" | "slug" | "customSlug" | "title" | "notifyOnComment" | "locale">,
   posted: { name: string; body: string; hostId: string | null },
 ): Promise<void> {
   if (!event.notifyOnComment || !isMailConfigured()) return;
 
   try {
     const t = await getTranslations({ locale: event.locale, namespace: "Mail.comment" });
-    const values = { name: posted.name, title: event.title, comment: posted.body, url: `${baseUrl()}/e/${event.slug}` };
+    const values = { name: posted.name, title: event.title, comment: posted.body, url: eventUrl(event) };
     const subject = t("subject", values);
     const text = t("body", values);
     const hosts = (await eventHosts(event.id)).filter((host) => host.id !== posted.hostId);

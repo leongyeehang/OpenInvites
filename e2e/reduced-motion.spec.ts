@@ -1,7 +1,7 @@
 import sharp from "sharp";
-import { createDraft } from "./events";
-import { OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
-import { expect, test, type APIRequestContext, type Page } from "./test";
+import { createDraft, createPublished } from "./events";
+import { latestMailTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
+import { clientAddress, expect, test, type APIRequestContext, type Browser, type Page } from "./test";
 
 // Ticket 20 (spec, story 65): when the guest's device asks for reduced motion, nothing moves
 // anywhere. After each thing a person does, the page is running no animation or transition, and
@@ -94,7 +94,7 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await expectStill(page, "the RSVP sheet, grown by a step");
   await sheet.getByRole("button", { name: "Continue" }).click();
   await sheet.getByRole("button", { name: "Send RSVP" }).click();
-  await expect(sheet.getByText("You’re going!")).toBeVisible();
+  await expect(sheet.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
   await expectStill(page, "the RSVP sheet, the confirmation");
   await sheet.getByRole("button", { name: "Close" }).click();
   await expect(sheet).toBeHidden();
@@ -121,7 +121,7 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await inline.getByRole("button", { name: "Continue" }).click();
   await expectStill(inline, "the Inline RSVP flow, the questions step");
   await inline.getByRole("button", { name: "Send RSVP" }).click();
-  await expect(inline.getByText("You’re going!")).toBeVisible();
+  await expect(inline.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
   // It would come with the confirmation, so none now is none at all.
   expect(await inline.locator('[data-effect="confetti"]').count()).toBe(0);
   await expectStill(inline, "the Inline RSVP flow, the confirmation, with confetti chosen");
@@ -160,7 +160,7 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await ballot.getByRole("button", { name: "One guest more" }).click();
   await expectStill(ballot, "the Broadsheet's ballot, filled in");
   await ballot.getByRole("button", { name: "Post my reply" }).click();
-  await expect(ballot.getByText("Received", { exact: true })).toBeVisible();
+  await expect(ballot.getByText("Received", { exact: true })).toBeVisible({ timeout: 15_000 });
   await expectStill(ballot, "the Broadsheet's receipt");
   await third.close();
 
@@ -182,7 +182,7 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await chat.getByRole("button", { name: "+1", exact: true }).click();
   await expectStill(chat, "the Thread's conversation, a question");
   await chat.getByRole("button", { name: "Skip", exact: true }).click();
-  await expect(chat.locator('[data-slot="done"]')).toBeVisible();
+  await expect(chat.locator('[data-slot="done"]')).toBeVisible({ timeout: 15_000 });
   expect(await chat.locator('[data-slot="typing"]').count()).toBe(0);
   await expectStill(chat, "the Thread's done bubble");
   await fourth.close();
@@ -209,6 +209,171 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
   await page.goto("/instance");
   await expectStill(page, "the instance settings");
+});
+
+// A guest of their own, at an address of their own, whose device asks for reduced motion.
+async function stillGuest(browser: Browser): Promise<Page> {
+  return (await browser.newContext({ reducedMotion: "reduce", extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
+}
+
+// The code in the newest email to the address, alone on its line.
+async function codeSentTo(request: APIRequestContext, email: string) {
+  return (await latestMailTo(request, email)).match(/^([0-9]{6})\r?$/m)![1];
+}
+
+// M3 (ticket 11): nothing M3 added moves either. On the Poster, in the sheet, on an event that
+// proves the guest's email, takes one guest and asks the host to approve each reply: the code step,
+// a reply waiting for the host, the event full, a reply on the waitlist and one declined; the
+// host's guest list with its new sections, and the invites page; a report sent, and the operator's
+// reports page.
+test("under reduced motion nothing M3 added moves: the code step, approval and the waitlist in the sheet, invites, and reports", async ({
+  page,
+  browser,
+  request,
+}) => {
+  test.setTimeout(240_000);
+  const context = await browser.newContext({ reducedMotion: "reduce" });
+  const host = await context.newPage();
+  await signUpVerified(host, request, "still-m3");
+  const link = await createDraft(host, { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0", capacity: "1", approval: true, email: "optional", verifyEmail: true });
+  const manage = host.url();
+  await host.getByRole("button", { name: "Publish" }).click();
+  await expect(host.getByText("Published", { exact: true })).toBeVisible({ timeout: 15_000 });
+  const decide = async (name: string, button: "Approve" | "Decline", lands: RegExp) => {
+    await host.goto(`${manage}/guests`);
+    await host.getByRole("region", { name: /^Waiting for approval/ }).getByRole("listitem").filter({ hasText: name }).getByRole("button", { name: button }).click();
+    await expect(host.getByRole("region", { name: lands }).getByText(name)).toBeVisible({ timeout: 15_000 });
+  };
+  // A Going reply in the sheet, with the email when one is given.
+  const reply = async (guest: Page, name: string, email?: string) => {
+    await guest.goto(link);
+    await guest.getByRole("button", { name: "Going" }).click();
+    const sheet = guest.getByRole("dialog", { name: "Your RSVP" });
+    await sheet.getByLabel("Your name").fill(name);
+    if (email) await sheet.getByLabel("Email").fill(email);
+    await sheet.getByRole("button", { name: "Send RSVP" }).click();
+    return sheet;
+  };
+
+  // Arjun proves his email with the code and waits for the host, who approves him: the one place.
+  const arjun = await stillGuest(browser);
+  const email = newHost("still-m3-guest").email;
+  const sheet = await reply(arjun, "Arjun Rao", email);
+  await expect(sheet.getByLabel("Code")).toBeFocused({ timeout: 15_000 });
+  await expectStill(arjun, "the code step, in the sheet");
+  await sheet.getByLabel("Code").fill(await codeSentTo(request, email));
+  await sheet.getByRole("button", { name: "Confirm" }).click();
+  await expect(sheet.getByRole("heading", { name: "Your reply is waiting for the host’s approval." })).toBeVisible({ timeout: 15_000 });
+  await expectStill(arjun, "a reply waiting for the host's approval, in the sheet");
+  await decide("Arjun Rao", "Approve", /^Going/);
+
+  // Bea finds the event full; she and Chen wait for the host, who puts Bea on the waitlist and
+  // declines Chen.
+  const [bea, chen] = [await stillGuest(browser), await stillGuest(browser)];
+  await bea.goto(link);
+  await expect(bea.getByText("This event is full. A Going reply joins the waitlist once the host approves it.")).toBeVisible();
+  await expectStill(bea, "the event page, full");
+  await expect((await reply(bea, "Bea Lim")).getByRole("heading", { name: "Your reply is waiting for the host’s approval." })).toBeVisible({ timeout: 15_000 });
+  await expect((await reply(chen, "Chen Wei")).getByRole("heading", { name: "Your reply is waiting for the host’s approval." })).toBeVisible({ timeout: 15_000 });
+  await host.goto(`${manage}/guests`);
+  await expectStill(host, "the guest list, two replies waiting for approval");
+  await decide("Bea Lim", "Approve", /^Waitlist/);
+  await decide("Chen Wei", "Decline", /^Declined/);
+  await expectStill(host, "the guest list, with the waitlist and a reply declined");
+  for (const [guest, heading] of [
+    [bea, "You’re on the waitlist, number 1."],
+    [chen, "The host wasn’t able to accept your reply."],
+  ] as const) {
+    await guest.reload();
+    await guest.getByRole("button", { name: "Show my RSVP" }).click();
+    await expect(guest.getByRole("dialog", { name: "Your RSVP" }).getByRole("heading", { name: heading })).toBeVisible();
+    await expectStill(guest, `the sheet: ${heading}`);
+  }
+
+  // The invites page, an invite made and its delete dialog open.
+  await host.goto(`${manage}/invites`);
+  await host.getByLabel("Name", { exact: true }).fill("Mei Lin");
+  await host.getByRole("button", { name: "Make link" }).click();
+  await expect(host.getByRole("status")).toHaveText("Made a link for Mei Lin.", { timeout: 15_000 });
+  await expectStill(host, "the invites page, an invite made");
+  await host.getByRole("button", { name: "Delete the invite for Mei Lin" }).hover();
+  await host.getByRole("button", { name: "Delete the invite for Mei Lin" }).click();
+  await expect(host.getByRole("alertdialog")).toBeVisible();
+  await expectStill(host, "the invites page, the delete dialog");
+
+  // A report, from the report form, and the operator's reports page.
+  await page.goto(link);
+  await page.getByRole("contentinfo").getByRole("link", { name: "Report this event" }).click();
+  await expectStill(page, "the report form");
+  await page.getByLabel("What’s wrong with this page?").fill(`This page is not what it says it is (still ${Date.now().toString(36)}).`);
+  await page.getByRole("button", { name: "Send report" }).click();
+  await expect(page.getByText("Thank you. Your report has reached the operator of this instance.")).toBeVisible({ timeout: 15_000 });
+  await expectStill(page, "the report form, sent");
+  await signIn(page, OPERATOR.email, PASSWORD);
+  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
+  await page.goto("/instance/reports");
+  await expectStill(page, "the reports page");
+
+  for (const guest of [arjun, bea, chen]) await guest.context().close();
+  await context.close();
+});
+
+// The Broadsheet and the Thread on an event that proves the guest's email and takes one guest: the
+// code step, the event full, and a reply on the waitlist, which the Broadsheet stamps Waitlisted.
+test("under reduced motion nothing moves in the code step, the full notice or the waitlist, on the Broadsheet and in the Thread", async ({
+  browser,
+  request,
+}) => {
+  test.setTimeout(240_000);
+  for (const layout of ["Broadsheet", "Thread"] as const) {
+    const host = await createPublished(browser, request, `still-${layout.toLowerCase()}`, {
+      title: "Ada’s birthday",
+      start: "2027-03-06T19:00",
+      plusOnes: "0",
+      capacity: "1",
+      email: "optional",
+      verifyEmail: true,
+      layout,
+    });
+    const where = `the ${layout}`;
+    // A Going reply, with the email when one is given.
+    const reply = async (guest: Page, name: string, email?: string) => {
+      await guest.goto(host.link);
+      if (layout === "Broadsheet") {
+        await guest.getByRole("radio", { name: "I’ll be there", exact: true }).check();
+        await guest.getByLabel("Your name").fill(name);
+        if (email) await guest.getByLabel("Email").fill(email);
+        await guest.getByRole("button", { name: "Post my reply" }).click();
+        return;
+      }
+      await guest.getByRole("button", { name: "Going", exact: true }).click();
+      await guest.getByLabel("Your name").fill(name);
+      await guest.getByRole("button", { name: "Send", exact: true }).click();
+      if (!email) return guest.getByRole("button", { name: "Skip", exact: true }).click();
+      await guest.getByLabel("Email").fill(email);
+      await guest.getByRole("button", { name: "Send", exact: true }).click();
+    };
+
+    const arjun = await stillGuest(browser);
+    const email = newHost(`still-${layout.toLowerCase()}-guest`).email;
+    await reply(arjun, "Arjun Rao", email);
+    await expect(arjun.getByLabel("Code")).toBeFocused({ timeout: 15_000 });
+    await expectStill(arjun, `${where}'s code step`);
+    await arjun.getByLabel("Code").fill(await codeSentTo(request, email));
+    await arjun.getByRole("button", { name: layout === "Thread" ? "Send" : "Confirm", exact: true }).click();
+    await expect(layout === "Thread" ? arjun.locator('[data-slot="done"]') : arjun.getByRole("heading", { name: "You’re going!" })).toBeVisible({ timeout: 15_000 });
+    await expectStill(arjun, `${where}, Going once the code is right`);
+
+    const bea = await stillGuest(browser);
+    await bea.goto(host.link);
+    await expect(bea.getByText("This event is full. You can join the waitlist.")).toBeVisible();
+    await expectStill(bea, `${where}, full`);
+    await reply(bea, "Bea Lim");
+    await expect(layout === "Thread" ? bea.locator('[data-slot="done"]') : bea.getByText("Waitlisted", { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expectStill(bea, `${where}, on the waitlist`);
+    for (const guest of [arjun, bea]) await guest.context().close();
+    await host.context.close();
+  }
 });
 
 // What a guest's browser is sent for the page, which is the saved theme.

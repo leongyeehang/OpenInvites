@@ -43,7 +43,7 @@ describe("mayDelete", () => {
   const hosts = { rsvpId: null, hostId: "host-ada" };
 
   it("lets a guest delete their own comment and nobody else's", () => {
-    const priya = { kind: "guest", rsvpId: "rsvp-priya" } as const;
+    const priya = { kind: "guest", rsvpId: "rsvp-priya", approval: "approved" } as const;
     expect(mayDelete(priya, guests)).toBe(true);
     expect(mayDelete(priya, others)).toBe(false);
     expect(mayDelete(priya, hosts)).toBe(false);

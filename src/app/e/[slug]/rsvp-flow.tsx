@@ -3,19 +3,21 @@
 import { Check, ChevronLeft, Copy, X } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Dialog } from "radix-ui";
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils";
 import { offeredBy } from "@/questions/answers";
 import type { Question } from "@/questions/question";
-import { RSVP_STATUSES, type RsvpStatus } from "@/rsvps/form";
+import { chosenStatus, RSVP_STATUSES, type RsvpStatus } from "@/rsvps/form";
 import type { GuestRsvp } from "@/rsvps/guest";
 import { Confetti } from "@/themes/effects/confetti";
 import { Glass } from "@/themes/glass";
 import { sheetVariables } from "@/themes/resolve";
 import { rsvpButtonClasses } from "@/themes/rsvp-buttons";
 import { useTheme } from "@/themes/themed-page";
+import { Turnstile } from "@/turnstile/turnstile";
 import { useCopyLink } from "./use-copy-link";
-import { useRsvpFlow, type RsvpFlowProps, type Step } from "./use-rsvp-flow";
+import { confirmedAs, offersCalendar, useRsvpFlow, type RsvpFlowProps, type Step } from "./use-rsvp-flow";
 
 // The guest's whole RSVP in the Poster layout: the three buttons under the poster, the steps, and
 // once they have answered, their confirmation. The flow's rules are use-rsvp-flow.ts's; this is
@@ -37,14 +39,17 @@ export function RsvpFlow(props: RsvpFlowProps) {
   const statusButtons = useRef<Partial<Record<RsvpStatus, HTMLButtonElement | null>>>({});
   const followFocus = useRef(false);
   const confirmationHeading = useRef<HTMLHeadingElement>(null);
+  const codeField = useRef<HTMLInputElement>(null);
+  const id = useId();
 
   // Sending, removing or going back to change an answer takes away the button that was pressed.
   // The focus goes to the confirmation's heading once the answer is saved, which a screen reader
-  // then reads out, and back to the status buttons once it is removed or being changed. The
-  // sheet, closing, hands it back to the buttons itself.
+  // then reads out, back to the status buttons once it is removed or being changed, and to the
+  // code's field once a code is sent. The sheet, closing, hands it back to the buttons itself.
   const flow = useRsvpFlow(props, (target, status) => {
     if (target === "confirmation") confirmationHeading.current?.focus({ preventScroll: sheet });
     if (target === "status" && !sheet) statusButtons.current[status]?.focus();
+    if (target === "code") codeField.current?.focus({ preventScroll: sheet });
   });
   const { step, draft, change, recordAnswer, steps, position, last, confirmed, answering, working } = flow;
 
@@ -52,6 +57,14 @@ export function RsvpFlow(props: RsvpFlowProps) {
     name: t(draft.status === "cant" ? "name.cantTitle" : "name.title"),
     plusones: t("plusOnes.title"),
     questions: t("questions.title"),
+    code: t("code.title"),
+  };
+  const confirming = step === "code";
+
+  // Back from the code to the email, with the focus in it.
+  const changeEmail = () => {
+    flushSync(flow.changeEmail);
+    form.current?.querySelector<HTMLInputElement>('input[name="email"]')?.focus({ preventScroll: sheet });
   };
 
   const openSheet = (from: HTMLButtonElement) => {
@@ -115,6 +128,18 @@ export function RsvpFlow(props: RsvpFlowProps) {
       // Enter in a field finishes its step rather than sending a half-filled RSVP. On a button it
       // does what the button says, so Back goes back and a plus-one chip is chosen.
       onKeyDown={(event) => {
+        // While the last step waits for Turnstile's check, Enter in a field sends nothing, as its
+        // button does not: the browser would otherwise send a step with one field by itself.
+        if (event.key === "Enter" && last && flow.awaitingCheck && event.target instanceof HTMLInputElement) {
+          event.preventDefault();
+          return;
+        }
+        // In the code's field, Enter confirms it.
+        if (event.key === "Enter" && confirming && event.target === codeField.current) {
+          event.preventDefault();
+          if (draft.code.trim() && !working) form.current?.requestSubmit();
+          return;
+        }
         if (event.key !== "Enter" || last || !(event.target instanceof HTMLInputElement)) return;
         event.preventDefault();
         if (!draft.name.trim()) return;
@@ -160,17 +185,40 @@ export function RsvpFlow(props: RsvpFlowProps) {
             className={FIELD}
           />
         </Labelled>
-        {settings.askEmail && (
-          <Labelled label={t("name.email")} hint={t("name.emailHint")}>
+        {settings.emailField !== "none" && (
+          <Labelled
+            label={t("name.email")}
+            required={settings.emailField === "required"}
+            hint={t(settings.emailField === "required" ? "name.emailHintRequired" : "name.emailHint")}
+          >
             <input
-              // Not type="email": on a later step this field is hidden, and a browser
-              // cannot show a validation bubble on something it cannot focus, so it would
-              // block the send in silence. The action checks the address instead.
+              // Not type="email", nor required: on a later step this field is hidden, and a
+              // browser cannot show a validation bubble on something it cannot focus, so it
+              // would block the send in silence. The action checks the address instead.
               inputMode="email"
               autoComplete="email"
+              aria-required={settings.emailField === "required" || undefined}
               name="email"
               value={draft.email}
               onChange={(typed) => change({ email: typed.target.value })}
+              className={FIELD}
+            />
+          </Labelled>
+        )}
+        {settings.phoneField !== "none" && (
+          <Labelled
+            label={t("name.phone")}
+            required={settings.phoneField === "required"}
+            hint={t(settings.phoneField === "required" ? "name.phoneHintRequired" : "name.phoneHint")}
+          >
+            <input
+              // Not required, as the email is not; the action checks the number.
+              inputMode="tel"
+              autoComplete="tel"
+              aria-required={settings.phoneField === "required" || undefined}
+              name="phone"
+              value={draft.phone}
+              onChange={(typed) => change({ phone: typed.target.value })}
               className={FIELD}
             />
           </Labelled>
@@ -298,9 +346,57 @@ export function RsvpFlow(props: RsvpFlowProps) {
         </ol>
       </div>
 
+      {/* What the wait for "Send it again" is, said as the code step comes and as the wait ends
+          (use-rsvp-flow.ts, resendNotice); here from the first step, so it is heard. */}
+      <span aria-live="polite" className="sr-only">
+        {flow.resendNotice === "now" ? t("code.resendNow") : flow.resendNotice && t("code.resendLater", { seconds: flow.resendNotice.waitFor })}
+      </span>
+
+      {/* The code sent to the guest's email, posted with the rest of the answer. */}
+      {flow.codeSentTo !== undefined && (
+        <div data-step="code" hidden={!confirming} className="flex flex-col gap-4">
+          <p id={`${id}-code-sent`} className="text-sm break-words text-theme-text-muted">
+            {t("code.sent", { email: flow.codeSentTo })}
+          </p>
+          <Labelled label={t("code.label")}>
+            <input
+              ref={codeField}
+              name="code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              aria-describedby={`${id}-code-sent`}
+              value={draft.code}
+              onChange={(typed) => change({ code: typed.target.value })}
+              className={FIELD}
+            />
+          </Labelled>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-theme-text-muted">
+            {/* While it waits the button stays in the tab order, `aria-disabled` and a no-op, under the
+                name it always has; the seconds it shows are its description, heard on reaching it. */}
+            <button
+              type="button"
+              onClick={() => !(working || flow.resendIn > 0 || flow.awaitingCheck) && flow.resend(form.current)}
+              aria-disabled={working || flow.resendIn > 0 || flow.awaitingCheck}
+              aria-label={t("code.resend")}
+              aria-describedby={flow.resendIn > 0 ? `${id}-resend-in` : undefined}
+              className="cursor-pointer underline underline-offset-2 hover:opacity-80 aria-disabled:cursor-default aria-disabled:no-underline aria-disabled:opacity-70"
+            >
+              <span id={`${id}-resend-in`}>{flow.resendIn > 0 ? t("code.resendIn", { seconds: flow.resendIn }) : t("code.resend")}</span>
+            </button>
+            <button type="button" onClick={changeEmail} className="cursor-pointer underline underline-offset-2 hover:opacity-80">
+              {t("code.changeEmail")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Turnstile, on the last step, whose button sends the answer: on the code step, beside
+          "Send it again" and Confirm. */}
+      {last && flow.turnstile && <Turnstile {...flow.turnstile} />}
+
       {flow.refusal && (
         <p role="alert" className="text-sm font-medium">
-          {t(`errors.${flow.refusal}`)}
+          {t(`errors.${flow.refusal}`, { count: flow.refusalCount })}
         </p>
       )}
 
@@ -309,16 +405,17 @@ export function RsvpFlow(props: RsvpFlowProps) {
         // changes, mid-click, and the browser would then send the half-filled form.
         type="button"
         onClick={() => (last ? form.current?.requestSubmit() : flow.forward())}
-        disabled={working || !draft.name.trim()}
+        disabled={working || !draft.name.trim() || (confirming && !draft.code.trim()) || (last && flow.awaitingCheck)}
         className="h-12 cursor-pointer rounded-2xl bg-theme-accent text-base font-medium text-theme-on-accent transition-opacity hover:opacity-90 disabled:cursor-default motion-reduce:transition-none disabled:opacity-50"
       >
-        {last ? t("send") : t("continue")}
+        {confirming ? t("code.confirm") : last ? t("send") : t("continue")}
       </button>
     </form>
   );
 
-  // What the buttons show as chosen: the saved answer once there is one, else the one being given.
-  const chosen = confirmed ? confirmed.status : answering ? draft.status : undefined;
+  // What the buttons show as chosen: the saved answer once there is one (Going for a guest on the
+  // waitlist, which they asked for), else the one being given.
+  const chosen = confirmed ? chosenStatus(confirmed.status) : answering ? draft.status : undefined;
   const buttons = (
     <>
       <div className="grid grid-cols-3 gap-2">
@@ -339,6 +436,9 @@ export function RsvpFlow(props: RsvpFlowProps) {
       </div>
       {/* Set on the page itself, so on the veil that keeps bare text readable. */}
       {!open && <p className="mx-auto mt-2 w-fit rounded-full bg-theme-veil px-3 py-1 text-center text-xs text-theme-text-faint backdrop-blur-xl">{t("errors.closed")}</p>}
+      {flow.fullNotice && (
+        <p className="mx-auto mt-2 w-fit rounded-full bg-theme-veil px-3 py-1.5 text-center text-xs text-theme-text-muted backdrop-blur-xl">{t(flow.fullNotice)}</p>
+      )}
     </>
   );
 
@@ -462,18 +562,24 @@ export function Asked({ question, optional, required }: { question: Question; op
 const FIELD =
   "h-12 w-full rounded-xl border border-theme-glass-border bg-theme-glass-strong px-4 text-base text-theme-text placeholder:text-theme-text-faint";
 
-function Labelled({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+// A field with its label, and the hint under it. A field the host requires has an asterisk to the
+// eye; its input says it is required to a screen reader.
+function Labelled({ label, hint, required, children }: { label: string; hint?: string; required?: boolean; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-medium tracking-wider text-theme-text-faint uppercase">{label}</span>
+      <span className="mb-1.5 block text-xs font-medium tracking-wider text-theme-text-faint uppercase">
+        {label}
+        {required && <span aria-hidden className="text-theme-accent-ink"> *</span>}
+      </span>
       {children}
       {hint && <span className="mt-1 block text-xs text-theme-text-faint">{hint}</span>}
     </label>
   );
 }
 
-// What the guest sees once they have answered: their reply, the private link that changes it
-// from any device, and the three ways out.
+// What the guest sees once they have answered: their reply (or their place on the waitlist, or
+// that it waits for the host's approval or was declined), the private link that changes it from
+// any device, and the three ways out.
 function Confirmation({
   answer,
   headingRef,
@@ -503,16 +609,18 @@ function Confirmation({
   const shownLink = useRef<HTMLParagraphElement>(null);
   const link = useCopyLink(answer.editLink, shownLink);
   const named = answer.plusOneNames.filter(Boolean);
+  const standing = confirmedAs(answer);
 
   return (
     <>
       <div className="flex items-start gap-3">
+        {/* A tick for a reply the hosts took or have yet to answer; a declined one is not ticked. */}
         <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-full bg-theme-accent text-theme-on-accent">
-          <Check className="size-5" />
+          {standing === "declined" ? <X className="size-5" /> : <Check className="size-5" />}
         </span>
         <div className="flex-1">
           <h2 ref={headingRef} tabIndex={-1} className="font-title text-3xl leading-tight outline-none">
-            {t(`done.${answer.status}`)}
+            {t(`done.${standing}`, { position: answer.waitlistPosition ?? 0 })}
           </h2>
           <p className="text-sm text-theme-text-muted">
             {answer.status === "cant"
@@ -521,11 +629,12 @@ function Confirmation({
           </p>
           {named.length > 0 && <p className="text-sm text-theme-text-faint">{t("summary.bringing", { names: format.list(named) })}</p>}
           {answer.email && <p className="text-sm text-theme-text-faint">{t("summary.email", { email: answer.email })}</p>}
+          {answer.phone && <p className="text-sm text-theme-text-faint">{t("summary.phone", { phone: answer.phone })}</p>}
         </div>
         {dismiss}
       </div>
 
-      {calendar && answer.status !== "cant" && <div className="mt-4">{calendar}</div>}
+      {calendar && offersCalendar(answer) && <div className="mt-4">{calendar}</div>}
 
       <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-theme-glass-strong px-3 py-2.5">
         <div className="min-w-0">

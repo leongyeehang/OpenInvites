@@ -50,7 +50,7 @@ test("duplicating makes a new draft with the same details, questions, settings a
   await expect(host.page.getByText("Duplicated from Ada’s garden party", { exact: true })).toBeVisible();
   await expect(host.page.getByText("Draft", { exact: true })).toBeVisible();
   const copyManage = host.page.url().split("?")[0];
-  const copyLink = (await host.page.getByText(/^https?:\/\/\S+\/e\/[A-Za-z0-9]{10}$/).textContent())!.trim();
+  const copyLink = (await host.page.getByText(/^https?:\/\/\S+\/e\/[A-Za-z0-9-]+$/).textContent())!.trim();
   expect(copyLink).not.toBe(host.link);
 
   // The form holds the same values and the question.

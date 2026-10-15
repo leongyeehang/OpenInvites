@@ -1,7 +1,8 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { DeleteDialogContent } from "@/components/delete-dialog-content";
 import { FormOutcome } from "@/components/form-outcome";
 import {
@@ -18,16 +19,19 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import type { FormState } from "@/lib/form-state";
-import { editGuestAction, removeGuestAction } from "@/rsvps/actions";
-import { RSVP_STATUSES } from "@/rsvps/form";
+import { approveGuestAction, declineGuestAction, editGuestAction, moveToGoingAction, removeGuestAction } from "@/rsvps/actions";
+import { chosenStatus, RSVP_STATUSES } from "@/rsvps/form";
 import type { GuestAnswer } from "@/questions/repository";
 import type { HostGuest } from "@/rsvps/repository";
 
 // One guest on the host's list: who they are and what they answered, and, when the host opens
-// it, the form that changes it on their behalf.
+// it, the form that changes it on their behalf. A guest on the waitlist is shown with their place
+// in it and their party as "+N", and can be moved to Going. A reply waiting for the host's
+// approval says what it answered and can be approved or declined; a declined one can be approved.
 export function GuestRow({
   eventId,
   guest,
+  position,
   replied,
   changed,
   answers,
@@ -36,6 +40,8 @@ export function GuestRow({
 }: {
   eventId: string;
   guest: HostGuest;
+  // The guest's place on the waitlist, when they are on it.
+  position?: number;
   replied: string;
   changed?: string;
   answers: GuestAnswer[];
@@ -52,14 +58,42 @@ export function GuestRow({
     <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <div className="min-w-0">
-          <p className="font-medium">{guest.name}</p>
+          <p className="font-medium">
+            {/* The list numbers itself for a screen reader (page.tsx); the number is for the eye. */}
+            {position !== undefined && (
+              <span aria-hidden className="mr-1.5 text-muted-foreground tabular-nums">
+                {position}.
+              </span>
+            )}
+            {guest.name}
+            {position !== undefined && guest.plusOnes > 0 && <span className="ml-1.5 text-muted-foreground">+{guest.plusOnes}</span>}
+          </p>
           <p className="text-sm text-muted-foreground">
-            {guest.plusOnes > 0 && <span>{t("plusOnes", { count: guest.plusOnes })} · </span>}
+            {/* The section says what an approved reply answered; one the host has yet to approve, or
+                declined, says it here. */}
+            {guest.approval !== "approved" && <span>{t(`group.${guest.status}`)} · </span>}
+            {guest.plusOnes > 0 && position === undefined && <span>{t("plusOnes", { count: guest.plusOnes })} · </span>}
             <span>{t("replied", { when: replied })}</span>
             {changed && <span> · {t("changed", { when: changed })}</span>}
           </p>
           {named.length > 0 && <p className="text-sm text-muted-foreground">{t("bringing", { names: format.list(named) })}</p>}
-          {guest.email && <p className="text-sm break-all text-muted-foreground">{guest.email}</p>}
+          {guest.mailStoppedAt ? (
+            <p className="text-sm text-muted-foreground">{t("row.mailStopped")}</p>
+          ) : (
+            guest.email && (
+              <p className="text-sm break-all text-muted-foreground">
+                <span>{guest.email}</span>
+                {/* Beside an address the guest proved with a code (spec, story 156). */}
+                {guest.emailVerifiedAt && (
+                  <>
+                    <Check aria-hidden className="ml-1 inline size-3.5 align-[-2px] text-foreground" />
+                    <span className="sr-only"> {t("row.emailChecked")}</span>
+                  </>
+                )}
+              </p>
+            )
+          )}
+          {guest.phone && <p className="text-sm break-all text-muted-foreground">{guest.phone}</p>}
           {answers.length > 0 && (
             <dl className="mt-2 flex flex-col gap-1 text-sm">
               {answers.map((given) => (
@@ -71,9 +105,13 @@ export function GuestRow({
             </dl>
           )}
         </div>
-        <Button variant="ghost" size="sm" aria-expanded={open} onClick={() => setOpen(!open)}>
-          {open ? t("close") : t("edit")}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {guest.status === "waitlisted" && <MoveToGoing eventId={eventId} guestId={guest.id} />}
+          {guest.approval !== "approved" && <Decide eventId={eventId} guestId={guest.id} declinable={guest.approval === "pending"} />}
+          <Button variant="ghost" size="sm" aria-expanded={open} onClick={() => setOpen(!open)}>
+            {open ? t("close") : t("edit")}
+          </Button>
+        </div>
       </div>
 
       {open && (
@@ -120,7 +158,9 @@ function EditGuest({
         </Field>
         <Field>
           <FieldLabel htmlFor={`status-${guest.id}`}>{t("status")}</FieldLabel>
-          <NativeSelect id={`status-${guest.id}`} name="status" defaultValue={guest.status}>
+          {/* The three a guest chooses from; a guest on the waitlist asked for Going, and saving
+              it keeps them waiting (rsvps/admission.ts, hostStatus). */}
+          <NativeSelect id={`status-${guest.id}`} name="status" defaultValue={chosenStatus(guest.status)}>
             {RSVP_STATUSES.map((status) => (
               <NativeSelectOption key={status} value={status}>
                 {t(`group.${status}`)}
@@ -149,6 +189,21 @@ function EditGuest({
             <Input id={`plus-one-${guest.id}-${index}`} name="plusOneNames" defaultValue={guest.plusOneNames[index] ?? ""} />
           </Field>
         ))}
+        {/* Both, whatever the guests are asked: the host may know them from elsewhere, and a field
+            left out of the form would blank what is stored. Not the email of a guest who stopped
+            email about the event, which only they can give again (the action ignores one posted).
+            Not type="email": an address the browser doubts but the guest gave would block every
+            save; the action checks it. */}
+        {!guest.mailStoppedAt && (
+          <Field>
+            <FieldLabel htmlFor={`email-${guest.id}`}>{t("emailLabel")}</FieldLabel>
+            <Input id={`email-${guest.id}`} name="email" inputMode="email" autoComplete="off" defaultValue={guest.email ?? ""} />
+          </Field>
+        )}
+        <Field>
+          <FieldLabel htmlFor={`phone-${guest.id}`}>{t("phoneLabel")}</FieldLabel>
+          <Input id={`phone-${guest.id}`} name="phone" type="tel" autoComplete="off" defaultValue={guest.phone ?? ""} />
+        </Field>
         <FormOutcome state={state} />
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button type="submit" disabled={saving}>
@@ -158,6 +213,53 @@ function EditGuest({
         </div>
       </FieldGroup>
     </form>
+  );
+}
+
+// Going at once, whatever the capacity (spec, story 145). The row moves to Going and this button
+// goes with it, so the focus goes to the page's heading, as after a removal.
+function MoveToGoing({ eventId, guestId }: { eventId: string; guestId: string }) {
+  const t = useTranslations("Guests");
+  const [moving, startMoving] = useTransition();
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={moving}
+      onClick={() =>
+        startMoving(async () => {
+          await moveToGoingAction(eventId, guestId);
+          document.getElementById("guest-list-heading")?.focus();
+        })
+      }
+    >
+      {t("moveToGoing")}
+    </Button>
+  );
+}
+
+// The host's word on a reply they have not approved (spec, "Approval"): Approve, and Decline while
+// it waits for them. Either moves the row to another section and takes these buttons with it, so
+// the focus goes to the page's heading, as after Move to Going.
+function Decide({ eventId, guestId, declinable }: { eventId: string; guestId: string; declinable: boolean }) {
+  const t = useTranslations("Guests");
+  const [deciding, startDeciding] = useTransition();
+  const decide = (action: (eventId: string, rsvpId: string) => Promise<void>) =>
+    startDeciding(async () => {
+      await action(eventId, guestId);
+      document.getElementById("guest-list-heading")?.focus();
+    });
+  return (
+    <>
+      <Button variant="outline" size="sm" disabled={deciding} onClick={() => decide(approveGuestAction)}>
+        {t("approve")}
+      </Button>
+      {declinable && (
+        <Button variant="outline" size="sm" disabled={deciding} onClick={() => decide(declineGuestAction)}>
+          {t("decline")}
+        </Button>
+      )}
+    </>
   );
 }
 

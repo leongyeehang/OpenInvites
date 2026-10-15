@@ -11,7 +11,11 @@ const valid = {
   description: { blocks: [{ type: "paragraph" as const, spans: [{ text: "Bring nothing." }] }] },
   plusOnesAllowed: "1",
   requirePlusOneNames: false,
-  askEmail: false,
+  capacity: "40",
+  approvalRequired: true,
+  emailField: "optional",
+  phoneField: "none",
+  verifyEmail: true,
   guestListVisibility: "afterReply",
   notifyOnRsvp: true,
   remindersEnabled: true,
@@ -35,7 +39,11 @@ describe("parseEventForm", () => {
         descriptionRich: valid.description,
         plusOnesAllowed: 1,
         requirePlusOneNames: false,
-        askEmail: false,
+        capacity: 40,
+        approvalRequired: true,
+        emailField: "optional",
+        phoneField: "none",
+        verifyEmail: true,
         guestListVisibility: "afterReply",
         notifyOnRsvp: true,
         remindersEnabled: true,
@@ -80,12 +88,31 @@ describe("parseEventForm", () => {
     });
   });
 
+  it("asks for an email and a phone number only in the three ways it knows", () => {
+    for (const emailField of ["none", "optional", "required"]) {
+      const parsed = parseEventForm({ ...valid, emailField, phoneField: "required" });
+      expect(parsed.ok && parsed.input).toMatchObject({ emailField, phoneField: "required" });
+    }
+    expect(parseEventForm({ ...valid, emailField: "on" })).toEqual({ ok: false, error: "contactFieldInvalid" });
+    expect(parseEventForm({ ...valid, phoneField: "" })).toEqual({ ok: false, error: "contactFieldInvalid" });
+  });
+
   it("allows between no plus-ones and ten", () => {
     expect(parseEventForm({ ...valid, plusOnesAllowed: "0" }).ok).toBe(true);
     expect(parseEventForm({ ...valid, plusOnesAllowed: "10" }).ok).toBe(true);
     expect(parseEventForm({ ...valid, plusOnesAllowed: "11" })).toEqual({ ok: false, error: "plusOnesAllowedInvalid" });
     expect(parseEventForm({ ...valid, plusOnesAllowed: "-1" })).toEqual({ ok: false, error: "plusOnesAllowedInvalid" });
     expect(parseEventForm({ ...valid, plusOnesAllowed: "lots" })).toEqual({ ok: false, error: "plusOnesAllowedInvalid" });
+  });
+
+  it("takes a capacity from 1 to 5000, and none when left empty", () => {
+    for (const [typed, capacity] of [["1", 1], ["5000", 5000], [" 30 ", 30], ["", null], ["  ", null]] as const) {
+      const parsed = parseEventForm({ ...valid, capacity: typed });
+      expect(parsed.ok && parsed.input.capacity).toBe(capacity);
+    }
+    for (const typed of ["0", "5001", "-3", "2.5", "1e3", "forty"]) {
+      expect(parseEventForm({ ...valid, capacity: typed })).toEqual({ ok: false, error: "capacityInvalid" });
+    }
   });
 });
 

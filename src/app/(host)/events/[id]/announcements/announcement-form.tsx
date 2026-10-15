@@ -10,16 +10,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import type { FormState } from "@/lib/form-state";
-import { RSVP_STATUSES, type RsvpStatus } from "@/rsvps/form";
+import { SAVED_STATUSES, type SavedStatus } from "@/rsvps/form";
 
-// What the host says, and which guests are emailed it, by status. "Send a reminder now" fills in a
-// reminder, already written in the host's language, which they may change and send like any other
-// announcement. The fields are the form's own state, so a refusal leaves them as they were; once
-// the announcement is posted they start again. Without mail the boxes are shown but cannot change.
+// What the host says, and which guests are emailed it, by status, the waitlist among them
+// (unticked at first). "Send a reminder now" fills in a reminder, already written in the host's
+// language, which they may change and send like any other announcement. The fields are the form's
+// own state, so a refusal leaves them as they were; once the announcement is posted they start
+// again. Without mail the boxes are shown but cannot change.
 export function AnnouncementForm({ eventId, reminder, mail }: { eventId: string; reminder: string; mail: boolean }) {
   const t = useTranslations("Announcements");
   const [body, setBody] = useState("");
-  const [audience, setAudience] = useState<readonly RsvpStatus[]>(DEFAULT_AUDIENCE);
+  const [audience, setAudience] = useState<readonly SavedStatus[]>(DEFAULT_AUDIENCE);
   const [state, send, sending] = useActionState(async (previous: FormState, formData: FormData) => {
     const outcome = await postAnnouncementAction(eventId, previous, formData);
     if (outcome?.success) {
@@ -49,7 +50,7 @@ export function AnnouncementForm({ eventId, reminder, mail }: { eventId: string;
         </Field>
         <FieldSet className="gap-3">
           <FieldLegend variant="label">{t("audience")}</FieldLegend>
-          {RSVP_STATUSES.map((status) => (
+          {SAVED_STATUSES.map((status) => (
             <Field key={status} orientation="horizontal">
               <Checkbox
                 id={`audience-${status}`}

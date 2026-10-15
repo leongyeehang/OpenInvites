@@ -202,3 +202,78 @@ test("a guest whose browser asks for zh-TW replies in the Thread's conversation 
   await page.context().close();
   await host.context.close();
 });
+
+// Ticket 12 (after 0.4): a host who asks for a phone number, optionally, is given one by a guest in
+// the Thread's conversation in Simplified Chinese, and the host's guest list shows it.
+test("a guest whose browser asks for zh-CN gives the Thread a phone number the host asked for, and the host's list shows it", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "locale-thread-phone", { ...EVENT, layout: "Thread", phone: "optional" });
+  const page = await guestWithBrowserIn(browser, "zh-CN,zh;q=0.9");
+  await page.goto(host.link);
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hans");
+
+  const conversation = page.getByRole("log");
+  await page.getByRole("button", { name: COPY["zh-Hans"].going, exact: true }).click();
+  await page.getByLabel(COPY["zh-Hans"].name).fill("Priya");
+  await page.getByRole("button", { name: "发送", exact: true }).click();
+  await expect(conversation.getByText("再留个电话号码吗？万一需要打给你。（不想留可以跳过）", { exact: true })).toBeVisible();
+  await page.getByLabel("电话号码").fill("(02) 555-1234");
+  await page.getByRole("button", { name: "发送", exact: true }).click();
+  await expect(conversation.getByText("(02) 555-1234", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "只有我", exact: true }).click();
+  await expect(page.locator('[data-slot="done"]')).toContainText("Priya", { timeout: 15_000 });
+
+  await host.page.goto(`${host.page.url()}/guests`);
+  await expect(host.page.getByRole("region", { name: /^Going/ }).getByText("(02) 555-1234", { exact: true })).toBeVisible();
+  await page.context().close();
+  await host.context.close();
+});
+
+// M3 (ticket 11): a guest reports an event page in Simplified Chinese, its refusal included, and a
+// host makes a personal invite link in Traditional Chinese, chosen in the footer.
+test("a guest whose browser asks for zh-CN reports an event page in Simplified Chinese", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "locale-report", EVENT);
+  const page = await guestWithBrowserIn(browser, "zh-CN,zh;q=0.9");
+  await page.goto(host.link);
+  await page.getByRole("contentinfo").getByRole("link", { name: "举报这个活动" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hans");
+  await expect(page.getByRole("heading", { level: 1, name: "举报“Ada’s birthday”" })).toBeVisible();
+
+  const reason = page.getByLabel("这个页面有什么问题？");
+  await reason.fill("太短了。");
+  await page.getByRole("button", { name: "发送举报" }).click();
+  await expect(page.getByText("请再多写一点：至少 20 个字符。")).toBeVisible();
+  await reason.fill(`这个页面和它说的不一样，请看看是不是骗人的（${Date.now().toString(36)}）。`);
+  await page.getByLabel("你的邮箱（选填）").fill("reporter@example.com");
+  await expect(page.getByText("如果需要了解更多情况，实例运营者可以回复你。")).toBeVisible();
+  await page.getByRole("button", { name: "发送举报" }).click();
+  await expect(page.getByText("谢谢。你的举报已经送达这个实例的运营者。")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("link", { name: "返回活动页面" })).toBeVisible();
+  await page.context().close();
+  await host.context.close();
+});
+
+test("a host makes a personal invite link in Traditional Chinese", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "locale-invites", EVENT);
+  const page = host.page;
+  await page.goto(`${page.url()}/invites`);
+  await page.getByRole("contentinfo").getByRole("form", { name: "Language" }).getByRole("button", { name: "繁體中文" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
+  await expect(page.getByRole("heading", { level: 1, name: "專屬邀請" })).toBeVisible();
+  await expect(page.getByText("還沒有專屬邀請。")).toBeVisible();
+
+  await page.getByLabel("名字", { exact: true }).fill("林美");
+  await page.getByRole("button", { name: "產生連結" }).click();
+  await expect(page.getByRole("status")).toHaveText("已為 林美 產生連結。", { timeout: 15_000 });
+  const row = page.getByRole("listitem").filter({ hasText: "林美" });
+  await expect(row.getByText("未開啟", { exact: true })).toBeVisible();
+  await expect(row.getByRole("button", { name: "複製給 林美 的連結" })).toBeVisible();
+  await row.getByRole("button", { name: "刪除給 林美 的專屬邀請" }).click();
+  const dialog = page.getByRole("alertdialog", { name: "要刪除給 林美 的專屬邀請嗎？" });
+  await expect(dialog.getByText("連結會失效。透過它送出的回覆會保留在賓客名單上。")).toBeVisible();
+  await dialog.getByRole("button", { name: "刪除專屬邀請" }).click();
+  await expect(page.getByText("還沒有專屬邀請。")).toBeVisible({ timeout: 15_000 });
+  await host.context.close();
+});

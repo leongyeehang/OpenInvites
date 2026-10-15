@@ -65,7 +65,7 @@ test("a host accepts a co-host link, sees the event on their dashboard, edits it
   await coHost.page.goto(manage);
   await coHost.page.getByLabel("Title").fill("Ada’s 30th");
   await coHost.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(coHost.page.getByText("Saved.")).toBeVisible({ timeout: 15_000 });
+  await expect(coHost.page.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
 
   await page.goto(owner.link);
   await expect(page.getByRole("heading", { name: "Ada’s 30th" })).toBeVisible();
@@ -130,7 +130,8 @@ test("a co-host has no Delete, and a direct post of the delete action is refused
 
   // The same post from the owner deletes it, so the co-host's was the action itself, refused.
   expect((await replay(owner.page)).ok()).toBe(true);
-  await expectNotFoundAsSent(await coHost.page.request.get(owner.link));
+  await coHost.page.goto(owner.link);
+  await expect(coHost.page.getByText("This event has been deleted.")).toBeVisible();
   await coHost.context.close();
   await owner.context.close();
 });

@@ -46,6 +46,13 @@ describe("parseAnnouncement", () => {
       announcement: { body: "Bring a jacket.", audience: ["going", "cant"] },
     });
   });
+
+  it("can email the waitlist, offered after the three answers", () => {
+    expect(parseAnnouncement({ body: "Bring a jacket.", audience: ["waitlisted", "maybe"] })).toEqual({
+      ok: true,
+      announcement: { body: "Bring a jacket.", audience: ["maybe", "waitlisted"] },
+    });
+  });
 });
 
 describe("roomForAnother", () => {

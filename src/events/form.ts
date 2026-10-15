@@ -1,4 +1,5 @@
 import { richTextToPlain, type RichText } from "@/rich-text/rich-text";
+import { CONTACT_FIELDS, type ContactField } from "@/rsvps/form";
 import { GUEST_LIST_VISIBILITIES, type GuestListVisibility } from "@/rsvps/visibility";
 import { isTimeZone, toInstant, toWallTime } from "./time";
 
@@ -15,7 +16,11 @@ export type EventInput = {
   descriptionRich: RichText;
   plusOnesAllowed: number;
   requirePlusOneNames: boolean;
-  askEmail: boolean;
+  capacity: number | null;
+  approvalRequired: boolean;
+  emailField: ContactField;
+  phoneField: ContactField;
+  verifyEmail: boolean;
   guestListVisibility: GuestListVisibility;
   notifyOnRsvp: boolean;
   remindersEnabled: boolean;
@@ -34,7 +39,11 @@ export type EventFormFields = {
   description: RichText;
   plusOnesAllowed: string;
   requirePlusOneNames: boolean;
-  askEmail: boolean;
+  capacity: string;
+  approvalRequired: boolean;
+  emailField: string;
+  phoneField: string;
+  verifyEmail: boolean;
   guestListVisibility: string;
   notifyOnRsvp: boolean;
   remindersEnabled: boolean;
@@ -45,6 +54,10 @@ export type EventFormFields = {
 // How many people one guest may bring at most (spec, "Per-event settings").
 export const MAX_PLUS_ONES = 10;
 
+// The capacity a host may set, when they set one (spec, "Capacity and the waitlist").
+export const CAPACITY_MIN = 1;
+export const CAPACITY_MAX = 5000;
+
 export type EventFormError =
   | "titleRequired"
   | "startRequired"
@@ -53,6 +66,8 @@ export type EventFormError =
   | "endBeforeStart"
   | "timeZoneInvalid"
   | "plusOnesAllowedInvalid"
+  | "capacityInvalid"
+  | "contactFieldInvalid"
   | "guestListVisibilityInvalid";
 
 export type ParsedEventForm = { ok: true; input: EventInput } | { ok: false; error: EventFormError };
@@ -94,6 +109,13 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
     return { ok: false, error: "plusOnesAllowedInvalid" };
   }
 
+  const capacity = parseCapacity(fields.capacity);
+  if (capacity === undefined) return { ok: false, error: "capacityInvalid" };
+
+  const emailField = CONTACT_FIELDS.find((each) => each === fields.emailField);
+  const phoneField = CONTACT_FIELDS.find((each) => each === fields.phoneField);
+  if (!emailField || !phoneField) return { ok: false, error: "contactFieldInvalid" };
+
   const guestListVisibility = GUEST_LIST_VISIBILITIES.find((each) => each === fields.guestListVisibility);
   if (!guestListVisibility) return { ok: false, error: "guestListVisibilityInvalid" };
 
@@ -110,7 +132,11 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
       descriptionRich: fields.description,
       plusOnesAllowed,
       requirePlusOneNames: fields.requirePlusOneNames,
-      askEmail: fields.askEmail,
+      capacity,
+      approvalRequired: fields.approvalRequired,
+      emailField,
+      phoneField,
+      verifyEmail: fields.verifyEmail,
       guestListVisibility,
       notifyOnRsvp: fields.notifyOnRsvp,
       remindersEnabled: fields.remindersEnabled,
@@ -118,4 +144,14 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
       notifyOnComment: fields.notifyOnComment,
     },
   };
+}
+
+// A capacity is a whole number written in digits, within the range; empty is no capacity at all.
+// Undefined when it is neither.
+function parseCapacity(raw: string): number | null | undefined {
+  const text = raw.trim();
+  if (!text) return null;
+  if (!/^\d+$/.test(text)) return undefined;
+  const capacity = Number(text);
+  return capacity >= CAPACITY_MIN && capacity <= CAPACITY_MAX ? capacity : undefined;
 }

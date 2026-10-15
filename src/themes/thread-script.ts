@@ -1,5 +1,6 @@
 import type { AnswerFields } from "@/questions/answers";
 import type { Question } from "@/questions/question";
+import type { Approval } from "@/rsvps/admission";
 import type { RsvpSettings, RsvpStatus } from "@/rsvps/form";
 
 // The Thread layout's script (spec, "Thread"): the conversation the invitation holds with the
@@ -9,22 +10,32 @@ import type { RsvpSettings, RsvpStatus } from "@/rsvps/form";
 // next thing. The flow's rules are use-rsvp-flow.ts's; this only says what each state reads as.
 
 // Where the guest is in the RSVP flow, as use-rsvp-flow.ts names it.
-export type ThreadStep = "idle" | "name" | "plusones" | "questions" | "done";
+export type ThreadStep = "idle" | "name" | "plusones" | "questions" | "code" | "done";
 
-// What the guest has said: the answer they are giving, or the one they saved.
+// What the guest has said: the answer they are giving, or the one they saved. A Going reply saved
+// on the waitlist carries the guest's place in it (rsvps/admission.ts); a saved reply the host has
+// not let onto the list carries where it stands, waiting for their approval or declined.
 export type ThreadReply = {
   status: RsvpStatus;
+  waitlisted?: number;
+  approval?: Exclude<Approval, "approved">;
   name: string;
   email: string;
+  phone: string;
   plusOnes: number;
   plusOneNames: string[];
   answers: AnswerFields;
+  // The address a code was sent to while the guest proves their email (verification.ts), and the
+  // code they typed.
+  codeSentTo?: string;
+  code?: string;
 };
 
 export type ThreadState = {
   step: ThreadStep;
-  // The turn the step is on (threadTurns): the name or the email; how many plus-ones, then each
-  // one's name; each question. One past the step's last turn, all of it is answered.
+  // The turn the step is on (threadTurns): the name, the email, the phone number; how many
+  // plus-ones, then each one's name; each question; the code. One past the step's last turn, all
+  // of it is answered.
   at: number;
   reply: ThreadReply;
 };
@@ -45,12 +56,19 @@ export type ThreadLine =
   | "askName"
   | "askNameCant"
   | "askEmail"
+  | "askEmailRequired"
+  | "askPhone"
+  | "askPhoneRequired"
   | "askPlusOnes"
   | "bringing"
   | "askGuestName"
   | "questionOptional"
+  | "askCode"
   | "skipped"
-  | `done.${RsvpStatus}`;
+  | `done.${RsvpStatus}`
+  | "done.waitlisted"
+  | "done.pending"
+  | "done.declined";
 
 // What a bubble says: a line of the script; the same words as the other layouts' controls (yes,
 // no, just me); something written by the guest or by the host (a name, a prompt, an option); or
@@ -66,14 +84,21 @@ export type Said =
 export type Bubble = { key: string; from: "host" | "guest"; said: Said; done?: true };
 
 // What a turn asks of the guest, which is what the composer offers them.
-export type Asks = { kind: "name" } | { kind: "email" } | { kind: "plusOnes" } | { kind: "guestName"; number: number } | { kind: "question"; question: Question };
+export type Asks =
+  | { kind: "name" }
+  | { kind: "email"; required: boolean }
+  | { kind: "phone"; required: boolean }
+  | { kind: "plusOnes" }
+  | { kind: "guestName"; number: number }
+  | { kind: "question"; question: Question }
+  | { kind: "code" };
 
 export type Turn = { step: ThreadStep; at: number; key: string; asks: Asks; ask: Said; answer: Said };
 
 const SKIPPED: Said = { line: "skipped" };
 
 // The order of the steps, which is the order of the conversation.
-const STEPS: ThreadStep[] = ["idle", "name", "plusones", "questions", "done"];
+const STEPS: ThreadStep[] = ["idle", "name", "plusones", "questions", "code", "done"];
 
 // The first word of the guest's name, which the host calls them by.
 export function firstNameOf(name: string): string {
@@ -81,13 +106,45 @@ export function firstNameOf(name: string): string {
 }
 
 // Every turn this guest is asked, in order: the same steps the flow has (use-rsvp-flow.ts), each
-// asked one thing at a time. A guest who can't go is asked only who they are.
-export function threadTurns({ status, name, email, plusOnes, plusOneNames, answers }: ThreadReply, { settings, questions }: ThreadEvent): Turn[] {
+// asked one thing at a time. A guest who can't go is asked only who they are and, when the host
+// asks for them, how to reach them. Once a code is sent to their email, the last turn asks for it.
+export function threadTurns(reply: ThreadReply, event: ThreadEvent): Turn[] {
+  const turns = detailTurns(reply, event);
+  const { codeSentTo, code = "" } = reply;
+  if (codeSentTo !== undefined) {
+    turns.push({ step: "code", at: 0, key: "code", asks: { kind: "code" }, ask: { line: "askCode", values: { email: codeSentTo } }, answer: { text: code.trim() } });
+  }
+  return turns;
+}
+
+// The turns of the details, the plus-ones and the questions.
+function detailTurns({ status, name, email, phone, plusOnes, plusOneNames, answers }: ThreadReply, { settings, questions }: ThreadEvent): Turn[] {
   const turns: Turn[] = [
     { step: "name", at: 0, key: "name", asks: { kind: "name" }, ask: { line: status === "cant" ? "askNameCant" : "askName" }, answer: { text: name.trim() } },
   ];
-  if (settings.askEmail) {
-    turns.push({ step: "name", at: 1, key: "email", asks: { kind: "email" }, ask: { line: "askEmail" }, answer: email.trim() ? { text: email.trim() } : SKIPPED });
+  // The email, then the phone number, each a turn of the name's step when the host asks for it;
+  // the line offers a skip only when the guest may leave it out.
+  if (settings.emailField !== "none") {
+    const required = settings.emailField === "required";
+    turns.push({
+      step: "name",
+      at: turns.length,
+      key: "email",
+      asks: { kind: "email", required },
+      ask: { line: required ? "askEmailRequired" : "askEmail" },
+      answer: email.trim() ? { text: email.trim() } : SKIPPED,
+    });
+  }
+  if (settings.phoneField !== "none") {
+    const required = settings.phoneField === "required";
+    turns.push({
+      step: "name",
+      at: turns.length,
+      key: "phone",
+      asks: { kind: "phone", required },
+      ask: { line: required ? "askPhoneRequired" : "askPhone" },
+      answer: phone.trim() ? { text: phone.trim() } : SKIPPED,
+    });
   }
   if (status === "cant") return turns;
 
@@ -143,8 +200,10 @@ function answered(question: Question, values: string[]): Said {
 
 // The conversation so far, for where the guest is: the host's ask; once they have chosen, what
 // they chose, then each turn they have answered and the one they are on; once their RSVP is saved,
-// the done bubble. An event that takes no replies says so in place of the ask, and after a
-// conversation saved before it closed.
+// the done bubble, which tells a guest put on the waitlist their place in it, a guest waiting for
+// the host's approval that it will be asked for, and a guest the host declined that they were. An
+// event that takes no replies says so in place of the ask, and after a conversation saved before
+// it closed.
 export function threadMessages({ step, at, reply }: ThreadState, event: ThreadEvent): Bubble[] {
   const closed: Said | undefined = event.closed && { line: event.closed };
   if (step === "idle") return [{ key: "ask", from: "host", said: closed ?? { line: "ask" } }];
@@ -165,7 +224,16 @@ export function threadMessages({ step, at, reply }: ThreadState, event: ThreadEv
   }
   if (step !== "done") return bubbles;
 
-  bubbles.push({ key: "done", from: "host", said: { line: `done.${reply.status}`, values: { firstName: firstNameOf(reply.name) } }, done: true });
+  const firstName = firstNameOf(reply.name);
+  const done: Said =
+    reply.approval === "declined"
+      ? { line: "done.declined" }
+      : reply.approval === "pending"
+        ? { line: "done.pending", values: { firstName } }
+        : reply.waitlisted === undefined
+          ? { line: `done.${reply.status}`, values: { firstName } }
+          : { line: "done.waitlisted", values: { firstName, position: reply.waitlisted } };
+  bubbles.push({ key: "done", from: "host", said: done, done: true });
   if (closed) bubbles.push({ key: "closed", from: "host", said: closed });
   return bubbles;
 }

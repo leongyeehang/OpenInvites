@@ -58,7 +58,7 @@ test("cancelling tells the Going and Maybe guests who gave an email, and the sto
 
   await cancel(host.page);
 
-  const footer = /You are getting this because you gave your email when you replied to Ada’s birthday\. To stop emails about this event: https?:\/\/\S+\/m\/[A-Za-z0-9]{24}$/;
+  const footer = /You’re getting this because your email is on your reply to Ada’s birthday\. To stop emails about this event: https?:\/\/\S+\/m\/[A-Za-z0-9]{24}$/;
   const notices = [await onlyMailTo(request, going.email), await onlyMailTo(request, maybe.email)];
   for (const notice of notices) {
     expect(notice.subject).toBe("Ada’s birthday is cancelled");
@@ -124,7 +124,7 @@ test("a guest who replied in Simplified Chinese is told in Simplified Chinese, a
   expect(notice.text).toContain("主办人已经取消了“Ada’s birthday”。");
   expect(notice.text).toContain(host.link);
   expect(notice.text).toMatch(
-    /你收到这封邮件，是因为你回复“Ada’s birthday”时留下了邮箱。如果不想再收到关于这个活动的邮件，请打开这个链接：https?:\/\/\S+\/m\/[A-Za-z0-9]{24}$/,
+    /你收到这封邮件，是因为你对“Ada’s birthday”的回复上留有这个邮箱。如果不想再收到关于这个活动的邮件，请打开这个链接：https?:\/\/\S+\/m\/[A-Za-z0-9]{24}$/,
   );
 
   // The stop page is in the language of the browser that opens it, here still the guest's.

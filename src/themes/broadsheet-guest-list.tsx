@@ -1,18 +1,20 @@
 import { Lock } from "lucide-react";
 import { getFormatter, getTranslations } from "next-intl/server";
+import type { Approval } from "@/rsvps/admission";
 import type { RsvpCounts } from "@/rsvps/counts";
 import type { PublicGuest } from "@/rsvps/repository";
 
 // The guest list as the event page may show it to this viewer (rsvps/visibility.ts): the names,
 // or, under "after you reply", a blurred promise of them, of which nothing reaches the browser.
-// Hidden, there is no list at all, so no value. `you` is the viewer's own RSVP, when they have one.
-export type BroadsheetGuests = { view: "open" | "locked"; guests: PublicGuest[]; counts: RsvpCounts; you?: string };
+// Hidden, there is no list at all, so no value. `you` is the viewer's own RSVP, when they have one,
+// and `approval` whether the host has approved it, which says why the list is locked for them.
+export type BroadsheetGuests = { view: "open" | "locked"; guests: PublicGuest[]; counts: RsvpCounts; you?: string; approval?: Approval };
 
 // The Broadsheet's guest list, typeset (spec, "Broadsheet"): who is going as a numbered list, each
 // with the people they bring as "+N" and the viewer's own line marked, then the maybes on one line
 // beneath. Nobody who can't go is listed; the headcount is the Host fact's. The numbers are for
 // the eye; the list numbers itself for a screen reader.
-export async function BroadsheetGuestList({ view, guests, you }: BroadsheetGuests) {
+export async function BroadsheetGuestList({ view, guests, you, approval }: BroadsheetGuests) {
   const [t, format] = await Promise.all([getTranslations("EventPage"), getFormatter()]);
 
   if (view === "locked") {
@@ -27,7 +29,8 @@ export async function BroadsheetGuestList({ view, guests, you }: BroadsheetGuest
           ))}
         </ol>
         <p className="mt-4 inline-flex items-center gap-1.5 text-sm text-theme-text-faint">
-          <Lock className="size-3.5" aria-hidden /> {t("locked")}
+          <Lock className="size-3.5" aria-hidden />{" "}
+          {approval === "pending" ? t("lockedPending") : approval === "declined" ? t("lockedDeclined") : t("locked")}
         </p>
       </>
     );

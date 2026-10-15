@@ -5,12 +5,13 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { FormOutcome } from "@/components/form-outcome";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { MAX_PLUS_ONES } from "@/events/form";
+import { CAPACITY_MAX, CAPACITY_MIN, MAX_PLUS_ONES } from "@/events/form";
 import type { QuestionDraft } from "@/questions/question";
 import { EMPTY_RICH_TEXT } from "@/rich-text/rich-text";
+import { CONTACT_FIELDS, type ContactField } from "@/rsvps/form";
 import { GUEST_LIST_VISIBILITIES } from "@/rsvps/visibility";
 import { DescriptionEditor } from "./description-editor";
 import { QuestionsEditor } from "./questions-editor";
@@ -28,6 +29,14 @@ const GUEST_LIST_LABELS = {
 type Props = {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   event?: Event;
+  // Whether the instance has mail, without which no code can prove a guest's email.
+  mail: boolean;
+  // How many replies the operator lets an event take, which the capacity's hint names.
+  maxReplies: number;
+  // How many days after it ends the instance keeps an event, said beneath the dates of an event
+  // being edited (spec, "Retention"); nothing on a new event, or when the instance keeps events for
+  // ever.
+  retentionDays?: number | null;
   timeZones: string[];
   submitLabel: string;
   questions: QuestionDraft[];
@@ -35,13 +44,16 @@ type Props = {
 };
 
 // One form for creating and editing. Times are typed in the event's zone; the action converts them.
-export function EventForm({ action, event, timeZones, submitLabel, questions, answerCounts }: Props) {
+export function EventForm({ action, event, mail, maxReplies, retentionDays, timeZones, submitLabel, questions, answerCounts }: Props) {
   const t = useTranslations("Events.form");
   const [state, formAction, pending] = useActionState(action, undefined);
   const [allDay, setAllDay] = useState(event?.allDay ?? false);
   // Guests can be reminded only if they can give an email, so the reminder setting says so while
-  // the box that asks for it is unticked.
-  const [askEmail, setAskEmail] = useState(event?.askEmail ?? false);
+  // the form does not ask for one.
+  const [emailField, setEmailField] = useState<ContactField>(event?.emailField ?? "none");
+  // A code can only prove an email the form asks for, so the check waits, unticked, while it asks
+  // for none, and comes back as the host left it once it asks again.
+  const [verifyEmail, setVerifyEmail] = useState(event?.verifyEmail ?? false);
   const timeZoneSelect = useRef<HTMLSelectElement>(null);
 
   // A new event defaults to the host's device zone, which only the browser knows, so the
@@ -91,6 +103,7 @@ export function EventForm({ action, event, timeZones, submitLabel, questions, an
           </NativeSelect>
           <FieldDescription>{t("timeZoneHint")}</FieldDescription>
         </Field>
+        {typeof retentionDays === "number" && <p className="text-sm text-muted-foreground">{t("retention", { days: retentionDays })}</p>}
         <Field>
           <FieldLabel htmlFor="location">{t("location")}</FieldLabel>
           <Input id="location" name="location" defaultValue={event?.location} />
@@ -112,10 +125,83 @@ export function EventForm({ action, event, timeZones, submitLabel, questions, an
           <Checkbox id="require-plus-one-names" name="requirePlusOneNames" defaultChecked={event?.requirePlusOneNames} />
           <FieldLabel htmlFor="require-plus-one-names">{t("requirePlusOneNames")}</FieldLabel>
         </Field>
-        <Field orientation="horizontal">
-          <Checkbox id="ask-email" name="askEmail" checked={askEmail} onCheckedChange={(checked) => setAskEmail(checked === true)} />
-          <FieldLabel htmlFor="ask-email">{t("askEmail")}</FieldLabel>
-        </Field>
+        {/* How many may come (spec, "Capacity and the waitlist"), empty to take everyone, and whether
+            each reply waits for the host's approval (spec, "Approval"). */}
+        <FieldSet className="gap-3">
+          <FieldLegend variant="label">{t("guests.title")}</FieldLegend>
+          <Field>
+            <FieldLabel htmlFor="capacity">{t("guests.capacity")}</FieldLabel>
+            <Input
+              id="capacity"
+              name="capacity"
+              type="number"
+              inputMode="numeric"
+              min={CAPACITY_MIN}
+              max={CAPACITY_MAX}
+              step={1}
+              defaultValue={event?.capacity ?? ""}
+              aria-describedby="capacity-hint"
+              className="max-w-40"
+            />
+            <FieldDescription id="capacity-hint">{t("guests.capacityHint", { max: maxReplies })}</FieldDescription>
+          </Field>
+          <Field orientation="horizontal">
+            <Checkbox id="approval-required" name="approvalRequired" defaultChecked={event?.approvalRequired} aria-describedby="approval-required-hint" />
+            <FieldContent>
+              <FieldLabel htmlFor="approval-required">{t("guests.approval")}</FieldLabel>
+              <FieldDescription id="approval-required-hint">{t("guests.approvalHint")}</FieldDescription>
+            </FieldContent>
+          </Field>
+        </FieldSet>
+        {/* How the RSVP form asks guests to be reached (spec, "Contact details"). */}
+        <FieldSet className="gap-3">
+          <FieldLegend variant="label">{t("contact.title")}</FieldLegend>
+          <Field>
+            <FieldLabel htmlFor="email-field">{t("contact.email")}</FieldLabel>
+            <NativeSelect
+              id="email-field"
+              name="emailField"
+              value={emailField}
+              onChange={(picked) => setEmailField(picked.target.value as ContactField)}
+            >
+              {CONTACT_FIELDS.map((field) => (
+                <NativeSelectOption key={field} value={field}>
+                  {t(`contact.${field}`)}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </Field>
+          {mail ? (
+            <Field orientation="horizontal" data-disabled={emailField === "none"}>
+              <Checkbox
+                id="verify-email"
+                name="verifyEmail"
+                checked={verifyEmail && emailField !== "none"}
+                disabled={emailField === "none"}
+                onCheckedChange={(checked) => setVerifyEmail(checked === true)}
+                aria-describedby="verify-email-hint"
+              />
+              <FieldContent>
+                <FieldLabel htmlFor="verify-email">{t("contact.verifyEmail")}</FieldLabel>
+                <FieldDescription id="verify-email-hint">{t("contact.verifyEmailHint")}</FieldDescription>
+              </FieldContent>
+            </Field>
+          ) : (
+            // Without mail the check is not offered, and one the host turned on is kept for when
+            // mail arrives (spec, "Contact details").
+            event?.verifyEmail && <input type="hidden" name="verifyEmail" value="on" />
+          )}
+          <Field>
+            <FieldLabel htmlFor="phone-field">{t("contact.phone")}</FieldLabel>
+            <NativeSelect id="phone-field" name="phoneField" defaultValue={event?.phoneField ?? "none"}>
+              {CONTACT_FIELDS.map((field) => (
+                <NativeSelectOption key={field} value={field}>
+                  {t(`contact.${field}`)}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </Field>
+        </FieldSet>
         <QuestionsEditor questions={questions} answerCounts={answerCounts} />
         <Field>
           <FieldLabel htmlFor="guest-list-visibility">{t("guestListVisibility")}</FieldLabel>
@@ -141,11 +227,11 @@ export function EventForm({ action, event, timeZones, submitLabel, questions, an
             id="reminders-enabled"
             name="remindersEnabled"
             defaultChecked={event?.remindersEnabled ?? true}
-            aria-describedby={askEmail ? undefined : "reminders-hint"}
+            aria-describedby={emailField === "none" ? "reminders-hint" : undefined}
           />
           <FieldContent>
             <FieldLabel htmlFor="reminders-enabled">{t("remindersEnabled")}</FieldLabel>
-            {!askEmail && <FieldDescription id="reminders-hint">{t("askEmailHint")}</FieldDescription>}
+            {emailField === "none" && <FieldDescription id="reminders-hint">{t("askEmailHint")}</FieldDescription>}
           </FieldContent>
         </Field>
         <Field orientation="horizontal">

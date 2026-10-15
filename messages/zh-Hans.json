@@ -77,7 +77,7 @@
     },
     "verifyEmail": {
       "verifiedTitle": "邮箱已验证",
-      "verified": "谢谢，你的邮箱地址已确认。",
+      "verified": "谢谢，你的邮箱地址已验证。",
       "toDashboard": "前往我的活动",
       "failedTitle": "这个链接用不了",
       "failed": "这个验证链接无效或已过期。请登录，然后在“我的活动”页面顶部的提示里重新获取。",
@@ -107,7 +107,8 @@
       "CREDENTIAL_ACCOUNT_NOT_FOUND": "这个账号没有设置密码。",
       "HOST_INVITATION_REQUIRED": "此实例仅限受邀注册。你需要运营者发出的主办人邀请才能创建账号。",
       "HOST_INVITATION_UNUSABLE": "此主办人邀请已无法使用。请向此实例的运营者索取新的邀请。",
-      "TOO_MANY_REQUESTS": "操作太频繁了，请稍后再试。"
+      "TOO_MANY_REQUESTS": "操作太频繁了，请稍后再试。",
+      "checkFailed": "请先完成人机验证，再试一次。"
     }
   },
   "Host": {
@@ -125,8 +126,13 @@
       "emptyUpcoming": "近期没有活动。",
       "emptyPast": "还没有已结束的活动。",
       "counts": "{going} 人参加 · {maybe} 人待定 · {declined} 人无法参加",
+      "waitlisted": "{count} 人候补",
+      "pending": "{count} 人等待批准",
       "headcount": "{count, plural, =0 {还没有人确定要来} other {预计 # 人}}",
-      "coHost": "共同主办人"
+      "headcountOf": "预计 {count, plural, other {# 人}}（共 {capacity, plural, other {# 个名额}}）",
+      "deletedOn": "将于 {date} 删除",
+      "coHost": "共同主办人",
+      "limitReached": "你已有 {count, plural, other {# 场活动}}，这是本实例允许的上限。删除一场不再需要的活动，才能再创建新的。"
     }
   },
   "Account": {
@@ -178,6 +184,22 @@
       "saved": "已保存。",
       "unknown": "请选择“仅限受邀”或“开放”。"
     },
+    "limits": {
+      "title": "上限",
+      "description": "每位主办人最多能有多少场活动、每场活动最多能收到多少条回复，以及活动结束后保留多久。更改立即生效。调低活动数或回复数的上限时，已有的内容保持不变；保留期限适用于所有活动，包括已有的活动。",
+      "maxEventsPerHost": "每位主办人的活动数",
+      "maxEventsPerHostHint": "计入主办人名下的每一场活动，包括草稿和已结束的活动。",
+      "maxRsvpsPerEvent": "每场活动的回复数",
+      "maxRsvpsPerEventHint": "计入一场活动收到的每一条回复，无论回复的是什么。",
+      "retentionDays": "活动保留天数",
+      "retentionDaysHint": "活动结束后保留的天数，可填 30 到 3,650。到期后，活动连同宾客名单和其他所有相关内容都会被删除。删除前 30 天会提醒活动的主办人，提醒后至少过 30 天才会删除。",
+      "keepForever": "永久保留",
+      "submit": "保存",
+      "saved": "已保存。",
+      "maxEventsPerHostInvalid": "请为每位主办人的活动数填写 1 到 100,000 之间的整数。",
+      "maxRsvpsPerEventInvalid": "请为每场活动的回复数填写 1 到 100,000 之间的整数。",
+      "retentionDaysInvalid": "请为活动保留天数填写 30 到 3,650 之间的整数，或勾选“永久保留”。"
+    },
     "invitations": {
       "title": "主办人邀请",
       "description": "即使注册仅限受邀，主办人邀请也能让一个人创建主办人账号。邀请链接只能使用一次，{days} 天后过期。",
@@ -206,6 +228,24 @@
         "expired": "已过期"
       },
       "tooFast": "操作太频繁了，请稍后再试。"
+    },
+    "reports": {
+      "title": "举报",
+      "description": "访客对这个实例上活动页面的举报。尚未处理的排在最前面。",
+      "back": "实例设置",
+      "link": "{count, plural, =0 {举报} other {举报（#）}}",
+      "empty": "还没有举报。",
+      "eventDeleted": "活动已删除",
+      "contact": "联系方式",
+      "noContact": "未留联系方式",
+      "sent": "发送于 {time}",
+      "handled": "已处理",
+      "markHandled": "标为已处理",
+      "deleteEvent": "删除活动",
+      "deleteTitle": "删除“{title}”？",
+      "deleteText": "这场活动、它的宾客名单以及与它有关的一切都会被删除，无法恢复。",
+      "deleteConfirm": "删除活动",
+      "keep": "算了"
     }
   },
   "Mail": {
@@ -225,17 +265,26 @@
       "subject": {
         "replied": "{name} 回复了“{title}”：{status}",
         "changed": "{name} 对“{title}”的回复现在是：{status}",
-        "removed": "{name} 对“{title}”的回复已移除"
+        "removed": "{name} 对“{title}”的回复已移除",
+        "waitlisted": "{name} 在“{title}”的候补名单上（共 {party} 人）",
+        "pending": "{name} 回复了“{title}”，正在等待你的批准",
+        "pendingChanged": "{name} 对“{title}”的回复现在是：{status}，仍在等待你的批准",
+        "declinedChanged": "{name} 对“{title}”的回复（已婉拒）现在是：{status}"
       },
       "body": {
         "replied": "{name} 回复了“{title}”：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
         "changed": "{name} 对“{title}”的回复现在是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
-        "removed": "{name} 对“{title}”的回复已移除。原来的回复是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
+        "removed": "{name} 对“{title}”的回复已移除。原来的回复是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
+        "waitlisted": "{name} 在“{title}”的候补名单上（共 {party} 人）。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
+        "pending": "{name} 回复了“{title}”：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}，正在等待你的批准。\n\n请在宾客名单上批准或婉拒这条回复：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
+        "pendingChanged": "{name} 对“{title}”的回复现在是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}，仍在等待你的批准。\n\n请在宾客名单上批准或婉拒这条回复：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。",
+        "declinedChanged": "{name} 对“{title}”的回复（已婉拒）现在是：{status}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。除非你批准这条回复，否则对方不在宾客名单上。\n\n你的宾客名单：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客回复时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
       },
       "status": {
         "going": "参加",
         "maybe": "待定",
-        "cant": "无法参加"
+        "cant": "无法参加",
+        "waitlisted": "参加（候补中）"
       }
     },
     "cancelled": {
@@ -257,10 +306,35 @@
       "subject": "“{title}”就在明天",
       "body": "“{title}”就在明天。\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}\n\n你的回复是：参加{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n活动页面：\n{url}"
     },
-    "guestFooter": "你收到这封邮件，是因为你回复“{title}”时留下了邮箱。如果不想再收到关于这个活动的邮件，请打开这个链接：{url}",
+    "promoted": {
+      "subject": "有空位了：你可以参加“{title}”了",
+      "body": "有空位了：你可以参加“{title}”了。\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}\n\n活动页面：\n{url}"
+    },
+    "approved": {
+      "subject": "你已列入宾客名单：“{title}”",
+      "body": "主办人批准了你对“{title}”的回复，你已列入宾客名单。\n\n你的回复是：{status, select, going {参加} maybe {待定} other {无法参加}}{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n活动页面：\n{url}"
+    },
+    "approvedWaitlisted": {
+      "subject": "你在“{title}”的候补名单上",
+      "body": "主办人批准了你对“{title}”的回复，不过活动已满员，你在候补名单上排第 {position} 位。一有空位，我们会发邮件告诉你。\n\n你的回复是：参加{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n活动页面：\n{url}"
+    },
+    "guestFooter": "你收到这封邮件，是因为你对“{title}”的回复上留有这个邮箱。如果不想再收到关于这个活动的邮件，请打开这个链接：{url}",
     "magicLink": {
       "subject": "你的 OpenInvites 登录链接",
       "body": "{name}，你好：\n\n请打开下面的链接登录。链接 15 分钟内有效，且只能使用一次。\n\n{url}\n\n如果这不是你本人的操作，可以忽略这封邮件，不会有人因此登录。"
+    },
+    "report": {
+      "subject": "关于“{title}”的举报",
+      "body": "有人举报了活动页面“{title}”。\n\n活动页面：\n{url}\n\n举报内容：\n{reason}\n\n联系方式：{contact}\n\n这条举报也在你的实例的举报页面上：\n{reportsUrl}",
+      "noContact": "未留联系方式"
+    },
+    "code": {
+      "subject": "“{title}”的验证码",
+      "body": "你在“{title}”的验证码是：\n\n{code}\n\n验证码十分钟内有效。\n\n你收到这封邮件，是因为有人在“{title}”的回复表单中填写了这个邮箱。如果不是你本人填写的，请忽略这封邮件。"
+    },
+    "retentionWarning": {
+      "subject": "“{title}”将于 {date} 删除",
+      "body": "“{title}”将于 {date} 删除，宾客名单和其他所有相关内容也会一并删除。\n\n这个实例上的活动会在结束 {days, plural, other {# 天}}后删除，这是实例对所有活动的规定。\n\n如果想保留活动详情以后再用，请在删除前打开活动，选择“复制活动”。副本会保留详情、外观、问题和设置，但不包括宾客。记得给副本设定新的日期。\n\n你的活动：\n{url}"
     }
   },
   "Events": {
@@ -289,6 +363,7 @@
       "endHint": "选填。",
       "timeZone": "时区",
       "timeZoneHint": "身在别处的宾客，看到的也是这个时区的时间。",
+      "retention": "这个实例上的活动会在结束 {days, plural, other {# 天}}后删除。",
       "location": "地点",
       "locationHint": "填地址，或写“奶奶家三楼”也行。选填。",
       "description": "活动介绍",
@@ -297,7 +372,23 @@
       "plusOnesNone": "不可带",
       "plusOnesAllowedHint": "一位宾客最多可以带几个人。",
       "requirePlusOneNames": "要求填写每位同伴的名字",
-      "askEmail": "请宾客留下邮箱地址",
+      "guests": {
+        "title": "宾客",
+        "capacity": "人数上限",
+        "capacityHint": "和预计人数的算法一样：回复“参加”的宾客及其同伴都算在内，待定的不算。留空则接纳所有人。本实例每场活动最多接受 {max, number} 条回复。",
+        "approval": "每位宾客须经你批准，才会列入宾客名单",
+        "approvalHint": "等待期间，宾客可以看到邀请，但看不到留言；只有当所有打开链接的人都能看到宾客名单时，他们才能看到。"
+      },
+      "contact": {
+        "title": "联系方式",
+        "email": "邮箱",
+        "verifyEmail": "用验证码验证邮箱",
+        "verifyEmailHint": "宾客须输入我们发到其邮箱的六位数验证码，回复才会保存。",
+        "phone": "电话号码",
+        "none": "不询问",
+        "optional": "选填",
+        "required": "必填"
+      },
       "guestListVisibility": "谁可以看到宾客名单",
       "guestListAlways": "所有打开链接的人",
       "guestListAfterReply": "已回复的宾客",
@@ -310,7 +401,7 @@
       "commentsEnabledHint": "已回复的宾客和主办人可以在活动页面上留言。",
       "notifyOnComment": "有宾客留言时给主办人发邮件",
       "questions": "问题",
-      "questionsHint": "宾客回复时作答，答案只有你能看到。",
+      "questionsHint": "宾客回复时作答，只有主办人能看到答案。",
       "questionAdd": "添加问题",
       "questionPrompt": "问题 {number}",
       "questionPromptHint": "例如：有什么忌口吗？",
@@ -343,6 +434,8 @@
       "timeZoneInvalid": "请从列表中选择时区。",
       "notFound": "这个活动已经不存在了。",
       "plusOnesAllowedInvalid": "请选择 0 到 10 之间的同伴人数。",
+      "capacityInvalid": "请为人数上限填写 1 到 5,000 之间的整数，或留空表示不设上限。",
+      "contactFieldInvalid": "请选择如何询问邮箱和电话号码。",
       "guestListVisibilityInvalid": "请选择谁可以看到宾客名单。",
       "questionsInvalid": "无法读取这些问题，请重试。",
       "questionTypeInvalid": "请为每个问题选择类型。",
@@ -352,20 +445,24 @@
       "questionChoiceTooLong": "选项太长了。",
       "tooManyQuestions": "一份邀请最多只能有 10 个问题。",
       "descriptionTooLong": "活动介绍太长了，邀请装不下。",
-      "descriptionUnreadable": "无法读取活动介绍。请先把它复制到安全的地方，然后重试。"
+      "descriptionUnreadable": "无法读取活动介绍。请先把它复制到安全的地方，然后重试。",
+      "limitReached": "你已有 {count, plural, other {# 场活动}}，这是本实例允许的上限。删除一场不再需要的活动，才能再创建新的。"
     },
     "manage": {
       "link": "活动链接",
       "opened": "活动页面已被打开 {count, plural, other {#}} 次",
+      "headcountOf": "预计 {count, plural, other {# 人}}（共 {capacity, plural, other {# 个名额}}）",
+      "deletionDate": "这个活动将于 {date} 删除。",
       "view": "打开活动页面",
       "publish": "发布",
       "publishHint": "发布后，任何拿到活动链接的人都能打开它。",
       "duplicate": "复制活动",
-      "duplicateHint": "生成一份新的草稿，沿用相同的详情、外观、问题、设置和图片。回复、留言和公告不会复制。",
+      "duplicateHint": "生成一份新的草稿，沿用相同的详情、外观、问题、设置和图片。回复、专属邀请、共同主办人、留言、公告和自定义链接不会复制。",
       "duplicatedFrom": "复制自“{title}”",
       "publishedHint": "任何持有链接的人都能打开活动页面。你做的修改会立刻显示在那里。",
       "draftHint": "活动还是草稿时，只有主办人能打开这个链接。",
       "guests": "宾客名单",
+      "invites": "专属邀请",
       "cancel": "取消活动",
       "cancelHint": "页面会保留并显示取消通知，不再接受回复。",
       "cancelTitle": "取消“{title}”？",
@@ -402,7 +499,26 @@
       "resetHint": "生成新链接，并停用旧链接。已回复的宾客会保留他们的回复。",
       "resetTitle": "要重置这个活动的链接吗？",
       "resetText": "你分享过的链接将失效，打开它的人会看到提示。你需要把新链接重新发出去。",
-      "resetConfirm": "确认重置"
+      "resetConfirm": "确认重置",
+      "customLink": {
+        "title": "自定义链接",
+        "label": "自定义链接",
+        "guessable": "任何人都能猜到自定义链接；随机链接仍只有你分享过的人才知道。",
+        "save": "保存",
+        "saved": "已保存。",
+        "removed": "已移除。",
+        "copy": "复制自定义链接",
+        "copied": "已复制",
+        "remove": "移除",
+        "resetRetires": "重置时，自定义链接也会一并停用。",
+        "errors": {
+          "taken": "这个链接已被占用。",
+          "shape": "请使用 3 到 40 个小写字母、数字或连字符。",
+          "notFound": "这个活动已经不存在了。"
+        },
+        "randomStillWorks": "随机链接仍然有效：",
+        "copyRandom": "复制随机链接"
+      }
     }
   },
   "EventPage": {
@@ -416,6 +532,8 @@
       "title": "留言",
       "count": "{count, plural, =0 {还没有留言} other {# 条留言}}",
       "locked": "回复后就能加入大家的对话",
+      "lockedPending": "主办人批准你的回复后，你就能加入大家的对话。",
+      "lockedDeclined": "主办人未能接受你的回复。",
       "host": "主办人",
       "label": "写下留言",
       "post": "发布",
@@ -460,10 +578,14 @@
       "askName": "太好了！我该怎么称呼你？",
       "askNameCant": "没关系的！你是哪位呀？我记一下。",
       "askEmail": "留个邮箱方便我联系你吗？（不想留可以跳过）",
+      "askEmailRequired": "请留个邮箱，方便我联系你。",
+      "askPhone": "再留个电话号码吗？万一需要打给你。（不想留可以跳过）",
+      "askPhoneRequired": "再留个电话号码吧，万一需要打给你。",
       "askPlusOnes": "好呀，{firstName}。会带朋友一起来吗？{max, plural, =1 {可以带一位。} other {最多可以带 # 位。}}",
       "bringing": "我会带 {count} 位",
       "askGuestName": "{number, plural, =1 {第一位同伴叫什么名字？} =2 {第二位同伴叫什么名字？} =3 {第三位同伴叫什么名字？} =4 {第四位同伴叫什么名字？} =5 {第五位同伴叫什么名字？} =6 {第六位同伴叫什么名字？} =7 {第七位同伴叫什么名字？} =8 {第八位同伴叫什么名字？} =9 {第九位同伴叫什么名字？} =10 {第十位同伴叫什么名字？} other {第 # 位同伴叫什么名字？}}",
       "questionOptional": "{prompt}（没有的话可以跳过）",
+      "askCode": "我们已将验证码发送到 {email}，请在这里输入。",
       "skipped": "这个我先跳过",
       "skip": "跳过",
       "finish": "选好了",
@@ -472,6 +594,9 @@
         "going": "{firstName}，记下你啦！好期待见到你。",
         "maybe": "先记作待定啦，{firstName}。确定了再回来这里说一声。",
         "cant": "真可惜见不到你，{firstName}。要是计划有变，再回复一次就好。",
+        "waitlisted": "{firstName}，现在名额已满，不过你在候补名单上排第 {position} 位。一有空位我就告诉你。",
+        "pending": "谢谢你，{firstName}！我去问问主办人，有消息就告诉你。",
+        "declined": "主办人未能接受你的回复。",
         "link": "这是你的专属链接，之后想改什么都可以用它。这个浏览器里也存了一份。"
       },
       "copyLink": "复制修改链接",
@@ -485,6 +610,8 @@
     "headcount": "{count, plural, =0 {还没有人} other {预计 # 人}}",
     "alsoMaybe": "{count, plural, other {# 人待定}}",
     "locked": "回复后就能看到谁会来",
+    "lockedPending": "主办人批准你的回复后，你就能看到谁会来。",
+    "lockedDeclined": "主办人未能接受你的回复。",
     "nobodyYet": "还没有人回复，来做第一个吧。",
     "status": {
       "going": "参加",
@@ -504,7 +631,8 @@
     "yourTime": "你当地时间为 {time}。",
     "openInMaps": "在地图中打开",
     "retiredTitle": "这个链接已失效",
-    "retired": "主办人已经换了新链接，请向主办人索取。"
+    "retired": "主办人已经换了新链接，请向主办人索取。",
+    "retiredDeleted": "这个活动已被删除。"
   },
   "DesignDrawer": {
     "open": "设计",
@@ -660,24 +788,44 @@
     "title": "宾客名单",
     "backToEvent": "返回活动",
     "headcount": "{count, plural, =0 {还没有人确定要来} other {预计 # 人}}",
+    "headcountOf": "预计 {count, plural, other {# 人}}（共 {capacity, plural, other {# 个名额}}）",
     "counts": "{going} 人参加 · {maybe} 人待定 · {declined} 人无法参加",
+    "waitlistedCount": "{count} 人候补",
+    "pendingCount": "{count} 人等待批准",
     "empty": "还没有人回复。分享活动链接后，宾客会出现在这里。",
     "group": {
+      "pending": "等待批准",
       "going": "参加",
+      "waitlisted": "候补名单",
       "maybe": "待定",
-      "cant": "无法参加"
+      "cant": "无法参加",
+      "declined": "已婉拒",
+      "invited": "已邀请"
     },
     "nobody": "暂无。",
+    "invited": {
+      "opened": "已打开",
+      "notOpened": "未打开"
+    },
     "bringing": "同伴：{names}",
     "plusOnes": "{count, plural, other {# 位同伴}}",
     "replied": "回复于 {when}",
     "changed": "修改于 {when}",
+    "row": {
+      "mailStopped": "已停止接收这个活动的邮件",
+      "emailChecked": "邮箱已验证"
+    },
     "edit": "编辑",
     "close": "关闭",
+    "moveToGoing": "改为参加",
+    "approve": "批准",
+    "decline": "婉拒",
     "status": "状态",
     "plusOnesLabel": "同伴人数",
     "nameLabel": "名字",
     "guestName": "同伴 {number}",
+    "emailLabel": "邮箱",
+    "phoneLabel": "电话号码",
     "save": "保存",
     "saved": "已保存。",
     "remove": "移除",
@@ -694,6 +842,47 @@
       "plusOnesInvalid": "人数超过了这个活动允许的上限。",
       "plusOneNameRequired": "每位同伴都需要有名字。",
       "plusOneNameTooLong": "名字太长了。",
+      "emailRequired": "宾客需要有邮箱地址。",
+      "emailInvalid": "这看起来不像邮箱地址。",
+      "phoneRequired": "宾客需要有电话号码。",
+      "phoneInvalid": "请输入 5 到 20 位的电话号码。"
+    }
+  },
+  "Invites": {
+    "title": "专属邀请",
+    "backToEvent": "返回活动",
+    "explainer": "专属邀请链接只给一位宾客使用。对方打开后，名字会自动填好；如果你留了邮箱，邮箱也会填好。对方的回复会和这个链接绑定，之后这个链接就是对方的修改链接。请复制每个链接，自己发给对应的宾客。",
+    "name": "名字",
+    "email": "邮箱",
+    "emailHint": "选填。会替对方填好，并视为已验证。",
+    "make": "生成链接",
+    "made": "已为 {name} 生成链接。",
+    "full": "这个活动已有 {max} 个专属邀请，已达上限。要生成新的，请先删除一个。",
+    "empty": "还没有专属邀请。",
+    "state": {
+      "notOpened": "未打开",
+      "opened": "已打开",
+      "replied": "已回复 · {status}"
+    },
+    "status": {
+      "going": "参加",
+      "maybe": "待定",
+      "cant": "无法参加",
+      "waitlisted": "在候补名单上"
+    },
+    "copy": "复制链接",
+    "copyLabel": "复制给 {name} 的链接",
+    "copied": "已复制",
+    "delete": "删除",
+    "deleteLabel": "删除给 {name} 的专属邀请",
+    "deleteTitle": "要删除给 {name} 的专属邀请吗？",
+    "deleteText": "链接会失效。通过它提交的回复会保留在宾客名单上。",
+    "keep": "算了",
+    "deleteConfirm": "删除专属邀请",
+    "errors": {
+      "notFound": "这个活动已经不存在了。",
+      "nameRequired": "请填写宾客的名字。",
+      "nameTooLong": "名字太长了。",
       "emailInvalid": "这看起来不像邮箱地址。"
     }
   },
@@ -710,7 +899,8 @@
     "status": {
       "going": "参加",
       "maybe": "待定",
-      "cant": "无法参加"
+      "cant": "无法参加",
+      "waitlisted": "候补名单"
     },
     "send": "发送",
     "sent": "{count, plural, =0 {已发布到活动页面。你选中的宾客都没有留下邮箱，所以没有发出邮件。} other {已发布到活动页面，并已发邮件给 # 位宾客。}}",
@@ -766,6 +956,8 @@
     "going": "参加",
     "maybe": "待定",
     "cant": "无法参加",
+    "full": "这场活动已满员。你可以加入候补名单。",
+    "fullApproval": "这场活动已满员。回复“参加”的宾客，经主办人批准后会加入候补名单。",
     "step": "第 {step} 步，共 {total} 步",
     "back": "返回",
     "continue": "继续",
@@ -776,7 +968,11 @@
       "label": "你的名字",
       "placeholder": "例如：王小明",
       "email": "邮箱",
-      "emailHint": "选填。主办人可以通过它联系你。"
+      "emailHint": "选填。主办人可以通过它联系你。",
+      "emailHintRequired": "主办人可以通过它联系你。",
+      "phone": "电话号码",
+      "phoneHint": "选填。只有主办人能看到。",
+      "phoneHintRequired": "只有主办人能看到。"
     },
     "plusOnes": {
       "title": "会带同伴吗？",
@@ -788,13 +984,17 @@
     "done": {
       "going": "期待你的到来！",
       "maybe": "那就先待定吧。",
-      "cant": "可惜你来不了。"
+      "cant": "可惜你来不了。",
+      "waitlisted": "你在候补名单上，排第 {position} 位。",
+      "pending": "你的回复正在等待主办人批准。",
+      "declined": "主办人未能接受你的回复。"
     },
     "summary": {
       "coming": "{count, plural, =0 {{name}，就你自己。} other {{name}，另带 # 位同伴。}}",
       "cant": "{name}，已记为无法参加。",
       "bringing": "同伴：{names}",
-      "email": "主办人会通过 {email} 联系你。"
+      "email": "主办人会通过 {email} 联系你。",
+      "phone": "电话：{phone}"
     },
     "editLink": {
       "label": "你的专属修改链接",
@@ -819,11 +1019,22 @@
       "plusOnesInvalid": "人数超过了主办人允许的上限。",
       "plusOneNameRequired": "主办人希望知道每位同伴的名字。",
       "plusOneNameTooLong": "名字太长了。",
+      "emailRequired": "主办人希望你留下邮箱地址。",
       "emailInvalid": "这看起来不像邮箱地址。",
+      "phoneRequired": "主办人希望你留下电话号码。",
+      "phoneInvalid": "请输入 5 到 20 位的电话号码。",
       "answerRequired": "主办人希望你回答这一题。",
       "answerNotOffered": "请从给出的选项中选一个。",
       "answerTooLong": "回答太长了。",
-      "tooFast": "操作太频繁了，请稍后再试。"
+      "tooFast": "操作太频繁了，请稍后再试。",
+      "limitReached": "这场活动无法再接受更多回复了。",
+      "capacityFull": "{count, plural, =0 {已经没有空位了。} =1 {名额只够你自己，不能再带同伴了。} other {名额只够你们 # 人（包括你自己）。}}",
+      "codeWrong": "验证码不正确。{count, plural, =0 {已没有剩余次数，再次确认即可收到新的验证码。} other {还可以再试 # 次。}}",
+      "codeExpired": "验证码已过期，我们已重新发送了一个。",
+      "codeResent": "尝试次数太多，我们已重新发送了一个验证码。",
+      "codeTooFast": "目前无法再发送验证码，请过几分钟再试。",
+      "codeTooSoon": "我们刚刚已发送验证码，请查看你的邮箱。",
+      "checkFailed": "请先完成人机验证，再试一次。"
     },
     "questions": {
       "title": "几个小问题",
@@ -832,10 +1043,22 @@
       "yes": "是",
       "no": "否"
     },
+    "code": {
+      "title": "查看你的邮箱",
+      "sent": "我们已将验证码发送到 {email}。",
+      "label": "验证码",
+      "confirm": "确认",
+      "resend": "重新发送",
+      "resendIn": "{seconds} 秒后可重新发送",
+      "resendLater": "{seconds, plural, other {# 秒}}后可以重新发送验证码。",
+      "resendNow": "现在可以重新发送了。",
+      "changeEmail": "更换邮箱"
+    },
     "ballot": {
       "title": "回复",
       "pending": "请回复",
       "received": "已收到",
+      "waitlisted": "候补中",
       "going": "我会来",
       "cant": "来不了",
       "plusOnes": "同伴人数",
@@ -880,7 +1103,29 @@
   },
   "Footer": {
     "privacy": "隐私政策",
-    "terms": "使用条款"
+    "terms": "使用条款",
+    "report": "举报这个活动"
+  },
+  "Report": {
+    "title": "举报“{title}”",
+    "reason": "这个页面有什么问题？",
+    "contact": "你的邮箱（选填）",
+    "contactHint": "如果需要了解更多情况，实例运营者可以回复你。",
+    "submit": "发送举报",
+    "thanks": "谢谢。你的举报已经送达这个实例的运营者。",
+    "back": "返回活动页面",
+    "errors": {
+      "reasonTooShort": "请再多写一点：至少 20 个字符。",
+      "reasonTooLong": "内容太长了，请控制在 1,000 个字符以内。",
+      "contactInvalid": "请填写有效的邮箱地址，或者留空。",
+      "closed": "这个页面无法举报。",
+      "tooFast": "操作太频繁了，请稍后再试。",
+      "checkFailed": "请先完成人机验证，再试一次。"
+    }
+  },
+  "Turnstile": {
+    "label": "人机验证",
+    "unavailable": "人机验证没能加载出来。请在这个页面关闭广告拦截器，然后再试一次。"
   },
   "Legal": {
     "privacy": "隐私政策",

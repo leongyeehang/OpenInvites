@@ -2,8 +2,8 @@ import type { Rule } from "./window";
 
 // What the rate limits protect (spec, "Operator configuration"): every request under an event
 // link, RSVPs, uploads, signing up, signing in (and anything else that checks a password),
-// resetting a password, every request that sends someone an email, and comments.
-export type LimitName = "eventPage" | "rsvp" | "upload" | "signUp" | "signIn" | "passwordReset" | "mail" | "comment";
+// resetting a password, every request that sends someone an email, comments, and reports.
+export type LimitName = "eventPage" | "rsvp" | "upload" | "signUp" | "signIn" | "passwordReset" | "mail" | "comment" | "report";
 
 export type RateLimitConfig = { trustedProxyHops: number; rules: Record<LimitName, Rule> };
 
@@ -27,6 +27,8 @@ const LIMITS: Record<LimitName, { variable: string; default: Rule }> = {
   mail: { variable: "RATE_LIMIT_MAIL", default: { limit: 10, windowMs: HOUR } },
   // Posting and deleting comments, so that an event page cannot be spammed (spec, "Comments").
   comment: { variable: "RATE_LIMIT_COMMENT", default: { limit: 30, windowMs: 10 * MINUTE } },
+  // Sending a report about an event page, which emails the operator (spec, "Report an event").
+  report: { variable: "RATE_LIMIT_REPORT", default: { limit: 5, windowMs: HOUR } },
 };
 
 const UNITS: Record<string, number> = { s: SECOND, m: MINUTE, h: HOUR };

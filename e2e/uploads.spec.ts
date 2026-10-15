@@ -117,11 +117,19 @@ test("the host describes the picture for screen readers, and can go back to it a
   await expect(page.getByRole("img", { name: ALT })).toHaveCount(1);
   await expect(page.locator('[data-slot="poster-card"]').getByRole("img", { name: ALT })).toHaveCount(1);
 
+  // The theme a guest's page carries names no upload, though the page shows the picture; the
+  // host's names it, for the Design drawer.
+  const id = src.split("/")[2];
+  expect(await guestHtml(request, host.link)).toContain('uploadId\\":null');
+  expect(await (await host.page.request.get(host.link)).text()).toContain(`uploadId\\":\\"${id}`);
+
   // A curated background puts the picture aside, and its description with it.
   await drawer.getByRole("radio", { name: "Dusk" }).check();
   await expect.poll(() => uploadedBackground(request, host.link), { timeout: 15_000 }).toBeUndefined();
-  // Put aside, it is the host's alone: a guest's page does not even mention it.
-  expect(await guestHtml(request, host.link)).not.toContain(src);
+  // Put aside, it is the host's alone: a guest's page does not even name it, while the host's
+  // still does.
+  expect(await guestHtml(request, host.link)).not.toContain(id);
+  expect(await (await host.page.request.get(host.link)).text()).toContain(`uploadId\\":\\"${id}`);
   await page.reload();
   await expect(page.getByRole("img", { name: ALT })).toHaveCount(0);
 

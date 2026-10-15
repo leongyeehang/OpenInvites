@@ -3,10 +3,12 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { requireHost } from "@/auth/session";
 import { hostNeedsVerification } from "@/auth/verification";
 import { can } from "@/hosts/role";
 import type { FormState } from "@/lib/form-state";
+import { kickMailWorker } from "@/mail/worker";
 import { parseQuestions } from "@/questions/question";
 import { parseRichText } from "@/rich-text/rich-text";
 import { listQuestions, saveQuestions } from "@/questions/repository";
@@ -15,7 +17,9 @@ import { copyPicture } from "@/uploads/copy";
 import { findEventUpload } from "@/uploads/repository";
 import { duplicateInput } from "./duplicate";
 import { parseEventForm } from "./form";
-import { cancelEvent, createEvent, deleteEvent, findHostEvent, publishEvent, resetEventLink, updateEvent } from "./repository";
+import { eventsOwnedAtLimit } from "./limit";
+import { cancelEvent, createEvent, CUSTOM_SLUG_TAKEN, deleteEvent, findHostEvent, publishEvent, resetEventLink, setCustomSlug, updateEvent } from "./repository";
+import { eventPaths, isCustomSlug, normaliseCustomSlug } from "./slug";
 
 // The editor writes its document into one field, as the questions editor does. An empty field
 // is an empty description; a field that will not parse is a mistake worth saying out loud,
@@ -46,7 +50,11 @@ function fields(formData: FormData) {
     location: text("location"),
     plusOnesAllowed: text("plusOnesAllowed"),
     requirePlusOneNames: formData.get("requirePlusOneNames") === "on",
-    askEmail: formData.get("askEmail") === "on",
+    capacity: text("capacity"),
+    approvalRequired: formData.get("approvalRequired") === "on",
+    emailField: text("emailField"),
+    phoneField: text("phoneField"),
+    verifyEmail: formData.get("verifyEmail") === "on",
     guestListVisibility: text("guestListVisibility"),
     notifyOnRsvp: formData.get("notifyOnRsvp") === "on",
     remindersEnabled: formData.get("remindersEnabled") === "on",
@@ -73,6 +81,8 @@ export async function createEventAction(_: FormState, formData: FormData): Promi
   const host = await requireHost();
   const t = await getTranslations("Events");
   if (hostNeedsVerification(host)) return { error: t("verify.text", { email: host.email }) };
+  const owned = await eventsOwnedAtLimit(host.id);
+  if (owned !== undefined) return { error: t("errors.limitReached", { count: owned }) };
   const posted = postedDescription(formData);
   if (posted === UNREADABLE) return { error: t("errors.descriptionUnreadable") };
   const description = parseRichText(posted);
@@ -105,9 +115,12 @@ export async function updateEventAction(id: string, _: FormState, formData: Form
   const questions = parseQuestions(postedQuestions(formData));
   if (!questions.ok) return { error: t(`errors.${questions.error}`) };
 
-  const updated = await updateEvent(host.id, id, { ...parsed.input, locale: await getLocale() });
-  if (!updated) return { error: t("errors.notFound") };
-  await saveQuestions(updated.id, questions.questions);
+  const saved = await updateEvent(host.id, id, { ...parsed.input, locale: await getLocale() });
+  if (!saved) return { error: t("errors.notFound") };
+  // A capacity raised or removed may have promoted guests from the waitlist, and approval turned off
+  // approved the guests waiting for it, whose email goes now.
+  if (saved.mailed) after(kickMailWorker);
+  await saveQuestions(saved.updated.id, questions.questions);
   // The heading and link card on the manage page show the event too.
   revalidatePath(`/events/${id}`);
   return { success: t("edit.saved") };
@@ -139,20 +152,55 @@ export async function deleteEventAction(id: string): Promise<void> {
 export async function resetLinkAction(id: string): Promise<void> {
   const host = await requireHost();
   const event = await findHostEvent(host.id, id);
-  if (event && can(event.role, "resetLink")) await resetEventLink(host.id, id);
-  // The manage page shows the link too, so it must not keep showing the retired one.
+  const reset = event && can(event.role, "resetLink") ? await resetEventLink(host.id, id) : undefined;
+  // The manage page shows the link too, so it must not keep showing the retired one; the pages
+  // the event answered at before are now the retired page.
+  if (event && reset) for (const path of [...eventPaths(event), ...eventPaths(reset)]) revalidatePath(path);
   revalidatePath(`/events/${id}`);
   revalidatePath(`/events/${id}/share`);
   redirect(`/events/${id}/share`);
 }
 
+// Gives the event a custom link, or takes it away when the field is empty. A refusal says why,
+// under the field; a success refreshes every page that shows the link.
+// A refusal hands back what was typed, as a form action's reset would otherwise empty the field.
+export type CustomLinkState = (NonNullable<FormState> & { typed?: string }) | undefined;
+
+export async function setCustomLinkAction(id: string, _: CustomLinkState, formData: FormData): Promise<CustomLinkState> {
+  const host = await requireHost();
+  const event = await findHostEvent(host.id, id);
+  const t = await getTranslations("Events.share.customLink");
+  if (!event || !can(event.role, "share")) return { error: t("errors.notFound") };
+  const posted = formData.get("customSlug");
+  // Remove is the same form's other button, so the refusal it answers goes with the field.
+  const typed = formData.has("remove") ? "" : typeof posted === "string" ? posted : "";
+  const custom = normaliseCustomSlug(typed);
+  if (custom !== "" && !isCustomSlug(custom)) return { error: t("errors.shape"), typed };
+  const changed = await setCustomSlug(host.id, id, custom === "" ? null : custom);
+  if (changed === CUSTOM_SLUG_TAKEN) return { error: t("errors.taken"), typed };
+  if (!changed) return { error: t("errors.notFound") };
+  refreshLinkPages(event, changed);
+  return { success: custom === "" ? t("removed") : t("saved") };
+}
+
+// The link is on the manage page, the share page and the event page itself, under both the old and
+// the new custom link.
+function refreshLinkPages(before: { id: string; slug: string; customSlug: string | null }, after: { slug: string; customSlug: string | null }) {
+  for (const path of [...eventPaths(before), ...eventPaths(after)]) revalidatePath(path);
+  revalidatePath(`/events/${before.id}`);
+  revalidatePath(`/events/${before.id}/share`);
+}
+
 // A new draft with the same details, look, questions, settings and picture, owned by the host who
-// asks, who is taken to its manage page, which names the event it came from.
-export async function duplicateEventAction(id: string): Promise<void> {
+// asks, who is taken to its manage page, which names the event it came from. A host at the
+// operator's limit is told so instead.
+export async function duplicateEventAction(id: string): Promise<FormState> {
   const host = await requireHost();
   const source = await findHostEvent(host.id, id);
   if (!source || !can(source.role, "duplicate")) redirect(`/events/${id}`);
   const t = await getTranslations("Events");
+  const owned = await eventsOwnedAtLimit(host.id);
+  if (owned !== undefined) return { error: t("errors.limitReached", { count: owned }) };
   const { event, questions } = duplicateInput(source, await listQuestions(id), await getLocale(), t("duplicate.copySuffix"));
 
   const created = await createEvent(host.id, event);

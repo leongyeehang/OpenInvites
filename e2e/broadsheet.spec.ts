@@ -49,7 +49,7 @@ async function setGuestListVisibility(hostPage: Page, who: "always" | "afterRepl
   await hostPage.reload();
   await hostPage.getByLabel("Who can see the guest list").selectOption(who);
   await hostPage.getByRole("button", { name: "Save changes" }).click();
-  await expect(hostPage.getByText("Saved.")).toBeVisible();
+  await expect(hostPage.getByText(/^Saved\./)).toBeVisible();
 }
 
 test("a guest replies on the ballot: Going, two named plus-ones and the host's questions, then a received stamp, the edit link and their line in the list", async ({
@@ -257,6 +257,41 @@ test("under the Confetti effect, confetti falls over the Broadsheet when an RSVP
   await page.getByRole("button", { name: "Post my reply" }).click();
   await expect(page.getByRole("heading", { name: "You’re going!" })).toBeVisible();
   await expect(confetti).toBeVisible();
+
+  await host.context.close();
+});
+
+// A waitlisted guest who lowers their own party until it fits is promoted by their own save and
+// lands on "You're going!" in the same response (ticket 12, item 2): the place is theirs by their
+// own change, not a Going reply they have just made, so nothing falls.
+test("under the Confetti effect, no confetti falls when a waitlisted guest lowers their own party until it fits", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "broadsheet-self-promotion", { ...SIMPLE, plusOnes: "1", capacity: "2" });
+  await host.page.goto(host.link);
+  await host.page.getByRole("button", { name: "Design" }).click();
+  const drawer = host.page.getByRole("dialog", { name: "Design" });
+  await drawer.getByRole("button", { name: "Details" }).click();
+  await drawer.getByRole("group", { name: "Effect" }).getByRole("radio", { name: "Confetti" }).check();
+  await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('effect\\":\\"confetti');
+
+  // One place is taken, so a party of two does not fit and waits.
+  await someoneElseReplies(browser, host.link, "Arjun Rao");
+  await page.goto(host.link);
+  await page.getByRole("radio", { name: "I’ll be there" }).check();
+  await page.getByLabel("Your name").fill("Priya Nair");
+  await page.getByRole("button", { name: "One guest more" }).click();
+  await page.getByRole("button", { name: "Post my reply" }).click();
+  await expect(page.getByRole("heading", { name: "You’re on the waitlist, number 1." })).toBeVisible({ timeout: 15_000 });
+
+  // Coming alone fits: the save promotes her, and the page says she is going, with no confetti. It
+  // would come with the receipt, in the same paint, so none now is none at all.
+  const confetti = page.locator('[data-effect="confetti"]');
+  await page.getByRole("button", { name: "Change answer" }).click();
+  await page.getByRole("radio", { name: "I’ll be there" }).check();
+  await page.getByRole("button", { name: "One guest fewer" }).click();
+  await page.getByRole("button", { name: "Post my reply" }).click();
+  await expect(page.getByRole("heading", { name: "You’re going!" })).toBeVisible({ timeout: 15_000 });
+  expect(await confetti.count()).toBe(0);
 
   await host.context.close();
 });

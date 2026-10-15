@@ -63,8 +63,9 @@ const LIGHT_BACKGROUND = 0.6;
 export function resolveTheme(theme: Theme, upload: ThemeUpload | null = null): ResolvedTheme {
   // An upload is in use when the theme names no curated background (spec shape) but names this
   // upload. A host may keep an upload in their gallery while showing a curated background; then
-  // the background decides.
-  const uploadInUse = theme.backgroundId === null && upload !== null && theme.uploadId === upload.id ? upload : null;
+  // the background decides. The theme guests are sent names no upload (page.tsx): they are handed
+  // the picture only while the page shows it, so the one they are handed is the one in use.
+  const uploadInUse = theme.backgroundId === null && upload !== null && (theme.uploadId === null || theme.uploadId === upload.id) ? upload : null;
   const asPoster = uploadInUse !== null && theme.uploadMode === "poster";
   // A background made from the picture puts the picture itself aside, and is made from the
   // event's upload whichever it is, so a new picture brings its own. Without one there is nothing

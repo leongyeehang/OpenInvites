@@ -18,10 +18,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { findHostEvent } from "@/events/repository";
 import { formatMoment, formatWhen } from "@/events/time";
-import { baseUrl } from "@/instance/env";
 import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
 import { AnnouncementForm } from "./announcement-form";
+import { eventUrl } from "@/events/slug";
 
 // The page's heading, where the focus goes once an announcement is deleted, since its Delete
 // button goes with it.
@@ -54,7 +54,7 @@ export default async function AnnouncementsPage({ params }: PageProps<"/events/[
     when: formatWhen(event, locale),
     located: event.location ? "yes" : "no",
     location: event.location,
-    url: `${baseUrl()}/e/${event.slug}`,
+    url: eventUrl(event),
   });
 
   return (
@@ -69,7 +69,7 @@ export default async function AnnouncementsPage({ params }: PageProps<"/events/[
       </div>
       <div className="flex flex-col gap-2 text-muted-foreground">
         <p>{t("explainer")}</p>
-        {!event.askEmail && <p>{t("askEmailHint")}</p>}
+        {event.emailField === "none" && <p>{t("askEmailHint")}</p>}
         {!mail && <p>{t("noMail")}</p>}
       </div>
 

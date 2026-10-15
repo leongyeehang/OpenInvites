@@ -12,17 +12,20 @@ import { PageFooter } from "@/components/page-footer";
 import { TooFast } from "@/components/too-fast";
 import { acceptsRsvps, eventPageFor } from "@/events/access";
 import { eventHosts } from "@/events/hosts";
-import { findEventBySlug, isRetiredSlug, recordView, type EventWithHost } from "@/events/repository";
+import { findEventBySlug, findRetiredSlug, recordView, type EventWithHost } from "@/events/repository";
 import { countsAsView } from "@/events/views";
-import { baseUrl, maxUploadBytes } from "@/instance/env";
-import { isSlug } from "@/events/slug";
+import { eventPath, eventUrl, isSlug } from "@/events/slug";
+import type { EventTime } from "@/events/time";
+import { maxUploadBytes } from "@/instance/env";
+import { findInviteOnThisDevice } from "@/invites/device";
 import { ClientMessages } from "@/locale/client-messages";
 import { answersStillOffered } from "@/questions/answers";
 import { findAnswers, listQuestions } from "@/questions/repository";
 import { asTally, countRsvps } from "@/rsvps/counts";
 import { consume } from "@/rate-limit/rate-limit";
+import { isFull } from "@/rsvps/admission";
 import { findRsvpOnThisDevice, guestRsvp } from "@/rsvps/guest";
-import { listPublicGuestList } from "@/rsvps/repository";
+import { countHeadcount, findWaitlistPosition, listPublicGuestList } from "@/rsvps/repository";
 import { guestListView } from "@/rsvps/visibility";
 import { BroadsheetLayout } from "@/themes/broadsheet-layout";
 import { derivedUpload, isDerivedBackground } from "@/themes/derived";
@@ -30,6 +33,7 @@ import { PosterLayout } from "@/themes/poster-layout";
 import { resolveTheme } from "@/themes/resolve";
 import { ThemedPage } from "@/themes/themed-page";
 import { ThreadLayout } from "@/themes/thread-layout";
+import { turnstileSiteKey } from "@/turnstile/config";
 import { findEventUpload } from "@/uploads/repository";
 import { themeUpload } from "@/uploads/uploads";
 import { AddToCalendar } from "./add-to-calendar";
@@ -58,11 +62,14 @@ async function isHostOf(eventId: string): Promise<boolean> {
 }
 
 // What the comments section shows this viewer, or nothing when the host has turned comments off:
-// to the hosts and to a guest who has replied, the comments themselves; to anyone else only how
-// many there are, so not one of them is sent to that browser.
+// to the hosts and to a guest whose reply the host has approved, the comments themselves; to anyone
+// else only how many there are, so not one of them is sent to that browser, and to a guest whose
+// reply is not approved, why.
 async function commentsFor(event: EventWithHost, viewer: CommentViewer): Promise<CommentsShown | undefined> {
   if (!event.commentsEnabled) return undefined;
-  if (commentsView(viewer) === "locked") return { view: "locked", count: await countComments(event.id) };
+  if (commentsView(viewer) === "locked") {
+    return { view: "locked", count: await countComments(event.id), approval: viewer.kind === "guest" ? viewer.approval : undefined };
+  }
   const comments = await listComments(event.id);
   return {
     view: "open",
@@ -101,13 +108,13 @@ export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Prom
   const event = isSlug(slug) ? await findEventBySlug(slug) : undefined;
   const [t, notFound] = await Promise.all([getTranslations("EventPage"), getTranslations("NotFound")]);
   if (!event) {
-    const retired = isSlug(slug) && (await isRetiredSlug(slug));
+    const retired = isSlug(slug) && (await findRetiredSlug(slug)) !== undefined;
     return { title: retired ? t("retiredTitle") : notFound("title"), robots: noindex };
   }
   // A draft unfurls as nothing: its title is not public until the host says so.
   if (eventPageFor(event.state, { isHost: false }) === "notReady") return { title: t("notReadyTitle"), robots: noindex };
 
-  const link = `${baseUrl()}/e/${event.slug}`;
+  const link = eventUrl(event);
   // The version in the URL is what makes the card change when the event or its theme does,
   // while each version stays cacheable forever.
   const preview = `${link}/preview.png?v=${event.updatedAt.getTime()}`;
@@ -133,11 +140,16 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const { slug } = await params;
   if (!(await redrawAllowed(slug))) return <TooFast />;
   if (!isSlug(slug)) notFound();
-  const event = await findEventBySlug(slug);
-  if (!event) {
-    if (await isRetiredSlug(slug)) return <RetiredLink />;
+  const found = await findEventBySlug(slug);
+  if (!found) {
+    const retired = await findRetiredSlug(slug);
+    if (retired) return <RetiredLink eventDeleted={retired.eventDeleted} />;
     notFound();
   }
+  // Everything below hands the event to client components, which are sent whole. The slug it
+  // carries is the one this page was opened at, so a page opened at the custom link never holds
+  // the random link, the private one (ADR-0004).
+  const event = { ...found, slug };
 
   // Who is looking decides whether a draft shows at all, and whether the Design drawer is here.
   // A guest has no session cookie, and the lookup returns without touching the database.
@@ -160,24 +172,37 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   if (countsAsView({ method, headers: requestHeaders }, event, { isHost })) await recordView(event.id);
 
   const locale = await getLocale();
-  const link = `${baseUrl()}/e/${event.slug}`;
-  // The cookie tells us whether the guest in front of us has already replied on this device.
+  const link = eventUrl(event);
+  // The cookie tells us whether the guest in front of us has already replied on this device; if
+  // not, whether they opened a personal invite to the event, whose name and email their answer
+  // starts from (invites/device.ts).
   const mine = await findRsvpOnThisDevice(event.id);
-  // Whether this guest may see the list decides whether it is even loaded.
-  const view = guestListView(event.guestListVisibility, { hasRsvp: mine !== undefined });
+  const invite = mine ? undefined : await findInviteOnThisDevice(event.id);
+  // Whether this guest may see the list decides whether it is even loaded: a reply the host has not
+  // approved opens nothing (rsvps/visibility.ts).
+  const view = guestListView(event.guestListVisibility, { rsvp: mine?.rsvp });
   const guests = view === "open" ? await listPublicGuestList(event.id) : [];
-  // A host comments as a host, even with an RSVP on this device; a guest under their RSVP's name.
-  const viewer: CommentViewer = isHost ? { kind: "host" } : mine ? { kind: "guest", rsvpId: mine.rsvp.id } : { kind: "visitor" };
+  // A host comments as a host, even with an RSVP on this device; a guest under their RSVP's name,
+  // once the host has approved it (comments/visibility.ts).
+  const viewer: CommentViewer = isHost
+    ? { kind: "host" }
+    : mine
+      ? { kind: "guest", rsvpId: mine.rsvp.id, approval: mine.rsvp.approval }
+      : { kind: "visitor" };
   // What this event asks, what this guest has already said, so coming back prefills, the host's
   // own picture if there is one, what the host has announced, which every viewer reads, and the
   // comments as this viewer may see them.
-  const [questions, answers, upload, announcements, hosts, comments] = await Promise.all([
+  // Whether the event is full is said beside the reply controls whatever the guest list shows, so
+  // the headcount is counted apart from it; and a guest on the waitlist is told their place.
+  const [questions, answers, upload, announcements, hosts, comments, headcount, waitlistPosition] = await Promise.all([
     listQuestions(event.id),
     mine ? findAnswers(mine.rsvp.id) : Promise.resolve({}),
     findEventUpload(event.id),
     listAnnouncements(event.id),
     hostsOf(event.id),
     commentsFor(event, viewer),
+    event.capacity === null ? Promise.resolve(0) : countHeadcount(event.id),
+    mine ? findWaitlistPosition(mine.rsvp) : Promise.resolve(null),
   ]);
 
   // Guests are sent the host's picture only while the page shows it: one the host put aside
@@ -194,23 +219,41 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   ) : undefined;
 
   const notice = isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined;
+  // The browser shows the time in the viewer's own zone and counts down to it, from the event's
+  // time alone: a client component is sent all it is handed, and the event holds more than a guest
+  // should be sent.
+  const time: EventTime = { startsAt: event.startsAt, endsAt: event.endsAt, allDay: event.allDay, timeZone: event.timeZone };
   const flow: RsvpFlowProps = {
     slug: event.slug,
-    settings: event,
-    mine: mine && guestRsvp(mine),
+    settings: {
+      plusOnesAllowed: event.plusOnesAllowed,
+      requirePlusOneNames: event.requirePlusOneNames,
+      emailField: event.emailField,
+      phoneField: event.phoneField,
+    },
+    mine: mine && guestRsvp(mine, waitlistPosition),
+    // The invite's email only where the form asks for one: nothing would show it otherwise.
+    invite: invite && { name: invite.name, email: event.emailField === "none" ? null : invite.email },
     open: acceptsRsvps(event.state),
+    full: isFull(event.capacity, headcount),
+    needsApproval: event.approvalRequired && (mine ? mine.rsvp.approval !== "approved" : !invite),
     questions,
     answers: answersStillOffered(answers, questions),
     calendar,
+    turnstileSiteKey: turnstileSiteKey(),
   };
-  const guestList = view === "hidden" ? undefined : { view, guests, counts: countRsvps(guests.map(asTally)) };
+  // A guest whose reply is not approved is told why the list is locked for them.
+  const guestList = view === "hidden" ? undefined : { view, guests, counts: countRsvps(guests.map(asTally)), approval: mine?.rsvp.approval };
 
   // The client components below read their messages in the browser; the host's Design drawer, only
   // on the host's own page, brings its own.
   return (
-    <ClientMessages namespaces={["EventPage", "Rsvp"]}>
+    <ClientMessages namespaces={["EventPage", "Rsvp", "Turnstile"]}>
       <ThemedPage
-        theme={event.theme}
+        // The theme guests are sent names no upload, so a picture the host put aside is named
+        // nowhere on their page; the host's Design drawer works with it (spec, "Events, guests and
+        // the page").
+        theme={isHost ? event.theme : { ...event.theme, uploadId: null }}
         upload={isHost ? picture : guestPicture}
         designer={
           isHost ? (
@@ -232,8 +275,8 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             guests={guestList && { ...guestList, you: mine?.rsvp.id }}
             underWhen={
               <>
-                <ViewerTime event={event} locale={locale} />
-                <Countdown event={event} />
+                <ViewerTime event={time} locale={locale} />
+                <Countdown event={time} />
               </>
             }
             underWhere={event.location ? <MapLink location={event.location} chip /> : undefined}
@@ -248,8 +291,8 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             notice={notice}
             rsvp={<BroadsheetBallot {...flow} />}
             guests={guestList && { ...guestList, you: mine?.rsvp.id }}
-            underWhen={<ViewerTime event={event} locale={locale} />}
-            countdown={<CountdownFigure event={event} />}
+            underWhen={<ViewerTime event={time} locale={locale} />}
+            countdown={<CountdownFigure event={time} />}
             underWhere={event.location ? <MapLink location={event.location} /> : undefined}
           />
         ) : (
@@ -263,8 +306,8 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             rsvp={<RsvpFlow {...flow} />}
             underWhen={
               <>
-                <ViewerTime event={event} locale={locale} />
-                <Countdown event={event} />
+                <ViewerTime event={time} locale={locale} />
+                <Countdown event={time} />
               </>
             }
             underWhere={event.location ? <MapLink location={event.location} /> : undefined}
@@ -272,7 +315,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             guestList={guestList && <GuestList {...guestList} />}
           />
         )}
-        <PageFooter themed />
+        <PageFooter themed reportPath={isDraft ? undefined : eventPath(event)} />
       </ThemedPage>
     </ClientMessages>
   );

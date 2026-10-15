@@ -5,7 +5,9 @@ import { hostNeedsVerification } from "@/auth/verification";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createEventAction } from "@/events/actions";
 import { timeZones } from "@/events/time";
+import { instanceLimits } from "@/instance/repository";
 import { ClientMessages } from "@/locale/client-messages";
+import { isMailConfigured } from "@/mail/config";
 import { ResendVerificationForm } from "../../resend-verification-form";
 import { EventForm } from "../event-form";
 
@@ -35,7 +37,15 @@ export default async function NewEventPage() {
     <>
       <h1 className="text-2xl font-semibold tracking-tight">{t("new.title")}</h1>
       <ClientMessages namespaces={["Events.form"]}>
-        <EventForm action={createEventAction} timeZones={timeZones()} submitLabel={t("new.submit")} questions={[]} answerCounts={{}} />
+        <EventForm
+          action={createEventAction}
+          mail={isMailConfigured()}
+          maxReplies={(await instanceLimits()).maxRsvpsPerEvent}
+          timeZones={timeZones()}
+          submitLabel={t("new.submit")}
+          questions={[]}
+          answerCounts={{}}
+        />
       </ClientMessages>
     </>
   );

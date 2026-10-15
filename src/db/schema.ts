@@ -1,10 +1,12 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { DEFAULT_REGISTRATION_MODE, REGISTRATION_MODES } from "../instance/registration";
+import { DEFAULT_LIMITS } from "../instance/limits";
 import { defaultLocale, type Locale } from "../locale/resolve-locale";
 import { QUESTION_TYPES } from "../questions/question";
 import { EMPTY_RICH_TEXT, type RichText } from "../rich-text/rich-text";
-import { RSVP_STATUSES } from "../rsvps/form";
+import { APPROVALS } from "../rsvps/admission";
+import { CONTACT_FIELDS, SAVED_STATUSES } from "../rsvps/form";
 import { DEFAULT_GUEST_LIST_VISIBILITY, GUEST_LIST_VISIBILITIES } from "../rsvps/visibility";
 import type { Theme } from "../themes/theme";
 
@@ -92,6 +94,12 @@ export const instanceSettings = pgTable(
     // The email of a sign-up that found the instance empty, from the moment it is let in until its
     // account exists and becomes the operator. Two first sign-ups at once cannot both hold it.
     firstAccountEmail: text("first_account_email"),
+    // The operator's limits (spec, "Operator limits"); see instance/limits.ts for their range.
+    maxEventsPerHost: integer("max_events_per_host").notNull().default(DEFAULT_LIMITS.maxEventsPerHost),
+    maxRsvpsPerEvent: integer("max_rsvps_per_event").notNull().default(DEFAULT_LIMITS.maxRsvpsPerEvent),
+    // How many days after it ends an event is deleted (spec, "Retention"; retention/plan.ts), or
+    // null to keep events for ever. The migration that added it set the one row to a year.
+    retentionDays: integer("retention_days"),
   },
   (table) => [check("instance_settings_one_row", sql`${table.id}`)],
 );
@@ -116,6 +124,8 @@ export const eventState = pgEnum("event_state", ["draft", "published", "cancelle
 
 export const guestListVisibility = pgEnum("guest_list_visibility", GUEST_LIST_VISIBILITIES);
 
+export const contactField = pgEnum("contact_field", CONTACT_FIELDS);
+
 // An event belongs to one host. Its time is an instant plus the event's own IANA zone; all-day
 // events store midnight in that zone with the flag set. The slug is the event link (ADR-0004).
 // The theme is stored whole as JSON; parseTheme fills in whatever a row lacks, so an empty
@@ -128,6 +138,8 @@ export const event = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     slug: text("slug").notNull().unique(),
+    // The host's own, guessable link beside the random one (ADR-0004); null until they set one.
+    customSlug: text("custom_slug").unique(),
     state: eventState("state").notNull().default("draft"),
     title: text("title").notNull(),
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
@@ -143,7 +155,20 @@ export const event = pgTable(
     // What the host asks of guests on the RSVP form (spec, "Per-event settings").
     plusOnesAllowed: integer("plus_ones_allowed").notNull().default(1),
     requirePlusOneNames: boolean("require_plus_one_names").notNull().default(false),
-    askEmail: boolean("ask_email").notNull().default(false),
+    // How many people may be Going, counted as the headcount is; none when null. Going replies
+    // that do not fit wait on the waitlist (spec, "Capacity and the waitlist").
+    capacity: integer("capacity"),
+    // Whether each new reply waits for a host to approve it before the guest is on the list (spec,
+    // "Approval"). Turning it off approves every reply still waiting (rsvps/repository.ts).
+    approvalRequired: boolean("approval_required").notNull().default(false),
+    // Whether guests are asked for an email and a phone number: not at all, optionally, or as a
+    // must (spec, "Contact details"). Events from before 0.4 that asked for an email ask for it
+    // optionally, which is what asking meant then (migration 0027).
+    emailField: contactField("email_field").notNull().default("none"),
+    phoneField: contactField("phone_field").notNull().default("none"),
+    // Whether a guest's email is taken only once they have entered a code sent to it (spec,
+    // "Contact details"). Kept without mail, where it does nothing until mail arrives.
+    verifyEmail: boolean("verify_email").notNull().default(false),
     guestListVisibility: guestListVisibility("guest_list_visibility").notNull().default(DEFAULT_GUEST_LIST_VISIBILITY),
     // Whether every host is emailed when a guest replies, changes their status, or removes their
     // RSVP (spec, "Host notifications"). On for new events; events from before 0.3 start with it
@@ -169,6 +194,10 @@ export const event = pgTable(
     // changes under its host (spec, story 141).
     commentsEnabled: boolean("comments_enabled").notNull().default(true),
     notifyOnComment: boolean("notify_on_comment").notNull().default(true),
+    // When the clock's sweep warned the hosts that the event will be deleted for its age (spec,
+    // "Retention"), with or without mail; it is deleted no sooner than 30 days later. Keep forever
+    // clears it on every event.
+    retentionWarnedAt: timestamp("retention_warned_at", { withTimezone: true }),
     ...timestamps,
   },
   (table) => [index("event_host_id_idx").on(table.hostId)],
@@ -213,7 +242,9 @@ export const coHostLink = pgTable(
   (table) => [index("co_host_link_event_id_idx").on(table.eventId)],
 );
 
-export const rsvpStatus = pgEnum("rsvp_status", RSVP_STATUSES);
+export const rsvpStatus = pgEnum("rsvp_status", SAVED_STATUSES);
+
+export const rsvpApproval = pgEnum("rsvp_approval", APPROVALS);
 
 // One guest's answer to one event. Guests have no accounts: the edit token, stored hashed, is
 // the only thing that proves an RSVP is yours, and it reaches the guest as an edit link and as a
@@ -228,23 +259,66 @@ export const rsvp = pgTable(
       .notNull()
       .references(() => event.id, { onDelete: "cascade" }),
     status: rsvpStatus("status").notNull(),
+    // Whether a host has let the reply onto the list: every reply to an event without approval is
+    // approved; one to an event with it waits, pending, until a host approves or declines it
+    // (spec, "Approval"; rsvps/admission.ts).
+    approval: rsvpApproval("approval").notNull().default("approved"),
     name: text("name").notNull(),
     plusOnes: integer("plus_ones").notNull().default(0),
     // As many entries as there are plus-ones; an entry is empty when the host does not ask for names.
     plusOneNames: text("plus_one_names").array().notNull().default(sql`'{}'::text[]`),
+    // When a waitlisted RSVP joined the waitlist, which is its place in the order; null for any
+    // other status. When it left the waitlist for Going, if it did (rsvps/repository.ts).
+    waitlistedAt: timestamp("waitlisted_at", { withTimezone: true }),
+    promotedAt: timestamp("promoted_at", { withTimezone: true }),
     email: text("email"),
+    // When the guest proved the email above by entering a code sent to it; null once it changes
+    // without one, whoever changes it (rsvps/plan.ts).
+    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+    // As the guest typed it, trimmed: shown to the hosts and used for nothing else.
+    phone: text("phone"),
     editTokenHash: text("edit_token_hash").notNull().unique(),
     // The secret in the stop link at the foot of every email to the guest (spec, "Guest mail"). In
     // clear, unlike the edit token: their mail is written long after their request is over, and
     // the link can only blank the email. Made the first time the RSVP has an email, then kept; an
     // RSVP that had an email before mail tokens existed got 32 hex digits instead (migration 0015).
     mailToken: text("mail_token").unique(),
+    // When the guest stopped email about the event with that link, until they give an email again
+    // themselves. While it is set, a host cannot give them one (rsvps/plan.ts, planHostEdit).
+    mailStoppedAt: timestamp("mail_stopped_at", { withTimezone: true }),
     // The language the guest last saved their RSVP in, which their mail is written in.
     locale: text("locale").$type<Locale>().notNull().default(defaultLocale),
+    // The personal invite the RSVP was saved through, if it was; nothing once the host deletes it.
+    // Its edit token is then the invite's token (rsvps/repository.ts, saveRsvp).
+    inviteId: uuid("invite_id").references((): AnyPgColumn => invite.id, { onDelete: "set null" }),
     repliedAt: timestamp("replied_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("rsvp_event_id_idx").on(table.eventId)],
+);
+
+// A personal invite (invites/invite.ts): the personal invite link (CONTEXT.md) a host made for one
+// named guest, with the email they gave for them, if any. The token is kept in clear, as the mail
+// token is, because the host may see the link again whenever they ask; it is the edit token of the
+// RSVP saved through it. Deleting the invite leaves that RSVP, unlinked; the guest withdrawing the
+// RSVP leaves the invite, unanswered again, and a host removing it deletes the invite too
+// (rsvps/repository.ts, deleteRsvp).
+export const invite = pgTable(
+  "invite",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    email: text("email"),
+    token: text("token").notNull().unique(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // The first time the link was opened.
+    openedAt: timestamp("opened_at", { withTimezone: true }),
+    rsvpId: uuid("rsvp_id").references(() => rsvp.id, { onDelete: "set null" }),
+  },
+  (table) => [index("invite_event_id_idx").on(table.eventId)],
 );
 
 export const questionType = pgEnum("question_type", QUESTION_TYPES);
@@ -285,16 +359,16 @@ export const answer = pgTable(
   (table) => [index("answer_rsvp_id_idx").on(table.rsvpId), unique("answer_rsvp_question_unique").on(table.rsvpId, table.questionId)],
 );
 
-// A link a host has reset. The old slug is kept so that whoever still has it is told the link
-// is no longer valid, rather than being shown a page that looks like a mistake (ADR-0004).
+// A link a host has reset, or the links of an event that was deleted. The old slug is kept so that
+// whoever still has it is told the link is no longer valid, rather than being shown a page that
+// looks like a mistake (ADR-0004), and so that no other event is ever given it. A deleted event's
+// slugs outlive it with no event: a bare slug is not personal data.
 export const retiredSlug = pgTable(
   "retired_slug",
   {
     id: id(),
     slug: text("slug").notNull().unique(),
-    eventId: uuid("event_id")
-      .notNull()
-      .references(() => event.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id").references(() => event.id, { onDelete: "set null" }),
     retiredAt: timestamp("retired_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("retired_slug_event_id_idx").on(table.eventId)],
@@ -328,6 +402,27 @@ export const upload = pgTable("upload", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// A code sent to an address a guest typed on an event's RSVP form, waiting for them to enter it
+// (rsvps/verification.ts). One per address and event: sending another replaces it. Only its hash
+// is kept. Nothing else is stored for the address until the code matches, and the mail worker
+// deletes rows a day old.
+export const emailCode = pgTable(
+  "email_code",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    codeHash: text("code_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    // Wrong codes entered against it so far.
+    attempts: integer("attempts").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique("email_code_event_email_unique").on(table.eventId, table.email)],
+);
+
 // Every email about an event, to a guest or to a host, waits here until the mail worker sends it
 // (mail/outbox.ts; spec, "Mail outbox and worker"). A message that sent is deleted; one that failed
 // keeps how often it has, why it last did, and when to try again. Deleting the event takes its
@@ -346,6 +441,23 @@ export const mailOutbox = pgTable(
     lastError: text("last_error"),
   },
   (table) => [index("mail_outbox_event_id_idx").on(table.eventId)],
+);
+
+// A report: someone telling the operator that an event page does not belong on the instance (spec,
+// "Report an event"). It outlives its event, which the operator may delete from the reports page:
+// the title is copied at creation so the inbox can still say what it was about.
+export const report = pgTable(
+  "report",
+  {
+    id: id(),
+    eventId: uuid("event_id").references(() => event.id, { onDelete: "set null" }),
+    eventTitle: text("event_title").notNull(),
+    reason: text("reason").notNull(),
+    contact: text("contact"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    handledAt: timestamp("handled_at", { withTimezone: true }),
+  },
+  (table) => [index("report_event_id_idx").on(table.eventId)],
 );
 
 // A message the host posts to the event page, and emails to the guests whose status is one they

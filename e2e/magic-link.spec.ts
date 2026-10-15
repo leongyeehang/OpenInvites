@@ -2,10 +2,9 @@ import { expect, test, type Page } from "./test";
 import { latestMailTo, linkIn, mailCountTo, newHost, PASSWORD, signIn, signOut, signUp, signUpVerified, verifyEmail } from "./hosts";
 
 // A host with mail can sign in through a link emailed to them (spec, "Magic-link login"): it signs
-// an existing host in, once, within 15 minutes, and never creates an account.
-
-// `app-no-mail` (port 3003, the Compose test profile) is `app` without SMTP.
-const NO_MAIL_BASE_URL = "http://localhost:3003";
+// an existing host in, once, within 15 minutes, and never creates an account. That an instance
+// without mail offers no such link is in registration-without-mail.spec.ts, whose project owns
+// `app-no-mail`.
 
 async function askForLink(page: Page, email: string) {
   await page.goto("/sign-in");
@@ -73,11 +72,4 @@ test("a sign-in link works once", async ({ page, request }) => {
   await page.goto(link);
   await expect(page).toHaveURL(/\/sign-in/);
   await expect(page.getByText("That sign-in link has expired or was already used.")).toBeVisible();
-});
-
-test("the sign-in page of an instance without mail has no sign-in link form", async ({ page }) => {
-  await page.goto(`${NO_MAIL_BASE_URL}/sign-in`);
-  await expect(page.getByLabel("Password")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Email me a sign-in link" })).toHaveCount(0);
-  await expect(page.getByLabel("Email for the sign-in link")).toHaveCount(0);
 });

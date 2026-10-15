@@ -1,13 +1,13 @@
 import { eq, sql } from "drizzle-orm";
-import { getDb } from "@/db/client";
+import { getDb, type Db } from "@/db/client";
 import { event, eventHost, user } from "@/db/schema";
 
 export type EventHost = { id: string; name: string; email: string };
 
 // Everyone who hosts an event, whom every email to its hosts reaches: its owner first, then its
 // co-hosts in the order they were added, which is also the order the event page names them in.
-export async function eventHosts(eventId: string): Promise<EventHost[]> {
-  const db = getDb();
+// A caller can read them inside its own transaction (the retention sweep, with the event locked).
+export async function eventHosts(eventId: string, db: Db = getDb()): Promise<EventHost[]> {
   const hosts = db
     .select({ hostId: event.hostId, addedAt: sql<Date | null>`null::timestamptz`.as("added_at") })
     .from(event)

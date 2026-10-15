@@ -8,6 +8,7 @@ const source: Event = {
   id: "0194f0a0-0000-7000-8000-000000000001",
   hostId: "owner",
   slug: "abcde12345",
+  customSlug: null,
   state: "published",
   title: "Ada’s birthday",
   startsAt: new Date("2027-03-06T11:00:00Z"),
@@ -20,7 +21,11 @@ const source: Event = {
   theme: { ...DEFAULT_THEME, backgroundId: "dusk", uploadId: "0194f0a0-0000-7000-8000-0000000000aa", font: "serif" },
   plusOnesAllowed: 3,
   requirePlusOneNames: true,
-  askEmail: true,
+  capacity: 30,
+  approvalRequired: true,
+  emailField: "required",
+  phoneField: "optional",
+  verifyEmail: true,
   guestListVisibility: "hidden",
   notifyOnRsvp: false,
   locale: "en",
@@ -31,6 +36,7 @@ const source: Event = {
   dayReminderSentAt: new Date("2027-03-05T00:00:00Z"),
   commentsEnabled: false,
   notifyOnComment: false,
+  retentionWarnedAt: new Date("2028-02-05T00:00:00Z"),
   createdAt: new Date("2026-12-01T00:00:00Z"),
   updatedAt: new Date("2026-12-02T00:00:00Z"),
 };
@@ -62,7 +68,11 @@ describe("duplicateInput", () => {
     expect(copy.event).toMatchObject({
       plusOnesAllowed: 3,
       requirePlusOneNames: true,
-      askEmail: true,
+      capacity: 30,
+      approvalRequired: true,
+      emailField: "required",
+      phoneField: "optional",
+      verifyEmail: true,
       guestListVisibility: "hidden",
       notifyOnRsvp: false,
       remindersEnabled: false,
@@ -84,7 +94,7 @@ describe("duplicateInput", () => {
   });
 
   it("copies nothing that belongs to the source alone", () => {
-    for (const own of ["id", "hostId", "slug", "state", "publishedAt", "weekReminderSentAt", "dayReminderSentAt", "createdAt", "updatedAt"]) {
+    for (const own of ["id", "hostId", "slug", "state", "publishedAt", "weekReminderSentAt", "dayReminderSentAt", "retentionWarnedAt", "createdAt", "updatedAt"]) {
       expect(copy.event).not.toHaveProperty(own);
     }
   });

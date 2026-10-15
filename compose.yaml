@@ -41,6 +41,7 @@ services:
       RATE_LIMIT_SIGN_IN: 5/1m
       RATE_LIMIT_PASSWORD_RESET: 5/1m
       RATE_LIMIT_MAIL: 5/1m
+      RATE_LIMIT_REPORT: 5/1m
     ports:
       - "3000:3000"
     # Uploaded pictures on local disk, the default storage, in a named volume as an operator keeps them.
@@ -58,7 +59,8 @@ services:
   # ever calls Google or GitHub with these credentials. It counts sign-ins as low as `app`, for
   # the spec's refused Google sign-in. It also has the operator's own analytics snippet and legal
   # pages, one from the environment and one from a mounted file, for
-  # e2e/legal-and-analytics.spec.ts; `app` has neither, and shows the shipped placeholders.
+  # e2e/legal-and-analytics.spec.ts; `app` has neither, and shows the shipped placeholders. And it
+  # has Turnstile on, with Cloudflare's published test keys, for e2e/turnstile.spec.ts.
   app-social:
     build: .
     profiles: [test]
@@ -82,6 +84,10 @@ services:
 
         Markup such as <b>this</b> is shown as it was typed.
       TERMS_FILE: /legal/terms.md
+      # Cloudflare's published always-pass test keys: the widget shows and passes for anyone, and
+      # siteverify accepts its token. Not keys for a real instance.
+      TURNSTILE_SITE_KEY: 1x00000000000000000000AA
+      TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
     volumes:
       - ./e2e/legal/terms.md:/legal/terms.md:ro
     ports:
@@ -95,8 +101,9 @@ services:
   # A second instance of the same image, for what depends on the whole instance being in one
   # state: who the first account is, and the registration mode. `app` cannot offer that, as every
   # other spec shares its database and it persists between runs. This one's database lives in
-  # memory, so it is empty whenever db-fresh starts, and e2e/registration.spec.ts recreates both
-  # containers before it runs: every run starts from nothing, on CI and on a laptop alike.
+  # memory, so it is empty whenever db-fresh starts, and e2e/registration.spec.ts, then
+  # e2e/limits.spec.ts and e2e/retention.spec.ts in turn, recreate both containers before they run:
+  # every run starts from nothing, on CI and on a laptop alike.
   db-fresh:
     image: postgres:18-alpine
     profiles: [test]
@@ -131,8 +138,8 @@ services:
         condition: service_started
 
   # The same again without mail, where no email can be verified: there the account OPERATOR_EMAIL
-  # names takes over from an operator only at a restart. e2e/registration-without-mail.spec.ts
-  # recreates both containers before it runs, as registration.spec.ts does for app-fresh.
+  # names takes over from an operator only at a restart. e2e/registration-without-mail.spec.ts, then
+  # e2e/retention.spec.ts, recreate both containers before they run, as for app-fresh.
   db-no-mail:
     image: postgres:18-alpine
     profiles: [test]
@@ -158,6 +165,10 @@ services:
       OPERATOR_EMAIL: operator@no-mail.openinvites.test
       # Where a host without mail is sent to reset their password, and the legal pages' contact.
       OPERATOR_CONTACT_EMAIL: help@no-mail.openinvites.test
+      # Test only, never an operator's setting: a retention mark need not be 30 days old before its
+      # event is deleted, so e2e/retention.spec.ts sees an old event deleted at the sweep after the
+      # one that marked it (src/retention/floor.ts). app-fresh keeps the real 30 days.
+      RETENTION_TEST_FLOOR_DAYS: "0"
     ports:
       - "3003:3000"
     depends_on:

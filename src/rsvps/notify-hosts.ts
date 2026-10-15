@@ -6,11 +6,12 @@ import { baseUrl } from "@/instance/env";
 import { isMailConfigured } from "@/mail/config";
 import { queueMail } from "@/mail/outbox";
 import { kickMailWorker } from "@/mail/worker";
-import type { RsvpStatus } from "./form";
+import type { Approval } from "./admission";
+import type { SavedStatus } from "./form";
 import { rsvpNotice } from "./notice";
 
-// What the hosts' email says of an RSVP.
-type RsvpShown = { name: string; status: RsvpStatus; plusOnes: number };
+// What the hosts' email says of an RSVP, and whether it waits for their approval.
+type RsvpShown = { name: string; status: SavedStatus; approval: Approval; plusOnes: number };
 
 // Emails every host of the event about one RSVP, given as it was and as it is now (undefined where
 // there was none), when the change is one they are told of (notice.ts), the event has it on, and
@@ -22,7 +23,7 @@ export async function notifyHostsOfRsvp(
   previous: RsvpShown | undefined,
   current: RsvpShown | undefined,
 ): Promise<void> {
-  const notice = rsvpNotice(previous?.status ?? null, current?.status ?? null);
+  const notice = rsvpNotice(previous ?? null, current ?? null);
   const rsvp = current ?? previous;
   if (!notice || !rsvp || !event.notifyOnRsvp || !isMailConfigured()) return;
 
@@ -33,6 +34,8 @@ export async function notifyHostsOfRsvp(
       title: event.title,
       status: t(`status.${rsvp.status}`),
       plusOnes: rsvp.plusOnes,
+      // The whole party, as the waitlist counts it: the guest and their plus-ones.
+      party: 1 + rsvp.plusOnes,
       url: `${baseUrl()}/events/${event.id}/guests`,
     };
     const subject = t(`subject.${notice}`, values);

@@ -53,6 +53,15 @@ else that address is a page that does not exist.
   invitation can create an account, by email, Google, or GitHub alike. Open lets anyone sign up.
   A change takes effect at once. With mail configured, Open also lets anyone who signs up have the
   instance email addresses of their choosing ([Mail](#mail)).
+- **Limits** are two caps, set on the same page and read each time they are checked, so a change
+  takes effect at once. **Events per host** (50 by default) counts every event a host owns,
+  drafts and past events included but not events they only co-host; a host at the limit cannot
+  create or duplicate an event until they delete one. **Replies per event** (500 by default)
+  counts every reply to an event, whatever its answer; a guest who has not yet replied is told
+  the event can't take more replies, while guests who have replied can still change or withdraw
+  theirs. Each is a whole number from 1 to 100,000. Lowering a limit below what exists leaves
+  the existing events and replies alone and refuses only new ones. The same card sets how long
+  events are kept ([Retention](#retention)).
 - **Host invitations** are single-use links the operator makes on the same page, optionally
   addressed to an email, which then fills in the sign-up form (anyone with the link can still
   use it). The link is shown once, to copy; with mail configured, the operator can have it
@@ -61,6 +70,15 @@ else that address is a page that does not exist.
 - Emailed host invitations count against the mail rate limit (`RATE_LIMIT_MAIL`, 10 an hour by
   default) together with every other email your own address asks for. To send more host
   invitations than that in an hour, copy the links instead, or raise the limit.
+- **Reports**: every published or cancelled event page has a "Report this event" link in its
+  footer, which opens a form for a reason (20 to 1,000 characters) and an optional email to reach
+  the reporter. A report is always kept on the **Reports** page (`/instance/reports`, linked from
+  Instance settings with the number not yet handled), and, with mail configured, also emailed to
+  the email of your operator account (not `OPERATOR_CONTACT_EMAIL`, which is the public
+  address). For each report you can open the event, **Delete event** (the event, its guest list
+  and everything else about it are deleted, and its reports are marked handled), or **Mark
+  handled**. A report whose event was deleted, by you or by its host, reads "Event deleted".
+  `RATE_LIMIT_REPORT` (5 an hour) bounds how many a client can send.
 
 An instance upgraded from before there was an operator makes its earliest account the operator
 and starts Invitation only.
@@ -94,6 +112,45 @@ recover it by resetting its password by email, then verifying it:
 2. Sign in with the new password and choose **Resend email** in the banner on your dashboard.
    Open the link it sends: the account is now the operator.
 
+### Retention
+
+Events are deleted a set time after they end: **Keep events for**, on the Limits card of
+Instance settings, from 30 to 3,650 days, 365 (a year) by default, on a new instance and on one
+upgraded from 0.3 alike. An event ends at its end time, or its start time if it has none; an
+all-day event at the end of its last day, in its own time zone. Drafts and cancelled events are
+counted the same way.
+
+Once an event ended the period less 30 days ago, it is marked to be deleted. Its manage page then
+says "This event will be deleted on" the day, and the host's dashboard says "Will be deleted on"
+it; with mail, each of its hosts, co-hosts included, is emailed once, with that day, the period,
+and that **Duplicate** keeps the event's details for another time. Every manage page also names the
+period.
+An event is deleted once it ended the whole period ago and its mark is at least 30 days old, so
+nothing is ever deleted sooner than 30 days after its hosts were warned, with mail or without.
+Raising the period takes the mark off every event it no longer brings within 30 days of deletion;
+such an event is marked, and its hosts warned, afresh when its time comes again. A marked event
+still within those 30 days keeps its mark, and its deletion is put off (its pages show the new
+day). Lowering the period never deletes an event sooner than 30 days after its mark. A host who
+changes an event's dates so that its end moves takes its mark off too; the next check marks it
+again if it is still old enough.
+
+Deleting is the same as a host's own **Delete event**: the event goes with its replies and their
+answers, questions, comments, announcements, invites, co-hosts, any mail about it still queued,
+and its picture's files. Its links stay retired, so whoever opens one is told the event has been
+deleted, and its custom link can never be taken by another event. Reports about it stay on the
+Reports page, as "Event deleted". Hosts' accounts are not touched.
+
+The check runs in the app container a minute after it starts, then every hour; several app
+containers on one database share it without marking or deleting anything twice. An event is
+deleted at the first check after its time comes, so up to an hour after it, never before. On an
+instance upgraded with years of events behind it, the first check only marks: every event already
+old enough is marked at once, its hosts are emailed, and none is deleted for 30 days.
+
+To keep every event, tick **Keep forever** and save. Nothing is marked or deleted then, and the
+marks already made are cleared, so if you set a period again later, hosts are warned afresh and
+have their 30 days again. On an upgraded instance, an old event's hosts are already emailed by the
+first check, a minute after the start, unless Keep forever is saved before it.
+
 ## Mail
 
 | Variable | Default | Meaning |
@@ -122,15 +179,30 @@ With mail configured:
 - a host can sign in with a link emailed to them;
 - changing an account's email is confirmed from the new address;
 - the operator can have a host invitation emailed;
-- an event's hosts, co-hosts included, are emailed when a guest replies, changes their answer or
-  removes their RSVP, unless they turn it off for the event;
+- an event's hosts, co-hosts included, are emailed when a guest replies, waits for their approval,
+  joins the waitlist, changes their answer or removes their RSVP, unless they turn it off for the
+  event;
 - the hosts are emailed when someone comments on the event page, unless they turn it off for the
   event;
-- guests who gave an email are told when the host cancels the event, if they said Going or Maybe;
-- the hosts can email an announcement to the guests who gave an email, chosen by their answer;
+- guests who gave an email are told when the host cancels the event, if they said Going or Maybe
+  or are on the waitlist, whether or not the host had approved their reply yet; guests the host
+  declined are not written to;
+- the hosts can email an announcement to the guests who gave an email, chosen by their answer or
+  their place on the waitlist; on an event where the hosts approve each reply, only to the guests
+  they approved;
+- a guest on an event's waitlist who gave an email is told when a place opens up for them;
+- a guest who gave an email is told when the host approves their reply, and whether that put
+  them on the waitlist, unless they said Can't go; a declined guest is not emailed;
 - guests who gave an email are reminded of an event a week before if they said Maybe, and the day
-  before if they said Going, unless the host turns reminders off for the event;
-- every email to a guest ends with a link to a page where one tap stops email about that event.
+  before if they said Going, unless the host turns reminders off for the event or has not
+  approved their reply;
+- a guest proving their email is sent a code to it, when the host asks for it;
+- an event's hosts are warned 30 days before the instance deletes it for its age
+  ([Retention](#retention));
+- the operator is emailed each report about an event page, at their account's address (Reports,
+  above);
+- every email to a guest ends with a link to a page where one tap stops email about that event,
+  except the code, which is sent before their RSVP is kept.
 
 A guest gives an email only when the host asks for one on the RSVP form, so only those guests get
 mail.
@@ -138,16 +210,16 @@ mail.
 Mail also lets a host have the instance email anyone. A host can reply to their own event as many
 times as they like, typing any addresses into its RSVP form, and then post announcements to them;
 nothing checks that an address belongs to someone who asked. Only `RATE_LIMIT_RSVP` and
-`RATE_LIMIT_MAIL` bound it, and they count per client address. With registration Invitation only,
-the default, the hosts are people you admitted. If you open registration on an instance with mail,
-anyone who signs up can do this. Operator limits on guests per event and events per host, planned
-for a later release, are meant to close it.
+`RATE_LIMIT_MAIL` bound how fast, and they count per client address; the operator's limits on
+replies per event and events per host (Limits, above) bound how many addresses one host can gather.
+With registration Invitation only, the default, the hosts are people you admitted. If you open
+registration on an instance with mail, anyone who signs up can do this.
 
-The app sends event mail (everything above about an event) from a queue inside the app container,
-so there is nothing else to run. It sends what someone has just queued at once, and checks the
-queue once a minute, which is also when it queues the reminders that have fallen due. A message
-that fails is retried a few times over about an hour and a half; if it still fails, it is dropped
-and the log says why.
+The app sends event mail (everything above about an event but a guest's code, which goes at once
+because the guest is waiting for it) from a queue inside the app container, so there is nothing
+else to run. It sends what someone has just queued at once, and checks the queue once a minute,
+which is also when it queues the reminders that have fallen due. A message that fails is retried
+a few times over about an hour and a half; if it still fails, it is dropped and the log says why.
 
 Without mail, none of those emails exist: hosts are not asked to verify, and you reset a
 forgotten password with the command in [upgrade-backup.md](upgrade-backup.md#resetting-a-hosts-password).
@@ -156,9 +228,9 @@ To check mail works after setting it up, sign up a host with an address you can 
 a password reset for one. If nothing arrives, `docker compose logs app` shows the SMTP server's
 answer. Every request that sends one of the account emails (verification, password reset, an email
 change, a sign-in link, a host invitation) counts against `RATE_LIMIT_MAIL`, and so does a host's
-announcement that emails guests, once however many it reaches. The hosts' reply emails come from
-guests' RSVPs, so `RATE_LIMIT_RSVP` bounds them, and their comment emails come from comments, which
-`RATE_LIMIT_COMMENT` bounds.
+announcement that emails guests, once however many it reaches, and each code sent to a guest to
+prove their email. The hosts' reply emails come from guests' RSVPs, so `RATE_LIMIT_RSVP` bounds
+them, and their comment emails come from comments, which `RATE_LIMIT_COMMENT` bounds.
 
 ## Sign in with Google and GitHub
 
@@ -264,14 +336,15 @@ runs.
 | Variable | Default | What it counts |
 | --- | --- | --- |
 | `TRUSTED_PROXY_HOPS` | `1` | Not a limit: how many reverse proxies stand in front of the app (below). |
-| `RATE_LIMIT_EVENT_PAGE` | `120/1m` | Every request under an event link: the page, its preview card, its calendar file, whether the link exists or not, so links cannot be found by trying them. The host's own changes in the Design drawer on their event page do not count; their visits to the page do, and so does the refresh that shows a picture they have just uploaded. |
-| `RATE_LIMIT_RSVP` | `60/10m` | Sending an RSVP, and removing one. This also bounds the emails that tell hosts about replies. |
+| `RATE_LIMIT_EVENT_PAGE` | `120/1m` | Every request under an event link: the page, its preview card, its calendar file, whether the link exists or not, so links cannot be found by trying them. Opening a personal invite link counts too, whether it exists or not. The host's own changes in the Design drawer on their event page do not count; their visits to the page do, and so does the refresh that shows a picture they have just uploaded. |
+| `RATE_LIMIT_RSVP` | `60/10m` | Sending an RSVP, and removing one. Asking for a code to prove a guest's email, and entering it, each count as sending. This also bounds the emails that tell hosts about replies. |
 | `RATE_LIMIT_UPLOAD` | `20/10m` | Uploading a picture. |
 | `RATE_LIMIT_SIGN_UP` | `10/1h` | Signing up, and opening a host invitation link. |
 | `RATE_LIMIT_SIGN_IN` | `10/15m` | Signing in, and everything else that checks a password (changing it, deleting an account), starting a Google or GitHub sign-in, and opening a co-host link. |
 | `RATE_LIMIT_PASSWORD_RESET` | `10/1h` | Asking for a password reset link, and setting the new password. |
-| `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an account email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, asking for a sign-in link, and the operator's emailed host invitations. Also each announcement a host emails to guests, counted once however many guests it reaches. |
+| `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an account email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, asking for a sign-in link, and the operator's emailed host invitations. Also each announcement a host emails to guests, counted once however many guests it reaches, and each code sent to a guest to prove their email. |
 | `RATE_LIMIT_COMMENT` | `30/10m` | Posting a comment on an event page, and deleting one, by a guest or a host. This also bounds the emails that tell hosts about comments. |
+| `RATE_LIMIT_REPORT` | `5/1h` | Sending a report about an event page. This also bounds the emails that tell you about reports. |
 
 Each limit is written `count/window`, the window in seconds, minutes or hours: `120/1m`,
 `60/10m`, `10/1h`. The defaults are for people, some of whom share an address (an office, a
@@ -299,6 +372,43 @@ is not adding one.
 The app's port must be reachable only through the proxy. A visitor who could talk to the app
 directly could write `X-Forwarded-For` themselves and pass for anyone, a new client with each
 request. `compose.yaml` publishes it on `127.0.0.1` only; keep it that way.
+
+## Bot protection
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `TURNSTILE_SITE_KEY` | None | The site key of a Cloudflare Turnstile widget made for this instance. |
+| `TURNSTILE_SECRET_KEY` | None | That widget's secret key. |
+
+Set both to put [Cloudflare Turnstile](https://www.cloudflare.com/application-services/products/turnstile/)'s
+check on three forms: signing up with an email and password, a guest's RSVP in every layout, and
+reporting an event page. Each form's submit waits until the check has passed, which for most
+visitors happens by itself in a second or two. Every time a form is sent, a guest's code to prove
+their email included, the app asks Cloudflare whether the check really passed before it does
+anything with the form beyond counting it against the rate limits. A form that fails it says
+"Please complete the check and try again." and can be sent again once the check has passed anew.
+
+Not checked: signing in, which takes an account's password, or sends a link only to an account's
+own verified address; signing up with Google or GitHub, which goes through the provider's own
+sign-in; comments, which only a host or a guest whose reply is on the list can post; and
+everything a host does, which needs a host's session. The rate limits cover all of them.
+
+Setting only one of the two keys keeps the app from starting; with neither, nothing changes and
+nothing is loaded from Cloudflare.
+
+The check runs in the visitor's browser: on the pages with those forms, the browser loads
+Cloudflare's script and talks to Cloudflare, which learns the visitor's address and what it
+needs to tell a person from a script. Your privacy policy should say so. The app itself sends
+Cloudflare each form's token and the visitor's address, as the rate limits see it.
+
+To get the keys, sign in to the [Cloudflare dashboard](https://dash.cloudflare.com/), open
+Turnstile, add a widget with the hostname of `BASE_URL` (without `https://`) and the Managed
+mode, and copy its site key and secret key. A widget answers only on the hostnames it was made
+for, so a check on any other address fails.
+
+Cloudflare publishes test keys that make the widget pass for anyone: site key
+`1x00000000000000000000AA` with secret key `1x0000000000000000000000000000000AA`. They are for
+trying the forms out, and protect nothing.
 
 ## Privacy policy and terms of use
 

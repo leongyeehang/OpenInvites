@@ -16,7 +16,17 @@ export type DraftFields = {
   description?: string;
   plusOnes?: string;
   requirePlusOneNames?: boolean;
+  // The Guests group's Capacity; no capacity when left out.
+  capacity?: string;
+  // The Guests group's "Approve each guest before they’re on the list"; off when left out.
+  approval?: boolean;
+  // Email "Optional", which is what asking for one meant before it could be required.
   askEmail?: boolean;
+  // The Contact details choices; Don't ask when left out.
+  email?: "optional" | "required";
+  phone?: "optional" | "required";
+  // "Check the email with a code", which the form offers once it asks for an email.
+  verifyEmail?: boolean;
   // Reminders are on for a new event; false turns them off.
   reminders?: boolean;
   questions?: QuestionFields[];
@@ -24,6 +34,9 @@ export type DraftFields = {
   rsvpStyle?: "Inline" | "Sheet";
   layout?: "Broadsheet" | "Thread";
 };
+
+// The event form's approval setting, in its Guests group.
+export const APPROVAL = "Approve each guest before they’re on the list";
 
 // Fills the questions editor, which is a list the host builds before saving the event.
 export async function addQuestions(page: Page, questions: QuestionFields[]) {
@@ -48,12 +61,18 @@ export async function createDraft(page: Page, fields: DraftFields) {
   if (fields.description) await page.getByLabel("Description").fill(fields.description);
   if (fields.plusOnes) await page.getByLabel("Plus-ones per guest").selectOption(fields.plusOnes);
   if (fields.requirePlusOneNames) await page.getByLabel("Ask for each plus-one’s name").check();
-  if (fields.askEmail) await page.getByLabel("Ask guests for an email address").check();
+  if (fields.capacity) await page.getByRole("group", { name: "Guests", exact: true }).getByLabel("Capacity").fill(fields.capacity);
+  if (fields.approval) await page.getByRole("group", { name: "Guests", exact: true }).getByLabel(APPROVAL).check();
+  const contact = page.getByRole("group", { name: "Contact details" });
+  const email = fields.email ?? (fields.askEmail ? "optional" : undefined);
+  if (email) await contact.getByLabel("Email", { exact: true }).selectOption(email);
+  if (fields.phone) await contact.getByLabel("Phone number", { exact: true }).selectOption(fields.phone);
+  if (fields.verifyEmail) await contact.getByLabel("Check the email with a code").check();
   if (fields.reminders === false) await page.getByLabel("Remind guests by email (a week before to Maybe, the day before to Going)").uncheck();
   if (fields.questions) await addQuestions(page, fields.questions);
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page).toHaveURL(/\/events\/[0-9a-f-]{36}$/, { timeout: 15_000 });
-  return (await page.getByText(/^https?:\/\/\S+\/e\/[A-Za-z0-9]{10}$/).textContent())!.trim();
+  return (await page.getByText(/^https?:\/\/\S+\/e\/[A-Za-z0-9-]+$/).textContent())!.trim();
 }
 
 // A host of their own, signed up and verified, with one published event. Guest tests drive the

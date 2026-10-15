@@ -1,4 +1,4 @@
-import { clientKey } from "./client-key";
+import { clientAddress, clientKey } from "./client-key";
 import { rateLimitConfig, type LimitName, type RateLimitConfig } from "./config";
 import { WindowTable, type Rule } from "./window";
 
@@ -49,6 +49,12 @@ export async function consume(limit: LimitName, headers: Headers): Promise<Verdi
   const { store, config } = shared();
   const client = clientKey(headers.get("x-forwarded-for"), config.trustedProxyHops) ?? everyone(config.trustedProxyHops);
   return store.hit(limit, client, config.rules[limit], Date.now());
+}
+
+// Where a request came from, as the limits believe it (client-key.ts), for a service that asks:
+// Turnstile's check. Nothing when no address can be believed.
+export function clientAddressOf(headers: Headers): string | undefined {
+  return clientAddress(headers.get("x-forwarded-for"), shared().config.trustedProxyHops) ?? undefined;
 }
 
 // Counts one request against several limits in turn, and stops at the first that refuses it.

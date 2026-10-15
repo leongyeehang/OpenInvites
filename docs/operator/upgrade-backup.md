@@ -35,6 +35,61 @@ a newer copy may move it to a later one: that needs nothing more than `docker co
 Going back to an older release after a newer one has migrated the database is not supported.
 Restore the backup you took instead.
 
+### Upgrading to 0.4
+
+0.4 adds the operator's limits and reports, custom links, guests' phone numbers and emails proven
+by a code, capacity and the waitlist, approval, personal invite links, an optional bot check, and
+retention. Read the first point before you upgrade: it is the one change that deletes anything.
+
+- **Events are now deleted a year after they end, and the first deletions come 30 days after the
+  upgrade** ([configuration.md](configuration.md#retention)). A minute after the upgraded app
+  starts, its first check marks every event that ended more than 335 days ago. With mail, each
+  marked event's hosts, co-hosts included, are emailed once, with the day it will be deleted;
+  with mail or without, the day shows on its manage page and on their dashboard. Nothing is
+  deleted for 30 days after that. Then each event older than the period goes, with its guest list
+  and everything else about it, at the first hourly check after its day, so up to an hour late,
+  never early. Its links stay retired.
+  - **To keep every event**, sign in as the operator as soon as the upgraded app answers, and in
+    Instance settings, under **Limits**, tick **Keep forever** and save. The first check runs a
+    minute after the start, so the hosts of old events may already have been emailed by then;
+    once Keep forever is saved their events' marks are cleared, their pages say nothing more, and
+    nothing is deleted.
+  - **To keep events longer, or less long**, set **Keep events for** in the same place, from 30 to
+    3,650 days, then save. A mark already made is taken off an event the new period no longer
+    brings within 30 days of deletion.
+  - On an instance with mail and many old events, the first check queues all its warnings at once,
+    and mail goes out in the order it was queued, so the emails queued after them (hosts' reply
+    emails, announcements, reminders) wait until they have gone.
+- **The email field's new shape.** The event form's "Ask guests for an email address" is now
+  **Email**, under **Contact details**: **Don't ask**, **Optional** or **Required**, beside a new
+  **Phone number** with the same choices, and **Check the email with a code**. An event that asked
+  for an email asks for it as Optional; one that did not, Don't ask. Nothing a guest gave changes.
+- **Custom links.** A host can give an event a custom link, such as `/e/adas-50th`, on its share
+  screen, beside its random link, which keeps working. Existing events have none until their host
+  adds one.
+- **The guest list's new sections**: Waiting for approval and Declined appear once the event asks
+  for approval or has a reply in them, Waitlist once it has a capacity or a guest waiting, and
+  Invited once it has a personal invite link. A personal invite link is one the host makes for a
+  named guest and sends them themselves: the instance never emails it, it becomes the guest's
+  edit link once they reply, and deleting it keeps their reply.
+- **The limits apply at once, to what exists too.** A host who already owns 50 events or more
+  cannot create or duplicate another, and an event that already has 500 replies takes no new guest
+  (those who replied can still change or withdraw theirs). If a host or an event is past them, raise
+  **Events per host** or **Replies per event** in Instance settings first.
+- **Nothing else changes on existing events.** None has a capacity or asks for approval, and every
+  existing reply stays on the guest list as it was, approved.
+
+The instance settings page gains the **Limits** card (Events per host, 50; Replies per event, 500;
+Keep events for, 365 days) and a link to the **Reports** page; with mail, each report is also
+emailed to your operator account. There are three new settings, all optional:
+`TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`, which put Cloudflare's bot check on the sign-up,
+RSVP and report forms when both are set ([configuration.md](configuration.md#bot-protection)), and
+`RATE_LIMIT_REPORT` ([configuration.md](configuration.md#rate-limits)). `compose.yaml` gains no
+service. If you have published a privacy policy, it may now need to mention guests' phone numbers,
+how long events are kept, that reports reach you and are kept, and the bot check if you turn it
+on: the placeholder OpenInvites shows at `/privacy` while no policy is set, in the repository's
+`src/legal/placeholders.ts`, covers each.
+
 ### Upgrading to 0.3
 
 0.3 adds comments, co-hosts, announcements, reminders, and the emails that go with them
@@ -101,6 +156,10 @@ commands is then only an extra file. For a pair that matches exactly, run
 
 Keep the files somewhere other than this machine. To run it every night, put those commands in a
 script and call it from cron.
+
+Keep the dumps as private as the instance itself. Besides every host's and guest's details, a dump
+holds the edit links of the replies made through personal invite links: an invite's token is
+stored as it is, so whoever has a copy of the database can open those replies and change them.
 
 ## Restoring
 

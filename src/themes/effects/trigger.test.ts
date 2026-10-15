@@ -1,30 +1,48 @@
 import { describe, expect, it } from "vitest";
-import type { RsvpStatus } from "@/rsvps/form";
+import type { Approval } from "@/rsvps/admission";
+import type { SavedStatus } from "@/rsvps/form";
 import { confettiFor } from "./trigger";
 
+// An answer the host has let onto the list, as every answer is on an event without approval.
+const approved = (status: SavedStatus) => ({ status, approval: "approved" as Approval });
+const pending = (status: SavedStatus) => ({ status, approval: "pending" as Approval });
+const declined = (status: SavedStatus) => ({ status, approval: "declined" as Approval });
+
 describe("when confetti falls", () => {
-  const cases: [RsvpStatus | null, RsvpStatus | null, boolean][] = [
+  const cases: [string, ReturnType<typeof approved> | null, ReturnType<typeof approved> | null, boolean][] = [
     // A first reply.
-    [null, "going", true],
-    [null, "maybe", false],
-    [null, "cant", false],
+    ["a first Going", null, approved("going"), true],
+    ["a first Maybe", null, approved("maybe"), false],
+    ["a first Can't go", null, approved("cant"), false],
     // A change of answer.
-    ["maybe", "going", true],
-    ["cant", "going", true],
-    ["going", "maybe", false],
-    ["going", "cant", false],
-    ["maybe", "cant", false],
-    ["cant", "maybe", false],
+    ["Maybe to Going", approved("maybe"), approved("going"), true],
+    ["Can't go to Going", approved("cant"), approved("going"), true],
+    ["Going to Maybe", approved("going"), approved("maybe"), false],
+    ["Going to Can't go", approved("going"), approved("cant"), false],
+    ["Maybe to Can't go", approved("maybe"), approved("cant"), false],
+    ["Can't go to Maybe", approved("cant"), approved("maybe"), false],
     // An edit that keeps the answer, Going included.
-    ["going", "going", false],
-    ["maybe", "maybe", false],
-    ["cant", "cant", false],
+    ["Going kept", approved("going"), approved("going"), false],
+    ["Maybe kept", approved("maybe"), approved("maybe"), false],
+    ["Can't go kept", approved("cant"), approved("cant"), false],
+    // A Going reply put on the waitlist, and one that stays there: no place yet, so no confetti.
+    ["a first Going, waitlisted", null, approved("waitlisted"), false],
+    ["Maybe to Going, waitlisted", approved("maybe"), approved("waitlisted"), false],
+    ["waitlisted kept", approved("waitlisted"), approved("waitlisted"), false],
+    // A waitlisted guest whose own save promoted them, by lowering their party until it fits: the
+    // place is theirs by that change, and the email saying so is the celebration.
+    ["waitlisted to Going, a self-promotion", approved("waitlisted"), approved("going"), false],
+    // A Going reply waiting for the host's approval, or one they declined: the guest is not in
+    // yet, so no confetti; the email saying they are in is the celebration.
+    ["a first Going, pending", null, pending("going"), false],
+    ["Maybe to Going, pending", pending("maybe"), pending("going"), false],
+    ["Can't go to Going, declined", declined("cant"), declined("going"), false],
     // A removed RSVP.
-    ["going", null, false],
-    [null, null, false],
+    ["Going removed", approved("going"), null, false],
+    ["nothing at all", null, null, false],
   ];
 
-  it.each(cases)("from %s to %s: %s", (before, after, falls) => {
+  it.each(cases)("%s", (_, before, after, falls) => {
     expect(confettiFor(before, after)).toBe(falls);
   });
 });

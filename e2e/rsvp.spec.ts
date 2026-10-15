@@ -214,7 +214,7 @@ test("the host's plus-one settings decide what the guest is asked", async ({ pag
   // plus-one they can no longer bring is dropped rather than blocking every save.
   await host.page.getByLabel("Plus-ones per guest").selectOption("0");
   await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText("Saved.")).toBeVisible();
+  await expect(host.page.getByText(/^Saved\./)).toBeVisible();
 
   await page.reload();
   await page.getByRole("button", { name: "Edit details" }).click();

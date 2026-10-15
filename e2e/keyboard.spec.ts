@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import { createDraft, createPublished, type DraftFields } from "./events";
-import { signUpVerified } from "./hosts";
-import { expect, test, type Locator, type Page } from "./test";
+import { latestMailTo, mailCountTo, newHost, PASSWORD, signUpVerified } from "./hosts";
+import { clientAddress, expect, test, type Locator, type Page } from "./test";
 
 // Ticket 20: a guest can answer, and a host can design their invitation, with the keyboard alone.
 // Nothing here is clicked: every step is a key. At each stop the control with the focus shows it:
@@ -162,6 +162,204 @@ test("a guest answers Going with a plus-one and a required question by keyboard 
   await expect(page.getByRole("button", { name: "Going", exact: true })).toBeFocused();
   await expectVisibleFocus(page);
   await host.context.close();
+});
+
+// Ticket 05 (M3): on an event that proves the guest's email, the code step by keyboard alone in each
+// layout: the code's field takes the focus once the code is sent, and the confirmation once it is
+// right. The guest reaches the instance from an address of their own, so the hosts' sign-up emails
+// leave their allowance of mail whole.
+test("a guest proves their email with the code by keyboard alone, on the Poster, the Broadsheet's ballot and in the Thread's composer", async ({ browser, request }) => {
+  test.setTimeout(240_000);
+  const PROVEN = { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0", email: "optional", verifyEmail: true } satisfies DraftFields;
+  const codeSentTo = async (email: string) => (await latestMailTo(request, email)).match(/^([0-9]{6})\r?$/m)![1];
+
+  for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
+    const host = await createPublished(browser, request, `keyboard-code-${layout.toLowerCase()}`, layout === "Poster" ? { ...PROVEN, rsvpStyle: "Inline" } : { ...PROVEN, layout });
+    const email = newHost(`keyboard-code-${layout.toLowerCase()}-guest`).email;
+    const guest = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
+    const page = await guest.newPage();
+    await page.goto(host.link);
+
+    if (layout === "Broadsheet") {
+      await tabTo(page, page.getByRole("radio", { name: "I’ll be there" }));
+      await page.keyboard.press("Space");
+      await tabTo(page, page.getByLabel("Your name"));
+      await page.keyboard.type("Priya Nair");
+      await tabTo(page, page.getByLabel("Email"));
+      await page.keyboard.type(email);
+      await tabTo(page, page.getByRole("button", { name: "Post my reply" }));
+      await page.keyboard.press("Enter");
+    } else if (layout === "Poster") {
+      await tabTo(page, page.getByRole("button", { name: "Going", exact: true }));
+      await page.keyboard.press("Enter");
+      await expect(page.getByLabel("Your name")).toBeFocused();
+      await page.keyboard.type("Priya Nair");
+      await tabTo(page, page.getByLabel("Email"));
+      await page.keyboard.type(email);
+      await tabTo(page, page.getByRole("button", { name: "Send RSVP" }));
+      await page.keyboard.press("Enter");
+    } else {
+      // Each of the Thread's turns is sent with Enter.
+      await tabTo(page, page.getByRole("button", { name: "Going", exact: true }));
+      await page.keyboard.press("Enter");
+      await expect(page.getByLabel("Your name")).toBeFocused();
+      await page.keyboard.type("Priya Nair");
+      await page.keyboard.press("Enter");
+      await expect(page.getByLabel("Email")).toBeFocused();
+      await page.keyboard.type(email);
+      await page.keyboard.press("Enter");
+    }
+
+    const code = page.getByLabel("Code");
+    await expect(code).toBeFocused({ timeout: 15_000 });
+    await expectVisibleFocus(page);
+    await page.keyboard.type(await codeSentTo(email));
+    if (layout === "Broadsheet") {
+      await tabTo(page, page.getByRole("button", { name: "Confirm" }));
+      await page.keyboard.press("Enter");
+    } else await page.keyboard.press("Enter");
+
+    // What says the reply is saved takes the focus, so it is what a screen reader reads next.
+    if (layout === "Thread") await expect(page.locator('[data-slot="done-text"]')).toBeFocused({ timeout: 15_000 });
+    else {
+      await expect(page.getByRole("heading", { name: "You’re going!" })).toBeFocused({ timeout: 15_000 });
+      await expect(page.getByText(`We’ll reach you at ${email}.`)).toBeVisible();
+    }
+    await guest.close();
+    await host.context.close();
+  }
+});
+
+// Ticket 12 (after 0.4): "Send it again" waits thirty seconds after each code, and a guest on the
+// keyboard can still reach it while it waits: it keeps its place in the tab order, says it is
+// unavailable, and does nothing when it is pressed.
+test("a guest tabs to the code step's Send it again while it waits, and pressing it sends nothing", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-resend", { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0", email: "optional", verifyEmail: true, rsvpStyle: "Inline" });
+  const email = newHost("keyboard-resend-guest").email;
+  const guest = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
+  const page = await guest.newPage();
+  await page.goto(host.link);
+  await page.getByRole("button", { name: "Going", exact: true }).click();
+  await page.getByLabel("Your name").fill("Priya Nair");
+  await page.getByLabel("Email").fill(email);
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByLabel("Code")).toBeFocused({ timeout: 15_000 });
+
+  // The next stop after the code is the button, waiting, under the name it always has, with the
+  // seconds left as its description, which a screen reader reads on reaching it.
+  const again = page.getByRole("button", { name: "Send it again", exact: true });
+  await expect(again).toHaveAttribute("aria-disabled", "true");
+  await page.keyboard.press("Tab");
+  await expect(again).toBeFocused();
+  await expectVisibleFocus(page);
+  await expect(again).toHaveAccessibleDescription(/^Send it again in \d+s$/);
+  await page.keyboard.press("Enter");
+  await expect(again).toBeFocused();
+  await expect(page.getByText("We sent a code to")).toBeVisible();
+  await expect.poll(() => mailCountTo(request, email), { timeout: 15_000 }).toBe(1);
+
+  await guest.close();
+  await host.context.close();
+});
+
+// Ticket 12 (after 0.4): a host who asks for a phone number, optionally, is given one by a guest
+// who answers on the Broadsheet's ballot by keyboard alone, and the host's guest list shows it.
+test("a guest gives the phone number the host asked for by keyboard alone, on the Broadsheet's ballot, and the host's list shows it", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-phone", { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0", layout: "Broadsheet", phone: "optional" });
+  await page.goto(host.link);
+  await tabTo(page, page.getByRole("radio", { name: "I’ll be there" }));
+  await page.keyboard.press("Space");
+  await tabTo(page, page.getByLabel("Your name"));
+  await page.keyboard.type("Priya Nair");
+  await tabTo(page, page.getByLabel("Phone number"));
+  await page.keyboard.type("(02) 555-1234");
+  await tabTo(page, page.getByRole("button", { name: "Post my reply" }));
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "You’re going!" })).toBeFocused({ timeout: 15_000 });
+  await expect(page.getByText("Phone: (02) 555-1234", { exact: true })).toBeVisible();
+
+  await host.page.goto(`${host.page.url()}/guests`);
+  await expect(host.page.getByRole("region", { name: /^Going/ }).getByText("(02) 555-1234", { exact: true })).toBeVisible();
+  await host.context.close();
+});
+
+// Ticket 02 (M3): a guest reports an event page by keyboard alone, from the link in its footer to
+// the thanks and back to the page. The report page is a plain page, as the host's are: its form's
+// controls show their focus as the host's pages do, read as their ring's contrast is (below).
+test("a guest reports an event page by keyboard alone", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-report", { title: "Ada’s birthday", start: "2027-03-06T19:00" });
+  await page.goto(host.link);
+  await tabTo(page, page.getByRole("contentinfo").getByRole("link", { name: "Report this event" }));
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { level: 1, name: "Report Ada’s birthday" })).toBeVisible();
+
+  const reason = page.getByLabel("What’s wrong with this page?");
+  const email = page.getByLabel("Your email (optional)");
+  const send = page.getByRole("button", { name: "Send report" });
+  await tabUntil(page, reason);
+  await page.keyboard.type(`This page is not what it says it is (keyboard ${Date.now().toString(36)}).`);
+  await tabUntil(page, email);
+  await page.keyboard.type("reporter@example.com");
+  await tabUntil(page, send);
+  await page.keyboard.press("Enter");
+  await expect(page.getByText("Thank you. Your report has reached the operator of this instance.")).toBeVisible({ timeout: 15_000 });
+  await tabUntil(page, page.getByRole("link", { name: "Back to the event page" }));
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(new URL(host.link).pathname);
+
+  await page.goto(`${host.link}/report`);
+  for (const control of [reason, email, send]) await expectRingStandsOut(page, control);
+  await host.context.close();
+});
+
+// Tab until `target` has the focus, on a plain page, whose rings expectRingStandsOut reads instead.
+async function tabUntil(page: Page, target: Locator) {
+  for (let presses = 0; presses < 30; presses++) {
+    await page.keyboard.press("Tab");
+    if (await target.evaluate((element) => element === document.activeElement)) return;
+  }
+  throw new Error(`never reached ${target}`);
+}
+
+// Ticket 09 (M3), on `app-social`, whose Turnstile keys are Cloudflare's always-pass test keys: a
+// host signs up by keyboard alone. Past the password the focus goes through the bot check's own
+// controls, which are Cloudflare's, in a frame inside a shadow root the page cannot read, and then
+// to Create account; every control of the app's own on the way shows its focus.
+test.describe("on an instance whose operator has set Turnstile's keys", () => {
+  test.use({ baseURL: "http://localhost:3001" });
+
+  test("a host signs up by keyboard alone, tabbing through the bot check to Create account", async ({ page }) => {
+    test.slow();
+    const host = newHost("keyboard-bot-check");
+    await page.goto("/sign-up");
+    const create = page.getByRole("button", { name: "Create account" });
+    // It is not in the order until the check has passed.
+    await expect(create).toBeEnabled({ timeout: 15_000 });
+    await tabTo(page, page.getByLabel("Display name"));
+    await page.keyboard.type(host.name);
+    await tabTo(page, page.getByLabel("Email"));
+    await page.keyboard.type(host.email);
+    await tabTo(page, page.getByLabel("Password"));
+    await page.keyboard.type(PASSWORD);
+
+    let inTheCheck = 0;
+    for (let presses = 0; presses < 10; presses++) {
+      await page.keyboard.press("Tab");
+      if (await create.evaluate((element) => element === document.activeElement)) break;
+      const where = await page.evaluate(() => (document.activeElement?.closest('[role="group"][aria-label="Bot check"]') ? "the bot check" : document.activeElement?.outerHTML.slice(0, 120)));
+      expect(where, "every stop between the password and Create account").toBe("the bot check");
+      inTheCheck++;
+    }
+    await expect(create).toBeFocused();
+    await expectVisibleFocus(page);
+    expect(inTheCheck).toBeGreaterThan(0);
+
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
+  });
 });
 
 test("a host applies a template, changes a knob and closes the Design drawer by keyboard alone", async ({ browser, request }) => {

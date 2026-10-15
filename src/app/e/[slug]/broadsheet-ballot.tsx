@@ -3,6 +3,7 @@
 import { Check, Minus, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useRef, type ComponentProps } from "react";
+import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils";
 import { offeredBy } from "@/questions/answers";
 import { RSVP_STATUSES, type RsvpStatus } from "@/rsvps/form";
@@ -10,6 +11,7 @@ import { Confetti } from "@/themes/effects/confetti";
 import { Glass } from "@/themes/glass";
 import { cardButtonClasses } from "@/themes/rsvp-buttons";
 import { useTheme } from "@/themes/themed-page";
+import { Turnstile } from "@/turnstile/turnstile";
 import { BroadsheetReceipt } from "./broadsheet-receipt";
 import { Asked } from "./rsvp-flow";
 import { useRsvpFlow, type RsvpFlowProps } from "./use-rsvp-flow";
@@ -17,9 +19,11 @@ import { useRsvpFlow, type RsvpFlowProps } from "./use-rsvp-flow";
 // The Broadsheet's ballot (spec, "Broadsheet"): the RSVP flow's rules (use-rsvp-flow.ts) as one
 // form on a glass card, which the layout keeps in view beside the text on a wide screen. The guest
 // marks one of three answers, and everything the event asks of that answer opens beneath it at
-// once: their name (and email, when the host asks), how many they bring and their names, the
-// host's questions; then "Post my reply". Can't go asks only the name. Once saved, the card holds
-// the receipt: a "Received" stamp, their answer and the private link that changes it.
+// once: their name (and email and phone number, when the host asks), how many they bring and
+// their names, the host's questions; then "Post my reply". Can't go asks only who they are. When
+// the host has the email proven, the card then asks for the code sent to it in their place, with
+// Confirm. Once saved, the card holds the receipt: a "Received" stamp, their answer and the
+// private link that changes it.
 //
 // The card is the glass the Poster's own RSVP card is, and everything on it sits where it sits
 // there (legibility.ts, SURFACES: text on the card, the accent filled or as ink on the card), so
@@ -32,14 +36,20 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
   const id = useId();
   const statusMarks = useRef<Partial<Record<RsvpStatus, HTMLInputElement | null>>>({});
   const receiptHeading = useRef<HTMLHeadingElement>(null);
+  const codeField = useRef<HTMLInputElement>(null);
+  const emailField = useRef<HTMLInputElement>(null);
   // Once the RSVP is saved the focus goes to the receipt's heading, which a screen reader reads
-  // out; once it is removed or being changed, to the answer the guest is choosing from.
+  // out; once a code is sent, to its field; once it is removed or being changed, to the answer the
+  // guest is choosing from.
   const flow = useRsvpFlow(props, (target, status) => {
     if (target === "confirmation") receiptHeading.current?.focus();
+    else if (target === "code") codeField.current?.focus();
     else statusMarks.current[status]?.focus();
   });
   const { draft, change, recordAnswer, steps, confirmed, answering, working } = flow;
   const chosen = answering ? draft.status : undefined;
+  // While the guest enters the code their details are out of sight, still in the form that posts them.
+  const confirming = flow.step === "code";
 
   return (
     <>
@@ -91,10 +101,11 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
               ))}
             </fieldset>
             {!open && <p className="-mt-2 text-sm text-theme-text-muted">{t("errors.closed")}</p>}
+            {flow.fullNotice && <p className="-mt-2 text-sm text-theme-text-muted">{t(flow.fullNotice)}</p>}
 
             {answering && (
               <>
-                <label className="block">
+                <label hidden={confirming} className="block">
                   <span className={LABEL}>{t("name.label")}</span>
                   <input
                     name="name"
@@ -104,25 +115,46 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
                     className={FIELD}
                   />
                 </label>
-                {settings.askEmail && (
-                  <label className="block">
-                    <span className={LABEL}>{t("name.email")}</span>
+                {settings.emailField !== "none" && (
+                  <label hidden={confirming} className="block">
+                    <ContactLabel label={t("name.email")} required={settings.emailField === "required"} />
                     <input
-                      // Not type="email", as on the Poster: the action checks the address and says
-                      // what is wrong with it in the guest's language.
+                      ref={emailField}
+                      // Not type="email" nor required, as on the Poster: the action checks the
+                      // address and says what is wrong with it in the guest's language.
                       inputMode="email"
                       autoComplete="email"
+                      aria-required={settings.emailField === "required" || undefined}
                       name="email"
                       value={draft.email}
                       onChange={(typed) => change({ email: typed.target.value })}
                       className={FIELD}
                     />
-                    <span className="mt-1 block text-xs text-theme-text-faint">{t("name.emailHint")}</span>
+                    <span className="mt-1 block text-xs text-theme-text-faint">
+                      {t(settings.emailField === "required" ? "name.emailHintRequired" : "name.emailHint")}
+                    </span>
+                  </label>
+                )}
+                {settings.phoneField !== "none" && (
+                  <label hidden={confirming} className="block">
+                    <ContactLabel label={t("name.phone")} required={settings.phoneField === "required"} />
+                    <input
+                      inputMode="tel"
+                      autoComplete="tel"
+                      aria-required={settings.phoneField === "required" || undefined}
+                      name="phone"
+                      value={draft.phone}
+                      onChange={(typed) => change({ phone: typed.target.value })}
+                      className={FIELD}
+                    />
+                    <span className="mt-1 block text-xs text-theme-text-faint">
+                      {t(settings.phoneField === "required" ? "name.phoneHintRequired" : "name.phoneHint")}
+                    </span>
                   </label>
                 )}
 
                 {steps.includes("plusones") && (
-                  <div role="group" aria-labelledby={`${id}-plus-ones`} aria-describedby={`${id}-plus-ones-hint`}>
+                  <div hidden={confirming} role="group" aria-labelledby={`${id}-plus-ones`} aria-describedby={`${id}-plus-ones-hint`}>
                     <span id={`${id}-plus-ones`} className={LABEL}>
                       {t("ballot.plusOnes")}
                     </span>
@@ -156,7 +188,7 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
                 )}
 
                 {steps.includes("questions") && (
-                  <ol data-slot="questions" className="flex flex-col gap-6">
+                  <ol hidden={confirming} data-slot="questions" className="flex flex-col gap-6">
                     {questions.map((question) => {
                       const asked = <Asked question={question} optional={t("questions.optional")} required={t("questions.required")} />;
                       const given = draft.answers[question.id] ?? [];
@@ -215,18 +247,73 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
                   </ol>
                 )}
 
+                {/* What the wait for "Send it again" is, said as the code step comes and as the wait
+                    ends (use-rsvp-flow.ts, resendNotice); here before the code step, so it is heard. */}
+                <span aria-live="polite" className="sr-only">
+                  {flow.resendNotice === "now" ? t("code.resendNow") : flow.resendNotice && t("code.resendLater", { seconds: flow.resendNotice.waitFor })}
+                </span>
+
+                {confirming && flow.codeSentTo !== undefined && (
+                  <div className="flex flex-col gap-3">
+                    <p id={`${id}-code-sent`} className="break-words text-theme-text-muted">
+                      {t("code.sent", { email: flow.codeSentTo })}
+                    </p>
+                    <label className="block">
+                      <span className={LABEL}>{t("code.label")}</span>
+                      <input
+                        ref={codeField}
+                        name="code"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        aria-describedby={`${id}-code-sent`}
+                        value={draft.code}
+                        onChange={(typed) => change({ code: typed.target.value })}
+                        className={FIELD}
+                      />
+                    </label>
+                    <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                      {/* While it waits the button stays in the tab order, `aria-disabled` and a no-op,
+                          under the name it always has; the seconds it shows are its description,
+                          heard on reaching it. */}
+                      <button
+                        type="button"
+                        onClick={(event) => !(working || flow.resendIn > 0 || flow.awaitingCheck) && flow.resend(event.currentTarget.form)}
+                        aria-disabled={working || flow.resendIn > 0 || flow.awaitingCheck}
+                        aria-label={t("code.resend")}
+                        aria-describedby={flow.resendIn > 0 ? `${id}-resend-in` : undefined}
+                        className={LINK}
+                      >
+                        <span id={`${id}-resend-in`}>{flow.resendIn > 0 ? t("code.resendIn", { seconds: flow.resendIn }) : t("code.resend")}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          flushSync(flow.changeEmail);
+                          emailField.current?.focus();
+                        }}
+                        className={LINK}
+                      >
+                        {t("code.changeEmail")}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Turnstile, beside "Post my reply" and, on the code step, "Send it again" and
+                    Confirm. */}
+                {flow.turnstile && <Turnstile {...flow.turnstile} />}
                 {flow.refusal && (
                   <p role="alert" className="text-sm font-medium">
-                    {t(`errors.${flow.refusal}`)}
+                    {t(`errors.${flow.refusal}`, { count: flow.refusalCount })}
                   </p>
                 )}
                 {/* In the theme's RSVP button style: the ballot's one button. */}
                 <button
                   type="submit"
-                  disabled={working || !draft.name.trim()}
+                  disabled={working || !draft.name.trim() || (confirming && !draft.code.trim()) || flow.awaitingCheck}
                   className={cn(cardButtonClasses(buttonStyle), "h-14 justify-between px-5 text-lg font-bold tracking-tight")}
                 >
-                  {t("ballot.post")} <span aria-hidden>→</span>
+                  {confirming ? t("code.confirm") : t("ballot.post")} <span aria-hidden>→</span>
                 </button>
               </>
             )}
@@ -238,8 +325,20 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
 }
 
 const LABEL = "label-mono mb-1.5 block text-theme-text-muted";
+const LINK = "cursor-pointer underline decoration-theme-accent decoration-2 underline-offset-4 hover:opacity-80 aria-disabled:cursor-default aria-disabled:no-underline aria-disabled:opacity-70";
 const PROMPT = "mb-2 block font-medium";
 const FIELD = "h-11 w-full border-b border-theme-text/40 bg-transparent text-lg text-theme-text placeholder:text-theme-text-faint";
+
+// The label of a way of reaching the guest, with the asterisk the Poster shows when the host
+// requires it; the input itself says so to a screen reader.
+function ContactLabel({ label, required }: { label: string; required: boolean }) {
+  return (
+    <span className={LABEL}>
+      {label}
+      {required && <span aria-hidden className="text-theme-accent-ink"> *</span>}
+    </span>
+  );
+}
 
 // A radio button or a checkbox drawn as the ballot's mark: a ring or a box in the text's colour,
 // filled once chosen. It is the input itself, so the keyboard's focus rings it.
