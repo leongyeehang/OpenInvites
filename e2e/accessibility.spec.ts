@@ -677,7 +677,8 @@ for (const layout of LAYOUTS) {
 }
 
 // Ticket 12 (after 0.4): the Poster's code step with "Send it again" counting down: the seconds are
-// announced in a polite live region and the button, still reachable, says it is unavailable.
+// announced in a polite live region and the button says it is unavailable (aria-disabled, which
+// keeps it in the tab order: e2e/keyboard.spec.ts tabs to it).
 test("the code step on the Poster with the resend countdown running", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "a11y-resend", { ...inLayout("Poster"), email: "optional", verifyEmail: true });
@@ -686,7 +687,6 @@ test("the code step on the Poster with the resend countdown running", async ({ b
   await expect(page.getByLabel("Code")).toBeFocused({ timeout: 15_000 });
   const again = page.getByRole("button", { name: "Send it again", exact: true });
   await expect(again).toHaveAttribute("aria-disabled", "true");
-  await expect(again).toBeEnabled();
   await expect(page.locator('[aria-live="polite"]').filter({ hasText: /^Send it again in \d+s$/ })).toHaveCount(1);
   await expectNoSeriousViolations(page, "the Poster's code step, the resend countdown running");
   await page.context().close();

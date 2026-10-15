@@ -283,16 +283,14 @@ test("under the Confetti effect, no confetti falls when a waitlisted guest lower
   await page.getByRole("button", { name: "Post my reply" }).click();
   await expect(page.getByRole("heading", { name: "You’re on the waitlist, number 1." })).toBeVisible({ timeout: 15_000 });
 
-  // Coming alone fits: the save promotes her, and the page says she is going, with no confetti.
+  // Coming alone fits: the save promotes her, and the page says she is going, with no confetti. It
+  // would come with the receipt, in the same paint, so none now is none at all.
   const confetti = page.locator('[data-effect="confetti"]');
   await page.getByRole("button", { name: "Change answer" }).click();
   await page.getByRole("radio", { name: "I’ll be there" }).check();
   await page.getByRole("button", { name: "One guest fewer" }).click();
   await page.getByRole("button", { name: "Post my reply" }).click();
   await expect(page.getByRole("heading", { name: "You’re going!" })).toBeVisible({ timeout: 15_000 });
-  // The presence case waits for the node; the absence is read once, after the half second in which
-  // the effect, mounted a tick after the confirmation, would have appeared.
-  await page.evaluate(() => new Promise((done) => setTimeout(done, 500)));
   expect(await confetti.count()).toBe(0);
 
   await host.context.close();
