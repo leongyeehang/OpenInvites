@@ -4,7 +4,8 @@ import { posterTitleVariables, resolveTheme, sheetVariables, themeVariables, typ
 import { DEFAULT_THEME, type Theme } from "./theme";
 
 const UPLOAD = "0192f0a1-7b3c-7d4e-8f00-123456789abc";
-const onUpload: Theme = { ...DEFAULT_THEME, backgroundId: null, uploadId: UPLOAD };
+const onUpload: Theme = { ...DEFAULT_THEME, poster: { kind: "upload" } };
+const onColour = (id: string): Theme => ({ ...DEFAULT_THEME, poster: { kind: "colour", id } });
 
 // The same picture as a portrait poster, the widths it comes in, and its blurred copy behind it: dark.
 const POSTER: ThemeUpload["poster"] = {
@@ -39,26 +40,24 @@ describe("resolveTheme", () => {
       expect(resolveTheme({ ...onUpload, accentOverride: "#ff7a59" }, upload()).accent).toBe("#ff7a59");
     });
 
-    it("else the upload's sampled accent when an upload is in use", () => {
+    it("else the upload's sampled accent when it is the poster", () => {
       expect(resolveTheme(onUpload, upload()).accent).toBe("#3aa885");
     });
 
-    it("else the curated background's pre-chosen accent", () => {
+    it("else the curated poster's pre-chosen accent", () => {
       expect(resolveTheme(DEFAULT_THEME).accent).toBe("#ffc36b");
-      expect(resolveTheme({ ...DEFAULT_THEME, backgroundId: "slate" }).accent).toBe("#d9d9e3");
+      expect(resolveTheme(onColour("slate")).accent).toBe("#d9d9e3");
     });
 
-    it("leaves a kept upload alone once the host picks a curated background again", () => {
-      const backToSlate: Theme = { ...onUpload, backgroundId: "slate" };
+    it("leaves a kept upload alone once the host picks a curated poster again", () => {
+      const backToSlate = onColour("slate");
       expect(resolveTheme(backToSlate, upload({ luminance: 0.9 })).accent).toBe("#d9d9e3");
       expect(resolveTheme(backToSlate, upload({ luminance: 0.9 })).textTone).toBe("light");
     });
 
-    it("falls back to the default background when the theme's own is unknown or the upload is missing", () => {
-      expect(resolveTheme({ ...DEFAULT_THEME, backgroundId: "nope" }).accent).toBe("#ffc36b");
+    it("falls back to the default background when the poster is unknown or the upload is missing", () => {
+      expect(resolveTheme(onColour("nope")).accent).toBe("#ffc36b");
       expect(resolveTheme(onUpload).accent).toBe("#ffc36b");
-      // An upload other than the one the theme names is not the one to show.
-      expect(resolveTheme(onUpload, upload({ id: "0192f0a1-7b3c-7d4e-8f00-000000000000" })).accent).toBe("#ffc36b");
     });
 
     it("pairs the accent with a text colour that reads on it", () => {
@@ -89,40 +88,23 @@ describe("resolveTheme", () => {
 
   it("resolves the background to what the page paints and the title font to its face", () => {
     expect(resolveTheme(DEFAULT_THEME).background).toMatchObject({ kind: "gradient", css: expect.stringContaining("#ffc36b") });
-    expect(resolveTheme({ ...DEFAULT_THEME, backgroundId: "aurora" }).background).toMatchObject({ kind: "photo", src: "/backgrounds/aurora.6e1d45e9.svg" });
+    expect(resolveTheme({ ...DEFAULT_THEME, poster: { kind: "gallery", id: "aurora" } }).background).toMatchObject({
+      kind: "photo",
+      src: "/backgrounds/aurora.6e1d45e9.svg",
+    });
     expect(resolveTheme(DEFAULT_THEME).font).toMatchObject({ key: "serif", sizes: { short: "text-poster-serif" } });
     expect(resolveTheme({ ...DEFAULT_THEME, font: "rounded" }).font.key).toBe("rounded");
   });
 
-  it("paints the host's upload as a photo background, and says which upload it is", () => {
-    const resolved = resolveTheme(onUpload, upload());
-    expect(resolved.background).toMatchObject({
-      kind: "photo",
-      src: `/uploads/${UPLOAD}/background.webp`,
-      portraitSrc: `/uploads/${UPLOAD}/background-portrait.webp`,
-    });
-    expect(resolved.upload).toEqual(upload());
-    expect(resolveTheme({ ...onUpload, backgroundId: "dusk" }, upload()).upload).toBeNull();
-  });
-
-  it("paints the upload it is handed when the theme names none, as the theme guests are sent does", () => {
-    const asSent: Theme = { ...onUpload, uploadId: null };
-    expect(resolveTheme(asSent, upload()).upload).toEqual(upload());
-    expect(resolveTheme({ ...asSent, uploadMode: "poster" }, upload()).poster?.src).toBe(POSTER.src);
+  it("hands on the host's upload only while it is the poster, as guests are sent it", () => {
+    expect(resolveTheme(onUpload, upload()).upload).toEqual(upload());
     // Put aside, the picture is not handed to them at all.
-    expect(resolveTheme({ ...asSent, backgroundId: "dusk" }, upload()).upload).toBeNull();
-    expect(resolveTheme(asSent).background.id).toBe(resolveTheme(DEFAULT_THEME).background.id);
-  });
-
-  it("solves the page against the upload's own light and dark, so a dark photo keeps the light frost", () => {
-    // Measured, a dark photo reads under the settled 10% white frost; assumed to be anything, it
-    // would have been smoked.
-    expect(css(resolveTheme(onUpload, upload()).tokens.glass)).toBe("rgb(255 255 255 / 0.1)");
-    expect(css(resolveTheme(onUpload, upload({ lightest: "#bfbfbf" })).tokens.glass)).not.toBe("rgb(255 255 255 / 0.1)");
+    expect(resolveTheme(onColour("dusk"), upload()).upload).toBeNull();
+    expect(resolveTheme({ ...DEFAULT_THEME, poster: { kind: "gallery", id: "bokeh" } }, upload()).upload).toBeNull();
   });
 
   describe("poster mode", () => {
-    const asPoster: Theme = { ...onUpload, uploadMode: "poster", titlePlacement: "on" };
+    const asPoster: Theme = { ...onUpload, titlePlacement: "on" };
 
     it("shows the host's upload as the invitation itself: the poster at its size, with what it shows and the title where the host put it", () => {
       expect(resolveTheme(asPoster, upload({ altText: "Our summer fair poster" })).poster).toEqual({
@@ -138,15 +120,13 @@ describe("resolveTheme", () => {
       expect(resolveTheme(asPoster, upload()).upload).toEqual(upload());
     });
 
-    it("shows no poster when the upload is the background, is put aside, or is missing", () => {
-      expect(resolveTheme(onUpload, upload()).poster).toBeNull();
-      expect(resolveTheme({ ...asPoster, backgroundId: "dusk" }, upload()).poster).toBeNull();
-      expect(resolveTheme({ ...asPoster, backgroundId: "dusk" }, upload()).upload).toBeNull();
+    it("shows no poster card when the upload is put aside or missing", () => {
+      expect(resolveTheme({ ...asPoster, poster: { kind: "colour", id: "dusk" } }, upload()).poster).toBeNull();
       expect(resolveTheme(asPoster).poster).toBeNull();
       expect(resolveTheme(DEFAULT_THEME).poster).toBeNull();
     });
 
-    it("takes the accent and the text tone from the picture, as the background does", () => {
+    it("takes the accent and the text tone from the picture", () => {
       expect(resolveTheme(asPoster, upload()).accent).toBe("#3aa885");
       expect(resolveTheme(asPoster, upload({ luminance: 0.9 })).textTone).toBe("dark");
       expect(resolveTheme({ ...asPoster, accentOverride: "#ff7a59" }, upload()).accent).toBe("#ff7a59");
@@ -155,12 +135,13 @@ describe("resolveTheme", () => {
     it("solves the page against the blurred copy behind the poster, under its own stronger scrim", () => {
       expect(resolveTheme(asPoster, upload()).background).toMatchObject({ kind: "photo", src: `/uploads/${UPLOAD}/poster-copy.webp` });
       expect(resolveTheme(asPoster, upload()).tokens.scrim).toEqual(TONES.light.posterScrim);
-      expect(resolveTheme(onUpload, upload()).tokens.scrim).toEqual(TONES.light.scrim);
-      // The copy's own measurements decide: a bright copy smokes the glass, though the same
-      // picture's darker background measurement would not.
+      expect(resolveTheme(DEFAULT_THEME).tokens.scrim).toEqual(TONES.light.scrim);
+      // The copy's own measurements decide: a dark copy keeps the settled 10% white frost, a
+      // bright one smokes the glass, whatever the picture's own measurement.
+      expect(css(resolveTheme(asPoster, upload()).tokens.glass)).toBe("rgb(255 255 255 / 0.1)");
       const brightCopy = upload({ poster: { ...POSTER, lightest: "#8c8c8c" } });
       expect(css(resolveTheme(asPoster, brightCopy).tokens.glass)).not.toBe("rgb(255 255 255 / 0.1)");
-      expect(css(resolveTheme(onUpload, brightCopy).tokens.glass)).toBe("rgb(255 255 255 / 0.1)");
+      expect(css(resolveTheme(asPoster, upload({ lightest: "#bfbfbf" })).tokens.glass)).toBe("rgb(255 255 255 / 0.1)");
     });
 
     it("gives the title on the poster its scrim and the secondary text that reads on it, to set on itself", () => {
@@ -172,59 +153,6 @@ describe("resolveTheme", () => {
         "--theme-text-faint": css(resolved.tokens.titleOnPoster.textFaint),
       });
       for (const [name, value] of Object.entries(variables)) expect(value, name).toMatch(/^(#[0-9a-f]{6}|rgb\(\d+ \d+ \d+ \/ [0-9.]+\))$/);
-    });
-  });
-
-  describe("backgrounds made from the picture", () => {
-    const on = (backgroundId: string): Theme => ({ ...onUpload, backgroundId });
-
-    it("paints Soft blur as the blurred copy behind a poster is painted, solved against that copy under its scrim", () => {
-      const resolved = resolveTheme(on("upload-blur"), upload());
-      expect(resolved.background).toMatchObject({ id: "upload-blur", kind: "photo", src: `/uploads/${UPLOAD}/poster-copy.webp`, blurred: true });
-      expect(resolved.tokens.scrim).toEqual(TONES.light.posterScrim);
-      const brightCopy = upload({ poster: { ...POSTER, lightest: "#8c8c8c" } });
-      expect(css(resolveTheme(on("upload-blur"), brightCopy).tokens.glass)).not.toBe("rgb(255 255 255 / 0.1)");
-    });
-
-    it("paints Colour wash as a gradient from the picture's colours, under no scrim of a photo's", () => {
-      const resolved = resolveTheme(on("upload-wash"), upload());
-      expect(resolved.background).toMatchObject({ id: "upload-wash", kind: "gradient", css: "linear-gradient(135deg, #505050, #3aa885, #303030)" });
-      expect(resolved.tokens.scrim).toEqual(TONES.light.scrim);
-    });
-
-    it("puts the picture itself aside: it is neither the background nor the poster", () => {
-      for (const id of ["upload-blur", "upload-wash"]) {
-        expect(resolveTheme(on(id), upload()).upload, id).toBeNull();
-        expect(resolveTheme({ ...on(id), uploadMode: "poster" }, upload()).poster, id).toBeNull();
-      }
-    });
-
-    it("takes the accent and the text tone from the picture, unless the host chose them", () => {
-      expect(resolveTheme(on("upload-blur"), upload()).accent).toBe("#3aa885");
-      expect(resolveTheme(on("upload-wash"), upload()).accent).toBe("#3aa885");
-      expect(resolveTheme({ ...on("upload-wash"), accentOverride: "#ff7a59" }, upload()).accent).toBe("#ff7a59");
-      expect(resolveTheme(on("upload-blur"), upload({ luminance: 0.9 })).textTone).toBe("dark");
-      expect(resolveTheme(on("upload-wash"), upload()).textTone).toBe("light");
-    });
-
-    it("gives a pale picture's wash dark text, as the picture itself gets, measuring it as every background is", () => {
-      // A white picture: its darkest point under the dark tone's scrim, its lightest under the
-      // light tone's, and its own grey deepened into an accent. Its stops' luma is 1, 0.451 and
-      // 0.749, a mean of 0.73; their relative luminance would have been 0.56, light text.
-      const white = upload({ luminance: 1, accent: "#737373", lightest: "#bfbfbf", darkest: "#ffffff" });
-      expect(resolveTheme(onUpload, white).textTone).toBe("dark");
-      expect(resolveTheme(on("upload-wash"), white).textTone).toBe("dark");
-      // Near white with a coloured accent: 0.865, 0.453 and 0.749, a mean of 0.69 (relative, 0.48).
-      const linen = upload({ luminance: 0.88, accent: "#b8653a", lightest: "#bfbfbf", darkest: "#e1dcd6" });
-      expect(resolveTheme(onUpload, linen).textTone).toBe("dark");
-      expect(resolveTheme(on("upload-wash"), linen).textTone).toBe("dark");
-    });
-
-    it("falls back to the default background once the picture is gone", () => {
-      for (const id of ["upload-blur", "upload-wash"]) {
-        expect(resolveTheme(on(id)).background, id).toMatchObject({ id: "golden" });
-        expect(resolveTheme(on(id)).accent, id).toBe("#ffc36b");
-      }
     });
   });
 

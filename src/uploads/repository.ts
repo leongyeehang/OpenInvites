@@ -3,7 +3,7 @@ import { cache } from "react";
 import { getDb } from "@/db/client";
 import { event, upload } from "@/db/schema";
 import { hostedBy } from "@/hosts/repository";
-import { applyChange } from "@/themes/changes";
+import { showNewUpload } from "@/themes/changes";
 import { parseTheme } from "@/themes/theme";
 import type { Sample } from "./process";
 
@@ -32,8 +32,8 @@ export async function findHostUploadId(hostId: string, eventId: string): Promise
   return row?.id ?? null;
 }
 
-// The new picture takes the old one's place and is shown, in one step: as the background, or as
-// the poster when the host chose that for the old one (themes/changes.ts). The event is locked
+// The new picture takes the old one's place and is shown as the poster, in one step
+// (themes/changes.ts). The event is locked
 // while it happens, so two uploads at once apply one after the other, and deleting the event
 // meanwhile waits for it or finds it gone. The description does not carry over, as the new
 // picture shows something else. Returns the id of the upload it replaced, whose files the
@@ -49,7 +49,7 @@ export async function replaceUpload(hostId: string, eventId: string, id: string,
     const [old] = await tx.delete(upload).where(eq(upload.eventId, eventId)).returning({ id: upload.id });
     await tx.insert(upload).values({ id, eventId, ...sample });
     // A theme write moves updatedAt, which is what makes the link's preview card redraw.
-    const theme = applyChange(parseTheme(row.theme), { knob: "uploadId", value: id });
+    const theme = showNewUpload(parseTheme(row.theme));
     await tx.update(event).set({ theme, updatedAt: new Date() }).where(eq(event.id, eventId));
     return { replaced: old?.id ?? null };
   });
@@ -65,9 +65,10 @@ export async function describeUpload(hostId: string, eventId: string, altText: s
   return described.length > 0;
 }
 
-// A copy of another event's picture becomes this event's, with the same sample and description.
-// The theme names it and is otherwise left as it is: unlike a new upload, it does not switch the
-// event to the picture, since a duplicate wears the look the source did. False when the event is
+// A copy of another event's picture becomes this event's, with the same sample, description and
+// origin.
+// The theme is left as it is: a duplicate wears the look the source did, its poster included,
+// which names the event's own picture rather than an id (themes/theme.ts). False when the event is
 // not the host's.
 export async function attachUploadCopy(hostId: string, eventId: string, id: string, from: Upload): Promise<boolean> {
   return getDb().transaction(async (tx) => {
@@ -77,14 +78,25 @@ export async function attachUploadCopy(hostId: string, eventId: string, id: stri
       .where(and(eq(event.id, eventId), hostedBy(hostId)))
       .for("update");
     if (!row) return false;
-    const { altText, luminance, accent, lightest, darkest, posterLightest, posterDarkest, posterWidth, posterHeight } = from;
-    await tx
-      .insert(upload)
-      .values({ id, eventId, altText, luminance, accent, lightest, darkest, posterLightest, posterDarkest, posterWidth, posterHeight });
-    await tx
-      .update(event)
-      .set({ theme: { ...parseTheme(row.theme), uploadId: id }, updatedAt: new Date() })
-      .where(eq(event.id, eventId));
+    const { altText, luminance, accent, lightest, darkest, posterLightest, posterDarkest, posterWidth, posterHeight, origin, emojiSet, emojiBackground } = from;
+    await tx.insert(upload).values({
+      id,
+      eventId,
+      altText,
+      luminance,
+      accent,
+      lightest,
+      darkest,
+      posterLightest,
+      posterDarkest,
+      posterWidth,
+      posterHeight,
+      origin,
+      emojiSet,
+      emojiBackground,
+    });
+    // A theme write moves updatedAt, which is what makes the link's preview card redraw.
+    await tx.update(event).set({ updatedAt: new Date() }).where(eq(event.id, eventId));
     return true;
   });
 }

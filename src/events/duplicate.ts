@@ -6,8 +6,8 @@ import type { EventChanges, Event } from "./repository";
 // What a duplicate starts from: the details, look, settings and questions of the event it copies,
 // and nothing that belongs to that event alone: its state (the copy is a draft), link, replies,
 // answers, comments, announcements, co-hosts, views, reminder and retention marks, and publication
-// date. The theme leaves the source's picture out, as the copy has a picture of its own to point at
-// (uploads/copy.ts). The title says it is a copy, in the words of the host who duplicates it.
+// date. The theme is copied whole: its poster names the event's own picture, not the source's, and
+// the copy gets a picture of its own (uploads/copy.ts). The title says it is a copy, in the words of the host who duplicates it.
 export function duplicateInput(
   source: Event,
   questions: Question[],
@@ -24,7 +24,7 @@ export function duplicateInput(
       location: source.location,
       description: source.description,
       descriptionRich: source.descriptionRich,
-      theme: { ...source.theme, uploadId: null },
+      theme: source.theme,
       plusOnesAllowed: source.plusOnesAllowed,
       requirePlusOneNames: source.requirePlusOneNames,
       capacity: source.capacity,

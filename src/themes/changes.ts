@@ -1,38 +1,33 @@
-import { findBackground } from "./backgrounds";
-import { isDerivedBackground } from "./derived";
 import { isSwatch } from "./swatches";
 import { findTemplate, type TemplateId } from "./templates";
 import {
   applyTemplate,
   BUTTON_STYLES,
+  curatedPoster,
   EFFECTS,
   FONTS,
   OFFERED_LAYOUTS,
   RSVP_STYLES,
   TEXT_TONES,
   TITLE_PLACEMENTS,
-  UPLOAD_MODES,
   type ButtonStyle,
   type Effect,
   type FontKey,
   type Layout,
+  type Poster,
   type RsvpStyle,
   type TextTone,
   type Theme,
   type TitlePlacement,
-  type UploadMode,
 } from "./theme";
 
 // What the Design drawer asks for: a template, or one knob set to one value. The layout is one of
-// those offered; changing it keeps every other knob, the Poster's RSVP style included. The upload
-// mode shows the host's own picture as the background or as the poster. A new upload is not the
-// drawer's to set: the server applies `uploadId` once it has stored the picture
-// (uploads/repository.ts).
+// those offered; changing it keeps every other knob, the Poster's RSVP style included. The poster
+// is a curated one or the event's own upload; a new upload is not the drawer's to show, the
+// server shows it once it has stored the picture (showNewUpload, uploads/repository.ts).
 export type KnobChange =
   | { knob: "layout"; value: Layout }
-  | { knob: "backgroundId"; value: string }
-  | { knob: "uploadId"; value: string }
-  | { knob: "uploadMode"; value: UploadMode }
+  | { knob: "poster"; value: Poster }
   | { knob: "titlePlacement"; value: TitlePlacement }
   | { knob: "font"; value: FontKey }
   | { knob: "accentOverride"; value: string | null }
@@ -58,37 +53,34 @@ export function applyChange(theme: Theme, change: ThemeChange): Theme {
 }
 
 function changeKnob(theme: Theme, change: KnobChange): Theme {
-  // The host's picture in use, as the background or as the poster, puts the curated background
-  // aside; the picture stays in the host's gallery whichever is shown, so they can go back and
-  // forth. A new picture is shown at once, in the use the host chose for the one it replaces
-  // (the background, until they choose the poster).
-  if (change.knob === "uploadId" || change.knob === "uploadMode") {
-    const uploadId = change.knob === "uploadId" ? change.value : theme.uploadId;
-    const uploadMode = change.knob === "uploadMode" ? change.value : theme.uploadMode;
-    if (uploadId === null) return theme;
-    // A background made from the picture stays when the picture is replaced, so the new picture's
-    // blur or wash shows, with its own accent as any picture newly in use brings.
-    if (change.knob === "uploadId" && isDerivedBackground(theme.backgroundId)) {
-      return theme.uploadId === uploadId ? theme : { ...theme, uploadId, accentOverride: null };
-    }
-    const inUse = theme.backgroundId === null && theme.uploadId === uploadId;
-    if (inUse && theme.uploadMode === uploadMode) return theme;
-    // A picture newly in use brings its own accent, as a new background does (below); the same
-    // picture used the other way keeps the host's.
-    return { ...theme, backgroundId: null, uploadId, uploadMode, accentOverride: inUse ? theme.accentOverride : null };
+  if (change.knob === "poster") {
+    if (samePoster(theme.poster, change.value)) return theme;
+    // A new poster brings its own accent: an override picked against the old picture may not suit
+    // the new one (PROTOTYPE.md, the drawer).
+    return { ...theme, poster: change.value, accentOverride: null };
   }
   if (theme[change.knob] === change.value) return theme;
+  return { ...theme, [change.knob]: change.value };
+}
 
-  const changed: Theme = { ...theme, [change.knob]: change.value };
-  // A new background brings its own accent: an override picked against the old picture may not
-  // suit the new one (PROTOTYPE.md, the drawer). The upload's does the same, above.
-  if (change.knob === "backgroundId") changed.accentOverride = null;
-  return changed;
+function samePoster(a: Poster, b: Poster): boolean {
+  return a.kind === b.kind && (a.kind === "upload" || a.id === (b as { id: string }).id);
+}
+
+// The theme once the host's new picture is stored: the picture is the poster, and brings its own
+// accent, as any new poster does, even when the picture it replaces was the poster already. Like
+// any knob, it marks the template dirty.
+export function showNewUpload(theme: Theme): Theme {
+  return { ...theme, poster: { kind: "upload" }, accentOverride: null, template: theme.template && { ...theme.template, dirty: true } };
 }
 
 function sameTheme(a: Theme, b: Theme): boolean {
   return (Object.keys(a) as (keyof Theme)[]).every((knob) =>
-    knob === "template" ? a.template?.id === b.template?.id && a.template?.dirty === b.template?.dirty : a[knob] === b[knob],
+    knob === "template"
+      ? a.template?.id === b.template?.id && a.template?.dirty === b.template?.dirty
+      : knob === "poster"
+        ? samePoster(a.poster, b.poster)
+        : a[knob] === b[knob],
   );
 }
 
@@ -108,9 +100,9 @@ function oneOf<T extends string>(options: readonly T[], value: unknown): value i
 
 // A change as the drawer sent it, checked like any other input from a browser. Only what the
 // drawer offers is accepted: the accent must be auto or one of the six swatches, so every
-// colour a page can wear is one legibility.ts has checked, and the host's picture, or a background
-// made from it, can be used only on an event that has one (`upload`, its id, or null when it has
-// none).
+// colour a page can wear is one legibility.ts has checked; a curated poster must be in the
+// gallery, as the kind it is; and the host's picture can be the poster only on an event that has
+// one (`upload`, its id, or null when it has none).
 export function parseThemeChange(raw: unknown, upload: string | null = null): ThemeChange | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
   const { template, knob, value } = raw as { template?: unknown; knob?: unknown; value?: unknown };
@@ -119,10 +111,8 @@ export function parseThemeChange(raw: unknown, upload: string | null = null): Th
   switch (knob) {
     case "layout":
       return oneOf(OFFERED_LAYOUTS, value) ? { knob, value } : undefined;
-    case "backgroundId":
-      return typeof value === "string" && (findBackground(value) || (upload !== null && isDerivedBackground(value))) ? { knob, value } : undefined;
-    case "uploadMode":
-      return upload !== null && oneOf(UPLOAD_MODES, value) ? { knob, value } : undefined;
+    case "poster":
+      return parsePosterChange(value, upload);
     case "titlePlacement":
       return oneOf(TITLE_PLACEMENTS, value) ? { knob, value } : undefined;
     case "font":
@@ -140,4 +130,13 @@ export function parseThemeChange(raw: unknown, upload: string | null = null): Th
     default:
       return undefined;
   }
+}
+
+function parsePosterChange(value: unknown, upload: string | null): ThemeChange | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const { kind, id } = value as { kind?: unknown; id?: unknown };
+  if (kind === "upload") return upload === null ? undefined : { knob: "poster", value: { kind } };
+  if ((kind !== "gallery" && kind !== "colour") || typeof id !== "string") return undefined;
+  const curated = curatedPoster(id);
+  return curated?.kind === kind ? { knob: "poster", value: curated } : undefined;
 }

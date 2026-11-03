@@ -191,7 +191,7 @@ test("the Design drawer, open with Details expanded, in both text tones", async 
   await host.context.close();
 });
 
-test("the event page with the host's picture as the background and as the poster, in both text tones, described", async ({ page, browser, request }) => {
+test("the event page with the host's picture as the poster, in both text tones, described", async ({ page, browser, request }) => {
   test.setTimeout(180_000);
   const host = await createPublished(browser, request, "a11y-picture", EVENT);
   await host.page.goto(host.link);
@@ -203,28 +203,21 @@ test("the event page with the host's picture as the background and as the poster
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain(ALT);
   await expectNoSeriousViolations(host.page, "the Design drawer, with the host's picture");
 
-  // As the background, light enough for dark text, described once for a screen reader.
+  // The picture is the poster, light enough for dark text, and itself carries the description,
+  // read once.
   await page.goto(host.link);
   await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
-  await expect(page.getByRole("img", { name: ALT })).toHaveCount(1);
-  await expectNoSeriousViolations(page, "the event page, the host's picture as the background, dark tone");
-
-  await chooseTone(drawer, request, host.link, "Light");
-  await page.reload();
-  await expectNoSeriousViolations(page, "the event page, the host's picture as the background, light tone");
-
-  // As the poster, the picture itself carries the description.
-  await drawer.getByRole("group", { name: "Use it as" }).getByRole("radio", { name: "Poster" }).check();
-  await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain("poster.webp");
-  await page.reload();
   const poster = page.locator('[data-slot="poster-card"] img');
   await expect(poster).toHaveAccessibleName(ALT);
   await expect(page.getByRole("img", { name: ALT })).toHaveCount(1);
+  await expectNoSeriousViolations(page, "the event page, poster mode, dark tone");
+
+  await chooseTone(drawer, request, host.link, "Light");
+  await page.reload();
   await expectNoSeriousViolations(page, "the event page, poster mode, light tone");
 
   await chooseTone(drawer, request, host.link, "Dark");
   await page.reload();
-  await expectNoSeriousViolations(page, "the event page, poster mode, dark tone");
 
   await drawer.getByRole("group", { name: "Title placement" }).getByRole("radio", { name: "On the poster" }).check();
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain("--theme-title-scrim");

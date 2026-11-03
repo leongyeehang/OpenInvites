@@ -3,7 +3,7 @@ import { eventPageFor } from "@/events/access";
 import { findEventBySlug } from "@/events/repository";
 import { isSlug } from "@/events/slug";
 import { formatWhen } from "@/events/time";
-import { blurredForCard, drawPreviewCard } from "@/sharing/preview-card";
+import { drawPreviewCard } from "@/sharing/preview-card";
 import { resolveTheme } from "@/themes/resolve";
 import { readRendition } from "@/uploads/files";
 import { findEventUpload } from "@/uploads/repository";
@@ -24,14 +24,11 @@ export async function GET(_request: Request, context: RouteContext<"/e/[slug]/pr
   // request without it may be any version, so it is only cached briefly.
   const versioned = url.searchParams.has("v");
 
-  // A host's upload is drawn from its own rendition at the card's size: as itself where the page
-  // shows it, and blurred as the page blurs it under Soft blur.
+  // A host's upload is drawn from its own rendition at the card's size, while it is the poster.
   const upload = await findEventUpload(event.id);
   const theme = resolveTheme(event.theme, upload ? themeUpload(upload) : null);
-  const softBlur = theme.background.id === "upload-blur";
-  const drawn = theme.upload ?? (softBlur ? upload : null);
-  const card = drawn && (await readRendition(drawn.id, "card"));
-  const picture = card ? `data:image/jpeg;base64,${Buffer.from(softBlur ? await blurredForCard(card) : card).toString("base64")}` : undefined;
+  const card = theme.upload && (await readRendition(theme.upload.id, "card"));
+  const picture = card ? `data:image/jpeg;base64,${Buffer.from(card).toString("base64")}` : undefined;
 
   const png = await drawPreviewCard(event, theme, formatWhen(event, CARD_LOCALE), picture);
   return new Response(new Uint8Array(png), {

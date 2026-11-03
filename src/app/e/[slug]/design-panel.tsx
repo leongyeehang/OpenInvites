@@ -9,12 +9,11 @@ import { cn } from "@/lib/utils";
 import { changeThemeAction } from "@/themes/actions";
 import { BACKGROUNDS, type Background } from "@/themes/backgrounds";
 import { themeReadout, type ThemeChange } from "@/themes/changes";
-import { DERIVED_BACKGROUND_IDS, derivedBackground } from "@/themes/derived";
 import { TITLE_FONTS } from "@/themes/fonts";
 import { resolveTheme, themeVariables, type ThemeUpload } from "@/themes/resolve";
 import { SWATCHES } from "@/themes/swatches";
 import { TEMPLATES, type TemplateId } from "@/themes/templates";
-import { applyTemplate, BUTTON_STYLES, EFFECTS, FONTS, OFFERED_LAYOUTS, RSVP_STYLES, TEXT_TONES, TITLE_PLACEMENTS, type Layout, type UploadMode } from "@/themes/theme";
+import { applyTemplate, BUTTON_STYLES, curatedPoster, EFFECTS, FONTS, OFFERED_LAYOUTS, RSVP_STYLES, TEXT_TONES, TITLE_PLACEMENTS, type Layout } from "@/themes/theme";
 import { useTheme } from "@/themes/themed-page";
 import { TITLE_FONT_CLASSES } from "@/themes/title-fonts";
 import { describeUploadAction } from "@/uploads/actions";
@@ -91,10 +90,9 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
       : t("custom");
   // What Auto would pick, shown in its swatch whatever is chosen now.
   const autoAccent = resolveTheme({ ...theme, accentOverride: null }, upload).accent;
-  // How the host's picture is shown now: as the background, as the poster, or not at all while
-  // a curated background is.
-  const shownAs = resolved.upload ? theme.uploadMode : null;
-  const showUploadAs = (mode: UploadMode) => choose({ knob: "uploadMode", value: mode });
+  // Whether the host's picture is the poster now, or put aside while a curated one is.
+  const pictureShown = resolved.upload !== null;
+  const showPicture = () => choose({ knob: "poster", value: { kind: "upload" } });
   const max = maxUploadBytes / MEGABYTE;
 
   return (
@@ -133,16 +131,7 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
             <div className="flex gap-3">
               <span aria-hidden className="h-28 w-21 shrink-0 rounded-xl ring-1 ring-border" style={fillWith(upload.thumbnailSrc)} />
               <div className="min-w-0 flex-1 space-y-3">
-                <Choices legend={t("useAs")} hint={shownAs === "poster" ? t("useAsPosterHint") : undefined}>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Choice name="uploadMode" checked={shownAs === "background"} onSelect={() => showUploadAs("background")} className="flex-col items-start gap-1 bg-accent/40 p-2.5">
-                      <span className="text-sm font-medium">{t("useAsBackground")}</span>
-                    </Choice>
-                    <Choice name="uploadMode" checked={shownAs === "poster"} onSelect={() => showUploadAs("poster")} className="flex-col items-start gap-1 bg-accent/40 p-2.5">
-                      <span className="text-sm font-medium">{t("useAsPoster")}</span>
-                    </Choice>
-                  </div>
-                </Choices>
+                {pictureShown && <p className="text-xs text-muted-foreground">{t("useAsPosterHint")}</p>}
                 <label
                   className={cn(
                     "inline-flex h-9 items-center gap-2 rounded-full bg-accent/60 px-3.5 text-xs font-medium has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring",
@@ -232,13 +221,13 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
         <Choices legend={t("background")}>
           <div className="grid grid-cols-5 gap-2">
             {BACKGROUNDS.map((background) => {
-              const checked = theme.backgroundId === background.id;
+              const checked = theme.poster.kind !== "upload" && theme.poster.id === background.id;
               return (
                 <Choice
                   key={background.id}
                   name="background"
                   checked={checked}
-                  onSelect={() => choose({ knob: "backgroundId", value: background.id })}
+                  onSelect={() => choose({ knob: "poster", value: curatedPoster(background.id)! })}
                   className="aspect-[3/4]"
                   style={fill(background)}
                 >
@@ -247,45 +236,14 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
                 </Choice>
               );
             })}
-            {/* The host's picture stays here whichever background is shown, to go back to. */}
+            {/* The host's picture stays here whichever poster is shown, to go back to. */}
             {upload && (
-              <Choice name="background" checked={shownAs === "background"} onSelect={() => showUploadAs("background")} className="aspect-[3/4]" style={fillWith(upload.thumbnailSrc)}>
-                {shownAs === "background" && <Tick />}
+              <Choice name="background" checked={pictureShown} onSelect={showPicture} className="aspect-[3/4]" style={fillWith(upload.thumbnailSrc)}>
+                {pictureShown && <Tick />}
                 <TileName>{t("yourPicture")}</TileName>
               </Choice>
             )}
           </div>
-          {/* Two more made from it, while there is one: its copy blurred as the page blurs it, and
-              a wash of its colours. */}
-          {upload && (
-            <div role="group" aria-labelledby={`${id}-derived`} className="mt-3">
-              <p id={`${id}-derived`} className="mb-2 text-xs font-medium text-muted-foreground">
-                {t("fromYourPicture")}
-              </p>
-              <div className="grid grid-cols-5 gap-2">
-                {DERIVED_BACKGROUND_IDS.map((derived) => {
-                  const background = derivedBackground(derived, upload);
-                  const checked = theme.backgroundId === derived;
-                  return (
-                    <Choice
-                      key={derived}
-                      name="background"
-                      checked={checked}
-                      onSelect={() => choose({ knob: "backgroundId", value: derived })}
-                      className="aspect-[3/4]"
-                      style={background.kind === "gradient" ? fill(background) : undefined}
-                    >
-                      {background.kind === "photo" && (
-                        <span className="absolute -inset-4 bg-cover bg-center blur-md" style={{ backgroundImage: `url(${background.src})` }} />
-                      )}
-                      {checked && <Tick />}
-                      <TileName>{t(`derivedNames.${derived}`)}</TileName>
-                    </Choice>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </Choices>
 
         <section>

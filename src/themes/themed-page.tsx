@@ -76,18 +76,15 @@ export function ThemedPage({
 }
 
 // The warm layered background with grain: the gradient or scene, two soft blobs of colour that
-// drift when motion is welcome, and a fade into the base colour at the foot of the page. A host's
-// upload is painted as a scene is; behind the host's poster, and as Soft blur, its small copy
-// blurred to a wash of its own colours, far enough past the screen's edges that they stay full,
-// under a stronger scrim. Colour wash is a gradient like the curated ones. The lightest and
+// drift when motion is welcome, and a fade into the base colour at the foot of the page. Behind
+// the host's poster, its small copy is blurred to a wash of its own colours, far enough past the
+// screen's edges that they stay full, under a stronger scrim. The lightest and
 // darkest points of each background are measured with all of this in place (backgrounds.ts, and
 // uploads/process.ts for an upload and its copy), so change them together.
 //
 // A scene or a photo covers the screen from its centre. It is fetched at low priority, behind the
 // stylesheet and the title's font: it fills the whole screen, so the browser never counts it as
-// the page's largest paint, and the invitation reads over the base colour until it comes. A
-// screen up to 2:3, a phone held upright, is sent the host's photo cut to what it shows of it
-// (uploads/renditions.ts, portraitCut), any other the whole one.
+// the page's largest paint, and the invitation reads over the base colour until it comes.
 //
 // The theme's effect, sparkles or doodles, is drawn here too, over the rest of the backdrop and so
 // under everything every layout puts on it (confetti alone falls over the page, from the RSVP

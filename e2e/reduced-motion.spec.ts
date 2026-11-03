@@ -138,9 +138,7 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
 
   // The host's picture as the poster.
   await drawer.getByLabel("Upload your photo or poster").setInputFiles(await picture());
-  await expect(drawer.getByRole("group", { name: "Use it as" })).toBeVisible({ timeout: 20_000 });
-  await drawer.getByRole("group", { name: "Use it as" }).getByRole("radio", { name: "Poster" }).check();
-  await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain("poster.webp");
+  await expect.poll(() => guestHtml(request, link), { timeout: 20_000 }).toContain("poster.webp");
   await expectStill(host, "the Design drawer, with the host's picture");
   await page.reload();
   await expect(page.locator('[data-slot="poster-card"] img')).toBeVisible();

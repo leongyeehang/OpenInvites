@@ -28,7 +28,6 @@ import { findRsvpOnThisDevice, guestRsvp } from "@/rsvps/guest";
 import { countHeadcount, findWaitlistPosition, listPublicGuestList } from "@/rsvps/repository";
 import { guestListView } from "@/rsvps/visibility";
 import { BroadsheetLayout } from "@/themes/broadsheet-layout";
-import { derivedUpload, isDerivedBackground } from "@/themes/derived";
 import { PosterLayout } from "@/themes/poster-layout";
 import { resolveTheme } from "@/themes/resolve";
 import { ThemedPage } from "@/themes/themed-page";
@@ -205,13 +204,10 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     mine ? findWaitlistPosition(mine.rsvp) : Promise.resolve(null),
   ]);
 
-  // Guests are sent the host's picture only while the page shows it: one the host put aside
-  // stays in the host's gallery, not in anyone else's hands. Under a background made from it,
-  // they are sent only what that is painted with.
+  // Guests are sent the host's picture only while it is the poster: one the host put aside stays
+  // with the host, not in anyone else's hands.
   const picture = upload ? themeUpload(upload) : null;
   const resolved = resolveTheme(event.theme, picture);
-  const backgroundId = resolved.background.id;
-  const guestPicture = resolved.upload ?? (picture && isDerivedBackground(backgroundId) ? derivedUpload(picture, backgroundId) : null);
   // The same rule the file itself follows: there is nothing to put in a calendar until an event
   // is published, and nothing worth keeping there once it is called off.
   const calendar = acceptsRsvps(event.state) ? (
@@ -250,11 +246,10 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   return (
     <ClientMessages namespaces={["EventPage", "Rsvp", "Turnstile"]}>
       <ThemedPage
-        // The theme guests are sent names no upload, so a picture the host put aside is named
-        // nowhere on their page; the host's Design drawer works with it (spec, "Events, guests and
-        // the page").
-        theme={isHost ? event.theme : { ...event.theme, uploadId: null }}
-        upload={isHost ? picture : guestPicture}
+        // A picture the host put aside is sent to nobody but the host, whose Design drawer works
+        // with it (spec, "Events, guests and the page").
+        theme={event.theme}
+        upload={isHost ? picture : resolved.upload}
         designer={
           isHost ? (
             <ClientMessages namespaces={["DesignDrawer"]}>

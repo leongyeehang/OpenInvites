@@ -652,9 +652,6 @@
       "failed": "The picture didn’t upload. Try it again.",
       "tooFast": "You’re going too fast. Try again shortly."
     },
-    "useAs": "Use it as",
-    "useAsBackground": "Background",
-    "useAsPoster": "Poster",
     "useAsPosterHint": "Your picture is the invitation, at its own shape. Choose where the title goes under Details.",
     "replace": "Replace",
     "yourPicture": "Your picture",
@@ -707,11 +704,6 @@
       "aurora": "Aurora",
       "rose": "Rose garden",
       "slate": "Slate"
-    },
-    "fromYourPicture": "From your picture",
-    "derivedNames": {
-      "upload-blur": "Soft blur",
-      "upload-wash": "Colour wash"
     },
     "details": "Details",
     "font": "Title font",

@@ -1,5 +1,4 @@
 import { DEFAULT_BACKGROUND, findBackground, type Background } from "./backgrounds";
-import { derivedBackground, isDerivedBackground } from "./derived";
 import { TITLE_FONTS, type TitleFont } from "./fonts";
 import { css, GLOW, TONES, toneTokens, type ToneTokens } from "./legibility";
 import { OFFERED_LAYOUTS, type ButtonStyle, type Layout, type RsvpStyle, type Theme, type TitlePlacement } from "./theme";
@@ -38,12 +37,11 @@ export type ResolvedPoster = {
 // the server for the first paint, and again in the host's browser while they change it.
 export type ResolvedTheme = {
   layout: Layout; // the stored layout, or Poster while the stored one is not offered yet
-  // What the page is painted on: a curated background, the host's upload as a photo, a background
-  // made from it (derived.ts), or, in poster mode, the blurred copy of the poster (measured as
-  // that copy).
+  // What the page is painted on: a curated poster's background, or, behind the host's poster, its
+  // blurred copy (measured as that copy).
   background: Background;
-  upload: ThemeUpload | null; // the host's upload, when it is in use, as the background or the poster
-  poster: ResolvedPoster | null; // the upload as the poster, in poster mode
+  upload: ThemeUpload | null; // the host's upload, when it is the poster
+  poster: ResolvedPoster | null; // the upload as the poster
   accent: string;
   textTone: "light" | "dark";
   font: TitleFont;
@@ -61,24 +59,21 @@ export const TONE_TEXT = { light: css(TONES.light.text), dark: css(TONES.dark.te
 const LIGHT_BACKGROUND = 0.6;
 
 export function resolveTheme(theme: Theme, upload: ThemeUpload | null = null): ResolvedTheme {
-  // An upload is in use when the theme names no curated background (spec shape) but names this
-  // upload. A host may keep an upload in their gallery while showing a curated background; then
-  // the background decides. The theme guests are sent names no upload (page.tsx): they are handed
-  // the picture only while the page shows it, so the one they are handed is the one in use.
-  const uploadInUse = theme.backgroundId === null && upload !== null && (theme.uploadId === null || theme.uploadId === upload.id) ? upload : null;
-  const asPoster = uploadInUse !== null && theme.uploadMode === "poster";
-  // A background made from the picture puts the picture itself aside, and is made from the
-  // event's upload whichever it is, so a new picture brings its own. Without one there is nothing
-  // to make it from, and the page falls back as for an unknown background.
-  const derived = isDerivedBackground(theme.backgroundId) && upload !== null ? derivedBackground(theme.backgroundId, upload) : undefined;
-  const background = uploadInUse ? uploadedBackground(uploadInUse, asPoster) : (derived ?? findBackground(theme.backgroundId) ?? DEFAULT_BACKGROUND);
+  // The event's picture shows when the poster is the upload and the event has one; otherwise the
+  // poster is a curated one (M4 spec, "The poster replaces the background"). Until the
+  // poster-first page (M4 ticket 03), a curated poster still paints as the page's background and
+  // the picture as the poster card, with its blurred copy behind it. An upload poster on an event
+  // that has lost its picture falls back as an unknown background does.
+  const uploadInUse = theme.poster.kind === "upload" ? upload : null;
+  const curated = theme.poster.kind === "upload" ? undefined : findBackground(theme.poster.id);
+  const background = uploadInUse ? posterCopy(uploadInUse) : (curated ?? DEFAULT_BACKGROUND);
   const accent = theme.accentOverride ?? background.accent;
   const textTone = theme.textTone === "auto" ? (background.luminance > LIGHT_BACKGROUND ? "dark" : "light") : theme.textTone;
   return {
     layout: OFFERED_LAYOUTS.includes(theme.layout) ? theme.layout : "poster",
     background,
     upload: uploadInUse,
-    poster: asPoster
+    poster: uploadInUse
       ? {
           src: uploadInUse.poster.src,
           srcSet: uploadInUse.poster.srcSet,
@@ -93,19 +88,16 @@ export function resolveTheme(theme: Theme, upload: ThemeUpload | null = null): R
     font: TITLE_FONTS[theme.font],
     buttonStyle: theme.buttonStyle,
     rsvpStyle: theme.rsvpStyle,
-    // The blurred copy, behind a poster or as Soft blur, wears the poster's stronger scrim, under
-    // which its extremes were measured.
+    // The blurred copy behind a poster wears the poster's stronger scrim, under which its extremes
+    // were measured.
     tokens: toneTokens(textTone, background, accent, background.kind === "photo" && background.blurred ? "poster" : "background"),
   };
 }
 
-// The upload as the page paints it: a photograph, as the curated scenes are, with the accent,
-// luminance and extremes the server sampled standing in for the ones measured for them. Behind
-// a poster it is the poster's blurred copy, with the extremes measured for that.
-function uploadedBackground({ src, portraitSrc, accent, luminance, lightest, darkest, poster }: ThemeUpload, asPoster: boolean): Background {
-  return asPoster
-    ? { id: "upload", kind: "photo", src: poster.copySrc, accent, luminance, lightest: poster.lightest, darkest: poster.darkest, blurred: true }
-    : { id: "upload", kind: "photo", src, portraitSrc, accent, luminance, lightest, darkest };
+// Behind the host's poster, the page is painted with the poster's blurred copy, with the accent and
+// luminance the server sampled from the picture and the extremes measured for that copy.
+function posterCopy({ accent, luminance, poster }: ThemeUpload): Background {
+  return { id: "upload", kind: "photo", src: poster.copySrc, accent, luminance, lightest: poster.lightest, darkest: poster.darkest, blurred: true };
 }
 
 // The resolved theme as CSS custom properties for the page's root element (see globals.css,

@@ -18,7 +18,7 @@ const source: Event = {
   location: "Ah Ma’s house",
   description: "Bring nothing.",
   descriptionRich: { blocks: [{ type: "paragraph", spans: [{ text: "Bring nothing." }] }] },
-  theme: { ...DEFAULT_THEME, backgroundId: "dusk", uploadId: "0194f0a0-0000-7000-8000-0000000000aa", font: "serif" },
+  theme: { ...DEFAULT_THEME, poster: { kind: "upload" }, font: "serif" },
   plusOnesAllowed: 3,
   requirePlusOneNames: true,
   capacity: 30,
@@ -81,8 +81,8 @@ describe("duplicateInput", () => {
     });
   });
 
-  it("keeps the look but leaves the picture to be replaced by the copy's own", () => {
-    expect(copy.event.theme).toEqual({ ...source.theme, uploadId: null });
+  it("keeps the whole look, its poster naming the copy's own picture", () => {
+    expect(copy.event.theme).toEqual(source.theme);
   });
 
   it("keeps the questions in order with their options and required flags, as new ones", () => {

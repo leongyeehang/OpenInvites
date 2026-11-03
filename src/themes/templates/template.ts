@@ -14,8 +14,8 @@ export type Template = {
   theme: TemplateTheme;
 };
 
-// Every knob of the theme. What stays out is the host's own: their upload and how they use it.
-export type TemplateTheme = Omit<Theme, "backgroundId" | "uploadId" | "uploadMode" | "template"> & {
-  // A curated background's id (backgrounds.ts). A template always has one.
+// Every knob of the theme but the poster, which a template names by its curated background.
+export type TemplateTheme = Omit<Theme, "poster" | "template"> & {
+  // A curated background's id (backgrounds.ts), shown as the poster. A template always has one.
   backgroundId: string;
 };

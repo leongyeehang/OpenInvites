@@ -26,8 +26,8 @@ export type Background = {
   lightest: string; // #rrggbb
   darkest: string; // #rrggbb
   // A host's photo also comes cut to what a phone held upright shows of it (uploads/renditions.ts).
-  // The small copy of a host's picture is painted blurred to a wash of its own colours
-  // (themed-page.tsx): behind their poster, and as Soft blur (derived.ts).
+  // The small copy of a host's picture is painted blurred to a wash of its own colours behind
+  // their poster (themed-page.tsx).
 } & ({ kind: "gradient"; css: string } | { kind: "photo"; src: string; portraitSrc?: string; blurred?: boolean });
 
 // A background of the gallery. What the Design drawer calls it is a message

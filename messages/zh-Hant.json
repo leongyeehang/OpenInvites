@@ -652,9 +652,6 @@
       "failed": "圖片沒有上傳成功，請再試一次。",
       "tooFast": "操作太頻繁了，請稍後再試。"
     },
-    "useAs": "用作",
-    "useAsBackground": "背景",
-    "useAsPoster": "海報",
     "useAsPosterHint": "你的圖片會以原本的比例成為邀請本身。可在「更多選項」中選擇標題的位置。",
     "replace": "更換",
     "yourPicture": "你的圖片",
@@ -707,11 +704,6 @@
       "aurora": "極光",
       "rose": "玫瑰園",
       "slate": "石板灰"
-    },
-    "fromYourPicture": "取自你的圖片",
-    "derivedNames": {
-      "upload-blur": "柔和模糊",
-      "upload-wash": "色彩暈染"
     },
     "details": "更多選項",
     "font": "標題字體",
