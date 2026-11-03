@@ -296,23 +296,28 @@ test("under the Confetti effect, no confetti falls when a waitlisted guest lower
   await host.context.close();
 });
 
-test("the ballot's Post button wears the theme's RSVP button style, and Supper club brings the Broadsheet with it", async ({ page, browser, request }) => {
+test("the ballot's Post button wears the theme's RSVP button style, and a gallery poster keeps the Broadsheet, beside its title", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "broadsheet-buttons", { title: "Supper at Mei’s", start: "2027-03-06T19:00", plusOnes: "0" });
   await host.page.goto(host.link);
   await host.page.getByRole("button", { name: "Design" }).click();
   const drawer = host.page.getByRole("dialog", { name: "Design" });
-  await drawer.getByRole("radio", { name: "Supper club" }).check();
+  await drawer.getByRole("group", { name: "Layout" }).getByRole("radio", { name: /^Broadsheet/ }).check();
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('data-layout="broadsheet"');
+  // A poster's look leaves the layout as it is.
+  await drawer.getByRole("group", { name: "Poster" }).getByRole("radio", { name: "Sunset drive" }).check();
+  await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toMatch(/src="\/posters\/sunset-drive\.[0-9a-f]{8}\.svg"/);
+  expect(await guestHtml(request, host.link)).toContain('data-layout="broadsheet"');
 
   const post = page.getByRole("button", { name: "Post my reply" });
   const ballot = async () => {
     await page.goto(host.link);
     await page.getByRole("radio", { name: "I’ll be there" }).check();
   };
-  // Supper club's buttons are solid: the accent, its gold.
+  // Sunset drive's buttons are solid: the accent, its pink. Its poster leads, as an upload does.
   await ballot();
-  await expect(post).toHaveCSS("background-color", "rgb(255, 195, 107)");
+  await expect(post).toHaveCSS("background-color", "rgb(255, 143, 192)");
+  await expect(page.locator('img[src^="/posters/sunset-drive."]')).toBeVisible();
 
   await drawer.getByRole("button", { name: "Details" }).click();
   const buttons = drawer.getByRole("group", { name: "RSVP buttons" });
@@ -326,7 +331,7 @@ test("the ballot's Post button wears the theme's RSVP button style, and Supper c
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('buttonStyle\\":\\"glass');
   await ballot();
   await expect(post).toHaveCSS("backdrop-filter", /blur/);
-  await expect(post).not.toHaveCSS("background-color", "rgb(255, 195, 107)");
+  await expect(post).not.toHaveCSS("background-color", "rgb(255, 143, 192)");
   await expect(post).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
 
   await host.context.close();

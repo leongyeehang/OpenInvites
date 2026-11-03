@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
   // The preview card's faces, which it reads from disk as it draws a card (sharing/card-fonts.ts).
   outputFileTracingIncludes: { "/e/\\[slug\\]/preview.png": ["./src/sharing/fonts/*"] },
   async headers() {
-    // The title fonts and the curated scenes in public/ are named after their content
+    // The title fonts and the gallery posters in public/ are named after their content
     // (src/themes/public-files.test.ts), so what is behind such a name never changes and a browser
     // may keep it for a year without asking again. Anything else there keeps Next.js's default,
     // which asks each time.
@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
       // Event pages are never indexed or listed (ADR-0004); the page repeats this in a meta tag.
       { source: "/e/:slug*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
       { source: "/fonts/:file([^/]+\\.[0-9a-f]+\\.woff2)", headers: forAYear },
-      { source: "/backgrounds/:file([^/]+\\.[0-9a-f]+\\.svg)", headers: forAYear },
+      ...["svg", "jpg", "webp"].map((type) => ({ source: `/posters/:file([^/]+\\.[0-9a-f]+\\.${type})`, headers: forAYear })),
     ];
   },
 };

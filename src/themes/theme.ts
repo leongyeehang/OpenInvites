@@ -1,6 +1,5 @@
 import { findBackground } from "./backgrounds";
-import { birthday } from "./templates/birthday";
-import type { Template } from "./templates/template";
+import { findGalleryPoster, type GalleryPoster } from "./posters";
 
 // The theme: the look of one event page, stored on the event (spec, "Themes and templates").
 // The shape was settled by the prototype on branch prototype/event-page. The host changes knobs
@@ -37,38 +36,64 @@ export type Theme = {
   textTone: TextTone;
   buttonStyle: ButtonStyle;
   rsvpStyle: RsvpStyle; // Poster layout only
-  effect: Effect; // stored so templates can carry it; rendered from M2
-  template: { id: string; dirty: boolean } | null; // where the host started, and whether they changed a knob
+  effect: Effect; // rendered from M2
+  // The gallery poster whose look the host last applied, and whether they have changed a knob of
+  // it since; null before they ever pick one.
+  template: { posterId: string; dirty: boolean } | null;
 };
 
 // The layouts a host can use: all three since M2. A layout added later can be stored before it
-// is offered; until then a template made for it applies with the Poster layout, and a theme that
-// names it renders as Poster.
+// is offered; until then a theme that names it renders as Poster.
 export const OFFERED_LAYOUTS: readonly Layout[] = ["poster", "broadsheet", "thread"];
 
-// The poster a curated background is: a scene of the gallery is a gallery poster, a gradient a
-// colour poster. Undefined for an id the gallery does not have.
+// The curated poster an id names: one of the gallery's posters (posters.ts), or one of its
+// colours (backgrounds.ts). Undefined for an id the gallery does not have.
 export function curatedPoster(id: string): Poster | undefined {
-  const background = findBackground(id);
-  if (!background) return undefined;
-  return background.kind === "photo" ? { kind: "gallery", id } : { kind: "colour", id };
+  if (findGalleryPoster(id)) return { kind: "gallery", id };
+  if (findBackground(id)) return { kind: "colour", id };
+  return undefined;
 }
 
-// Applying a template copies every knob it sets onto the theme and records the template as not
-// yet changed (spec, "Themes and templates"). Its background becomes the poster. The host's own
-// upload is theirs, not the template's: it stays on the event, to go back to.
-export function applyTemplate(_theme: Theme | null, template: Template): Theme {
-  const { layout, backgroundId, ...knobs } = template.theme;
+// Picking a gallery poster applies its look, as applying a template did in 0.4, and records it as
+// not yet changed (M4 spec, "Templates fold into the gallery"). The poster brings its own accent,
+// so the accent goes back to Auto; the layout, the text tone and the RSVP style stay the host's.
+// So does the host's upload: it stays on the event, to go back to.
+export function applyPosterLook(theme: Theme, poster: GalleryPoster): Theme {
   return {
-    ...knobs,
-    poster: curatedPoster(backgroundId) ?? { kind: "colour", id: "golden" },
-    layout: OFFERED_LAYOUTS.includes(layout) ? layout : "poster",
-    template: { id: template.id, dirty: false },
+    ...theme,
+    ...poster.look,
+    poster: { kind: "gallery", id: poster.id },
+    accentOverride: null,
+    template: { posterId: poster.id, dirty: false },
   };
 }
 
-// Every new event starts from the Birthday template (PROTOTYPE.md: round one's A, Golden hour).
-export const DEFAULT_THEME: Theme = applyTemplate(null, birthday);
+// Every new event starts as round one's A (PROTOTYPE.md), the Birthday template of 0.4: Golden
+// hour, a large serif title, frosted glass and sparkles.
+export const DEFAULT_THEME: Theme = {
+  layout: "poster",
+  poster: { kind: "colour", id: "golden" },
+  titlePlacement: "below",
+  font: "serif",
+  accentOverride: null,
+  textTone: "auto",
+  buttonStyle: "glass",
+  rsvpStyle: "sheet",
+  effect: "sparkles",
+  template: null,
+};
+
+// The six templates of 0.4, and the gallery poster each became: a theme that started from one
+// started from that poster's look. Their ids are stored on events made before M4, so they stay
+// readable for good.
+export const LEGACY_TEMPLATES: Readonly<Record<string, string>> = {
+  birthday: "candles",
+  vows: "rose",
+  supper: "candlelight",
+  kids: "balloons",
+  festival: "aurora",
+  quiet: "bokeh",
+};
 
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i;
 
@@ -104,14 +129,29 @@ function parsePoster(raw: Record<string, unknown>): Poster {
   return curatedPoster(backgroundId) ?? DEFAULT_THEME.poster;
 }
 
+// Which gallery poster's look a stored theme started from. Since M4 that is a poster's id; a
+// theme written by 0.4 named a template, and started from the poster it became, changed since
+// unless that poster is the one shown (in 0.4 a template showed a background, and only Vows' and
+// Festival's were scenes that are gallery posters now).
+function parseTemplate(raw: unknown, poster: Poster): Theme["template"] {
+  if (typeof raw !== "object" || raw === null) return null;
+  const { posterId, id, dirty } = raw as { posterId?: unknown; id?: unknown; dirty?: unknown };
+  if (typeof dirty !== "boolean") return null;
+  if (typeof posterId === "string") return findGalleryPoster(posterId) ? { posterId, dirty } : null;
+  const legacy = typeof id === "string" && Object.hasOwn(LEGACY_TEMPLATES, id) ? LEGACY_TEMPLATES[id] : undefined;
+  if (!legacy) return null;
+  const shown = poster.kind === "gallery" && poster.id === legacy;
+  return { posterId: legacy, dirty: dirty || !shown };
+}
+
 // Reads a stored theme, knob by knob. Anything missing or unrecognised takes the default, so a
 // theme written by a newer version, or an empty one, still renders.
 export function parseTheme(stored: unknown): Theme {
   const raw = (typeof stored === "object" && stored !== null ? stored : {}) as Record<string, unknown>;
-  const template = raw.template as { id?: unknown; dirty?: unknown } | null | undefined;
+  const poster = parsePoster(raw);
   return {
     layout: oneOf(LAYOUTS, raw.layout, DEFAULT_THEME.layout),
-    poster: parsePoster(raw),
+    poster,
     titlePlacement: oneOf(TITLE_PLACEMENTS, raw.titlePlacement, DEFAULT_THEME.titlePlacement),
     font: oneOf(FONTS, raw.font, DEFAULT_THEME.font),
     accentOverride: typeof raw.accentOverride === "string" && HEX_COLOUR.test(raw.accentOverride) ? raw.accentOverride : null,
@@ -119,11 +159,6 @@ export function parseTheme(stored: unknown): Theme {
     buttonStyle: oneOf(BUTTON_STYLES, raw.buttonStyle, DEFAULT_THEME.buttonStyle),
     rsvpStyle: oneOf(RSVP_STYLES, raw.rsvpStyle, DEFAULT_THEME.rsvpStyle),
     effect: oneOf(EFFECTS, raw.effect, DEFAULT_THEME.effect),
-    template:
-      template === null
-        ? null
-        : typeof template?.id === "string" && typeof template.dirty === "boolean"
-          ? { id: template.id, dirty: template.dirty }
-          : DEFAULT_THEME.template,
+    template: parseTemplate(raw.template, poster),
   };
 }

@@ -657,27 +657,6 @@
     "yourPicture": "Your picture",
     "altText": "Describe your picture",
     "altTextHint": "Read to guests who use a screen reader. Leave it empty if the picture is only decoration.",
-    "templates": "Templates",
-    "templatesHint": "Each sets the whole theme. Change any part after.",
-    "templateNames": {
-      "birthday": "Birthday",
-      "vows": "Vows",
-      "supper": "Supper club",
-      "kids": "Kids’ party",
-      "festival": "Festival",
-      "quiet": "Quiet"
-    },
-    "templateBlurbs": {
-      "birthday": "Golden hour, a large serif title and frosted glass buttons.",
-      "vows": "Rose garden, a serif title, white accent and outline buttons.",
-      "supper": "Midnight, a serif title, candlelight amber and solid buttons.",
-      "kids": "Dusk, rounded type, coral and solid buttons.",
-      "festival": "Aurora, a heavy grotesque title and glass buttons.",
-      "quiet": "Slate, a grotesque title, near-white and outline buttons. Nothing moves."
-    },
-    "theme": "Theme: {name}",
-    "custom": "Custom",
-    "customFrom": "Custom, started from {template}",
     "layout": "Layout",
     "layouts": {
       "poster": {
@@ -693,17 +672,20 @@
         "note": "The invitation reads like a chat."
       }
     },
-    "background": "Background",
-    "backgroundNames": {
+    "poster": "Poster",
+    "posterHint": "A gallery poster brings a title font, accent and effect that suit it.",
+    "colours": "Colours",
+    "restoreLook": "Restore the {poster} look",
+    "colourNames": {
       "golden": "Golden hour",
       "dusk": "Dusk",
       "forest": "Forest",
       "midnight": "Midnight",
-      "sunset-sea": "Sunset sea",
-      "bokeh": "Bokeh",
-      "aurora": "Aurora",
-      "rose": "Rose garden",
-      "slate": "Slate"
+      "peach": "Peach",
+      "lagoon": "Lagoon",
+      "lilac": "Lilac",
+      "slate": "Slate",
+      "ink": "Ink"
     },
     "details": "Details",
     "font": "Title font",
@@ -774,6 +756,40 @@
         "name": "Doodles",
         "note": "Shapes float in the background, and the date tilts."
       }
+    }
+  },
+  "Posters": {
+    "occasions": {
+      "birthday": "Birthday",
+      "dinner": "Dinner",
+      "wedding": "Wedding",
+      "kids": "Kids",
+      "nightOut": "Night out",
+      "outdoors": "Outdoors",
+      "holiday": "Holiday",
+      "anyOccasion": "Any occasion"
+    },
+    "names": {
+      "candles": "Candles",
+      "balloons": "Balloons",
+      "cake": "Cake",
+      "candlelight": "Candlelight",
+      "picnic": "Picnic",
+      "botanical": "Botanical",
+      "rings": "Rings",
+      "rose": "Rose garden",
+      "playtime": "Playtime",
+      "rainbow": "Rainbow",
+      "disco": "Disco",
+      "sunset-drive": "Sunset drive",
+      "cocktails": "Cocktails",
+      "sunshine": "Sunshine",
+      "seaside": "Seaside",
+      "sunset-sea": "Sunset sea",
+      "string-lights": "String lights",
+      "aurora": "Aurora",
+      "bokeh": "Bokeh",
+      "streamers": "Streamers"
     }
   },
   "Guests": {

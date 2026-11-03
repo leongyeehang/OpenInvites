@@ -1,9 +1,12 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { notFound } from "next/navigation";
+import sharp from "sharp";
 import { eventPageFor } from "@/events/access";
 import { findEventBySlug } from "@/events/repository";
 import { isSlug } from "@/events/slug";
 import { formatWhen } from "@/events/time";
-import { drawPreviewCard } from "@/sharing/preview-card";
+import { drawPreviewCard, PREVIEW_SIZE } from "@/sharing/preview-card";
 import { resolveTheme } from "@/themes/resolve";
 import { readRendition } from "@/uploads/files";
 import { findEventUpload } from "@/uploads/repository";
@@ -24,10 +27,17 @@ export async function GET(_request: Request, context: RouteContext<"/e/[slug]/pr
   // request without it may be any version, so it is only cached briefly.
   const versioned = url.searchParams.has("v");
 
-  // A host's upload is drawn from its own rendition at the card's size, while it is the poster.
+  // A host's upload is drawn from its own rendition at the card's size, while it is the poster. A
+  // gallery poster is drawn from its JPEG (Satori does not read its SVG reliably), cut to the card.
   const upload = await findEventUpload(event.id);
   const theme = resolveTheme(event.theme, upload ? themeUpload(upload) : null);
-  const card = theme.upload && (await readRendition(theme.upload.id, "card"));
+  const card = theme.upload
+    ? await readRendition(theme.upload.id, "card")
+    : theme.gallery &&
+      (await sharp(await readFile(join(process.cwd(), "public", theme.gallery.card)))
+        .resize(PREVIEW_SIZE.width, PREVIEW_SIZE.height, { fit: "cover" })
+        .jpeg({ quality: 82 })
+        .toBuffer());
   const picture = card ? `data:image/jpeg;base64,${Buffer.from(card).toString("base64")}` : undefined;
 
   const png = await drawPreviewCard(event, theme, formatWhen(event, CARD_LOCALE), picture);

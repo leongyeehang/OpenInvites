@@ -1,3 +1,4 @@
+import sharp from "sharp";
 import { expect, test } from "./test";
 import { createDraft, createPublished } from "./events";
 import { signUpVerified } from "./hosts";
@@ -50,11 +51,40 @@ test("the link unfurls as a card drawn from the event's theme", async ({ page, b
   await host.context.close();
 });
 
+// M4 ticket 02: a gallery poster is drawn on the card from its JPEG, as a host's upload is from its
+// card rendition.
+test("the card of an event with a gallery poster is drawn from the poster", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "preview-poster", EVENT);
+  // The middle of the card's top edge, where the shade behind the words is lightest.
+  const top = async () => {
+    const card = await request.get(`${host.link}/preview.png`);
+    expect(card.status()).toBe(200);
+    const { data } = await sharp(await card.body()).extract({ left: 590, top: 25, width: 20, height: 10 }).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    const channel = (offset: number) => data.filter((_, index) => index % 3 === offset).reduce((sum, value) => sum + value, 0) / (data.length / 3);
+    return { red: channel(0), green: channel(1), blue: channel(2) };
+  };
+  // Golden hour's gradient is orange there.
+  const golden = await top();
+  expect(golden.blue).toBeLessThan(golden.green);
+
+  await host.page.goto(host.link);
+  await host.page.getByRole("button", { name: "Design" }).click();
+  const drawer = host.page.getByRole("dialog", { name: "Design" });
+  await drawer.getByRole("radio", { name: "Disco" }).check();
+  await expect(drawer.getByText("Saved", { exact: true })).toBeVisible({ timeout: 15_000 });
+
+  // Disco's mirror ball is lavender and violet there.
+  await expect.poll(async () => { const { blue, green } = await top(); return blue - green; }, { timeout: 15_000 }).toBeGreaterThan(20);
+
+  await host.context.close();
+});
+
 test("a draft neither unfurls nor draws a card", async ({ page, request }) => {
   test.slow();
   await signUpVerified(page, request, "preview-draft");
-  // A title no interface string contains: every page carries its messages, a template named
-  // Quiet among them.
+  // A title no interface string contains: every page carries its messages, a poster named
+  // Rainbow among them.
   const title = "A surprise for Mei";
   const link = await createDraft(page, { title, start: "2027-05-01T12:00" });
   expect((await request.get(`${link}/preview.png`)).status()).toBe(404);

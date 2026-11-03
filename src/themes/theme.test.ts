@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_THEME, parseTheme, type Theme } from "./theme";
 
 describe("parseTheme", () => {
-  it("gives an event with no theme the Birthday template's look", () => {
+  it("gives an event with no theme the Birthday template's look, started from no poster", () => {
     expect(parseTheme({})).toEqual({
       layout: "poster",
       poster: { kind: "colour", id: "golden" },
@@ -13,7 +13,7 @@ describe("parseTheme", () => {
       buttonStyle: "glass",
       rsvpStyle: "sheet",
       effect: "sparkles",
-      template: { id: "birthday", dirty: false },
+      template: null,
     });
     expect(parseTheme(null)).toEqual(DEFAULT_THEME);
     expect(parseTheme(undefined)).toEqual(DEFAULT_THEME);
@@ -30,9 +30,16 @@ describe("parseTheme", () => {
       buttonStyle: "outline",
       rsvpStyle: "inline",
       effect: "none",
-      template: { id: "quiet", dirty: true },
+      template: { posterId: "aurora", dirty: true },
     };
     expect(parseTheme(stored)).toEqual(stored);
+  });
+
+  it("keeps the look the theme started from only while the gallery has its poster", () => {
+    expect(parseTheme({ template: { posterId: "sunset-drive", dirty: false } }).template).toEqual({ posterId: "sunset-drive", dirty: false });
+    expect(parseTheme({ template: { posterId: "retired", dirty: false } }).template).toBeNull();
+    expect(parseTheme({ template: { posterId: "candles" } }).template).toBeNull();
+    expect(parseTheme({ template: null }).template).toBeNull();
   });
 
   it("falls back knob by knob on values it does not recognise", () => {
@@ -87,7 +94,30 @@ describe("parseTheme", () => {
     ];
 
     it.each(cases)("reads %s into its poster, every other knob kept", (_, old, poster) => {
-      expect(parseTheme({ ...v04, ...old })).toEqual({ ...v04, poster });
+      expect(parseTheme({ ...v04, ...old })).toEqual({ ...v04, poster, template: { posterId: "candles", dirty: true } });
+    });
+
+    // Each template became a gallery poster's look (M4 spec, "Templates fold into the gallery").
+    // A template showed a background in 0.4, so a theme still exactly its template is still that
+    // look only where the background is that poster: Vows' Rose garden and Festival's Aurora.
+    const templates: [string, string, string, Record<string, unknown>, boolean][] = [
+      ["birthday", "candles", "on Golden hour", { backgroundId: "golden" }, true],
+      ["vows", "rose", "on Rose garden", { backgroundId: "rose" }, false],
+      ["supper", "candlelight", "on Midnight", { backgroundId: "midnight" }, true],
+      ["kids", "balloons", "on Dusk", { backgroundId: "dusk" }, true],
+      ["festival", "aurora", "on Aurora", { backgroundId: "aurora" }, false],
+      ["quiet", "bokeh", "on Slate", { backgroundId: "slate" }, true],
+      ["vows", "rose", "with the host's picture", { backgroundId: null, uploadId: UPLOAD, uploadMode: "poster" }, true],
+    ];
+
+    it.each(templates)("reads the %s template into %s's look, untouched %s", (id, posterId, _, old, dirty) => {
+      expect(parseTheme({ ...v04, ...old, template: { id, dirty: false } }).template).toEqual({ posterId, dirty });
+    });
+
+    it("keeps a template the host had changed as changed, and forgets one that never shipped", () => {
+      expect(parseTheme({ ...v04, backgroundId: "aurora", template: { id: "festival", dirty: true } }).template).toEqual({ posterId: "aurora", dirty: true });
+      expect(parseTheme({ ...v04, backgroundId: "golden", template: { id: "zine", dirty: false } }).template).toBeNull();
+      expect(parseTheme({ ...v04, backgroundId: "golden", template: { id: "toString", dirty: false } }).template).toBeNull();
     });
   });
 });

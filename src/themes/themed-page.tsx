@@ -75,16 +75,14 @@ export function ThemedPage({
   );
 }
 
-// The warm layered background with grain: the gradient or scene, two soft blobs of colour that
-// drift when motion is welcome, and a fade into the base colour at the foot of the page. Behind
-// the host's poster, its small copy is blurred to a wash of its own colours, far enough past the
-// screen's edges that they stay full, under a stronger scrim. The lightest and
-// darkest points of each background are measured with all of this in place (backgrounds.ts, and
-// uploads/process.ts for an upload and its copy), so change them together.
-//
-// A scene or a photo covers the screen from its centre. It is fetched at low priority, behind the
-// stylesheet and the title's font: it fills the whole screen, so the browser never counts it as
-// the page's largest paint, and the invitation reads over the base colour until it comes.
+// The warm layered background with grain: a colour poster's gradient with two soft blobs of colour
+// that drift when motion is welcome, and a fade into the base colour at the foot of the page.
+// Behind a picture poster, the host's or the gallery's, its small copy is blurred to a wash of its
+// own colours, far enough past the screen's edges that they stay full, under a stronger scrim.
+// The lightest and darkest points of each background are measured with all of this in place
+// (backgrounds.ts for the colours, uploads/process.ts for an upload and its copy, and
+// scripts/posters/build.ts, which measures a gallery poster as process.ts does), so change them
+// together.
 //
 // The theme's effect, sparkles or doodles, is drawn here too, over the rest of the backdrop and so
 // under everything every layout puts on it (confetti alone falls over the page, from the RSVP
@@ -95,26 +93,17 @@ function Backdrop({ theme, effect }: { theme: ResolvedTheme; effect: Effect }) {
   const { background } = theme;
   return (
     <div aria-hidden data-slot="backdrop" className="grain fixed inset-0 -z-10 overflow-hidden bg-theme-base">
-      {background.kind === "photo" && background.blurred ? (
+      {background.kind === "photo" ? (
         <>
           <div className="absolute -inset-32 bg-cover bg-center blur-3xl" style={{ backgroundImage: `url(${background.src})` }} />
           <div className="absolute inset-0 bg-theme-scrim" />
         </>
-      ) : background.kind === "gradient" ? (
+      ) : (
         <>
           <div className="absolute inset-0" style={{ background: background.css }} />
           <div className="absolute top-[28%] -left-1/4 size-[70vmin] rounded-full bg-theme-accent opacity-25 blur-3xl motion-safe:animate-theme-drift" />
           {/* The second blob starts halfway through the same drift, so the two never move in step. */}
           <div className="absolute top-[45%] -right-1/3 size-[80vmin] rounded-full bg-theme-glow/25 blur-3xl motion-safe:animate-theme-drift motion-safe:delay-[-12s]" />
-        </>
-      ) : (
-        <>
-          <picture>
-            {background.portraitSrc && <source media="(max-aspect-ratio: 2/3)" srcSet={background.portraitSrc} />}
-            <img src={background.src} alt="" fetchPriority="low" decoding="async" className="absolute inset-0 size-full object-cover" />
-          </picture>
-          {/* Scenes and uploads get a scrim so the text tone always reads. */}
-          <div className="absolute inset-0 bg-theme-scrim" />
         </>
       )}
       <div className="absolute inset-x-0 bottom-0 h-2/5 bg-linear-to-t from-theme-base to-transparent" />

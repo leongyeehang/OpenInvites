@@ -42,12 +42,12 @@ There are two kinds of test, and nothing in between:
 
 A test observes only what a person can observe. It never asserts on database rows, component internals, or the order of calls. Test output stays clean: no stray warnings.
 
-## Contributing data: templates, backgrounds, translations
+## Contributing data: posters, colours, translations
 
 These need no application code, and each has a guide:
 
-- [Templates](docs/contributing/templates.md): the shape of a template's data file, its name and blurb in every language, and the tests it must pass.
-- [Curated backgrounds](docs/contributing/backgrounds.md): the shape, how a scene's file is named, and measuring a background with `pnpm measure:backgrounds`.
+- [Gallery posters](docs/contributing/posters.md): drawing a poster in code, its occasion and look, its name in every language, and building and measuring it with `pnpm posters`.
+- [Colours](docs/contributing/backgrounds.md): the gallery's gradients, and measuring one with `pnpm measure:backgrounds`.
 - [Translations](docs/contributing/translations.md): improving a language, and adding one.
 
 The README's screenshots are taken with `pnpm screenshots` (`scripts/screenshots.ts`) against the Compose `test` profile, and written to `docs/screenshots/`. Take them again when the look changes.

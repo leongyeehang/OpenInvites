@@ -4,8 +4,8 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from ".
 // Ticket 11 (M2): the theme's effect, chosen in the Design drawer's Details. Sparkles and doodles
 // are drawn in the backdrop, the doodles tilt the Poster layout's date sticker, and confetti falls
 // once over the page when a guest's answer makes them Going. Under reduced motion none of it is
-// drawn and nothing moves; the sticker stays tilted. The page is a new event's, which starts on
-// the Birthday template: it sparkles.
+// drawn and nothing moves; the sticker stays tilted. The page is a new event's, which starts with
+// the Birthday template's look of 0.4: it sparkles.
 
 const EVENT = { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0" } as const;
 

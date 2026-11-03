@@ -7,29 +7,30 @@ import { useEffect, useId, useRef, useState, useTransition, type CSSProperties, 
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { changeThemeAction } from "@/themes/actions";
-import { BACKGROUNDS, type Background } from "@/themes/backgrounds";
-import { themeReadout, type ThemeChange } from "@/themes/changes";
+import { BACKGROUNDS } from "@/themes/backgrounds";
+import { changedLook, type ThemeChange } from "@/themes/changes";
 import { TITLE_FONTS } from "@/themes/fonts";
-import { resolveTheme, themeVariables, type ThemeUpload } from "@/themes/resolve";
+import { GALLERY_POSTERS, OCCASIONS, type GalleryPosterId } from "@/themes/posters";
+import { resolveTheme, type ThemeUpload } from "@/themes/resolve";
 import { SWATCHES } from "@/themes/swatches";
-import { TEMPLATES, type TemplateId } from "@/themes/templates";
-import { applyTemplate, BUTTON_STYLES, curatedPoster, EFFECTS, FONTS, OFFERED_LAYOUTS, RSVP_STYLES, TEXT_TONES, TITLE_PLACEMENTS, type Layout } from "@/themes/theme";
+import { BUTTON_STYLES, EFFECTS, FONTS, OFFERED_LAYOUTS, RSVP_STYLES, TEXT_TONES, TITLE_PLACEMENTS, type Layout, type Poster } from "@/themes/theme";
 import { useTheme } from "@/themes/themed-page";
 import { TITLE_FONT_CLASSES } from "@/themes/title-fonts";
 import { describeUploadAction } from "@/uploads/actions";
 import { ALT_TEXT_MAX, UPLOAD_PROBLEMS, UPLOAD_TYPES, type UploadProblem } from "@/uploads/validate";
 
-// Each template as it would look, for its thumbnail. Templates are fixed data, so once is enough.
-const TEMPLATE_LOOKS = new Map(TEMPLATES.map((template) => [template.id, resolveTheme(applyTemplate(null, template))]));
+// The gallery's posters under each occasion, in the order it shows them.
+const BY_OCCASION = OCCASIONS.map((occasion) => ({ occasion, posters: GALLERY_POSTERS.filter((poster) => poster.occasion === occasion) }));
 
 // The Design drawer's panel (spec, "Host: the look"): beside the invitation, which keeps changing
-// as the host chooses. Top to bottom: the host's own picture, templates, layout, background, and
-// the finer knobs under Details. Every choice shows at once and is saved as it is made; guests see
+// as the host chooses. Top to bottom: the host's own picture, the poster (the gallery's posters by
+// occasion, its colours, and the host's picture), the layout, and the finer knobs under Details. Every choice shows at once and is saved as it is made; guests see
 // what was saved. The viewport decides its form, in CSS alone (story 43): a bottom sheet under
 // the md breakpoint, with the page scrolling above it, and a side panel from md up, with the page
 // moved over beside it (ThemedPage makes the room). It is not modal: the page stays live.
-export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { eventId: string; title: string; maxUploadBytes: number; onClose: () => void }) {
+export function DesignPanel({ eventId, maxUploadBytes, onClose }: { eventId: string; maxUploadBytes: number; onClose: () => void }) {
   const t = useTranslations("DesignDrawer");
+  const names = useTranslations("Posters");
   const { theme, resolved, change, upload } = useTheme();
   const router = useRouter();
   const [details, setDetails] = useState(false);
@@ -82,12 +83,8 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
       setOutcome(saved ? "saved" : "failed");
     });
 
-  const readout = themeReadout(theme);
-  const themeName = !readout.custom
-    ? t(`templateNames.${readout.template}`)
-    : readout.template
-      ? t("customFrom", { template: t(`templateNames.${readout.template}`) })
-      : t("custom");
+  const restorable = changedLook(theme);
+  const isPoster = (poster: Poster) => theme.poster.kind === poster.kind && (poster.kind === "upload" || (theme.poster as { id: string }).id === poster.id);
   // What Auto would pick, shown in its swatch whatever is chosen now.
   const autoAccent = resolveTheme({ ...theme, accentOverride: null }, upload).accent;
   // Whether the host's picture is the poster now, or put aside while a curated one is.
@@ -170,34 +167,56 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
         </section>
 
         <section>
-          {/* One template is on while the theme is still exactly it; once any knob has changed,
-              none is, and choosing the one it started from applies it afresh. */}
-          <Choices legend={t("templates")} hint={t("templatesHint")}>
-            <div className="-mx-5 flex gap-3 overflow-x-auto px-5 pt-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {TEMPLATES.map((template) => {
-                const current = theme.template?.id === template.id;
-                const clean = current && !theme.template!.dirty;
-                return (
-                  <label
-                    key={template.id}
-                    className="group relative w-[84px] shrink-0 cursor-pointer rounded-xl has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-4 has-[:focus-visible]:outline-ring"
-                  >
-                    <input
-                      type="radio"
-                      name="template"
-                      checked={clean}
-                      onChange={() => choose({ template: template.id })}
-                      title={t(`templateBlurbs.${template.id}`)}
-                      className="absolute inset-0 z-10 m-0 cursor-pointer appearance-none opacity-0"
-                    />
-                    <TemplateThumb templateId={template.id} title={title} state={clean ? "on" : current ? "edited" : "off"} />
-                    <span className="mt-1.5 block truncate text-xs font-medium">{t(`templateNames.${template.id}`)}</span>
-                  </label>
-                );
-              })}
+          {/* One group of radios, so one poster is chosen: the gallery's by occasion, its colours,
+              and the host's picture, which stays here whichever poster is shown, to go back to. */}
+          <Choices legend={t("poster")} hint={t("posterHint")}>
+            <div className="space-y-4">
+              {BY_OCCASION.map(({ occasion, posters }) => (
+                <PosterRow key={occasion} label={names(`occasions.${occasion}`)}>
+                  {posters.map((poster) => {
+                    const value: Poster = { kind: "gallery", id: poster.id };
+                    return (
+                      <Choice key={poster.id} name="poster" checked={isPoster(value)} onSelect={() => choose({ knob: "poster", value })} className="aspect-[4/5]" style={fillWith(poster.src)}>
+                        {isPoster(value) && <Tick />}
+                        <TileName>{names(`names.${poster.id}`)}</TileName>
+                      </Choice>
+                    );
+                  })}
+                </PosterRow>
+              ))}
+              <PosterRow label={t("colours")}>
+                {BACKGROUNDS.map((background) => {
+                  const value: Poster = { kind: "colour", id: background.id };
+                  return (
+                    <Choice key={background.id} name="poster" checked={isPoster(value)} onSelect={() => choose({ knob: "poster", value })} className="aspect-[4/5]" style={{ background: background.css }}>
+                      {isPoster(value) && <Tick />}
+                      <TileName>{t(`colourNames.${background.id}`)}</TileName>
+                    </Choice>
+                  );
+                })}
+                {upload && (
+                  <Choice name="poster" checked={pictureShown} onSelect={showPicture} className="aspect-[4/5]" style={fillWith(upload.thumbnailSrc)}>
+                    {pictureShown && <Tick />}
+                    <TileName>{t("yourPicture")}</TileName>
+                  </Choice>
+                )}
+              </PosterRow>
             </div>
           </Choices>
-          <p className="mt-1 text-sm">{t("theme", { name: themeName })}</p>
+          {/* A gallery poster's look, once the host has changed it, is one tap from coming back. */}
+          {restorable && (
+            <button
+              type="button"
+              onClick={() => {
+                choose({ knob: "poster", value: { kind: "gallery", id: restorable } });
+                // The button goes once the look is back, so the focus goes to the panel, not the page.
+                panel.current?.focus();
+              }}
+              className="mt-3 inline-flex h-9 cursor-pointer items-center rounded-full bg-accent/60 px-3.5 text-xs font-medium hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              {t("restoreLook", { poster: names(`names.${restorable as GalleryPosterId}`) })}
+            </button>
+          )}
         </section>
 
         <Choices legend={t("layout")}>
@@ -215,34 +234,6 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
                 <span className="text-[11px] leading-snug text-muted-foreground">{t(`layouts.${layout}.note`)}</span>
               </Choice>
             ))}
-          </div>
-        </Choices>
-
-        <Choices legend={t("background")}>
-          <div className="grid grid-cols-5 gap-2">
-            {BACKGROUNDS.map((background) => {
-              const checked = theme.poster.kind !== "upload" && theme.poster.id === background.id;
-              return (
-                <Choice
-                  key={background.id}
-                  name="background"
-                  checked={checked}
-                  onSelect={() => choose({ knob: "poster", value: curatedPoster(background.id)! })}
-                  className="aspect-[3/4]"
-                  style={fill(background)}
-                >
-                  {checked && <Tick />}
-                  <TileName>{t(`backgroundNames.${background.id}`)}</TileName>
-                </Choice>
-              );
-            })}
-            {/* The host's picture stays here whichever poster is shown, to go back to. */}
-            {upload && (
-              <Choice name="background" checked={pictureShown} onSelect={showPicture} className="aspect-[3/4]" style={fillWith(upload.thumbnailSrc)}>
-                {pictureShown && <Tick />}
-                <TileName>{t("yourPicture")}</TileName>
-              </Choice>
-            )}
           </div>
         </Choices>
 
@@ -372,10 +363,6 @@ export function DesignPanel({ eventId, title, maxUploadBytes, onClose }: { event
 
 const MEGABYTE = 1024 * 1024;
 
-function fill(background: Background): CSSProperties {
-  return background.kind === "gradient" ? { background: background.css } : fillWith(background.src);
-}
-
 function fillWith(src: string): CSSProperties {
   return { backgroundImage: `url(${src})`, backgroundSize: "cover", backgroundPosition: "center" };
 }
@@ -443,29 +430,16 @@ function TileName({ children }: { children: ReactNode }) {
   );
 }
 
-// A tiny poster in the template's own theme: its background, a pane of its glass, the event's
-// title in its font, and a stroke of its accent.
-function TemplateThumb({ templateId, title, state }: { templateId: TemplateId; title: string; state: "on" | "edited" | "off" }) {
-  const look = TEMPLATE_LOOKS.get(templateId)!;
-  const { background, font } = look;
+// A row of the poster group: an occasion, or the colours, named above its tiles.
+function PosterRow({ label, children }: { label: string; children: ReactNode }) {
+  const id = useId();
   return (
-    <span
-      aria-hidden
-      className={cn(
-        "relative block aspect-[3/4] overflow-hidden rounded-xl ring-offset-2 ring-offset-popover transition-transform group-hover:scale-[1.03] motion-reduce:transition-none",
-        state === "on" ? "ring-2 ring-foreground" : state === "edited" ? "outline-2 outline-offset-2 outline-foreground/60 outline-dashed" : "ring-1 ring-border",
-      )}
-      style={{ ...fill(background), ...(themeVariables(look) as CSSProperties) }}
-    >
-      {background.kind === "photo" && <span className="absolute inset-0 bg-theme-scrim" />}
-      <span className="absolute inset-1.5 top-5 rounded-lg border border-theme-glass-border bg-theme-glass p-1.5 text-theme-text backdrop-blur-sm">
-        <span className={cn("font-title line-clamp-3 block leading-[0.95] break-words", TITLE_FONT_CLASSES[font.key], font.className, font.key === "serif" ? "text-[13px]" : "text-[11px]")}>
-          {title}
-        </span>
-        <span className="mt-1.5 block h-1.5 w-8 rounded-full bg-theme-accent" />
-      </span>
-      {state === "on" && <Tick />}
-    </span>
+    <div role="group" aria-labelledby={id}>
+      <p id={id} className="mb-2 text-xs font-medium text-muted-foreground">
+        {label}
+      </p>
+      <div className="grid grid-cols-4 gap-2">{children}</div>
+    </div>
   );
 }
 
@@ -515,7 +489,7 @@ const HINT = "-mt-1.5 mb-2.5 text-xs text-muted-foreground";
 // A group of choices, one of which is on: a fieldset whose legend reads like the other headings,
 // with its hint under it as a description rather than part of its name. A fieldset is at least as
 // wide as its content unless told otherwise (min-w-0), which would make the whole panel scroll
-// sideways to fit the row of templates, rather than the row within it.
+// sideways to fit anything wide inside it.
 function Choices({ legend, hint, children }: { legend: string; hint?: string; children: ReactNode }) {
   const hintId = useId();
   return (

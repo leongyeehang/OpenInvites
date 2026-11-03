@@ -252,8 +252,8 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
         upload={isHost ? picture : resolved.upload}
         designer={
           isHost ? (
-            <ClientMessages namespaces={["DesignDrawer"]}>
-              <DesignDrawer eventId={event.id} title={event.title} maxUploadBytes={maxUploadBytes()} />
+            <ClientMessages namespaces={["DesignDrawer", "Posters"]}>
+              <DesignDrawer eventId={event.id} maxUploadBytes={maxUploadBytes()} />
             </ClientMessages>
           ) : undefined
         }

@@ -40,7 +40,7 @@ type Violation = { id: string; impact?: string | null; help: string; targets: st
 // bounding client rect), so such a backdrop covers only the screenful in view, and text further
 // down the page would be read against the white of the body beneath it: a colour no one ever sees
 // there. So the page is scrolled half a screen at a time, and so is anything on it that scrolls
-// on its own (the Design drawer's list, down, and its row of templates, across), and each
+// on its own (the Design drawer's list, down), and each
 // verdict on contrast is kept only from a view where its text is wholly in sight: on the screen,
 // and inside everything that clips it. Text taller or wider than half its view is never wholly in
 // sight, and is left out.

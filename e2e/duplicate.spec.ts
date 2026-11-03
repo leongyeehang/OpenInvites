@@ -13,7 +13,7 @@ const EVENT: DraftFields = {
   questions: [{ prompt: "Starter?", type: "choice", required: true, choices: "Soup, Salad" }],
 };
 
-const PICTURE_SRC = /src="(\/uploads\/[0-9a-f-]{36}\/background\.webp)"/;
+const PICTURE_SRC = /src="(\/uploads\/[0-9a-f-]{36}\/poster\.webp)"/;
 
 test("duplicating makes a new draft with the same details, questions, settings and picture, and none of the replies", async ({ page, browser, request }) => {
   test.slow();

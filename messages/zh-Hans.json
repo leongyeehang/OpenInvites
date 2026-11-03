@@ -657,27 +657,6 @@
     "yourPicture": "你的图片",
     "altText": "描述你的图片",
     "altTextHint": "会读给使用屏幕阅读器的宾客听。如果图片只是装饰，可以留空。",
-    "templates": "模板",
-    "templatesHint": "每个模板都会设置整套主题，之后可以随意修改。",
-    "templateNames": {
-      "birthday": "生日",
-      "vows": "婚礼",
-      "supper": "晚餐聚会",
-      "kids": "儿童派对",
-      "festival": "节庆",
-      "quiet": "静谧"
-    },
-    "templateBlurbs": {
-      "birthday": "黄金时刻背景，大号衬线标题，毛玻璃按钮。",
-      "vows": "玫瑰园背景，衬线标题，白色强调色，线框按钮。",
-      "supper": "午夜背景，衬线标题，烛光琥珀色，实色按钮。",
-      "kids": "暮色背景，圆润字体，珊瑚色，实色按钮。",
-      "festival": "极光背景，粗重的无衬线标题，玻璃按钮。",
-      "quiet": "石板灰背景，无衬线标题，近白色，线框按钮。一切静止。"
-    },
-    "theme": "主题：{name}",
-    "custom": "自定义",
-    "customFrom": "自定义，基于“{template}”模板",
     "layout": "版式",
     "layouts": {
       "poster": {
@@ -693,17 +672,20 @@
         "note": "邀请读起来像聊天。"
       }
     },
-    "background": "背景",
-    "backgroundNames": {
+    "poster": "海报",
+    "posterHint": "图库中的海报会带来与之相配的标题字体、强调色和特效。",
+    "colours": "颜色",
+    "restoreLook": "恢复“{poster}”的样式",
+    "colourNames": {
       "golden": "黄金时刻",
       "dusk": "暮色",
       "forest": "森林",
       "midnight": "午夜",
-      "sunset-sea": "海上日落",
-      "bokeh": "光斑",
-      "aurora": "极光",
-      "rose": "玫瑰园",
-      "slate": "石板灰"
+      "peach": "蜜桃",
+      "lagoon": "泻湖",
+      "lilac": "丁香",
+      "slate": "石板灰",
+      "ink": "墨色"
     },
     "details": "更多选项",
     "font": "标题字体",
@@ -774,6 +756,40 @@
         "name": "涂鸦",
         "note": "背景里飘着小图形，日期也微微倾斜。"
       }
+    }
+  },
+  "Posters": {
+    "occasions": {
+      "birthday": "生日",
+      "dinner": "晚餐",
+      "wedding": "婚礼",
+      "kids": "儿童",
+      "nightOut": "夜间聚会",
+      "outdoors": "户外",
+      "holiday": "节日",
+      "anyOccasion": "任何场合"
+    },
+    "names": {
+      "candles": "蜡烛",
+      "balloons": "气球",
+      "cake": "蛋糕",
+      "candlelight": "烛光",
+      "picnic": "野餐",
+      "botanical": "花草",
+      "rings": "对戒",
+      "rose": "玫瑰园",
+      "playtime": "游戏时间",
+      "rainbow": "彩虹",
+      "disco": "迪斯科",
+      "sunset-drive": "落日兜风",
+      "cocktails": "鸡尾酒",
+      "sunshine": "阳光",
+      "seaside": "海边",
+      "sunset-sea": "海上日落",
+      "string-lights": "串灯",
+      "aurora": "极光",
+      "bokeh": "光斑",
+      "streamers": "彩带"
     }
   },
   "Guests": {

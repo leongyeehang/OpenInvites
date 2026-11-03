@@ -63,21 +63,21 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await host.keyboard.press("Escape");
   await expectStill(host, "the event form, the dialog closed");
 
-  // The Design drawer: opened, a template, a knob, closed.
+  // The Design drawer: opened, a gallery poster, a knob, closed.
   await host.goto(link);
   await host.getByRole("button", { name: "Design" }).hover();
   await host.getByRole("button", { name: "Design" }).click();
   const drawer = host.getByRole("dialog", { name: "Design" });
   await expectStill(host, "the Design drawer, open");
-  // Vows, like Birthday, has guests answer in the sheet.
-  await drawer.getByRole("radio", { name: "Vows" }).check();
+  // Rose garden's look keeps guests answering in the sheet.
+  await drawer.getByRole("radio", { name: "Rose garden" }).check();
   // It sparkles too, and under reduced motion the sparkles are not drawn.
   await expect(host.locator('[data-effect="sparkles"]')).toBeHidden();
   await drawer.getByRole("button", { name: "Details" }).click();
   await drawer.getByRole("radio", { name: "Glass" }).check();
-  await expect(drawer.getByText("Theme: Custom, started from Vows")).toBeVisible();
+  await expect(drawer.getByRole("button", { name: "Restore the Rose garden look" })).toBeVisible();
   await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain("rose-garden");
-  await expectStill(host, "the Design drawer, after a template and a knob");
+  await expectStill(host, "the Design drawer, after a gallery poster and a knob");
   await host.keyboard.press("Escape");
   await expectStill(host, "the event page, the drawer closed");
 

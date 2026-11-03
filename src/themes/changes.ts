@@ -1,7 +1,7 @@
+import { findGalleryPoster } from "./posters";
 import { isSwatch } from "./swatches";
-import { findTemplate, type TemplateId } from "./templates";
 import {
-  applyTemplate,
+  applyPosterLook,
   BUTTON_STYLES,
   curatedPoster,
   EFFECTS,
@@ -21,11 +21,11 @@ import {
   type TitlePlacement,
 } from "./theme";
 
-// What the Design drawer asks for: a template, or one knob set to one value. The layout is one of
-// those offered; changing it keeps every other knob, the Poster's RSVP style included. The poster
-// is a curated one or the event's own upload; a new upload is not the drawer's to show, the
-// server shows it once it has stored the picture (showNewUpload, uploads/repository.ts).
-export type KnobChange =
+// What the Design drawer asks for: one knob set to one value. The layout is one of those offered;
+// changing it keeps every other knob, the Poster's RSVP style included. The poster is a curated
+// one or the event's own upload; a new upload is not the drawer's to show, the server shows it
+// once it has stored the picture (showNewUpload, uploads/repository.ts).
+export type ThemeChange =
   | { knob: "layout"; value: Layout }
   | { knob: "poster"; value: Poster }
   | { knob: "titlePlacement"; value: TitlePlacement }
@@ -36,23 +36,23 @@ export type KnobChange =
   | { knob: "rsvpStyle"; value: RsvpStyle }
   | { knob: "effect"; value: Effect };
 
-export type ThemeChange = { template: string } | KnobChange;
-
-// The theme after a change. Changing any knob marks the template dirty, so the theme reads
-// "custom, started from" it; applying a template, the same one included, starts clean again.
-// Picking what is already chosen changes nothing, not even the dirty flag.
+// The theme after a change. Picking a gallery poster applies its look and starts clean (M4 spec,
+// "Templates fold into the gallery"); picking the one already shown applies its look again, so a
+// host who has changed it can go back to it. Changing any other knob marks the look dirty, so the
+// theme is the host's own, started from that poster. Picking what is already chosen changes
+// nothing, not even the dirty flag.
 export function applyChange(theme: Theme, change: ThemeChange): Theme {
-  if ("template" in change) {
-    const template = findTemplate(change.template);
-    const applied = template && applyTemplate(theme, template);
-    return applied && !sameTheme(applied, theme) ? applied : theme;
+  const gallery = change.knob === "poster" && change.value.kind === "gallery" ? findGalleryPoster(change.value.id) : undefined;
+  if (gallery) {
+    const applied = applyPosterLook(theme, gallery);
+    return sameTheme(applied, theme) ? theme : applied;
   }
   const changed = changeKnob(theme, change);
   if (changed === theme) return theme;
   return { ...changed, template: theme.template && { ...theme.template, dirty: true } };
 }
 
-function changeKnob(theme: Theme, change: KnobChange): Theme {
+function changeKnob(theme: Theme, change: ThemeChange): Theme {
   if (change.knob === "poster") {
     if (samePoster(theme.poster, change.value)) return theme;
     // A new poster brings its own accent: an override picked against the old picture may not suit
@@ -77,21 +77,19 @@ export function showNewUpload(theme: Theme): Theme {
 function sameTheme(a: Theme, b: Theme): boolean {
   return (Object.keys(a) as (keyof Theme)[]).every((knob) =>
     knob === "template"
-      ? a.template?.id === b.template?.id && a.template?.dirty === b.template?.dirty
+      ? a.template?.posterId === b.template?.posterId && a.template?.dirty === b.template?.dirty
       : knob === "poster"
         ? samePoster(a.poster, b.poster)
         : a[knob] === b[knob],
   );
 }
 
-// What the drawer says the theme is: a template (by id; the drawer names it), or custom and
-// where it started.
-export type ThemeReadout = { custom: false; template: TemplateId } | { custom: true; template?: TemplateId };
-
-export function themeReadout(theme: Theme): ThemeReadout {
-  const template = theme.template && findTemplate(theme.template.id);
-  if (!template) return { custom: true };
-  return { custom: theme.template!.dirty, template: template.id };
+// The gallery poster on show whose look the host has changed, and so could have again: what the
+// drawer offers to restore. Undefined while the look is as the poster brought it, or the poster
+// shown is not the one the look came from.
+export function changedLook(theme: Theme): string | undefined {
+  const { poster, template } = theme;
+  return poster.kind === "gallery" && template?.dirty && template.posterId === poster.id ? poster.id : undefined;
 }
 
 function oneOf<T extends string>(options: readonly T[], value: unknown): value is T {
@@ -105,8 +103,7 @@ function oneOf<T extends string>(options: readonly T[], value: unknown): value i
 // one (`upload`, its id, or null when it has none).
 export function parseThemeChange(raw: unknown, upload: string | null = null): ThemeChange | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
-  const { template, knob, value } = raw as { template?: unknown; knob?: unknown; value?: unknown };
-  if (template !== undefined) return typeof template === "string" && findTemplate(template) ? { template } : undefined;
+  const { knob, value } = raw as { knob?: unknown; value?: unknown };
 
   switch (knob) {
     case "layout":

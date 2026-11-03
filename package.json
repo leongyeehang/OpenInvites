@@ -15,7 +15,8 @@
     "perf": "docker compose --profile test up -d --build --wait && playwright test --config playwright.perf.config.ts",
     "db:generate": "drizzle-kit generate",
     "measure:backgrounds": "playwright test --config playwright.scripts.config.ts --project backgrounds",
-    "screenshots": "playwright test --config playwright.scripts.config.ts --project screenshots"
+    "screenshots": "playwright test --config playwright.scripts.config.ts --project screenshots",
+    "posters": "playwright test --config playwright.scripts.config.ts --project posters"
   },
   "dependencies": {
     "@bradenmacdonald/s3-lite-client": "^1.0.0",

@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { css, TONES } from "./legibility";
+import { findGalleryPoster } from "./posters";
 import { posterTitleVariables, resolveTheme, sheetVariables, themeVariables, type ThemeUpload } from "./resolve";
 import { DEFAULT_THEME, type Theme } from "./theme";
 
 const UPLOAD = "0192f0a1-7b3c-7d4e-8f00-123456789abc";
 const onUpload: Theme = { ...DEFAULT_THEME, poster: { kind: "upload" } };
 const onColour = (id: string): Theme => ({ ...DEFAULT_THEME, poster: { kind: "colour", id } });
+const onGallery = (id: string): Theme => ({ ...DEFAULT_THEME, poster: { kind: "gallery", id } });
 
 // The same picture as a portrait poster, the widths it comes in, and its blurred copy behind it: dark.
 const POSTER: ThemeUpload["poster"] = {
@@ -21,8 +23,6 @@ const POSTER: ThemeUpload["poster"] = {
 // The event's upload as the server sampled it: a dark photo unless a test says otherwise.
 const upload = (sampled: Partial<ThemeUpload> = {}): ThemeUpload => ({
   id: UPLOAD,
-  src: `/uploads/${UPLOAD}/background.webp`,
-  portraitSrc: `/uploads/${UPLOAD}/background-portrait.webp`,
   thumbnailSrc: `/uploads/${UPLOAD}/poster-720.webp`,
   accent: "#3aa885",
   luminance: 0.2,
@@ -47,6 +47,7 @@ describe("resolveTheme", () => {
     it("else the curated poster's pre-chosen accent", () => {
       expect(resolveTheme(DEFAULT_THEME).accent).toBe("#ffc36b");
       expect(resolveTheme(onColour("slate")).accent).toBe("#d9d9e3");
+      expect(resolveTheme(onGallery("disco")).accent).toBe("#d6a7ff");
     });
 
     it("leaves a kept upload alone once the host picks a curated poster again", () => {
@@ -88,10 +89,7 @@ describe("resolveTheme", () => {
 
   it("resolves the background to what the page paints and the title font to its face", () => {
     expect(resolveTheme(DEFAULT_THEME).background).toMatchObject({ kind: "gradient", css: expect.stringContaining("#ffc36b") });
-    expect(resolveTheme({ ...DEFAULT_THEME, poster: { kind: "gallery", id: "aurora" } }).background).toMatchObject({
-      kind: "photo",
-      src: "/backgrounds/aurora.6e1d45e9.svg",
-    });
+    expect(resolveTheme(onGallery("aurora")).background).toMatchObject({ kind: "photo", src: findGalleryPoster("aurora")!.copy });
     expect(resolveTheme(DEFAULT_THEME).font).toMatchObject({ key: "serif", sizes: { short: "text-poster-serif" } });
     expect(resolveTheme({ ...DEFAULT_THEME, font: "rounded" }).font.key).toBe("rounded");
   });
@@ -101,6 +99,41 @@ describe("resolveTheme", () => {
     // Put aside, the picture is not handed to them at all.
     expect(resolveTheme(onColour("dusk"), upload()).upload).toBeNull();
     expect(resolveTheme({ ...DEFAULT_THEME, poster: { kind: "gallery", id: "bokeh" } }, upload()).upload).toBeNull();
+  });
+
+  describe("a gallery poster", () => {
+    const sunset = findGalleryPoster("sunset-drive")!;
+
+    it("is the invitation itself, at 4:5, with nothing to say for a screen reader, and the title where the theme puts it", () => {
+      expect(resolveTheme({ ...onGallery("sunset-drive"), titlePlacement: "on" }).poster).toEqual({
+        src: sunset.src,
+        srcSet: undefined,
+        width: 1200,
+        height: 1500,
+        altText: "",
+        titlePlacement: "on",
+      });
+      expect(resolveTheme(onGallery("sunset-drive")).gallery).toBe(sunset);
+    });
+
+    it("paints the page with its blurred copy, solved under the poster's scrim against what was measured of it", () => {
+      const resolved = resolveTheme(onGallery("sunset-drive"));
+      expect(resolved.background).toEqual({ id: "sunset-drive", kind: "photo", src: sunset.copy, accent: sunset.accent, luminance: sunset.luminance, lightest: sunset.lightest, darkest: sunset.darkest });
+      expect(resolved.tokens.scrim).toEqual(TONES.light.posterScrim);
+    });
+
+    it("takes the text tone from its measured luminance", () => {
+      expect(resolveTheme(onGallery("disco")).textTone).toBe("light");
+      expect(resolveTheme(onGallery("picnic")).textTone).toBe("dark");
+    });
+
+    it("is neither the host's upload, which stays put aside, nor shown when the gallery no longer has it", () => {
+      expect(resolveTheme(onGallery("disco"), upload()).upload).toBeNull();
+      expect(resolveTheme(onGallery("retired")).poster).toBeNull();
+      expect(resolveTheme(onGallery("retired")).gallery).toBeNull();
+      expect(resolveTheme(onGallery("retired")).accent).toBe("#ffc36b");
+      expect(resolveTheme(onUpload, upload()).gallery).toBeNull();
+    });
   });
 
   describe("poster mode", () => {

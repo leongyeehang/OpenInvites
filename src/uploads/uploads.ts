@@ -39,8 +39,6 @@ export function themeUpload(upload: Upload): ThemeUpload {
   const poster = { width: upload.posterWidth, height: upload.posterHeight };
   return {
     id,
-    src: renditionUrl(id, "background"),
-    portraitSrc: renditionUrl(id, "backgroundPortrait"),
     // The smallest rendition that stays sharp in the drawer's 84 by 112 thumbnail on a 3x screen.
     thumbnailSrc: renditionUrl(id, "posterSmall"),
     accent,

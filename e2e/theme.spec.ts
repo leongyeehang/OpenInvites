@@ -2,7 +2,7 @@ import { expect, test, type Page } from "./test";
 import { createDraft, createPublished } from "./events";
 import { signUpVerified } from "./hosts";
 
-// Ticket 06: every new event wears the Birthday template's Poster look without the host doing
+// Ticket 06: every new event wears the Birthday template's Poster look of 0.4 without the host doing
 // anything. The theme is resolved on the server into CSS variables and the title font.
 test("a new event's page wears the Birthday template: serif title, golden accent, light text", async ({ page, request }) => {
   test.slow();
@@ -65,9 +65,10 @@ test("a new event's page wears the Birthday template: serif title, golden accent
 
 // Ticket 20: the page asks for the one title font it uses from its head, beside the stylesheet,
 // shows the title in a fallback of the same size until it arrives rather than hiding it, and
-// never fetches the others. Fonts and scenes are named after their content and kept for a year,
-// so a guest coming back is not held up asking for them again. A curated scene is served.
-test("a guest's page asks early for its own title font and no other, kept for a year, and a scene background arrives with it", async ({ page, browser, request }) => {
+// never fetches the others. Fonts and gallery posters are named after their content and kept for a
+// year, so a guest coming back is not held up asking for them again. A gallery poster is served,
+// and the blurred copy behind it.
+test("a guest's page asks early for its own title font and no other, kept for a year, and a gallery poster arrives with it", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "theme-font", { title: "Ada’s birthday", start: "2027-03-06T19:00" });
   const preloaded = async () => {
@@ -96,7 +97,8 @@ test("a guest's page asks early for its own title font and no other, kept for a 
   await page.goto(host.link);
   await expect.poll(() => fonts(page)).toEqual([{ path: serif, fetched: false }]);
 
-  // The host chooses Syne and a scene: the page now asks for Syne alone, and the scene is there.
+  // The host chooses a gallery poster and Syne: the page now asks for Syne alone, and the poster is
+  // there, with its copy behind it.
   await host.page.goto(host.link);
   await host.page.getByRole("button", { name: "Design" }).click();
   const drawer = host.page.getByRole("dialog", { name: "Design" });
@@ -108,11 +110,15 @@ test("a guest's page asks early for its own title font and no other, kept for a 
   expect((await request.get(syne!)).headers()["cache-control"]).toBe(FOR_A_YEAR);
   const another = await browser.newContext();
   const guest = await another.newPage();
-  const scene = guest.waitForResponse((response) => /^\/backgrounds\/bokeh\.[0-9a-f]{8}\.svg$/.test(new URL(response.url()).pathname));
+  const served = (pattern: RegExp) => guest.waitForResponse((response) => pattern.test(new URL(response.url()).pathname));
+  const poster = served(/^\/posters\/bokeh\.[0-9a-f]{8}\.svg$/);
+  const copy = served(/^\/posters\/bokeh-copy\.[0-9a-f]{8}\.webp$/);
   await guest.goto(host.link);
-  expect((await scene).status()).toBe(200);
-  expect((await scene).headers()["content-type"]).toContain("image/svg+xml");
-  expect((await scene).headers()["cache-control"]).toBe(FOR_A_YEAR);
+  expect((await poster).status()).toBe(200);
+  expect((await poster).headers()["content-type"]).toContain("image/svg+xml");
+  expect((await poster).headers()["cache-control"]).toBe(FOR_A_YEAR);
+  expect((await copy).status()).toBe(200);
+  expect((await copy).headers()["cache-control"]).toBe(FOR_A_YEAR);
   await expect.poll(() => fonts(guest)).toEqual([{ path: syne, fetched: true }]);
   await another.close();
   await host.context.close();

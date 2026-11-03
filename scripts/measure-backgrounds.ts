@@ -6,12 +6,13 @@ import { BACKGROUNDS, type CuratedBackground } from "../src/themes/backgrounds";
 import { hexToRgb, luminance, type Rgb } from "../src/themes/legibility";
 import { SWATCHES } from "../src/themes/swatches";
 
-// `pnpm measure:backgrounds`: measures what src/themes/backgrounds.ts stores about each curated
-// background that has to be measured, its `luminance`, `lightest` and `darkest`, the way the
+// `pnpm measure:backgrounds`: measures what src/themes/backgrounds.ts stores about each of the
+// gallery's colours that has to be measured, its `luminance`, `lightest` and `darkest`, the way the
 // comment there says they are measured, and prints them beside the stored values. `-g <id>`
 // measures one. It drives the app on port 3000 (`pnpm dev`, or the Compose test profile) through
-// the product: a host publishes an event and wears the background in the Design drawer, and the
-// page a guest is sent is photographed with everything but the backdrop hidden.
+// the product: a host publishes an event and wears the colour as the poster in the Design drawer,
+// and the page a guest is sent is photographed with everything but the backdrop hidden. (The
+// gallery's pictures are measured as they are built, by `pnpm posters`.)
 // docs/contributing/backgrounds.md says when to run it.
 
 // The phone the average luminance is taken on, and every screen the extremes are looked for on.
@@ -28,7 +29,7 @@ const AS_GLASS_SEES_IT = `
   .event-page > .grain, .event-page > .grain * { visibility: visible !important; }
   #glass-pane { position: fixed; inset: 0; z-index: 2147483647; visibility: visible !important; backdrop-filter: blur(24px); }
 `;
-// The gradient or the scene alone: no blobs, scrim, fade or grain.
+// The gradient alone: no blobs, scrim, fade or grain.
 const ALONE = `
   body * { visibility: hidden !important; }
   .event-page > .grain > :first-child, .event-page > .grain > :first-child * { visibility: visible !important; }
@@ -49,7 +50,7 @@ for (const background of BACKGROUNDS) {
     await host.page.getByRole("button", { name: "Design" }).click();
     const drawer = host.page.getByRole("dialog", { name: "Design" });
     await drawer.getByRole("button", { name: en.DesignDrawer.details }).click();
-    await choose(drawer, en.DesignDrawer.background, en.DesignDrawer.backgroundNames[background.id]);
+    await choose(drawer, en.DesignDrawer.poster, en.DesignDrawer.colourNames[background.id]);
 
     const measured = {
       luminance: await averageLuminance(page, host.link),

@@ -75,7 +75,6 @@ test("a host's picture is the poster, with the title below it or on it, and gues
 
   // The picture is the poster as soon as it arrives.
   await drawer.getByRole("button", { name: "Details" }).click();
-  await expect(drawer.getByText("Theme: Custom, started from Birthday")).toBeVisible();
   const placement = drawer.getByRole("group", { name: "Title placement" });
   await expect(placement.getByRole("radio", { name: "Below the poster" })).toBeChecked();
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain(posterCopy(id));
@@ -174,8 +173,8 @@ test("a curated poster puts the picture aside, and choosing it again brings back
   await expect(drawer.getByRole("group", { name: "Title placement" })).toBeVisible();
   await expectProportions(host.page.locator('[data-slot="poster-card"] img'), 1600, 900);
 
-  // A curated poster puts the picture aside: no title to place, nothing of it on a guest's page.
-  const gallery = drawer.getByRole("group", { name: "Background" });
+  // A colour puts the picture aside: no title to place, nothing of it on a guest's page.
+  const gallery = drawer.getByRole("group", { name: "Poster" });
   await gallery.getByRole("radio", { name: "Dusk" }).check();
   await expect(drawer.getByRole("group", { name: "Title placement" })).toHaveCount(0);
   await expect.poll(() => shownUpload(request, host.link), { timeout: 15_000 }).toBeUndefined();
@@ -184,7 +183,6 @@ test("a curated poster puts the picture aside, and choosing it again brings back
   await gallery.getByRole("radio", { name: "Your picture" }).check();
   await expect(gallery.getByRole("radio", { name: "Your picture" })).toBeChecked();
   await expect(drawer.getByRole("group", { name: "Title placement" })).toBeVisible();
-  await expect(drawer.getByText("Theme: Custom, started from Birthday")).toBeVisible();
   await expect(drawer.getByRole("group", { name: "Text tone" }).getByRole("radio", { name: "Dark" })).toBeChecked();
   await expect.poll(() => shownUpload(request, host.link), { timeout: 15_000 }).toBe(id);
 
@@ -205,7 +203,7 @@ test("a replaced poster stays the poster, and the old one's files go", async ({ 
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain(posterCopy(first));
 
   const second = await upload(host.page, request, host.link, await poster("fair-poster-final.jpg", 1000, 1400), "Replace");
-  await expect(drawer.getByRole("group", { name: "Background" }).getByRole("radio", { name: "Your picture" })).toBeChecked();
+  await expect(drawer.getByRole("group", { name: "Poster" }).getByRole("radio", { name: "Your picture" })).toBeChecked();
   await expect(host.page.locator('[data-slot="poster-card"] img')).toHaveAttribute("src", `/uploads/${second}/poster.webp`);
   for (const file of ["poster.webp", "poster-720.webp", "poster-copy.webp", "background.webp", "background-portrait.webp", "card.jpg"]) {
     expect((await request.get(`/uploads/${first}/${file}`)).status(), file).toBe(404);

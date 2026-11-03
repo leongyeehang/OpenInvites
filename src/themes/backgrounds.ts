@@ -1,13 +1,13 @@
 import type en from "../../messages/en.json";
 
-// The curated background gallery (spec, "Themes and templates"). Data, not code: add an entry
-// here, and its name to every file in messages/, to offer a new background. Each carries a
+// The gallery's colours (M4 spec, "Colour posters"): the curated gradients a host may have as the
+// poster, painted as the page's background. Data, not code: add an entry here, and its name to
+// every file in messages/ (DesignDrawer.colourNames), to offer a new one. The gallery's pictures
+// are in posters.ts; the four scenes 0.4 had here are among them now. Each colour carries a
 // pre-chosen accent that reads on it and its average luminance (0 dark to 1 light) for the
 // automatic text tone. Luminance is measured as the mean of (0.2126 R + 0.7152 G + 0.0722 B) /
 // 255 over the rendered background alone (no blobs, scrim, fade or grain) on a 390x844 phone,
-// rounded to two places; the four scenes are self-hosted SVG files in
-// public/backgrounds, each named after its content (public-files.test.ts says the name a new or
-// changed one takes), since browsers keep them for a year.
+// rounded to two places.
 //
 // `lightest` and `darkest` are what legibility.ts reads to keep every text tone readable: the
 // brightest point light text can meet on the page, and the darkest point dark text can meet. Each
@@ -19,20 +19,19 @@ import type en from "../../messages/en.json";
 // pick. `pnpm measure:backgrounds` measures all three (docs/contributing/backgrounds.md).
 // Re-measure when the backdrop changes.
 
+// What the page is painted on: a gradient, or the small copy of a picture poster (a gallery
+// poster, or the host's upload) blurred to a wash of its own colours behind it (themed-page.tsx).
 export type Background = {
   id: string;
   accent: string; // #rrggbb
   luminance: number; // 0..1
   lightest: string; // #rrggbb
   darkest: string; // #rrggbb
-  // A host's photo also comes cut to what a phone held upright shows of it (uploads/renditions.ts).
-  // The small copy of a host's picture is painted blurred to a wash of its own colours behind
-  // their poster (themed-page.tsx).
-} & ({ kind: "gradient"; css: string } | { kind: "photo"; src: string; portraitSrc?: string; blurred?: boolean });
+} & ({ kind: "gradient"; css: string } | { kind: "photo"; src: string });
 
-// A background of the gallery. What the Design drawer calls it is a message
-// (DesignDrawer.backgroundNames, in every file in messages/), so its id has to be one they name.
-export type CuratedBackground = Background & { id: keyof typeof en.DesignDrawer.backgroundNames };
+// A colour of the gallery. What the Design drawer calls it is a message
+// (DesignDrawer.colourNames, in every file in messages/), so its id has to be one they name.
+export type CuratedBackground = Background & { kind: "gradient"; id: keyof typeof en.DesignDrawer.colourNames };
 
 export const BACKGROUNDS: readonly CuratedBackground[] = [
   {
@@ -71,10 +70,33 @@ export const BACKGROUNDS: readonly CuratedBackground[] = [
     lightest: "#484962",
     darkest: "#070818",
   },
-  { id: "sunset-sea", kind: "photo", src: "/backgrounds/sunset-sea.66efaaa7.svg", accent: "#ffcf6b", luminance: 0.45, lightest: "#b7a26d", darkest: "#5e4f6f" },
-  { id: "bokeh", kind: "photo", src: "/backgrounds/bokeh.1de98ced.svg", accent: "#ffb26b", luminance: 0.11, lightest: "#9b7c42", darkest: "#474151" },
-  { id: "aurora", kind: "photo", src: "/backgrounds/aurora.6e1d45e9.svg", accent: "#7ef0c8", luminance: 0.14, lightest: "#19635a", darkest: "#3d404d" },
-  { id: "rose", kind: "photo", src: "/backgrounds/rose-garden.f950085a.svg", accent: "#ff9ec7", luminance: 0.23, lightest: "#773758", darkest: "#564252" },
+  {
+    id: "peach",
+    kind: "gradient",
+    css: "radial-gradient(80% 60% at 20% 15%, #ffe0c4 0%, rgb(255 224 196 / 0) 60%), radial-gradient(70% 60% at 85% 75%, #ff8fa3 0%, rgb(255 143 163 / 0) 62%), linear-gradient(160deg, #ffb38a, #e85d75)",
+    accent: "#ffe3b8",
+    luminance: 0.66,
+    lightest: "#ffdabc",
+    darkest: "#f07176",
+  },
+  {
+    id: "lagoon",
+    kind: "gradient",
+    css: "radial-gradient(70% 50% at 30% 22%, #a6f5e4 0%, rgb(166 245 228 / 0) 60%), radial-gradient(80% 60% at 75% 80%, #2a6fdb 0%, rgb(42 111 219 / 0) 65%), linear-gradient(170deg, #38c3b5, #173f8a)",
+    accent: "#b8fff0",
+    luminance: 0.5,
+    lightest: "#97eede",
+    darkest: "#47609b",
+  },
+  {
+    id: "lilac",
+    kind: "gradient",
+    css: "radial-gradient(70% 55% at 75% 18%, #f6dcff 0%, rgb(246 220 255 / 0) 60%), radial-gradient(80% 60% at 20% 82%, #8b6cf0 0%, rgb(139 108 240 / 0) 65%), linear-gradient(165deg, #c9a7ff, #5a3fb5)",
+    accent: "#ffe1f4",
+    luminance: 0.55,
+    lightest: "#efd3fc",
+    darkest: "#7658c6",
+  },
   {
     id: "slate",
     kind: "gradient",
@@ -83,6 +105,15 @@ export const BACKGROUNDS: readonly CuratedBackground[] = [
     luminance: 0.1,
     lightest: "#4d4f54",
     darkest: "#16181e",
+  },
+  {
+    id: "ink",
+    kind: "gradient",
+    css: "linear-gradient(180deg, #17151c 0%, #2c2833 100%)",
+    accent: "#ffffff",
+    luminance: 0.12,
+    lightest: "#535157",
+    darkest: "#16141b",
   },
 ];
 

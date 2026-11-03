@@ -3,11 +3,11 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { BACKGROUNDS } from "./backgrounds";
+import { GALLERY_POSTERS } from "./posters";
 import { TITLE_FONT_CLASSES, TITLE_FONT_FILES } from "./title-fonts";
 import type { FontKey } from "./theme";
 
-// Ticket 20: the title fonts and the curated scenes are served from public/, and a browser keeps
+// Ticket 20: the title fonts and the gallery posters are served from public/, and a browser keeps
 // them for a year without asking again (next.config.ts). That is right only while what is behind a
 // name never changes, so each file is named after its content: the first eight hex digits of its
 // SHA-256 before the extension. A file whose bytes change must take a new name, and this says which.
@@ -19,21 +19,21 @@ const CSS = readFileSync(fileURLToPath(new URL("../app/globals.css", import.meta
 
 const hashOf = (path: string) => createHash("sha256").update(readFileSync(path)).digest("hex").slice(0, 8);
 
-describe("the fonts and scenes served from public/", () => {
+describe("the fonts and posters served from public/", () => {
   it("are named after their content, so a year's caching never shows an old one", () => {
-    for (const folder of ["fonts", "backgrounds"]) {
-      const files = readdirSync(join(PUBLIC, folder)).filter((file) => /\.(woff2|svg)$/.test(file));
+    for (const folder of ["fonts", "posters"]) {
+      const files = readdirSync(join(PUBLIC, folder)).filter((file) => /\.(woff2|svg|jpg|webp)$/.test(file));
       expect(files.length, folder).toBeGreaterThan(0);
       for (const file of files) {
-        const named = file.replace(/^(.+?)(\.[0-9a-f]{8})?\.(woff2|svg)$/, `$1.${hashOf(join(PUBLIC, folder, file))}.$3`);
+        const named = file.replace(/^(.+?)(\.[0-9a-f]{8})?\.(woff2|svg|jpg|webp)$/, `$1.${hashOf(join(PUBLIC, folder, file))}.$3`);
         expect(file, `public/${folder}/${file} should be named`).toBe(named);
       }
     }
   });
 
   it("are the files the code names", () => {
-    for (const background of BACKGROUNDS) {
-      if (background.kind === "photo") expect(existsSync(join(PUBLIC, background.src)), background.src).toBe(true);
+    for (const poster of GALLERY_POSTERS) {
+      for (const file of [poster.src, poster.card, poster.copy]) expect(existsSync(join(PUBLIC, file)), `${poster.id}: ${file}`).toBe(true);
     }
     for (const file of Object.values(TITLE_FONT_FILES)) expect(existsSync(join(PUBLIC, file)), file).toBe(true);
   });

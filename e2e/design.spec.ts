@@ -1,9 +1,9 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "./test";
 import { createPublished } from "./events";
 
-// Ticket 10: the host's Design drawer. A template sets the whole theme, any knob after it makes
-// the theme "custom, started from" it, every change shows at once and is saved, and guests see
-// what was saved.
+// Ticket 10: the host's Design drawer. Every change shows at once and is saved, and guests see what
+// was saved. M4 ticket 02: a gallery poster brings its look (the templates of 0.4, folded into the
+// gallery), any knob after it makes the look the host's own, and the look can be restored.
 const EVENT = { title: "Ada’s birthday", start: "2027-03-06T19:00", location: "Ah Ma’s house", plusOnes: "0" } as const;
 
 // What a guest's browser is sent for the page, which is the saved theme and nothing else.
@@ -22,28 +22,34 @@ async function openDrawer(page: Page) {
   return drawer;
 }
 
-test("a host applies a template, changes knobs, and guests see the saved theme", async ({ page, browser, request }) => {
+test("a host picks a gallery poster, its look comes with it, and guests see the saved theme", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "design", EVENT);
   await host.page.goto(host.link);
   const previewBefore = await host.page.locator('meta[property="og:image"]').getAttribute("content");
 
   const drawer = await openDrawer(host.page);
-  await expect(drawer.getByText("Theme: Birthday")).toBeVisible();
-  await expect(drawer.getByRole("radio", { name: "Birthday" })).toBeChecked();
+  const posters = drawer.getByRole("group", { name: "Poster" });
+  await expect(posters.getByRole("radio", { name: "Golden hour" })).toBeChecked();
+  // Sorted by occasion, each a group of its own.
+  await expect(posters.getByRole("group", { name: "Holiday" }).getByRole("radio", { name: "Aurora" })).toBeVisible();
 
-  // A template shows on the page at once: Festival's grotesque title.
-  await drawer.getByRole("radio", { name: "Festival" }).check();
-  await expect(drawer.getByRole("radio", { name: "Festival" })).toBeChecked();
-  await expect(drawer.getByText("Theme: Festival")).toBeVisible();
+  // A gallery poster shows on the page at once, as the poster itself, with its look: Aurora's
+  // grotesque title.
+  const aurora = posters.getByRole("radio", { name: "Aurora" });
+  await aurora.check();
+  await expect(aurora).toBeChecked();
+  await expect(host.page.locator('[data-slot="poster-card"] img')).toHaveAttribute("src", /^\/posters\/aurora\.[0-9a-f]{8}\.svg$/);
   await expect.poll(() => titleFont(host.page)).toMatch(/bricolage/i);
+  const restore = drawer.getByRole("button", { name: "Restore the Aurora look" });
+  await expect(restore).toHaveCount(0);
 
-  // Any knob after it makes the theme the host's own, started from Festival.
+  // Any knob after it makes the look the host's own, and offers Aurora's back.
   await drawer.getByRole("button", { name: "Details" }).click();
   await drawer.getByRole("radio", { name: "Solid accent" }).check();
-  await expect(drawer.getByText("Theme: Custom, started from Festival")).toBeVisible();
-  await expect(drawer.getByRole("radio", { name: "Festival" })).not.toBeChecked();
-  await drawer.getByRole("radio", { name: "Dark" }).check();
+  await expect(restore).toBeVisible();
+  await expect(aurora).toBeChecked();
+  await drawer.getByRole("group", { name: "Text tone" }).getByRole("radio", { name: "Dark" }).check();
   await expect(host.page.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
 
   // Saved as it was made: a guest's copy of the page already wears it.
@@ -52,29 +58,36 @@ test("a host applies a template, changes knobs, and guests see the saved theme",
 
   await host.page.reload();
   const reopened = await openDrawer(host.page);
-  await expect(reopened.getByText("Theme: Custom, started from Festival")).toBeVisible();
+  await expect(reopened.getByRole("button", { name: "Restore the Aurora look" })).toBeVisible();
   await reopened.getByRole("button", { name: "Details" }).click();
-  await expect(reopened.getByRole("radio", { name: "Dark" })).toBeChecked();
+  await expect(reopened.getByRole("group", { name: "Text tone" }).getByRole("radio", { name: "Dark" })).toBeChecked();
   await expect(reopened.getByRole("radio", { name: "Solid accent" })).toBeChecked();
   // The link's preview card is drawn afresh for the new look.
   expect(await host.page.locator('meta[property="og:image"]').getAttribute("content")).not.toBe(previewBefore);
 
-  // The guest sees the saved theme and no drawer: Festival's font and accent, dark text, solid buttons.
+  // The guest sees the saved theme and no drawer: Aurora's poster, font and accent, dark text,
+  // solid buttons.
   await page.goto(host.link);
   await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
+  await expect(page.locator('[data-slot="poster-card"] img')).toHaveAttribute("src", /^\/posters\/aurora\./);
   expect(await titleFont(page)).toMatch(/bricolage/i);
   const going = page.getByRole("button", { name: "Going" });
   await expect(going).toHaveCSS("background-color", "rgb(126, 240, 200)");
   await expect(page.getByRole("button", { name: "Design" })).toHaveCount(0);
 
-  // Applying the template again starts clean.
-  await reopened.getByRole("radio", { name: "Festival" }).check();
-  await expect(reopened.getByText("Theme: Festival")).toBeVisible();
-  await expect(reopened.getByRole("group", { name: "Text tone" }).getByRole("radio", { name: "Auto" })).toBeChecked();
-  await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('data-tone="light"');
+  // Restoring the look brings Aurora's glass buttons back; the text tone stays the host's.
+  await reopened.getByRole("button", { name: "Restore the Aurora look" }).click();
+  await expect(reopened.getByRole("button", { name: "Restore the Aurora look" })).toHaveCount(0);
+  await expect(reopened.getByRole("group", { name: "RSVP buttons" }).getByRole("radio", { name: "Glass" })).toBeChecked();
+  await expect(reopened.getByRole("group", { name: "Text tone" }).getByRole("radio", { name: "Dark" })).toBeChecked();
+  await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('buttonStyle\\":\\"glass');
   await page.reload();
-  await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "light");
   await expect(going).not.toHaveCSS("background-color", "rgb(126, 240, 200)");
+
+  // Another poster brings its own look over this one: Disco's display face, its title on the poster.
+  await reopened.getByRole("radio", { name: "Disco" }).check();
+  await expect.poll(() => titleFont(host.page)).toMatch(/syne/i);
+  await expect(reopened.getByRole("group", { name: "Title placement" }).getByRole("radio", { name: "On the poster" })).toBeChecked();
 
   await host.context.close();
 });
@@ -85,10 +98,10 @@ test("the drawer keeps its order, offers the three layouts, and gets out of the 
   await host.page.goto(host.link);
   const drawer = await openDrawer(host.page);
 
-  // Upload first, then templates, layout, background, and the finer knobs tucked under Details.
+  // Upload first, then the poster, the layout, and the finer knobs tucked under Details.
   await expect(drawer.getByLabel("Upload your photo or poster")).toBeEnabled();
   const order = await drawer.locator("h3, legend, button[aria-expanded]").allTextContents();
-  expect(order.slice(0, 4)).toEqual(["Templates", "Layout", "Background", "Details"]);
+  expect(order.slice(0, 3)).toEqual(["Poster", "Layout", "Details"]);
   await expect(drawer.getByRole("button", { name: "Details" })).toHaveAttribute("aria-expanded", "false");
   await expect(drawer.getByRole("radio", { name: "Instrument Serif" })).toBeHidden();
 
@@ -108,9 +121,8 @@ test("the drawer keeps its order, offers the three layouts, and gets out of the 
   await expect(drawer.getByRole("group", { name: "RSVP style" }).getByRole("radio", { name: "Sheet" })).toBeChecked();
   await broadsheet.check();
   await expect(host.page.locator("[data-layout]")).toHaveAttribute("data-layout", "broadsheet");
-  await expect(drawer.getByText("Theme: Custom, started from Birthday")).toBeVisible();
   await expect(drawer.getByRole("group", { name: "RSVP style" })).toHaveCount(0);
-  await expect(drawer.getByRole("group", { name: "Background" }).getByRole("radio", { name: "Golden hour" })).toBeChecked();
+  await expect(drawer.getByRole("group", { name: "Poster" }).getByRole("radio", { name: "Golden hour" })).toBeChecked();
   await expect(drawer.getByRole("radio", { name: "Instrument Serif" })).toBeChecked();
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('data-layout="broadsheet"');
   await page.goto(host.link);
@@ -123,15 +135,16 @@ test("the drawer keeps its order, offers the three layouts, and gets out of the 
   await expect(drawer.getByRole("group", { name: "RSVP style" }).getByRole("radio", { name: "Sheet" })).toBeChecked();
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('data-layout="poster"');
 
-  // Supper club, made for Broadsheet, applies with it.
-  await drawer.getByRole("radio", { name: "Supper club" }).check();
-  await expect(drawer.getByText("Theme: Supper club")).toBeVisible();
+  // A gallery poster's look leaves the layout as the host set it.
+  await layouts.getByRole("radio", { name: /Broadsheet/ }).check();
+  await drawer.getByRole("radio", { name: "Candlelight" }).check();
+  await expect(drawer.getByRole("radio", { name: "Candlelight" })).toBeChecked();
   await expect(layouts.getByRole("radio", { name: /Broadsheet/ })).toBeChecked();
   await expect(host.page.locator("[data-layout]")).toHaveAttribute("data-layout", "broadsheet");
 
-  // A background from the gallery shows at once and makes the theme custom.
+  // A colour shows at once.
   await drawer.getByRole("radio", { name: "Dusk" }).check();
-  await expect(drawer.getByText("Theme: Custom, started from Supper club")).toBeVisible();
+  await expect(drawer.getByRole("radio", { name: "Dusk" })).toBeChecked();
 
   // Escape closes it and hands focus back to the Design button.
   await host.page.keyboard.press("Escape");
@@ -154,7 +167,7 @@ async function box(locator: Locator) {
   return found!;
 }
 
-test("a host chooses whether guests answer inline or in a sheet, and each template has its own", async ({ page, browser, request }) => {
+test("a host chooses whether guests answer inline or in a sheet, and a poster's look leaves it be", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "design-rsvp-style", EVENT);
   await host.page.goto(host.link);
@@ -162,7 +175,7 @@ test("a host chooses whether guests answer inline or in a sheet, and each templa
   await drawer.getByRole("button", { name: "Details" }).click();
   const style = drawer.getByRole("group", { name: "RSVP style" });
 
-  // Birthday, where every event starts, uses the sheet.
+  // Every event starts on the sheet.
   await expect(style.getByRole("radio", { name: "Sheet" })).toBeChecked();
   await page.goto(host.link);
   await page.getByRole("button", { name: "Going" }).click();
@@ -170,19 +183,17 @@ test("a host chooses whether guests answer inline or in a sheet, and each templa
 
   // Inline makes the theme the host's own, and guests answer under the buttons.
   await style.getByRole("radio", { name: "Inline" }).check();
-  await expect(drawer.getByText("Theme: Custom, started from Birthday")).toBeVisible();
   await expect(drawer.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: "Going" }).click();
   await expect(page.getByLabel("Your name")).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
-  // Festival answers inline; Birthday again brings the sheet back.
-  await drawer.getByRole("radio", { name: "Festival" }).check();
-  await expect(drawer.getByText("Theme: Festival")).toBeVisible();
+  // A gallery poster keeps how guests answer; the host sets the sheet back themselves.
+  await drawer.getByRole("radio", { name: "Balloons" }).check();
+  await expect(drawer.getByRole("radio", { name: "Balloons" })).toBeChecked();
   await expect(style.getByRole("radio", { name: "Inline" })).toBeChecked();
-  await drawer.getByRole("radio", { name: "Birthday" }).check();
-  await expect(drawer.getByText("Theme: Birthday")).toBeVisible();
+  await style.getByRole("radio", { name: "Sheet" }).check();
   await expect(style.getByRole("radio", { name: "Sheet" })).toBeChecked();
   await expect(drawer.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
@@ -249,7 +260,7 @@ test("the drawer is a bottom sheet on a phone and a side panel on a wider screen
   await host.context.close();
 });
 
-test("nothing in the drawer scrolls sideways but its row of templates", async ({ browser, request }) => {
+test("nothing in the drawer scrolls sideways, and every poster is in reach down it", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "design-width", EVENT);
   await host.page.goto(host.link);
@@ -258,22 +269,20 @@ test("nothing in the drawer scrolls sideways but its row of templates", async ({
   await drawer.getByRole("button", { name: "Details" }).click();
   await expect(drawer.getByRole("radio", { name: "Instrument Serif" })).toBeVisible();
 
-  // Whatever in the drawer a host can scroll sideways, by how many choices it holds: only the
-  // row of six templates, and not the panel around it.
+  // Whatever in the drawer a host can scroll sideways: nothing, the panel included.
   const sideways = () =>
     drawer.evaluate((panel) =>
-      [panel, ...panel.querySelectorAll("*")]
-        .filter((element) => element.scrollWidth > element.clientWidth && ["auto", "scroll"].includes(getComputedStyle(element).overflowX))
-        .map((element) => element.querySelectorAll('input[type="radio"]').length),
+      [panel, ...panel.querySelectorAll("*")].filter((element) => element.scrollWidth > element.clientWidth && ["auto", "scroll"].includes(getComputedStyle(element).overflowX))
+        .length,
     );
-  expect(await sideways()).toEqual([6]);
+  expect(await sideways()).toBe(0);
 
-  // The last template starts past the panel's edge, and scrolling the row brings it in.
+  // The last poster of the gallery sits inside the panel's width, and scrolling down brings it in.
   const panel = await box(drawer);
-  const quiet = drawer.getByRole("radio", { name: "Quiet" });
-  expect((await box(quiet)).x).toBeGreaterThan(panel.x + panel.width);
-  await quiet.scrollIntoViewIfNeeded();
-  const tile = await box(quiet);
+  const last = drawer.getByRole("group", { name: "Any occasion" }).getByRole("radio").last();
+  await last.scrollIntoViewIfNeeded();
+  const tile = await box(last);
+  expect(tile.x).toBeGreaterThanOrEqual(panel.x);
   expect(tile.x + tile.width).toBeLessThanOrEqual(panel.x + panel.width);
 
   await host.context.close();

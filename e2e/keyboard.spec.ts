@@ -362,7 +362,7 @@ test.describe("on an instance whose operator has set Turnstile's keys", () => {
   });
 });
 
-test("a host applies a template, changes a knob and closes the Design drawer by keyboard alone", async ({ browser, request }) => {
+test("a host picks a poster, changes a knob, restores the poster's look and closes the Design drawer by keyboard alone", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "keyboard-drawer", EVENT);
   const page = host.page;
@@ -375,26 +375,41 @@ test("a host applies a template, changes a knob and closes the Design drawer by 
   const drawer = page.getByRole("dialog", { name: "Design" });
   await expect(drawer).toBeVisible();
 
-  // Into the templates, where the one in use has the focus, and the arrow keys choose another.
-  const birthday = drawer.getByRole("radio", { name: "Birthday" });
-  await tabTo(page, birthday);
+  // Into the posters, where the one in use, Golden hour, has the focus, and the arrow keys choose
+  // another: Dusk after it, and back past it the last of the gallery's, which brings its look.
+  const posters = drawer.getByRole("group", { name: "Poster" });
+  await tabTo(page, posters.getByRole("radio", { checked: true }));
+  await expect(posters.getByRole("radio", { name: "Golden hour" })).toBeFocused();
   await page.keyboard.press("ArrowRight");
-  await expect(drawer.getByRole("radio", { name: "Vows" })).toBeFocused();
-  await expect(drawer.getByText("Theme: Vows")).toBeVisible();
+  await expect(posters.getByRole("radio", { name: "Dusk" })).toBeChecked();
   await expectVisibleFocus(page);
-
-  // A knob: the background, which makes the theme the host's own.
-  await tabTo(page, drawer.getByRole("group", { name: "Background" }).getByRole("radio", { checked: true }));
-  await page.keyboard.press("ArrowRight");
-  await expect(drawer.getByText("Theme: Custom, started from Vows")).toBeVisible();
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowLeft");
+  await expect(posters.getByRole("radio", { name: "Streamers" })).toBeFocused();
+  await expect(posters.getByRole("radio", { name: "Streamers" })).toBeChecked();
+  await expect(page.locator("h1")).toHaveCSS("font-family", /fredoka/i);
   await expectVisibleFocus(page);
 
   // And the finer knobs under Details, opened with the keyboard too.
   await tabTo(page, drawer.getByRole("button", { name: "Details" }));
   await page.keyboard.press("Enter");
-  await tabTo(page, drawer.getByRole("group", { name: "Text tone" }).getByRole("radio", { checked: true }));
-  await page.keyboard.press("ArrowRight");
-  await expect(drawer.getByRole("group", { name: "Text tone" }).getByRole("radio", { name: "Light" })).toBeChecked();
+  const fonts = drawer.getByRole("group", { name: "Title font" });
+  await tabTo(page, fonts.getByRole("radio", { checked: true }));
+  await page.keyboard.press("ArrowLeft");
+  await expect(fonts.getByRole("radio", { name: "Syne" })).toBeChecked();
+
+  // Changed, the poster's look is a key away from coming back, and the focus stays in the drawer.
+  // It sits under the posters, above the layouts and Details: back past those with Shift+Tab.
+  const restore = drawer.getByRole("button", { name: "Restore the Streamers look" });
+  for (let presses = 0; presses < 5 && !(await restore.evaluate((element) => element === document.activeElement)); presses++) {
+    await page.keyboard.press("Shift+Tab");
+  }
+  await expect(restore).toBeFocused();
+  await expectVisibleFocus(page);
+  await page.keyboard.press("Enter");
+  await expect(fonts.getByRole("radio", { name: "Fredoka" })).toBeChecked();
+  await expect(restore).toHaveCount(0);
+  await expect(drawer).toBeFocused();
 
   await page.keyboard.press("Escape");
   await expect(drawer).toBeHidden();
@@ -436,8 +451,8 @@ for (const colorScheme of ["light", "dark"] as const) {
     await page.getByRole("button", { name: "Design" }).click();
     const drawer = page.getByRole("dialog", { name: "Design" });
     await expectRingStandsOut(page, drawer.getByRole("button", { name: "Details" }));
-    await expectRingStandsOut(page, drawer.getByRole("group", { name: "Templates" }).getByRole("radio", { name: "Birthday" }));
-    await expectRingStandsOut(page, drawer.getByRole("group", { name: "Background" }).getByRole("radio").first());
+    await expectRingStandsOut(page, drawer.getByRole("group", { name: "Poster" }).getByRole("radio", { name: "Candles" }));
+    await expectRingStandsOut(page, drawer.getByRole("group", { name: "Colours" }).getByRole("radio").first());
     // The drawer's one field drawn at half strength, which a picture brings.
     const picture = await sharp({ create: { width: 64, height: 40, channels: 3, background: { r: 40, g: 60, b: 90 } } }).jpeg().toBuffer();
     await drawer.getByLabel("Upload your photo or poster").setInputFiles({ name: "garden.jpg", mimeType: "image/jpeg", buffer: picture });

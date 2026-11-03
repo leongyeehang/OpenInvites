@@ -17,12 +17,16 @@ import {
   type Rgba,
   type Tone,
 } from "./legibility";
+import { GALLERY_POSTERS } from "./posters";
 import { SWATCHES } from "./swatches";
 
 const TONES: Tone[] = ["light", "dark"];
 
-// Every accent a page can wear today: each background's own, and the six swatches.
-const ACCENTS = [...new Set([...BACKGROUNDS.map((background) => background.accent), ...SWATCHES.map((swatch) => swatch.hex)])];
+// Every accent a page can wear today: each colour's and each gallery poster's own, and the six
+// swatches.
+const ACCENTS = [
+  ...new Set([...BACKGROUNDS.map((background) => background.accent), ...GALLERY_POSTERS.map((poster) => poster.accent), ...SWATCHES.map((swatch) => swatch.hex)]),
+];
 
 const stack = (layers: Rgba[], below: Rgb): Rgb => layers.reduce<Rgb>((colour, layer) => over(layer, colour), below);
 const ink = (colour: Rgb | Rgba, on: Rgb): Rgb => (colour.length === 4 ? over(colour, on) : colour);
@@ -136,6 +140,19 @@ describe("an upload", () => {
         for (const accent of UPLOAD_ACCENTS) expectEveryTextReads(tone, backdrop, accent);
       }
     });
+  }
+});
+
+// A gallery poster is painted as a host's poster is, its blurred copy behind the page under the
+// poster's scrim, measured when it was built (`pnpm posters`): every one reads in both tones
+// with its own accent and every swatch.
+describe("every gallery poster", () => {
+  for (const poster of GALLERY_POSTERS) {
+    for (const tone of TONES) {
+      it(`reads at AA on ${poster.id} in the ${tone} tone`, () => {
+        for (const accent of [poster.accent, ...SWATCHES.map((swatch) => swatch.hex)]) expectEveryTextReads(tone, poster, accent, "poster");
+      });
+    }
   }
 });
 

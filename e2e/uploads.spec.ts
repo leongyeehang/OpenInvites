@@ -68,10 +68,9 @@ test("a light photo turns the text dark by itself, and guests get the picture wi
   expect(sent.buffer.includes(CAMERA)).toBe(true);
   const src = await upload(host.page, request, host.link, sent);
   await expect(host.page.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
-  await expect(drawer.getByText("Theme: Custom, started from Birthday")).toBeVisible();
 
   // It is the poster, and its tile in the gallery says so.
-  await expect(drawer.getByRole("group", { name: "Background" }).getByRole("radio", { name: "Your picture" })).toBeChecked();
+  await expect(drawer.getByRole("group", { name: "Poster" }).getByRole("radio", { name: "Your picture" })).toBeChecked();
 
   // Guests see the same page: the picture, with dark text.
   await page.goto(host.link);
@@ -127,7 +126,7 @@ test("the host describes the picture for screen readers, and can go back to it a
   await expect(page.getByRole("img", { name: ALT })).toHaveCount(0);
 
   // The picture stays in the gallery, and choosing it brings it back as it was.
-  const tile = drawer.getByRole("group", { name: "Background" }).getByRole("radio", { name: "Your picture" });
+  const tile = drawer.getByRole("group", { name: "Poster" }).getByRole("radio", { name: "Your picture" });
   await expect(tile).not.toBeChecked();
   await tile.check();
   await expect.poll(() => uploadedPoster(request, host.link), { timeout: 15_000 }).toBe(src);

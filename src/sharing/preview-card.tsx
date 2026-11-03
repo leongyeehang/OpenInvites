@@ -10,10 +10,10 @@ import { cardText } from "./card-text";
 // The card a chat app shows when someone pastes the link, at the size every platform expects.
 export const PREVIEW_SIZE = { width: 1200, height: 630 };
 
-// Painted without a stylesheet, so it reads the theme's resolved colours directly. A curated
-// gradient is used as it is written; a photographic background is not fetched here, so its accent
-// and tone stand in for it. A host's upload is drawn itself, from its card rendition (`picture`,
-// a data URL), shaded into the tone's base colour behind the words.
+// Painted without a stylesheet, so it reads the theme's resolved colours directly. A colour poster's
+// gradient is used as it is written. A picture poster, the host's upload or a gallery poster, is
+// drawn itself, from a JPEG at the card's size (`picture`, a data URL), shaded into the tone's
+// base colour behind the words; without it, its accent and tone stand in for it.
 function backdrop(theme: ResolvedTheme): string {
   const base = TONE_BASE[theme.textTone];
   return theme.background.kind === "gradient" ? theme.background.css : `linear-gradient(150deg, ${theme.accent} 0%, ${base} 70%)`;

@@ -312,20 +312,23 @@ test("the host's announcements arrive as dated bubbles, and the comments as one 
   await host.context.close();
 });
 
-test("Kids' party brings the Thread with it, its chips wear the theme's button style, and confetti falls for a Going", async ({ page, browser, request }) => {
+test("a gallery poster keeps the Thread, its chips wear the theme's button style, and confetti falls for a Going", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "thread-buttons", { title: "Ada’s party", start: "2027-03-06T15:00", plusOnes: "0" });
   await host.page.goto(host.link);
   await host.page.getByRole("button", { name: "Design" }).click();
   const drawer = host.page.getByRole("dialog", { name: "Design" });
-  await drawer.getByRole("radio", { name: "Kids’ party" }).check();
-  await expect(drawer.getByRole("group", { name: "Layout" }).getByRole("radio", { name: /^Thread/ })).toBeChecked();
+  await drawer.getByRole("group", { name: "Layout" }).getByRole("radio", { name: /^Thread/ }).check();
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('data-layout="thread"');
+  // A poster's look leaves the layout as it is.
+  await drawer.getByRole("group", { name: "Poster" }).getByRole("radio", { name: "Balloons" }).check();
+  await expect(drawer.getByRole("group", { name: "Layout" }).getByRole("radio", { name: /^Thread/ })).toBeChecked();
+  await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toMatch(/src="\/posters\/balloons\.[0-9a-f]{8}\.svg"/);
 
-  // Kids' party's buttons are solid: the accent, its coral.
+  // Balloons' buttons are solid: the accent, its yellow.
   const going = page.getByRole("button", { name: "Going", exact: true });
   await page.goto(host.link);
-  await expect(going).toHaveCSS("background-color", "rgb(255, 122, 89)");
+  await expect(going).toHaveCSS("background-color", "rgb(255, 209, 102)");
 
   // Its effect is confetti, which falls as the done bubble arrives.
   const confetti = page.locator('[data-effect="confetti"]');
