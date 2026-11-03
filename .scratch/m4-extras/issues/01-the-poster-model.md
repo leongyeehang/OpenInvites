@@ -13,7 +13,7 @@
 - [x] `upload.origin` (`"host" | "emoji"`, enum `upload_origin`) and the emoji choice (`emoji_set text[]`, `emoji_background text`) on the upload row; migration 0035; a duplicate's copy keeps them.
 - [x] The six templates set the poster from their background (`applyTemplate`); turning them into gallery-poster looks moves to ticket 02 (amended). The template ids stay parseable.
 - [x] Unit tests: `parseTheme` for each 0.4 shape (ten fixtures in the shapes 0.4 wrote), the poster knob and `showNewUpload`, resolving each kind. The new colours' legibility sweep moves to ticket 02 with them.
-- [ ] Browser: the existing theme, poster, uploads, broadsheet and thread specs pass. **Specs updated but not run: this machine has no Docker.** Run before the next ticket builds on this.
+- [x] Browser: the existing theme, poster, uploads, broadsheet and thread specs pass. (Run with ticket 02: two misses of ticket 01 fixed there, then the whole suite green; see ticket 02's comments.)
 
 ## Notes for the implementer
 
