@@ -1,0 +1,1420 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>OpenInvites Poster Editor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Figtree:wght@400;500;600;700&family=Fredoka:wght@600&family=Instrument+Serif&family=Syne:wght@800&display=swap">
+<style>
+/* Layout: the live phone-sized editor on the left (sticky), the maintainer's notes on the right; they stack under 900px. */
+:root {
+  --bg: #f3f1f6;
+  --ink: #1d1726;
+  --muted: #5d566c;
+  --line: #dcd6e4;
+  --card: #ffffff;
+  --accent: #a63d68;
+  --display: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --ui: "Figtree", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121017; --ink: #efebf5; --muted: #a39bb2; --line: #2b2535; --card: #1a1621; --accent: #ff8fb6;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121017; --ink: #efebf5; --muted: #a39bb2; --line: #2b2535; --card: #1a1621; --accent: #ff8fb6;
+  color-scheme: dark;
+}
+
+body { background: var(--bg); color: var(--ink); font-family: var(--ui); font-size: 15px; line-height: 1.5; }
+button { font-family: inherit; }
+
+.page {
+  display: grid;
+  grid-template-columns: 390px minmax(280px, 420px);
+  gap: 56px;
+  justify-content: center;
+  align-items: start;
+  padding-block: 24px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.stage { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 20px); }
+.device {
+  width: 390px;
+  height: min(844px, calc(100dvh - 48px));
+  min-height: 640px;
+  box-sizing: border-box;
+  padding: 10px;
+  border-radius: 50px;
+  background: #0c0b10;
+  box-shadow: 0 40px 80px -30px rgba(30, 14, 50, .55), inset 0 0 0 2px #2b2834;
+}
+
+/* ---------- Notes column (the page's own theme) ---------- */
+.notes { display: flex; flex-direction: column; gap: 26px; padding-top: 6px; }
+.eyebrow { margin: 0; font: 600 12px/1.2 var(--ui); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.notes h1 { margin: 10px 0 12px; font: 400 58px/.95 var(--display); letter-spacing: -.01em; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); font-size: 16px; max-width: 40ch; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
+.switch-group { display: inline-grid; grid-auto-flow: column; gap: 4px; padding: 4px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); }
+.switch-group button { border: 0; background: none; color: var(--muted); font: 600 14px var(--ui); padding: 9px 14px; border-radius: 10px; cursor: pointer; }
+.switch-group button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--accent); font: 600 14px var(--ui); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.notes section { border-top: 1px solid var(--line); padding-top: 20px; }
+.notes h2 { margin: 0 0 12px; font: 700 12px/1.2 var(--ui); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.notes ol, .notes ul { margin: 0; padding-left: 1.25em; display: flex; flex-direction: column; gap: 9px; }
+.notes li::marker { color: var(--accent); font-weight: 700; }
+.notes p { margin: 0; }
+.notes b { font-weight: 650; }
+.notes :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- The phone screen (its own world, tuned by the invitation's tone) ---------- */
+.screen {
+  --acc: #ffc36b;
+  --acc-ink: #24140a;
+  --acc-text: var(--acc);
+  --fg: #ffffff;
+  --fg2: rgba(255, 255, 255, .74);
+  --fg3: rgba(255, 255, 255, .5);
+  --glass: rgba(24, 17, 34, .40);
+  --glass-strong: rgba(24, 17, 34, .70);
+  --hair: rgba(255, 255, 255, .14);
+  --sheet: rgba(26, 20, 36, .88);
+  --field: rgba(255, 255, 255, .08);
+  --field-line: rgba(255, 255, 255, .18);
+  --overlay: rgba(12, 8, 20, .56);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 40px;
+  background: #140f1d;
+  color: var(--fg);
+  font-family: var(--ui);
+  font-size: 15px;
+  color-scheme: dark;
+}
+.screen[data-tone="light"] {
+  --acc-text: color-mix(in oklab, var(--acc) 48%, #1d1622);
+  --fg: #1d1622;
+  --fg2: rgba(29, 22, 34, .74);
+  --fg3: rgba(29, 22, 34, .5);
+  --glass: rgba(255, 255, 255, .52);
+  --glass-strong: rgba(255, 255, 255, .80);
+  --hair: rgba(29, 22, 34, .12);
+  --sheet: rgba(250, 247, 252, .92);
+  --field: rgba(29, 22, 34, .05);
+  --field-line: rgba(29, 22, 34, .18);
+  --overlay: rgba(255, 250, 252, .64);
+  background: #f3eef3;
+  color-scheme: light;
+}
+.screen :focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.screen button { cursor: pointer; }
+.screen button:disabled { cursor: not-allowed; opacity: .45; }
+
+.backdrop { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.backdrop::before {
+  content: ""; position: absolute; inset: -18%;
+  background-image: var(--poster-img, linear-gradient(160deg, #2b2142, #120d1c));
+  background-size: cover; background-position: center;
+  filter: blur(44px) saturate(1.25);
+}
+.backdrop::after { content: ""; position: absolute; inset: 0; background: var(--overlay); }
+.fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#fxBack { z-index: 1; }
+#fxFront { z-index: 11; }
+
+/* App bar */
+.appbar { position: absolute; z-index: 6; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 8px; padding: 16px 16px 0; pointer-events: none; }
+.appbar > * { pointer-events: auto; }
+.grow { flex: 1; pointer-events: none; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px;
+  border-radius: 999px; border: 1px solid var(--hair);
+  background: var(--glass-strong); color: var(--fg);
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  font: 600 14px/1 var(--ui); white-space: nowrap;
+}
+.pill.icon { width: 36px; padding: 0; justify-content: center; }
+.pill.primary { background: var(--acc); color: var(--acc-ink); border-color: transparent; }
+.status { display: inline-flex; align-items: center; height: 30px; padding: 0 11px; border-radius: 999px; background: var(--glass-strong); border: 1px solid var(--hair); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); font: 500 12px/1 var(--ui); color: var(--fg2); white-space: nowrap; }
+
+/* Scrolling invitation */
+.scroller { position: absolute; inset: 0; z-index: 2; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.scroller::-webkit-scrollbar { display: none; }
+.inner { position: relative; padding-bottom: 128px; transform-origin: 50% 0; transition: transform .34s cubic-bezier(.2, .8, .2, 1), border-radius .34s; }
+.screen.designing .scroller { overflow: hidden; }
+.screen.designing .inner {
+  transform: translateY(60px) scale(.56);
+  border-radius: 46px; overflow: hidden;
+  background: var(--glass);
+  box-shadow: 0 0 0 1.5px var(--hair), 0 40px 80px -30px rgba(0, 0, 0, .6);
+}
+
+.poster-wrap { position: relative; }
+.poster {
+  width: 100%;
+  aspect-ratio: var(--ratio, 4 / 5);
+  max-height: 600px;
+  background-image: var(--poster-img);
+  background-size: cover; background-position: center;
+}
+.screen[data-place="below"] .poster { -webkit-mask-image: linear-gradient(#000 76%, transparent); mask-image: linear-gradient(#000 76%, transparent); }
+.poster-change { position: absolute; top: 64px; right: 16px; }
+.title-on {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 104px 22px 22px;
+  background: linear-gradient(to bottom, rgba(10, 6, 16, 0), rgba(10, 6, 16, .55) 45%, rgba(10, 6, 16, .8));
+  color: #fff;
+}
+.title-on .when { color: rgba(255, 255, 255, .88); }
+.title-on .title:empty::before { color: rgba(255, 255, 255, .6); }
+.guest-top { height: 86px; }
+.poster-empty {
+  box-sizing: border-box; width: calc(100% - 32px); margin: 66px 16px 0; min-height: 360px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  padding: 28px 20px; text-align: center;
+  border: 1.5px dashed var(--field-line); border-radius: 30px; background: var(--field);
+}
+.poster-empty h2 { margin: 0; font: 600 19px/1.3 var(--ui); }
+.poster-empty p { margin: 0; color: var(--fg2); font-size: 14px; max-width: 30ch; }
+.quick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; max-width: 270px; }
+.quick button { height: 44px; border-radius: 14px; border: 1px solid var(--hair); background: var(--glass-strong); color: var(--fg); font: 600 14px var(--ui); display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+
+.head { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 0 22px; }
+.screen[data-place="below"] .head { margin-top: -54px; }
+.screen[data-place="on"] .head { margin-top: 16px; }
+.screen[data-place="none"] .head { margin-top: 22px; }
+.title {
+  margin: 0; outline: none; font-size: 48px; line-height: 1.02; text-wrap: balance; overflow-wrap: anywhere;
+  font-family: var(--display); font-weight: 400;
+}
+.title:empty::before { content: attr(data-placeholder); color: var(--fg3); }
+.screen[data-mode="edit"] .title { margin: -4px -10px; padding: 4px 10px; border-radius: 14px; cursor: text; transition: background .15s; }
+.screen[data-mode="edit"] .title:hover { background: var(--field); }
+.screen[data-mode="edit"] .title:focus { background: var(--field); box-shadow: 0 0 0 2px var(--acc); }
+.when { margin: 0; font: 600 15px/1.3 var(--ui); color: var(--fg2); letter-spacing: .01em; }
+.host-line { margin: 2px 0 0; display: flex; align-items: center; gap: 10px; color: var(--fg2); font-size: 15px; }
+.avatar { display: inline-grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc); color: var(--acc-ink); font: 700 12px/1 var(--ui); }
+.avatar.sm { width: 32px; height: 32px; background: hsl(var(--h, 30) 72% 74%); color: #26182b; font-size: 13px; }
+
+.details {
+  margin: 24px 16px 0; border-radius: 26px; overflow: hidden;
+  background: var(--glass); border: 1px solid var(--hair);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3); backdrop-filter: blur(22px) saturate(1.3);
+}
+.row {
+  box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 12px; align-items: start;
+  padding: 16px; text-align: left; color: inherit; background: none; border: 0; font: inherit;
+}
+.row + .row { border-top: 1px solid var(--hair); }
+button.row:hover { background: var(--field); }
+.ico { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 13px; background: var(--field); color: var(--acc-text); }
+.row-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.row-label { font: 700 11px/1.3 var(--ui); letter-spacing: .09em; text-transform: uppercase; color: var(--fg3); }
+.row-value { font: 500 16px/1.4 var(--ui); color: var(--fg); overflow-wrap: anywhere; }
+.row-value.ph { color: var(--fg3); display: inline-flex; align-items: center; gap: 6px; }
+.row-sub { font-size: 14px; color: var(--fg2); }
+.desc { white-space: pre-line; }
+.screen[data-mode="edit"] .desc { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.chev { color: var(--fg3); padding-top: 9px; }
+.acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--hair); background: var(--field); color: var(--fg); font: 600 13px/1 var(--ui); }
+.chip.acc { background: var(--acc); color: var(--acc-ink); border-color: transparent; }
+
+.extras { display: flex; flex-direction: column; gap: 12px; margin: 12px 16px 0; }
+.panel { border-radius: 24px; padding: 16px; background: var(--glass); border: 1px solid var(--hair); -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px); display: flex; flex-direction: column; gap: 12px; }
+.panel-title { margin: 0; display: flex; align-items: center; gap: 8px; font: 700 15px/1.2 var(--ui); }
+.panel-title svg { color: var(--acc-text); }
+.muted { margin: 0; color: var(--fg2); font-size: 14px; }
+.faces { display: flex; align-items: center; }
+.faces .avatar { margin-right: -8px; box-shadow: 0 0 0 2px rgba(0, 0, 0, .25); }
+.faces .more { margin-left: 16px; font: 600 14px var(--ui); color: var(--fg2); }
+.faces.locked { filter: blur(5px); opacity: .7; }
+.counts { margin: 0; font-size: 14px; color: var(--fg2); }
+.counts b { color: var(--fg); }
+.comment { display: grid; grid-template-columns: 32px 1fr; gap: 10px; }
+.comment p { margin: 0; }
+.c-meta { font-size: 13px; color: var(--fg2); }
+.c-meta b { color: var(--fg); }
+.reacts { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.react { height: 30px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--hair); background: var(--field); color: var(--fg); font: 600 13px var(--ui); }
+.react[aria-pressed="true"] { background: color-mix(in oklab, var(--acc) 30%, transparent); border-color: var(--acc); }
+.c-form { margin: 0; }
+.edit-foot { margin: 18px 22px 0; font-size: 13px; color: var(--fg2); }
+.linkish { background: none; border: 0; padding: 0; color: var(--acc-text); font: 600 13px var(--ui); text-decoration: underline; text-underline-offset: 3px; }
+.tag { display: inline-block; margin-left: 6px; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--hair); background: var(--field); color: var(--fg2); font: 700 10px/1 var(--ui); letter-spacing: .06em; vertical-align: middle; }
+
+/* Bottom bars */
+.toolbar, .rsvpbar {
+  position: absolute; z-index: 7; left: 12px; right: 12px; bottom: 14px;
+  border-radius: 26px; border: 1px solid var(--hair);
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4);
+  box-shadow: 0 16px 34px -14px rgba(0, 0, 0, .55);
+}
+.toolbar { display: grid; grid-template-columns: repeat(5, 1fr); padding: 6px; }
+.tool { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0 7px; border: 0; border-radius: 20px; background: none; color: var(--fg); font: 600 11px/1 var(--ui); }
+.tool:hover { background: var(--field); }
+.tool[aria-expanded="true"] { background: var(--field); color: var(--acc-text); }
+.rsvpbar { display: flex; align-items: center; gap: 8px; padding: 8px; }
+.rsvp-btn { flex: 1; height: 48px; border-radius: 18px; border: 1px solid var(--hair); background: var(--field); color: var(--fg); font: 700 15px var(--ui); }
+.rsvp-btn:first-child { background: var(--acc); color: var(--acc-ink); border-color: transparent; }
+.replied { flex: 1; margin: 0 0 0 10px; font-size: 14px; color: var(--fg2); }
+.replied b { color: var(--fg); font-weight: 650; }
+
+/* Sheets */
+.scrim { position: absolute; inset: 0; z-index: 8; background: rgba(0, 0, 0, 0); transition: background .25s; }
+.scrim.on.dim { background: rgba(0, 0, 0, .32); }
+.sheet {
+  position: absolute; z-index: 9; left: 0; right: 0; bottom: 0;
+  display: flex; flex-direction: column; max-height: 82%;
+  border-radius: 30px 30px 0 0; border-top: 1px solid var(--hair);
+  background: var(--sheet); color: var(--fg);
+  -webkit-backdrop-filter: blur(30px) saturate(1.4); backdrop-filter: blur(30px) saturate(1.4);
+  box-shadow: 0 -20px 40px -20px rgba(0, 0, 0, .5);
+  transform: translateY(105%); transition: transform .3s cubic-bezier(.2, .8, .2, 1);
+}
+.sheet.open { transform: none; }
+.sheet.design { max-height: 50%; height: 50%; }
+.sheet.tall { max-height: 90%; height: 90%; }
+.sheet-head { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 18px 10px; }
+.grabber { position: absolute; top: 8px; left: 50%; width: 38px; height: 5px; margin-left: -19px; border-radius: 3px; background: var(--field-line); }
+.sheet-head h2 { margin: 0; font: 700 18px/1.25 var(--ui); outline: none; }
+.done { border: 0; background: none; color: var(--acc-text); font: 700 15px var(--ui); padding: 6px 2px; }
+.sheet-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 18px; padding: 4px 18px 26px; }
+.sheet-body > p { margin: 0; color: var(--fg2); }
+.fine { margin: 0; font-size: 13px; line-height: 1.45; color: var(--fg2); }
+.label { font: 600 13px/1.2 var(--ui); color: var(--fg2); }
+.opt { font-weight: 500; color: var(--fg3); }
+.field { display: flex; flex-direction: column; gap: 8px; }
+.field > label { font: 600 13px/1.2 var(--ui); color: var(--fg2); }
+.input {
+  box-sizing: border-box; width: 100%; min-height: 46px; padding: 0 14px;
+  border-radius: 13px; border: 1px solid var(--field-line); background: var(--field); color: var(--fg);
+  font: 500 16px/1.3 var(--ui);
+}
+.input::placeholder { color: var(--fg3); }
+.input:disabled { opacity: .6; }
+.input.area { padding: 12px 14px; resize: vertical; line-height: 1.5; }
+.input[aria-invalid="true"] { border-color: #ff8a80; }
+.err { font-size: 13px; color: #ff9b91; }
+.screen[data-tone="light"] .err { color: #b3261e; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.btn { flex: none; width: 100%; min-height: 50px; border-radius: 15px; border: 0; background: var(--acc); color: var(--acc-ink); font: 700 16px var(--ui); display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; }
+.btn.secondary { background: var(--field); color: var(--fg); border: 1px solid var(--hair); }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; padding: 3px; border-radius: 13px; background: var(--field); }
+.seg button { border: 0; background: none; color: var(--fg2); font: 600 14px var(--ui); padding: 9px 4px; border-radius: 10px; }
+.seg button[aria-pressed="true"] { background: var(--glass-strong); color: var(--fg); box-shadow: 0 1px 3px rgba(0, 0, 0, .2); }
+.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -18px; padding: 0 18px; }
+.chips::-webkit-scrollbar { display: none; }
+.cat { flex: none; height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--hair); background: var(--field); color: var(--fg2); font: 600 13px var(--ui); }
+.cat[aria-pressed="true"] { background: var(--fg); color: var(--sheet); border-color: transparent; }
+.screen .cat[aria-pressed="true"] { color: #1d1622; background: #fff; }
+.screen[data-tone="light"] .cat[aria-pressed="true"] { color: #fff; background: #1d1622; }
+.thumbs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.thumb {
+  position: relative; aspect-ratio: 4 / 5; border: 0; border-radius: 16px; padding: 0; overflow: hidden;
+  background-color: var(--field); background-size: cover; background-position: center;
+  box-shadow: inset 0 0 0 1px var(--hair);
+}
+.thumb[aria-pressed="true"] { outline: 3px solid var(--acc); outline-offset: 2px; }
+.thumb-name { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 8px 7px; text-align: left; font: 600 12px/1.2 var(--ui); color: #fff; background: linear-gradient(transparent, rgba(0, 0, 0, .55)); }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.tile { aspect-ratio: 1; border: 0; border-radius: 16px; display: flex; align-items: flex-end; padding: 8px; color: #fff; font: 600 12px/1.2 var(--ui); text-shadow: 0 1px 3px rgba(0, 0, 0, .4); background-size: cover; box-shadow: inset 0 0 0 1px var(--hair); }
+.tile[aria-pressed="true"] { outline: 3px solid var(--acc); outline-offset: 2px; }
+.emoji-slots { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 40px; }
+.slot { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 10px 0 12px; border-radius: 12px; border: 1px solid var(--hair); background: var(--field); color: var(--fg2); font-size: 22px; }
+.slot span { font: 600 15px var(--ui); }
+.emoji-grid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
+.emo { aspect-ratio: 1; border: 0; border-radius: 10px; background: none; font-size: 22px; line-height: 1; padding: 0; }
+.emo:hover { background: var(--field); }
+.emo[aria-pressed="true"] { background: color-mix(in oklab, var(--acc) 34%, transparent); }
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.sw { width: 40px; height: 40px; border-radius: 50%; border: 0; padding: 0; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .15); }
+.sw[aria-pressed="true"] { outline: 3px solid var(--fg); outline-offset: 2px; }
+.sw.auto { width: auto; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px 0 6px; border-radius: 999px; background: var(--field); box-shadow: inset 0 0 0 1px var(--hair); color: var(--fg); font: 600 14px var(--ui); }
+.sw.auto::before { content: ""; width: 28px; height: 28px; border-radius: 50%; background: var(--c); }
+.upload { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 26px 18px; border: 1.5px dashed var(--field-line); border-radius: 20px; background: var(--field); text-align: center; cursor: pointer; color: var(--fg); }
+.upload svg { color: var(--acc-text); }
+.upload-main { font: 700 16px var(--ui); }
+.upload:has(+ .vh:focus-visible) { outline: 2px solid var(--acc); outline-offset: 2px; }
+.vh { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
+.font-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.font-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; min-height: 92px; border-radius: 16px; border: 1px solid var(--hair); background: var(--field); color: var(--fg); text-align: left; overflow: hidden; }
+.font-tile[aria-pressed="true"] { border-color: var(--acc); box-shadow: inset 0 0 0 1px var(--acc); }
+.font-sample { font-size: 27px; line-height: 1.05; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.font-name { font: 500 12px var(--ui); color: var(--fg2); }
+.effect-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.effect-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px; border-radius: 16px; border: 1px solid var(--hair); background: var(--field); color: var(--fg); text-align: left; }
+.effect-tile[aria-pressed="true"] { border-color: var(--acc); box-shadow: inset 0 0 0 1px var(--acc); }
+.effect-name { font: 700 15px var(--ui); }
+.group { border-radius: 18px; background: var(--field); overflow: hidden; }
+.group-title { margin: 0; padding: 12px 14px 4px; font: 700 11px/1.2 var(--ui); letter-spacing: .09em; text-transform: uppercase; color: var(--fg3); }
+.set-row { box-sizing: border-box; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 52px; padding: 11px 14px; border: 0; background: none; color: var(--fg); font: inherit; text-align: left; }
+.group-title + .set-row { border-top: 0; }
+.set-row + .set-row { border-top: 1px solid var(--hair); }
+.set-row.bare { border-radius: 14px; background: var(--field); }
+.set-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.set-text label, .set-label { font: 500 15px/1.3 var(--ui); }
+.set-hint { font-size: 12.5px; line-height: 1.4; color: var(--fg2); }
+.set-value { display: inline-flex; align-items: center; gap: 2px; color: var(--fg2); font: 500 15px var(--ui); white-space: nowrap; }
+.set-select { flex: none; max-width: 52%; border: 0; background: none; color: var(--acc-text); font: 600 15px var(--ui); text-align: right; padding: 4px 0; }
+.set-input { flex: none; width: 104px; height: 36px; box-sizing: border-box; padding: 0 10px; border-radius: 10px; border: 1px solid var(--field-line); background: var(--field); color: var(--fg); font: 600 15px var(--ui); text-align: right; }
+.set-input::placeholder { color: var(--fg3); font-weight: 500; }
+.switch { flex: none; appearance: none; -webkit-appearance: none; position: relative; width: 50px; height: 30px; margin: 0; border-radius: 999px; background: var(--field-line); transition: background .2s; cursor: pointer; }
+.switch::before { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); transition: transform .2s; }
+.switch:checked { background: var(--acc); }
+.switch:checked::before { transform: translateX(20px); }
+.switch:disabled { opacity: .4; cursor: not-allowed; }
+.link-box { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 14px; background: var(--field); border: 1px solid var(--hair); font: 600 14px var(--ui); overflow-wrap: anywhere; }
+
+.toast {
+  position: absolute; z-index: 12; top: 62px; left: 50%; max-width: calc(100% - 48px);
+  transform: translate(-50%, -8px); opacity: 0; pointer-events: none;
+  padding: 10px 14px; border-radius: 14px; border: 1px solid var(--hair);
+  background: var(--glass-strong); color: var(--fg); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  font: 600 13px/1.4 var(--ui); text-align: center; transition: opacity .2s, transform .2s;
+}
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .inner, .sheet, .toast, .scrim, .switch, .switch::before { transition: none; }
+}
+
+@media (max-width: 900px) {
+  .page { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .stage { position: static; display: flex; justify-content: center; }
+  .device { width: 100%; max-width: 420px; height: min(800px, calc(100dvh - 32px)); min-height: 600px; padding: 6px; border-radius: 40px; }
+  .screen { border-radius: 34px; }
+  .notes { max-width: 560px; margin: 0 auto; }
+  .notes h1 { font-size: 46px; }
+}
+</style>
+
+<div class="page">
+  <div class="stage">
+    <div class="device">
+      <div class="screen" id="screen" data-mode="edit" data-tone="dark" data-place="below">
+        <div class="backdrop" aria-hidden="true"></div>
+        <canvas class="fx" id="fxBack" aria-hidden="true"></canvas>
+        <header class="appbar" id="appbar"></header>
+        <main class="scroller" id="scroller">
+          <div class="inner" id="inner">
+            <section class="poster-wrap" id="posterWrap">
+              <div class="guest-top" id="guestTop" hidden></div>
+              <div class="poster-empty" id="posterEmpty" hidden>
+                <h2>Start with a poster</h2>
+                <p>Pick one from the gallery, make an emoji pattern, choose a colour, or use your own photo.</p>
+                <div class="quick">
+                  <button data-open="poster" data-tab="gallery">Gallery</button>
+                  <button data-open="poster" data-tab="emoji">Emoji</button>
+                  <button data-open="poster" data-tab="colour">Colour</button>
+                  <button data-open="poster" data-tab="upload">Upload</button>
+                </div>
+              </div>
+              <div class="poster" id="poster" role="img" hidden></div>
+              <button class="pill poster-change" id="posterChange" data-open="poster" hidden></button>
+              <div class="title-on" id="titleOn" hidden></div>
+            </section>
+            <section class="head" id="head">
+              <h1 class="title" id="title" data-placeholder="Untitled event"></h1>
+              <p class="when" id="whenLine" hidden></p>
+              <p class="host-line" id="hostLine"></p>
+            </section>
+            <section class="details" id="details" aria-label="Event details"></section>
+            <div class="extras" id="extras"></div>
+          </div>
+        </main>
+        <nav class="toolbar" id="toolbar" aria-label="Design the invitation"></nav>
+        <div class="rsvpbar" id="rsvpbar" hidden></div>
+        <div class="scrim" id="scrim" hidden></div>
+        <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden></section>
+        <canvas class="fx" id="fxFront" aria-hidden="true"></canvas>
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="notes" aria-label="About this mockup">
+    <header>
+      <p class="eyebrow">OpenInvites · M4 mockup, round 1</p>
+      <h1>Poster editor</h1>
+      <p class="lede">A host makes the invitation by editing it directly, the way Apple Invites and Partiful work. It runs in your browser only; nothing is saved or sent.</p>
+    </header>
+
+    <div class="controls">
+      <div class="switch-group" role="group" aria-label="Whose view">
+        <button id="nEdit" aria-pressed="true">Host, editing</button>
+        <button id="nGuest" aria-pressed="false">Guest, viewing</button>
+      </div>
+      <button class="linkbtn" id="nBlank">Start blank</button>
+      <button class="linkbtn" id="nExample">Load the example</button>
+    </div>
+
+    <section>
+      <h2>Try it</h2>
+      <ol>
+        <li><b>Change the poster.</b> Tap Change poster, then try Gallery, Emoji and Colour, or upload a photo.</li>
+        <li><b>Type the title on the invitation.</b> Tap it and type.</li>
+        <li><b>Fill in the details.</b> Tap Add a place, or tap the date to change it.</li>
+        <li><b>Style it.</b> Title, Theme and Effect in the toolbar each change the invitation as you tap.</li>
+        <li><b>Open Settings</b> for capacity, approval, questions, contact details and emails.</li>
+        <li><b>Publish, then reply as a guest.</b></li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>What changes from 0.4</h2>
+      <ul>
+        <li>No more form at /events/new. A new event opens as a blank invitation and saves as you type.</li>
+        <li>The Design drawer becomes four buttons on the invitation: Poster, Title, Theme, Effect.</li>
+        <li>Templates fold into the poster gallery. Picking a poster also picks a title font, accent and effect that suit it.</li>
+        <li>Posters come from four places: the gallery, emoji patterns, colours, or an upload.</li>
+        <li>Guests get a poster-first page: the poster full width, the details in one list, the reply buttons pinned to the bottom.</li>
+        <li>Capacity, approval, questions, contact details, the guest list and emails move into one Settings sheet, with the same defaults as 0.4.</li>
+        <li>Where M4's features land, tagged M4: date polling in the date sheet, the photo album and comment reactions on the guest page.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>What stays</h2>
+      <p>The theme engine and its contrast checks, uploads and their processing, the effects, the reply steps (questions, email codes, waitlist, approval) and every M3 setting. Mostly the screens change, not the server.</p>
+    </section>
+
+    <section>
+      <h2>Questions for round 2</h2>
+      <ul>
+        <li><b>Broadsheet and Thread.</b> Keep them as page styles under Theme, or let the poster-first page replace them?</li>
+        <li><b>Templates.</b> Is folding them into the gallery right, or should picking a template stay its own step?</li>
+        <li><b>Gallery art.</b> The posters here are drawn by code as stand-ins. For launch, commission a set under an open licence or draw our own? How many to start with?</li>
+        <li><b>Desktop.</b> On a wide screen, keep the invitation phone-width in the middle with the toolbar under it?</li>
+      </ul>
+    </section>
+  </aside>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const screen = $('#screen'), scroller = $('#scroller'), sheet = $('#sheet'), scrim = $('#scrim'), toastEl = $('#toast');
+  const titleEl = $('#title'), whenEl = $('#whenLine'), headEl = $('#head'), onSlot = $('#titleOn');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const deviceTz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; } })();
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // ---------- Icons ----------
+  const ICON = {
+    image: '<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>',
+    type: '<path d="M4 7V5h16v2M9 19h6M12 5v14"/>',
+    palette: '<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-1.2-1-1.4-1-2.4 0-.8.6-1.5 1.6-1.5H16a5 5 0 0 0 5-5c0-4.1-4-7.5-9-7.5Z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="14.5" cy="7" r="1"/>',
+    sparkles: '<path d="M11 3l1.8 4.7L17.5 9.5l-4.7 1.8L11 16l-1.8-4.7L4.5 9.5l4.7-1.8z"/><path d="M18.5 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
+    sliders: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+    cal: '<rect x="3" y="4.5" width="18" height="16" rx="3"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>',
+    pin: '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/>',
+    text: '<path d="M4 6h16M4 11h16M4 16h10"/>',
+    close: '<path d="M6 6l12 12M18 6 6 18"/>',
+    chev: '<path d="m9 6 6 6-6 6"/>',
+    back: '<path d="m15 6-6 6 6 6"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    upload: '<path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',
+    users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>',
+    photos: '<rect x="3" y="6" width="15" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12M3 16l4-4 4 4 3-3 4 4"/>',
+    chat: '<path d="M4 5h16v11H9l-5 4z"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  };
+  const I = (name, s = 20) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name]}</svg>`;
+
+  // ---------- Drawing helpers for the stand-in poster art ----------
+  const W = 600, H = 750;
+  function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function makeCanvas(w = W, h = H) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+  function lin(ctx, x0, y0, x1, y1, stops) { const g = ctx.createLinearGradient(x0, y0, x1, y1); stops.forEach(([o, c]) => g.addColorStop(o, c)); return g; }
+  function rad(ctx, x, y, r0, r1, stops) { const g = ctx.createRadialGradient(x, y, r0, x, y, r1); stops.forEach(([o, c]) => g.addColorStop(o, c)); return g; }
+  function grain(ctx, amt, seed) { const r = rng(seed); const img = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height); const d = img.data; for (let i = 0; i < d.length; i += 4) { const n = (r() - 0.5) * amt; d[i] += n; d[i + 1] += n; d[i + 2] += n; } ctx.putImageData(img, 0, 0); }
+  function sparkle(ctx, x, y, r, color) { ctx.save(); ctx.translate(x, y); if (color) ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(0, -r); ctx.quadraticCurveTo(0, 0, r, 0); ctx.quadraticCurveTo(0, 0, 0, r); ctx.quadraticCurveTo(0, 0, -r, 0); ctx.quadraticCurveTo(0, 0, 0, -r); ctx.fill(); ctx.restore(); }
+  function flame(ctx, x, y, s) {
+    ctx.save();
+    ctx.fillStyle = rad(ctx, x, y, 0, s * 5, [[0, 'rgba(255,200,110,.45)'], [1, 'rgba(255,160,60,0)']]);
+    ctx.beginPath(); ctx.arc(x, y, s * 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x, y - s * 1.6);
+    ctx.bezierCurveTo(x + s * 0.9, y - s * 0.4, x + s * 0.7, y + s * 0.8, x, y + s * 0.8);
+    ctx.bezierCurveTo(x - s * 0.7, y + s * 0.8, x - s * 0.9, y - s * 0.4, x, y - s * 1.6);
+    ctx.fillStyle = lin(ctx, x, y - s * 1.6, x, y + s * 0.8, [[0, '#fff6d8'], [0.6, '#ffd27a'], [1, '#ff9a3c']]); ctx.fill();
+    ctx.restore();
+  }
+  const TAU = Math.PI * 2;
+
+  // Each gallery poster carries the title font, accent, effect and title placement that suit it
+  // (the templates of 0.4, folded into the gallery).
+  const POSTERS = [
+    { id: 'candles', name: 'Candles', cat: 'Birthday', font: 'serif', effect: 'sparkles', place: 'below', accent: '#ffc36b', draw(ctx, r) {
+      ctx.fillStyle = rad(ctx, W / 2, H * 0.55, 40, H * 0.85, [[0, '#6a2f63'], [0.6, '#3a1840'], [1, '#1a0b1f']]); ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < 26; i++) { const x = r() * W, y = r() * H * 0.7, rr = 20 + r() * 70; ctx.fillStyle = rad(ctx, x, y, 0, rr, [[0, `rgba(255,${(150 + r() * 80) | 0},120,${0.1 + r() * 0.18})`], [1, 'rgba(255,150,120,0)']]); ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.fill(); }
+      const cols = ['#ffd6e0', '#bde0fe', '#fff1a8', '#caffbf', '#ffc8dd', '#a0c4ff', '#ffadad'];
+      const n = 7, gap = W / (n + 1);
+      for (let i = 0; i < n; i++) {
+        const x = gap * (i + 1), h = 150 + ((i * 37) % 5) * 30 + r() * 30, top = H - h - 40, cw = 34;
+        ctx.save(); ctx.beginPath(); ctx.roundRect(x - cw / 2, top, cw, h + 60, 10); ctx.clip();
+        ctx.fillStyle = cols[i]; ctx.fillRect(x - cw / 2, top, cw, h + 60);
+        ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 7;
+        for (let s = -2; s < 14; s++) { ctx.beginPath(); ctx.moveTo(x - cw, top + s * 28); ctx.lineTo(x + cw, top + s * 28 - 30); ctx.stroke(); }
+        ctx.fillStyle = lin(ctx, x - cw / 2, 0, x + cw / 2, 0, [[0, 'rgba(0,0,0,.18)'], [0.4, 'rgba(255,255,255,.12)'], [1, 'rgba(0,0,0,.25)']]); ctx.fillRect(x - cw / 2, top, cw, h + 60);
+        ctx.restore();
+        ctx.strokeStyle = '#2b1a1a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, top - 12); ctx.stroke();
+        flame(ctx, x, top - 30, 14);
+      }
+    } },
+    { id: 'balloons', name: 'Balloons', cat: 'Birthday', font: 'rounded', effect: 'confetti', place: 'below', accent: '#ffd166', draw(ctx, r) {
+      ctx.fillStyle = lin(ctx, 0, 0, 0, H, [[0, '#ffb48f'], [0.55, '#ff7f8e'], [1, '#c4467a']]); ctx.fillRect(0, 0, W, H);
+      const conf = ['#ffd166', '#ffffff', '#06d6a0', '#118ab2', '#ef476f'];
+      for (let i = 0; i < 70; i++) { ctx.save(); ctx.translate(r() * W, r() * H); ctx.rotate(r() * Math.PI); ctx.globalAlpha = 0.55 + r() * 0.4; ctx.fillStyle = conf[i % conf.length]; ctx.fillRect(-5, -2.5, 10, 5); ctx.restore(); }
+      ctx.globalAlpha = 1;
+      const balloons = [[150, 230, '#ffd166'], [300, 170, '#ef476f'], [455, 240, '#06d6a0'], [225, 360, '#118ab2'], [385, 370, '#ffffff'], [90, 430, '#f78c6b'], [515, 440, '#9b5de5']];
+      const kx = W * 0.5, ky = H * 0.98;
+      ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2;
+      for (const [x, y] of balloons) { ctx.beginPath(); ctx.moveTo(x, y + 92); ctx.bezierCurveTo(x + (r() - 0.5) * 60, y + 220, kx + (x - kx) * 0.2, ky - 140, kx, ky); ctx.stroke(); }
+      for (const [x, y, c] of balloons) {
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(0, 0, 68, 84, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = rad(ctx, -24, -30, 4, 110, [[0, 'rgba(255,255,255,.55)'], [0.35, 'rgba(255,255,255,0)'], [1, 'rgba(40,0,40,.28)']]); ctx.beginPath(); ctx.ellipse(0, 0, 68, 84, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(-8, 92); ctx.lineTo(8, 92); ctx.lineTo(0, 82); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+    } },
+    { id: 'supper', name: 'Candlelight', cat: 'Dinner', font: 'serif', effect: 'sparkles', place: 'on', accent: '#ffb26b', draw(ctx, r) {
+      ctx.fillStyle = lin(ctx, 0, 0, 0, H, [[0, '#0c1530'], [1, '#26112c']]); ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < 40; i++) { const x = r() * W, y = r() * H * 0.75, rr = 15 + r() * 80; ctx.fillStyle = rad(ctx, x, y, 0, rr, [[0, `rgba(255,${(170 + r() * 60) | 0},90,${0.12 + r() * 0.22})`], [0.7, 'rgba(255,170,90,.04)'], [1, 'rgba(255,170,90,0)']]); ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.fill(); }
+      ctx.fillStyle = lin(ctx, 0, H * 0.78, 0, H, [[0, '#3a1d1a'], [1, '#1c0d0c']]); ctx.fillRect(0, H * 0.78, W, H * 0.22);
+      for (const [x, h] of [[W * 0.38, 190], [W * 0.5, 250], [W * 0.62, 160]]) {
+        const b = H * 0.78;
+        ctx.fillStyle = lin(ctx, x - 16, 0, x + 16, 0, [[0, '#d9c7a3'], [0.5, '#fff4dc'], [1, '#bfa780']]); ctx.beginPath(); ctx.roundRect(x - 16, b - h, 32, h, 6); ctx.fill();
+        ctx.strokeStyle = '#1a1010'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, b - h); ctx.lineTo(x, b - h - 10); ctx.stroke();
+        flame(ctx, x, b - h - 28, 15);
+      }
+    } },
+    { id: 'gingham', name: 'Picnic', cat: 'Dinner', font: 'serif', effect: 'none', place: 'below', accent: '#ff8a80', draw(ctx, r) {
+      ctx.fillStyle = '#fbf3e6'; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = 'rgba(214,64,60,.42)'; const s = 60;
+      for (let x = 0; x < W; x += s) ctx.fillRect(x, 0, s / 2, H);
+      for (let y = 0; y < H; y += s) ctx.fillRect(0, y, W, s / 2);
+      const plate = (x, y, pr) => { ctx.save(); ctx.shadowColor = 'rgba(60,20,10,.28)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 10; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, pr, 0, TAU); ctx.fill(); ctx.restore(); ctx.strokeStyle = 'rgba(120,90,70,.16)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, pr * 0.72, 0, TAU); ctx.stroke(); };
+      const cutlery = (x, y, len) => { ctx.save(); ctx.shadowColor = 'rgba(60,20,10,.2)'; ctx.shadowBlur = 8; ctx.fillStyle = '#e4dfd7'; ctx.beginPath(); ctx.roundRect(x - 6, y - len / 2, 12, len, 6); ctx.fill(); ctx.restore(); };
+      plate(W * 0.5, H * 0.36, 128); cutlery(W * 0.5 - 160, H * 0.36, 210); cutlery(W * 0.5 + 160, H * 0.36, 210);
+      const lemon = (x, y, lr) => { ctx.fillStyle = '#ffd23f'; ctx.beginPath(); ctx.arc(x, y, lr, 0, TAU); ctx.fill(); ctx.fillStyle = '#fff3b0'; ctx.beginPath(); ctx.arc(x, y, lr * 0.82, 0, TAU); ctx.fill(); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4; for (let a = 0; a < 8; a++) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a * Math.PI / 4) * lr * 0.82, y + Math.sin(a * Math.PI / 4) * lr * 0.82); ctx.stroke(); } };
+      lemon(W * 0.2, H * 0.72, 48); lemon(W * 0.82, H * 0.82, 38);
+      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(W * 0.76, H * 0.6, 44, 0, TAU); ctx.stroke();
+    } },
+    { id: 'botanical', name: 'Botanical', cat: 'Wedding', font: 'serif', effect: 'none', place: 'below', accent: '#e8b4b8', draw(ctx, r) {
+      ctx.fillStyle = rad(ctx, W / 2, H * 0.4, 40, H, [[0, '#f8f3ea'], [1, '#e6dccb']]); ctx.fillRect(0, 0, W, H);
+      const R = W * 0.3, cy = H * 0.42;
+      ctx.strokeStyle = 'rgba(120,140,110,.35)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(W * 0.2, H * 0.95); ctx.lineTo(W * 0.2, cy); ctx.arc(W * 0.5, cy, R, Math.PI, 0); ctx.lineTo(W * 0.8, H * 0.95); ctx.stroke();
+      const greens = ['#7d9a6f', '#a3b18a', '#588157', '#8aa37b'];
+      const leaf = (x, y, len, ang, c) => { ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(len * 0.5, -len * 0.32, len, 0); ctx.quadraticCurveTo(len * 0.5, len * 0.32, 0, 0); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(len * 0.9, 0); ctx.stroke(); ctx.restore(); };
+      const L = H * 0.95 - cy, A = Math.PI * R, total = 2 * L + A;
+      const pt = (t) => { let d = t * total; if (d < L) return [W * 0.2, H * 0.95 - d, -Math.PI / 2]; d -= L; if (d < A) { const a = Math.PI + d / R; return [W * 0.5 + Math.cos(a) * R, cy + Math.sin(a) * R, a + Math.PI / 2]; } d -= A; return [W * 0.8, cy + d, Math.PI / 2]; };
+      for (let i = 0; i < 160; i++) { const [x, y, dir] = pt(i / 160); const side = i % 2 ? 1 : -1; leaf(x + (r() - 0.5) * 10, y + (r() - 0.5) * 10, 26 + r() * 26, dir + side * (0.6 + r() * 0.7), greens[(r() * greens.length) | 0]); }
+      const flower = (x, y, s, c) => { for (let p = 0; p < 6; p++) { const a = p * Math.PI / 3; ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * s * 0.55, y + Math.sin(a) * s * 0.55, s * 0.5, s * 0.32, a, 0, TAU); ctx.fill(); } ctx.fillStyle = '#f2cf7f'; ctx.beginPath(); ctx.arc(x, y, s * 0.22, 0, TAU); ctx.fill(); };
+      for (let i = 0; i < 14; i++) { const [x, y] = pt(r()); flower(x + (r() - 0.5) * 24, y + (r() - 0.5) * 24, 16 + r() * 14, r() < 0.5 ? '#e8b4b8' : '#f4d6cc'); }
+    } },
+    { id: 'rings', name: 'Rings', cat: 'Wedding', font: 'serif', effect: 'sparkles', place: 'below', accent: '#f2c879', draw(ctx, r) {
+      ctx.fillStyle = rad(ctx, W / 2, H * 0.35, 30, H, [[0, '#fbe4de'], [1, '#d79ea4']]); ctx.fillRect(0, 0, W, H);
+      const y = H * 0.38;
+      const ring = (x) => { ctx.strokeStyle = lin(ctx, x - 110, y - 100, x + 110, y + 100, [[0, '#fff1c2'], [0.45, '#d9a441'], [0.7, '#f7da8b'], [1, '#a8741f']]); ctx.lineWidth = 24; ctx.beginPath(); ctx.arc(x, y, 100, 0, TAU); ctx.stroke(); };
+      ring(W * 0.4); ring(W * 0.6);
+      ctx.save(); ctx.beginPath(); ctx.rect(W * 0.4, y, W * 0.2, 140); ctx.clip(); ring(W * 0.4); ctx.restore();
+      for (let i = 0; i < 22; i++) sparkle(ctx, r() * W, r() * H, 4 + r() * 12, `rgba(255,255,255,${0.5 + r() * 0.5})`);
+    } },
+    { id: 'shapes', name: 'Playtime', cat: 'Kids', font: 'rounded', effect: 'confetti', place: 'below', accent: '#ff8a65', draw(ctx, r) {
+      ctx.fillStyle = '#ffe7a3'; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = 'rgba(60,40,10,.14)'; for (let y = 20; y < H; y += 36) for (let x = 20; x < W; x += 36) { ctx.beginPath(); ctx.arc(x, y, 2.4, 0, TAU); ctx.fill(); }
+      const cols = ['#ff6b6b', '#4d96ff', '#6bcb77', '#ff9f1c', '#b388eb'];
+      for (let i = 0; i < 26; i++) {
+        const x = r() * W, y = r() * H, s = 24 + r() * 46, c = cols[i % cols.length], k = i % 4;
+        ctx.save(); ctx.translate(x, y); ctx.rotate(r() * TAU);
+        if (k === 0) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(0, 0, s * 0.6, 0, TAU); ctx.fill(); }
+        else if (k === 1) { ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(0, -s * 0.7); ctx.lineTo(s * 0.65, s * 0.5); ctx.lineTo(-s * 0.65, s * 0.5); ctx.closePath(); ctx.fill(); }
+        else if (k === 2) { ctx.strokeStyle = c; ctx.lineWidth = 9; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-s, 0); for (let j = 1; j <= 4; j++) ctx.quadraticCurveTo(-s + (j - 0.5) * s / 2, (j % 2 ? -1 : 1) * s * 0.4, -s + j * s / 2, 0); ctx.stroke(); }
+        else { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(0, 0, s * 0.6, 0, Math.PI); ctx.fill(); }
+        ctx.restore();
+      }
+    } },
+    { id: 'rainbow', name: 'Rainbow', cat: 'Kids', font: 'rounded', effect: 'doodles', place: 'below', accent: '#9ec5ff', draw(ctx, r) {
+      ctx.fillStyle = lin(ctx, 0, 0, 0, H, [[0, '#bfe3ff'], [1, '#ffd9ea']]); ctx.fillRect(0, 0, W, H);
+      const bands = ['#ff8fa3', '#ffb86b', '#ffe06b', '#8fe3a1', '#8fc9ff', '#b9a3ff']; const cx = W / 2, cy = H * 0.62;
+      bands.forEach((c, i) => { ctx.strokeStyle = c; ctx.lineWidth = 26; ctx.beginPath(); ctx.arc(cx, cy, 220 - i * 26, Math.PI, 0); ctx.stroke(); });
+      const cloud = (x, y, s) => { ctx.save(); ctx.shadowColor = 'rgba(80,90,140,.18)'; ctx.shadowBlur = 20; ctx.shadowOffsetY = 8; ctx.fillStyle = '#fff'; ctx.beginPath(); for (const [dx, dy, rr] of [[-0.9, 0, 0.6], [-0.3, -0.35, 0.75], [0.45, -0.2, 0.65], [1, 0.05, 0.5]]) { ctx.moveTo(x + dx * s + rr * s, y + dy * s); ctx.arc(x + dx * s, y + dy * s, rr * s, 0, TAU); } ctx.rect(x - s * 0.9, y, s * 1.9, s * 0.55); ctx.fill(); ctx.restore(); };
+      cloud(cx - 165, cy + 10, 70); cloud(cx + 175, cy + 10, 70); cloud(W * 0.22, H * 0.16, 46); cloud(W * 0.8, H * 0.24, 38);
+    } },
+    { id: 'disco', name: 'Disco', cat: 'Night out', font: 'display', effect: 'sparkles', place: 'on', accent: '#d6a7ff', draw(ctx, r) {
+      ctx.fillStyle = '#140a29'; ctx.fillRect(0, 0, W, H);
+      const cx = W / 2, cy = H * 0.34;
+      for (let i = 0; i < 28; i++) { const a0 = i / 28 * TAU, a1 = a0 + Math.PI / 28; ctx.fillStyle = i % 2 ? 'rgba(255,120,200,.10)' : 'rgba(140,110,255,.13)'; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, H * 1.2, a0, a1); ctx.closePath(); ctx.fill(); }
+      ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, cy - 130); ctx.stroke();
+      const R = 130; ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.clip();
+      const t = 18; for (let y = cy - R; y < cy + R; y += t) for (let x = cx - R; x < cx + R; x += t) { ctx.fillStyle = `hsl(${250 + r() * 60} 30% ${40 + r() * 55}%)`; ctx.fillRect(x + 1, y + 1, t - 2, t - 2); }
+      ctx.fillStyle = rad(ctx, cx - 45, cy - 50, 10, R * 1.3, [[0, 'rgba(255,255,255,.55)'], [0.5, 'rgba(255,255,255,0)'], [1, 'rgba(10,0,30,.7)']]); ctx.fillRect(cx - R, cy - R, 2 * R, 2 * R);
+      ctx.restore();
+      for (let i = 0; i < 16; i++) sparkle(ctx, cx + (r() - 0.5) * W * 0.9, cy + (r() - 0.5) * H * 0.7, 6 + r() * 16, `rgba(255,255,255,${0.6 + r() * 0.4})`);
+      const dots = ['#ff7ac8', '#9a7bff', '#ffffff', '#7af0ff'];
+      for (let i = 0; i < 60; i++) { ctx.fillStyle = dots[i % 4]; ctx.globalAlpha = 0.25 + r() * 0.4; ctx.beginPath(); ctx.arc(r() * W, H * 0.62 + r() * H * 0.38, 2 + r() * 5, 0, TAU); ctx.fill(); }
+      ctx.globalAlpha = 1;
+    } },
+    { id: 'sunset', name: 'Sunset drive', cat: 'Night out', font: 'display', effect: 'none', place: 'on', accent: '#ff8fc0', draw(ctx, r) {
+      const hz = H * 0.6, sky = lin(ctx, 0, 0, 0, hz, [[0, '#1b0b3d'], [0.6, '#6b1f6e'], [1, '#ff5e8a']]);
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, hz);
+      for (let i = 0; i < 50; i++) { ctx.fillStyle = `rgba(255,255,255,${r() * 0.7})`; ctx.fillRect(r() * W, r() * hz * 0.55, 2, 2); }
+      const cx = W / 2, R = 170;
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, hz, R, Math.PI, 0); ctx.clip();
+      ctx.fillStyle = lin(ctx, 0, hz - R, 0, hz, [[0, '#ffe27a'], [1, '#ff4f8b']]); ctx.fillRect(cx - R, hz - R, 2 * R, R);
+      for (let k = 0; k < 6; k++) { ctx.fillStyle = sky; ctx.fillRect(cx - R, hz - 14 - k * 24, 2 * R, 6 - k * 0.7); }
+      ctx.restore();
+      ctx.fillStyle = '#12062a'; ctx.fillRect(0, hz, W, H - hz);
+      ctx.strokeStyle = 'rgba(255,90,200,.75)'; ctx.lineWidth = 2;
+      for (let i = 1; i < 14; i++) { const y = hz + Math.pow(i / 13, 2) * (H - hz); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+      for (let i = -12; i <= 12; i++) { ctx.beginPath(); ctx.moveTo(cx + i * 14, hz); ctx.lineTo(cx + i * 110, H); ctx.stroke(); }
+      ctx.fillStyle = lin(ctx, 0, hz, 0, hz + 30, [[0, 'rgba(255,120,200,.6)'], [1, 'rgba(255,120,200,0)']]); ctx.fillRect(0, hz, W, 30);
+    } },
+    { id: 'sunburst', name: 'Sunshine', cat: 'Outdoors', font: 'grotesque', effect: 'doodles', place: 'below', accent: '#ffcf3f', draw(ctx, r) {
+      const cx = W / 2, cy = H * 0.42;
+      ctx.fillStyle = '#ffd166'; ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < 32; i += 2) { const a0 = i / 32 * TAU, a1 = (i + 1) / 32 * TAU; ctx.fillStyle = '#ffbf3c'; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, H, a0, a1); ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle = '#ff8c42'; ctx.beginPath(); ctx.arc(cx, cy, 125, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#ffad5a'; ctx.beginPath(); ctx.arc(cx - 18, cy - 20, 82, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#7cc47f'; ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(0, H * 0.8); ctx.quadraticCurveTo(W * 0.3, H * 0.68, W * 0.6, H * 0.8); ctx.quadraticCurveTo(W * 0.85, H * 0.88, W, H * 0.78); ctx.lineTo(W, H); ctx.fill();
+      ctx.fillStyle = '#4fa66a'; ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(0, H * 0.9); ctx.quadraticCurveTo(W * 0.45, H * 0.8, W, H * 0.92); ctx.lineTo(W, H); ctx.fill();
+    } },
+    { id: 'waves', name: 'Seaside', cat: 'Outdoors', font: 'grotesque', effect: 'none', place: 'on', accent: '#7fd8e8', draw(ctx, r) {
+      ctx.fillStyle = lin(ctx, 0, 0, 0, H * 0.5, [[0, '#ffe8c2'], [1, '#ffd0a8']]); ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#ff9f5a'; ctx.beginPath(); ctx.arc(W * 0.7, H * 0.22, 70, 0, TAU); ctx.fill();
+      const layers = ['#9fd8e8', '#5fb8d6', '#2f8fb8', '#18648f', '#0d3f63'];
+      layers.forEach((c, i) => {
+        const base = H * 0.4 + i * H * 0.12, wave = (x) => base + Math.sin(x / 60 + i * 1.3) * 14 + Math.sin(x / 23 + i) * 4;
+        ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(0, H); for (let x = 0; x <= W; x += 10) ctx.lineTo(x, wave(x)); ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3; ctx.beginPath(); for (let x = 0; x <= W; x += 10) { if (x) ctx.lineTo(x, wave(x)); else ctx.moveTo(x, wave(x)); } ctx.stroke();
+      });
+    } },
+    { id: 'lights', name: 'String lights', cat: 'Holiday', font: 'serif', effect: 'sparkles', place: 'below', accent: '#ffe08a', draw(ctx, r) {
+      ctx.fillStyle = lin(ctx, 0, 0, 0, H, [[0, '#0a1733'], [1, '#1f3a6b']]); ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < 160; i++) { ctx.fillStyle = `rgba(255,255,255,${0.2 + r() * 0.7})`; ctx.beginPath(); ctx.arc(r() * W, r() * H, 0.6 + r() * 1.6, 0, TAU); ctx.fill(); }
+      const m = makeCanvas(200, 200), mc = m.getContext('2d'); mc.fillStyle = '#fff1c7'; mc.beginPath(); mc.arc(100, 100, 70, 0, TAU); mc.fill(); mc.globalCompositeOperation = 'destination-out'; mc.beginPath(); mc.arc(130, 80, 64, 0, TAU); mc.fill();
+      ctx.save(); ctx.shadowColor = 'rgba(255,240,190,.6)'; ctx.shadowBlur = 40; ctx.drawImage(m, W * 0.6, H * 0.14); ctx.restore();
+      const cols = ['#ffd36e', '#ff7a7a', '#8fe6c2', '#a5b4fc', '#ff9ec7'];
+      const garland = (y0, sag, phase) => {
+        ctx.strokeStyle = 'rgba(10,10,20,.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-20, y0); ctx.quadraticCurveTo(W / 2, y0 + sag, W + 20, y0); ctx.stroke();
+        for (let i = 0; i <= 12; i++) {
+          const t = i / 12, x = (1 - t) * (1 - t) * -20 + 2 * (1 - t) * t * (W / 2) + t * t * (W + 20), y = (1 - t) * (1 - t) * y0 + 2 * (1 - t) * t * (y0 + sag) + t * t * y0, c = cols[(i + phase) % cols.length];
+          ctx.fillStyle = rad(ctx, x, y + 14, 0, 34, [[0, c + '99'], [1, c + '00']]); ctx.beginPath(); ctx.arc(x, y + 14, 34, 0, TAU); ctx.fill();
+          ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(x, y + 14, 7, 11, 0, 0, TAU); ctx.fill();
+          ctx.fillStyle = '#222'; ctx.fillRect(x - 4, y, 8, 6);
+        }
+      };
+      garland(H * 0.04, 150, 0); garland(H * 0.4, 120, 2);
+    } },
+  ];
+  const POSTER_BY_ID = Object.fromEntries(POSTERS.map((p) => [p.id, p]));
+  const galleryUrls = {};
+  function renderPosterArt(p) { const c = makeCanvas(), ctx = c.getContext('2d'); p.draw(ctx, rng(hash(p.id))); grain(ctx, 10, hash(p.id) + 1); return c.toDataURL('image/jpeg', 0.86); }
+  function posterArt(id) { if (!galleryUrls[id]) galleryUrls[id] = renderPosterArt(POSTER_BY_ID[id]); return galleryUrls[id]; }
+
+  const COLOURS = [
+    { id: 'golden', name: 'Golden hour', accent: '#ffc36b', css: 'radial-gradient(120% 85% at 50% -5%, #ffc36b 0%, #ff7a59 32%, #a8407a 58%, #3a1b5c 82%, #1b0f2b 100%)' },
+    { id: 'dusk', name: 'Dusk', accent: '#ff8fc0', css: 'linear-gradient(160deg, #0f1c4d 0%, #4a2b8c 45%, #d9488a 100%)' },
+    { id: 'forest', name: 'Forest', accent: '#8fe6c2', css: 'linear-gradient(170deg, #06251f 0%, #0f5a4a 55%, #3aa885 100%)' },
+    { id: 'midnight', name: 'Midnight', accent: '#a5b4fc', css: 'radial-gradient(90% 70% at 50% 100%, #3b3f9a 0%, #1a1c4a 45%, #07081a 100%)' },
+    { id: 'peach', name: 'Peach', accent: '#ffe3b8', css: 'radial-gradient(80% 60% at 20% 15%, #ffe0c4 0%, rgba(255,224,196,0) 60%), radial-gradient(70% 60% at 85% 75%, #ff8fa3 0%, rgba(255,143,163,0) 62%), linear-gradient(160deg, #ffb38a, #e85d75)' },
+    { id: 'lagoon', name: 'Lagoon', accent: '#b8fff0', css: 'radial-gradient(70% 50% at 30% 22%, #a6f5e4 0%, rgba(166,245,228,0) 60%), radial-gradient(80% 60% at 75% 80%, #2a6fdb 0%, rgba(42,111,219,0) 65%), linear-gradient(170deg, #38c3b5, #173f8a)' },
+    { id: 'lilac', name: 'Lilac', accent: '#ffe1f4', css: 'radial-gradient(70% 55% at 75% 18%, #f6dcff 0%, rgba(246,220,255,0) 60%), radial-gradient(80% 60% at 20% 82%, #8b6cf0 0%, rgba(139,108,240,0) 65%), linear-gradient(165deg, #c9a7ff, #5a3fb5)' },
+    { id: 'slate', name: 'Slate', accent: '#d9d9e3', css: 'linear-gradient(180deg, #23262e 0%, #0e1015 100%)' },
+    { id: 'ink', name: 'Ink', accent: '#ffffff', css: 'linear-gradient(180deg, #17151c, #2c2833)' },
+  ];
+  const COLOUR_BY_ID = Object.fromEntries(COLOURS.map((c) => [c.id, c]));
+
+  const EMOJIS = ['🎉', '🎂', '🥂', '🍕', '🌮', '🎈', '🌸', '🌿', '⭐', '🌙', '🔥', '💃', '🪩', '🎶', '🍰', '🧁', '🌈', '☀️', '🏖️', '🎃', '🎄', '❤️', '👶', '🎓'];
+  const EMOJI_BGS = [
+    { name: 'Blush', hex: '#ffd3dc', accent: '#ffb3c6' }, { name: 'Butter', hex: '#ffe9a6', accent: '#ffd970' },
+    { name: 'Mint', hex: '#c9f2dc', accent: '#9be8c0' }, { name: 'Sky', hex: '#cfe2ff', accent: '#a9c8ff' },
+    { name: 'Lilac', hex: '#e6d6ff', accent: '#cdb4ff' }, { name: 'Night', hex: '#1e1a3a', accent: '#ffd36e' },
+    { name: 'Tomato', hex: '#ff6f5e', accent: '#ffb0a6' },
+  ];
+  function emojiArt(emojis, bg) {
+    const c = makeCanvas(), ctx = c.getContext('2d');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = rad(ctx, W * 0.3, H * 0.2, 10, H, [[0, 'rgba(255,255,255,.28)'], [1, 'rgba(255,255,255,0)']]); ctx.fillRect(0, 0, W, H);
+    const r = rng(hash(emojis.join('') + bg)), sx = 124, sy = 112, n = emojis.length;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    let row = 0;
+    for (let y = -20; y < H + 80; y += sy, row++) {
+      let col = 0;
+      for (let x = (row % 2 ? sx / 2 : 0) - 20; x < W + 80; x += sx, col++) {
+        const i = (row + col) % n, big = (row + col) % 2 === 0;
+        ctx.save(); ctx.translate(x, y); ctx.rotate((r() - 0.5) * 0.6);
+        ctx.font = `${big ? 58 : 46}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+        ctx.fillText(emojis[i], 0, 0); ctx.restore();
+      }
+    }
+    return c.toDataURL('image/jpeg', 0.9);
+  }
+
+  const FONTS = {
+    serif: { name: 'Instrument Serif', fam: '"Instrument Serif", Georgia, serif', w: 400, tr: '-0.01em', s: [60, 46] },
+    grotesque: { name: 'Bricolage Grotesque', fam: '"Bricolage Grotesque", system-ui, sans-serif', w: 800, tr: '-0.035em', s: [46, 36] },
+    display: { name: 'Syne', fam: 'Syne, system-ui, sans-serif', w: 800, tr: '-0.02em', s: [44, 34] },
+    rounded: { name: 'Fredoka', fam: 'Fredoka, system-ui, sans-serif', w: 600, tr: '-0.01em', s: [48, 38] },
+  };
+  const SWATCHES = [['Marigold', '#ffc36b'], ['Pink', '#ff8fc0'], ['Mint', '#8fe6c2'], ['Periwinkle', '#a5b4fc'], ['Coral', '#ff7a59'], ['White', '#ffffff']];
+  const EFFECTS = [['none', 'None', 'Nothing added to the page.'], ['sparkles', 'Sparkles', 'Points of light twinkle behind the invitation.'], ['confetti', 'Confetti', 'Falls once when a guest says Going.'], ['doodles', 'Doodles', 'Shapes float behind the invitation.']];
+  const LABEL = { going: 'Going', maybe: 'Maybe', cant: 'Can’t go' };
+  const RSVP_HEAD = { going: 'Great, you’re coming', maybe: 'Maybe it is', cant: 'Sorry you can’t make it' };
+  const GUESTS = ['Priya', 'Arjun', 'Bea', 'Tom', 'Sofia', 'Kenji', 'Lena'];
+
+  // ---------- State ----------
+  const defaults = () => ({ plusOnes: 1, plusOneNames: false, capacity: '', approval: false, email: 'none', verifyEmail: false, phone: 'none', guestList: 'afterReply', notifyRsvp: true, reminders: true, comments: true, notifyComment: true });
+  const example = () => ({
+    mode: 'edit', poster: { kind: 'gallery', id: 'candles' }, title: 'Mei’s 30th', font: 'serif', place: 'below', accent: 'auto', tone: 'dark', effect: 'sparkles',
+    date: { day: '2027-06-12', start: '19:00', end: '23:30', allDay: false, tz: deviceTz }, location: { name: '', address: '' },
+    description: 'Dinner, far too much cake, and dancing until late. Bring someone if you like.', host: 'Mei Lin',
+    settings: defaults(), published: false, reply: null, reacts: [false, false],
+  });
+  const blank = () => ({ ...example(), poster: null, title: '', place: 'below', effect: 'none', date: null, description: '' });
+  let state = example();
+  const emo = { emojis: [], bg: EMOJI_BGS[0].hex };
+  const sheetState = { name: null, opener: null, tab: 'gallery', cat: 'All', rsvp: 'going', step: 'form', draft: { name: '', plus: 0 } };
+
+  // ---------- Derived values ----------
+  function posterImage(p) {
+    if (!p) return null;
+    if (p.kind === 'gallery') return `url("${posterArt(p.id)}")`;
+    if (p.kind === 'emoji') return `url("${p.url}")`;
+    if (p.kind === 'colour') return COLOUR_BY_ID[p.id].css;
+    return `url("${p.src}")`;
+  }
+  function autoAccent(p) {
+    if (!p) return '#ffc36b';
+    if (p.kind === 'gallery') return POSTER_BY_ID[p.id].accent;
+    if (p.kind === 'colour') return COLOUR_BY_ID[p.id].accent;
+    if (p.kind === 'emoji') return (EMOJI_BGS.find((b) => b.hex === p.bg) || EMOJI_BGS[0]).accent;
+    return '#ffc36b';
+  }
+  const accent = () => (state.accent === 'auto' ? autoAccent(state.poster) : state.accent);
+  function inkFor(hex) {
+    const n = parseInt(hex.slice(1), 16), ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+    return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2] > 0.36 ? '#22161f' : '#ffffff';
+  }
+  function posterLabel() {
+    const p = state.poster;
+    if (p.kind === 'upload') return p.alt || '';
+    if (p.kind === 'gallery') return `${POSTER_BY_ID[p.id].name} poster`;
+    if (p.kind === 'emoji') return `Poster with a pattern of ${p.emojis.join(' ')}`;
+    return `${COLOUR_BY_ID[p.id].name} colour poster`;
+  }
+  function fmtTime(hm) { const [h, m] = hm.split(':').map(Number); return new Date(2000, 0, 1, h, m).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); }
+  function tzShort(tz) { try { return new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' }).formatToParts(new Date()).find((x) => x.type === 'timeZoneName').value; } catch (e) { return tz; } }
+  function fmtDate(d) {
+    if (!d) return null;
+    const [y, m, dd] = d.day.split('-').map(Number), dt = new Date(y, m - 1, dd);
+    return {
+      line: dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
+      short: dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+      allDay: d.allDay, start: fmtTime(d.start || '19:00'),
+      range: d.end ? `${fmtTime(d.start || '19:00')} – ${fmtTime(d.end)}` : fmtTime(d.start || '19:00'),
+      tz: tzShort(d.tz),
+    };
+  }
+  function countdown(d) {
+    const [y, m, dd] = d.day.split('-').map(Number);
+    const days = Math.round((new Date(y, m - 1, dd) - new Date(new Date().toDateString())) / 864e5);
+    if (days === 0) return 'Today'; if (days === 1) return 'Tomorrow'; if (days > 1) return `In ${days} days`;
+    return days === -1 ? 'Yesterday' : `${-days} days ago`;
+  }
+  function nextSaturday() { const d = new Date(); d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7 || 7)); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+  function ensureDate() { if (!state.date) state.date = { day: nextSaturday(), start: '19:00', end: '', allDay: false, tz: deviceTz }; }
+  const hue = (s) => hash(s) % 360;
+  const face = (n) => `<span class="avatar sm" style="--h:${hue(n)}">${esc(n.charAt(0).toUpperCase())}</span>`;
+
+  // ---------- Rendering ----------
+  function render() {
+    const s = state;
+    screen.dataset.mode = s.mode;
+    screen.dataset.tone = s.tone;
+    screen.dataset.place = s.poster ? s.place : 'none';
+    const img = posterImage(s.poster);
+    if (img) screen.style.setProperty('--poster-img', img); else screen.style.removeProperty('--poster-img');
+    screen.style.setProperty('--ratio', s.poster && s.poster.kind === 'upload' ? s.poster.ratio : '4 / 5');
+    const a = accent();
+    screen.style.setProperty('--acc', a);
+    screen.style.setProperty('--acc-ink', inkFor(a));
+    renderAppbar(); renderPoster(); renderHead(); renderDetails(); renderExtras(); renderBars();
+    fx.set(s.effect);
+    $('#nEdit').setAttribute('aria-pressed', String(s.mode === 'edit'));
+    $('#nGuest').setAttribute('aria-pressed', String(s.mode === 'guest'));
+  }
+  function renderAppbar() {
+    $('#appbar').innerHTML = state.mode === 'edit'
+      ? `<button class="pill icon" data-act="exit" aria-label="Close the editor">${I('close', 18)}</button>
+         <span class="status">${state.published ? 'Live' : 'Draft'} · <span id="saveState">Saved</span></span>
+         <span class="grow"></span>
+         <button class="pill" data-act="preview">${I('eye', 17)} Preview</button>
+         ${state.published ? '<button class="pill primary" data-act="share">Share</button>' : '<button class="pill primary" data-act="publish">Publish</button>'}`
+      : `<button class="pill" data-act="edit">${I('back', 17)} Back to editing</button><span class="grow"></span>`;
+  }
+  function renderPoster() {
+    const has = !!state.poster, edit = state.mode === 'edit';
+    const p = $('#poster');
+    p.hidden = !has;
+    $('#posterEmpty').hidden = has || !edit;
+    $('#guestTop').hidden = has || edit;
+    const change = $('#posterChange');
+    change.hidden = !has || !edit;
+    change.innerHTML = `${I('image', 16)} Change poster`;
+    if (has) {
+      const label = posterLabel();
+      if (label) { p.setAttribute('role', 'img'); p.setAttribute('aria-label', label); }
+      else { p.setAttribute('role', 'presentation'); p.removeAttribute('aria-label'); }
+    }
+  }
+  function sizeTitle() {
+    const f = FONTS[state.font], on = !!state.poster && state.place === 'on';
+    titleEl.style.fontSize = `${(state.title.trim().length > 22 ? f.s[1] : f.s[0]) * (on ? 0.9 : 1)}px`;
+  }
+  function setEditable(el, on) {
+    if (!on) { el.removeAttribute('contenteditable'); return; }
+    if (el.hasAttribute('contenteditable')) return;
+    try { el.contentEditable = 'plaintext-only'; if (el.contentEditable !== 'plaintext-only') el.contentEditable = 'true'; } catch (e) { el.contentEditable = 'true'; }
+  }
+  function renderHead() {
+    const on = !!state.poster && state.place === 'on';
+    const target = on ? onSlot : headEl;
+    if (titleEl.parentNode !== target) { target.prepend(whenEl); target.prepend(titleEl); }
+    onSlot.hidden = !on;
+    const f = FONTS[state.font];
+    titleEl.style.fontFamily = f.fam; titleEl.style.fontWeight = f.w; titleEl.style.letterSpacing = f.tr;
+    sizeTitle();
+    if (document.activeElement !== titleEl && titleEl.textContent !== state.title) titleEl.textContent = state.title;
+    const edit = state.mode === 'edit';
+    setEditable(titleEl, edit);
+    if (edit) { titleEl.setAttribute('role', 'textbox'); titleEl.setAttribute('aria-label', 'Event title'); }
+    else { titleEl.removeAttribute('role'); titleEl.removeAttribute('aria-label'); }
+    const d = fmtDate(state.date);
+    whenEl.hidden = !d;
+    whenEl.textContent = d ? `${d.short} · ${d.allDay ? 'All day' : d.start}` : '';
+    $('#hostLine').innerHTML = `<span class="avatar">ML</span><span>Hosted by ${esc(state.host)}</span>`;
+  }
+  function renderDetails() {
+    const edit = state.mode === 'edit', d = fmtDate(state.date), L = state.location, desc = state.description.trim();
+    const ico = (n) => `<span class="ico">${I(n, 19)}</span>`;
+    const row = (open, icon, label, value, sub, extra, ph) => edit
+      ? `<button class="row" data-open="${open}">${ico(icon)}<span class="row-main"><span class="row-label">${label}</span><span class="row-value${ph ? ' ph' : ''}">${ph ? I('plus', 16) : ''}${value}</span>${sub ? `<span class="row-sub">${sub}</span>` : ''}</span><span class="chev">${I('chev', 18)}</span></button>`
+      : `<div class="row">${ico(icon)}<div class="row-main"><span class="row-label">${label}</span><span class="row-value">${value}</span>${sub ? `<span class="row-sub">${sub}</span>` : ''}${extra || ''}</div><span></span></div>`;
+    const rows = [];
+    if (d) rows.push(row('date', 'cal', 'When', esc(d.line), esc(`${d.allDay ? 'All day' : d.range} · ${d.tz}`), `<div class="acts"><span class="chip acc">${countdown(state.date)}</span><button class="chip" data-act="calendar">${I('cal', 15)} Add to calendar</button></div>`));
+    else if (edit) rows.push(row('date', 'cal', 'When', 'Set a date and time', '', '', true));
+    if (L.name.trim() || L.address.trim()) rows.push(row('location', 'pin', 'Where', esc(L.name.trim() || L.address.trim()), L.name.trim() && L.address.trim() ? esc(L.address.trim()) : '', '<div class="acts"><button class="chip" data-act="maps">Open in Maps ↗</button></div>'));
+    else if (edit) rows.push(row('location', 'pin', 'Where', 'Add a place', '', '', true));
+    if (desc) rows.push(row('description', 'text', 'About', `<span class="desc">${esc(desc)}</span>`, ''));
+    else if (edit) rows.push(row('description', 'text', 'About', 'Say what to expect', '', '', true));
+    const el = $('#details');
+    el.innerHTML = rows.join('');
+    el.hidden = rows.length === 0;
+  }
+  function renderExtras() {
+    const ex = $('#extras');
+    if (state.mode === 'edit') {
+      ex.innerHTML = '<p class="edit-foot">Guests also see who’s coming and the comments, and from M4 a photo album. <button class="linkish" data-act="preview">See it as a guest</button></p>';
+      return;
+    }
+    const s = state.settings, rep = state.reply;
+    const inGoing = rep && rep.status === 'going' && !rep.pending;
+    const going = 12 + (inGoing ? 1 + rep.plus : 0), maybe = 3 + (rep && rep.status === 'maybe' && !rep.pending ? 1 : 0);
+    let who;
+    if (s.guestList === 'hidden') who = '<p class="muted">Only the hosts see the guest list.</p>';
+    else {
+      const open = s.guestList === 'always' || !!rep;
+      who = `<div class="faces${open ? '' : ' locked'}" aria-hidden="true">${GUESTS.map(face).join('')}${inGoing ? face(rep.name) : ''}<span class="more">+${going - GUESTS.length - (inGoing ? 1 : 0)}</span></div>
+        ${open ? `<p class="counts"><b>${going}</b> going · <b>${maybe}</b> maybe</p>` : '<p class="muted">Reply to see who’s coming.</p>'}`;
+    }
+    const panel = (icon, title, body, tag) => `<section class="panel"><h2 class="panel-title">${I(icon, 18)} ${title}${tag ? '<span class="tag">M4</span>' : ''}</h2>${body}</section>`;
+    let html = panel('users', 'Who’s coming', who);
+    html += panel('photos', 'Photos', '<p class="muted">The album opens on the day. Everyone who replied can add theirs.</p>', true);
+    if (s.comments) {
+      const r = state.reacts;
+      html += panel('chat', 'Comments', `
+        <div class="comment">${face('Priya')}<div>
+          <p class="c-meta"><b>Priya</b> · 2 days ago</p>
+          <p>Can’t wait! I’m bringing the good cake.</p>
+          <div class="reacts">
+            <button class="react" data-act="react" data-v="0" aria-pressed="${r[0]}" aria-label="Party popper, ${4 + (r[0] ? 1 : 0)}">🎉 ${4 + (r[0] ? 1 : 0)}</button>
+            <button class="react" data-act="react" data-v="1" aria-pressed="${r[1]}" aria-label="Heart, ${2 + (r[1] ? 1 : 0)}">❤️ ${2 + (r[1] ? 1 : 0)}</button>
+            <span class="tag">M4</span>
+          </div>
+        </div></div>
+        <form class="c-form"><input class="input" id="commentText" ${rep ? '' : 'disabled'} placeholder="${rep ? 'Write a comment' : 'Reply first to comment'}" aria-label="Write a comment"></form>`);
+    }
+    ex.innerHTML = html;
+  }
+  function replyText(r) {
+    if (r.pending) return 'Waiting for the hosts’ approval';
+    if (r.status === 'going') return r.plus ? `You’re going, with ${r.plus} guest${r.plus > 1 ? 's' : ''}` : 'You’re going';
+    return r.status === 'maybe' ? 'You said maybe' : 'You can’t go';
+  }
+  // The bars keep their buttons between renders, so focus can go back to the one that opened a sheet.
+  let rsvpHtml = '';
+  function renderBars() {
+    const edit = state.mode === 'edit';
+    const tb = $('#toolbar'), rb = $('#rsvpbar');
+    tb.hidden = !edit; rb.hidden = edit;
+    if (!tb.firstElementChild) {
+      tb.innerHTML = [['poster', 'image', 'Poster'], ['title', 'type', 'Title'], ['theme', 'palette', 'Theme'], ['effect', 'sparkles', 'Effect'], ['settings', 'sliders', 'Settings']]
+        .map(([k, icon, label]) => `<button class="tool" data-open="${k}" aria-expanded="false">${I(icon, 22)}<span>${label}</span></button>`).join('');
+    }
+    tb.querySelectorAll('.tool').forEach((b) => b.setAttribute('aria-expanded', String(sheetState.name === b.dataset.open)));
+    if (!edit) {
+      const r = state.reply;
+      const html = r
+        ? `<p class="replied"><b>${replyText(r)}</b></p><button class="pill" data-act="rsvp" data-v="${r.status}">Change</button>`
+        : ['going', 'maybe', 'cant'].map((v) => `<button class="rsvp-btn" data-act="rsvp" data-v="${v}">${LABEL[v]}</button>`).join('');
+      if (html !== rsvpHtml) { rb.innerHTML = html; rsvpHtml = html; }
+    }
+  }
+
+  // ---------- Sheets ----------
+  const head = (title, done = 'Done') => `<header class="sheet-head"><span class="grabber" aria-hidden="true"></span><h2 id="sheetTitle" tabindex="-1">${title}</h2><button class="done" data-act="close">${done}</button></header>`;
+  const pressed = (b) => `aria-pressed="${b}"`;
+  const seg = (label, items, act, current, disabled) => `<div class="seg" role="group" aria-label="${label}">${items.map(([v, l]) => `<button data-act="${act}" data-v="${v}" data-k="${act}-${v}" ${pressed(current === v)}${disabled ? ' disabled' : ''}>${l}</button>`).join('')}</div>`;
+  function slotsHtml() {
+    return emo.emojis.length
+      ? emo.emojis.map((e, i) => `<button class="slot" data-act="emoji-remove" data-v="${i}" aria-label="Remove ${e}">${e}<span aria-hidden="true">×</span></button>`).join('') + '<span class="fine">Up to three</span>'
+      : '<span class="fine">Pick up to three emoji for a pattern.</span>';
+  }
+  const SHEETS = {
+    poster() {
+      const tab = sheetState.tab, p = state.poster;
+      let body = '';
+      if (tab === 'gallery') {
+        const cats = ['All', ...new Set(POSTERS.map((x) => x.cat))];
+        const list = POSTERS.filter((x) => sheetState.cat === 'All' || x.cat === sheetState.cat);
+        body = `<div class="chips" role="group" aria-label="Occasion">${cats.map((c) => `<button class="cat" data-act="cat" data-v="${c}" data-k="cat-${c}" ${pressed(sheetState.cat === c)}>${c}</button>`).join('')}</div>
+          <div class="thumbs">${list.map((x) => `<button class="thumb" data-act="pick-gallery" data-v="${x.id}" data-k="g-${x.id}" ${pressed(!!p && p.kind === 'gallery' && p.id === x.id)}><span class="thumb-name">${x.name}</span></button>`).join('')}</div>
+          <p class="fine">Each poster brings a title font, accent and effect that suit it; change any of them after. These posters are drawn by code as stand-ins for real artwork.</p>`;
+      } else if (tab === 'emoji') {
+        body = `<div class="emoji-slots" id="emojiSlots">${slotsHtml()}</div>
+          <div class="emoji-grid" role="group" aria-label="Emoji">${EMOJIS.map((e) => `<button class="emo" data-act="emoji" data-v="${e}" data-k="e-${e}" ${pressed(emo.emojis.includes(e))}>${e}</button>`).join('')}</div>
+          <div class="field"><label for="emojiType">Or type any emoji</label><input class="input" id="emojiType" data-k="emojiType" placeholder="🥳🍾🎊" autocomplete="off"></div>
+          <div class="field"><span class="label">Background</span><div class="swatches">${EMOJI_BGS.map((b) => `<button class="sw" data-act="emoji-bg" data-v="${b.hex}" data-k="eb-${b.hex}" ${pressed(emo.bg === b.hex)} aria-label="${b.name}" style="--c:${b.hex}"></button>`).join('')}</div></div>`;
+      } else if (tab === 'colour') {
+        body = `<div class="tiles">${COLOURS.map((c) => `<button class="tile" data-act="pick-colour" data-v="${c.id}" data-k="c-${c.id}" ${pressed(!!p && p.kind === 'colour' && p.id === c.id)} style="background-image:${c.css}"><span>${c.name}</span></button>`).join('')}</div>
+          <p class="fine">With a colour, the title is the poster, so it moves onto it.</p>`;
+      } else {
+        const up = !!p && p.kind === 'upload';
+        body = `<label class="upload" for="upl">${I('upload', 24)}<span class="upload-main">${up ? 'Choose another photo' : 'Choose a photo'}</span><span class="fine">JPEG, PNG, WebP or AVIF, up to 10 MB. A photo, or a flyer you made.</span></label>
+          <input type="file" id="upl" class="vh" accept="image/jpeg,image/png,image/webp,image/avif">
+          ${up ? `<div class="field"><label for="altText">Describe your picture</label><input class="input" id="altText" data-k="altText" value="${esc(p.alt)}" placeholder="Mei laughing on a beach at sunset"><span class="fine">Read to guests who use a screen reader. Leave it empty if it’s only decoration.</span></div>` : ''}
+          <p class="fine">In this mockup the picture stays in your browser.</p>`;
+      }
+      return head('Poster') + `<div class="sheet-body">${seg('Where the poster comes from', [['gallery', 'Gallery'], ['emoji', 'Emoji'], ['colour', 'Colour'], ['upload', 'Upload']], 'tab', tab)}${body}</div>`;
+    },
+    title() {
+      const sample = esc((state.title.trim() || 'Aa').slice(0, 18));
+      const hint = !state.poster ? 'Add a poster first.' : state.place === 'on' ? 'The title sits across the foot of your poster, on a shade that keeps it readable.' : 'The title sits under your poster, so all of it stays in view.';
+      return head('Title') + `<div class="sheet-body">
+        <div class="field"><span class="label">Font</span><div class="font-grid">${Object.entries(FONTS).map(([k, f]) => `<button class="font-tile" data-act="font" data-v="${k}" data-k="font-${k}" ${pressed(state.font === k)}><span class="font-sample" style="font-family:${f.fam.replace(/"/g, '&quot;')};font-weight:${f.w};letter-spacing:${f.tr}">${sample}</span><span class="font-name">${f.name}</span></button>`).join('')}</div></div>
+        <div class="field"><span class="label">Where the title goes</span>${seg('Where the title goes', [['on', 'On the poster'], ['below', 'Below the poster']], 'place', state.place, !state.poster)}<p class="fine">${hint}</p></div>
+      </div>`;
+    },
+    theme() {
+      return head('Theme') + `<div class="sheet-body">
+        <div class="field"><span class="label">Accent colour</span><div class="swatches"><button class="sw auto" data-act="accent" data-v="auto" data-k="accent-auto" ${pressed(state.accent === 'auto')} style="--c:${autoAccent(state.poster)}">Auto</button>${SWATCHES.map(([n, h]) => `<button class="sw" data-act="accent" data-v="${h}" data-k="accent-${n}" ${pressed(state.accent === h)} aria-label="${n}" style="--c:${h}"></button>`).join('')}</div>
+          <p class="fine">Auto takes it from your poster. It colours the reply button, the date and the links.</p></div>
+        <div class="field"><span class="label">Page</span>${seg('Page', [['dark', 'Dark'], ['light', 'Light']], 'tone', state.tone)}
+          <p class="fine">Behind the details is your poster, blurred. The contrast checks from 0.4 still choose every text colour.</p></div>
+      </div>`;
+    },
+    effect() {
+      return head('Effect') + `<div class="sheet-body"><div class="effect-grid">${EFFECTS.map(([k, n, note]) => `<button class="effect-tile" data-act="effect" data-v="${k}" data-k="effect-${k}" ${pressed(state.effect === k)}><span class="effect-name">${n}</span><span class="fine">${note}</span></button>`).join('')}</div>
+        <p class="fine">Motion stops for guests who prefer reduced motion.</p></div>`;
+    },
+    settings() {
+      const s = state.settings;
+      const sel = (k, opts) => `<select class="set-select" id="s-${k}" data-k="s-${k}" data-setting="${k}">${opts.map(([v, l]) => `<option value="${v}"${String(s[k]) === String(v) ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+      const sw = (k, dis) => `<input type="checkbox" role="switch" class="switch" id="s-${k}" data-k="s-${k}" data-setting="${k}"${s[k] && !dis ? ' checked' : ''}${dis ? ' disabled' : ''}>`;
+      const row = (k, label, ctrl, hint) => `<div class="set-row"><div class="set-text"><label for="s-${k}">${label}</label>${hint ? `<span class="set-hint">${hint}</span>` : ''}</div>${ctrl}</div>`;
+      const link = (label, value, msg) => `<button class="set-row" data-act="stub" data-msg="${esc(msg)}"><span class="set-text"><span class="set-label">${label}</span></span><span class="set-value">${value} ${I('chev', 16)}</span></button>`;
+      const ask = [['none', 'Don’t ask'], ['optional', 'Optional'], ['required', 'Required']];
+      return head('Settings') + `<div class="sheet-body">
+        <p class="fine">Everything a guest doesn’t see. The defaults match 0.4, so you can publish without opening this.</p>
+        <section class="group"><h3 class="group-title">Guests</h3>
+          ${row('plusOnes', 'Each guest can bring', sel('plusOnes', [[0, 'No one'], [1, '1 person'], [2, '2 people'], [3, '3 people'], [4, '4 people'], [5, '5 people']]))}
+          ${row('plusOneNames', 'Ask for their names', sw('plusOneNames'))}
+          ${row('capacity', 'Capacity', `<input class="set-input" id="s-capacity" data-k="s-capacity" data-setting="capacity" type="number" inputmode="numeric" min="1" max="1000" placeholder="Everyone" value="${esc(s.capacity)}">`, 'Going guests and their plus-ones count; Maybe doesn’t. Leave empty to take everyone.')}
+          ${row('approval', 'Approve each reply', sw('approval'), 'Guests wait until you or a co-host approves them.')}
+        </section>
+        <section class="group"><h3 class="group-title">Questions</h3>${link('Questions for guests', 'None', 'This opens the questions editor from 0.4, as a sheet.')}</section>
+        <section class="group"><h3 class="group-title">Contact details</h3>
+          ${row('email', 'Ask for an email', sel('email', ask))}
+          ${row('verifyEmail', 'Prove it with a code', sw('verifyEmail', s.email === 'none'), 'The guest types in a code we email them.')}
+          ${row('phone', 'Ask for a phone number', sel('phone', ask))}
+        </section>
+        <section class="group"><h3 class="group-title">Guest list</h3>
+          ${row('guestList', 'Who sees who’s coming', sel('guestList', [['always', 'Everyone'], ['afterReply', 'Guests who replied'], ['hidden', 'Only hosts']]))}
+        </section>
+        <section class="group"><h3 class="group-title">Emails and comments</h3>
+          ${row('notifyRsvp', 'Email me when someone replies', sw('notifyRsvp'))}
+          ${row('reminders', 'Remind guests the day before', sw('reminders'), s.email === 'none' ? 'Only guests who give an email get one. Ask for an email above.' : '')}
+          ${row('comments', 'Comments on the page', sw('comments'), 'Anyone who has replied can comment.')}
+          ${row('notifyComment', 'Email me about new comments', sw('notifyComment', !s.comments))}
+        </section>
+        <section class="group"><h3 class="group-title">More</h3>
+          ${link('Co-hosts', 'Add', 'Co-hosts keep their own page, as in 0.4.')}
+          ${link('Personal invite links', 'Make one', 'Personal invite links keep their own page, as in 0.4.')}
+          ${link('Custom link', 'Set one', 'The custom link keeps its own page, as in 0.4.')}
+          ${link('Announcements', 'Write one', 'Announcements keep their own page, as in 0.4.')}
+        </section>
+      </div>`;
+    },
+    date() {
+      const d = state.date;
+      const zones = [...new Set([deviceTz, 'Asia/Singapore', 'Asia/Kuala_Lumpur', 'Asia/Shanghai', 'Asia/Hong_Kong', 'Asia/Taipei', 'Asia/Tokyo', 'Europe/London', 'Europe/Berlin', 'America/New_York', 'America/Los_Angeles', 'Australia/Sydney', 'UTC'])];
+      return head('When') + `<div class="sheet-body">
+        <div class="field"><label for="dDay">Date</label><input class="input" type="date" id="dDay" data-k="dDay" value="${d ? d.day : ''}"></div>
+        <div class="set-row bare"><div class="set-text"><label for="dAll">All day</label></div><input type="checkbox" role="switch" class="switch" id="dAll" data-k="dAll"${d && d.allDay ? ' checked' : ''}></div>
+        ${d && d.allDay ? '' : `<div class="two"><div class="field"><label for="dStart">Starts</label><input class="input" type="time" id="dStart" data-k="dStart" value="${d ? d.start : '19:00'}"></div><div class="field"><label for="dEnd">Ends <span class="opt">optional</span></label><input class="input" type="time" id="dEnd" data-k="dEnd" value="${d ? d.end : ''}"></div></div>`}
+        <div class="field"><label for="dTz">Time zone</label><select class="input" id="dTz" data-k="dTz">${zones.map((z) => `<option${(d ? d.tz : deviceTz) === z ? ' selected' : ''}>${z}</option>`).join('')}</select></div>
+        <button class="btn secondary" data-act="poll">Not sure yet? Let guests vote on a date <span class="tag">M4</span></button>
+        <button class="btn" data-act="close">Done</button>
+      </div>`;
+    },
+    location() {
+      const L = state.location;
+      return head('Where') + `<div class="sheet-body">
+        <div class="field"><label for="lName">Place</label><input class="input" id="lName" data-k="lName" value="${esc(L.name)}" placeholder="The Glasshouse" autocomplete="off"></div>
+        <div class="field"><label for="lAddr">Address or link <span class="opt">optional</span></label><input class="input" id="lAddr" data-k="lAddr" value="${esc(L.address)}" placeholder="12 Orchard Lane" autocomplete="off"></div>
+        <p class="fine">Guests get an Open in Maps link. The page loads no map, so nobody is tracked.</p>
+        <button class="btn" data-act="close">Done</button>
+      </div>`;
+    },
+    description() {
+      return head('About') + `<div class="sheet-body">
+        <div class="field"><label for="descText">What should guests expect?</label><textarea class="input area" id="descText" data-k="descText" rows="6" placeholder="Dinner at eight, dancing after. Bring someone if you like.">${esc(state.description)}</textarea></div>
+        <p class="fine">Bold, italics and links work as they do in 0.4.</p>
+        <button class="btn" data-act="close">Done</button>
+      </div>`;
+    },
+    publish() {
+      return head('Your invitation is live', 'Close') + `<div class="sheet-body">
+        <p>Send this link to your guests. They can reply as soon as they open it.</p>
+        <div class="link-box"><span id="pubLink">party.example.org/e/k7Qm2xPa</span><button class="pill primary" data-act="copy">Copy</button></div>
+        <button class="btn secondary" data-act="preview">See it as a guest</button>
+        <p class="fine">You can keep editing. Guests see each change the next time they open the page.</p>
+      </div>`;
+    },
+    rsvp() {
+      const st = sheetState.rsvp, s = state.settings, dr = sheetState.draft;
+      if (sheetState.step === 'done') {
+        const r = state.reply;
+        const title = r.pending ? 'Your reply is with the hosts' : r.status === 'going' ? 'You’re going!' : r.status === 'maybe' ? 'Got it, a maybe' : 'Thanks for letting them know';
+        const text = r.pending ? 'You’ll be on the list once a host approves it.' : r.status === 'cant' ? 'You can change your mind on this page any time.' : 'Keep this page. You can change your reply here any time.';
+        return head(title, 'Close') + `<div class="sheet-body"><p>${text}</p>${r.status !== 'cant' ? `<button class="btn secondary" data-act="calendar">${I('cal', 18)} Add to calendar</button>` : ''}<button class="btn" data-act="close">Done</button></div>`;
+      }
+      const plus = st === 'going' && Number(s.plusOnes) > 0
+        ? `<div class="field"><span class="label">Bringing anyone?</span>${seg('Bringing anyone?', Array.from({ length: Number(s.plusOnes) + 1 }, (_, n) => [n, n === 0 ? 'Just me' : `+${n}`]), 'plus', dr.plus)}</div>` : '';
+      const email = s.email !== 'none' ? `<div class="field"><label for="rEmail">Email <span class="opt">${s.email}</span></label><input class="input" id="rEmail" data-k="rEmail" type="email" autocomplete="email"></div>` : '';
+      const phone = s.phone !== 'none' ? `<div class="field"><label for="rPhone">Phone <span class="opt">${s.phone}</span></label><input class="input" id="rPhone" data-k="rPhone" type="tel" autocomplete="tel"></div>` : '';
+      return head(RSVP_HEAD[st]) + `<div class="sheet-body">
+        ${seg('Your reply', [['going', 'Going'], ['maybe', 'Maybe'], ['cant', 'Can’t go']], 'rsvp-status', st)}
+        <div class="field"><label for="rName">Your name</label><input class="input" id="rName" data-k="rName" value="${esc(dr.name)}" autocomplete="name" aria-describedby="rNameErr"><span class="err" id="rNameErr" hidden>Add your name so the hosts know who’s coming.</span></div>
+        ${plus}${email}${phone}
+        <button class="btn" data-act="send-rsvp">Send RSVP</button>
+        <p class="fine">In the app, the host’s questions and any email code come next, as in 0.4.</p>
+      </div>`;
+    },
+  };
+  const DESIGN = new Set(['poster', 'title', 'theme', 'effect']);
+  function hydrateThumbs() {
+    sheet.querySelectorAll('.thumb').forEach((b) => { const url = galleryUrls[b.dataset.v]; if (url) b.style.backgroundImage = `url("${url}")`; });
+  }
+  function paintSheet() {
+    sheet.innerHTML = SHEETS[sheetState.name]();
+    hydrateThumbs();
+  }
+  function openSheet(name, opener, opts = {}) {
+    const wasOpen = !!sheetState.name;
+    sheetState.name = name;
+    if (!wasOpen) sheetState.opener = opener || document.activeElement;
+    if (opts.tab) sheetState.tab = opts.tab;
+    if (name === 'rsvp') { sheetState.rsvp = opts.status || 'going'; sheetState.step = 'form'; sheetState.draft = { name: state.reply ? state.reply.name : '', plus: state.reply ? state.reply.plus : 0 }; }
+    const design = DESIGN.has(name);
+    sheet.className = 'sheet ' + (design ? 'design' : name === 'settings' ? 'tall' : 'mid') + (wasOpen ? ' open' : '');
+    paintSheet();
+    if (design) { scroller.scrollTop = 0; screen.classList.add('designing'); } else screen.classList.remove('designing');
+    scrim.classList.toggle('dim', !design);
+    scrim.hidden = false; sheet.hidden = false;
+    void sheet.offsetWidth;
+    sheet.classList.add('open'); scrim.classList.add('on');
+    const h = sheet.querySelector('#sheetTitle'); if (h) h.focus({ preventScroll: true });
+    renderBars();
+  }
+  function closeSheet() {
+    if (!sheetState.name) return;
+    const op = sheetState.opener;
+    sheetState.name = null; sheetState.opener = null;
+    sheet.classList.remove('open'); scrim.classList.remove('on'); screen.classList.remove('designing');
+    setTimeout(() => { if (!sheetState.name) { sheet.hidden = true; scrim.hidden = true; sheet.innerHTML = ''; } }, 320);
+    renderBars();
+    if (op && op.isConnected) op.focus({ preventScroll: true });
+  }
+  function refreshSheet() {
+    if (!sheetState.name) return;
+    const active = document.activeElement, k = active && sheet.contains(active) ? active.dataset.k : null;
+    const body = sheet.querySelector('.sheet-body'), top = body ? body.scrollTop : 0;
+    paintSheet();
+    const nb = sheet.querySelector('.sheet-body'); if (nb) nb.scrollTop = top;
+    if (k) { const el = sheet.querySelector(`[data-k="${CSS.escape(k)}"]`); if (el) el.focus({ preventScroll: true }); }
+  }
+
+  // ---------- Actions ----------
+  let saveTimer;
+  function markSaved() {
+    if (state.mode !== 'edit') return;
+    const el = $('#saveState'); if (!el) return;
+    el.textContent = 'Saving…';
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { const e = $('#saveState'); if (e) e.textContent = 'Saved'; }, 650);
+  }
+  function update(fn) { if (fn) fn(); render(); markSaved(); }
+  let toastTimer;
+  function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('on'), 2800); }
+  function setMode(m) { state.mode = m; render(); scroller.scrollTop = 0; }
+
+  function pickGallery(id) {
+    const p = POSTER_BY_ID[id];
+    update(() => { state.poster = { kind: 'gallery', id }; state.font = p.font; state.effect = p.effect; state.place = p.place; state.accent = 'auto'; });
+    refreshSheet();
+  }
+  function applyEmoji() {
+    if (!emo.emojis.length) return;
+    update(() => {
+      const first = !state.poster || state.poster.kind !== 'emoji';
+      state.poster = { kind: 'emoji', emojis: [...emo.emojis], bg: emo.bg, url: emojiArt(emo.emojis, emo.bg) };
+      if (first) { state.place = 'on'; state.accent = 'auto'; }
+    });
+  }
+  function typedEmoji(text) {
+    const parts = typeof Intl.Segmenter === 'function' ? [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].map((x) => x.segment) : Array.from(text);
+    const list = parts.filter((g) => /\p{Extended_Pictographic}/u.test(g)).slice(-3);
+    if (!list.length) return;
+    emo.emojis = list; applyEmoji();
+    const slots = $('#emojiSlots'); if (slots) slots.innerHTML = slotsHtml();
+    sheet.querySelectorAll('.emo').forEach((b) => b.setAttribute('aria-pressed', String(emo.emojis.includes(b.dataset.v))));
+  }
+  function handleUpload(file) {
+    if (!file) return;
+    if (!/^image\//.test(file.type)) { toast('That file isn’t a picture. Choose a JPEG, PNG, WebP or AVIF.'); return; }
+    if (file.size > 10 * 1024 * 1024) { toast('That picture is larger than 10 MB. Choose a smaller one.'); return; }
+    const fr = new FileReader();
+    fr.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const ratio = Math.min(1.8, Math.max(0.62, img.naturalWidth / img.naturalHeight));
+        update(() => { state.poster = { kind: 'upload', src: fr.result, ratio: String(ratio), alt: '' }; state.place = 'below'; state.accent = 'auto'; });
+        refreshSheet();
+      };
+      img.onerror = () => toast('That picture couldn’t be read. Try another.');
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  }
+  function publish() {
+    if (!state.title.trim()) { toast('Add a title before you publish.'); scroller.scrollTop = 0; titleEl.focus(); return; }
+    if (!state.date) { toast('Add a date before you publish.'); openSheet('date', $('#details .row')); return; }
+    state.published = true; render(); openSheet('publish', titleEl);
+  }
+  function sendRsvp() {
+    const input = sheet.querySelector('#rName'), name = input.value.trim();
+    if (!name) { input.setAttribute('aria-invalid', 'true'); sheet.querySelector('#rNameErr').hidden = false; input.focus(); return; }
+    const st = sheetState.rsvp;
+    state.reply = { status: st, name, plus: st === 'going' ? sheetState.draft.plus : 0, pending: state.settings.approval && st !== 'cant' };
+    sheetState.step = 'done';
+    paintSheet();
+    const h = sheet.querySelector('#sheetTitle'); if (h) h.focus({ preventScroll: true });
+    render();
+    if (st === 'going' && !state.reply.pending && state.effect === 'confetti') fx.burst();
+  }
+  async function copyLink() {
+    const el = $('#pubLink');
+    try { await navigator.clipboard.writeText(el.textContent); toast('Link copied'); }
+    catch (e) { const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast('The link is selected. Press Ctrl+C or ⌘C to copy it.'); }
+  }
+
+  screen.addEventListener('click', (ev) => {
+    const t = ev.target.closest('[data-open],[data-act]');
+    if (!t || !screen.contains(t)) return;
+    if (t.dataset.open) {
+      const n = t.dataset.open;
+      if (sheetState.name === n && t.classList.contains('tool')) { closeSheet(); return; }
+      openSheet(n, t, { tab: t.dataset.tab });
+      return;
+    }
+    const v = t.dataset.v;
+    switch (t.dataset.act) {
+      case 'close': closeSheet(); break;
+      case 'exit': toast('In the app this goes back to your events. Everything is already saved.'); break;
+      case 'preview': closeSheet(); setMode('guest'); break;
+      case 'edit': closeSheet(); setMode('edit'); break;
+      case 'publish': publish(); break;
+      case 'share': openSheet('publish', t); break;
+      case 'tab': sheetState.tab = v; refreshSheet(); break;
+      case 'cat': sheetState.cat = v; refreshSheet(); break;
+      case 'pick-gallery': pickGallery(v); break;
+      case 'emoji': { const i = emo.emojis.indexOf(v); if (i >= 0) emo.emojis.splice(i, 1); else { if (emo.emojis.length >= 3) emo.emojis.shift(); emo.emojis.push(v); } applyEmoji(); refreshSheet(); break; }
+      case 'emoji-remove': emo.emojis.splice(Number(v), 1); applyEmoji(); refreshSheet(); break;
+      case 'emoji-bg': emo.bg = v; applyEmoji(); refreshSheet(); break;
+      case 'pick-colour': update(() => { state.poster = { kind: 'colour', id: v }; state.place = 'on'; state.accent = 'auto'; }); refreshSheet(); break;
+      case 'font': update(() => { state.font = v; }); refreshSheet(); break;
+      case 'place': update(() => { state.place = v; }); refreshSheet(); break;
+      case 'accent': update(() => { state.accent = v; }); refreshSheet(); break;
+      case 'tone': update(() => { state.tone = v; }); refreshSheet(); break;
+      case 'effect': update(() => { state.effect = v; }); refreshSheet(); if (v === 'confetti') fx.burst(); break;
+      case 'poll': toast('Date polling is part of M4. It starts here: guests vote, then you pick the date.'); break;
+      case 'stub': toast(t.dataset.msg); break;
+      case 'rsvp': openSheet('rsvp', t, { status: v }); break;
+      case 'rsvp-status': sheetState.rsvp = v; refreshSheet(); break;
+      case 'plus': sheetState.draft.plus = Number(v); refreshSheet(); break;
+      case 'send-rsvp': sendRsvp(); break;
+      case 'copy': copyLink(); break;
+      case 'calendar': toast('This downloads the calendar file, as 0.4 does.'); break;
+      case 'maps': toast('This opens the place in the guest’s maps app, as 0.4 does.'); break;
+      case 'react': state.reacts[Number(v)] = !state.reacts[Number(v)]; renderExtras(); { const b = $(`.react[data-v="${v}"]`); if (b) b.focus(); } break;
+    }
+  });
+  screen.addEventListener('input', (ev) => {
+    const el = ev.target;
+    switch (el.id) {
+      case 'emojiType': typedEmoji(el.value); break;
+      case 'altText': state.poster.alt = el.value; renderPoster(); markSaved(); break;
+      case 'lName': state.location.name = el.value; renderDetails(); markSaved(); break;
+      case 'lAddr': state.location.address = el.value; renderDetails(); markSaved(); break;
+      case 'descText': state.description = el.value; renderDetails(); markSaved(); break;
+      case 'rName': sheetState.draft.name = el.value; if (el.value.trim()) { el.removeAttribute('aria-invalid'); const er = sheet.querySelector('#rNameErr'); if (er) er.hidden = true; } break;
+      case 's-capacity': state.settings.capacity = el.value; markSaved(); break;
+    }
+  });
+  screen.addEventListener('change', (ev) => {
+    const el = ev.target;
+    if (el.id === 'upl') { handleUpload(el.files && el.files[0]); return; }
+    if (el.id === 'dDay') { if (!el.value) return; ensureDate(); state.date.day = el.value; update(); return; }
+    if (el.id === 'dAll') { ensureDate(); state.date.allDay = el.checked; update(); refreshSheet(); return; }
+    if (el.id === 'dStart') { ensureDate(); state.date.start = el.value || '19:00'; update(); return; }
+    if (el.id === 'dEnd') { ensureDate(); state.date.end = el.value; update(); return; }
+    if (el.id === 'dTz') { ensureDate(); state.date.tz = el.value; update(); return; }
+    if (el.dataset.setting && el.dataset.setting !== 'capacity') {
+      const k = el.dataset.setting;
+      state.settings[k] = el.type === 'checkbox' ? el.checked : el.value;
+      markSaved();
+      if (k === 'email' || k === 'comments') refreshSheet();
+    }
+  });
+  screen.addEventListener('submit', (ev) => { ev.preventDefault(); toast('Comments work as they do in 0.4.'); });
+  scrim.addEventListener('click', closeSheet);
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && sheetState.name) { ev.preventDefault(); closeSheet(); } });
+
+  titleEl.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); titleEl.blur(); } });
+  titleEl.addEventListener('paste', (ev) => { ev.preventDefault(); const text = ((ev.clipboardData && ev.clipboardData.getData('text/plain')) || '').replace(/\s+/g, ' '); document.execCommand('insertText', false, text); });
+  titleEl.addEventListener('input', () => {
+    if (!titleEl.textContent) titleEl.innerHTML = '';
+    state.title = titleEl.textContent.replace(/\s+/g, ' ');
+    sizeTitle(); markSaved();
+    if (sheetState.name === 'title') { const sample = (state.title.trim() || 'Aa').slice(0, 18); sheet.querySelectorAll('.font-sample').forEach((s) => { s.textContent = sample; }); }
+  });
+  titleEl.addEventListener('blur', () => { state.title = state.title.trim(); if (titleEl.textContent !== state.title) titleEl.textContent = state.title; });
+
+  $('#nEdit').addEventListener('click', () => { closeSheet(); setMode('edit'); });
+  $('#nGuest').addEventListener('click', () => { closeSheet(); setMode('guest'); });
+  $('#nBlank').addEventListener('click', () => { closeSheet(); state = blank(); emo.emojis = []; render(); scroller.scrollTop = 0; toast('A blank invitation, as a new event opens'); });
+  $('#nExample').addEventListener('click', () => { closeSheet(); state = example(); emo.emojis = []; render(); scroller.scrollTop = 0; });
+
+  // ---------- Effects: sparkles and doodles behind the invitation, confetti in front ----------
+  const fx = (() => {
+    const back = $('#fxBack'), front = $('#fxFront'), bctx = back.getContext('2d'), fctx = front.getContext('2d');
+    let kind = 'none', parts = [], conf = [], raf = 0, w = 0, h = 0;
+    const acc = () => getComputedStyle(screen).getPropertyValue('--acc').trim() || '#ffc36b';
+    function seed() {
+      const r = rng(42);
+      if (kind === 'sparkles') parts = Array.from({ length: 40 }, () => ({ x: r() * w, y: r() * h, s: 0.8 + r() * 2.4, p: r() * TAU, v: 0.5 + r() * 1.5, dy: -0.05 - r() * 0.1 }));
+      else if (kind === 'doodles') parts = Array.from({ length: 10 }, (_, i) => ({ x: r() * w, y: r() * h, s: 14 + r() * 18, k: i % 3, a: r() * TAU, va: (r() - 0.5) * 0.006, vx: (r() - 0.5) * 0.15, vy: -0.1 - r() * 0.15 }));
+      else parts = [];
+    }
+    function size() {
+      const rect = screen.getBoundingClientRect(); w = rect.width; h = rect.height;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      for (const [c, x] of [[back, bctx], [front, fctx]]) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); x.setTransform(dpr, 0, 0, dpr, 0, 0); }
+      seed(); kick();
+    }
+    function drawBack(t) {
+      bctx.clearRect(0, 0, w, h);
+      const still = reduce.matches;
+      if (kind === 'sparkles') {
+        bctx.fillStyle = '#fff';
+        for (const p of parts) {
+          if (!still) { p.y += p.dy; if (p.y < -10) p.y = h + 10; }
+          bctx.globalAlpha = still ? 0.55 : 0.3 + 0.7 * Math.abs(Math.sin(p.p + t * 0.001 * p.v));
+          sparkle(bctx, p.x, p.y, p.s * 2.2);
+        }
+        bctx.globalAlpha = 1;
+      } else if (kind === 'doodles') {
+        bctx.strokeStyle = acc(); bctx.lineWidth = 3; bctx.lineCap = 'round'; bctx.lineJoin = 'round'; bctx.globalAlpha = 0.55;
+        for (const p of parts) {
+          if (!still) { p.x += p.vx; p.y += p.vy; p.a += p.va; if (p.y < -40) p.y = h + 40; if (p.x < -40) p.x = w + 40; if (p.x > w + 40) p.x = -40; }
+          bctx.save(); bctx.translate(p.x, p.y); bctx.rotate(p.a); bctx.beginPath();
+          if (p.k === 0) bctx.arc(0, 0, p.s, 0, TAU);
+          else if (p.k === 1) { bctx.moveTo(-p.s, 0); bctx.quadraticCurveTo(-p.s / 2, -p.s * 0.8, 0, 0); bctx.quadraticCurveTo(p.s / 2, p.s * 0.8, p.s, 0); }
+          else { bctx.moveTo(0, -p.s); bctx.lineTo(p.s * 0.87, p.s * 0.5); bctx.lineTo(-p.s * 0.87, p.s * 0.5); bctx.closePath(); }
+          bctx.stroke(); bctx.restore();
+        }
+        bctx.globalAlpha = 1;
+      }
+    }
+    function drawFront() {
+      fctx.clearRect(0, 0, w, h);
+      for (const c of conf) { c.vy += 0.05; c.x += c.vx; c.y += c.vy; c.a += c.va; fctx.save(); fctx.translate(c.x, c.y); fctx.rotate(c.a); fctx.fillStyle = c.c; fctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h); fctx.restore(); }
+      conf = conf.filter((c) => c.y < h + 30);
+    }
+    function frame(t) {
+      raf = 0; drawBack(t); drawFront();
+      if ((!reduce.matches && (kind === 'sparkles' || kind === 'doodles')) || conf.length) raf = requestAnimationFrame(frame);
+    }
+    function kick() { if (!raf) raf = requestAnimationFrame(frame); }
+    return {
+      size,
+      set(k) { if (k === kind) return; kind = k; seed(); kick(); },
+      burst() {
+        if (reduce.matches) return;
+        const cols = [acc(), '#ffffff', '#ff8fc0', '#8fe6c2', '#a5b4fc', '#ffd166'];
+        for (let i = 0; i < 150; i++) conf.push({ x: w * (0.15 + Math.random() * 0.7), y: -10 - Math.random() * h * 0.4, vx: (Math.random() - 0.5) * 2.4, vy: 1 + Math.random() * 2.5, a: Math.random() * TAU, va: (Math.random() - 0.5) * 0.25, w: 6 + Math.random() * 6, h: 3 + Math.random() * 4, c: cols[i % cols.length] });
+        kick();
+      },
+    };
+  })();
+  new ResizeObserver(() => fx.size()).observe(screen);
+  reduce.addEventListener('change', () => fx.size());
+
+  // ---------- Start ----------
+  render();
+  // Draw the rest of the gallery a poster at a time, so the first screen shows at once.
+  const queue = POSTERS.map((p) => p.id).filter((id) => !galleryUrls[id]);
+  (function next() {
+    const id = queue.shift(); if (!id) return;
+    posterArt(id);
+    if (sheetState.name === 'poster') hydrateThumbs();
+    setTimeout(next, 0);
+  })();
+})();
+</script>
+
+</body></html>
