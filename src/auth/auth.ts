@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { magicLink } from "better-auth/plugins";
 import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
+import { deleteHostPhotos } from "@/album/repository";
 import { deleteHostEvents } from "@/events/repository";
 import { admitNewHost, seatAdmittedHost, seatVerifiedHost } from "@/instance/admission";
 import { authSecret, baseUrl } from "@/instance/env";
@@ -96,7 +97,8 @@ function createAuth() {
       changeEmail: { enabled: true, updateEmailWithoutVerification: !mail },
       // The host's events would cascade with the account in the database, but their uploaded
       // files are not in it: the events go first, through the one path that removes those too.
-      deleteUser: { enabled: true, beforeDelete: (host) => deleteHostEvents(host.id) },
+      // Their events go, and their photos in albums of events they co-host, with the files of both.
+      deleteUser: { enabled: true, beforeDelete: async (host) => Promise.all([deleteHostEvents(host.id), deleteHostPhotos(host.id)]).then(() => undefined) },
     },
     // Every new host is created here, whichever way they signed up: email and password, Google,
     // or GitHub. `before` lets them in or refuses them by the registration mode (instance/

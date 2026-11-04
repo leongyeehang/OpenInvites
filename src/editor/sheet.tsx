@@ -6,12 +6,13 @@ import { Dialog } from "radix-ui";
 import { useRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-// A sheet of the editor (M4 spec, "The editor"): from the foot of the screen on a phone, as a panel
-// down the right on a wider one, in a dark frosted look, so it reads over any poster. It is a
+// A sheet of the editor (M4 spec, "The editor"): from the foot of the screen below lg, as a panel
+// down the right from lg (ticket 10), in a dark frosted look, so it reads over any poster. It is a
 // dialog: its heading has the focus as it opens, Escape closes it, and the focus goes back to
-// whatever opened it. A design sheet (Poster, Title, Theme, Effect) takes half a phone's screen,
-// and the invitation shrinks above it to a live copy (globals.css, design-sheet), which a tap
-// closes it from: nothing dims it.
+// whatever opened it. A design sheet (Poster, Title, Theme, Effect) takes half a small screen, and
+// the invitation shrinks above it to a live copy (globals.css, design-sheet), which a tap closes it
+// from: nothing dims it. Beside a panel, the invitation keeps its size and slides clear of it
+// (editor-sheet-open).
 export function EditorSheet({
   open,
   onOpenChange,
@@ -56,8 +57,8 @@ export function EditorSheet({
           className={cn(
             "dark fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden rounded-t-3xl border-t bg-popover/95 text-popover-foreground shadow-2xl backdrop-blur-2xl outline-none",
             design ? "h-[52dvh]" : tall ? "max-h-[88dvh]" : "max-h-[75dvh]",
-            "md:inset-y-3 md:right-3 md:h-auto md:left-auto md:max-h-none md:w-96 md:rounded-3xl md:border",
-            "motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:slide-in-from-bottom motion-safe:md:data-[state=open]:slide-in-from-bottom-0 motion-safe:md:data-[state=open]:slide-in-from-right",
+            "lg:inset-y-3 lg:right-3 lg:h-auto lg:left-auto lg:max-h-none lg:w-96 lg:rounded-3xl lg:border",
+            "motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:slide-in-from-bottom motion-safe:lg:data-[state=open]:slide-in-from-bottom-0 motion-safe:lg:data-[state=open]:slide-in-from-right",
           )}
         >
           <header className="flex items-start justify-between gap-3 border-b px-5 py-3.5">

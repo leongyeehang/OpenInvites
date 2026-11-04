@@ -9,6 +9,7 @@ import { BackgroundDescription } from "./background-description";
 import { BroadsheetGuestList, type BroadsheetGuests } from "./broadsheet-guest-list";
 import { BroadsheetTitle } from "./broadsheet-title";
 import { AnnouncementsSection, type ShownAnnouncement } from "./sections/announcements-section";
+import { ALBUM_HEADING } from "./sections/album-section";
 import { COMMENTS_HEADING, CommentsSection } from "./sections/comments-section";
 
 // The Broadsheet layout (spec, "Broadsheet", from the prototype's layout-broadsheet.tsx): an
@@ -30,6 +31,7 @@ export async function BroadsheetLayout({
   announcements,
   comments,
   commentForm,
+  album,
   notice,
   rsvp,
   guests,
@@ -47,6 +49,8 @@ export async function BroadsheetLayout({
   // form that posts one, shown where they may.
   comments?: CommentsShown;
   commentForm?: ReactNode;
+  // The photo album (M4 ticket 11), as this viewer may see it.
+  album?: ReactNode;
   notice?: ReactNode;
   // The ballot: the RSVP flow as the Broadsheet presents it.
   rsvp?: ReactNode;
@@ -118,6 +122,11 @@ export async function BroadsheetLayout({
           {comments && (
             <Section label={t("comments.title")} slot="comments" headingId={COMMENTS_HEADING}>
               <CommentsSection comments={comments} form={commentForm} slug={event.slug} timeZone={event.timeZone} />
+            </Section>
+          )}
+          {album && (
+            <Section label={t("album.title")} slot="album" headingId={ALBUM_HEADING}>
+              {album}
             </Section>
           )}
         </div>

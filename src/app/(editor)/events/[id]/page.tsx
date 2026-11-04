@@ -27,6 +27,31 @@ import { PosterLayout } from "@/themes/poster-layout";
 import { ThemedPage } from "@/themes/themed-page";
 import { findEventUpload } from "@/uploads/repository";
 import { themeUpload } from "@/uploads/uploads";
+import type { EditablePoll } from "@/editor/poll-sheet";
+import { formatOption } from "@/polls/format";
+import { leading, pollState, tally } from "@/polls/poll";
+import { loadPoll } from "@/polls/repository";
+
+// The poll as the When sheet shows it: each candidate as typed and as read, with its votes by name.
+async function editablePoll(eventId: string, open: boolean, canStart: boolean, locale: string): Promise<EditablePoll> {
+  const { options, voters, votes } = await loadPoll(eventId);
+  const tallies = tally(options, votes, voters);
+  const lead = new Set(leading(tallies));
+  return {
+    open,
+    canStart,
+    voters: voters.length,
+    options: options.map((option, index) => ({
+      id: option.id,
+      day: option.day,
+      startTime: option.startTime ?? "",
+      endTime: option.endTime ?? "",
+      label: formatOption(option, locale),
+      ...tallies[index],
+      leading: lead.has(option.id),
+    })),
+  };
+}
 
 export async function generateMetadata({ params }: PageProps<"/events/[id]">): Promise<Metadata> {
   const [host, { id }, t] = await Promise.all([requireHost(), params, getTranslations("Editor")]);
@@ -61,9 +86,13 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
   // "Retention").
   const deletion = deletionDate(event, limits.retentionDays, retentionFloorDays());
   const dated = isDated(event) ? event : undefined;
+  // The date poll (M4 ticket 09): a draft may start one; one open shows its candidates and votes.
+  const pollNow = pollState(event);
+  const poll = pollNow === "open" || (event.state === "draft" && pollNow === "none") ? await editablePoll(event.id, pollNow === "open", event.state === "draft", locale) : undefined;
   const details: EditableDetails = {
     eventId: event.id,
-    when: dated ? formatWhen(dated, locale) : null,
+    poll,
+    when: dated ? formatWhen(dated, locale) : poll?.open ? editor("poll.whenPoll", { count: poll.voters }) : null,
     start: dated ? toWallTime(dated.startsAt, event.timeZone) : "",
     end: event.endsAt ? toWallTime(event.endsAt, event.timeZone) : "",
     allDay: event.allDay,
@@ -84,10 +113,10 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
     ...(deletion ? [t("deletionDate", { date: formatDay(deletion, event.timeZone, locale) })] : []),
   ];
 
-  // The Poster layout brings the comments' reactions with it, which read EventPage.comments, though
-  // the editor shows no comments.
+  // The Poster layout brings the comments' reactions and the album with it, which read
+  // EventPage.comments and EventPage.album, though the editor shows neither.
   return (
-    <ClientMessages namespaces={["Editor", "Design", "Posters", "Events.form", "Events.manage", "EventPage.comments"]}>
+    <ClientMessages namespaces={["Editor", "Design", "Posters", "Events.form", "Events.manage", "EventPage.comments", "EventPage.album"]}>
       <EditorProvider>
         <ThemedPage
           theme={event.theme}

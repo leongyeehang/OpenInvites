@@ -7,6 +7,7 @@ import { findHostInvitation, isOperator } from "@/instance/repository";
 import { findInviteByToken } from "@/invites/repository";
 import { consume, retryAfter } from "@/rate-limit/rate-limit";
 import { reportableEventExists } from "@/reports/repository";
+import { findEventForVoterToken } from "@/polls/repository";
 import { findByMailToken, findEventForToken } from "@/rsvps/repository";
 
 // Requests the rate limits count before any route sees them (spec, "Operator configuration").
@@ -48,7 +49,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/e/:path*", "/i/:path*", "/r/:path*", "/m/:path*", "/host-invitation/:path*", "/co-host/:path*", "/events/:path*", "/instance", "/instance/reports"],
+  matcher: ["/e/:path*", "/i/:path*", "/r/:path*", "/v/:path*", "/m/:path*", "/host-invitation/:path*", "/co-host/:path*", "/events/:path*", "/instance", "/instance/reports"],
 };
 
 // A page's notFound() cannot be drawn on the server. React's server renderer has no error
@@ -77,10 +78,13 @@ async function notFoundHere(pathname: string, headers: Headers): Promise<boolean
   // An edit link no RSVP has (r/[token]).
   const editLink = pathname.match(/^\/r\/([^/]+)$/);
   if (editLink) return !(await findEventForToken(decoded(editLink[1])));
+  // A voter's private link no voter has (v/[token], M4 ticket 09).
+  const voterLink = pathname.match(/^\/v\/([^/]+)$/);
+  if (voterLink) return !(await findEventForVoterToken(decoded(voterLink[1])));
   // A personal invite link no invite has, never made or deleted (i/[token]).
   const inviteLink = pathname.match(/^\/i\/([^/]+)$/);
   if (inviteLink) return !(await findInviteByToken(decoded(inviteLink[1])));
-  // A stop link, at the foot of an email to a guest, that no RSVP has (m/[token]).
+  // A stop link, at the foot of an email to a guest, that no RSVP or voter has (m/[token]).
   const stopLink = pathname.match(/^\/m\/([^/]+)$/);
   if (stopLink) return !(await findByMailToken(decoded(stopLink[1])));
   // A host invitation link that was never made (host-invitation/[token]); one that is used, revoked,

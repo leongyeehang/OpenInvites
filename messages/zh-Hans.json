@@ -223,6 +223,8 @@
       "maxEventsPerHostHint": "计入主办人名下的每一场活动，包括草稿和已结束的活动。",
       "maxRsvpsPerEvent": "每场活动的回复数",
       "maxRsvpsPerEventHint": "计入一场活动收到的每一条回复，无论回复的是什么。",
+      "maxPhotosPerEvent": "每个活动的照片数",
+      "maxPhotosPerEventHint": "每个活动相册中宾客和主办人最多可添加的照片数量。",
       "retentionDays": "活动保留天数",
       "retentionDaysHint": "活动结束后保留的天数，可填 30 到 3,650。到期后，活动连同宾客名单和其他所有相关内容都会被删除。删除前 30 天会提醒活动的主办人，提醒后至少过 30 天才会删除。",
       "keepForever": "永久保留",
@@ -230,6 +232,7 @@
       "saved": "已保存。",
       "maxEventsPerHostInvalid": "请为每位主办人的活动数填写 1 到 100,000 之间的整数。",
       "maxRsvpsPerEventInvalid": "请为每场活动的回复数填写 1 到 100,000 之间的整数。",
+      "maxPhotosPerEventInvalid": "请为每个活动的照片数填写 1 到 100,000 之间的整数。",
       "retentionDaysInvalid": "请为活动保留天数填写 30 到 3,650 之间的整数，或勾选“永久保留”。"
     },
     "invitations": {
@@ -367,6 +370,10 @@
     "retentionWarning": {
       "subject": "“{title}”将于 {date} 删除",
       "body": "“{title}”将于 {date} 删除，宾客名单和其他所有相关内容也会一并删除。\n\n这个实例上的活动会在结束 {days, plural, other {# 天}}后删除，这是实例对所有活动的规定。\n\n如果想保留活动详情以后再用，请在删除前打开活动，选择“复制活动”。副本会保留详情、外观、问题和设置，但不包括宾客。记得给副本设定新的日期。\n\n你的活动：\n{url}"
+    },
+    "dateSet": {
+      "subject": "日期已确定：{title}",
+      "body": "{name}，你好：\n\n主办人已为「{title}」选定日期：{when}。\n\n告诉主办人你能否参加：\n{url}"
     }
   },
   "Events": {
@@ -478,7 +485,15 @@
       "tooManyQuestions": "一份邀请最多只能有 10 个问题。",
       "descriptionTooLong": "活动介绍太长了，邀请装不下。",
       "descriptionUnreadable": "无法读取活动介绍。请先把它复制到安全的地方，然后重试。",
-      "limitReached": "你已有 {count, plural, other {# 场活动}}，这是本实例允许的上限。删除一场不再需要的活动，才能再创建新的。"
+      "limitReached": "你已有 {count, plural, other {# 场活动}}，这是本实例允许的上限。删除一场不再需要的活动，才能再创建新的。",
+      "pollTooFew": "请至少提供两个日期。",
+      "pollTooMany": "最多提供六个日期。",
+      "pollDayInvalid": "有一个日期无效。",
+      "pollTimeInvalid": "有一个时间无效。",
+      "pollEndBeforeStart": "填写结束时间前，请先填写开始时间，且结束要晚于开始。",
+      "pollDuplicate": "同一个日期和时间提供了两次。",
+      "pollHasVotes": "已经有宾客投票了，请从他们投票的日期中选一个。",
+      "pollNotNow": "现在不能让宾客投票决定日期。"
     },
     "manage": {
       "link": "活动链接",
@@ -680,7 +695,73 @@
     "openInMaps": "在地图中打开",
     "retiredTitle": "这个链接已失效",
     "retired": "主办人已经换了新链接，请向主办人索取。",
-    "retiredDeleted": "这个活动已被删除。"
+    "retiredDeleted": "这个活动已被删除。",
+    "poll": {
+      "toBeDecided": "日期待定",
+      "vote": "投票选日期",
+      "changeVotes": "修改我的投票",
+      "title": "哪些日期你可以？",
+      "intro": "主办人会选出最多人能来的日期。",
+      "name": "你的名字",
+      "email": "邮箱（可选）",
+      "emailHint": "日期确定后，你会收到邮件。",
+      "yes": "可以",
+      "ifNeedBe": "勉强可以",
+      "no": "不行",
+      "send": "提交投票",
+      "sent": "谢谢，{name}。你的投票已提交。",
+      "editLink": "这是你的专属链接，之后可用来修改投票，也已保存在此浏览器中。",
+      "count": "{count, plural, =0 {还没有人投票} other {已有 # 人投票}}",
+      "yesCount": "{count, plural, other {# 人可以}}",
+      "close": "关闭",
+      "errors": {
+        "nameRequired": "请填写你的名字。",
+        "nameTooLong": "名字太长了，请控制在 80 个字符以内。",
+        "emailInvalid": "这个邮箱看起来不对。",
+        "voteMissing": "请回答每一个日期。",
+        "closed": "日期投票已经结束。",
+        "tooFast": "操作太频繁了，请稍后再试。",
+        "checkFailed": "验证未通过，请再试一次。"
+      }
+    },
+    "album": {
+      "title": "照片",
+      "opensOn": "相册将于 {date} 开放，届时再来添加你的照片。",
+      "locked": "回复后即可查看相册并添加你的照片。",
+      "lockedCount": "{count, plural, =0 {还没有照片} other {# 张照片}}",
+      "empty": "还没有照片，来添加第一张吧。",
+      "add": "添加照片",
+      "hint": "每次最多十张，每张不超过 {max, number} MB。",
+      "adding": "正在添加 {count, plural, other {# 张照片}}…",
+      "added": "{name}：已添加",
+      "refusedFile": "{name}：{reason}",
+      "problems": {
+        "tooLarge": "超过 {max, number} MB",
+        "unsupported": "不是 JPEG、PNG、WebP 或 AVIF 图片",
+        "tooManyPixels": "像素过多"
+      },
+      "errors": {
+        "tooFast": "操作太频繁了，请稍后再试。",
+        "closed": "相册尚未开放。",
+        "notAllowed": "只有已回复的宾客和主办人可以添加照片。",
+        "tooMany": "每次最多添加十张照片。",
+        "albumFull": "{left, plural, =0 {相册已满。} other {相册还能再放 # 张照片。}}",
+        "tooLarge": "这些照片加起来太大了，请分几次添加。",
+        "failed": "照片未能上传，请再试一次。"
+      },
+      "open": "{name} 的第 {n} 张照片",
+      "viewer": "第 {n} 张，共 {count} 张",
+      "by": "由 {name} 添加",
+      "previous": "上一张",
+      "next": "下一张",
+      "close": "关闭",
+      "download": "下载",
+      "delete": "删除",
+      "deleteTitle": "要删除这张照片吗？",
+      "deleteText": "所有人都将看不到它，且无法恢复。",
+      "deleteConfirm": "删除",
+      "keep": "保留"
+    }
   },
   "Design": {
     "upload": "上传你的照片或海报",
@@ -894,6 +975,31 @@
     "publishing": {
       "needsTitle": "请先添加标题。",
       "needsDate": "请先设置日期。"
+    },
+    "poll": {
+      "letGuestsVote": "还没确定？让宾客投票",
+      "pollIntro": "提供两到六个日期。宾客对每个日期回答「可以」「勉强可以」或「不行」，再由你选定一个。",
+      "candidate": "日期 {n}",
+      "startTime": "开始时间 {n}（可选）",
+      "endTime": "结束时间 {n}（可选）",
+      "addCandidate": "添加日期",
+      "removeCandidate": "移除日期 {n}",
+      "setDateInstead": "改为直接设定日期",
+      "whenPoll": "日期待定 · {count, plural, =0 {还没有投票} other {# 票}}",
+      "votesTitle": "投票",
+      "votesIntro": "选出最合适的日期。它会成为活动日期，并通知留下邮箱的宾客。",
+      "noVotesYet": "还没有投票。邀请发布并分享后，宾客就能投票。",
+      "leading": "最多人能来",
+      "yes": "可以",
+      "ifNeedBe": "勉强可以",
+      "no": "不行",
+      "pick": "选定这个日期",
+      "pickLabel": "选定 {date}",
+      "pickTitle": "选定 {date}？",
+      "pickText": "它会成为活动日期，投票随即永久结束。留下邮箱的宾客会收到通知。",
+      "pickConfirm": "选定",
+      "pickKeep": "再等等",
+      "editCandidates": "修改日期"
     }
   },
   "Guests": {

@@ -41,7 +41,7 @@ export function EditorToolbar({ sheets }: { sheets: ReactNode }) {
     <>
       <nav
         aria-label={t("toolbar")}
-        className="dark fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 mx-auto grid max-w-[26rem] grid-cols-5 gap-1 rounded-[1.6rem] border bg-popover/90 p-1.5 text-popover-foreground shadow-xl backdrop-blur-xl"
+        className="dark fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 mx-auto grid max-w-[26rem] grid-cols-5 gap-1 rounded-[1.6rem] border bg-popover/90 p-1.5 text-popover-foreground shadow-xl backdrop-blur-xl transition-transform duration-300 ease-out motion-reduce:transition-none editor-sheet-open:lg:translate-x-[min(0px,calc(50vw-40rem))]"
       >
         {TOOLS.map(({ sheet: name, icon: Icon }) => (
           <button

@@ -56,7 +56,7 @@ export function LimitsForm({ limits }: { limits: Limits }) {
   return (
     <form action={action}>
       <FieldGroup>
-        {(["maxEventsPerHost", "maxRsvpsPerEvent"] as const).map((name) => (
+        {(["maxEventsPerHost", "maxRsvpsPerEvent", "maxPhotosPerEvent"] as const).map((name) => (
           <Field key={name}>
             <FieldLabel htmlFor={name}>{t(name)}</FieldLabel>
             <Input id={name} name={name} type="number" inputMode="numeric" min={LIMIT_MIN} max={LIMIT_MAX} step={1} defaultValue={limits[name]} required />

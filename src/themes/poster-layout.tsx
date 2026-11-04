@@ -1,4 +1,4 @@
-import { AlignLeft, Clock, MapPin, MessageCircle } from "lucide-react";
+import { AlignLeft, Clock, Images, MapPin, MessageCircle } from "lucide-react";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import type { ComponentType, ReactNode } from "react";
 import type { CommentsShown } from "@/comments/visibility";
@@ -9,6 +9,7 @@ import { RichTextView } from "@/rich-text/rich-text-view";
 import { Glass } from "./glass";
 import { PosterHero } from "./poster-card";
 import { AnnouncementsSection, type ShownAnnouncement } from "./sections/announcements-section";
+import { ALBUM_HEADING } from "./sections/album-section";
 import { COMMENTS_HEADING, CommentsSection } from "./sections/comments-section";
 
 // The Poster layout, poster first (M4 spec, "The guest page"): the poster as wide as the page's
@@ -29,6 +30,8 @@ export async function PosterLayout({
   underWhen,
   underWhere,
   calendar,
+  poll,
+  album,
   edit,
 }: {
   // A draft may have no date yet, which only its hosts see: then there is no When.
@@ -48,6 +51,11 @@ export async function PosterLayout({
   underWhen?: ReactNode;
   underWhere?: ReactNode;
   calendar?: ReactNode;
+  // While guests vote on the date (M4 ticket 09): what the poster says in place of a date, and what
+  // the When row holds, the candidates and the way into the vote.
+  poll?: { label: string; when: ReactNode };
+  // The photo album (M4 ticket 11), as this viewer may see it.
+  album?: ReactNode;
   // The editor (M4 spec, "The editor"): the title typed on the poster, at either size, and the
   // details list it edits, in place of the guest's; nothing else of the guest's page is shown.
   edit?: { title: { full: ReactNode; compact: ReactNode }; details: ReactNode; foot?: ReactNode };
@@ -57,12 +65,12 @@ export async function PosterLayout({
   return (
     // Above an editor's design sheet on a phone, a live copy, half its size: moved, never laid out
     // again, and simply there under reduced motion.
-    <main className="mx-auto w-full max-w-[28rem] origin-top pb-8 transition-transform duration-300 ease-out motion-reduce:transition-none design-sheet:max-md:translate-y-14 design-sheet:max-md:scale-50">
+    <main className="mx-auto w-full max-w-[28rem] origin-top pb-8 transition-transform duration-300 ease-out motion-reduce:transition-none design-sheet:max-lg:translate-y-14 design-sheet:max-lg:scale-50 editor-sheet-open:lg:translate-x-[min(0px,calc(50vw-40rem))]">
       {notice && <div className="px-4 pt-4">{notice}</div>}
 
       <PosterHero
         title={event.title}
-        when={isDated(event) ? formatWhenBrief(event, locale) : undefined}
+        when={isDated(event) ? formatWhenBrief(event, locale) : poll?.label}
         editable={edit?.title}
         className={cn(invitationEntrance, "motion-safe:delay-0")}
       />
@@ -86,12 +94,18 @@ export async function PosterLayout({
       ) : (
         <div className="flex flex-col gap-3 px-4 pt-5">
           <Glass data-slot="details" className={cn("divide-y divide-theme-glass-border overflow-hidden rounded-[1.75rem]", entrance, "motion-safe:delay-200")}>
-            {isDated(event) && (
+            {isDated(event) ? (
               <DetailRow icon={Clock} label={t("when")}>
                 <p className="text-base leading-snug font-medium">{formatWhen(event, locale)}</p>
                 {underWhen}
                 {calendar && <div className="mt-3">{calendar}</div>}
               </DetailRow>
+            ) : (
+              poll && (
+                <DetailRow icon={Clock} label={t("when")} slot="poll">
+                  {poll.when}
+                </DetailRow>
+              )
             )}
             {event.location && (
               <DetailRow icon={MapPin} label={t("where")}>
@@ -121,6 +135,15 @@ export async function PosterLayout({
                 {t("comments.title")}
               </SectionLabel>
               <CommentsSection comments={comments} form={commentForm} slug={event.slug} timeZone={event.timeZone} />
+            </Glass>
+          )}
+
+          {album && (
+            <Glass data-slot="album" className={cn("rounded-[1.75rem] p-5", entrance, "motion-safe:delay-400")}>
+              <SectionLabel icon={Images} id={ALBUM_HEADING}>
+                {t("album.title")}
+              </SectionLabel>
+              {album}
             </Glass>
           )}
         </div>

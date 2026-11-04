@@ -39,6 +39,7 @@ export async function setInstanceLimitsAction(_: FormState, formData: FormData):
   const parsed = parseLimits({
     maxEventsPerHost: text("maxEventsPerHost"),
     maxRsvpsPerEvent: text("maxRsvpsPerEvent"),
+    maxPhotosPerEvent: text("maxPhotosPerEvent"),
     retentionDays: text("retentionDays"),
     keepForever: formData.get("keepForever") === "on",
   });

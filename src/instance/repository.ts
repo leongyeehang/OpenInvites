@@ -26,6 +26,7 @@ export const instanceLimits = cache(async (): Promise<Limits> => {
     .select({
       maxEventsPerHost: instanceSettings.maxEventsPerHost,
       maxRsvpsPerEvent: instanceSettings.maxRsvpsPerEvent,
+      maxPhotosPerEvent: instanceSettings.maxPhotosPerEvent,
       retentionDays: instanceSettings.retentionDays,
     })
     .from(instanceSettings);

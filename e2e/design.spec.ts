@@ -198,7 +198,7 @@ test("a design sheet takes half a phone's screen over a live copy, which a tap c
   await expect(sheet.getByRole("heading", { name: "Effect" })).toBeFocused();
   await sheet.evaluate((element) => Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)));
   const panel = (await sheet.boundingBox())!;
-  if (viewport.width < 768) {
+  if (viewport.width < 1024) {
     // Edge to edge from the foot, half the screen, and the invitation a copy at half its size above.
     expect(panel.x).toBe(0);
     expect(Math.round(panel.y + panel.height)).toBe(viewport.height);

@@ -8,7 +8,10 @@ import { requireHost } from "@/auth/session";
 import { hostNeedsVerification } from "@/auth/verification";
 import { can } from "@/hosts/role";
 import type { FormState } from "@/lib/form-state";
+import { queueGuestMail } from "@/mail/queue-guest-mail";
 import { kickMailWorker } from "@/mail/worker";
+import { parseOptions, pollState, whenOf, type OptionInput } from "@/polls/poll";
+import { countVoters, dropUnvotedPoll, findOption, openPoll, pickDate } from "@/polls/repository";
 import { parseQuestions } from "@/questions/question";
 import { saveQuestions } from "@/questions/repository";
 import { EMPTY_RICH_TEXT, parseRichText, richTextToPlain } from "@/rich-text/rich-text";
@@ -17,8 +20,8 @@ import { parseEventSettings, parseWhen, type WhenFields } from "./form";
 import { eventsOwnedAtLimit } from "./limit";
 import { missingToPublish } from "./publish";
 import { createEvent, findHostEvent, publishEvent, updateEvent, type Event, type EventChanges } from "./repository";
-import { eventPaths } from "./slug";
-import { isTimeZone } from "./time";
+import { eventPaths, eventUrl } from "./slug";
+import { formatWhen, isTimeZone } from "./time";
 
 // The editor's actions (M4 spec, "The editor"): a new event starts as a blank draft, and each piece
 // of it is saved on its own as the host makes it, through the rules the 0.4 form followed
@@ -100,7 +103,60 @@ export async function saveWhenAction(id: string, fields: WhenFields): Promise<Sa
   if (!found) return { saved: false, error: t("errors.notFound") };
   const when = parseWhen(fields);
   if (!when.ok) return { saved: false, error: t(`errors.${when.error}`) };
+  // A date set by hand replaces a poll nobody has voted on; one with votes is decided by picking.
+  if (pollState(found.event) === "open") {
+    if ((await countVoters(found.event.id)) > 0) return { saved: false, error: t("errors.pollHasVotes") };
+    await dropUnvotedPoll(found.event.id);
+  }
   return save(found.host.id, found.event, when.when);
+}
+
+// "Not sure yet? Let guests vote" (M4 ticket 09): the date becomes a poll of two to six
+// candidates. A draft, or a published event already polling, may; candidates change only while
+// nobody has voted.
+export async function savePollAction(id: string, posted: OptionInput[]): Promise<SaveResult> {
+  const found = await editable(id);
+  const t = await getTranslations("Events");
+  if (!found) return { saved: false, error: t("errors.notFound") };
+  const { event } = found;
+  if (event.state === "cancelled" || pollState(event) === "closed" || (event.state === "published" && pollState(event) !== "open")) {
+    return { saved: false, error: t("errors.pollNotNow") };
+  }
+  const options = parseOptions(posted);
+  if (!options.ok) return { saved: false, error: t(`errors.${options.error}`) };
+  if ((await openPoll(event.id, options.options)) === "hasVotes") return { saved: false, error: t("errors.pollHasVotes") };
+  for (const path of eventPaths(event)) revalidatePath(path);
+  revalidatePath(`/events/${event.id}`);
+  return { saved: true };
+}
+
+// "Pick this date": the candidate becomes the event's date, the poll closes for good, and every
+// voter who gave an email is told, in the language they voted in, with the link to reply.
+export async function pickDateAction(id: string, optionId: string): Promise<SaveResult> {
+  const found = await editable(id);
+  const t = await getTranslations("Events");
+  if (!found) return { saved: false, error: t("errors.notFound") };
+  const { event } = found;
+  const option = await findOption(event.id, optionId);
+  if (!option || pollState(event) !== "open") return { saved: false, error: t("errors.pollNotNow") };
+  const when = parseWhen(whenOf(option, event.timeZone));
+  if (!when.ok) return { saved: false, error: t(`errors.${when.error}`) };
+  const voters = await pickDate(event.id, when.when);
+  if (!voters) return { saved: false, error: t("errors.pollNotNow") };
+  const time = { ...when.when, timeZone: event.timeZone };
+  const url = eventUrl(event);
+  await queueGuestMail(
+    event,
+    voters,
+    (voter, mail) => ({
+      subject: mail("Mail.dateSet.subject", { title: event.title }),
+      body: mail("Mail.dateSet.body", { name: voter.name, title: event.title, when: formatWhen(time, voter.locale), url }),
+    }),
+    "the date picked for",
+  );
+  for (const path of eventPaths(event)) revalidatePath(path);
+  revalidatePath(`/events/${event.id}`);
+  return { saved: true };
 }
 
 // Where, from its sheet: a place, an address or a link, or nothing.

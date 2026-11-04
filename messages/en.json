@@ -223,6 +223,8 @@
       "maxEventsPerHostHint": "Counts every event a host owns, drafts and past events included.",
       "maxRsvpsPerEvent": "Replies per event",
       "maxRsvpsPerEventHint": "Counts every reply to an event, whatever its answer.",
+      "maxPhotosPerEvent": "Photos per event",
+      "maxPhotosPerEventHint": "How many photos guests and hosts can add to one event’s album.",
       "retentionDays": "Keep events for",
       "retentionDaysHint": "Days after an event ends, from 30 to 3,650, before it is deleted with its guest list and everything else about it. Its hosts are warned 30 days before, and nothing is deleted sooner than 30 days after the warning.",
       "keepForever": "Keep forever",
@@ -230,6 +232,7 @@
       "saved": "Saved.",
       "maxEventsPerHostInvalid": "Enter a whole number from 1 to 100,000 for events per host.",
       "maxRsvpsPerEventInvalid": "Enter a whole number from 1 to 100,000 for replies per event.",
+      "maxPhotosPerEventInvalid": "Enter a whole number from 1 to 100,000 for photos per event.",
       "retentionDaysInvalid": "Enter a whole number of days from 30 to 3,650 to keep events for, or tick Keep forever."
     },
     "invitations": {
@@ -367,6 +370,10 @@
     "retentionWarning": {
       "subject": "{title} will be deleted on {date}",
       "body": "{title} will be deleted on {date}, with its guest list and everything else about it.\n\nEvents on this instance are kept {days, plural, one {# day} other {# days}} after they end; that is the instance’s rule for every event.\n\nTo keep the details for another time, open the event before then and choose Duplicate. The copy keeps the details, look, questions and settings, but not the guests. Give it its new date.\n\nYour event:\n{url}"
+    },
+    "dateSet": {
+      "subject": "The date is set: {title}",
+      "body": "Hi {name},\n\nThe host has picked the date for {title}: {when}.\n\nLet them know if you can come:\n{url}"
     }
   },
   "Events": {
@@ -478,7 +485,15 @@
       "tooManyQuestions": "Ten questions is the most an invitation can carry.",
       "descriptionTooLong": "That description is longer than an invitation can carry.",
       "descriptionUnreadable": "The description could not be read. Copy it somewhere safe and try again.",
-      "limitReached": "You have {count, plural, one {# event} other {# events}}, the most this instance allows. Delete an event you no longer need to make another."
+      "limitReached": "You have {count, plural, one {# event} other {# events}}, the most this instance allows. Delete an event you no longer need to make another.",
+      "pollTooFew": "Offer at least two dates.",
+      "pollTooMany": "Offer six dates at most.",
+      "pollDayInvalid": "One of the dates isn’t a real date.",
+      "pollTimeInvalid": "One of the times isn’t a time of day.",
+      "pollEndBeforeStart": "An end time needs a start time before it.",
+      "pollDuplicate": "The same date and time is offered twice.",
+      "pollHasVotes": "Guests have voted already. Pick one of their dates instead.",
+      "pollNotNow": "The date can’t be put to a vote now."
     },
     "manage": {
       "link": "Event link",
@@ -680,7 +695,73 @@
     "openInMaps": "Open in Maps",
     "retiredTitle": "This link is no longer valid",
     "retired": "The host has issued a new link for this event. Ask them for it.",
-    "retiredDeleted": "This event has been deleted."
+    "retiredDeleted": "This event has been deleted.",
+    "poll": {
+      "toBeDecided": "Date to be decided",
+      "vote": "Vote on a date",
+      "changeVotes": "Change my votes",
+      "title": "Which dates work for you?",
+      "intro": "The host will pick the date most people can make.",
+      "name": "Your name",
+      "email": "Email (optional)",
+      "emailHint": "You’ll get an email once the date is picked.",
+      "yes": "Yes",
+      "ifNeedBe": "If need be",
+      "no": "No",
+      "send": "Send my votes",
+      "sent": "Thanks, {name}. Your votes are in.",
+      "editLink": "Your private link to change your votes later. It’s saved in this browser too.",
+      "count": "{count, plural, =0 {No votes yet} one {# person has voted} other {# people have voted}}",
+      "yesCount": "{count, plural, =0 {No yes yet} one {# yes} other {# yes}}",
+      "close": "Close",
+      "errors": {
+        "nameRequired": "Add your name.",
+        "nameTooLong": "That name is too long. Keep it to 80 characters.",
+        "emailInvalid": "That email doesn’t look right.",
+        "voteMissing": "Answer every date.",
+        "closed": "Voting on the date has closed.",
+        "tooFast": "You’re going too fast. Try again shortly.",
+        "checkFailed": "The check didn’t pass. Try it again."
+      }
+    },
+    "album": {
+      "title": "Photos",
+      "opensOn": "The album opens on {date}. Come back then to add your photos.",
+      "locked": "Reply to see the album and add your photos.",
+      "lockedCount": "{count, plural, =0 {No photos yet} one {# photo} other {# photos}}",
+      "empty": "No photos yet. Add the first.",
+      "add": "Add photos",
+      "hint": "Up to ten at a time, each up to {max, number} MB.",
+      "adding": "Adding {count, plural, one {# photo} other {# photos}}…",
+      "added": "{name}: added",
+      "refusedFile": "{name}: {reason}",
+      "problems": {
+        "tooLarge": "larger than {max, number} MB",
+        "unsupported": "not a JPEG, PNG, WebP or AVIF picture",
+        "tooManyPixels": "too many pixels"
+      },
+      "errors": {
+        "tooFast": "You’re going too fast. Try again shortly.",
+        "closed": "The album isn’t open.",
+        "notAllowed": "Only guests who replied and the hosts can add photos.",
+        "tooMany": "Add up to ten photos at a time.",
+        "albumFull": "{left, plural, =0 {The album is full.} one {The album has room for # more photo.} other {The album has room for # more photos.}}",
+        "tooLarge": "Those photos are too large together. Add fewer at a time.",
+        "failed": "The photos didn’t upload. Try again."
+      },
+      "open": "Photo {n} by {name}",
+      "viewer": "Photo {n} of {count}",
+      "by": "Added by {name}",
+      "previous": "Previous photo",
+      "next": "Next photo",
+      "close": "Close",
+      "download": "Download",
+      "delete": "Delete",
+      "deleteTitle": "Delete this photo?",
+      "deleteText": "It goes for everyone, and can’t be brought back.",
+      "deleteConfirm": "Delete it",
+      "keep": "Keep it"
+    }
   },
   "Design": {
     "upload": "Upload your photo or poster",
@@ -894,6 +975,31 @@
     "publishing": {
       "needsTitle": "Add a title first.",
       "needsDate": "Add a date first."
+    },
+    "poll": {
+      "letGuestsVote": "Not sure yet? Let guests vote",
+      "pollIntro": "Offer two to six dates. Guests answer Yes, If need be or No to each, and you pick one.",
+      "candidate": "Date {n}",
+      "startTime": "Start time {n} (optional)",
+      "endTime": "End time {n} (optional)",
+      "addCandidate": "Add a date",
+      "removeCandidate": "Remove date {n}",
+      "setDateInstead": "Set one date instead",
+      "whenPoll": "Date to be decided · {count, plural, =0 {no votes yet} one {# vote} other {# votes}}",
+      "votesTitle": "Votes",
+      "votesIntro": "Pick the date that works best. It becomes the event’s date, and guests who gave an email are told.",
+      "noVotesYet": "No votes yet. Once the invitation is published and shared, guests can vote.",
+      "leading": "Most can make it",
+      "yes": "Yes",
+      "ifNeedBe": "If need be",
+      "no": "No",
+      "pick": "Pick this date",
+      "pickLabel": "Pick {date}",
+      "pickTitle": "Pick {date}?",
+      "pickText": "It becomes the event’s date and the vote closes for good. Guests who gave an email are told.",
+      "pickConfirm": "Pick it",
+      "pickKeep": "Not yet",
+      "editCandidates": "Change the dates"
     }
   },
   "Guests": {

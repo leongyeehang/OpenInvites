@@ -1,4 +1,4 @@
-import { ChevronDown, Clock, Lock, MapPin, Megaphone, MessageCircle, Users } from "lucide-react";
+import { ChevronDown, Clock, Images, Lock, MapPin, Megaphone, MessageCircle, Users } from "lucide-react";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { Fragment, type ReactNode } from "react";
 import type { CommentsShown } from "@/comments/visibility";
@@ -11,6 +11,7 @@ import type { RsvpCounts } from "@/rsvps/counts";
 import type { PublicGuest } from "@/rsvps/repository";
 import { Glass } from "./glass";
 import { initialsOf } from "./poster-layout";
+import { ALBUM_HEADING } from "./sections/album-section";
 import { COMMENTS_HEADING, CommentsSection } from "./sections/comments-section";
 import type { ShownAnnouncement } from "./sections/announcements-section";
 import { arriving, BubbleLabel, HOST_BUBBLE, HostBubble } from "./thread-bubble";
@@ -39,6 +40,7 @@ export async function ThreadLayout({
   announcements,
   comments,
   commentForm,
+  album,
   notice,
   rsvp,
   guests,
@@ -55,6 +57,8 @@ export async function ThreadLayout({
   // form that posts one, shown where they may.
   comments?: CommentsShown;
   commentForm?: ReactNode;
+  // The photo album (M4 ticket 11), as this viewer may see it: a glass bubble of its own.
+  album?: ReactNode;
   notice?: ReactNode;
   // The conversation and the composer: the RSVP flow as the Thread presents it.
   rsvp?: ReactNode;
@@ -128,6 +132,18 @@ export async function ThreadLayout({
         </details>
       ),
     );
+  }
+
+  if (album) {
+    bubbles.push((className) => (
+      <section data-slot="album" aria-labelledby={ALBUM_HEADING} className={cn(HOST_BUBBLE, "w-[85%] bg-theme-glass", className)}>
+        <h2 id={ALBUM_HEADING} tabIndex={-1} className="mb-3 flex items-center gap-2 font-medium outline-none">
+          <Images className="size-4 shrink-0" aria-hidden />
+          {t("album.title")}
+        </h2>
+        {album}
+      </section>
+    ));
   }
 
   return (

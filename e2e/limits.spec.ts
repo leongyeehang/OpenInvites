@@ -1,3 +1,4 @@
+import sharp from "sharp";
 import { expect, test, type Browser, type Page } from "./test";
 import { APPROVAL, editSettings, eventLinkIn, openMore, publishInEditor, setWhen, typeTitle } from "./events";
 import { mailCountTo, newHost, signUp, verifyEmail } from "./hosts";
@@ -134,4 +135,33 @@ test("a third guest is refused at the replies limit, a reply waiting for approva
   await expect(first.getByText(REPLIES_REFUSAL)).toHaveCount(0);
 
   for (const page of [first, second, third]) await page.context().close();
+});
+
+// M4 ticket 11: the operator's limit on photos per event, which the album's upload enforces.
+test("an album at the operator's photos limit refuses more, saying how many it has room for", async () => {
+  test.slow();
+  await operator.goto("/instance");
+  await expect(operator.getByLabel("Photos per event")).toHaveValue("300");
+  await operator.getByLabel("Photos per event").fill("1");
+  const limits = operator.locator("form").filter({ has: operator.getByLabel("Events per host") });
+  await limits.getByRole("button", { name: "Save" }).click();
+  await expect(limits.getByText("Saved.")).toBeVisible();
+
+  // The second party, dated in the past and published, so its album is open to its host.
+  await operator.goto("/dashboard");
+  await operator.getByRole("link", { name: /Second party/ }).click();
+  await setWhen(operator, { start: "2026-01-10T19:00" });
+  await publishInEditor(operator);
+  await operator.goto(await eventLinkIn(operator));
+  const album = operator.locator('[data-slot="album"]');
+  const add = album.getByLabel("Add photos");
+  const photo = async (name: string) => ({ name, mimeType: "image/png", buffer: await sharp({ create: { width: 40, height: 30, channels: 3, background: "#406080" } }).png().toBuffer() });
+
+  await add.setInputFiles([await photo("one.png"), await photo("two.png")]);
+  await expect(album.getByRole("alert")).toHaveText("The album has room for 1 more photo.", { timeout: 15_000 });
+  await add.setInputFiles([await photo("one.png")]);
+  await expect(album.getByRole("status")).toHaveText("one.png: added", { timeout: 15_000 });
+  await expect(album.getByRole("img")).toHaveCount(1);
+  await add.setInputFiles([await photo("two.png")]);
+  await expect(album.getByRole("alert")).toHaveText("The album is full.", { timeout: 15_000 });
 });

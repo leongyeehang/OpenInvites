@@ -16,7 +16,7 @@ import { eventHosts } from "@/events/hosts";
 import { findEventBySlug, findRetiredSlug, recordView, type EventWithHost } from "@/events/repository";
 import { countsAsView } from "@/events/views";
 import { eventPath, eventUrl, isSlug } from "@/events/slug";
-import { isDated, type EventTime } from "@/events/time";
+import { formatDay, isDated, type EventTime } from "@/events/time";
 import { findInviteOnThisDevice } from "@/invites/device";
 import { ClientMessages } from "@/locale/client-messages";
 import { answersStillOffered } from "@/questions/answers";
@@ -46,6 +46,17 @@ import { RsvpFlow } from "./rsvp-flow";
 import { ThreadComposer } from "./thread-composer";
 import type { RsvpFlowProps } from "./use-rsvp-flow";
 import { Countdown, CountdownFigure, MapLink, ViewerTime } from "./viewer";
+import type { ComponentProps, ReactNode } from "react";
+import { formatOption } from "@/polls/format";
+import { mayVote, pollState, tally } from "@/polls/poll";
+import { loadPoll } from "@/polls/repository";
+import { findVoterOnThisDevice } from "@/polls/voter";
+import { PollBar, PollFlow, PollWhen, type PollCandidate } from "./poll-flow";
+import { albumState, mayDeletePhoto, mayUseAlbum, type AlbumViewer } from "@/album/album";
+import { photoUrl } from "@/album/files";
+import { countPhotos, listPhotos } from "@/album/repository";
+import { maxUploadBytes } from "@/instance/env";
+import { AlbumSection, type AlbumShown } from "@/themes/sections/album-section";
 
 // Event pages are never indexed (ADR-0004). The header carries the same signal (next.config.ts).
 const noindex: Metadata["robots"] = { index: false, follow: false };
@@ -105,6 +116,40 @@ const redrawAllowed = cache(async (slug: string): Promise<boolean> => {
   if (event && (await isHostOf(event.id))) return true;
   return (await consume("eventPage", requestHeaders)).allowed;
 });
+
+// The candidates as guests see them: each as they read it, with how many said Yes.
+async function pollCandidates(eventId: string, locale: string): Promise<PollCandidate[]> {
+  const { options, voters, votes } = await loadPoll(eventId);
+  const tallies = tally(options, votes, voters);
+  return options.map((option, index) => ({ id: option.id, label: formatOption(option, locale), yes: tallies[index].yes.length }));
+}
+
+// What the album shows this viewer (album/album.ts), or nothing where there is no album.
+async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: string): Promise<AlbumShown | undefined> {
+  const state = albumState(event, new Date());
+  if (state === "none" || !event.startsAt) return undefined;
+  if (state === "notYet") return { view: "notYet", opensOn: formatDay(event.startsAt, event.timeZone, locale) };
+  if (!mayUseAlbum(viewer)) return { view: "locked", count: await countPhotos(event.id) };
+  const photos = await listPhotos(event.id);
+  return {
+    view: "open",
+    maxMegabytes: Math.floor(maxUploadBytes() / (1024 * 1024)),
+    photos: photos.map((each) => ({
+      id: each.id,
+      name: each.name,
+      thumb: photoUrl(each.id, "thumb"),
+      large: photoUrl(each.id, "large"),
+      width: each.width,
+      height: each.height,
+      deletable: mayDeletePhoto(viewer, each),
+    })),
+  };
+}
+
+// The vote's sheet around the page, only while guests vote on the date.
+function PollFrame({ polling, children, ...props }: { polling: boolean; children: ReactNode } & Omit<ComponentProps<typeof PollFlow>, "children">) {
+  return polling ? <PollFlow {...props}>{children}</PollFlow> : children;
+}
 
 export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Promise<Metadata> {
   const { slug } = await params;
@@ -217,6 +262,16 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // can go without a When; the others are drawn around their date.
   const dated = isDated(event) ? event : undefined;
   const layout = dated ? resolved.layout : "poster";
+  // While guests vote on the date (M4 ticket 09), the Poster shows the candidates and the vote in
+  // place of the date and the reply, whatever layout the theme names: the others are drawn around
+  // a date. This device's votes come back, and once the date is picked, the voter's name and email
+  // start their reply.
+  const polling = pollState(event) === "open";
+  const voter = await findVoterOnThisDevice(event.id);
+  const candidates = polling ? await pollCandidates(event.id, locale) : [];
+  // The photo album (M4 ticket 11): from the start, to the hosts and approved guests.
+  const album = await albumFor(event, isHost ? { kind: "host", hostId: (await getSession())!.user.id } : mine ? { kind: "guest", rsvpId: mine.rsvp.id, approval: mine.rsvp.approval } : { kind: "visitor" }, locale);
+  const albumNode = album && <AlbumSection album={album} slug={event.slug} />;
   // The same rule the file itself follows: there is nothing to put in a calendar until an event
   // is published, and nothing worth keeping there once it is called off.
   const calendar =
@@ -237,7 +292,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     },
     mine: mine && guestRsvp(mine, waitlistPosition),
     // The invite's email only where the form asks for one: nothing would show it otherwise.
-    invite: invite && { name: invite.name, email: event.emailField === "none" ? null : invite.email },
+    invite: (invite ?? voter) && { name: (invite ?? voter)!.name, email: event.emailField === "none" ? null : (invite ?? voter)!.email },
     open: acceptsRsvps(event.state),
     full: isFull(event.capacity, headcount),
     needsApproval: event.approvalRequired && (mine ? mine.rsvp.approval !== "approved" : !invite),
@@ -266,6 +321,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             announcements={announcements}
             comments={comments}
             commentForm={<CommentForm slug={event.slug} />}
+            album={albumNode}
             notice={notice}
             rsvp={<ThreadComposer {...flow} closedAs={isDraft ? "draft" : event.state === "cancelled" ? "cancelled" : undefined} />}
             guests={guestList && { ...guestList, you: mine?.rsvp.id }}
@@ -284,6 +340,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             announcements={announcements}
             comments={comments}
             commentForm={<CommentForm slug={event.slug} />}
+            album={albumNode}
             notice={notice}
             rsvp={<BroadsheetBallot {...flow} />}
             guests={guestList && { ...guestList, you: mine?.rsvp.id }}
@@ -292,26 +349,37 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             underWhere={event.location ? <MapLink location={event.location} /> : undefined}
           />
         ) : (
-          <PosterLayout
-            event={event}
-            hosts={hosts.map((host) => host.name)}
-            announcements={announcements}
-            comments={comments}
-            commentForm={<CommentForm slug={event.slug} />}
-            notice={notice}
-            rsvp={<RsvpFlow {...flow} />}
-            underWhen={
-              time && (
-                <>
-                  <ViewerTime event={time} locale={locale} />
-                  <Countdown event={time} />
-                </>
-              )
-            }
-            underWhere={event.location ? <MapLink location={event.location} /> : undefined}
-            calendar={calendar}
-            guestList={guestList && <GuestList {...guestList} />}
-          />
+          <PollFrame
+            polling={polling}
+            slug={event.slug}
+            candidates={candidates}
+            mine={voter && { name: voter.name, email: voter.email, votes: voter.votes, editLink: voter.editLink }}
+            votable={mayVote(event)}
+            turnstileSiteKey={turnstileSiteKey()}
+          >
+            <PosterLayout
+              event={event}
+              hosts={hosts.map((host) => host.name)}
+              announcements={announcements}
+              comments={comments}
+              commentForm={<CommentForm slug={event.slug} />}
+              album={albumNode}
+              notice={notice}
+              rsvp={polling ? <PollBar /> : <RsvpFlow {...flow} />}
+              poll={polling ? { label: (await getTranslations("EventPage"))("poll.toBeDecided"), when: <PollWhen candidates={candidates} /> } : undefined}
+              underWhen={
+                time && (
+                  <>
+                    <ViewerTime event={time} locale={locale} />
+                    <Countdown event={time} />
+                  </>
+                )
+              }
+              underWhere={event.location ? <MapLink location={event.location} /> : undefined}
+              calendar={calendar}
+              guestList={guestList && <GuestList {...guestList} />}
+            />
+          </PollFrame>
         )}
         <PageFooter themed reportPath={isDraft ? undefined : eventPath(event)} />
       </ThemedPage>

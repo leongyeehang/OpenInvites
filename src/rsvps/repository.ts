@@ -1,7 +1,8 @@
 import { and, asc, eq, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import { cache } from "react";
 import { getDb, type Db } from "@/db/client";
-import { emailCode, event, invite, rsvp } from "@/db/schema";
+import { emailCode, event, invite, photo, rsvp } from "@/db/schema";
+import { removePhotoFiles } from "@/album/files";
 import { acceptsRsvps } from "@/events/access";
 import type { Locale } from "@/locale/resolve-locale";
 import { isMailConfigured } from "@/mail/config";
@@ -18,6 +19,7 @@ import { promotionMail } from "./promotion-mail";
 import { generateEditToken, generateMailToken, hashEditToken } from "./token";
 import { codeVerdict, MAX_ATTEMPTS, RESEND_SECONDS, type CodeVerdict } from "./verification";
 import { promotable } from "./waitlist";
+import { blankVoterEmail, findVoterByMailToken } from "@/polls/repository";
 
 export type Rsvp = typeof rsvp.$inferSelect;
 
@@ -467,18 +469,25 @@ export async function declineRsvp(eventId: string, id: string): Promise<HostChan
 // still names its invite, though the invite's own reference to it is already gone (set null).
 export async function deleteRsvp(eventId: string, id: string, by: "guest" | "host"): Promise<{ removed: Rsvp | undefined; mailed: boolean }> {
   const now = new Date();
-  return getDb().transaction(async (tx) => {
+  const outcome = await getDb().transaction(async (tx) => {
     const locked = await lockEvent(tx, eventId);
-    if (!locked) return { removed: undefined, mailed: false };
+    if (!locked) return { removed: undefined, mailed: false, photos: [] };
+    // The album's photos the guest added go with their reply (M4 ticket 11), their files after.
+    const photos = await tx
+      .delete(photo)
+      .where(and(eq(photo.rsvpId, id), eq(photo.eventId, eventId)))
+      .returning({ id: photo.id });
     const [removed] = await tx
       .delete(rsvp)
       .where(and(eq(rsvp.id, id), eq(rsvp.eventId, eventId)))
       .returning();
-    if (!removed) return { removed, mailed: false };
+    if (!removed) return { removed, mailed: false, photos: [] };
     if (by === "host" && removed.inviteId) await tx.delete(invite).where(eq(invite.id, removed.inviteId));
     const { mailed } = await promoteWaitlist(locked, tx, now);
-    return { removed, mailed };
+    return { removed, mailed, photos: photos.map((each) => each.id) };
   });
+  await removePhotoFiles(outcome.photos);
+  return { removed: outcome.removed, mailed: outcome.mailed };
 }
 
 // The RSVPs of one event as mail to its guests needs them, in the order they replied: who is told
@@ -504,7 +513,8 @@ export async function findByMailToken(mailToken: string): Promise<{ title: strin
     .innerJoin(event, eq(event.id, rsvp.eventId))
     .where(eq(rsvp.mailToken, mailToken))
     .limit(1);
-  return row;
+  // A date poll's voter gets guest mail too (M4 ticket 09), with a stop link of their own.
+  return row ?? findVoterByMailToken(mailToken);
 }
 
 // The stop link's one power: blanking the email, so no more mail about the event reaches the
@@ -518,7 +528,7 @@ export async function blankEmailByMailToken(mailToken: string): Promise<{ title:
     .from(event)
     .where(and(eq(rsvp.mailToken, mailToken), eq(event.id, rsvp.eventId)))
     .returning({ title: event.title });
-  return stopped;
+  return stopped ?? blankVoterEmail(mailToken);
 }
 
 // The RSVPs of several events at once, for the host's dashboard. Postgres groups them; the

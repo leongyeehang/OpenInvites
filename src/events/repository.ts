@@ -1,13 +1,14 @@
 import { and, asc, desc, eq, inArray, or, sql, type SQL } from "drizzle-orm";
 import { cache } from "react";
 import { getDb } from "@/db/client";
-import { event, retiredSlug, upload, user } from "@/db/schema";
+import { event, photo, retiredSlug, upload, user } from "@/db/schema";
 import { hostedBy } from "@/hosts/repository";
 import { roleOf, type Role } from "@/hosts/role";
 import { isUuid } from "@/lib/uuid";
 import type { Locale } from "@/locale/resolve-locale";
 import { DEFAULT_THEME, parseTheme, type Theme } from "@/themes/theme";
 import { approvePending, promoteWaitlist } from "@/rsvps/repository";
+import { removePhotoFiles } from "@/album/files";
 import { removeRenditions } from "@/uploads/files";
 import type { EventInput } from "./form";
 import { SLUG_TAKEN, withFreshSlug } from "./slug";
@@ -261,17 +262,19 @@ export async function deleteHostEvents(hostId: string): Promise<void> {
 // (ADR-0004); the retired slugs outlive the event. The files are removed once the rows are, so no
 // page is ever shown whose picture is missing.
 export async function removeEvents(which: SQL | undefined): Promise<void> {
-  const uploads = await getDb().transaction(async (tx) => {
+  const { uploads, photos } = await getDb().transaction(async (tx) => {
     const locked = await tx.select({ id: event.id, slug: event.slug, customSlug: event.customSlug }).from(event).where(which).for("update");
-    if (locked.length === 0) return [];
+    if (locked.length === 0) return { uploads: [], photos: [] };
     const doomed = locked.map(({ id }) => id);
     const slugs = locked.flatMap(({ id, slug, customSlug }) => [{ slug, eventId: id }, ...(customSlug ? [{ slug: customSlug, eventId: id }] : [])]);
     await tx.insert(retiredSlug).values(slugs).onConflictDoNothing();
     const removed = await tx.delete(upload).where(inArray(upload.eventId, doomed)).returning({ id: upload.id });
+    // The album's photos too (M4 ticket 11), whose files are kept apart from the poster's.
+    const photos = await tx.delete(photo).where(inArray(photo.eventId, doomed)).returning({ id: photo.id });
     await tx.delete(event).where(inArray(event.id, doomed));
-    return removed.map(({ id }) => id);
+    return { uploads: removed.map(({ id }) => id), photos: photos.map(({ id }) => id) };
   });
-  await removeRenditions(uploads);
+  await Promise.all([removeRenditions(uploads), removePhotoFiles(photos)]);
 }
 
 // The dashboard: the events a host owns and those they co-host, each with their role.

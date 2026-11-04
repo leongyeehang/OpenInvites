@@ -1,10 +1,11 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { boolean, check, date, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, time, timestamp, unique, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { DEFAULT_REGISTRATION_MODE, REGISTRATION_MODES } from "../instance/registration";
 import { DEFAULT_LIMITS } from "../instance/limits";
 import { defaultLocale, type Locale } from "../locale/resolve-locale";
 import { QUESTION_TYPES } from "../questions/question";
 import { EMPTY_RICH_TEXT, type RichText } from "../rich-text/rich-text";
+import { VOTE_ANSWERS } from "../polls/poll";
 import { APPROVALS } from "../rsvps/admission";
 import { CONTACT_FIELDS, SAVED_STATUSES } from "../rsvps/form";
 import { DEFAULT_GUEST_LIST_VISIBILITY, GUEST_LIST_VISIBILITIES } from "../rsvps/visibility";
@@ -122,6 +123,7 @@ export const instanceSettings = pgTable(
     // The operator's limits (spec, "Operator limits"); see instance/limits.ts for their range.
     maxEventsPerHost: integer("max_events_per_host").notNull().default(DEFAULT_LIMITS.maxEventsPerHost),
     maxRsvpsPerEvent: integer("max_rsvps_per_event").notNull().default(DEFAULT_LIMITS.maxRsvpsPerEvent),
+    maxPhotosPerEvent: integer("max_photos_per_event").notNull().default(DEFAULT_LIMITS.maxPhotosPerEvent),
     // How many days after it ends an event is deleted (spec, "Retention"; retention/plan.ts), or
     // null to keep events for ever. The migration that added it set the one row to a year.
     retentionDays: integer("retention_days"),
@@ -225,12 +227,74 @@ export const event = pgTable(
     // "Retention"), with or without mail; it is deleted no sooner than 30 days later. Keep forever
     // clears it on every event.
     retentionWarnedAt: timestamp("retention_warned_at", { withTimezone: true }),
+    // The date poll (M4 ticket 09): when the host turned the date into a poll of candidates
+    // (date_option), and when they picked one, which closed it for good. Open between the two, when
+    // the event has no date and may still be published.
+    pollOpenedAt: timestamp("poll_opened_at", { withTimezone: true }),
+    pollClosedAt: timestamp("poll_closed_at", { withTimezone: true }),
     ...timestamps,
   },
   (table) => [
     index("event_host_id_idx").on(table.hostId),
-    check("event_dated_unless_draft", sql`${table.state} = 'draft' or ${table.startsAt} is not null`),
+    check(
+      "event_dated_unless_draft",
+      sql`${table.state} = 'draft' or ${table.startsAt} is not null or (${table.pollOpenedAt} is not null and ${table.pollClosedAt} is null)`,
+    ),
   ],
+);
+
+// One candidate date of an event's date poll (M4 ticket 09): a day in the event's zone, with an
+// optional start and end time on it, in the order the host listed them. Two to six per poll.
+export const dateOption = pgTable(
+  "date_option",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    day: date("day", { mode: "string" }).notNull(),
+    startTime: time("start_time"),
+    endTime: time("end_time"),
+    position: integer("position").notNull(),
+  },
+  (table) => [index("date_option_event_id_idx").on(table.eventId)],
+);
+
+export const voteAnswer = pgEnum("vote_answer", VOTE_ANSWERS);
+
+// Someone who voted on an event's date poll: a name, an email if they want the outcome, and an
+// edit token, kept hashed, that their device holds as a cookie and their edit link carries, as an
+// RSVP's does. Voting makes no RSVP. The mail token is the stop link's, as an RSVP's is.
+export const dateVoter = pgTable(
+  "date_voter",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    email: text("email"),
+    tokenHash: text("token_hash").notNull().unique(),
+    mailToken: text("mail_token").notNull().unique(),
+    locale: text("locale").$type<Locale>().notNull().default(defaultLocale),
+    ...timestamps,
+  },
+  (table) => [index("date_voter_event_id_idx").on(table.eventId)],
+);
+
+// One voter's answer on one candidate date.
+export const dateVote = pgTable(
+  "date_vote",
+  {
+    optionId: uuid("option_id")
+      .notNull()
+      .references(() => dateOption.id, { onDelete: "cascade" }),
+    voterId: uuid("voter_id")
+      .notNull()
+      .references(() => dateVoter.id, { onDelete: "cascade" }),
+    answer: voteAnswer("answer").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.optionId, table.voterId] }), index("date_vote_voter_id_idx").on(table.voterId)],
 );
 
 // A co-host (CONTEXT.md): a host who shares management of an event they did not create (spec,
@@ -536,6 +600,31 @@ export const comment = pgTable(
     index("comment_rsvp_id_idx").on(table.rsvpId),
     index("comment_host_id_idx").on(table.hostId),
     check("comment_one_author", sql`(${table.rsvpId} is null) <> (${table.hostId} is null)`),
+  ],
+);
+
+// A photo in an event's album (M4 ticket 11): added from the event's start by a guest whose reply
+// is approved, through their RSVP, or by a host, and kept as two renditions under its own id
+// (album/files.ts). It goes with the event, the RSVP and the host's account, and its files with it
+// (album/repository.ts).
+export const photo = pgTable(
+  "photo",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    rsvpId: uuid("rsvp_id").references(() => rsvp.id, { onDelete: "cascade" }),
+    hostId: uuid("host_id").references(() => user.id, { onDelete: "cascade" }),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("photo_event_id_idx").on(table.eventId),
+    index("photo_rsvp_id_idx").on(table.rsvpId),
+    index("photo_host_id_idx").on(table.hostId),
+    check("photo_one_owner", sql`(${table.rsvpId} is null) <> (${table.hostId} is null)`),
   ],
 );
 

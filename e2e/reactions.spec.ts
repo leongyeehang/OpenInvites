@@ -164,6 +164,8 @@ for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
     await expect(add).toBeFocused();
     await react(page, under, "Wow");
     await expect(under.getByRole("button", { name: /^Wow, / })).toBeVisible();
+    // The chip shows at once; the page drawn again with it follows, and is what is checked.
+    await page.waitForLoadState("networkidle");
     await expectNoSeriousViolations(page, `a comment with a reaction, on the ${layout}`);
 
     await host.context.close();

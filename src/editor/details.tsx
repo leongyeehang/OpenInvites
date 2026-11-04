@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 import type { RichText } from "@/rich-text/rich-text";
 import { Glass } from "@/themes/glass";
 import { EditorSheet } from "./sheet";
+import { PollCandidates, PollVotes, type EditablePoll } from "./poll-sheet";
+import { Footer, useSaving } from "./saving";
 import { useEditor } from "./status";
 
 // What the details list shows and what its sheets start from, worked out on the server: the date
@@ -34,6 +36,8 @@ export type EditableDetails = {
   retentionDays: number | null;
   description: string;
   descriptionRich: RichText;
+  // The date poll, when the event may have one or has one (M4 ticket 09).
+  poll?: EditablePoll;
 };
 
 // The details list of the invitation in the editor (M4 spec, "The editor"): When, Where and About,
@@ -97,43 +101,46 @@ function Row({
   );
 }
 
-// A sheet's Done: saves, closes once it has, and says why beside it when it has not.
-function useSaving(onOpenChange: (open: boolean) => void) {
-  const { save } = useEditor();
-  const [error, setError] = useState<string>();
-  const [pending, setPending] = useState(false);
-  const run = async (task: Parameters<typeof save>[0]) => {
-    setPending(true);
-    setError(undefined);
-    let failed: string | undefined;
-    const saved = await save(async () => {
-      const result = await task();
-      if (!result.saved) failed = result.error;
-      return result;
-    });
-    setPending(false);
-    if (saved) onOpenChange(false);
-    else setError(failed);
-  };
-  return { error, pending, run, clear: () => setError(undefined) };
-}
-
-function Footer({ pending, error, label }: { pending: boolean; error?: string; label: string }) {
-  return (
-    <div className="flex flex-col gap-2">
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-      <Button type="submit" disabled={pending} className="w-full">
-        {label}
-      </Button>
-    </div>
-  );
-}
-
 function WhenSheet({ open, onOpenChange, details, timeZones }: { open: boolean; onOpenChange: (open: boolean) => void; details: EditableDetails; timeZones: string[] }) {
+  const t = useTranslations("Editor");
+  const { poll } = details;
+  // A poll open is what the sheet shows: its candidates while nobody has voted, its votes after.
+  // The host's switch between one date and a poll, which the sheet forgets as it closes: it opens on
+  // what the event has.
+  const [switched, setVoting] = useState<boolean>();
+  const voting = switched ?? poll?.open ?? false;
+  const openChange = (next: boolean) => {
+    if (!next) setVoting(undefined);
+    onOpenChange(next);
+  };
+  if (poll && voting) {
+    return (
+      <EditorSheet open={open} onOpenChange={openChange} title={t("when")} tall>
+        {poll.open && poll.voters > 0 ? (
+          <PollVotes eventId={details.eventId} poll={poll} onOpenChange={openChange} />
+        ) : (
+          <PollCandidates eventId={details.eventId} poll={poll} onOpenChange={openChange} onSetDate={() => setVoting(false)} />
+        )}
+      </EditorSheet>
+    );
+  }
+  return <DateSheet open={open} onOpenChange={openChange} details={details} timeZones={timeZones} onVote={poll?.canStart || poll?.open ? () => setVoting(true) : undefined} />;
+}
+
+// One date and time, as 0.4's form had it.
+function DateSheet({
+  open,
+  onOpenChange,
+  details,
+  timeZones,
+  onVote,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  details: EditableDetails;
+  timeZones: string[];
+  onVote?: () => void;
+}) {
   const t = useTranslations("Editor");
   const form = useTranslations("Events.form");
   const id = useId();
@@ -193,6 +200,11 @@ function WhenSheet({ open, onOpenChange, details, timeZones }: { open: boolean; 
           </Field>
           {details.retentionDays !== null && <p className="text-sm text-muted-foreground">{form("retention", { days: details.retentionDays })}</p>}
           <Footer pending={saving.pending} error={saving.error} label={t("done")} />
+          {onVote && (
+            <Button type="button" variant="ghost" onClick={onVote}>
+              {t("poll.letGuestsVote")}
+            </Button>
+          )}
         </FieldGroup>
       </form>
     </EditorSheet>

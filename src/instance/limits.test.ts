@@ -2,27 +2,28 @@ import { describe, expect, it } from "vitest";
 import { RETENTION_MAX_DAYS, RETENTION_MIN_DAYS } from "@/retention/plan";
 import { atLimit, DEFAULT_LIMITS, LIMIT_MAX, LIMIT_MIN, parseLimits } from "./limits";
 
-const fields = (maxEventsPerHost: string, maxRsvpsPerEvent: string, retentionDays = "365", keepForever = false) => ({
+const fields = (maxEventsPerHost: string, maxRsvpsPerEvent: string, retentionDays = "365", keepForever = false, maxPhotosPerEvent = "300") => ({
   maxEventsPerHost,
   maxRsvpsPerEvent,
+  maxPhotosPerEvent,
   retentionDays,
   keepForever,
 });
 
 describe("parseLimits", () => {
   it("reads three whole numbers", () => {
-    expect(parseLimits(fields("2", "30", "90"))).toEqual({ ok: true, limits: { maxEventsPerHost: 2, maxRsvpsPerEvent: 30, retentionDays: 90 } });
+    expect(parseLimits(fields("2", "30", "90"))).toEqual({ ok: true, limits: { maxEventsPerHost: 2, maxRsvpsPerEvent: 30, maxPhotosPerEvent: 300, retentionDays: 90 } });
   });
 
   it("takes the smallest and the largest value allowed", () => {
     expect(parseLimits(fields(String(LIMIT_MIN), String(LIMIT_MAX)))).toEqual({
       ok: true,
-      limits: { maxEventsPerHost: LIMIT_MIN, maxRsvpsPerEvent: LIMIT_MAX, retentionDays: 365 },
+      limits: { maxEventsPerHost: LIMIT_MIN, maxRsvpsPerEvent: LIMIT_MAX, maxPhotosPerEvent: 300, retentionDays: 365 },
     });
   });
 
   it("ignores spaces around a number", () => {
-    expect(parseLimits(fields(" 7 ", "8\n", " 60 "))).toEqual({ ok: true, limits: { maxEventsPerHost: 7, maxRsvpsPerEvent: 8, retentionDays: 60 } });
+    expect(parseLimits(fields(" 7 ", "8\n", " 60 "))).toEqual({ ok: true, limits: { maxEventsPerHost: 7, maxRsvpsPerEvent: 8, maxPhotosPerEvent: 300, retentionDays: 60 } });
   });
 
   it("refuses a number below the range or above it, naming the field", () => {
@@ -48,11 +49,11 @@ describe("parseLimits", () => {
   it("keeps events from 30 days to ten years after they end", () => {
     expect(parseLimits(fields("5", "5", String(RETENTION_MIN_DAYS)))).toEqual({
       ok: true,
-      limits: { maxEventsPerHost: 5, maxRsvpsPerEvent: 5, retentionDays: RETENTION_MIN_DAYS },
+      limits: { maxEventsPerHost: 5, maxRsvpsPerEvent: 5, maxPhotosPerEvent: 300, retentionDays: RETENTION_MIN_DAYS },
     });
     expect(parseLimits(fields("5", "5", String(RETENTION_MAX_DAYS)))).toEqual({
       ok: true,
-      limits: { maxEventsPerHost: 5, maxRsvpsPerEvent: 5, retentionDays: RETENTION_MAX_DAYS },
+      limits: { maxEventsPerHost: 5, maxRsvpsPerEvent: 5, maxPhotosPerEvent: 300, retentionDays: RETENTION_MAX_DAYS },
     });
   });
 
@@ -63,8 +64,8 @@ describe("parseLimits", () => {
   });
 
   it("keeps events for ever with Keep forever, whatever the days field holds", () => {
-    expect(parseLimits(fields("5", "5", "", true))).toEqual({ ok: true, limits: { maxEventsPerHost: 5, maxRsvpsPerEvent: 5, retentionDays: null } });
-    expect(parseLimits(fields("5", "5", "7", true))).toEqual({ ok: true, limits: { maxEventsPerHost: 5, maxRsvpsPerEvent: 5, retentionDays: null } });
+    expect(parseLimits(fields("5", "5", "", true))).toEqual({ ok: true, limits: { maxEventsPerHost: 5, maxRsvpsPerEvent: 5, maxPhotosPerEvent: 300, retentionDays: null } });
+    expect(parseLimits(fields("5", "5", "7", true))).toEqual({ ok: true, limits: { maxEventsPerHost: 5, maxRsvpsPerEvent: 5, maxPhotosPerEvent: 300, retentionDays: null } });
   });
 });
 
@@ -78,6 +79,11 @@ describe("atLimit", () => {
 
 describe("DEFAULT_LIMITS", () => {
   it("is 50 events per host, 500 replies per event, and events kept a year", () => {
-    expect(DEFAULT_LIMITS).toEqual({ maxEventsPerHost: 50, maxRsvpsPerEvent: 500, retentionDays: 365 });
+    expect(DEFAULT_LIMITS).toEqual({ maxEventsPerHost: 50, maxRsvpsPerEvent: 500, maxPhotosPerEvent: 300, retentionDays: 365 });
+  });
+
+  it("reads the photos an album may hold, naming that field when it is out of range (M4 ticket 11)", () => {
+    expect(parseLimits(fields("5", "5", "90", false, "12"))).toEqual({ ok: true, limits: { maxEventsPerHost: 5, maxRsvpsPerEvent: 5, maxPhotosPerEvent: 12, retentionDays: 90 } });
+    expect(parseLimits(fields("5", "5", "90", false, "0"))).toEqual({ ok: false, field: "maxPhotosPerEvent" });
   });
 });

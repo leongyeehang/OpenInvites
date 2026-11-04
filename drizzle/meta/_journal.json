@@ -274,6 +274,20 @@
       "when": 1793777296626,
       "tag": "0038_passkeys",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1793779084448,
+      "tag": "0039_date_polls",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793782073591,
+      "tag": "0040_photo_album",
+      "breakpoints": true
     }
   ]
 }

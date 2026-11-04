@@ -31,3 +31,5 @@ Amended: "a guest without a reply sees counts but cannot react" cannot happen as
 
 Browser: `e2e/reactions.spec.ts`: two guests and the host react, see each other's counts and names, take theirs back; a removed reply takes its reactions; a cancelled event shows counts without buttons; per layout (Poster, Broadsheet, Thread), the six by keyboard and an axe check with the popover open and after. Against the test profile: reactions 9 passed; `comments`, `accessibility`, `thread`, `broadsheet`, `approval`, `editor` 99 passed.
 
+**2026-11-04, follow-up.** In the full run of ticket 09 the desktop row "reactions by keyboard, and accessible, on the Poster" failed twice under load (axe found two pieces of text below 3:1), and passed alone. The check ran while the page was being drawn again after the reaction, its panels fading back in; it now waits for the network to settle first. The run of tickets 09–11 passed it (see ticket 11).
+
