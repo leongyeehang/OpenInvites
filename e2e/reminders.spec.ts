@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Browser, type Page } from "./test";
-import { createDraft, type DraftFields, publishInEditor } from "./events";
+import { createDraft, type DraftFields, openSettings, publishInEditor } from "./events";
 import { MAILPIT, mailCountTo, newHost, signUpVerified } from "./hosts";
 
 // Automatic reminders (ticket 04): guests who gave an email are reminded the day before if they
@@ -115,15 +115,18 @@ test("the guests who said Going are reminded the day before, and an event with r
   expect(await mailCountTo(request, maybe)).toBe(0);
   expect(await mailCountTo(request, fenced)).toBe(0);
 
-  // The setting tells the host that guests get email only when they are asked for it.
+  // The setting tells the host that guests get email only when they are asked for it: on a new
+  // event, in its Settings.
   await host.goto("/events/new");
-  await expect(host.getByLabel(REMINDERS)).toBeChecked();
-  await expect(host.getByText(ASK_EMAIL_HINT)).toBeVisible();
-  const email = host.getByRole("group", { name: "Contact details" }).getByLabel("Email", { exact: true });
+  await expect(host.getByRole("textbox", { name: "Event title" })).toBeVisible({ timeout: 20_000 });
+  const settings = await openSettings(host);
+  await expect(settings.getByLabel(REMINDERS)).toBeChecked();
+  await expect(settings.getByText(ASK_EMAIL_HINT)).toBeVisible();
+  const email = settings.getByRole("group", { name: "Contact details" }).getByLabel("Email", { exact: true });
   await email.selectOption("optional");
-  await expect(host.getByText(ASK_EMAIL_HINT)).toBeHidden();
+  await expect(settings.getByText(ASK_EMAIL_HINT)).toBeHidden();
   await email.selectOption("none");
-  await expect(host.getByText(ASK_EMAIL_HINT)).toBeVisible();
+  await expect(settings.getByText(ASK_EMAIL_HINT)).toBeVisible();
 
   await context.close();
 });

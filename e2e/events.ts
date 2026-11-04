@@ -30,7 +30,7 @@ export type DraftFields = {
   // Reminders are on for a new event; false turns them off.
   reminders?: boolean;
   questions?: QuestionFields[];
-  // A theme knob rather than a field of the form: createPublished sets it in the Design drawer.
+  // A theme knob rather than a field of the form: createPublished sets it in the Theme sheet.
   layout?: "Broadsheet" | "Thread";
 };
 
@@ -52,7 +52,7 @@ export async function addQuestions(page: Page, questions: QuestionFields[]) {
 // The editor (M4 ticket 05): a new event opens as its invitation at /events/<id>, edited in place.
 // Each piece is saved as it is made; the top bar's status counts the saves that came back saved,
 // so a step waits for its own save rather than an earlier one's "Saved".
-const saveStatus = (page: Page) => page.locator('[data-slot="save-status"]');
+export const saveStatus = (page: Page) => page.locator('[data-slot="save-status"]');
 const savesSoFar = async (page: Page) => Number((await saveStatus(page).getAttribute("data-saves")) ?? 0);
 
 // Runs a change in the editor and waits until it is saved.
@@ -111,6 +111,14 @@ export async function editSettings(page: Page, change: (sheet: Locator) => Promi
   await expect(sheet).toBeHidden();
 }
 
+// The Settings sheet, opened to read or change, without waiting for a save.
+export async function openSettings(page: Page) {
+  await page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Settings" }).click();
+  const sheet = page.getByRole("dialog", { name: "Settings" });
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
 // More, with the 0.4 manage page's links and actions.
 export async function openMore(page: Page) {
   await page.getByRole("button", { name: "More" }).click();
@@ -137,9 +145,19 @@ export async function publishInEditor(page: Page) {
 // New event opens the editor, the event's details are filled in on the invitation and in its
 // sheets, and the settings in the Settings sheet, under the labels the 0.4 form gave them. The
 // page is left on the editor, whose address is the event's own host page.
+// The editor each host's page made its event in, so a test can go back to it from anywhere.
+const editors = new WeakMap<Page, string>();
+
+export async function toEditor(page: Page) {
+  const editor = editors.get(page);
+  if (!editor) throw new Error("This page made no event");
+  if (page.url() !== editor) await page.goto(editor);
+}
+
 export async function createDraft(page: Page, fields: DraftFields) {
   await page.goto("/events/new");
   await expect(page).toHaveURL(/\/events\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+  editors.set(page, page.url());
   await typeTitle(page, fields.title);
   await setWhen(page, { start: fields.start, end: fields.end });
   if (fields.location) await setWhere(page, fields.location);
@@ -184,15 +202,31 @@ export async function createPublished(browser: Browser, request: APIRequestConte
   return { context, page, link, name, email };
 }
 
-// The layout is a theme knob too, chosen in the drawer's Layout row. The page the host is sent
-// back to is the manage page, where they were.
-export async function chooseLayout(page: Page, link: string, layout: "Poster" | "Broadsheet" | "Thread") {
-  const manage = page.url();
-  await page.goto(link);
-  await page.getByRole("button", { name: "Design" }).click();
-  const drawer = page.getByRole("dialog", { name: "Design" });
-  await drawer.getByRole("group", { name: "Layout" }).getByRole("radio", { name: new RegExp(`^${layout}`) }).check();
-  await expect(drawer.getByText("Saved", { exact: true })).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator("[data-layout]")).toHaveAttribute("data-layout", layout.toLowerCase());
-  await page.goto(manage);
+// The editor's design sheets (M4 ticket 06): Poster, Title, Theme and Effect, from the toolbar.
+export type DesignSheet = "Poster" | "Title" | "Theme" | "Effect";
+
+export async function openDesign(page: Page, sheet: DesignSheet, tab?: "Gallery" | "Emoji" | "Colour" | "Upload") {
+  await page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: sheet }).click();
+  const opened = page.getByRole("dialog", { name: sheet });
+  await expect(opened).toBeVisible();
+  if (tab) await opened.getByRole("tab", { name: tab }).click();
+  return opened;
+}
+
+export async function closeDesign(page: Page, sheet: DesignSheet) {
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: sheet })).toBeHidden();
+}
+
+// One choice in a design sheet, saved, and the sheet closed again.
+export async function pickDesign(page: Page, sheet: DesignSheet, group: string, name: string | RegExp, tab?: "Gallery" | "Colour") {
+  const opened = await openDesign(page, sheet, tab);
+  const choice = opened.getByRole("group", { name: group, exact: true }).getByRole("radio", { name, exact: typeof name === "string" });
+  if (!(await choice.isChecked())) await savedAfter(page, () => choice.check());
+  await closeDesign(page, sheet);
+}
+
+// The layout, in the Theme sheet. The host's page is the editor, and stays there.
+export async function chooseLayout(page: Page, _link: string, layout: "Poster" | "Broadsheet" | "Thread") {
+  await pickDesign(page, "Theme", "Layout", new RegExp(`^${layout}`));
 }

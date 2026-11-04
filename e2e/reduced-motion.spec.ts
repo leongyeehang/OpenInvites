@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { createDraft, createPublished, openMore, publishInEditor } from "./events";
+import { closeDesign, createDraft, createPublished, type DesignSheet, openDesign, openMore, openSettings, publishInEditor, savedAfter } from "./events";
 import { latestMailTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { clientAddress, expect, test, type APIRequestContext, type Browser, type Page } from "./test";
 
@@ -44,9 +44,12 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await signUpVerified(host, request, "still");
   await host.goto("/dashboard");
   await expectStill(host, "the dashboard");
+  // The editor, and its Settings sheet opened with a question added.
   await host.goto("/events/new");
-  await host.getByRole("button", { name: "Add a question" }).click();
-  await expectStill(host, "the event form, creating");
+  await expect(host.getByRole("textbox", { name: "Event title" })).toBeVisible({ timeout: 20_000 });
+  await expectStill(host, "the editor, a blank invitation");
+  await (await openSettings(host)).getByRole("button", { name: "Add a question" }).click();
+  await expectStill(host, "the editor's Settings sheet, a question added");
   const link = await createDraft(host, { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "1", questions: [{ prompt: "Any allergies?" }] });
   const manage = host.url();
   await host.goto(link);
@@ -62,24 +65,31 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await expectStill(host, "the event form, with the delete dialog open");
   await host.keyboard.press("Escape");
   await expectStill(host, "the event form, the dialog closed");
+  // More is still open behind it: closed too, back to the invitation.
+  if (await host.getByRole("dialog", { name: "More" }).isVisible()) await host.keyboard.press("Escape");
+  await expect(host.getByRole("dialog", { name: "More" })).toBeHidden();
 
-  // The Design drawer: opened, a gallery poster, a knob, closed.
-  await host.goto(link);
-  await host.getByRole("button", { name: "Design" }).hover();
-  await host.getByRole("button", { name: "Design" }).click();
-  const drawer = host.getByRole("dialog", { name: "Design" });
-  await expectStill(host, "the Design drawer, open");
-  // Rose garden's look keeps guests answering in the sheet.
-  await drawer.getByRole("radio", { name: "Rose garden" }).check();
-  // It sparkles too, and under reduced motion the sparkles are not drawn.
+  // The design sheets: the Poster sheet opened, a gallery poster, a knob in the Theme sheet, closed.
+  // Each choice is made in its sheet, saved, and the page looked at with the sheet still open.
+  const choose = async (sheet: DesignSheet, group: string, name: RegExp, what: string, tab?: "Gallery" | "Colour") => {
+    const opened = await openDesign(host, sheet, tab);
+    await savedAfter(host, () => opened.getByRole("group", { name: group, exact: true }).getByRole("radio", { name }).check());
+    await expectStill(host, what);
+    await closeDesign(host, sheet);
+  };
+  await host.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Poster" }).hover();
+  await openDesign(host, "Poster", "Gallery");
+  await expectStill(host, "the Poster sheet, open");
+  await closeDesign(host, "Poster");
+  // Rose garden sparkles, and under reduced motion the sparkles are not drawn.
+  await choose("Poster", "Poster", /^Rose garden$/, "the Poster sheet, a gallery poster chosen", "Gallery");
   await expect(host.locator('[data-effect="sparkles"]')).toBeHidden();
-  await drawer.getByRole("button", { name: "Details" }).click();
-  await drawer.getByRole("radio", { name: "Glass" }).check();
-  await expect(drawer.getByRole("button", { name: "Restore the Rose garden look" })).toBeVisible();
+  await choose("Theme", "RSVP buttons", /^Glass$/, "the Theme sheet, a knob changed");
+  const poster = await openDesign(host, "Poster");
+  await expect(poster.getByRole("button", { name: "Restore the Rose garden look" })).toBeVisible();
   await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain("rose-garden");
-  await expectStill(host, "the Design drawer, after a gallery poster and a knob");
   await host.keyboard.press("Escape");
-  await expectStill(host, "the event page, the drawer closed");
+  await expectStill(host, "the editor, the sheet closed");
 
   // A guest answers in the sheet, from the first tap to the confirmation, and closes it.
   await page.goto(link);
@@ -101,9 +111,7 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await expectStill(page, "the event page, the sheet closed");
 
   // With confetti chosen, another guest answers step by step, and their Going brings none.
-  await host.getByRole("button", { name: "Design" }).click();
-  await drawer.getByRole("button", { name: "Details" }).click();
-  await drawer.getByRole("group", { name: "Effect" }).getByRole("radio", { name: "Confetti" }).check();
+  await choose("Effect", "Effect", /^Confetti/, "the Effect sheet, confetti chosen");
   await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain('effect\\":\\"confetti');
   const second = await browser.newContext({ reducedMotion: "reduce" });
   const inline = await second.newPage();
@@ -124,26 +132,26 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await second.close();
 
   // Doodles: the shapes are not drawn.
-  await drawer.getByRole("group", { name: "Effect" }).getByRole("radio", { name: "Doodles" }).check();
+  await choose("Effect", "Effect", /^Doodles/, "the Effect sheet, with doodles");
   await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain('effect\\":\\"doodles');
-  await expectStill(host, "the Design drawer, with doodles");
   await page.reload();
   await expect(page.locator('[data-effect="doodles"]')).toBeHidden();
   await expectStill(page, "the event page, with doodles");
 
   // The host's picture as the poster.
-  await drawer.getByLabel("Upload your photo or poster").setInputFiles(await picture());
+  const upload = await openDesign(host, "Poster", "Upload");
+  await upload.getByLabel("Upload your photo or poster").setInputFiles(await picture());
   await expect.poll(() => guestHtml(request, link), { timeout: 20_000 }).toContain("poster.webp");
-  await expectStill(host, "the Design drawer, with the host's picture");
+  await expectStill(host, "the Poster sheet, with the host's picture");
+  await closeDesign(host, "Poster");
   await page.reload();
   await expect(page.locator('[data-slot="poster-card"] img')).toBeVisible();
   await expectStill(page, "the event page, poster mode");
 
   // The Broadsheet: its page rises into place, and its receipt's stamp comes down, only when
   // motion is welcome. A guest replies on its ballot.
-  await drawer.getByRole("group", { name: "Layout" }).getByRole("radio", { name: /^Broadsheet/ }).check();
+  await choose("Theme", "Layout", /^Broadsheet/, "the Theme sheet, the Broadsheet chosen");
   await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain('data-layout="broadsheet"');
-  await expectStill(host, "the Design drawer, the Broadsheet chosen");
   const third = await browser.newContext({ reducedMotion: "reduce" });
   const ballot = await third.newPage();
   await ballot.goto(link);
@@ -159,9 +167,8 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
 
   // The Thread: everything is there at once, the host is never seen typing, and the page jumps to
   // the newest line rather than scrolling. A guest answers in its conversation.
-  await drawer.getByRole("group", { name: "Layout" }).getByRole("radio", { name: /^Thread/ }).check();
+  await choose("Theme", "Layout", /^Thread/, "the Theme sheet, the Thread chosen");
   await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain('data-layout="thread"');
-  await expectStill(host, "the Design drawer, the Thread chosen");
   const fourth = await browser.newContext({ reducedMotion: "reduce" });
   const chat = await fourth.newPage();
   await chat.goto(link);

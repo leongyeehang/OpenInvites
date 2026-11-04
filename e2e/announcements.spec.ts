@@ -35,8 +35,9 @@ async function reply(browser: Browser, link: string, status: Status, name: strin
   return { context, page, email };
 }
 
-// From the event's manage page, where the host is, to its announcements.
+// From the editor, where the host is, through More, to the event's announcements.
 async function openAnnouncements(hostPage: Page) {
+  await openMore(hostPage);
   await hostPage.getByRole("link", { name: "Announcements" }).click();
   await expect(hostPage.getByRole("heading", { name: "Announcements" })).toBeVisible();
 }

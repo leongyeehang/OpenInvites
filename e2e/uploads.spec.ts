@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "./test";
 import sharp from "sharp";
-import { createPublished, openMore } from "./events";
+import { closeDesign, createPublished, openDesign, openMore, pickDesign, savedAfter, toEditor } from "./events";
 import { PASSWORD } from "./hosts";
 
 // Ticket 12: a host uploads their own picture. The server processes it, samples it for the theme,
@@ -31,11 +31,10 @@ async function photo(ground: string, shapes: string[]) {
 const lightPhoto = async () => ({ name: "garden-day.jpg", ...(await photo("#f3ead8", ["#e9d8b8", "#f8c9a0", "#e4ecd6"])) });
 const darkPhoto = async () => ({ name: "garden-night.jpg", ...(await photo("#1d2340", ["#f5c16c", "#3b5ba5", "#2b1d40"])) });
 
+// The Poster sheet's Upload tab, in the host's editor (M4 ticket 06).
 async function openDrawer(page: Page) {
-  await page.getByRole("button", { name: "Design" }).click();
-  const drawer = page.getByRole("dialog", { name: "Design" });
-  await expect(drawer).toBeVisible();
-  return drawer;
+  await toEditor(page);
+  return openDesign(page, "Poster", "Upload");
 }
 
 // What a guest's browser is sent for the page.
@@ -51,7 +50,7 @@ async function uploadedPoster(request: APIRequestContext, link: string) {
 // Uploads a picture and waits until the page wears it.
 async function upload(page: Page, request: APIRequestContext, link: string, file: { name: string; mimeType: string; buffer: Buffer }, control = "Upload your photo or poster") {
   const before = await uploadedPoster(request, link);
-  await page.getByRole("dialog", { name: "Design" }).getByLabel(control).setInputFiles(file);
+  await page.getByRole("dialog", { name: "Poster" }).getByLabel(control).setInputFiles(file);
   await expect.poll(() => uploadedPoster(request, link), { timeout: 20_000 }).not.toBe(before);
   return (await uploadedPoster(request, link))!;
 }
@@ -59,8 +58,8 @@ async function upload(page: Page, request: APIRequestContext, link: string, file
 test("a light photo turns the text dark by itself, and guests get the picture without its location", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "upload-light", EVENT);
-  await host.page.goto(host.link);
   // Golden hour, where every event starts, wears light text.
+  await toEditor(host.page);
   await expect(host.page.locator("[data-tone]")).toHaveAttribute("data-tone", "light");
 
   const drawer = await openDrawer(host.page);
@@ -69,8 +68,8 @@ test("a light photo turns the text dark by itself, and guests get the picture wi
   const src = await upload(host.page, request, host.link, sent);
   await expect(host.page.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
 
-  // It is the poster, and its tile in the gallery says so.
-  await expect(drawer.getByRole("group", { name: "Poster" }).getByRole("radio", { name: "Your picture" })).toBeChecked();
+  // It is the poster: there is nothing to show again.
+  await expect(drawer.getByRole("button", { name: "Show your picture" })).toHaveCount(0);
 
   // Guests see the same page: the picture, with dark text.
   await page.goto(host.link);
@@ -99,7 +98,6 @@ test("a light photo turns the text dark by itself, and guests get the picture wi
 test("the host describes the picture for screen readers, and can go back to it after another poster", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "upload-alt", EVENT);
-  await host.page.goto(host.link);
   const drawer = await openDrawer(host.page);
   const src = await upload(host.page, request, host.link, await darkPhoto());
   await expect(host.page.locator("[data-tone]")).toHaveAttribute("data-tone", "light");
@@ -115,24 +113,26 @@ test("the host describes the picture for screen readers, and can go back to it a
 
   const id = src.split("/")[2];
 
-  // A curated poster puts the picture aside, and its description with it.
-  await drawer.getByRole("radio", { name: "Dusk" }).check();
+  // A colour puts the picture aside, and its description with it.
+  await closeDesign(host.page, "Poster");
+  await pickDesign(host.page, "Poster", "Colours", "Dusk", "Colour");
   await expect.poll(() => uploadedPoster(request, host.link), { timeout: 15_000 }).toBeUndefined();
   // Put aside, it is the host's alone: a guest's page does not even name it, while the host's
-  // still does, for the Design drawer.
+  // editor still does, for the Poster sheet.
   expect(await guestHtml(request, host.link)).not.toContain(id);
-  expect(await (await host.page.request.get(host.link)).text()).toContain(id);
+  expect(await (await host.page.request.get(host.page.url())).text()).toContain(id);
   await page.reload();
   await expect(page.getByRole("img", { name: ALT })).toHaveCount(0);
 
-  // The picture stays in the gallery, and choosing it brings it back as it was.
-  const tile = drawer.getByRole("group", { name: "Poster" }).getByRole("radio", { name: "Your picture" });
-  await expect(tile).not.toBeChecked();
-  await tile.check();
+  // The picture stays in the Upload tab, and showing it brings it back as it was.
+  const again = await openDesign(host.page, "Poster", "Upload");
+  const show = again.getByRole("button", { name: "Show your picture" });
+  await savedAfter(host.page, () => show.click());
   await expect.poll(() => uploadedPoster(request, host.link), { timeout: 15_000 }).toBe(src);
   await page.reload();
   await expect(page.getByRole("img", { name: ALT })).toHaveCount(1);
-  await expect(tile).toBeChecked();
+  await expect(show).toHaveCount(0);
+  await expect(again.getByLabel("Describe your picture")).toHaveValue(ALT);
 
   await host.context.close();
 });
@@ -140,7 +140,6 @@ test("the host describes the picture for screen readers, and can go back to it a
 test("a picture over the size limit, or a file that is not a picture, is refused with a clear message", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "upload-refused", EVENT);
-  await host.page.goto(host.link);
   const drawer = await openDrawer(host.page);
   const control = drawer.getByLabel("Upload your photo or poster");
 
@@ -163,7 +162,7 @@ test("a picture over the size limit, or a file that is not a picture, is refused
 const FILES = ["background.webp", "background-portrait.webp", "poster.webp", "poster-720.webp", "poster-copy.webp", "card.jpg"];
 const filesOf = (poster: string) => FILES.map((file) => poster.replace("poster.webp", file));
 
-test("the drawer shows the picture as the small poster, and nothing asks for the whole background", async ({ page, browser, request }) => {
+test("the Poster sheet shows the picture as the small poster, and nothing asks for the whole background", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "upload-thumbnail", EVENT);
   // createPublished's host is at a desktop's size: this host works on the device the project is.
@@ -171,19 +170,18 @@ test("the drawer shows the picture as the small poster, and nothing asks for the
   await host.page.setViewportSize(viewport);
   const requested: string[] = [];
   host.page.on("request", (sent) => requested.push(new URL(sent.url()).pathname));
-  await host.page.goto(host.link);
   await openDrawer(host.page);
   const full = await upload(host.page, request, host.link, await darkPhoto());
   const small = full.replace("poster.webp", "poster-720.webp");
   const background = full.replace("poster.webp", "background.webp");
 
   // The thumbnail is drawn with the 720-pixel poster, not the 2048-pixel background.
-  const thumbnail = host.page.getByRole("dialog", { name: "Design" }).locator('span[aria-hidden][style*="/uploads/"]');
+  const thumbnail = host.page.getByRole("dialog", { name: "Poster" }).locator('span[aria-hidden][style*="/uploads/"]');
   await expect(thumbnail).toHaveCSS("background-image", `url("${new URL(small, host.page.url()).href}")`);
   await expect.poll(() => requested).toContain(small);
 
   // The picture is the poster, so its 2048-pixel background rendition is never asked for: not by
-  // the page, and not by the drawer.
+  // the editor, and not by the sheet.
   await host.page.waitForTimeout(500);
   expect(requested).not.toContain(background);
 
@@ -194,7 +192,6 @@ test("replacing a picture removes the old one's files, and deleting the event re
   test.slow();
   const host = await createPublished(browser, request, "upload-replace", EVENT);
   const manage = host.page.url();
-  await host.page.goto(host.link);
   await openDrawer(host.page);
 
   const first = await upload(host.page, request, host.link, await darkPhoto());
@@ -217,7 +214,6 @@ test("replacing a picture removes the old one's files, and deleting the event re
 test("deleting an account removes the pictures on its events", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "upload-account", EVENT);
-  await host.page.goto(host.link);
   await openDrawer(host.page);
   const src = await upload(host.page, request, host.link, await darkPhoto());
   expect((await request.get(src)).status()).toBe(200);

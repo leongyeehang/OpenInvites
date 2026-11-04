@@ -3,6 +3,8 @@ import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireHost } from "@/auth/session";
+import { PageFooter } from "@/components/page-footer";
+import { DesignSheets } from "@/editor/design-sheets";
 import { EditorDetails, type EditableDetails } from "@/editor/details";
 import { EditableTitle } from "@/editor/editable-title";
 import { SettingsSheet, EditorToolbar } from "@/editor/settings-sheet";
@@ -25,7 +27,6 @@ import { PosterLayout } from "@/themes/poster-layout";
 import { ThemedPage } from "@/themes/themed-page";
 import { findEventUpload } from "@/uploads/repository";
 import { themeUpload } from "@/uploads/uploads";
-import { DesignDrawer } from "../../../e/[slug]/design-drawer";
 
 export async function generateMetadata({ params }: PageProps<"/events/[id]">): Promise<Metadata> {
   const [host, { id }, t] = await Promise.all([requireHost(), params, getTranslations("Editor")]);
@@ -36,8 +37,8 @@ export async function generateMetadata({ params }: PageProps<"/events/[id]">): P
 // The invitation is the editor (M4 spec, "The editor"): the event's own page as its guests will see
 // it, in the Poster layout, with the title typed on the poster and When, Where and About filled in
 // from small sheets, each saved as it is made. Above it, close, the save status, Preview, Publish
-// or Share, and More, where the 0.4 manage page's links went; below it, the toolbar, with Design and
-// Settings. Its co-hosts get the same, less what is the owner's alone (hosts/role.ts).
+// or Share, and More, where the 0.4 manage page's links went; below it, the toolbar, with Poster,
+// Title, Theme, Effect and Settings. Its co-hosts get the same, less what is the owner's alone (hosts/role.ts).
 export default async function EditorPage({ params, searchParams }: PageProps<"/events/[id]">) {
   const [host, { id }, { from }, locale, t] = await Promise.all([requireHost(), params, searchParams, getLocale(), getTranslations("Events.manage")]);
   const event = await findHostEvent(host.id, id);
@@ -84,7 +85,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
   ];
 
   return (
-    <ClientMessages namespaces={["Editor", "DesignDrawer", "Posters", "Events.form", "Events.manage"]}>
+    <ClientMessages namespaces={["Editor", "Design", "Posters", "Events.form", "Events.manage"]}>
       <EditorProvider>
         <ThemedPage
           theme={event.theme}
@@ -116,16 +117,18 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
                 </div>
               )}
               <EditorToolbar
-                design={<DesignDrawer eventId={event.id} maxUploadBytes={maxUploadBytes()} inToolbar />}
-                settings={
-                  <SettingsSheet
-                    eventId={event.id}
-                    settings={event}
-                    mail={isMailConfigured()}
-                    maxReplies={limits.maxRsvpsPerEvent}
-                    questions={questions}
-                    answerCounts={answerCounts}
-                  />
+                sheets={
+                  <>
+                    <DesignSheets eventId={event.id} title={event.title} maxUploadBytes={maxUploadBytes()} />
+                    <SettingsSheet
+                      eventId={event.id}
+                      settings={event}
+                      mail={isMailConfigured()}
+                      maxReplies={limits.maxRsvpsPerEvent}
+                      questions={questions}
+                      answerCounts={answerCounts}
+                    />
+                  </>
                 }
               />
             </>
@@ -144,13 +147,17 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
               foot: (
                 <p className="px-2 pt-2 text-sm text-theme-text-muted">
                   {editor("guestsAlsoSee")}{" "}
-                  <Link href={link} className="font-medium text-theme-text underline underline-offset-2">
+                  <Link href={link} prefetch={false} className="font-medium text-theme-text underline underline-offset-2">
                     {editor("seeAsGuest")}
                   </Link>
                 </p>
               ),
             }}
           />
+          {/* The page's own footer, with the instance's legal pages, and room under it for the
+              toolbar, whatever layout the theme names. */}
+          <PageFooter themed />
+          <div aria-hidden className="h-24" />
         </ThemedPage>
       </EditorProvider>
     </ClientMessages>

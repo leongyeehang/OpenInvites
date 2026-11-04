@@ -1,4 +1,4 @@
-import { chooseLayout, createDraft, createPublished, type DraftFields, editSettings, openMore, publishInEditor } from "./events";
+import { chooseLayout, createDraft, createPublished, type DraftFields, editSettings, openMore, pickDesign, publishInEditor } from "./events";
 import { signUpVerified } from "./hosts";
 import { expect, test, type APIRequestContext, type Browser, type Page } from "./test";
 
@@ -197,6 +197,7 @@ test("the host's announcements and the comments show on the Broadsheet", async (
   test.slow();
   const host = await createPublished(browser, request, "broadsheet-social", SIMPLE);
 
+  await openMore(host.page);
   await host.page.getByRole("link", { name: "Announcements" }).click();
   await host.page.getByLabel("Message").fill("Doors open at 6.30.");
   await host.page.getByRole("button", { name: "Send", exact: true }).click();
@@ -241,11 +242,7 @@ test("under the Confetti effect, confetti falls over the Broadsheet when an RSVP
 }) => {
   test.slow();
   const host = await createPublished(browser, request, "broadsheet-confetti", SIMPLE);
-  await host.page.goto(host.link);
-  await host.page.getByRole("button", { name: "Design" }).click();
-  const drawer = host.page.getByRole("dialog", { name: "Design" });
-  await drawer.getByRole("button", { name: "Details" }).click();
-  await drawer.getByRole("group", { name: "Effect" }).getByRole("radio", { name: "Confetti" }).check();
+  await pickDesign(host.page, "Effect", "Effect", /^Confetti/);
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('effect\\":\\"confetti');
 
   // It would come with the receipt, in the same paint, so none now is none at all.
@@ -267,11 +264,7 @@ test("under the Confetti effect, confetti falls over the Broadsheet when an RSVP
 test("under the Confetti effect, no confetti falls when a waitlisted guest lowers their own party until it fits", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "broadsheet-self-promotion", { ...SIMPLE, plusOnes: "1", capacity: "2" });
-  await host.page.goto(host.link);
-  await host.page.getByRole("button", { name: "Design" }).click();
-  const drawer = host.page.getByRole("dialog", { name: "Design" });
-  await drawer.getByRole("button", { name: "Details" }).click();
-  await drawer.getByRole("group", { name: "Effect" }).getByRole("radio", { name: "Confetti" }).check();
+  await pickDesign(host.page, "Effect", "Effect", /^Confetti/);
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('effect\\":\\"confetti');
 
   // One place is taken, so a party of two does not fit and waits.
@@ -299,13 +292,10 @@ test("under the Confetti effect, no confetti falls when a waitlisted guest lower
 test("the ballot's Post button wears the theme's RSVP button style, and a gallery poster keeps the Broadsheet, beside its title", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "broadsheet-buttons", { title: "Supper at Mei’s", start: "2027-03-06T19:00", plusOnes: "0" });
-  await host.page.goto(host.link);
-  await host.page.getByRole("button", { name: "Design" }).click();
-  const drawer = host.page.getByRole("dialog", { name: "Design" });
-  await drawer.getByRole("group", { name: "Layout" }).getByRole("radio", { name: /^Broadsheet/ }).check();
+  await pickDesign(host.page, "Theme", "Layout", /^Broadsheet/);
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('data-layout="broadsheet"');
   // A poster's look leaves the layout as it is.
-  await drawer.getByRole("group", { name: "Poster" }).getByRole("radio", { name: "Sunset drive" }).check();
+  await pickDesign(host.page, "Poster", "Poster", "Sunset drive", "Gallery");
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toMatch(/src="\/posters\/sunset-drive\.[0-9a-f]{8}\.svg"/);
   expect(await guestHtml(request, host.link)).toContain('data-layout="broadsheet"');
 
@@ -319,15 +309,13 @@ test("the ballot's Post button wears the theme's RSVP button style, and a galler
   await expect(post).toHaveCSS("background-color", "rgb(255, 143, 192)");
   await expect(page.locator('img[src^="/posters/sunset-drive."]')).toBeVisible();
 
-  await drawer.getByRole("button", { name: "Details" }).click();
-  const buttons = drawer.getByRole("group", { name: "RSVP buttons" });
-  await buttons.getByRole("radio", { name: "Outline" }).check();
+  await pickDesign(host.page, "Theme", "RSVP buttons", "Outline");
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('buttonStyle\\":\\"outline');
   await ballot();
   await expect(post).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(post).toHaveCSS("border-top-width", "2px");
 
-  await buttons.getByRole("radio", { name: "Glass" }).check();
+  await pickDesign(host.page, "Theme", "RSVP buttons", "Glass");
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('buttonStyle\\":\\"glass');
   await ballot();
   await expect(post).toHaveCSS("backdrop-filter", /blur/);
@@ -350,7 +338,7 @@ test("a draft shows its host the draft notice, and a cancelled event the notice 
   await expect(hostPage.getByText("Draft. Only the hosts can see this page until you publish it.")).toBeVisible();
   await expect(hostPage.getByRole("radio", { name: "I’ll be there" })).toBeDisabled();
   await expect(hostPage.getByText("This invitation is not taking RSVPs.")).toBeVisible();
-  await expect(hostPage.getByRole("button", { name: "Design" })).toBeVisible();
+  await expect(hostPage.getByRole("link", { name: "Edit event" })).toBeVisible();
 
   await hostPage.goto(manage);
   await publishInEditor(hostPage);

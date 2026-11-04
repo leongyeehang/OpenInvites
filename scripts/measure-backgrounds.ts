@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import en from "../messages/en.json";
-import { createPublished } from "../e2e/events";
-import { expect, test, type Locator, type Page } from "../e2e/test";
+import { createPublished, savedAfter } from "../e2e/events";
+import { expect, test, type Page } from "../e2e/test";
 import { BACKGROUNDS, type CuratedBackground } from "../src/themes/backgrounds";
 import { hexToRgb, luminance, type Rgb } from "../src/themes/legibility";
 import { SWATCHES } from "../src/themes/swatches";
@@ -10,7 +10,7 @@ import { SWATCHES } from "../src/themes/swatches";
 // gallery's colours that has to be measured, its `luminance`, `lightest` and `darkest`, the way the
 // comment there says they are measured, and prints them beside the stored values. `-g <id>`
 // measures one. It drives the app on port 3000 (`pnpm dev`, or the Compose test profile) through
-// the product: a host publishes an event and wears the colour as the poster in the Design drawer,
+// the product: a host publishes an event and picks the colour as the poster in the editor,
 // and the page a guest is sent is photographed with everything but the backdrop hidden. (The
 // gallery's pictures are measured as they are built, by `pnpm posters`.)
 // docs/contributing/backgrounds.md says when to run it.
@@ -38,36 +38,38 @@ const ALONE = `
 
 // The brightest blob there can be is a white one, so the lightest point is looked for with the
 // White accent. No one accent makes the darkest blob, so the darkest point is looked for with each.
-const WHITE = en.DesignDrawer.swatches.white;
-const EVERY_ACCENT = [en.DesignDrawer.auto, ...SWATCHES.map((swatch) => en.DesignDrawer.swatches[swatch.id])];
+const WHITE = en.Design.swatches.white;
+const EVERY_ACCENT = [en.Design.auto, ...SWATCHES.map((swatch) => en.Design.swatches[swatch.id])];
+// The page a tone is on: light text is on the Dark page, dark text on the Light one.
+const PAGE = { light: en.Design.pages.dark, dark: en.Design.pages.light };
 
 type Measured = Pick<CuratedBackground, "luminance" | "lightest" | "darkest">;
 
 for (const background of BACKGROUNDS) {
   test(background.id, async ({ browser, request, page }) => {
     const host = await createPublished(browser, request, "measure", { title: "Measuring the backdrop", start: "2027-03-06T19:00" });
-    await host.page.goto(host.link);
-    await host.page.getByRole("button", { name: "Design" }).click();
-    const drawer = host.page.getByRole("dialog", { name: "Design" });
-    await drawer.getByRole("button", { name: en.DesignDrawer.details }).click();
-    await choose(drawer, en.DesignDrawer.poster, en.DesignDrawer.colourNames[background.id]);
+    await choose(host.page, "poster", en.Design.colours, en.Design.colourNames[background.id], en.Design.tabs.colour);
 
     const measured = {
       luminance: await averageLuminance(page, host.link),
-      lightest: await extreme(page, drawer, host.link, "light", [WHITE]),
-      darkest: await extreme(page, drawer, host.link, "dark", EVERY_ACCENT),
+      lightest: await extreme(page, host.page, host.link, "light", [WHITE]),
+      darkest: await extreme(page, host.page, host.link, "dark", EVERY_ACCENT),
     };
     console.log(report(background, measured));
     await host.context.close();
   });
 }
 
-// The host picks one of a group's choices in the drawer, and it is saved before a guest looks.
-async function choose(drawer: Locator, group: string, name: string) {
-  const choice = drawer.getByRole("group", { name: group }).getByRole("radio", { name, exact: true });
-  if (await choice.isChecked()) return;
-  await choice.check();
-  await expect(drawer.getByText(en.DesignDrawer.saved, { exact: true })).toBeVisible({ timeout: 15_000 });
+// The host picks one of a group's choices in one of the editor's design sheets (on its tab, if it
+// has tabs), and it is saved before a guest looks.
+async function choose(editor: Page, sheet: "poster" | "theme", group: string, name: string, tab?: string) {
+  await editor.getByRole("navigation", { name: en.Editor.toolbar }).getByRole("button", { name: en.Design.sheets[sheet] }).click();
+  const opened = editor.getByRole("dialog", { name: en.Design.sheets[sheet] });
+  if (tab) await opened.getByRole("tab", { name: tab }).click();
+  const choice = opened.getByRole("group", { name: group }).getByRole("radio", { name, exact: true });
+  if (!(await choice.isChecked())) await savedAfter(editor, () => choice.check());
+  await editor.keyboard.press("Escape");
+  await expect(opened).toBeHidden();
 }
 
 // The page a guest is sent, showing only what `css` leaves visible.
@@ -88,11 +90,11 @@ async function averageLuminance(page: Page, link: string) {
 
 // The lightest pixel of the backdrop as the glass sees it in the light tone, or the darkest in
 // the dark tone, over every accent given, every viewport and both ends of the drift.
-async function extreme(page: Page, drawer: Locator, link: string, tone: "light" | "dark", accents: string[]) {
+async function extreme(page: Page, editor: Page, link: string, tone: "light" | "dark", accents: string[]) {
   let best: { luminance: number; rgb: Rgb } | undefined;
-  await choose(drawer, en.DesignDrawer.textTone, en.DesignDrawer.tones[tone]);
+  await choose(editor, "theme", en.Design.page, PAGE[tone]);
   for (const accent of accents) {
-    await choose(drawer, en.DesignDrawer.accent, accent);
+    await choose(editor, "theme", en.Design.accent, accent);
     await openAsGuest(page, link, AS_GLASS_SEES_IT);
     await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", tone);
     await page.evaluate(() => document.body.append(Object.assign(document.createElement("div"), { id: "glass-pane" })));

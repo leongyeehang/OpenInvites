@@ -1,3 +1,4 @@
+import type { EmojiChoice } from "./emoji";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { cache } from "react";
 import { getDb } from "@/db/client";
@@ -38,7 +39,13 @@ export async function findHostUploadId(hostId: string, eventId: string): Promise
 // meanwhile waits for it or finds it gone. The description does not carry over, as the new
 // picture shows something else. Returns the id of the upload it replaced, whose files the
 // caller removes, or undefined when the event is not the host's.
-export async function replaceUpload(hostId: string, eventId: string, id: string, sample: Sample): Promise<{ replaced: string | null } | undefined> {
+export async function replaceUpload(
+  hostId: string,
+  eventId: string,
+  id: string,
+  sample: Sample,
+  emoji?: EmojiChoice,
+): Promise<{ replaced: string | null } | undefined> {
   return getDb().transaction(async (tx) => {
     const [row] = await tx
       .select({ theme: event.theme })
@@ -47,7 +54,7 @@ export async function replaceUpload(hostId: string, eventId: string, id: string,
       .for("update");
     if (!row) return undefined;
     const [old] = await tx.delete(upload).where(eq(upload.eventId, eventId)).returning({ id: upload.id });
-    await tx.insert(upload).values({ id, eventId, ...sample });
+    await tx.insert(upload).values({ id, eventId, ...sample, ...(emoji ? { origin: "emoji" as const, emojiSet: emoji.emoji, emojiBackground: emoji.background } : {}) });
     // A theme write moves updatedAt, which is what makes the link's preview card redraw.
     const theme = showNewUpload(parseTheme(row.theme));
     await tx.update(event).set({ theme, updatedAt: new Date() }).where(eq(event.id, eventId));

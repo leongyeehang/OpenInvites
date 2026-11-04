@@ -4,6 +4,7 @@ import { can } from "@/hosts/role";
 import { baseUrl, maxUploadBytes } from "@/instance/env";
 import { isUuid } from "@/lib/uuid";
 import { consume, retryAfter } from "@/rate-limit/rate-limit";
+import { parseEmojiChoice } from "@/uploads/emoji";
 import { uploadPicture, type UploadOutcome } from "@/uploads/uploads";
 
 // The Design drawer's upload: the request's body is the picture's bytes, and the answer is the
@@ -24,10 +25,23 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
   const event = isUuid(id) ? await findHostEvent(session.user.id, id) : undefined;
   if (!event || !can(event.role, "design")) return refused("notFound");
 
+  // An emoji pattern drawn in the Poster sheet says so, with the emoji and the colour it was drawn
+  // from, which are kept beside it (M4 spec, "Emoji posters").
+  const url = new URL(request.url);
+  let emoji: ReturnType<typeof parseEmojiChoice>;
+  if (url.searchParams.has("emoji")) {
+    try {
+      emoji = parseEmojiChoice(JSON.parse(url.searchParams.get("emoji") ?? ""), url.searchParams.get("background"));
+    } catch {
+      emoji = undefined;
+    }
+    if (!emoji) return refused("unsupported");
+  }
+
   const maxBytes = maxUploadBytes();
   const bytes = await readUpTo(request, maxBytes);
   if (!bytes) return refused("tooLarge");
-  const outcome = await uploadPicture(session.user.id, id, bytes, maxBytes);
+  const outcome = await uploadPicture(session.user.id, id, bytes, maxBytes, emoji);
   return outcome.ok ? Response.json({ id: outcome.id }) : refused(outcome.problem);
 }
 

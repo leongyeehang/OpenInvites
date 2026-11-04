@@ -19,6 +19,8 @@ export type ThemeUpload = {
   lightest: string;
   darkest: string;
   altText: string;
+  // An emoji pattern's emoji and colour, which the Poster sheet shows again; null for a photo.
+  emoji: { emoji: string[]; background: string } | null;
   poster: { src: string; srcSet: string | undefined; copySrc: string; width: number; height: number; lightest: string; darkest: string };
 };
 

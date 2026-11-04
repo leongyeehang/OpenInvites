@@ -106,7 +106,7 @@ describe("the messages each page sends to the browser", () => {
       "app/e/[slug]/rsvp-flow.tsx",
       "app/e/[slug]/thread-composer.tsx",
     ]);
-    // The Design panel is fetched on its own, when the host opens it, and read too.
-    expect(used.get("DesignDrawer")).toEqual(expect.arrayContaining(["app/e/[slug]/design-panel.tsx"]));
+    // The editor's design sheets read theirs, through the editor page.
+    expect(walk(join(APP, "(editor)/events/[id]/page.tsx")).used.get("Design")).toEqual(expect.arrayContaining(["editor/design-sheets.tsx"]));
   });
 });

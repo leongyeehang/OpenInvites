@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { createPublished } from "./events";
+import { createPublished, openDesign } from "./events";
 import { mailCountTo, newHost, signUp } from "./hosts";
 import { clientAddress, expect, test } from "./test";
 
@@ -158,12 +158,10 @@ test("someone trying password after password is told to slow down in the sign-in
   await expect(page.getByText("That email and password do not match.")).toBeHidden();
 });
 
-test("a host uploading picture after picture is told to slow down in the Design drawer", async ({ browser, request }) => {
+test("a host uploading picture after picture is told to slow down in the Poster sheet", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "rate-upload", { title: "Ada’s garden party", start: "2027-05-08T16:00", plusOnes: "0" });
-  await host.page.goto(host.link);
-  await host.page.getByRole("button", { name: "Design" }).click();
-  const drawer = host.page.getByRole("dialog", { name: "Design" });
+  const drawer = await openDesign(host.page, "Poster", "Upload");
 
   const picture = async (shade: number) => ({
     name: `garden-${shade}.png`,

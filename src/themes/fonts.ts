@@ -5,7 +5,7 @@ import type { FontKey } from "./theme";
 // means: its key in theme.ts FONTS, its woff2 (named after its content: public-files.test.ts)
 // and OFL.txt in public/fonts, its @font-face, its fallback and its class in globals.css ("Title
 // fonts"), its class and file in title-fonts.ts, its entry here, its name in every file in
-// messages/ (DesignDrawer.fontNames), and, for the link's preview card, a TTF of the same file
+// messages/ (Design.fontNames), and, for the link's preview card, a TTF of the same file
 // and OFL.txt in src/sharing/fonts, and its entry in sharing/card-fonts.ts.
 export type TitleFont = {
   key: FontKey;

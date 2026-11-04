@@ -104,14 +104,14 @@ test("a guest answers in a sheet that rises over the invitation and grows throug
   await host.context.close();
 });
 
-test("the sheet keeps focus until it closes, hands it back, and the Design button steps aside", async ({ browser, request }) => {
+test("the sheet keeps focus until it closes and hands it back, on the host's own invitation too", async ({ browser, request }) => {
   test.slow();
-  // The host tries their own invitation, so their Design button is on the page too.
+  // The host tries their own invitation: it is the guest's page, with nothing of the editor on it
+  // (the design sheets are the editor's, M4 ticket 06).
   const host = await createPublished(browser, request, "sheet-focus", EVENT);
   const page = host.page;
   await page.goto(host.link);
-  const design = page.getByRole("button", { name: "Design", includeHidden: true });
-  const resting = await box(design);
+  await expect(page.getByRole("button", { name: "Design", includeHidden: true })).toHaveCount(0);
 
   const going = page.getByRole("button", { name: "Going" });
   await going.click();
@@ -119,12 +119,6 @@ test("the sheet keeps focus until it closes, hands it back, and the Design butto
   await expect(sheet).toBeVisible();
   await settled(sheet);
   await expect(sheet.getByLabel("Your name")).toBeFocused();
-
-  // Out of the sheet's way: it has gone to the top of the screen.
-  const aside = await box(design);
-  const sheetBox = await box(sheet);
-  expect(aside.y).toBeLessThan(resting.y);
-  expect(aside.y + aside.height).toBeLessThanOrEqual(sheetBox.y);
 
   // Round and round inside the sheet, forwards and back, never out to the page behind it.
   for (const key of ["Tab", "Tab", "Tab", "Tab", "Tab", "Shift+Tab", "Shift+Tab", "Shift+Tab", "Shift+Tab", "Shift+Tab", "Shift+Tab"]) {
@@ -136,7 +130,6 @@ test("the sheet keeps focus until it closes, hands it back, and the Design butto
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();
   await expect(going).toBeFocused();
-  await expect.poll(async () => (await box(design)).y).toBe(resting.y);
 
   await host.context.close();
 });

@@ -1,4 +1,4 @@
-import { createPublished, type DraftFields, editSettings, openMore } from "./events";
+import { createPublished, type DraftFields, editSettings, openMore, openSettings } from "./events";
 import { latestMailTo, linkIn, mailCountTo, newHost } from "./hosts";
 import { clientAddress, expect, test, type Browser, type Page } from "./test";
 import { openMyReply } from "./reply";
@@ -200,7 +200,18 @@ test("the host's capacity moves the waitlist: raised, the party at the front is 
   const chenEmail = newHost("capacity-host-chen").email;
 
   // The field's hint says what an empty capacity means, in the instance's words and not "limit".
-  await expect(host.page.getByRole("group", { name: "Guests", exact: true }).getByText("Leave empty to take everyone.")).toBeVisible();
+  const settings = await openSettings(host.page);
+  await expect(settings.getByRole("group", { name: "Guests", exact: true }).getByText("Leave empty to take everyone.")).toBeVisible();
+  // A capacity of none is refused beside the field, which says so, and nothing changes.
+  const capacity = settings.getByLabel("Capacity");
+  await capacity.fill("0");
+  const refused = settings.getByRole("group", { name: "Guests", exact: true }).getByRole("alert");
+  await expect(refused).toHaveText("Enter a whole number from 1 to 5,000 for the capacity, or leave it empty to take everyone.", { timeout: 15_000 });
+  await expect(capacity).toHaveAttribute("aria-invalid", "true");
+  await capacity.fill("2");
+  await expect(refused).toHaveCount(0, { timeout: 15_000 });
+  await expect(capacity).not.toHaveAttribute("aria-invalid");
+  await host.page.keyboard.press("Escape");
 
   // Arjun's party of two fills both places; Bea's party of two, then Chen and Dev alone, wait.
   await replyGoing(arjun, host.link, "Arjun Rao", 1);

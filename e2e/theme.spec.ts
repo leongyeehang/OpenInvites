@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { createDraft, createPublished, publishInEditor } from "./events";
+import { createDraft, createPublished, pickDesign, publishInEditor, toEditor } from "./events";
 import { signUpVerified } from "./hosts";
 
 // Ticket 06: every new event wears the Birthday template's Poster look of 0.4 without the host doing
@@ -99,12 +99,9 @@ test("a guest's page asks early for its own title font and no other, kept for a 
 
   // The host chooses a gallery poster and Syne: the page now asks for Syne alone, and the poster is
   // there, with its copy behind it.
-  await host.page.goto(host.link);
-  await host.page.getByRole("button", { name: "Design" }).click();
-  const drawer = host.page.getByRole("dialog", { name: "Design" });
-  await drawer.getByRole("radio", { name: "Bokeh" }).check();
-  await drawer.getByRole("button", { name: "Details" }).click();
-  await drawer.getByRole("radio", { name: "Syne" }).check();
+  await toEditor(host.page);
+  await pickDesign(host.page, "Poster", "Poster", "Bokeh", "Gallery");
+  await pickDesign(host.page, "Title", "Title font", "Syne");
   await expect.poll(preloaded, { timeout: 15_000 }).toEqual([expect.stringMatching(/^\/fonts\/syne-800\.[0-9a-f]{8}\.woff2$/)]);
   const [syne] = await preloaded();
   expect((await request.get(syne!)).headers()["cache-control"]).toBe(FOR_A_YEAR);

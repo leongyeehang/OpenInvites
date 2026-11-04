@@ -1,4 +1,4 @@
-import { chooseLayout, createDraft, createPublished, type DraftFields, editSettings, openMore, publishInEditor } from "./events";
+import { chooseLayout, closeDesign, createDraft, createPublished, type DraftFields, editSettings, openDesign, openMore, pickDesign, publishInEditor, toEditor } from "./events";
 import { signUpVerified } from "./hosts";
 import { expect, test, type APIRequestContext, type Browser, type Page } from "./test";
 
@@ -278,6 +278,7 @@ test("the host's announcements arrive as dated bubbles, and the comments as one 
   test.slow();
   const host = await createPublished(browser, request, "thread-social", SIMPLE);
 
+  await openMore(host.page);
   await host.page.getByRole("link", { name: "Announcements" }).click();
   await host.page.getByLabel("Message").fill("Doors open at 2.30.");
   await host.page.getByRole("button", { name: "Send", exact: true }).click();
@@ -315,14 +316,14 @@ test("the host's announcements arrive as dated bubbles, and the comments as one 
 test("a gallery poster keeps the Thread, its chips wear the theme's button style, and confetti falls for a Going", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "thread-buttons", { title: "Ada’s party", start: "2027-03-06T15:00", plusOnes: "0" });
-  await host.page.goto(host.link);
-  await host.page.getByRole("button", { name: "Design" }).click();
-  const drawer = host.page.getByRole("dialog", { name: "Design" });
-  await drawer.getByRole("group", { name: "Layout" }).getByRole("radio", { name: /^Thread/ }).check();
+  await toEditor(host.page);
+  await pickDesign(host.page, "Theme", "Layout", /^Thread/);
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('data-layout="thread"');
   // A poster's look leaves the layout as it is.
-  await drawer.getByRole("group", { name: "Poster" }).getByRole("radio", { name: "Balloons" }).check();
-  await expect(drawer.getByRole("group", { name: "Layout" }).getByRole("radio", { name: /^Thread/ })).toBeChecked();
+  await pickDesign(host.page, "Poster", "Poster", "Balloons", "Gallery");
+  const theme = await openDesign(host.page, "Theme");
+  await expect(theme.getByRole("group", { name: "Layout" }).getByRole("radio", { name: /^Thread/ })).toBeChecked();
+  await closeDesign(host.page, "Theme");
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toMatch(/src="\/posters\/balloons\.[0-9a-f]{8}\.svg"/);
 
   // Balloons' buttons are solid: the accent, its yellow.
@@ -338,16 +339,14 @@ test("a gallery poster keeps the Thread, its chips wear the theme's button style
   await expect(doneBubble(page)).toBeVisible({ timeout: 15_000 });
   await expect(confetti).toBeVisible();
 
-  await drawer.getByRole("button", { name: "Details" }).click();
-  const buttons = drawer.getByRole("group", { name: "RSVP buttons" });
-  await buttons.getByRole("radio", { name: "Outline" }).check();
+  await pickDesign(host.page, "Theme", "RSVP buttons", "Outline");
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('buttonStyle\\":\\"outline');
   const change = page.getByRole("button", { name: "Change my answer" });
   await page.reload();
   await expect(change).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(change).toHaveCSS("border-top-width", "2px");
 
-  await buttons.getByRole("radio", { name: "Glass" }).check();
+  await pickDesign(host.page, "Theme", "RSVP buttons", "Glass");
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('buttonStyle\\":\\"glass');
   await page.reload();
   await expect(change).toHaveCSS("backdrop-filter", /blur/);
@@ -368,7 +367,7 @@ test("a draft shows its host the draft line, and a cancelled event says it is cl
   await expect(hostPage.getByText("Draft. Only the hosts can see this page until you publish it.")).toBeVisible();
   await expect(hostPage.getByRole("log").getByText("Publish the event to start collecting RSVPs.", { exact: true })).toBeVisible();
   await expect(hostPage.getByRole("button", { name: "Going", exact: true })).toHaveCount(0);
-  await expect(hostPage.getByRole("button", { name: "Design" })).toBeVisible();
+  await expect(hostPage.getByRole("link", { name: "Edit event" })).toBeVisible();
 
   await hostPage.goto(manage);
   await publishInEditor(hostPage);

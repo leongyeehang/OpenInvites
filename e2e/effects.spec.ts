@@ -1,8 +1,8 @@
-import { createPublished } from "./events";
-import { expect, test, type APIRequestContext, type Locator, type Page } from "./test";
+import { closeDesign, createPublished, openDesign, pickDesign, toEditor } from "./events";
+import { expect, test, type APIRequestContext, type Page } from "./test";
 import { openMyReply } from "./reply";
 
-// Ticket 11 (M2): the theme's effect, chosen in the Design drawer's Details. Sparkles and doodles
+// Ticket 11 (M2): the theme's effect, chosen in the editor's Effect sheet (M4 ticket 06). Sparkles and doodles
 // are drawn in the backdrop, and confetti falls once over the page when a guest's answer makes
 // them Going. Under reduced motion none of it is drawn and nothing moves. The page is a new
 // event's, which starts with the Birthday template's look of 0.4: it sparkles. (The doodles'
@@ -22,16 +22,15 @@ async function guestHtml(request: APIRequestContext, link: string) {
   return (await request.get(link)).text();
 }
 
+// The host's editor, whose Effect sheet chooses it (M4 ticket 06).
 async function openDetails(page: Page) {
-  await page.getByRole("button", { name: "Design" }).click();
-  const drawer = page.getByRole("dialog", { name: "Design" });
-  await drawer.getByRole("button", { name: "Details" }).click();
-  return drawer;
+  await toEditor(page);
+  return page;
 }
 
 // The host picks an effect, and it is saved before a guest looks.
-async function chooseEffect(drawer: Locator, request: APIRequestContext, link: string, name: string) {
-  await drawer.getByRole("group", { name: "Effect" }).getByRole("radio", { name }).check();
+async function chooseEffect(editor: Page, request: APIRequestContext, link: string, name: string) {
+  await pickDesign(editor, "Effect", "Effect", new RegExp(`^${name}`));
   await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain(`effect\\":\\"${name.toLowerCase()}`);
 }
 
@@ -44,17 +43,18 @@ async function answer(page: Page, status: "Going" | "Maybe", name: string) {
   await expect(page.getByText(status === "Going" ? "You’re going!" : "You’re a maybe.")).toBeVisible();
 }
 
-test("a host picks each effect in the Design drawer, and guests see it", async ({ page, browser, request }) => {
+test("a host picks each effect in the editor's Effect sheet, and guests see it", async ({ page, browser, request }) => {
   test.slow();
   // Guests answer inline, so the confirmation is on the page itself, under the confetti. (In the
   // sheet the page takes no taps until the sheet closes, confetti or not.)
   const host = await createPublished(browser, request, "effects", { ...EVENT });
   await host.page.goto(host.link);
 
-  // Birthday sparkles, over the backdrop, for the host and for a guest.
+  // Birthday sparkles, over the backdrop, for the host in the editor and for a guest.
   const drawer = await openDetails(host.page);
-  const effects = drawer.getByRole("group", { name: "Effect" });
-  await expect(effects.getByRole("radio", { name: "Sparkles" })).toBeChecked();
+  const effects = (await openDesign(host.page, "Effect")).getByRole("group", { name: "Effect" });
+  await expect(effects.getByRole("radio", { name: /^Sparkles/ })).toBeChecked();
+  await closeDesign(host.page, "Effect");
   await expect(drawn(host.page, "sparkles")).toBeVisible();
   await page.goto(host.link);
   await expect(drawn(page, "sparkles")).toBeVisible();

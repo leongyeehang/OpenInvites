@@ -1,4 +1,4 @@
-import { createPublished, type DraftFields } from "../e2e/events";
+import { createPublished, type DraftFields, openDesign, pickDesign } from "../e2e/events";
 import { clientAddress, expect, test, type APIRequestContext, type Browser } from "../e2e/test";
 import { audit, describe, summarise, type Run } from "./lighthouse";
 import { fairPoster, gardenPhoto } from "./pictures";
@@ -52,13 +52,11 @@ async function published(browser: Browser, request: APIRequestContext, fields: D
 }
 
 // The host uploads a phone's photo or a poster exported for print, which is the poster either
-// way, and describes it, as the Design drawer asks.
+// way, and describes it, as the Poster sheet asks.
 async function withPicture(browser: Browser, request: APIRequestContext, as: "photo" | "poster") {
   const host = await createPublished(browser, request, "perf", EVENT);
   const guestHtml = async () => (await request.get(host.link)).text();
-  await host.page.goto(host.link);
-  await host.page.getByRole("button", { name: "Design" }).click();
-  const drawer = host.page.getByRole("dialog", { name: "Design" });
+  const drawer = await openDesign(host.page, "Poster", "Upload");
   await drawer.getByLabel("Upload your photo or poster").setInputFiles(as === "poster" ? await fairPoster() : await gardenPhoto());
   await expect(drawer.getByLabel("Describe your picture")).toBeVisible({ timeout: 30_000 });
   const alt = as === "poster" ? POSTER_ALT : PHOTO_ALT;
@@ -70,13 +68,10 @@ async function withPicture(browser: Browser, request: APIRequestContext, as: "ph
   return host.link;
 }
 
-// The host picks a gallery poster in the Design drawer, in one of the other layouts if asked.
+// The host picks a gallery poster in the Poster sheet, in one of the other layouts if asked.
 async function withGalleryPoster(browser: Browser, request: APIRequestContext, poster: string, layout?: "Broadsheet" | "Thread") {
   const host = await createPublished(browser, request, "perf", layout ? { ...EVENT, layout } : EVENT);
-  await host.page.goto(host.link);
-  await host.page.getByRole("button", { name: "Design" }).click();
-  const drawer = host.page.getByRole("dialog", { name: "Design" });
-  await drawer.getByRole("group", { name: "Poster" }).getByRole("radio", { name: poster }).check();
+  await pickDesign(host.page, "Poster", "Poster", poster, "Gallery");
   await expect.poll(async () => (await request.get(host.link)).text(), { timeout: 15_000 }).toMatch(/src="\/posters\/[a-z-]+\.[0-9a-f]{8}\.svg"/);
   await host.context.close();
   return host.link;

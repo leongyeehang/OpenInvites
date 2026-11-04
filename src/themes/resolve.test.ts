@@ -29,6 +29,7 @@ const upload = (sampled: Partial<ThemeUpload> = {}): ThemeUpload => ({
   lightest: "#303030",
   darkest: "#505050",
   altText: "",
+  emoji: null,
   poster: POSTER,
   ...sampled,
 });

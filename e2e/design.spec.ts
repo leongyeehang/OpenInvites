@@ -1,9 +1,12 @@
+import sharp from "sharp";
 import { expect, test, type APIRequestContext, type Locator, type Page } from "./test";
-import { createPublished } from "./events";
+import { closeDesign, createPublished, openDesign, savedAfter } from "./events";
 
-// Ticket 10: the host's Design drawer. Every change shows at once and is saved, and guests see what
-// was saved. M4 ticket 02: a gallery poster brings its look (the templates of 0.4, folded into the
-// gallery), any knob after it makes the look the host's own, and the look can be restored.
+// M4 ticket 06: the editor's design sheets, Poster, Title, Theme and Effect, which took the Design
+// drawer's place (ticket 10 of M1). Every choice shows on the invitation at once and is saved, and
+// guests see what was saved. A gallery poster brings its look (M4 ticket 02); any knob after it
+// makes the look the host's own, and the look can be restored. The host's page is the editor,
+// which createPublished leaves them on.
 const EVENT = { title: "Ada’s birthday", start: "2027-03-06T19:00", location: "Ah Ma’s house", plusOnes: "0" } as const;
 
 // What a guest's browser is sent for the page, which is the saved theme and nothing else.
@@ -12,264 +15,252 @@ async function guestHtml(request: APIRequestContext, link: string) {
 }
 
 async function titleFont(page: Page) {
-  return page.getByRole("heading", { level: 1 }).evaluate((title) => getComputedStyle(title).fontFamily);
+  return page.locator("h1").first().evaluate((title) => getComputedStyle(title).fontFamily);
 }
 
-async function openDrawer(page: Page) {
-  await page.getByRole("button", { name: "Design" }).click();
-  const drawer = page.getByRole("dialog", { name: "Design" });
-  await expect(drawer).toBeVisible();
-  return drawer;
+const posterSrc = (page: Page) => page.locator('[data-slot="poster-card"] img');
+
+// One choice in an open sheet, saved.
+async function choose(page: Page, sheet: Locator, group: string, name: string | RegExp) {
+  const choice = sheet.getByRole("group", { name: group, exact: true }).getByRole("radio", { name, exact: typeof name === "string" });
+  if (!(await choice.isChecked())) await savedAfter(page, () => choice.check());
+  await expect(choice).toBeChecked();
 }
 
 test("a host picks a gallery poster, its look comes with it, and guests see the saved theme", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "design", EVENT);
-  await host.page.goto(host.link);
-  const previewBefore = await host.page.locator('meta[property="og:image"]').getAttribute("content");
+  const editor = host.page;
+  const previewBefore = await page.goto(host.link).then(() => page.locator('meta[property="og:image"]').getAttribute("content"));
 
-  const drawer = await openDrawer(host.page);
-  const posters = drawer.getByRole("group", { name: "Poster" });
-  await expect(posters.getByRole("radio", { name: "Golden hour" })).toBeChecked();
-  // Sorted by occasion, each a group of its own.
-  await expect(posters.getByRole("group", { name: "Holiday" }).getByRole("radio", { name: "Aurora" })).toBeVisible();
+  // The Poster sheet opens on the colour every event starts on, and the gallery is by occasion.
+  let poster = await openDesign(editor, "Poster");
+  await expect(poster.getByRole("tab", { name: "Colour" })).toHaveAttribute("aria-selected", "true");
+  await expect(poster.getByRole("radio", { name: "Golden hour" })).toBeChecked();
+  await poster.getByRole("tab", { name: "Gallery" }).click();
+  await poster.getByRole("group", { name: "Occasion" }).getByRole("radio", { name: "Holiday" }).check();
+  await expect(poster.getByRole("radio", { name: "Candles" })).toHaveCount(0);
 
-  // A gallery poster shows on the page at once, as the poster itself, with its look: Aurora's
-  // grotesque title.
-  const aurora = posters.getByRole("radio", { name: "Aurora" });
-  await aurora.check();
-  await expect(aurora).toBeChecked();
-  await expect(host.page.locator('[data-slot="poster-card"] img')).toHaveAttribute("src", /^\/posters\/aurora\.[0-9a-f]{8}\.svg$/);
-  await expect.poll(() => titleFont(host.page)).toMatch(/bricolage/i);
-  const restore = drawer.getByRole("button", { name: "Restore the Aurora look" });
-  await expect(restore).toHaveCount(0);
+  // A gallery poster shows at once, as the poster itself, with its look: Aurora's grotesque title.
+  await choose(editor, poster, "Poster", "Aurora");
+  await expect(posterSrc(editor)).toHaveAttribute("src", /^\/posters\/aurora\.[0-9a-f]{8}\.svg$/);
+  await expect.poll(() => titleFont(editor)).toMatch(/bricolage/i);
+  await expect(poster.getByRole("button", { name: "Restore the Aurora look" })).toHaveCount(0);
+  await closeDesign(editor, "Poster");
 
   // Any knob after it makes the look the host's own, and offers Aurora's back.
-  await drawer.getByRole("button", { name: "Details" }).click();
-  await drawer.getByRole("radio", { name: "Solid accent" }).check();
-  await expect(restore).toBeVisible();
-  await expect(aurora).toBeChecked();
-  await drawer.getByRole("group", { name: "Text tone" }).getByRole("radio", { name: "Dark" }).check();
-  await expect(host.page.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
+  let theme = await openDesign(editor, "Theme");
+  await choose(editor, theme, "RSVP buttons", "Solid accent");
+  await choose(editor, theme, "Page", "Light");
+  await expect(editor.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
+  await closeDesign(editor, "Theme");
+  poster = await openDesign(editor, "Poster", "Gallery");
+  await expect(poster.getByRole("button", { name: "Restore the Aurora look" })).toBeVisible();
+  await closeDesign(editor, "Poster");
 
-  // Saved as it was made: a guest's copy of the page already wears it.
+  // Saved as it was made: a guest's copy of the page already wears it, and so does the reopened
+  // editor; the link's preview card is drawn afresh for the new look.
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('data-tone="dark"');
-  await expect(drawer.getByText("Saved", { exact: true })).toBeVisible();
+  await editor.reload();
+  theme = await openDesign(editor, "Theme");
+  await expect(theme.getByRole("group", { name: "Page", exact: true }).getByRole("radio", { name: "Light" })).toBeChecked();
+  await expect(theme.getByRole("radio", { name: "Solid accent" })).toBeChecked();
+  await closeDesign(editor, "Theme");
 
-  await host.page.reload();
-  const reopened = await openDrawer(host.page);
-  await expect(reopened.getByRole("button", { name: "Restore the Aurora look" })).toBeVisible();
-  await reopened.getByRole("button", { name: "Details" }).click();
-  await expect(reopened.getByRole("group", { name: "Text tone" }).getByRole("radio", { name: "Dark" })).toBeChecked();
-  await expect(reopened.getByRole("radio", { name: "Solid accent" })).toBeChecked();
-  // The link's preview card is drawn afresh for the new look.
-  expect(await host.page.locator('meta[property="og:image"]').getAttribute("content")).not.toBe(previewBefore);
-
-  // The guest sees the saved theme and no drawer: Aurora's poster, font and accent, dark text,
+  // The guest sees the saved theme and no editor: Aurora's poster, font and accent, dark text,
   // solid buttons.
   await page.goto(host.link);
+  expect(await page.locator('meta[property="og:image"]').getAttribute("content")).not.toBe(previewBefore);
   await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
-  await expect(page.locator('[data-slot="poster-card"] img')).toHaveAttribute("src", /^\/posters\/aurora\./);
+  await expect(posterSrc(page)).toHaveAttribute("src", /^\/posters\/aurora\./);
   expect(await titleFont(page)).toMatch(/bricolage/i);
   const going = page.getByRole("button", { name: "Going" });
   await expect(going).toHaveCSS("background-color", "rgb(126, 240, 200)");
-  await expect(page.getByRole("button", { name: "Design" })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Design the invitation" })).toHaveCount(0);
 
-  // Restoring the look brings Aurora's glass buttons back; the text tone stays the host's.
-  await reopened.getByRole("button", { name: "Restore the Aurora look" }).click();
-  await expect(reopened.getByRole("button", { name: "Restore the Aurora look" })).toHaveCount(0);
-  await expect(reopened.getByRole("group", { name: "RSVP buttons" }).getByRole("radio", { name: "Glass" })).toBeChecked();
-  await expect(reopened.getByRole("group", { name: "Text tone" }).getByRole("radio", { name: "Dark" })).toBeChecked();
-  await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('buttonStyle\\":\\"glass');
+  // Restoring the look brings Aurora's glass buttons back; the page stays the host's.
+  poster = await openDesign(editor, "Poster", "Gallery");
+  await savedAfter(editor, () => poster.getByRole("button", { name: "Restore the Aurora look" }).click());
+  await expect(poster.getByRole("button", { name: "Restore the Aurora look" })).toHaveCount(0);
+  await closeDesign(editor, "Poster");
+  theme = await openDesign(editor, "Theme");
+  await expect(theme.getByRole("group", { name: "RSVP buttons" }).getByRole("radio", { name: "Glass" })).toBeChecked();
+  await expect(theme.getByRole("group", { name: "Page", exact: true }).getByRole("radio", { name: "Light" })).toBeChecked();
+  await closeDesign(editor, "Theme");
   await page.reload();
   await expect(going).not.toHaveCSS("background-color", "rgb(126, 240, 200)");
 
   // Another poster brings its own look over this one: Disco's display face, its title on the poster.
-  await reopened.getByRole("radio", { name: "Disco" }).check();
-  await expect.poll(() => titleFont(host.page)).toMatch(/syne/i);
-  await expect(reopened.getByRole("group", { name: "Title placement" }).getByRole("radio", { name: "On the poster" })).toBeChecked();
+  poster = await openDesign(editor, "Poster", "Gallery");
+  await choose(editor, poster, "Poster", "Disco");
+  await closeDesign(editor, "Poster");
+  await expect.poll(() => titleFont(editor)).toMatch(/syne/i);
+  const title = await openDesign(editor, "Title");
+  await expect(title.getByRole("group", { name: "Title placement" }).getByRole("radio", { name: "On the poster" })).toBeChecked();
+  await closeDesign(editor, "Title");
 
   await host.context.close();
 });
 
-test("the drawer keeps its order, offers the three layouts, and gets out of the way", async ({ page, browser, request }) => {
+test("each tab of the Poster sheet changes the poster: a colour puts the title on it, a picture is the poster, and emoji make one", async ({
+  page,
+  browser,
+  request,
+}) => {
   test.slow();
-  const host = await createPublished(browser, request, "design-order", EVENT);
-  await host.page.goto(host.link);
-  const drawer = await openDrawer(host.page);
+  const host = await createPublished(browser, request, "design-tabs", EVENT);
+  const editor = host.page;
 
-  // Upload first, then the poster, the layout, and the finer knobs tucked under Details.
-  await expect(drawer.getByLabel("Upload your photo or poster")).toBeEnabled();
-  const order = await drawer.locator("h3, legend, button[aria-expanded]").allTextContents();
-  expect(order.slice(0, 3)).toEqual(["Poster", "Layout", "Details"]);
-  await expect(drawer.getByRole("button", { name: "Details" })).toHaveAttribute("aria-expanded", "false");
-  await expect(drawer.getByRole("radio", { name: "Instrument Serif" })).toBeHidden();
+  // A colour: no picture, and the title on the colour's block.
+  let poster = await openDesign(editor, "Poster", "Colour");
+  await choose(editor, poster, "Colours", "Dusk");
+  await closeDesign(editor, "Poster");
+  await page.goto(host.link);
+  await expect(posterSrc(page)).toHaveCount(0);
+  const block = (await page.locator('[data-slot="poster-card"]').boundingBox())!;
+  const heading = (await page.getByRole("heading", { level: 1, name: EVENT.title }).boundingBox())!;
+  expect(heading.y + heading.height).toBeLessThanOrEqual(block.y + block.height);
 
-  // Every layout can be chosen, and says what it is.
-  const layouts = drawer.getByRole("group", { name: "Layout" });
-  await expect(layouts.getByRole("radio", { name: /Poster/ })).toBeChecked();
-  const thread = layouts.getByRole("radio", { name: /Thread/ });
-  await expect(thread).toBeEnabled();
-  await expect(thread.locator("..")).toContainText("The invitation reads like a chat.");
-  await expect(drawer.getByText("Coming soon")).toHaveCount(0);
-  const broadsheet = layouts.getByRole("radio", { name: /Broadsheet/ });
-  await expect(broadsheet).toBeEnabled();
-  await expect(broadsheet.locator("..")).toContainText("An editorial page with one reply form.");
+  // An upload: the host's picture is the poster.
+  poster = await openDesign(editor, "Poster", "Upload");
+  const picture = await sharp({ create: { width: 900, height: 1200, channels: 3, background: { r: 30, g: 60, b: 90 } } }).jpeg().toBuffer();
+  await poster.getByLabel("Upload your photo or poster").setInputFiles({ name: "garden.jpg", mimeType: "image/jpeg", buffer: picture });
+  await expect(poster.getByLabel("Describe your picture")).toBeVisible({ timeout: 20_000 });
+  await closeDesign(editor, "Poster");
+  await expect.poll(async () => /src="\/uploads\/[0-9a-f-]{36}\/poster\.webp"/.test(await guestHtml(request, host.link)), { timeout: 15_000 }).toBe(true);
 
-  // Choosing it changes the layout and nothing else.
-  await drawer.getByRole("button", { name: "Details" }).click();
-  await broadsheet.check();
-  await expect(host.page.locator("[data-layout]")).toHaveAttribute("data-layout", "broadsheet");
-  await expect(drawer.getByRole("group", { name: "Poster" }).getByRole("radio", { name: "Golden hour" })).toBeChecked();
-  await expect(drawer.getByRole("radio", { name: "Instrument Serif" })).toBeChecked();
+  // Emoji: chosen, drawn and uploaded as the picture, which replaces the photo; reloaded, the sheet
+  // shows the emoji and the colour it was made of.
+  poster = await openDesign(editor, "Poster", "Emoji");
+  await savedAfter(editor, async () => {
+    await poster.getByRole("button", { name: "🎉", exact: true }).click();
+    await poster.getByRole("button", { name: "🌈", exact: true }).click();
+    await poster.getByRole("radio", { name: "Mint" }).check();
+  });
+  await expect(poster.getByRole("button", { name: "Remove 🎉" })).toBeVisible();
+  await closeDesign(editor, "Poster");
+  await editor.reload();
+  poster = await openDesign(editor, "Poster");
+  await expect(poster.getByRole("tab", { name: "Emoji" })).toHaveAttribute("aria-selected", "true");
+  await expect(poster.getByRole("button", { name: "Remove 🎉" })).toBeVisible();
+  await expect(poster.getByRole("button", { name: "Remove 🌈" })).toBeVisible();
+  await expect(poster.getByRole("radio", { name: "Mint" })).toBeChecked();
+  await closeDesign(editor, "Poster");
+  await page.reload();
+  await expect(posterSrc(page)).toHaveAttribute("src", /^\/uploads\/[0-9a-f-]{36}\/poster\.webp$/);
+
+  await host.context.close();
+});
+
+test("the Theme sheet switches the layout to the Broadsheet and back, and the Title sheet shows the title in each face", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "design-theme", EVENT);
+  const editor = host.page;
+
+  const theme = await openDesign(editor, "Theme");
+  const layouts = theme.getByRole("group", { name: "Layout" });
+  await expect(layouts.getByRole("radio", { name: /^Poster/ })).toBeChecked();
+  await expect(layouts.getByRole("radio", { name: /^Thread/ }).locator("..")).toContainText("The invitation reads like a chat.");
+  await choose(editor, theme, "Layout", /^Broadsheet/);
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('data-layout="broadsheet"');
   await page.goto(host.link);
   await expect(page.getByRole("radio", { name: "I’ll be there" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Going" })).toHaveCount(0);
-
-  // Back to the Poster.
-  await layouts.getByRole("radio", { name: /Poster/ }).check();
-  await expect(host.page.locator("[data-layout]")).toHaveAttribute("data-layout", "poster");
+  await choose(editor, theme, "Layout", /^Poster/);
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('data-layout="poster"');
+  await closeDesign(editor, "Theme");
 
-  // A gallery poster's look leaves the layout as the host set it.
-  await layouts.getByRole("radio", { name: /Broadsheet/ }).check();
-  await drawer.getByRole("radio", { name: "Candlelight" }).check();
-  await expect(drawer.getByRole("radio", { name: "Candlelight" })).toBeChecked();
-  await expect(layouts.getByRole("radio", { name: /Broadsheet/ })).toBeChecked();
-  await expect(host.page.locator("[data-layout]")).toHaveAttribute("data-layout", "broadsheet");
-
-  // A colour shows at once.
-  await drawer.getByRole("radio", { name: "Dusk" }).check();
-  await expect(drawer.getByRole("radio", { name: "Dusk" })).toBeChecked();
-
-  // Escape closes it and hands focus back to the Design button.
-  await host.page.keyboard.press("Escape");
-  await expect(drawer).toBeHidden();
-  await expect(host.page.getByRole("button", { name: "Design" })).toBeFocused();
+  const title = await openDesign(editor, "Title");
+  for (const face of ["Instrument Serif", "Bricolage Grotesque", "Syne", "Fredoka"]) await expect(title.getByRole("radio", { name: face })).toBeVisible();
+  await expect(title.getByText(EVENT.title)).toHaveCount(4);
+  await choose(editor, title, "Title font", /Fredoka/);
+  await expect.poll(() => titleFont(editor)).toMatch(/fredoka/i);
+  // A colour has no title placement: its title is always on it.
+  await expect(title.getByRole("group", { name: "Title placement" })).toHaveCount(0);
+  await closeDesign(editor, "Title");
 
   await host.context.close();
 });
 
-// Ticket 11: the drawer's two forms.
-
-// Its slide-in has finished, so it is where it will stay.
-async function settled(locator: Locator) {
-  await locator.evaluate((element) => Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)));
-}
-
-async function box(locator: Locator) {
-  const found = await locator.boundingBox();
-  expect(found, "on screen").not.toBeNull();
-  return found!;
-}
-
-test("the drawer is a bottom sheet on a phone and a side panel on a wider screen, with the page in view and changing", async ({ browser, request }) => {
+// The sheets' two forms, decided by the viewport alone.
+test("a design sheet takes half a phone's screen over a live copy, which a tap closes it from, and is a side panel on a wider screen", async ({ browser, request }) => {
   test.slow();
-  const host = await createPublished(browser, request, "design-forms", { ...EVENT, description: "Bring nothing." });
-  const page = host.page;
-  await page.goto(host.link);
-  const drawer = await openDrawer(page);
-  await settled(drawer);
+  const host = await createPublished(browser, request, "design-forms", EVENT);
+  const editor = host.page;
+  const viewport = editor.viewportSize()!;
+  // While a sheet is open the page behind it is hidden from assistive technology, the toolbar too.
+  const button = editor.getByRole("navigation", { name: "Design the invitation", includeHidden: true }).getByRole("button", { name: "Effect", includeHidden: true });
+  // Tailwind's scale is the CSS scale property, not a transform.
+  const transform = () => editor.locator("main").evaluate((main) => getComputedStyle(main).scale);
 
-  const bottomSheet = async () => {
-    // Edge to edge, from the foot of the screen, with the invitation above it. (Polled, because a
-    // window that has just been resized takes a moment to lay out again.)
-    const edges = async () => {
-      const panel = await box(drawer);
-      const layout = await page.evaluate(() => ({ width: document.documentElement.clientWidth, height: window.innerHeight }));
-      return { left: panel.x, right: layout.width - panel.x - panel.width, foot: Math.round(layout.height - panel.y - panel.height) };
-    };
-    await expect.poll(edges).toEqual({ left: 0, right: 0, foot: 0 });
-    const panel = await box(drawer);
-    expect(panel.height).toBeLessThan(page.viewportSize()!.height * 0.7);
-    // The poster runs the column's width, so the title may sit below the fold; scrolled to, it is
-    // in view above the sheet.
-    await page.evaluate(() => document.querySelector("h1")!.scrollIntoView({ block: "start" }));
-    const title = await box(page.locator("h1"));
-    expect(title.y + title.height).toBeLessThanOrEqual(panel.y);
-    // And room to scroll the whole page up above it.
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    const last = await box(page.locator("main > :last-child"));
-    expect(last.y + last.height).toBeLessThanOrEqual(panel.y);
-    await page.evaluate(() => window.scrollTo(0, 0));
-  };
-
-  if (page.viewportSize()!.width < 768) {
-    await bottomSheet();
+  await expect(button).toHaveAttribute("aria-expanded", "false");
+  const sheet = await openDesign(editor, "Effect");
+  await expect(button).toHaveAttribute("aria-expanded", "true");
+  await expect(sheet.getByRole("heading", { name: "Effect" })).toBeFocused();
+  await sheet.evaluate((element) => Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)));
+  const panel = (await sheet.boundingBox())!;
+  if (viewport.width < 768) {
+    // Edge to edge from the foot, half the screen, and the invitation a copy at half its size above.
+    expect(panel.x).toBe(0);
+    expect(Math.round(panel.y + panel.height)).toBe(viewport.height);
+    expect(panel.height).toBeLessThan(viewport.height * 0.6);
+    await expect.poll(transform).toBe("0.5");
+    // A tap on the copy closes the sheet, and the focus is back on the toolbar's button.
+    await editor.mouse.click(viewport.width / 2, panel.y / 2);
+    await expect(sheet).toBeHidden();
   } else {
-    // Down the right-hand side, the full height, with the page moved over beside it.
-    const viewport = page.viewportSize()!;
-    const panel = await box(drawer);
+    // Down the right-hand side, beside the invitation, which keeps its size.
     expect(panel.x + panel.width).toBeGreaterThan(viewport.width - 20);
     expect(panel.height).toBeGreaterThan(viewport.height * 0.9);
-    expect(panel.width).toBeLessThan(viewport.width / 2);
-    const content = await box(page.locator("main"));
-    expect(content.x + content.width).toBeLessThanOrEqual(panel.x);
+    expect(await transform()).toBe("none");
+    await editor.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
   }
-
-  // The page keeps changing as the host chooses.
-  await drawer.getByRole("button", { name: "Details" }).click();
-  await drawer.getByRole("radio", { name: "Dark" }).check();
-  await expect(page.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
-  await drawer.getByRole("radio", { name: "Fredoka" }).check();
-  await expect.poll(() => titleFont(page)).toMatch(/fredoka/i);
-
-  // The viewport decides the form, so a window narrowed to a phone's width gets the sheet.
-  if (page.viewportSize()!.width >= 768) {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await bottomSheet();
-  }
+  await expect(button).toBeFocused();
+  await expect(button).toHaveAttribute("aria-expanded", "false");
+  await expect.poll(transform).toBe("none");
 
   await host.context.close();
 });
 
-test("nothing in the drawer scrolls sideways, and every poster is in reach down it", async ({ browser, request }) => {
+test("nothing in a design sheet scrolls sideways, and every poster is in reach down it", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "design-width", EVENT);
-  await host.page.goto(host.link);
-  const drawer = await openDrawer(host.page);
-  await settled(drawer);
-  await drawer.getByRole("button", { name: "Details" }).click();
-  await expect(drawer.getByRole("radio", { name: "Instrument Serif" })).toBeVisible();
-
-  // Whatever in the drawer a host can scroll sideways: nothing, the panel included.
+  const poster = await openDesign(host.page, "Poster", "Gallery");
+  await poster.evaluate((element) => Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)));
   const sideways = () =>
-    drawer.evaluate((panel) =>
-      [panel, ...panel.querySelectorAll("*")].filter((element) => element.scrollWidth > element.clientWidth && ["auto", "scroll"].includes(getComputedStyle(element).overflowX))
-        .length,
+    poster.evaluate(
+      (panel) => [panel, ...panel.querySelectorAll("*")].filter((element) => element.scrollWidth > element.clientWidth && ["auto", "scroll"].includes(getComputedStyle(element).overflowX)).length,
     );
   expect(await sideways()).toBe(0);
-
-  // The last poster of the gallery sits inside the panel's width, and scrolling down brings it in.
-  const panel = await box(drawer);
-  const last = drawer.getByRole("group", { name: "Any occasion" }).getByRole("radio").last();
+  const panel = (await poster.boundingBox())!;
+  const last = poster.getByRole("group", { name: "Poster", exact: true }).getByRole("radio").last();
   await last.scrollIntoViewIfNeeded();
-  const tile = await box(last);
+  const tile = (await last.boundingBox())!;
   expect(tile.x).toBeGreaterThanOrEqual(panel.x);
   expect(tile.x + tile.width).toBeLessThanOrEqual(panel.x + panel.width);
-
   await host.context.close();
 });
 
-test("under reduced motion the drawer appears without sliding in", async ({ browser, request }) => {
+test("choosing Confetti lets it fall once, and under reduced motion a sheet appears and nothing falls", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "design-motion", EVENT);
-  const page = host.page;
+  const editor = host.page;
   const motion = (element: Element) => ({ animation: getComputedStyle(element).animationName, running: element.getAnimations({ subtree: true }).length });
 
-  await page.goto(host.link);
-  const drawer = await openDrawer(page);
-  expect((await drawer.evaluate(motion)).animation).toBe("enter");
-  await page.keyboard.press("Escape");
+  let effect = await openDesign(editor, "Effect");
+  expect((await effect.evaluate(motion)).animation).toBe("enter");
+  await choose(editor, effect, "Effect", /^Confetti/);
+  await expect(editor.locator('[data-effect="confetti"]')).toBeVisible();
+  await closeDesign(editor, "Effect");
 
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  const still = await openDrawer(page);
-  expect(await still.evaluate(motion)).toEqual({ animation: "none", running: 0 });
-  // Nor does anything in it move as the host chooses.
-  await still.getByRole("button", { name: "Details" }).click();
-  await still.getByRole("radio", { name: "Outline" }).check();
-  expect(await still.evaluate(motion)).toEqual({ animation: "none", running: 0 });
+  await editor.emulateMedia({ reducedMotion: "reduce" });
+  effect = await openDesign(editor, "Effect");
+  expect(await effect.evaluate(motion)).toEqual({ animation: "none", running: 0 });
+  await choose(editor, effect, "Effect", /^None/);
+  await choose(editor, effect, "Effect", /^Confetti/);
+  await expect(editor.locator('[data-effect="confetti"]')).toHaveCount(0);
+  expect(await editor.locator("main").evaluate((main) => getComputedStyle(main).transitionDuration)).toBe("0s");
+  await closeDesign(editor, "Effect");
 
   await host.context.close();
 });

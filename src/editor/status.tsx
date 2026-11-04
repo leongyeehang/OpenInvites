@@ -8,7 +8,7 @@ import type { SaveResult } from "@/events/editor-actions";
 // wrong, with Try again, which sends that save again. The details' sheets open from here too, so
 // that Publish can open the one whose piece is missing.
 
-export type SheetName = "when" | "where" | "about" | "settings" | "more";
+export type SheetName = "poster" | "title" | "theme" | "effect" | "when" | "where" | "about" | "settings" | "more";
 
 type EditorState = {
   status: "idle" | "saving" | "saved" | "failed";

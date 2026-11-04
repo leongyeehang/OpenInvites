@@ -1,4 +1,4 @@
-import { createPublished, type DraftFields } from "./events";
+import { createPublished, type DraftFields, openMore } from "./events";
 import { latestMailTo, linkIn, newHost } from "./hosts";
 import { expect, test } from "./test";
 import { openMyReply } from "./reply";
@@ -106,6 +106,7 @@ test("a phone number asked for optionally reaches the host's guest list, and the
   // An email the host gave is a guest's email like any other: an announcement reaches it, with the
   // stop link at its foot.
   await host.page.goto(manage);
+  await openMore(host.page);
   await host.page.getByRole("link", { name: "Announcements" }).click();
   await host.page.getByLabel("Message").fill("Doors open at seven.");
   await host.page.getByRole("button", { name: "Send", exact: true }).click();
@@ -146,6 +147,7 @@ test("a guest who stops email with the stop link is given no email by the host, 
   await expect(page.getByText(`We’ll reach you at ${email}.`)).toBeVisible();
 
   // An announcement brings the stop link, and the guest uses it.
+  await openMore(host.page);
   await host.page.getByRole("link", { name: "Announcements" }).click();
   await host.page.getByLabel("Message").fill("Doors open at seven.");
   await host.page.getByRole("button", { name: "Send", exact: true }).click();

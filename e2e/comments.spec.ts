@@ -1,4 +1,4 @@
-import { createPublished, editSettings, openMore } from "./events";
+import { createPublished, editSettings, openMore, openSettings } from "./events";
 import { MAILPIT, latestMailTo, mailCountTo } from "./hosts";
 import { closeReply } from "./reply";
 import { expect, test, type APIRequestContext, type Page } from "./test";
@@ -172,7 +172,7 @@ test("comments turned off take the section off the page, for guests and hosts al
 
   // The setting is kept as the host left it.
   await host.page.goto(manage);
-  await expect(host.page.getByLabel("Comments", { exact: true })).not.toBeChecked();
+  await expect((await openSettings(host.page)).getByLabel("Comments", { exact: true })).not.toBeChecked();
 
   await host.context.close();
 });

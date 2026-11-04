@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import sharp from "sharp";
-import { createDraft, openMore, publishInEditor } from "../e2e/events";
+import { createDraft, openDesign, openMore, pickDesign, publishInEditor } from "../e2e/events";
 import { submitSignUp, verifyEmail } from "../e2e/hosts";
 import { clientAddress, expect, test, type Browser, type BrowserContextOptions, type Page } from "../e2e/test";
 
@@ -79,16 +79,11 @@ test("README screenshots", async ({ browser }) => {
   await expect(host.getByText(GUESTS[0].name)).toBeVisible();
   await save(host, "guest-list");
 
-  // The fair wears the Aurora poster and its look (0.4's Festival template), chosen in the Design
-  // drawer, which is then opened afresh, as a host finds it.
+  // The fair wears the Aurora poster and its look (0.4's Festival template), chosen in the editor's
+  // Poster sheet, which is then opened afresh, as a host finds it.
   const fair = await publish(host, FAIR);
-  await host.goto(fair);
-  await host.getByRole("button", { name: "Design" }).click();
-  const drawer = host.getByRole("dialog", { name: "Design" });
-  await drawer.getByRole("radio", { name: "Aurora" }).check();
-  await expect(drawer.getByText("Saved", { exact: true })).toBeVisible({ timeout: 15_000 });
-  await drawer.getByRole("button", { name: "Close" }).click();
-  await host.getByRole("button", { name: "Design" }).click();
+  await pickDesign(host, "Poster", "Poster", "Aurora", "Gallery");
+  const drawer = await openDesign(host, "Poster");
   await expect(drawer.getByRole("radio", { name: "Aurora" })).toBeChecked();
   await save(host, "design-drawer");
 

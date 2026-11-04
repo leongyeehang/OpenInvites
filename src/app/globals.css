@@ -4,15 +4,14 @@
 
 @custom-variant dark (&:is(.dark *));
 /* The host's Design panel is open (src/app/e/[slug]/design-panel.tsx): the page makes room for it. */
-@custom-variant designing (body:has([data-slot="design-panel"]) &);
+/* One of the editor's design sheets is open (src/editor/sheet.tsx): the invitation shrinks above it. */
+@custom-variant design-sheet (body:has([data-slot="design-sheet"]) &);
 /* A guest's RSVP sheet is open (src/app/e/[slug]/rsvp-flow.tsx): the Design button steps aside. */
 @custom-variant rsvp-sheet-open (body:has([data-slot="rsvp-sheet"]) &);
 /* A themed event page is showing (src/themes/themed-page.tsx): it carries its own footer, so the plain one steps aside. */
 @custom-variant themed (body:has(.event-page) &);
 /* The Thread layout is showing (src/themes/thread-layout.tsx): its composer holds the foot of the screen. */
 @custom-variant thread-page (body:has([data-layout="thread"]) &);
-/* The Poster layout's page, whose reply bar is fixed to the foot of the screen. */
-@custom-variant poster-page (body:has([data-slot="rsvp-bar"]) &);
 /* The Broadsheet's labels (src/themes/broadsheet-layout.tsx): small spaced capitals in the mono face. */
 @utility label-mono {
   font-family: var(--font-mono);

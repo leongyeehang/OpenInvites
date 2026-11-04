@@ -55,7 +55,9 @@ export async function PosterLayout({
   const [t, locale, format] = await Promise.all([getTranslations("EventPage"), getLocale(), getFormatter()]);
 
   return (
-    <main className="mx-auto w-full max-w-[28rem] pb-8">
+    // Above an editor's design sheet on a phone, a live copy, half its size: moved, never laid out
+    // again, and simply there under reduced motion.
+    <main className="mx-auto w-full max-w-[28rem] origin-top pb-8 transition-transform duration-300 ease-out motion-reduce:transition-none design-sheet:max-md:translate-y-14 design-sheet:max-md:scale-50">
       {notice && <div className="px-4 pt-4">{notice}</div>}
 
       <PosterHero

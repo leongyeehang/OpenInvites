@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "./test";
 import sharp from "sharp";
-import { createPublished } from "./events";
+import { closeDesign, createPublished, openDesign, pickDesign, savedAfter, toEditor } from "./events";
 
 // Ticket 13: the host's upload as the invitation itself, which since M4 ticket 01 it always is. The poster is shown at its own
 // proportions with a blurred copy of it behind the page, and the title goes on it or below it.
@@ -17,11 +17,15 @@ async function poster(name: string, width: number, height: number) {
   return { name, mimeType: "image/jpeg", buffer: await sharp(Buffer.from(svg)).jpeg({ quality: 90 }).toBuffer() };
 }
 
+// The Poster sheet's Upload tab, in the host's editor (M4 ticket 06).
 async function openDrawer(page: Page) {
-  await page.getByRole("button", { name: "Design" }).click();
-  const drawer = page.getByRole("dialog", { name: "Design" });
-  await expect(drawer).toBeVisible();
-  return drawer;
+  await toEditor(page);
+  return openDesign(page, "Poster", "Upload");
+}
+
+// Where the title goes, from the Title sheet, saved.
+async function placeTitle(page: Page, where: "On the poster" | "Below the poster") {
+  await pickDesign(page, "Title", "Title placement", where);
 }
 
 // What a guest's browser is sent for the page.
@@ -37,7 +41,7 @@ async function shownUpload(request: APIRequestContext, link: string) {
 // Uploads a picture and waits until the page shows it.
 async function upload(page: Page, request: APIRequestContext, link: string, file: Awaited<ReturnType<typeof poster>>, control = "Upload your photo or poster") {
   const before = await shownUpload(request, link);
-  await page.getByRole("dialog", { name: "Design" }).getByLabel(control).setInputFiles(file);
+  await page.getByRole("dialog", { name: "Poster" }).getByLabel(control).setInputFiles(file);
   await expect.poll(() => shownUpload(request, link), { timeout: 20_000 }).not.toBe(before);
   return (await shownUpload(request, link))!;
 }
@@ -68,15 +72,15 @@ async function expectProportions(picture: Locator, width: number, height: number
 test("a host's picture is the poster, with the title below it or on it, and guests see it", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "poster", EVENT);
-  await host.page.goto(host.link);
   const drawer = await openDrawer(host.page);
   const id = await upload(host.page, request, host.link, await poster("fair-poster.jpg", 900, 1350));
   await describePicture(drawer, request, host.link);
 
-  // The picture is the poster as soon as it arrives.
-  await drawer.getByRole("button", { name: "Details" }).click();
-  const placement = drawer.getByRole("group", { name: "Title placement" });
-  await expect(placement.getByRole("radio", { name: "Below the poster" })).toBeChecked();
+  // The picture is the poster as soon as it arrives, the title below it.
+  await closeDesign(host.page, "Poster");
+  const title = await openDesign(host.page, "Title");
+  await expect(title.getByRole("group", { name: "Title placement" }).getByRole("radio", { name: "Below the poster" })).toBeChecked();
+  await closeDesign(host.page, "Title");
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain(posterCopy(id));
 
   // A guest sees the poster at its own proportions, described once, with the title below it,
@@ -89,9 +93,9 @@ test("a host's picture is the poster, with the title below it or on it, and gues
   await expectProportions(picture, 900, 1350);
   expect(await guestHtml(request, host.link)).not.toContain(`/uploads/${id}/background.webp`);
   // The title sits under the poster, rising into the faded last fifth of it at most.
-  const title = page.getByRole("heading", { level: 1, name: EVENT.title });
+  const heading = page.getByRole("heading", { level: 1, name: EVENT.title });
   const shown = await box(picture);
-  expect((await box(title)).y).toBeGreaterThanOrEqual(shown.y + shown.height * 0.8);
+  expect((await box(heading)).y).toBeGreaterThanOrEqual(shown.y + shown.height * 0.8);
 
   // The poster itself is made for the card: the picture's own size here, never enlarged, and
   // 720 pixels wide for a screen that needs no more. The copy behind the page is a small wash.
@@ -102,20 +106,20 @@ test("a host's picture is the poster, with the title below it or on it, and gues
   expect(await sharp(await (await request.get(`/uploads/${id}/poster-copy.webp`)).body()).metadata()).toMatchObject({ width: 128, height: 192 });
 
   // On the poster, the title sits across its foot.
-  await placement.getByRole("radio", { name: "On the poster" }).check();
+  await placeTitle(host.page, "On the poster");
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain(TITLE_ON_POSTER);
   await page.reload();
-  const [onPoster, under] = [await box(title), await box(picture)];
+  const [onPoster, under] = [await box(heading), await box(picture)];
   expect(onPoster.y).toBeGreaterThan(under.y + under.height / 2);
   expect(onPoster.y + onPoster.height).toBeLessThanOrEqual(under.y + under.height);
   await expect(page.getByRole("img", { name: ALT })).toHaveCount(1);
 
   // Back below it, as saved.
-  await placement.getByRole("radio", { name: "Below the poster" }).check();
+  await placeTitle(host.page, "Below the poster");
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).not.toContain(TITLE_ON_POSTER);
   await page.reload();
   const below = await box(picture);
-  expect((await box(title)).y).toBeGreaterThanOrEqual(below.y + below.height * 0.8);
+  expect((await box(heading)).y).toBeGreaterThanOrEqual(below.y + below.height * 0.8);
 
   await host.context.close();
 });
@@ -123,7 +127,6 @@ test("a host's picture is the poster, with the title below it or on it, and gues
 test("a guest's browser takes the poster at the width its screen needs, first", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "poster-widths", EVENT);
-  await host.page.goto(host.link);
   const drawer = await openDrawer(host.page);
   const id = await upload(host.page, request, host.link, await poster("fair-poster.jpg", 1600, 2400));
   await expect(drawer).toBeVisible();
@@ -164,29 +167,37 @@ test("a guest's browser takes the poster at the width its screen needs, first", 
 test("a curated poster puts the picture aside, and choosing it again brings back the same picture, its description and the rest of the theme", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "poster-back", EVENT);
-  await host.page.goto(host.link);
   const drawer = await openDrawer(host.page);
   const id = await upload(host.page, request, host.link, await poster("fair-banner.jpg", 1600, 900));
   await describePicture(drawer, request, host.link);
-  await drawer.getByRole("button", { name: "Details" }).click();
-  await drawer.getByRole("group", { name: "Text tone" }).getByRole("radio", { name: "Dark" }).check();
+  await closeDesign(host.page, "Poster");
+  await pickDesign(host.page, "Theme", "Page", "Light");
   await expect(host.page.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
 
   // A wide poster keeps its proportions too.
-  await expect(drawer.getByRole("group", { name: "Title placement" })).toBeVisible();
+  const titleSheet = async () => {
+    const opened = await openDesign(host.page, "Title");
+    const count = await opened.getByRole("group", { name: "Title placement" }).count();
+    await closeDesign(host.page, "Title");
+    return count;
+  };
+  expect(await titleSheet()).toBe(1);
   await expectProportions(host.page.locator('[data-slot="poster-card"] img'), 1600, 900);
 
   // A colour puts the picture aside: no title to place, nothing of it on a guest's page.
-  const gallery = drawer.getByRole("group", { name: "Poster" });
-  await gallery.getByRole("radio", { name: "Dusk" }).check();
-  await expect(drawer.getByRole("group", { name: "Title placement" })).toHaveCount(0);
+  await pickDesign(host.page, "Poster", "Colours", "Dusk", "Colour");
+  expect(await titleSheet()).toBe(0);
   await expect.poll(() => shownUpload(request, host.link), { timeout: 15_000 }).toBeUndefined();
 
-  // Chosen again: the same picture, still described, still with dark text.
-  await gallery.getByRole("radio", { name: "Your picture" }).check();
-  await expect(gallery.getByRole("radio", { name: "Your picture" })).toBeChecked();
-  await expect(drawer.getByRole("group", { name: "Title placement" })).toBeVisible();
-  await expect(drawer.getByRole("group", { name: "Text tone" }).getByRole("radio", { name: "Dark" })).toBeChecked();
+  // Shown again: the same picture, still described, still with dark text.
+  const again = await openDesign(host.page, "Poster", "Upload");
+  await savedAfter(host.page, () => again.getByRole("button", { name: "Show your picture" }).click());
+  await expect(again.getByRole("button", { name: "Show your picture" })).toHaveCount(0);
+  await closeDesign(host.page, "Poster");
+  expect(await titleSheet()).toBe(1);
+  const theme = await openDesign(host.page, "Theme");
+  await expect(theme.getByRole("group", { name: "Page", exact: true }).getByRole("radio", { name: "Light" })).toBeChecked();
+  await closeDesign(host.page, "Theme");
   await expect.poll(() => shownUpload(request, host.link), { timeout: 15_000 }).toBe(id);
 
   await page.goto(host.link);
@@ -200,13 +211,13 @@ test("a curated poster puts the picture aside, and choosing it again brings back
 test("a replaced poster stays the poster, and the old one's files go", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "poster-replace", EVENT);
-  await host.page.goto(host.link);
   const drawer = await openDrawer(host.page);
   const first = await upload(host.page, request, host.link, await poster("fair-poster.jpg", 900, 1350));
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain(posterCopy(first));
 
   const second = await upload(host.page, request, host.link, await poster("fair-poster-final.jpg", 1000, 1400), "Replace");
-  await expect(drawer.getByRole("group", { name: "Poster" }).getByRole("radio", { name: "Your picture" })).toBeChecked();
+  // The new picture is the poster: there is nothing to show again.
+  await expect(drawer.getByRole("button", { name: "Show your picture" })).toHaveCount(0);
   await expect(host.page.locator('[data-slot="poster-card"] img')).toHaveAttribute("src", `/uploads/${second}/poster.webp`);
   for (const file of ["poster.webp", "poster-720.webp", "poster-copy.webp", "background.webp", "background-portrait.webp", "card.jpg"]) {
     expect((await request.get(`/uploads/${first}/${file}`)).status(), file).toBe(404);

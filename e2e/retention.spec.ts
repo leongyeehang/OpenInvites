@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Browser, type Page } from "./test";
-import { createDraft, setWhen } from "./events";
+import { createDraft, openMore, setWhen } from "./events";
 import { MAILPIT, newHost, signUp, signUpVerified, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
 
@@ -70,9 +70,10 @@ async function openRegistration(page: Page) {
   await expect(page.getByText("Saved.")).toBeVisible();
 }
 
-// On the event's manage page: its owner makes a co-host link, and a second host, signed up in a
+// From the editor's More: its owner makes a co-host link, and a second host, signed up in a
 // browser of their own, accepts it.
 async function addCoHost(browser: Browser, ownerPage: Page, baseURL: string, signUpHost: (page: Page) => Promise<string>) {
+  await openMore(ownerPage);
   await ownerPage.getByRole("link", { name: "Hosts", exact: true }).click();
   await ownerPage.getByRole("button", { name: "Make a co-host link" }).click();
   const link = await ownerPage.getByRole("textbox", { name: "Co-host link" }).inputValue();

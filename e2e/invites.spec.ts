@@ -1,4 +1,4 @@
-import { chooseLayout, createPublished, type DraftFields, editSettings } from "./events";
+import { chooseLayout, createPublished, type DraftFields, editSettings, openMore } from "./events";
 import { latestMailTo, mailCountTo, newHost } from "./hosts";
 import { clientAddress, expect, expectNotFoundAsSent, test, type Browser, type Page } from "./test";
 import { openMyReply } from "./reply";
@@ -64,6 +64,7 @@ test("a guest opens their personal invite with their name and email filled in, r
 
   // The host makes two invites from the manage page's Invites; nobody has opened either.
   await host.page.goto(manage);
+  await openMore(host.page);
   await host.page.getByRole("link", { name: "Invites", exact: true }).click();
   await expect(host.page.getByRole("heading", { level: 1 })).toHaveText("Invites");
   const meiLink = await makeInvite(host.page, "Mei Lin", meiEmail);

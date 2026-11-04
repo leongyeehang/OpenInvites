@@ -1,6 +1,6 @@
 "use client";
 
-import { SlidersHorizontal } from "lucide-react";
+import { ImageIcon, Palette, SlidersHorizontal, Sparkles, Type } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { QuestionsEditor } from "@/app/(host)/events/questions-editor";
@@ -16,31 +16,50 @@ import { CONTACT_FIELDS, type ContactField } from "@/rsvps/form";
 import { GUEST_LIST_VISIBILITIES } from "@/rsvps/visibility";
 import { EditorSheet } from "./sheet";
 import { useEditor } from "./status";
-import { PILL } from "./top-bar";
 
 const GUEST_LIST_LABELS = { always: "guestListAlways", afterReply: "guestListAfterReply", hidden: "guestListHidden" } as const;
 
 // A change is saved this long after the host's last one, so typing a capacity sends it once.
 const DEBOUNCE = 600;
 
-// The editor's toolbar (M4 spec, "The toolbar"), fixed to the foot of the screen: the Design
-// drawer's button until ticket 06 brings its sheets, and Settings.
-export function EditorToolbar({ design, settings }: { design: ReactNode; settings: ReactNode }) {
+// The editor's toolbar (M4 spec, "The toolbar"), fixed to the foot of the screen: Poster, Title,
+// Theme and Effect, each a design sheet over a live copy of the invitation, and Settings. Each
+// button says whether its sheet is open, and has the focus back when it closes.
+const TOOLS = [
+  { sheet: "poster", icon: ImageIcon },
+  { sheet: "title", icon: Type },
+  { sheet: "theme", icon: Palette },
+  { sheet: "effect", icon: Sparkles },
+  { sheet: "settings", icon: SlidersHorizontal },
+] as const;
+
+export function EditorToolbar({ sheets }: { sheets: ReactNode }) {
   const t = useTranslations("Editor");
+  const design = useTranslations("Design");
   const { sheet, openSheet } = useEditor();
   return (
     <>
       <nav
         aria-label={t("toolbar")}
-        className="fixed inset-x-0 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 flex justify-center gap-2 px-3 designing:hidden"
+        className="dark fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 mx-auto grid max-w-[26rem] grid-cols-5 gap-1 rounded-[1.6rem] border bg-popover/90 p-1.5 text-popover-foreground shadow-xl backdrop-blur-xl"
       >
-        {design}
-        <button type="button" onClick={() => openSheet("settings")} aria-expanded={sheet === "settings"} className={cn(PILL, "h-11")}>
-          <SlidersHorizontal className="size-4" aria-hidden />
-          {t("settings")}
-        </button>
+        {TOOLS.map(({ sheet: name, icon: Icon }) => (
+          <button
+            key={name}
+            type="button"
+            onClick={() => openSheet(name)}
+            aria-expanded={sheet === name}
+            className={cn(
+              "flex cursor-pointer flex-col items-center gap-1 rounded-2xl py-2 text-[11px] font-medium hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+              sheet === name && "bg-accent",
+            )}
+          >
+            <Icon className="size-5" aria-hidden />
+            {name === "settings" ? t("settings") : design(`sheets.${name}`)}
+          </button>
+        ))}
       </nav>
-      {settings}
+      {sheets}
     </>
   );
 }
@@ -70,7 +89,8 @@ export function SettingsSheet({
   const { sheet, openSheet, save } = useEditor();
   const form = useRef<HTMLFormElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const [error, setError] = useState<string>();
+  // What the last save was refused for, and the control it is about, if it names one.
+  const [error, setError] = useState<{ message: string; field?: "capacity" | "questions" }>();
   const [emailField, setEmailField] = useState<ContactField>(settings.emailField);
   const [verifyEmail, setVerifyEmail] = useState(settings.verifyEmail);
   const id = useId();
@@ -80,9 +100,17 @@ export function SettingsSheet({
     const element = form.current;
     if (!element) return;
     const data = new FormData(element);
+    // A question just added, with nothing asked yet, waits until it asks something: sending it
+    // would only be refused.
+    try {
+      const questions = JSON.parse(String(data.get("questions") ?? "[]")) as { prompt?: string }[];
+      data.set("questions", JSON.stringify(questions.filter((question) => question.prompt?.trim())));
+    } catch {
+      // Sent as it is, and refused as it would be.
+    }
     void save(async () => {
       const result = await saveSettingsAction(eventId, data);
-      setError(result.saved ? undefined : result.error);
+      setError(result.saved ? undefined : { message: result.error, field: result.field });
       return result;
     });
   };
@@ -100,9 +128,9 @@ export function SettingsSheet({
   return (
     <EditorSheet open={sheet === "settings"} onOpenChange={(open) => openSheet(open ? "settings" : null)} title={editor("settings")} description={editor("settingsIntro")} tall>
       <form ref={form} onChange={soon} onInput={soon} onClick={soon} onSubmit={(event) => event.preventDefault()}>
-        {error && (
+        {error && !error.field && (
           <p role="alert" className="mb-4 rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">
-            {error}
+            {error.message}
           </p>
         )}
         <FieldGroup>
@@ -134,9 +162,15 @@ export function SettingsSheet({
                 max={CAPACITY_MAX}
                 step={1}
                 defaultValue={settings.capacity ?? ""}
-                aria-describedby={`${id}-capacity-hint`}
+                aria-describedby={error?.field === "capacity" ? `${id}-capacity-error ${id}-capacity-hint` : `${id}-capacity-hint`}
+                aria-invalid={error?.field === "capacity" || undefined}
                 className="max-w-40"
               />
+              {error?.field === "capacity" && (
+                <p id={`${id}-capacity-error`} role="alert" className="text-sm text-destructive">
+                  {error.message}
+                </p>
+              )}
               <FieldDescription id={`${id}-capacity-hint`}>{t("guests.capacityHint", { max: maxReplies })}</FieldDescription>
             </Field>
             <Field orientation="horizontal">
@@ -148,7 +182,14 @@ export function SettingsSheet({
             </Field>
           </FieldSet>
 
-          <QuestionsEditor questions={questions} answerCounts={answerCounts} />
+          <div className="space-y-3">
+            <QuestionsEditor questions={questions} answerCounts={answerCounts} />
+            {error?.field === "questions" && (
+              <p role="alert" className="text-sm text-destructive">
+                {error.message}
+              </p>
+            )}
+          </div>
 
           <FieldSet className="gap-3">
             <FieldLegend variant="label">{t("contact.title")}</FieldLegend>

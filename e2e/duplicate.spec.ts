@@ -1,6 +1,6 @@
 import { expect, test } from "./test";
 import sharp from "sharp";
-import { createPublished, eventLinkIn, openMore, type DraftFields } from "./events";
+import { createPublished, eventLinkIn, openDesign, openMore, type DraftFields } from "./events";
 
 // Ticket 09: a host duplicates an event into a new draft with its details, look, questions,
 // settings and picture; replies stay with the event they were made to.
@@ -20,12 +20,10 @@ test("duplicating makes a new draft with the same details, questions, settings a
   const host = await createPublished(browser, request, "duplicate", EVENT);
   const sourceManage = host.page.url();
 
-  // The picture, uploaded as a host does in the Design drawer of the event page.
-  await host.page.goto(host.link);
-  await host.page.getByRole("button", { name: "Design" }).click();
+  // The picture, uploaded as a host does in the editor's Poster sheet.
+  const poster = await openDesign(host.page, "Poster", "Upload");
   const photo = await sharp({ create: { width: 1600, height: 1000, channels: 3, background: "#1d2340" } }).jpeg().toBuffer();
-  await host.page
-    .getByRole("dialog", { name: "Design" })
+  await poster
     .getByLabel("Upload your photo or poster")
     .setInputFiles({ name: "garden.jpg", mimeType: "image/jpeg", buffer: photo });
   await expect.poll(async () => (await host.page.content()).match(PICTURE_SRC)?.[1], { timeout: 20_000 }).toBeTruthy();

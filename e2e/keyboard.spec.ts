@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { createDraft, createPublished, type DraftFields } from "./events";
+import { closeDesign, createDraft, createPublished, type DraftFields, openDesign, saveStatus, toEditor } from "./events";
 import { latestMailTo, mailCountTo, newHost, PASSWORD, signUpVerified } from "./hosts";
 import { clientAddress, expect, test, type Locator, type Page } from "./test";
 
@@ -362,73 +362,81 @@ test.describe("on an instance whose operator has set Turnstile's keys", () => {
   });
 });
 
-test("a host picks a poster, changes a knob, restores the poster's look and closes the Design drawer by keyboard alone", async ({ browser, request }) => {
+test("a host picks a poster, changes a knob, restores the poster's look and closes the design sheets by keyboard alone", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "keyboard-drawer", EVENT);
   const page = host.page;
-  await page.goto(host.link);
+  await toEditor(page);
+  const toolbar = page.getByRole("navigation", { name: "Design the invitation" });
+  // The title on the invitation, found by its id: while a sheet is open the page behind it is
+  // hidden from assistive technology.
+  const title = page.locator("#event-title");
 
-  // The Design button comes after the whole invitation, every control of which shows its focus.
-  const design = page.getByRole("button", { name: "Design" });
-  await tabTo(page, design);
+  // The Poster sheet, from the toolbar under the invitation; its heading has the focus.
+  const posterButton = toolbar.getByRole("button", { name: "Poster" });
+  await tabTo(page, posterButton);
   await page.keyboard.press("Enter");
-  const drawer = page.getByRole("dialog", { name: "Design" });
-  await expect(drawer).toBeVisible();
+  const sheet = page.getByRole("dialog", { name: "Poster" });
+  await expect(sheet.getByRole("heading", { name: "Poster" })).toBeFocused();
 
-  // Into the posters, where the one in use, Golden hour, has the focus, and the arrow keys choose
-  // another: Dusk after it, and back past it the last of the gallery's, which brings its look.
-  const posters = drawer.getByRole("group", { name: "Poster" });
-  await tabTo(page, posters.getByRole("radio", { checked: true }));
-  await expect(posters.getByRole("radio", { name: "Golden hour" })).toBeFocused();
+  // The event is on a colour; the gallery is a tab away, and its first poster a Tab past the
+  // occasions. The arrow keys choose the next, Balloons, which brings its look.
+  await tabTo(page, sheet.getByRole("tab", { name: "Gallery" }));
+  await page.keyboard.press("Enter");
+  const posters = sheet.getByRole("group", { name: "Poster", exact: true });
+  await tabTo(page, posters.getByRole("radio", { name: "Candles" }));
   await page.keyboard.press("ArrowRight");
-  await expect(posters.getByRole("radio", { name: "Dusk" })).toBeChecked();
+  await expect(posters.getByRole("radio", { name: "Balloons" })).toBeChecked();
+  await expect(posters.getByRole("radio", { name: "Balloons" })).toBeFocused();
   await expectVisibleFocus(page);
-  await page.keyboard.press("ArrowLeft");
-  await page.keyboard.press("ArrowLeft");
-  await expect(posters.getByRole("radio", { name: "Streamers" })).toBeFocused();
-  await expect(posters.getByRole("radio", { name: "Streamers" })).toBeChecked();
-  await expect(page.locator("h1")).toHaveCSS("font-family", /fredoka/i);
-  await expectVisibleFocus(page);
+  await expect(title).toHaveCSS("font-family", /fredoka/i);
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  await expect(posterButton).toBeFocused();
 
-  // And the finer knobs under Details, opened with the keyboard too.
-  await tabTo(page, drawer.getByRole("button", { name: "Details" }));
+  // A finer knob, the title's font, in the Title sheet.
+  await tabTo(page, toolbar.getByRole("button", { name: "Title" }));
   await page.keyboard.press("Enter");
-  const fonts = drawer.getByRole("group", { name: "Title font" });
+  const fonts = page.getByRole("dialog", { name: "Title" }).getByRole("group", { name: "Title font" });
   await tabTo(page, fonts.getByRole("radio", { checked: true }));
   await page.keyboard.press("ArrowLeft");
   await expect(fonts.getByRole("radio", { name: "Syne" })).toBeChecked();
+  await expect(saveStatus(page)).toHaveAttribute("data-status", "saved", { timeout: 15_000 });
+  await page.keyboard.press("Escape");
+  await expect(toolbar.getByRole("button", { name: "Title" })).toBeFocused();
 
-  // Changed, the poster's look is a key away from coming back, and the focus stays in the drawer.
-  // It sits under the posters, above the layouts and Details: back past those with Shift+Tab.
-  const restore = drawer.getByRole("button", { name: "Restore the Streamers look" });
-  for (let presses = 0; presses < 5 && !(await restore.evaluate((element) => element === document.activeElement)); presses++) {
-    await page.keyboard.press("Shift+Tab");
-  }
-  await expect(restore).toBeFocused();
+  // Changed, the poster's look is a key away from coming back, and the focus stays in the sheet.
+  // Poster is the toolbar's button before Title.
+  await page.keyboard.press("Shift+Tab");
+  await expect(posterButton).toBeFocused();
   await expectVisibleFocus(page);
   await page.keyboard.press("Enter");
-  await expect(fonts.getByRole("radio", { name: "Fredoka" })).toBeChecked();
+  await expect(sheet.getByRole("tab", { name: "Gallery" })).toHaveAttribute("aria-selected", "true");
+  const restore = sheet.getByRole("button", { name: "Restore the Balloons look" });
+  await tabTo(page, restore);
+  await page.keyboard.press("Enter");
   await expect(restore).toHaveCount(0);
-  await expect(drawer).toBeFocused();
+  await expect(sheet.getByRole("heading", { name: "Poster" })).toBeFocused();
+  await expect(title).toHaveCSS("font-family", /fredoka/i);
 
   await page.keyboard.press("Escape");
-  await expect(drawer).toBeHidden();
-  await expect(design).toBeFocused();
+  await expect(sheet).toBeHidden();
+  await expect(posterButton).toBeFocused();
   await expectVisibleFocus(page);
   await host.context.close();
 });
 
-// The host pages' rings, and the Design drawer's, are drawn at half strength over the page. On
+// The host pages' rings, and the design sheets', are drawn at half strength over the page. On
 // screen, in the 12px to the left of each focused control, at half its height, some of the ring is
 // where the page was without the focus, and stands out at 3:1 or more both from what was there
 // and from the page beyond. The host pages keep one look whatever the device's colour scheme, so
 // each scheme is looked at.
 for (const colorScheme of ["light", "dark"] as const) {
-  test(`every focused control in the editor's sheets, on a host's pages and in the Design drawer is ringed at 3:1, with a ${colorScheme} colour scheme`, async ({ page, request }) => {
+  test(`every focused control in the editor's sheets, on a host's pages and in the design sheets is ringed at 3:1, with a ${colorScheme} colour scheme`, async ({ page, request }) => {
     test.slow();
     await page.emulateMedia({ colorScheme });
     await signUpVerified(page, request, `rings-${colorScheme}`);
-    const link = await createDraft(page, { title: "Ada’s birthday", start: "2027-03-06T19:00" });
+    await createDraft(page, { title: "Ada’s birthday", start: "2027-03-06T19:00" });
     const manage = page.url();
 
     // The editor's sheets: When, About, Settings and More.
@@ -454,17 +462,22 @@ for (const colorScheme of ["light", "dark"] as const) {
     await page.goto(`${manage}/share`);
     await expectRingStandsOut(page, page.getByRole("link", { name: "Back to the event" }));
 
-    await page.goto(link);
-    await page.getByRole("button", { name: "Design" }).click();
-    const drawer = page.getByRole("dialog", { name: "Design" });
-    await expectRingStandsOut(page, drawer.getByRole("button", { name: "Details" }));
-    await expectRingStandsOut(page, drawer.getByRole("group", { name: "Poster" }).getByRole("radio", { name: "Candles" }));
+    // The design sheets, over the live copy of the invitation.
+    await page.goto(manage);
+    let drawer = await openDesign(page, "Poster", "Gallery");
+    await expectRingStandsOut(page, drawer.getByRole("tab", { name: "Colour" }));
+    await expectRingStandsOut(page, drawer.getByRole("group", { name: "Poster", exact: true }).getByRole("radio", { name: "Candles" }));
+    await drawer.getByRole("tab", { name: "Colour" }).click();
     await expectRingStandsOut(page, drawer.getByRole("group", { name: "Colours" }).getByRole("radio").first());
-    // The drawer's one field drawn at half strength, which a picture brings.
+    // The sheets' one field drawn at half strength, which a picture brings.
+    await drawer.getByRole("tab", { name: "Upload" }).click();
     const picture = await sharp({ create: { width: 64, height: 40, channels: 3, background: { r: 40, g: 60, b: 90 } } }).jpeg().toBuffer();
     await drawer.getByLabel("Upload your photo or poster").setInputFiles({ name: "garden.jpg", mimeType: "image/jpeg", buffer: picture });
     await expect(drawer.getByLabel("Describe your picture")).toBeVisible({ timeout: 20_000 });
     await expectRingStandsOut(page, drawer.getByLabel("Describe your picture"));
+    await closeDesign(page, "Poster");
+    drawer = await openDesign(page, "Theme");
+    await expectRingStandsOut(page, drawer.getByRole("group", { name: "Layout" }).getByRole("radio").first());
   });
 }
 

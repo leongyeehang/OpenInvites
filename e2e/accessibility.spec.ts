@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
-import { createDraft, createPublished, type DraftFields, openMore, publishInEditor } from "./events";
+import { closeDesign, createDraft, createPublished, type DraftFields, openDesign, openMore, pickDesign, publishInEditor, toEditor } from "./events";
 import { latestMailTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { clientAddress, expect, test, type APIRequestContext, type Browser, type Locator, type Page } from "./test";
 import { closeReply, openMyReply } from "./reply";
@@ -26,11 +26,10 @@ const ALT = "A garden at dusk, strung with paper lanterns";
 // An event a guest answers with their name alone, inline on the page.
 const SIMPLE = { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0" } satisfies DraftFields;
 
+// The host's editor, where the look is changed (M4 ticket 06).
 async function openDrawer(page: Page) {
-  await page.getByRole("button", { name: "Design" }).click();
-  const drawer = page.getByRole("dialog", { name: "Design" });
-  await expect(drawer).toBeVisible();
-  return drawer;
+  await toEditor(page);
+  return page;
 }
 
 // What a guest's browser is sent for the page, which is the saved theme.
@@ -38,12 +37,11 @@ async function guestHtml(request: APIRequestContext, link: string) {
   return (await request.get(link)).text();
 }
 
-// The host sets the text tone in the drawer, on the event page, and it is saved before a guest
-// looks: the page a guest is sent says so.
-async function chooseTone(drawer: Locator, request: APIRequestContext, link: string, tone: "Light" | "Dark") {
-  const details = drawer.getByRole("button", { name: "Details" });
-  if ((await details.getAttribute("aria-expanded")) === "false") await details.click();
-  await drawer.getByRole("group", { name: "Text tone" }).getByRole("radio", { name: tone }).check();
+// The host sets the text tone in the editor's Theme sheet, as the page's darkness (light text is
+// on the Dark page), and it is saved before a guest looks: the page a guest is sent says so.
+async function chooseTone(editor: Page, request: APIRequestContext, link: string, tone: "Light" | "Dark") {
+  await toEditor(editor);
+  await pickDesign(editor, "Theme", "Page", tone === "Light" ? "Dark" : "Light");
   await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain(`data-tone="${tone.toLowerCase()}"`);
 }
 
@@ -199,30 +197,33 @@ test("the instance settings page, and its Limits card refusing a value and with 
   await expectNoSeriousViolations(page, "the Limits card, Keep forever ticked");
 });
 
-test("the Design drawer, open with Details expanded, in both text tones", async ({ browser, request }) => {
+test("the editor's design sheets, each open, in both text tones", async ({ browser, request }) => {
   test.slow();
-  // A bottom sheet in the mobile project, a side panel in the desktop one.
+  // Bottom sheets over a live copy in the mobile project, side panels in the desktop one.
   const host = await createPublished(browser, request, "a11y-drawer", EVENT);
-  await host.page.goto(host.link);
-  const drawer = await openDrawer(host.page);
-  await drawer.getByRole("button", { name: "Details" }).click();
-  await expectNoSeriousViolations(host.page, "the Design drawer, light tone");
-  await chooseTone(drawer, request, host.link, "Dark");
-  await expectNoSeriousViolations(host.page, "the Design drawer, dark tone");
+  for (const tone of ["Light", "Dark"] as const) {
+    await chooseTone(host.page, request, host.link, tone);
+    for (const [sheet, tab] of [["Poster", "Gallery"], ["Poster", "Emoji"], ["Poster", "Colour"], ["Poster", "Upload"], ["Title"], ["Theme"], ["Effect"]] as const) {
+      await openDesign(host.page, sheet, tab);
+      await expectNoSeriousViolations(host.page, `the ${sheet} sheet${tab ? `, ${tab}` : ""}, ${tone.toLowerCase()} tone`);
+      await closeDesign(host.page, sheet);
+    }
+  }
   await host.context.close();
 });
 
 test("the event page with the host's picture as the poster, in both text tones, described", async ({ page, browser, request }) => {
   test.setTimeout(180_000);
   const host = await createPublished(browser, request, "a11y-picture", EVENT);
-  await host.page.goto(host.link);
-  const drawer = await openDrawer(host.page);
-  await drawer.getByLabel("Upload your photo or poster").setInputFiles(await photo());
-  await expect(drawer.getByLabel("Describe your picture")).toBeVisible({ timeout: 20_000 });
-  await drawer.getByLabel("Describe your picture").fill(ALT);
-  await drawer.getByLabel("Describe your picture").press("Enter");
+  const drawer = host.page;
+  const upload = await openDesign(host.page, "Poster", "Upload");
+  await upload.getByLabel("Upload your photo or poster").setInputFiles(await photo());
+  await expect(upload.getByLabel("Describe your picture")).toBeVisible({ timeout: 20_000 });
+  await upload.getByLabel("Describe your picture").fill(ALT);
+  await upload.getByLabel("Describe your picture").press("Enter");
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain(ALT);
-  await expectNoSeriousViolations(host.page, "the Design drawer, with the host's picture");
+  await expectNoSeriousViolations(host.page, "the Poster sheet, with the host's picture");
+  await closeDesign(host.page, "Poster");
 
   // The picture is the poster, light enough for dark text, and itself carries the description,
   // read once.
@@ -240,7 +241,7 @@ test("the event page with the host's picture as the poster, in both text tones, 
   await chooseTone(drawer, request, host.link, "Dark");
   await page.reload();
 
-  await drawer.getByRole("group", { name: "Title placement" }).getByRole("radio", { name: "On the poster" }).check();
+  await pickDesign(drawer, "Title", "Title placement", "On the poster");
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain("--theme-title-scrim");
   await page.reload();
   await expectNoSeriousViolations(page, "the event page, poster mode, the title on the poster, dark tone");
@@ -262,11 +263,10 @@ test("a draft, as a guest and as its host, and a cancelled event, in both text t
   // Only its host sees the draft's page, so its tone is set and read there.
   await hostPage.goto(link);
   await expectNoSeriousViolations(hostPage, "a draft, as its host sees it, light tone");
-  const drawer = await openDrawer(hostPage);
-  await drawer.getByRole("button", { name: "Details" }).click();
-  await drawer.getByRole("group", { name: "Text tone" }).getByRole("radio", { name: "Dark" }).check();
-  await expect(drawer.getByText("Saved", { exact: true })).toBeVisible({ timeout: 15_000 });
-  await hostPage.reload();
+  await toEditor(hostPage);
+  // Dark text is the Light page's.
+  await pickDesign(hostPage, "Theme", "Page", "Light");
+  await hostPage.goto(link);
   await expect(hostPage.locator("[data-tone]")).toHaveAttribute("data-tone", "dark");
   await expectNoSeriousViolations(hostPage, "a draft, as its host sees it, dark tone");
 

@@ -635,14 +635,7 @@
     "retired": "主辦人已經換了新連結，請向主辦人索取。",
     "retiredDeleted": "這個活動已被刪除。"
   },
-  "DesignDrawer": {
-    "open": "設計",
-    "title": "設計",
-    "close": "關閉設計面板",
-    "autosave": "變更會自動儲存。",
-    "saving": "儲存中…",
-    "saved": "已儲存",
-    "failed": "這項變更沒有儲存成功，請再試一次。",
+  "Design": {
     "upload": "上傳你的照片或海報",
     "uploading": "上傳中…",
     "uploadHint": "JPEG、PNG、WebP 或 AVIF 圖片，最大 {max, number} MB。",
@@ -653,7 +646,6 @@
       "failed": "圖片沒有上傳成功，請再試一次。",
       "tooFast": "操作太頻繁了，請稍後再試。"
     },
-    "useAsPosterHint": "你的圖片會以原本的比例成為邀請本身。可在「更多選項」中選擇標題的位置。",
     "replace": "更換",
     "yourPicture": "你的圖片",
     "altText": "描述你的圖片",
@@ -688,7 +680,6 @@
       "slate": "石板灰",
       "ink": "墨色"
     },
-    "details": "更多選項",
     "font": "標題字體",
     "fontNames": {
       "serif": "Instrument Serif",
@@ -706,13 +697,6 @@
       "periwinkle": "長春花藍",
       "coral": "珊瑚色",
       "white": "白色"
-    },
-    "textTone": "文字色調",
-    "textToneHint": "「自動」會依背景的明暗來選擇。",
-    "tones": {
-      "auto": "自動",
-      "light": "淺色",
-      "dark": "深色"
     },
     "buttons": "回覆按鈕",
     "buttonStyles": {
@@ -746,9 +730,51 @@
       },
       "doodles": {
         "name": "塗鴉",
-        "note": "背景裡飄著小圖形，日期也微微傾斜。"
+        "note": "背景裡飄著小圖形。"
       }
-    }
+    },
+    "sheets": {
+      "poster": "海報",
+      "title": "標題",
+      "theme": "主題",
+      "effect": "特效"
+    },
+    "tabs": {
+      "gallery": "圖庫",
+      "emoji": "表情",
+      "colour": "顏色",
+      "upload": "上傳"
+    },
+    "allOccasions": "全部",
+    "occasion": "場合",
+    "page": "頁面",
+    "pageHint": "「自動」會跟隨海報的明暗。",
+    "pages": {
+      "auto": "自動",
+      "dark": "深色",
+      "light": "淺色"
+    },
+    "emoji": {
+      "chosen": "你的表情",
+      "none": "最多選三個。",
+      "remove": "移除 {emoji}",
+      "palette": "表情",
+      "typed": "或自己輸入",
+      "typedHint": "最多三個表情，文字會被略過。",
+      "colour": "背景",
+      "drawing": "正在繪製你的海報…",
+      "saved": "你的表情海報就是這份邀請。",
+      "colours": {
+        "#ffd6e0": "粉紅",
+        "#ffe8a3": "黃色",
+        "#c8f0d8": "薄荷綠",
+        "#cfe3ff": "天藍",
+        "#e3d4ff": "淡紫",
+        "#ff9e7a": "珊瑚",
+        "#1f1a2e": "墨色"
+      }
+    },
+    "showPicture": "顯示你的圖片"
   },
   "Posters": {
     "occasions": {

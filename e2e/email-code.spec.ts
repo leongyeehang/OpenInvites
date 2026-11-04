@@ -1,5 +1,5 @@
 import type { APIRequestContext } from "@playwright/test";
-import { createPublished, type DraftFields } from "./events";
+import { createPublished, type DraftFields, editSettings } from "./events";
 import { latestMailTo, mailCountTo, newHost } from "./hosts";
 import { clientAddress, expect, test } from "./test";
 
@@ -38,15 +38,17 @@ test("a guest proves their email with the code it was sent, keeps it proven whil
   const changed = newHost("code-changed").email;
 
   // The host's check waits while the form asks for no email.
-  const contact = host.page.getByRole("group", { name: "Contact details" });
-  const check = contact.getByLabel("Check the email with a code");
-  await expect(check).toBeChecked();
-  await contact.getByLabel("Email", { exact: true }).selectOption("none");
-  await expect(check).toBeDisabled();
-  await expect(check).not.toBeChecked();
-  await contact.getByLabel("Email", { exact: true }).selectOption("optional");
-  await expect(check).toBeEnabled();
-  await expect(check).toBeChecked();
+  await editSettings(host.page, async (sheet) => {
+    const contact = sheet.getByRole("group", { name: "Contact details" });
+    const check = contact.getByLabel("Check the email with a code");
+    await expect(check).toBeChecked();
+    await contact.getByLabel("Email", { exact: true }).selectOption("none");
+    await expect(check).toBeDisabled();
+    await expect(check).not.toBeChecked();
+    await contact.getByLabel("Email", { exact: true }).selectOption("optional");
+    await expect(check).toBeEnabled();
+    await expect(check).toBeChecked();
+  });
 
   // In the default Sheet style, the code step rises with the rest.
   await page.goto(host.link);

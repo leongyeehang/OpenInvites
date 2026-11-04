@@ -53,23 +53,32 @@ export function EditorTopBar({ menu }: { menu: EditorMenu }) {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-40 flex items-center gap-2 px-3 pt-[max(env(safe-area-inset-top),0.75rem)] pb-2 designing:md:right-101">
+      <header className="fixed inset-x-0 top-0 z-40 flex items-center gap-2 px-3 pt-[max(env(safe-area-inset-top),0.75rem)] pb-2">
         <Link href="/dashboard" aria-label={t("close")} className={cn(PILL, "w-10 justify-center px-0")}>
           <X className="size-4.5" aria-hidden />
         </Link>
-        <p role="status" data-slot="save-status" data-status={status} data-saves={saves} className={cn(PILL, "cursor-default gap-1 px-3 text-xs hover:bg-popover/90")}>
-          <span>{menu.state === "draft" ? t("draft") : menu.state === "cancelled" ? t("cancelled") : t("live")}</span>
-          <span aria-hidden>·</span>
-          <span className={cn(status === "failed" && "text-destructive")}>{saving}</span>
-        </p>
-        {menu.coHost && <span className={cn(PILL, "cursor-default px-3 text-xs hover:bg-popover/90")}>{manage("coHost")}</span>}
-        {status === "failed" && (
-          <button type="button" onClick={retry} className={cn(PILL, "text-xs")}>
-            {t("retry")}
-          </button>
-        )}
-        <span className="grow" />
-        <Link href={menu.link} className={cn(PILL, "max-sm:w-10 max-sm:justify-center max-sm:px-0")} aria-label={t("preview")}>
+        {/* What it says may be long; the bar's buttons on the right are never pushed off a phone. */}
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <p
+            role="status"
+            data-slot="save-status"
+            data-status={status}
+            data-saves={saves}
+            className={cn(PILL, "min-w-0 shrink cursor-default gap-1 px-3 text-xs hover:bg-popover/90")}
+          >
+            <span>{menu.state === "draft" ? t("draft") : menu.state === "cancelled" ? t("cancelled") : t("live")}</span>
+            <span aria-hidden>·</span>
+            <span className={cn("truncate", status === "failed" && "text-destructive")}>{saving}</span>
+          </p>
+          {menu.coHost && <span className={cn(PILL, "min-w-0 shrink cursor-default truncate px-3 text-xs hover:bg-popover/90")}>{manage("coHost")}</span>}
+          {status === "failed" && (
+            <button type="button" onClick={retry} className={cn(PILL, "text-xs")}>
+              {t("retry")}
+            </button>
+          )}
+        </div>
+        {/* Not prefetched: the guest page counts every request against its rate limit. */}
+        <Link href={menu.link} prefetch={false} className={cn(PILL, "max-sm:w-10 max-sm:justify-center max-sm:px-0")} aria-label={t("preview")}>
           <Eye className="size-4" aria-hidden />
           <span className="max-sm:sr-only">{t("preview")}</span>
         </Link>

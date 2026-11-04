@@ -25,7 +25,8 @@ import { isTimeZone } from "./time";
 // (events/form.ts). Each answers whether it saved, and why not, which the editor says beside what
 // was being saved.
 
-export type SaveResult = { saved: true } | { saved: false; error: string };
+// A refusal can name the control it is about, so the editor says it beside that control.
+export type SaveResult = { saved: true } | { saved: false; error: string; field?: "capacity" | "questions" };
 
 // A new event: a draft with no title and no date, the settings 0.4's form started with, and the
 // look every event starts with (themes/theme.ts), dated later in the editor, which it opens in.
@@ -150,7 +151,7 @@ export async function saveSettingsAction(id: string, formData: FormData): Promis
     commentsEnabled: formData.get("commentsEnabled") === "on",
     notifyOnComment: formData.get("notifyOnComment") === "on",
   });
-  if (!settings.ok) return { saved: false, error: t(`errors.${settings.error}`) };
+  if (!settings.ok) return { saved: false, error: t(`errors.${settings.error}`), field: settings.error === "capacityInvalid" ? "capacity" : undefined };
   let posted: unknown = [];
   const raw = text("questions");
   if (raw) {
@@ -161,7 +162,7 @@ export async function saveSettingsAction(id: string, formData: FormData): Promis
     }
   }
   const questions = parseQuestions(posted);
-  if (!questions.ok) return { saved: false, error: t(`errors.${questions.error}`) };
+  if (!questions.ok) return { saved: false, error: t(`errors.${questions.error}`), field: "questions" };
   const saved = await save(found.host.id, found.event, settings.settings);
   if (saved.saved) await saveQuestions(found.event.id, questions.questions);
   return saved;

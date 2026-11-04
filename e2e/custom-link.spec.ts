@@ -1,4 +1,4 @@
-import { createPublished } from "./events";
+import { createPublished, openMore } from "./events";
 import { latestMailTo, mailCountTo, newHost } from "./hosts";
 import { expect, test, type Page } from "./test";
 
@@ -67,6 +67,7 @@ test("a custom link opens the page beside the random one, and the host's pages s
   await expect(page.getByText("Thank you. Your report has reached the operator of this instance.")).toBeVisible({ timeout: 15_000 });
 
   await host.page.goto(manage);
+  await openMore(host.page);
   await expect(host.page.getByText(customUrl, { exact: true })).toBeVisible();
   await host.context.close();
 });

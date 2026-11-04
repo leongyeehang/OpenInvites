@@ -3,19 +3,22 @@
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Dialog } from "radix-ui";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 // A sheet of the editor (M4 spec, "The editor"): from the foot of the screen on a phone, as a panel
-// down the right on a wider one, in the Design drawer's dark frosted look, so it reads over any
-// poster. It is a dialog: its heading has the focus as it opens, Escape closes it, and the focus
-// goes back to whatever opened it.
+// down the right on a wider one, in a dark frosted look, so it reads over any poster. It is a
+// dialog: its heading has the focus as it opens, Escape closes it, and the focus goes back to
+// whatever opened it. A design sheet (Poster, Title, Theme, Effect) takes half a phone's screen,
+// and the invitation shrinks above it to a live copy (globals.css, design-sheet), which a tap
+// closes it from: nothing dims it.
 export function EditorSheet({
   open,
   onOpenChange,
   title,
   description,
   tall = false,
+  design = false,
   children,
   footer,
 }: {
@@ -25,24 +28,35 @@ export function EditorSheet({
   description?: string;
   // Settings and the More menu take most of a phone's screen; the details' sheets, what they need.
   tall?: boolean;
+  design?: boolean;
   children: ReactNode;
   footer?: ReactNode;
 }) {
   const t = useTranslations("Editor");
+  // What had the focus as the sheet opened (a toolbar button, a detail's row), which has it again
+  // as the sheet closes: Radix gives it back only to a Dialog.Trigger, and these open from state.
+  const opener = useRef<HTMLElement | null>(null);
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:fade-in" />
+        <Dialog.Overlay className={cn("fixed inset-0 z-50", !design && "bg-black/30 motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:fade-in")} />
         <Dialog.Content
-          data-slot="editor-sheet"
+          data-slot={design ? "design-sheet" : "editor-sheet"}
+          onCloseAutoFocus={(event) => {
+            if (!opener.current?.isConnected) return;
+            event.preventDefault();
+            opener.current.focus();
+            opener.current = null;
+          }}
           onOpenAutoFocus={(event) => {
             event.preventDefault();
+            opener.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
             (event.currentTarget as HTMLElement).querySelector<HTMLElement>("[data-sheet-heading]")?.focus();
           }}
           className={cn(
             "dark fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden rounded-t-3xl border-t bg-popover/95 text-popover-foreground shadow-2xl backdrop-blur-2xl outline-none",
-            tall ? "max-h-[88dvh]" : "max-h-[75dvh]",
-            "md:inset-y-3 md:right-3 md:left-auto md:max-h-none md:w-96 md:rounded-3xl md:border",
+            design ? "h-[52dvh]" : tall ? "max-h-[88dvh]" : "max-h-[75dvh]",
+            "md:inset-y-3 md:right-3 md:h-auto md:left-auto md:max-h-none md:w-96 md:rounded-3xl md:border",
             "motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:slide-in-from-bottom motion-safe:md:data-[state=open]:slide-in-from-bottom-0 motion-safe:md:data-[state=open]:slide-in-from-right",
           )}
         >

@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { expect, test } from "./test";
-import { createDraft, createPublished } from "./events";
+import { createDraft, createPublished, pickDesign, toEditor } from "./events";
 import { signUpVerified } from "./hosts";
 
 const EVENT = {
@@ -68,11 +68,8 @@ test("the card of an event with a gallery poster is drawn from the poster", asyn
   const golden = await top();
   expect(golden.blue).toBeLessThan(golden.green);
 
-  await host.page.goto(host.link);
-  await host.page.getByRole("button", { name: "Design" }).click();
-  const drawer = host.page.getByRole("dialog", { name: "Design" });
-  await drawer.getByRole("radio", { name: "Disco" }).check();
-  await expect(drawer.getByText("Saved", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await toEditor(host.page);
+  await pickDesign(host.page, "Poster", "Poster", "Disco", "Gallery");
 
   // Disco's mirror ball is lavender and violet there.
   await expect.poll(async () => { const { blue, green } = await top(); return blue - green; }, { timeout: 15_000 }).toBeGreaterThan(20);

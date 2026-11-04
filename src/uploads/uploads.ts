@@ -1,3 +1,4 @@
+import type { EmojiChoice } from "./emoji";
 import type { ThemeUpload } from "@/themes/resolve";
 import { removeRenditions, storeRenditions } from "./files";
 import { processUpload } from "./process";
@@ -10,7 +11,7 @@ export type UploadOutcome = { ok: true; id: string } | { ok: false; problem: Upl
 // A host's picture for their event (spec, "Uploads and images"): checked by its content,
 // processed into the sizes the page needs, stored, and shown as the event's background in place
 // of any picture before it, whose files then go.
-export async function uploadPicture(hostId: string, eventId: string, bytes: Uint8Array, maxBytes: number): Promise<UploadOutcome> {
+export async function uploadPicture(hostId: string, eventId: string, bytes: Uint8Array, maxBytes: number, emoji?: EmojiChoice): Promise<UploadOutcome> {
   const problem = uploadProblem(bytes, maxBytes);
   if (problem) return { ok: false, problem };
   const processed = await processUpload(bytes);
@@ -20,7 +21,7 @@ export async function uploadPicture(hostId: string, eventId: string, bytes: Uint
   try {
     // Stored before the row that names them, so no page ever asks for a file not yet there.
     await storeRenditions(id, processed.picture.renditions);
-    const saved = await replaceUpload(hostId, eventId, id, processed.picture.sample);
+    const saved = await replaceUpload(hostId, eventId, id, processed.picture.sample, emoji);
     if (!saved) {
       await removeRenditions([id]);
       return { ok: false, problem: "notFound" };
@@ -35,7 +36,7 @@ export async function uploadPicture(hostId: string, eventId: string, bytes: Uint
 
 // The upload as the theme and the page need it.
 export function themeUpload(upload: Upload): ThemeUpload {
-  const { id, accent, luminance, lightest, darkest, altText } = upload;
+  const { id, accent, luminance, lightest, darkest, altText, origin, emojiSet, emojiBackground } = upload;
   const poster = { width: upload.posterWidth, height: upload.posterHeight };
   return {
     id,
@@ -46,6 +47,8 @@ export function themeUpload(upload: Upload): ThemeUpload {
     lightest,
     darkest,
     altText,
+    // An emoji pattern's choice, which the Poster sheet shows again.
+    emoji: origin === "emoji" && emojiSet && emojiBackground ? { emoji: emojiSet, background: emojiBackground } : null,
     poster: {
       src: renditionUrl(id, "poster"),
       srcSet: posterSrcSet(id, poster),

@@ -19,7 +19,7 @@ describe("curated backgrounds", () => {
   });
 
   it("names every background in English, and nothing else", () => {
-    expect(Object.keys(en.DesignDrawer.colourNames).sort()).toEqual(BACKGROUNDS.map((b) => b.id).sort());
+    expect(Object.keys(en.Design.colourNames).sort()).toEqual(BACKGROUNDS.map((b) => b.id).sort());
   });
 
   it("carries the lightest and darkest points the legibility rule reads", () => {

@@ -59,11 +59,9 @@ export function ThemedPage({
         data-tone={resolved.textTone}
         data-layout={resolved.layout}
         // No background of its own: a positioned box would paint over the fixed backdrop below.
-        // While the host's Design panel is open the page makes room for it, so all of it stays in
-        // view: above the bottom sheet on a phone, beside the side panel on a wider screen. The
-        // Poster layout leaves room at its foot for the reply bar fixed there (rsvp-flow.tsx).
+        // The Poster layout leaves room at its foot for the reply bar fixed there (rsvp-flow.tsx).
         className={cn(
-          "event-page relative min-h-dvh font-sans text-theme-text data-[layout=poster]:pb-28 designing:max-md:pb-[62dvh] designing:md:pr-101",
+          "event-page relative min-h-dvh font-sans text-theme-text data-[layout=poster]:pb-28",
           TITLE_FONT_CLASSES[resolved.font.key],
         )}
         style={themeVariables(resolved) as CSSProperties}

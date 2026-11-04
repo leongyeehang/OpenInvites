@@ -1,6 +1,6 @@
 // The six accent colours a host may pick instead of the automatic one (spec, story 38), from the
 // prototype. Data, like the backgrounds: the drawer names each by its id (messages/en.json,
-// DesignDrawer.swatches), and legibility.ts makes sure every one reads on every background.
+// Design.swatches), and legibility.ts makes sure every one reads on every background.
 export const SWATCHES = [
   { id: "marigold", hex: "#ffc36b" },
   { id: "pink", hex: "#ff8fc0" },

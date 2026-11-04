@@ -2,7 +2,7 @@ import type en from "../../messages/en.json";
 
 // The gallery's colours (M4 spec, "Colour posters"): the curated gradients a host may have as the
 // poster, painted as the page's background. Data, not code: add an entry here, and its name to
-// every file in messages/ (DesignDrawer.colourNames), to offer a new one. The gallery's pictures
+// every file in messages/ (Design.colourNames), to offer a new one. The gallery's pictures
 // are in posters.ts; the four scenes 0.4 had here are among them now. Each colour carries a
 // pre-chosen accent that reads on it and its average luminance (0 dark to 1 light) for the
 // automatic text tone. Luminance is measured as the mean of (0.2126 R + 0.7152 G + 0.0722 B) /
@@ -30,8 +30,8 @@ export type Background = {
 } & ({ kind: "gradient"; css: string } | { kind: "photo"; src: string });
 
 // A colour of the gallery. What the Design drawer calls it is a message
-// (DesignDrawer.colourNames, in every file in messages/), so its id has to be one they name.
-export type CuratedBackground = Background & { kind: "gradient"; id: keyof typeof en.DesignDrawer.colourNames };
+// (Design.colourNames, in every file in messages/), so its id has to be one they name.
+export type CuratedBackground = Background & { kind: "gradient"; id: keyof typeof en.Design.colourNames };
 
 export const BACKGROUNDS: readonly CuratedBackground[] = [
   {

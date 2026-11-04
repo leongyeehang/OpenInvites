@@ -16,7 +16,6 @@ import { findEventBySlug, findRetiredSlug, recordView, type EventWithHost } from
 import { countsAsView } from "@/events/views";
 import { eventPath, eventUrl, isSlug } from "@/events/slug";
 import { isDated, type EventTime } from "@/events/time";
-import { maxUploadBytes } from "@/instance/env";
 import { findInviteOnThisDevice } from "@/invites/device";
 import { ClientMessages } from "@/locale/client-messages";
 import { answersStillOffered } from "@/questions/answers";
@@ -39,7 +38,6 @@ import { AddToCalendar } from "./add-to-calendar";
 import { BroadsheetBallot } from "./broadsheet-ballot";
 import { CancelledNotice } from "./cancelled-notice";
 import { CommentForm } from "./comment-form";
-import { DesignDrawer } from "./design-drawer";
 import { RetiredLink } from "./retired-link";
 import { DraftNotice } from "./draft-notice";
 import { GuestList } from "./guest-list";
@@ -253,13 +251,6 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
         // with it (spec, "Events, guests and the page").
         theme={event.theme}
         upload={isHost ? picture : resolved.upload}
-        designer={
-          isHost ? (
-            <ClientMessages namespaces={["DesignDrawer", "Posters"]}>
-              <DesignDrawer eventId={event.id} maxUploadBytes={maxUploadBytes()} />
-            </ClientMessages>
-          ) : undefined
-        }
       >
         {layout === "thread" && dated && time ? (
           <ThreadLayout
