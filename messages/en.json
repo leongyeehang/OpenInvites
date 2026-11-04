@@ -550,6 +550,23 @@
         "bodyTooLong": "That comment is too long. Keep it to 1,000 characters.",
         "tooMany": "This event has 500 comments, the most it can carry.",
         "tooFast": "You’re going too fast. Try again shortly."
+      },
+      "reactions": {
+        "add": "Add a reaction",
+        "menu": "React with",
+        "label": "{name}, {count, plural, one {# reaction} other {# reactions}}",
+        "labelMine": "{name}, {count, plural, one {# reaction} other {# reactions}}, you reacted",
+        "who": "Who reacted",
+        "whoTitle": "Reactions",
+        "closed": "You can’t react to this comment.",
+        "names": {
+          "party": "Party",
+          "heart": "Heart",
+          "laugh": "Laughing",
+          "wow": "Wow",
+          "thumbsUp": "Thumbs up",
+          "thanks": "Thank you"
+        }
       }
     },
     "broadsheet": {

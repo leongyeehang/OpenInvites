@@ -514,3 +514,29 @@ export const comment = pgTable(
     check("comment_one_author", sql`(${table.rsvpId} is null) <> (${table.hostId} is null)`),
   ],
 );
+
+// A reaction to a comment (M4 ticket 04): one of six emoji (comments/reactions.ts), by a guest who
+// may comment, through their RSVP, or by a host. Each reactor gives each emoji once per comment. It
+// goes with the comment, with the RSVP, and with the host's account, as a comment does.
+export const commentReaction = pgTable(
+  "comment_reaction",
+  {
+    id: id(),
+    commentId: uuid("comment_id")
+      .notNull()
+      .references(() => comment.id, { onDelete: "cascade" }),
+    rsvpId: uuid("rsvp_id").references(() => rsvp.id, { onDelete: "cascade" }),
+    hostId: uuid("host_id").references(() => user.id, { onDelete: "cascade" }),
+    emoji: text("emoji").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("comment_reaction_rsvp_id_idx").on(table.rsvpId),
+    index("comment_reaction_host_id_idx").on(table.hostId),
+    // Nulls are distinct, so a guest's reactions meet only the first and a host's only the second;
+    // both lead with the comment, which is how they are read.
+    unique("comment_reaction_once_by_guest").on(table.commentId, table.rsvpId, table.emoji),
+    unique("comment_reaction_once_by_host").on(table.commentId, table.hostId, table.emoji),
+    check("comment_reaction_one_reactor", sql`(${table.rsvpId} is null) <> (${table.hostId} is null)`),
+  ],
+);

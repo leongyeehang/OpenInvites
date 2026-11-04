@@ -1,7 +1,7 @@
 import { Lock } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
-import { deleteCommentAction } from "@/comments/actions";
+import { deleteCommentAction, toggleReactionAction } from "@/comments/actions";
 import type { CommentsShown } from "@/comments/visibility";
 import { DeleteDialogContent } from "@/components/delete-dialog-content";
 import {
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { formatMoment } from "@/events/time";
+import { CommentReactions } from "./comment-reactions";
 import { DeleteCommentForm } from "./delete-comment-form";
 
 // The id of the comments' heading, which every layout gives it: where the focus goes once a
@@ -24,8 +25,8 @@ export const COMMENTS_HEADING = "comments-heading";
 // The comments as every layout shows them (comments/visibility.ts decides what this viewer may
 // see): to a guest who has not replied, only how many there are, as to a guest whose reply the
 // host has not approved, who is told why; to everyone else the comments, shown as written, with
-// their line breaks and spaces, and dated as everything on the page is, then `form`, the box that
-// posts one, where they may. The layout frames it and gives it its heading.
+// their line breaks and spaces, and dated as everything on the page is, each with its reactions,
+// then `form`, the box that posts one, where they may. The layout frames it and gives it its heading.
 export async function CommentsSection({
   comments,
   form,
@@ -108,6 +109,7 @@ export async function CommentsSection({
                   )}
                 </div>
                 <p className="mt-1 leading-relaxed break-words whitespace-pre-wrap">{each.body}</p>
+                <CommentReactions reactions={each.reactions} canReact={comments.canReact} react={toggleReactionAction.bind(null, slug, each.id)} />
               </li>
             );
           })}

@@ -10,7 +10,8 @@ import { consume } from "@/rate-limit/rate-limit";
 import { findRsvpOnThisDevice } from "@/rsvps/guest";
 import { mayDelete, parseComment, type CommentError } from "./comment";
 import { notifyHostsOfComment } from "./notify-hosts";
-import { createComment, deleteComment, findComment, type CommentAuthor } from "./repository";
+import { isReaction } from "./reactions";
+import { createComment, deleteComment, findComment, toggleReaction, type CommentAuthor } from "./repository";
 import { takesComments, type CommentViewer } from "./visibility";
 import { eventPaths } from "@/events/slug";
 
@@ -74,6 +75,20 @@ export async function deleteCommentAction(slug: string, id: string): Promise<{ e
   const [{ viewer }, found] = await Promise.all([commenter(event.id), findComment(event.id, id)]);
   if (!found || !mayDelete(viewer, found)) return {};
   await deleteComment(event.id, found.id);
+  for (const path of eventPaths(event)) revalidatePath(path);
+  return {};
+}
+
+// Reacting to a comment with one of the six emoji, or taking it back (M4 ticket 04). Whoever may
+// comment may react, and nobody else; every press counts against the comment limit before anything
+// is looked up, as a post does.
+export async function toggleReactionAction(slug: string, commentId: string, emoji: string): Promise<{ error?: "tooFast" | "closed" }> {
+  if (!(await consume("comment", await headers())).allowed) return { error: "tooFast" };
+  const event = await findEventBySlug(slug);
+  if (!event || !isUuid(commentId) || !isReaction(emoji)) return { error: "closed" };
+  const [{ viewer, author }, found] = await Promise.all([commenter(event.id), findComment(event.id, commentId)]);
+  if (!found || !author || !takesComments(event, viewer)) return { error: "closed" };
+  await toggleReaction(found.id, author, emoji);
   for (const path of eventPaths(event)) revalidatePath(path);
   return {};
 }

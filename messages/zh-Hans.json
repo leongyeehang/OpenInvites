@@ -550,6 +550,23 @@
         "bodyTooLong": "留言太长了，请控制在 1000 字以内。",
         "tooMany": "这个活动已有 500 条留言，已达上限。",
         "tooFast": "操作太频繁了，请稍后再试。"
+      },
+      "reactions": {
+        "add": "添加回应",
+        "menu": "选择回应",
+        "label": "{name}，{count, plural, other {# 个回应}}",
+        "labelMine": "{name}，{count, plural, other {# 个回应}}，你已回应",
+        "who": "谁回应了",
+        "whoTitle": "回应",
+        "closed": "你不能回应这条留言。",
+        "names": {
+          "party": "庆祝",
+          "heart": "爱心",
+          "laugh": "大笑",
+          "wow": "惊讶",
+          "thumbsUp": "点赞",
+          "thanks": "感谢"
+        }
       }
     },
     "broadsheet": {

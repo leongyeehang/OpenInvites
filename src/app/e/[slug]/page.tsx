@@ -6,7 +6,8 @@ import { notFound } from "next/navigation";
 import { listAnnouncements } from "@/announcements/repository";
 import { getSession } from "@/auth/session";
 import { mayDelete } from "@/comments/comment";
-import { countComments, listComments } from "@/comments/repository";
+import { reactionsByComment, type Reactor } from "@/comments/reactions";
+import { countComments, listComments, listReactions } from "@/comments/repository";
 import { commentsView, takesComments, type CommentsShown, type CommentViewer } from "@/comments/visibility";
 import { PageFooter } from "@/components/page-footer";
 import { TooFast } from "@/components/too-fast";
@@ -62,16 +63,22 @@ async function isHostOf(eventId: string): Promise<boolean> {
 // to the hosts and to a guest whose reply the host has approved, the comments themselves; to anyone
 // else only how many there are, so not one of them is sent to that browser, and to a guest whose
 // reply is not approved, why.
-async function commentsFor(event: EventWithHost, viewer: CommentViewer): Promise<CommentsShown | undefined> {
+// Each comment carries its reactions, and whether this viewer gave each: `reactor` is who they react
+// as, if they may (M4 ticket 04). Whoever may post may react.
+async function commentsFor(event: EventWithHost, viewer: CommentViewer, reactor: Reactor | undefined): Promise<CommentsShown | undefined> {
   if (!event.commentsEnabled) return undefined;
   if (commentsView(viewer) === "locked") {
     return { view: "locked", count: await countComments(event.id), approval: viewer.kind === "guest" ? viewer.approval : undefined };
   }
-  const comments = await listComments(event.id);
+  const [comments, reactions] = await Promise.all([listComments(event.id), listReactions(event.id)]);
+  const grouped = reactionsByComment(reactions, reactor);
+  const canPost = takesComments(event, viewer);
   return {
     view: "open",
-    canPost: takesComments(event, viewer),
+    canPost,
+    canReact: canPost,
     comments: comments.map(({ id, name, hostId, body, createdAt, rsvpId }) => ({
+      reactions: grouped.get(id) ?? [],
       id,
       name,
       byHost: hostId !== null,
@@ -197,7 +204,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     findEventUpload(event.id),
     listAnnouncements(event.id),
     hostsOf(event.id),
-    commentsFor(event, viewer),
+    commentsFor(event, viewer, isHost ? { hostId: (await getSession())!.user.id } : mine ? { rsvpId: mine.rsvp.id } : undefined),
     event.capacity === null ? Promise.resolve(0) : countHeadcount(event.id),
     mine ? findWaitlistPosition(mine.rsvp) : Promise.resolve(null),
   ]);

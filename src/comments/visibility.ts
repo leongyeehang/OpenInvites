@@ -1,5 +1,6 @@
 import type { EventState } from "@/events/repository";
 import type { Approval } from "@/rsvps/admission";
+import type { ReactionGroup } from "./reactions";
 
 // Who is in front of an event page, as its comments see them (spec, "Comments"): a host of the
 // event (its owner or a co-host, signed in), a guest whose RSVP is on this device, in any status,
@@ -27,12 +28,13 @@ export function takesComments(event: { state: EventState; commentsEnabled: boole
 }
 
 // One comment as the page shows it: who wrote it (the RSVP's name, or the host's display name with
-// the "Host" mark), what they wrote, when, and whether this viewer may delete it.
-export type ShownComment = { id: string; name: string; byHost: boolean; body: string; createdAt: Date; deletable: boolean };
+// the "Host" mark), what they wrote, when, whether this viewer may delete it, and its reactions.
+export type ShownComment = { id: string; name: string; byHost: boolean; body: string; createdAt: Date; deletable: boolean; reactions: ReactionGroup[] };
 
 // What a layout is handed of the comments: to a viewer they are locked for, only how many there are,
 // and the approval of their own reply when they have one, which the line under the count speaks to;
-// to one they are open for, the comments oldest first, and whether the form to post one is there.
+// to one they are open for, the comments oldest first, whether the form to post one is there, and
+// whether they may react (whoever may post may).
 export type CommentsShown =
   | { view: "locked"; count: number; approval?: Approval }
-  | { view: "open"; comments: ShownComment[]; canPost: boolean };
+  | { view: "open"; comments: ShownComment[]; canPost: boolean; canReact: boolean };

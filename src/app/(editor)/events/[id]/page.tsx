@@ -84,8 +84,10 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
     ...(deletion ? [t("deletionDate", { date: formatDay(deletion, event.timeZone, locale) })] : []),
   ];
 
+  // The Poster layout brings the comments' reactions with it, which read EventPage.comments, though
+  // the editor shows no comments.
   return (
-    <ClientMessages namespaces={["Editor", "Design", "Posters", "Events.form", "Events.manage"]}>
+    <ClientMessages namespaces={["Editor", "Design", "Posters", "Events.form", "Events.manage", "EventPage.comments"]}>
       <EditorProvider>
         <ThemedPage
           theme={event.theme}
