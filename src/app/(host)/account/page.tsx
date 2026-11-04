@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { passkeysAvailable } from "@/auth/passkeys";
+import { listPasskeys } from "@/auth/passkey-store";
 import { requireHost } from "@/auth/session";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { baseUrl } from "@/instance/env";
 import { ClientMessages } from "@/locale/client-messages";
 import { ChangeEmailForm, ChangePasswordForm, DeleteAccountDialog, DisplayNameForm } from "./account-forms";
+import { Passkeys } from "./passkeys";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Account");
@@ -11,9 +15,20 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function AccountPage() {
-  const [host, t] = await Promise.all([requireHost(), getTranslations("Account")]);
+  const [host, t, locale] = await Promise.all([requireHost(), getTranslations("Account"), getLocale()]);
+  // Passkeys only where a browser offers them (auth/passkeys.ts); elsewhere the card says why.
+  const withPasskeys = passkeysAvailable(baseUrl());
+  const day = new Intl.DateTimeFormat(locale, { dateStyle: "medium" });
+  const passkeys = withPasskeys
+    ? (await listPasskeys(host.id)).map(({ id, name, createdAt, lastUsedAt }) => ({
+        id,
+        name,
+        created: createdAt && day.format(createdAt),
+        lastUsed: lastUsedAt && day.format(lastUsedAt),
+      }))
+    : [];
   return (
-    <ClientMessages namespaces={["Account.displayName", "Account.email", "Account.password", "Account.delete"]}>
+    <ClientMessages namespaces={["Account.displayName", "Account.email", "Account.password", "Account.passkeys", "Account.delete"]}>
       <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
       <Card>
         <CardHeader>
@@ -46,6 +61,19 @@ export default async function AccountPage() {
         <CardContent>
           <ChangePasswordForm />
         </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <h2>{t("passkeys.title")}</h2>
+          </CardTitle>
+          <CardDescription>{withPasskeys ? t("passkeys.description") : t("passkeys.unavailable")}</CardDescription>
+        </CardHeader>
+        {withPasskeys && (
+          <CardContent>
+            <Passkeys passkeys={passkeys} />
+          </CardContent>
+        )}
       </Card>
       <Card className="border-destructive/40">
         <CardHeader>

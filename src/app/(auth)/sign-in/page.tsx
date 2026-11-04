@@ -3,6 +3,8 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { nextPath } from "@/auth/next-path";
+import { passkeysAvailable } from "@/auth/passkeys";
+import { baseUrl } from "@/instance/env";
 import { getSession } from "@/auth/session";
 import { enabledSocialProviders } from "@/auth/providers";
 import { isMailConfigured } from "@/mail/config";
@@ -11,6 +13,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { ClientMessages } from "@/locale/client-messages";
 import { SocialSignIn } from "../social-sign-in";
 import { SignInLinkForm } from "./sign-in-link-form";
+import { PasskeySignIn } from "./passkey-sign-in";
 import { SignInForm } from "./sign-in-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -54,6 +57,7 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
         <CardContent className="flex flex-col gap-4">
           <ClientMessages namespaces={["Auth.signIn"]}>
             <SignInForm next={next} />
+            {passkeysAvailable(baseUrl()) && <PasskeySignIn next={next} />}
           </ClientMessages>
           <SocialSignIn providers={enabledSocialProviders()} namespace="Auth.signIn" next={next} />
           {isMailConfigured() && (

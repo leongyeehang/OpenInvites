@@ -76,7 +76,7 @@ test.describe("on an instance whose operator has set Turnstile's keys", () => {
     page,
   }) => {
     await page.goto("/sign-in");
-    await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
     await expect(botCheck(page)).toHaveCount(0);
 
     await page.goto("/sign-up");

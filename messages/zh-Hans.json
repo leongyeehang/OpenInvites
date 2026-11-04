@@ -54,7 +54,9 @@
       "linkEmail": "接收登录链接的邮箱",
       "linkSubmit": "给我发链接",
       "linkSent": "如果这里有对应的账号，我们已把登录链接发到 {email}。",
-      "linkExpired": "这个登录链接已过期或已被使用。"
+      "linkExpired": "这个登录链接已过期或已被使用。",
+      "passkey": "使用通行密钥登录",
+      "passkeyFailed": "这个通行密钥未能让你登录。请再试一次，或使用邮箱和密码登录。"
     },
     "forgotPassword": {
       "title": "重置密码",
@@ -161,6 +163,34 @@
       "newHint": "至少 8 个字符。",
       "submit": "更改密码",
       "changed": "密码已更改。"
+    },
+    "passkeys": {
+      "title": "通行密钥",
+      "description": "用指纹、面容或屏幕锁登录，无需输入密码。你的邮箱和密码仍然可以使用。",
+      "unavailable": "只有当此实例通过 HTTPS 提供服务时才能使用通行密钥。请联系此实例的运营者进行设置。",
+      "none": "你还没有通行密钥。",
+      "add": "添加通行密钥",
+      "adding": "正在等待你的设备…",
+      "added": "已添加通行密钥。",
+      "failed": "通行密钥未能添加，请再试一次。",
+      "tooFast": "操作太频繁了，请稍后再试。",
+      "unnamed": "通行密钥",
+      "created": "添加于 {date}",
+      "lastUsed": "上次使用于 {date}",
+      "neverUsed": "尚未用于登录",
+      "rename": "重命名",
+      "renameLabel": "重命名 {name}",
+      "nameLabel": "名称",
+      "save": "保存",
+      "cancel": "取消",
+      "nameInvalid": "请填写不超过 60 个字符的名称。",
+      "remove": "移除",
+      "removeLabel": "移除 {name}",
+      "removeTitle": "要移除这个通行密钥吗？",
+      "removeText": "你将不能再用 {name} 登录。其他登录方式仍然可以使用。",
+      "removeConfirm": "移除",
+      "keep": "保留",
+      "removed": "已移除通行密钥。"
     },
     "delete": {
       "title": "删除账号",

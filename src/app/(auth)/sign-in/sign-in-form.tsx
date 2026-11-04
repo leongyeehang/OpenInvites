@@ -17,7 +17,8 @@ export function SignInForm({ next }: { next: string }) {
       <FieldGroup>
         <Field>
           <FieldLabel htmlFor="email">{t("email")}</FieldLabel>
-          <Input id="email" name="email" type="email" autoComplete="email" required />
+          {/* "webauthn" lets the browser offer the host's passkeys here (passkey-sign-in.tsx). */}
+          <Input id="email" name="email" type="email" autoComplete="username webauthn" required />
         </Field>
         <Field>
           <FieldLabel htmlFor="password">{t("password")}</FieldLabel>

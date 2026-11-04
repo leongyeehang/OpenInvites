@@ -80,6 +80,30 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
+// A host's passkey (M4 ticket 08), Better Auth's passkey plugin's table: the property names are the
+// plugin's. `lastUsedAt` is ours, set after each sign-in with it (auth/auth.ts), for the account
+// page. It goes with the account.
+export const passkey = pgTable(
+  "passkey",
+  {
+    id: id(),
+    name: text("name"),
+    publicKey: text("public_key").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    credentialID: text("credential_id").notNull().unique(),
+    counter: integer("counter").notNull(),
+    deviceType: text("device_type").notNull(),
+    backedUp: boolean("backed_up").notNull(),
+    transports: text("transports"),
+    aaguid: text("aaguid"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (table) => [index("passkey_user_id_idx").on(table.userId)],
+);
+
 export const registrationMode = pgEnum("registration_mode", REGISTRATION_MODES);
 
 // The instance's own settings, which its operator edits on the instance settings page (spec,

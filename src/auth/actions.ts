@@ -14,6 +14,9 @@ import { checkTurnstile } from "@/turnstile/verify";
 import { getAuth } from "./auth";
 import { authErrorMessage } from "./errors";
 import { nextPath } from "./next-path";
+import { parsePasskeyName } from "./passkeys";
+import { removePasskey, renamePasskey } from "./passkey-store";
+import { isUuid } from "@/lib/uuid";
 import type { SocialProviderId } from "./providers";
 import { type Host, requireHost } from "./session";
 
@@ -241,3 +244,22 @@ export async function deleteAccount(_: FormState, formData: FormData): Promise<F
   }
   redirect("/sign-in?accountDeleted=1");
 }
+
+// Renaming one of the host's passkeys (M4 ticket 08). Adding one is the browser's WebAuthn
+// ceremony with Better Auth (auth/passkey-client.ts); naming and removing are plain changes here.
+export async function renamePasskeyAction(id: string, _: FormState, formData: FormData): Promise<FormState> {
+  const host = await requireHost();
+  const t = await getTranslations("Account.passkeys");
+  const name = parsePasskeyName(formData.get("name"));
+  if (!name) return { error: t("nameInvalid") };
+  if (isUuid(id)) await renamePasskey(host.id, id, name);
+  revalidatePath("/account");
+  return {};
+}
+
+export async function removePasskeyAction(id: string): Promise<void> {
+  const host = await requireHost();
+  if (isUuid(id)) await removePasskey(host.id, id);
+  revalidatePath("/account");
+}
+

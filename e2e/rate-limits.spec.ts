@@ -145,7 +145,7 @@ test("someone trying password after password is told to slow down in the sign-in
   const attempt = async (password: string) => {
     await page.getByLabel("Email", { exact: true }).fill("nobody@example.test");
     await page.getByLabel("Password").fill(password);
-    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page.getByLabel("Email", { exact: true })).toHaveValue("");
   };
   for (let tried = 0; tried < SIGN_IN_LIMIT; tried++) {

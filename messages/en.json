@@ -54,7 +54,9 @@
       "linkEmail": "Email for the sign-in link",
       "linkSubmit": "Send me the link",
       "linkSent": "If an account exists here, we sent a sign-in link to {email}.",
-      "linkExpired": "That sign-in link has expired or was already used."
+      "linkExpired": "That sign-in link has expired or was already used.",
+      "passkey": "Sign in with a passkey",
+      "passkeyFailed": "That passkey didn’t sign you in. Try again, or sign in with your email and password."
     },
     "forgotPassword": {
       "title": "Reset your password",
@@ -161,6 +163,34 @@
       "newHint": "At least 8 characters.",
       "submit": "Change password",
       "changed": "Password changed."
+    },
+    "passkeys": {
+      "title": "Passkeys",
+      "description": "Sign in with your fingerprint, face or screen lock instead of typing your password. Your email and password keep working.",
+      "unavailable": "Passkeys work only when this instance is served over HTTPS. Ask its operator to set that up to use them.",
+      "none": "You have no passkeys yet.",
+      "add": "Add a passkey",
+      "adding": "Waiting for your device…",
+      "added": "Passkey added.",
+      "failed": "The passkey wasn’t added. Try again.",
+      "tooFast": "You’re going too fast. Try again shortly.",
+      "unnamed": "Passkey",
+      "created": "Added {date}",
+      "lastUsed": "Last used {date}",
+      "neverUsed": "Not used to sign in yet",
+      "rename": "Rename",
+      "renameLabel": "Rename {name}",
+      "nameLabel": "Name",
+      "save": "Save",
+      "cancel": "Cancel",
+      "nameInvalid": "Give it a name of up to 60 characters.",
+      "remove": "Remove",
+      "removeLabel": "Remove {name}",
+      "removeTitle": "Remove this passkey?",
+      "removeText": "You won’t be able to sign in with {name} any more. Your other ways to sign in keep working.",
+      "removeConfirm": "Remove it",
+      "keep": "Keep it",
+      "removed": "Passkey removed."
     },
     "delete": {
       "title": "Delete account",

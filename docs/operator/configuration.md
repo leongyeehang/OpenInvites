@@ -264,6 +264,22 @@ them:
    the same account rather than creating a second one. A provider address that does not match,
    or is not verified there, does not link.
 
+## Passkeys
+
+Hosts can add passkeys on their account page and sign in with them (a fingerprint, a face or a
+screen lock in place of the password). Nothing needs configuring, with two conditions:
+
+- **HTTPS.** Browsers offer passkeys only on a secure origin: `BASE_URL` on `https://`, or
+  `http://localhost` for trying an instance on your own machine. On plain HTTP anywhere else the
+  sign-in page has no passkey button, and the account page says passkeys need HTTPS.
+- **A stable `BASE_URL`.** A passkey belongs to the host name of `BASE_URL`, the domain it was made
+  on. Moving the instance to another domain strands every passkey made on the old one: they stop
+  working, and hosts sign in with their email and password (or a sign-in link) and add new ones.
+  Changing only the port keeps them.
+
+Email and password always keep working beside passkeys, so a host who loses their device, or
+removes their last passkey, is never locked out.
+
 ## Uploaded pictures
 
 | Variable | Default | Meaning |
@@ -340,7 +356,7 @@ runs.
 | `RATE_LIMIT_RSVP` | `60/10m` | Sending an RSVP, and removing one. Asking for a code to prove a guest's email, and entering it, each count as sending. This also bounds the emails that tell hosts about replies. |
 | `RATE_LIMIT_UPLOAD` | `20/10m` | Uploading a picture. |
 | `RATE_LIMIT_SIGN_UP` | `10/1h` | Signing up, and opening a host invitation link. |
-| `RATE_LIMIT_SIGN_IN` | `10/15m` | Signing in, and everything else that checks a password (changing it, deleting an account), starting a Google or GitHub sign-in, and opening a co-host link. |
+| `RATE_LIMIT_SIGN_IN` | `10/15m` | Signing in, and everything else that checks a password (changing it, deleting an account), starting a Google or GitHub sign-in, signing in with a passkey, and opening a co-host link. |
 | `RATE_LIMIT_PASSWORD_RESET` | `10/1h` | Asking for a password reset link, and setting the new password. |
 | `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an account email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, asking for a sign-in link, and the operator's emailed host invitations. Also each announcement a host emails to guests, counted once however many guests it reaches, and each code sent to a guest to prove their email. |
 | `RATE_LIMIT_COMMENT` | `30/10m` | Posting a comment on an event page, and deleting one, by a guest or a host. This also bounds the emails that tell hosts about comments. |

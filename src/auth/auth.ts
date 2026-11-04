@@ -1,7 +1,9 @@
+import { passkey } from "@better-auth/passkey";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
+import { eq } from "drizzle-orm";
 import { magicLink } from "better-auth/plugins";
 import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
@@ -12,6 +14,7 @@ import { HOST_INVITATION_COOKIE } from "@/instance/host-invitation-token";
 import { isMailConfigured } from "@/mail/config";
 import { consumeAll, retryAfter, type LimitName } from "@/rate-limit/rate-limit";
 import { fallbackDisplayName } from "./display-name";
+import { passkeysAvailable, relyingParty } from "./passkeys";
 import { sendMagicLinkEmail, sendPasswordResetEmail, sendVerificationEmail } from "./emails";
 import { socialProviders } from "./providers";
 
@@ -40,6 +43,9 @@ function limitsByEndpoint(mail: boolean): Record<string, readonly LimitName[]> {
     "/reset-password": ["passwordReset"],
     "/send-verification-email": ["mail"],
     "/change-email": ["mail"],
+    // A passkey's sign-in is a sign-in when it is answered. Asking for its challenge is not: the
+    // sign-in page asks for one as it opens, for the browser to offer passkeys in the email field.
+    "/passkey/verify-authentication": ["signIn"],
   };
 }
 
@@ -61,6 +67,7 @@ function countAgainstLimits(limits: Record<string, readonly LimitName[]>) {
 function createAuth() {
   const mail = isMailConfigured();
   const providers = socialProviders();
+  const party = relyingParty(baseUrl());
   return betterAuth({
     baseURL: baseUrl(),
     secret: authSecret(),
@@ -127,6 +134,22 @@ function createAuth() {
     plugins: [
       nextCookies(),
       ...(mail ? [magicLink({ disableSignUp: true, expiresIn: 900, sendMagicLink: sendMagicLinkEmail })] : []),
+      // Passkeys for the domain of BASE_URL, where a browser offers them (auth/passkeys.ts). Each
+      // sign-in with one records when it was last used, for the account page.
+      ...(passkeysAvailable(baseUrl())
+        ? [
+            passkey({
+              rpID: party.id,
+              rpName: "OpenInvites",
+              origin: party.origin,
+              authentication: {
+                afterVerification: async ({ clientData }) => {
+                  await getDb().update(schema.passkey).set({ lastUsedAt: new Date() }).where(eq(schema.passkey.credentialID, clientData.id));
+                },
+              },
+            }),
+          ]
+        : []),
     ],
   });
 }

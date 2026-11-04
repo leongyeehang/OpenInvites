@@ -19,6 +19,7 @@
     "posters": "playwright test --config playwright.scripts.config.ts --project posters"
   },
   "dependencies": {
+    "@better-auth/passkey": "1.7.5",
     "@bradenmacdonald/s3-lite-client": "^1.0.0",
     "better-auth": "^1.7.5",
     "class-variance-authority": "^0.7.1",
