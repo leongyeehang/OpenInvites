@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { createPublished } from "./events";
+import { createPublished, editSettings } from "./events";
 import { openMyReply } from "./reply";
 
 // The guest drives the test's own page; the host watches from a context of their own.
@@ -102,9 +102,9 @@ test("reordering the host's questions reorders them for the guest", async ({ pag
   await answerName(page, host.link, "Priya Nair");
   await expect(page.locator('[data-slot="questions"] > li').first()).toContainText("Any dietary needs?");
 
-  await host.page.locator("form ol > li").nth(1).getByRole("button", { name: "Move up" }).click();
-  await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText(/^Saved\./)).toBeVisible();
+  await editSettings(host.page, async () => {
+    await host.page.locator("form ol > li").nth(1).getByRole("button", { name: "Move up" }).click();
+  });
 
   await page.reload();
   await answerName(page, host.link, "Priya Nair");
@@ -128,9 +128,9 @@ test("a guest is not locked out when the host rewrites a question they answered"
   await page.getByRole("button", { name: "Send RSVP" }).click();
   await expect(page.getByText("You’re going!")).toBeVisible();
 
-  await host.page.getByLabel("Question 1 choices").fill("Bread, Rice");
-  await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText(/^Saved\./)).toBeVisible();
+  await editSettings(host.page, async () => {
+    await host.page.getByLabel("Question 1 choices").fill("Bread, Rice");
+  });
 
   // The answer nobody offers any more is forgotten rather than carried into every save.
   await page.reload();
@@ -160,12 +160,12 @@ test("removing a question that guests have answered says what it costs", async (
   await expect(page.getByText("You’re going!")).toBeVisible();
 
   await host.page.reload();
-  await host.page.getByRole("button", { name: "Remove question" }).click();
-  await expect(host.page.getByText("Remove “Any dietary needs?”?")).toBeVisible();
-  await expect(host.page.getByText("One guest has answered it, and that answer goes too.")).toBeVisible();
-  await host.page.getByRole("button", { name: "Remove question" }).last().click();
-  await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText(/^Saved\./)).toBeVisible();
+  await editSettings(host.page, async () => {
+    await host.page.getByRole("button", { name: "Remove question" }).click();
+    await expect(host.page.getByText("Remove “Any dietary needs?”?")).toBeVisible();
+    await expect(host.page.getByText("One guest has answered it, and that answer goes too.")).toBeVisible();
+    await host.page.getByRole("button", { name: "Remove question" }).last().click();
+  });
 
   await host.page.goto(`${host.page.url()}/guests`);
   await expect(host.page.getByText("Priya Nair")).toBeVisible();
@@ -241,9 +241,9 @@ test("when the host removes an option, a guest's other pick is kept and their ne
   await page.getByRole("button", { name: "Send RSVP" }).click();
   await expect(page.getByText("You’re going!")).toBeVisible();
 
-  await host.page.getByLabel("Question 1 choices").fill("Keynote, Panel");
-  await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText(/^Saved\./)).toBeVisible();
+  await editSettings(host.page, async () => {
+    await host.page.getByLabel("Question 1 choices").fill("Keynote, Panel");
+  });
 
   // The removed option is forgotten, the other pick comes back prefilled, and saving works.
   await page.reload();

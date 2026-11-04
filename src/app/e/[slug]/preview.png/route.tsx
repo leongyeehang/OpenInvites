@@ -5,7 +5,7 @@ import sharp from "sharp";
 import { eventPageFor } from "@/events/access";
 import { findEventBySlug } from "@/events/repository";
 import { isSlug } from "@/events/slug";
-import { formatWhen } from "@/events/time";
+import { formatWhen, isDated } from "@/events/time";
 import { drawPreviewCard, PREVIEW_SIZE } from "@/sharing/preview-card";
 import { resolveTheme } from "@/themes/resolve";
 import { readRendition } from "@/uploads/files";
@@ -20,7 +20,7 @@ export async function GET(_request: Request, context: RouteContext<"/e/[slug]/pr
   if (!isSlug(slug)) notFound();
   const event = await findEventBySlug(slug);
   // A draft's card is as private as its page.
-  if (!event || eventPageFor(event.state, { isHost: false }) === "notReady") notFound();
+  if (!event || eventPageFor(event.state, { isHost: false }) === "notReady" || !isDated(event)) notFound();
 
   const url = new URL(_request.url);
   // Every card the page links to carries the event's version, so that one never changes. A

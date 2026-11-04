@@ -15,7 +15,7 @@ import { eventHosts } from "@/events/hosts";
 import { findEventBySlug, findRetiredSlug, recordView, type EventWithHost } from "@/events/repository";
 import { countsAsView } from "@/events/views";
 import { eventPath, eventUrl, isSlug } from "@/events/slug";
-import type { EventTime } from "@/events/time";
+import { isDated, type EventTime } from "@/events/time";
 import { maxUploadBytes } from "@/instance/env";
 import { findInviteOnThisDevice } from "@/invites/device";
 import { ClientMessages } from "@/locale/client-messages";
@@ -208,17 +208,20 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // with the host, not in anyone else's hands.
   const picture = upload ? themeUpload(upload) : null;
   const resolved = resolveTheme(event.theme, picture);
+  // A draft with no date yet, which only its hosts see, is shown in the Poster layout, the one that
+  // can go without a When; the others are drawn around their date.
+  const dated = isDated(event) ? event : undefined;
+  const layout = dated ? resolved.layout : "poster";
   // The same rule the file itself follows: there is nothing to put in a calendar until an event
   // is published, and nothing worth keeping there once it is called off.
-  const calendar = acceptsRsvps(event.state) ? (
-    <AddToCalendar event={event} link={link} inCard={resolved.layout !== "thread"} chips={resolved.layout === "thread"} />
-  ) : undefined;
+  const calendar =
+    dated && acceptsRsvps(event.state) ? <AddToCalendar event={dated} link={link} inCard={layout !== "thread"} chips={layout === "thread"} /> : undefined;
 
   const notice = isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined;
   // The browser shows the time in the viewer's own zone and counts down to it, from the event's
   // time alone: a client component is sent all it is handed, and the event holds more than a guest
   // should be sent.
-  const time: EventTime = { startsAt: event.startsAt, endsAt: event.endsAt, allDay: event.allDay, timeZone: event.timeZone };
+  const time: EventTime | undefined = dated && { startsAt: dated.startsAt, endsAt: dated.endsAt, allDay: dated.allDay, timeZone: dated.timeZone };
   const flow: RsvpFlowProps = {
     slug: event.slug,
     settings: {
@@ -258,9 +261,9 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
           ) : undefined
         }
       >
-        {resolved.layout === "thread" ? (
+        {layout === "thread" && dated && time ? (
           <ThreadLayout
-            event={event}
+            event={dated}
             hosts={hosts.map((host) => host.name)}
             announcements={announcements}
             comments={comments}
@@ -276,9 +279,9 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             }
             underWhere={event.location ? <MapLink location={event.location} chip /> : undefined}
           />
-        ) : resolved.layout === "broadsheet" ? (
+        ) : layout === "broadsheet" && dated && time ? (
           <BroadsheetLayout
-            event={event}
+            event={dated}
             hosts={hosts.map((host) => host.name)}
             announcements={announcements}
             comments={comments}
@@ -300,10 +303,12 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             notice={notice}
             rsvp={<RsvpFlow {...flow} />}
             underWhen={
-              <>
-                <ViewerTime event={time} locale={locale} />
-                <Countdown event={time} />
-              </>
+              time && (
+                <>
+                  <ViewerTime event={time} locale={locale} />
+                  <Countdown event={time} />
+                </>
+              )
             }
             underWhere={event.location ? <MapLink location={event.location} /> : undefined}
             calendar={calendar}

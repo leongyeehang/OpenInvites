@@ -1,4 +1,4 @@
-import { eventEnd, type EventTime } from "../events/time";
+import { eventEnd, isDated, type EventTime, type MaybeDated } from "../events/time";
 
 // How long the instance keeps an event once it has ended (spec, "Retention"): a year unless the
 // operator chooses otherwise on the instance settings page, from 30 days to ten years, or for ever.
@@ -10,8 +10,9 @@ export const WARNING_DAYS = 30;
 
 const DAY = 24 * 60 * 60 * 1000;
 
-// What deciding an event's fate needs of it: when it ends, and when its hosts were warned.
-export type RetainedEvent = EventTime & { id: string; retentionWarnedAt: Date | null };
+// What deciding an event's fate needs of it: when it ends, and when its hosts were warned. A draft
+// with no date yet has not ended, so retention leaves it alone until it has one.
+export type RetainedEvent = MaybeDated<EventTime> & { id: string; retentionWarnedAt: Date | null };
 
 const daysAfter = (time: Date, days: number) => new Date(time.getTime() + days * DAY);
 
@@ -30,9 +31,10 @@ export function retentionPlan(
 ): { warn: string[]; remove: string[] } {
   if (retentionDays === null) return { warn: [], remove: [] };
   const passed = (time: Date) => time <= now;
+  const dated = events.filter(isDated);
   return {
-    warn: events.filter((event) => event.retentionWarnedAt === null && passed(daysAfter(eventEnd(event), retentionDays - WARNING_DAYS))).map(({ id }) => id),
-    remove: events
+    warn: dated.filter((event) => event.retentionWarnedAt === null && passed(daysAfter(eventEnd(event), retentionDays - WARNING_DAYS))).map(({ id }) => id),
+    remove: dated
       .filter(
         (event) =>
           event.retentionWarnedAt !== null && passed(daysAfter(event.retentionWarnedAt, floorDays)) && passed(daysAfter(eventEnd(event), retentionDays)),
@@ -45,7 +47,7 @@ export function retentionPlan(
 // the later of 30 days after the mark and the end plus the period. None before the mark, or while
 // the instance keeps events for ever.
 export function deletionDate(event: Omit<RetainedEvent, "id">, retentionDays: number | null, floorDays = WARNING_DAYS): Date | undefined {
-  if (event.retentionWarnedAt === null || retentionDays === null) return undefined;
+  if (event.retentionWarnedAt === null || retentionDays === null || !isDated(event)) return undefined;
   const afterWarning = daysAfter(event.retentionWarnedAt, floorDays);
   const afterPeriod = daysAfter(eventEnd(event), retentionDays);
   return afterWarning > afterPeriod ? afterWarning : afterPeriod;
@@ -57,6 +59,7 @@ export function deletionDate(event: Omit<RetainedEvent, "id">, retentionDays: nu
 // warned afresh and have their 30 days again. A shorter period takes off nothing.
 export function staleMarks(events: RetainedEvent[], now: Date, retentionDays: number | null): string[] {
   return events
+    .filter(isDated)
     .filter((event) => event.retentionWarnedAt !== null && (retentionDays === null || daysAfter(eventEnd(event), retentionDays - WARNING_DAYS) > now))
     .map(({ id }) => id);
 }

@@ -1,4 +1,4 @@
-import { createPublished } from "./events";
+import { createPublished, openMore } from "./events";
 import { latestMailTo, mailCountTo, MAILPIT, newHost, OPERATOR, PASSWORD, signIn, submitSignUp } from "./hosts";
 import { clientAddress, expect, scriptsNotFromTheApp, test, type APIRequestContext, type Page, type Route } from "./test";
 
@@ -162,6 +162,7 @@ test.describe("on an instance whose operator has set Turnstile's keys", () => {
     await expect(page.getByText(CHECK_FAILED)).toBeHidden();
 
     // The refused posts saved nothing: the host has the one reply.
+    await openMore(host.page);
     await host.page.getByRole("link", { name: "Guest list" }).click();
     await expect(host.page.getByRole("heading", { name: "Guest list" })).toBeVisible();
     await expect(host.page.getByText("1 person expected · 1 going · 0 maybe · 0 can’t go")).toBeVisible();

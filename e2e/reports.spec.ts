@@ -1,4 +1,4 @@
-import { createDraft, createPublished } from "./events";
+import { createDraft, createPublished, openMore } from "./events";
 import { MAILPIT, OPERATOR, PASSWORD, signIn } from "./hosts";
 import { clientAddress, expect, expectNotFoundAsSent, test, type APIRequestContext, type Browser, type Page } from "./test";
 
@@ -129,6 +129,7 @@ test("the operator deletes a reported event from the inbox: its link says it was
 test("a cancelled event's page keeps its report link, and a report from it reaches the operator", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "report-cancelled", { title: "Called off", start: "2027-08-01T12:00" });
+  await openMore(host.page);
   await host.page.getByRole("button", { name: "Cancel event" }).click();
   await host.page.getByRole("button", { name: "Cancel the event" }).click();
   await expect(host.page.getByText("Cancelled", { exact: true })).toBeVisible({ timeout: 15_000 });

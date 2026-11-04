@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { findHostEvent } from "@/events/repository";
-import { formatMoment, formatWhen } from "@/events/time";
+import { formatMoment, formatWhen, isDated } from "@/events/time";
 import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
 import { AnnouncementForm } from "./announcement-form";
@@ -51,7 +51,7 @@ export default async function AnnouncementsPage({ params }: PageProps<"/events/[
   // own zone (the date alone for an all-day event), and where, when the host said.
   const reminder = t("reminderDraft", {
     title: event.title,
-    when: formatWhen(event, locale),
+    when: isDated(event) ? formatWhen(event, locale) : "",
     located: event.location ? "yes" : "no",
     location: event.location,
     url: eventUrl(event),

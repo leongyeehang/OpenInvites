@@ -1,4 +1,4 @@
-import { APPROVAL, createPublished, type DraftFields } from "./events";
+import { APPROVAL, createPublished, type DraftFields, editSettings } from "./events";
 import { latestMailTo, linkIn, newHost } from "./hosts";
 import { clientAddress, expect, test, type Browser, type Page } from "./test";
 import { closeReply, openMyReply } from "./reply";
@@ -42,12 +42,12 @@ async function decide(hostPage: Page, section: RegExp, name: string, button: "Ap
   await hostPage.getByRole("region", { name: section }).getByRole("listitem").filter({ hasText: name }).getByRole("button", { name: button }).click();
 }
 
-// The host turns approval on or off on the event form, from the manage page.
+// The host turns approval on or off in the editor's Settings sheet.
 async function setApproval(hostPage: Page, manage: string, on: boolean) {
   await hostPage.goto(manage);
-  await hostPage.getByRole("group", { name: "Guests", exact: true }).getByLabel(APPROVAL).setChecked(on);
-  await hostPage.getByRole("button", { name: "Save changes" }).click();
-  await expect(hostPage.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
+  await editSettings(hostPage, async () => {
+    await hostPage.getByRole("group", { name: "Guests", exact: true }).getByLabel(APPROVAL).setChecked(on);
+  });
 }
 
 async function closeAll(...pages: Page[]) {

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { createDraft, createPublished } from "./events";
+import { createDraft, createPublished, publishInEditor } from "./events";
 import { signUpVerified } from "./hosts";
 
 // Ticket 06: every new event wears the Birthday template's Poster look of 0.4 without the host doing
@@ -14,8 +14,7 @@ test("a new event's page wears the Birthday template: serif title, golden accent
     location: "Ah Ma’s house, 3rd floor",
     description: "Bring nothing.",
   });
-  await page.getByRole("button", { name: "Publish" }).click();
-  await expect(page.getByText("Published", { exact: true })).toBeVisible();
+  await publishInEditor(page);
 
   await page.goto(link);
   const root = page.locator("[data-layout]");

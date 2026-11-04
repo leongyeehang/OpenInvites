@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "./test";
-import { APPROVAL } from "./events";
+import { APPROVAL, editSettings, eventLinkIn, openMore, publishInEditor, setWhen, typeTitle } from "./events";
 import { mailCountTo, newHost, signUp, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
 
@@ -23,14 +23,18 @@ test.afterAll(async () => {
   await operator?.context().close();
 });
 
-// A draft with only what the form requires.
+// New event, and in the editor it opens, a draft with what publishing needs. At the limit, New
+// event is refused, and the page says so where it is.
 async function fillDraft(page: Page, title: string) {
   await page.goto("/events/new");
-  await page.getByLabel("Title").fill(title);
-  await page.getByLabel("Starts").fill("2027-03-06T19:00");
-  await page.getByLabel("Time zone").selectOption("Asia/Singapore");
-  await page.getByLabel("Plus-ones per guest").selectOption("0");
-  await page.getByRole("button", { name: "Save draft" }).click();
+  const editor = page.getByRole("textbox", { name: "Event title" });
+  await expect(editor.or(page.getByText(EVENTS_REFUSAL))).toBeVisible({ timeout: 20_000 });
+  if (!(await editor.isVisible())) return;
+  await typeTitle(page, title);
+  await setWhen(page, { start: "2027-03-06T19:00" });
+  await editSettings(page, async (sheet) => {
+    await sheet.getByLabel("Plus-ones per guest").selectOption("0");
+  });
 }
 
 async function reply(browser: Browser, link: string, name: string) {
@@ -97,6 +101,7 @@ test("a host at the events limit cannot create or duplicate an event", async () 
   await expect(operator.getByRole("link", { name: "New event" })).toHaveCount(0);
 
   await operator.goto(second);
+  await openMore(operator);
   await operator.getByRole("button", { name: "Duplicate" }).click();
   await expect(operator.getByText(EVENTS_REFUSAL)).toBeVisible();
   await expect(operator).toHaveURL(second);
@@ -108,16 +113,13 @@ test("a third guest is refused at the replies limit, a reply waiting for approva
   test.slow();
   await operator.goto("/dashboard");
   await operator.getByRole("link", { name: /First party/ }).click();
-  await operator.getByRole("button", { name: "Publish" }).click();
-  await expect(operator.getByText("Published", { exact: true })).toBeVisible();
-  eventLink = (await operator.getByText(/^https?:\/\/\S+\/e\/[A-Za-z0-9-]+$/).textContent())!.trim();
+  await publishInEditor(operator);
+  eventLink = await eventLinkIn(operator);
 
   const first = await reply(browser, eventLink, "Priya Nair");
   await expect(first.getByText("You’re going!")).toBeVisible();
   // The host now approves each reply, so the second waits; it counts against the limit all the same.
-  await operator.getByRole("group", { name: "Guests", exact: true }).getByLabel(APPROVAL).check();
-  await operator.getByRole("button", { name: "Save changes" }).click();
-  await expect(operator.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
+  await editSettings(operator, (sheet) => sheet.getByRole("group", { name: "Guests", exact: true }).getByLabel(APPROVAL).check());
   const second = await reply(browser, eventLink, "Arjun Rao");
   await expect(second.getByText("Your reply is waiting for the host’s approval.")).toBeVisible();
 

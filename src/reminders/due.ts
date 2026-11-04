@@ -24,7 +24,7 @@ export type ReminderEvent = Pick<
 // When a reminder falls due: so many days before the start. An all-day event starts at midnight in
 // its zone, and its reminders do too, counted in days of its own calendar, so a clock change in
 // between moves them by nothing.
-function reminderTime(event: ReminderEvent, kind: ReminderKind): Date {
+function reminderTime(event: ReminderEvent & { startsAt: Date }, kind: ReminderKind): Date {
   const days = REMINDERS[kind].daysBefore;
   if (!event.allDay) return new Date(event.startsAt.getTime() - days * DAY);
   const [year, month, day] = toWallTime(event.startsAt, event.timeZone, { dateOnly: true }).split("-").map(Number);
@@ -42,10 +42,10 @@ function sentAt(event: ReminderEvent, kind: ReminderKind): Date | null {
 // time came before the event was published is never sent either, so an event published five days
 // out sends no week reminder.
 export function remindersDue(event: ReminderEvent, now: Date): ReminderKind[] {
-  const { publishedAt } = event;
-  if (event.state !== "published" || !event.remindersEnabled || !publishedAt) return [];
+  const { publishedAt, startsAt } = event;
+  if (event.state !== "published" || !event.remindersEnabled || !publishedAt || !startsAt) return [];
   return KINDS.filter((kind) => {
-    const time = reminderTime(event, kind);
+    const time = reminderTime({ ...event, startsAt }, kind);
     return time <= now && now.getTime() < time.getTime() + DAY && publishedAt < time && sentAt(event, kind) === null;
   });
 }

@@ -1,4 +1,4 @@
-import { chooseLayout, createDraft, createPublished, type DraftFields } from "./events";
+import { chooseLayout, createDraft, createPublished, type DraftFields, editSettings, openMore, publishInEditor } from "./events";
 import { signUpVerified } from "./hosts";
 import { expect, test, type APIRequestContext, type Browser, type Page } from "./test";
 
@@ -44,12 +44,12 @@ async function someoneElseReplies(browser: Browser, link: string, name: string, 
   await context.close();
 }
 
-// On the event's manage page, opened afresh so that "Saved." can only be this change's.
+// In the editor's Settings sheet, which waits for this change's own save.
 async function setGuestListVisibility(hostPage: Page, who: "always" | "afterReply" | "hidden") {
   await hostPage.reload();
-  await hostPage.getByLabel("Who can see the guest list").selectOption(who);
-  await hostPage.getByRole("button", { name: "Save changes" }).click();
-  await expect(hostPage.getByText(/^Saved\./)).toBeVisible();
+  await editSettings(hostPage, async () => {
+    await hostPage.getByLabel("Who can see the guest list").selectOption(who);
+  });
 }
 
 test("a guest replies on the ballot: Going, two named plus-ones and the host's questions, then a received stamp, the edit link and their line in the list", async ({
@@ -353,10 +353,10 @@ test("a draft shows its host the draft notice, and a cancelled event the notice 
   await expect(hostPage.getByRole("button", { name: "Design" })).toBeVisible();
 
   await hostPage.goto(manage);
-  await hostPage.getByRole("button", { name: "Publish" }).click();
-  await expect(hostPage.getByText("Published", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await publishInEditor(hostPage);
   await reply(page, link, "Priya Nair");
 
+  await openMore(hostPage);
   await hostPage.getByRole("button", { name: "Cancel event" }).click();
   await hostPage.getByRole("button", { name: "Cancel the event" }).click();
   await expect(hostPage.getByText("Cancelled", { exact: true })).toBeVisible({ timeout: 15_000 });

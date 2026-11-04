@@ -1,5 +1,5 @@
 import { expect, expectNotFoundAsSent, test, type Page } from "./test";
-import { createDraft, createPublished } from "./events";
+import { createDraft, createPublished, editSettings } from "./events";
 import { signUpVerified } from "./hosts";
 import { openMyReply, replyBar } from "./reply";
 
@@ -212,9 +212,9 @@ test("the host's plus-one settings decide what the guest is asked", async ({ pag
 
   // The host changes their mind and allows nobody. The guest can still edit their RSVP: the
   // plus-one they can no longer bring is dropped rather than blocking every save.
-  await host.page.getByLabel("Plus-ones per guest").selectOption("0");
-  await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText(/^Saved\./)).toBeVisible();
+  await editSettings(host.page, async () => {
+    await host.page.getByLabel("Plus-ones per guest").selectOption("0");
+  });
 
   await page.reload();
   await openMyReply(page);

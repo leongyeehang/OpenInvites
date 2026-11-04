@@ -1,6 +1,6 @@
 import { expect, test } from "./test";
 import sharp from "sharp";
-import { createPublished, type DraftFields } from "./events";
+import { createPublished, eventLinkIn, openMore, type DraftFields } from "./events";
 
 // Ticket 09: a host duplicates an event into a new draft with its details, look, questions,
 // settings and picture; replies stay with the event they were made to.
@@ -42,25 +42,32 @@ test("duplicating makes a new draft with the same details, questions, settings a
   await host.page.goto(`${sourceManage}/guests`);
   await expect(host.page.getByText("Priya Nair")).toBeVisible();
 
-  // Duplicate from the manage page: the copy opens as a draft, and says where it came from.
+  // Duplicate from the editor's More: the copy opens as a draft in the editor, and says where it
+  // came from.
   await host.page.goto(sourceManage);
+  await openMore(host.page);
   await host.page.getByRole("button", { name: "Duplicate" }).click();
   await expect(host.page).toHaveURL(/\/events\/[0-9a-f-]{36}\?from=[0-9a-f-]{36}$/, { timeout: 15_000 });
   expect(host.page.url().split("?")[0]).not.toBe(sourceManage);
   await expect(host.page.getByText("Duplicated from Ada’s garden party", { exact: true })).toBeVisible();
   await expect(host.page.getByText("Draft", { exact: true })).toBeVisible();
   const copyManage = host.page.url().split("?")[0];
-  const copyLink = (await host.page.getByText(/^https?:\/\/\S+\/e\/[A-Za-z0-9-]+$/).textContent())!.trim();
+  const copyLink = await eventLinkIn(host.page);
   expect(copyLink).not.toBe(host.link);
 
-  // The form holds the same values and the question.
-  await expect(host.page.getByLabel("Title")).toHaveValue("Ada’s garden party (copy)");
-  await expect(host.page.getByLabel("Starts")).toHaveValue("2027-05-08T16:00");
-  await expect(host.page.getByLabel("Where")).toHaveValue("The back garden");
-  await expect(host.page.getByLabel("Plus-ones per guest")).toHaveValue("0");
-  await expect(host.page.getByLabel("Remind guests by email (a week before to Maybe, the day before to Going)")).not.toBeChecked();
-  await expect(host.page.getByLabel("Question 1", { exact: true })).toHaveValue("Starter?");
-  await expect(host.page.getByLabel("Question 1 choices")).toHaveValue("Soup, Salad");
+  // The editor holds the same details, settings and question.
+  await expect(host.page.getByRole("textbox", { name: "Event title" })).toHaveText("Ada’s garden party (copy)");
+  await host.page.getByRole("button", { name: /^When:/ }).click();
+  await expect(host.page.getByRole("dialog", { name: "When" }).getByLabel("Starts")).toHaveValue("2027-05-08T16:00");
+  await host.page.keyboard.press("Escape");
+  await expect(host.page.getByRole("button", { name: /^Where:/ })).toContainText("The back garden");
+  await host.page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Settings" }).click();
+  const settings = host.page.getByRole("dialog", { name: "Settings" });
+  await expect(settings.getByLabel("Plus-ones per guest")).toHaveValue("0");
+  await expect(settings.getByLabel("Remind guests by email (a week before to Maybe, the day before to Going)")).not.toBeChecked();
+  await expect(settings.getByLabel("Question 1", { exact: true })).toHaveValue("Starter?");
+  await expect(settings.getByLabel("Question 1 choices")).toHaveValue("Soup, Salad");
+  await host.page.keyboard.press("Escape");
 
   // The host sees the picture on the copy's page, as a file of its own, and the replies stayed behind.
   await host.page.goto(copyLink);
@@ -77,7 +84,7 @@ test("duplicating makes a new draft with the same details, questions, settings a
 test("a notice names only an event the host can open", async ({ browser, request }) => {
   const host = await createPublished(browser, request, "duplicate-notice", { title: "Ada’s garden party", start: "2027-05-08T16:00" });
   await host.page.goto(`${host.page.url()}?from=0194f0a0-0000-7000-8000-000000000001`);
-  await expect(host.page.getByRole("heading", { name: "Ada’s garden party" })).toBeVisible();
+  await expect(host.page.getByRole("textbox", { name: "Event title" })).toHaveText("Ada’s garden party");
   await expect(host.page.getByText(/Duplicated from/)).toHaveCount(0);
   await host.context.close();
 });

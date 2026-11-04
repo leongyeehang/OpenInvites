@@ -3,7 +3,7 @@ import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import type { ComponentType, ReactNode } from "react";
 import type { CommentsShown } from "@/comments/visibility";
 import type { EventWithHost } from "@/events/repository";
-import { formatWhen, formatWhenBrief } from "@/events/time";
+import { formatWhen, formatWhenBrief, isDated } from "@/events/time";
 import { cn } from "@/lib/utils";
 import { RichTextView } from "@/rich-text/rich-text-view";
 import { Glass } from "./glass";
@@ -29,7 +29,9 @@ export async function PosterLayout({
   underWhen,
   underWhere,
   calendar,
+  edit,
 }: {
+  // A draft may have no date yet, which only its hosts see: then there is no When.
   event: EventWithHost;
   // Every host's display name, owner first, then co-hosts in the order they were added.
   hosts: string[];
@@ -46,6 +48,9 @@ export async function PosterLayout({
   underWhen?: ReactNode;
   underWhere?: ReactNode;
   calendar?: ReactNode;
+  // The editor (M4 spec, "The editor"): the title typed on the poster, at either size, and the
+  // details list it edits, in place of the guest's; nothing else of the guest's page is shown.
+  edit?: { title: { full: ReactNode; compact: ReactNode }; details: ReactNode; foot?: ReactNode };
 }) {
   const [t, locale, format] = await Promise.all([getTranslations("EventPage"), getLocale(), getFormatter()]);
 
@@ -53,7 +58,12 @@ export async function PosterLayout({
     <main className="mx-auto w-full max-w-[28rem] pb-8">
       {notice && <div className="px-4 pt-4">{notice}</div>}
 
-      <PosterHero title={event.title} when={formatWhenBrief(event, locale)} className={cn(invitationEntrance, "motion-safe:delay-0")} />
+      <PosterHero
+        title={event.title}
+        when={isDated(event) ? formatWhenBrief(event, locale) : undefined}
+        editable={edit?.title}
+        className={cn(invitationEntrance, "motion-safe:delay-0")}
+      />
 
       <div className={cn("mt-4 flex items-center gap-3 px-5 sm:px-6", entrance, "motion-safe:delay-100")}>
         <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-full bg-theme-accent text-xs font-semibold text-theme-on-accent">
@@ -66,44 +76,53 @@ export async function PosterLayout({
           keyboard, after the invitation's opening and before its details. */}
       {rsvp}
 
-      <div className="flex flex-col gap-3 px-4 pt-5">
-        <Glass data-slot="details" className={cn("divide-y divide-theme-glass-border overflow-hidden rounded-[1.75rem]", entrance, "motion-safe:delay-200")}>
-          <DetailRow icon={Clock} label={t("when")}>
-            <p className="text-base leading-snug font-medium">{formatWhen(event, locale)}</p>
-            {underWhen}
-            {calendar && <div className="mt-3">{calendar}</div>}
-          </DetailRow>
-          {event.location && (
-            <DetailRow icon={MapPin} label={t("where")}>
-              <p className="text-base leading-snug font-medium break-words">{event.location}</p>
-              {underWhere}
-            </DetailRow>
-          )}
-          {event.descriptionRich.blocks.length > 0 && (
-            <DetailRow icon={AlignLeft} label={t("about")} slot="description">
-              <RichTextView doc={event.descriptionRich} className="leading-relaxed text-theme-text-muted" />
-            </DetailRow>
-          )}
-        </Glass>
-
-        {guestList && <Glass className={cn("rounded-[1.75rem] p-5", entrance, "motion-safe:delay-300")}>{guestList}</Glass>}
-
-        {announcements.length > 0 && (
-          <Glass data-slot="announcements" className={cn("rounded-[1.75rem] p-5", entrance, "motion-safe:delay-300")}>
-            <SectionLabel>{t("announcements")}</SectionLabel>
-            <AnnouncementsSection announcements={announcements} timeZone={event.timeZone} />
+      {edit ? (
+        <div className="flex flex-col gap-3 px-4 pt-5">
+          {edit.details}
+          {edit.foot}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 px-4 pt-5">
+          <Glass data-slot="details" className={cn("divide-y divide-theme-glass-border overflow-hidden rounded-[1.75rem]", entrance, "motion-safe:delay-200")}>
+            {isDated(event) && (
+              <DetailRow icon={Clock} label={t("when")}>
+                <p className="text-base leading-snug font-medium">{formatWhen(event, locale)}</p>
+                {underWhen}
+                {calendar && <div className="mt-3">{calendar}</div>}
+              </DetailRow>
+            )}
+            {event.location && (
+              <DetailRow icon={MapPin} label={t("where")}>
+                <p className="text-base leading-snug font-medium break-words">{event.location}</p>
+                {underWhere}
+              </DetailRow>
+            )}
+            {event.descriptionRich.blocks.length > 0 && (
+              <DetailRow icon={AlignLeft} label={t("about")} slot="description">
+                <RichTextView doc={event.descriptionRich} className="leading-relaxed text-theme-text-muted" />
+              </DetailRow>
+            )}
           </Glass>
-        )}
 
-        {comments && (
-          <Glass data-slot="comments" className={cn("rounded-[1.75rem] p-5", entrance, "motion-safe:delay-400")}>
-            <SectionLabel icon={MessageCircle} id={COMMENTS_HEADING}>
-              {t("comments.title")}
-            </SectionLabel>
-            <CommentsSection comments={comments} form={commentForm} slug={event.slug} timeZone={event.timeZone} />
-          </Glass>
-        )}
-      </div>
+          {guestList && <Glass className={cn("rounded-[1.75rem] p-5", entrance, "motion-safe:delay-300")}>{guestList}</Glass>}
+
+          {announcements.length > 0 && (
+            <Glass data-slot="announcements" className={cn("rounded-[1.75rem] p-5", entrance, "motion-safe:delay-300")}>
+              <SectionLabel>{t("announcements")}</SectionLabel>
+              <AnnouncementsSection announcements={announcements} timeZone={event.timeZone} />
+            </Glass>
+          )}
+
+          {comments && (
+            <Glass data-slot="comments" className={cn("rounded-[1.75rem] p-5", entrance, "motion-safe:delay-400")}>
+              <SectionLabel icon={MessageCircle} id={COMMENTS_HEADING}>
+                {t("comments.title")}
+              </SectionLabel>
+              <CommentsSection comments={comments} form={commentForm} slug={event.slug} timeZone={event.timeZone} />
+            </Glass>
+          )}
+        </div>
+      )}
     </main>
   );
 }

@@ -1,5 +1,5 @@
 import { expect, expectNotFoundAsSent, test, type APIRequestContext, type Browser, type Page } from "./test";
-import { createPublished } from "./events";
+import { createPublished, openMore } from "./events";
 import { MAILPIT, latestMailTo, mailCountTo, newHost } from "./hosts";
 import { openMyReply } from "./reply";
 
@@ -30,6 +30,7 @@ async function reply(browser: Browser, link: string, status: "Going" | "Maybe" |
 
 // The host calls the event off from its manage page, where they already are.
 async function cancel(hostPage: Page) {
+  await openMore(hostPage);
   await hostPage.getByRole("button", { name: "Cancel event" }).click();
   await hostPage.getByRole("button", { name: "Cancel the event" }).click();
   await expect(hostPage.getByText("Cancelled", { exact: true })).toBeVisible({ timeout: 15_000 });

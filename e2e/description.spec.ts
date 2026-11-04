@@ -1,5 +1,20 @@
-import { expect, test } from "./test";
-import { createPublished } from "./events";
+import { expect, test, type Page } from "./test";
+import { createPublished, savedAfter } from "./events";
+
+// The description is written in the editor's About sheet (M4 ticket 05), opened from its row.
+async function openAbout(page: Page) {
+  await page.getByRole("button", { name: /^About:/ }).click();
+  const sheet = page.getByRole("dialog", { name: "About" });
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
+// Done saves it, and the sheet closes once it has.
+async function done(page: Page) {
+  const sheet = page.getByRole("dialog", { name: "About" });
+  await savedAfter(page, () => sheet.getByRole("button", { name: "Done" }).click());
+  await expect(sheet).toBeHidden();
+}
 
 test("formatting survives saving, reopening, and the guest's page", async ({ page, browser, request }) => {
   test.slow();
@@ -11,21 +26,21 @@ test("formatting survives saving, reopening, and the guest's page", async ({ pag
 
   // Bold the whole description, add a bullet list, and save. The label is the editor's, and the
   // toolbar says which formatting is on where the cursor is.
-  const editor = host.page.getByLabel("Description");
-  await host.page.getByText("Description", { exact: true }).click();
+  const about = await openAbout(host.page);
+  const editor = about.getByLabel("Description");
+  await about.getByText("Description", { exact: true }).click();
   await expect(editor).toBeFocused();
   await host.page.keyboard.press("ControlOrMeta+a");
-  const bold = host.page.getByRole("button", { name: "Bold" });
+  const bold = about.getByRole("button", { name: "Bold" });
   await expect(bold).toHaveAttribute("aria-pressed", "false");
   await bold.click();
   await expect(bold).toHaveAttribute("aria-pressed", "true");
-  await expect(host.page.getByRole("button", { name: "Italic" })).toHaveAttribute("aria-pressed", "false");
-  await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
+  await expect(about.getByRole("button", { name: "Italic" })).toHaveAttribute("aria-pressed", "false");
+  await done(host.page);
 
-  // It comes back bold when the host returns to the form.
+  // It comes back bold when the host opens it again.
   await host.page.reload();
-  await expect(host.page.getByLabel("Description").locator("strong")).toHaveText("Bring nothing.");
+  await expect((await openAbout(host.page)).getByLabel("Description").locator("strong")).toHaveText("Bring nothing.");
 
   // And the guest sees it that way too.
   await page.goto(host.link);
@@ -44,12 +59,12 @@ test("a host adds a link and a bullet list from the toolbar", async ({ page, bro
   });
 
   host.page.on("dialog", (dialog) => dialog.accept("https://example.test/venue"));
-  await host.page.getByLabel("Description").click();
+  const about = await openAbout(host.page);
+  await about.getByLabel("Description").click();
   await host.page.keyboard.press("ControlOrMeta+a");
-  await host.page.getByRole("button", { name: "Add a link" }).click();
-  await host.page.getByRole("button", { name: "Bullet list" }).click();
-  await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
+  await about.getByRole("button", { name: "Add a link" }).click();
+  await about.getByRole("button", { name: "Bullet list" }).click();
+  await done(host.page);
 
   await page.goto(host.link);
   const link = page.locator('[data-slot="description"] li a');
@@ -70,7 +85,7 @@ test("a hostile paste leaves nothing but words behind", async ({ page, request, 
   });
 
   // What a paste from a hostile page would leave in the editable area.
-  const editor = host.page.getByLabel("Description");
+  const editor = (await openAbout(host.page)).getByLabel("Description");
   await editor.evaluate((element) => {
     element.innerHTML =
       '<p>Safe <b>bold</b> <a href="javascript:alert(1)">tap me</a></p>' +
@@ -79,10 +94,9 @@ test("a hostile paste leaves nothing but words behind", async ({ page, request, 
     element.dispatchEvent(new Event("input", { bubbles: true }));
   });
   // The browser tries the picture, gives up, and draws a broken icon in its place, which moves
-  // the rest of the form down. The host saves once the editor has settled.
+  // the rest of the sheet down. The host saves once the editor has settled.
   await expect(editor.locator("img")).toHaveJSProperty("complete", true);
-  await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
+  await done(host.page);
 
   await page.goto(host.link);
   const about = page.locator('[data-slot="description"]');
@@ -106,12 +120,14 @@ test("a description the server cannot read is refused, not thrown away", async (
     description: "Bring nothing.",
   });
 
-  // Whatever mangles the field, the host's words are not quietly replaced with nothing.
-  await host.page.locator('input[name="description"]').evaluate((field) => {
+  // Whatever mangles the field, the host's words are not quietly replaced with nothing: the sheet
+  // stays open, saying so.
+  const about = await openAbout(host.page);
+  await about.locator('input[name="description"]').evaluate((field) => {
     (field as HTMLInputElement).value = "not a document at all";
   });
-  await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText("The description could not be read.")).toBeVisible();
+  await about.getByRole("button", { name: "Done" }).click();
+  await expect(about.getByText("The description could not be read.")).toBeVisible();
 
   await page.goto(host.link);
   await expect(page.getByText("Bring nothing.")).toBeVisible();

@@ -2,7 +2,7 @@ import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import type { CommentsShown } from "@/comments/visibility";
 import type { EventWithHost } from "@/events/repository";
-import { formatWhen } from "@/events/time";
+import { formatWhen, type Dated } from "@/events/time";
 import { cn } from "@/lib/utils";
 import { RichTextView } from "@/rich-text/rich-text-view";
 import { BackgroundDescription } from "./background-description";
@@ -37,7 +37,8 @@ export async function BroadsheetLayout({
   countdown,
   underWhere,
 }: {
-  event: EventWithHost;
+  // Dated: an undated draft is shown its host in the Poster layout (app/e/[slug]/page.tsx).
+  event: Dated<EventWithHost>;
   // Every host's display name, owner first, then co-hosts in the order they were added.
   hosts: string[];
   // The host's announcements, newest first, which every viewer reads.

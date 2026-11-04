@@ -1,4 +1,4 @@
-import { createPublished } from "./events";
+import { createPublished, editSettings, openMore } from "./events";
 import { MAILPIT, latestMailTo, mailCountTo } from "./hosts";
 import { closeReply } from "./reply";
 import { expect, test, type APIRequestContext, type Page } from "./test";
@@ -158,9 +158,9 @@ test("comments turned off take the section off the page, for guests and hosts al
   await page.goto(host.link);
   await expect(page.getByText("No comments yet", { exact: true })).toBeVisible();
 
-  await host.page.getByLabel("Comments", { exact: true }).uncheck();
-  await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
+  await editSettings(host.page, async () => {
+    await host.page.getByLabel("Comments", { exact: true }).uncheck();
+  });
 
   await page.reload();
   await expect(page.getByRole("heading", { name: "Ada’s birthday" })).toBeVisible();
@@ -187,6 +187,7 @@ test("a cancelled event shows its comments and takes no more", async ({ page, br
   await comment(page, "See you there!");
 
   await host.page.goto(manage);
+  await openMore(host.page);
   await host.page.getByRole("button", { name: "Cancel event" }).click();
   await host.page.getByRole("button", { name: "Cancel the event" }).click();
   await expect(host.page.getByText("Cancelled", { exact: true })).toBeVisible({ timeout: 15_000 });

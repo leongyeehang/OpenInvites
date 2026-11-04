@@ -3,6 +3,14 @@
 
 export type EventTime = { startsAt: Date; endsAt: Date | null; allDay: boolean; timeZone: string };
 
+// A draft may not be dated yet (M4 spec, "A draft with no date"); everything published is.
+export type MaybeDated<T extends { startsAt: Date | null }> = Omit<T, "startsAt"> & { startsAt: Date | null };
+export type Dated<T extends { startsAt: Date | null }> = Omit<T, "startsAt"> & { startsAt: Date };
+
+export function isDated<T extends { startsAt: Date | null }>(event: T): event is T & { startsAt: Date } {
+  return event.startsAt !== null;
+}
+
 // Anything Intl can format in, which includes aliases browsers report (Asia/Kolkata) that
 // supportedValuesOf leaves out (it lists Asia/Calcutta).
 export function isTimeZone(value: string): boolean {
@@ -93,12 +101,14 @@ export function eventEnd(time: EventTime): Date {
   return toInstant(nextDay, time.timeZone);
 }
 
-// The dashboard's two sections: what has not ended yet, soonest first, and what has, most recent first.
-export function partitionByEnd<T extends EventTime>(events: T[], now: Date): { upcoming: T[]; past: T[] } {
-  const byStart = (a: T, b: T) => a.startsAt.getTime() - b.startsAt.getTime();
+// The dashboard's two sections: what has not ended yet, soonest first, and what has, most recent
+// first. A draft with no date yet has not ended, and comes after every dated event.
+export function partitionByEnd<T extends Omit<EventTime, "startsAt"> & { startsAt: Date | null }>(events: T[], now: Date): { upcoming: T[]; past: T[] } {
+  const at = (event: T) => event.startsAt?.getTime() ?? Infinity;
+  const ended = (event: T) => isDated(event) && eventEnd(event) < now;
   return {
-    upcoming: events.filter((event) => eventEnd(event) >= now).sort(byStart),
-    past: events.filter((event) => eventEnd(event) < now).sort((a, b) => byStart(b, a)),
+    upcoming: events.filter((event) => !ended(event)).sort((a, b) => at(a) - at(b)),
+    past: events.filter(ended).sort((a, b) => at(b) - at(a)),
   };
 }
 

@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import sharp from "sharp";
-import { createDraft } from "../e2e/events";
+import { createDraft, openMore, publishInEditor } from "../e2e/events";
 import { submitSignUp, verifyEmail } from "../e2e/hosts";
 import { clientAddress, expect, test, type Browser, type BrowserContextOptions, type Page } from "../e2e/test";
 
@@ -74,6 +74,7 @@ test("README screenshots", async ({ browser }) => {
   // The host's guest list for the birthday.
   await host.goto("/dashboard");
   await host.getByRole("link", { name: BIRTHDAY.title }).click();
+  await openMore(host);
   await host.getByRole("link", { name: "Guest list" }).click();
   await expect(host.getByText(GUESTS[0].name)).toBeVisible();
   await save(host, "guest-list");
@@ -103,8 +104,7 @@ async function someone(browser: Browser, device: BrowserContextOptions) {
 
 async function publish(host: Page, fields: Parameters<typeof createDraft>[1]) {
   const link = await createDraft(host, fields);
-  await host.getByRole("button", { name: "Publish" }).click();
-  await expect(host.getByText("Published", { exact: true })).toBeVisible();
+  await publishInEditor(host);
   return link;
 }
 

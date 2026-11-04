@@ -108,3 +108,11 @@ describe("remindersDue", () => {
     expect(remindersDue(allDay, new Date("2027-03-08T05:00:00Z"))).toEqual(["week"]);
   });
 });
+
+// M4 ticket 05: a draft may have no date yet; only a published event, which has one, is reminded.
+describe("an event with no date", () => {
+  it("is never reminded", () => {
+    expect(remindersDue(event({ startsAt: null }), WEEK_BEFORE)).toEqual([]);
+    expect(remindersDue(event({ startsAt: null }), DAY_BEFORE)).toEqual([]);
+  });
+});

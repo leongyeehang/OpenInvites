@@ -3,16 +3,12 @@ import { getTranslations } from "next-intl/server";
 import { requireHost } from "@/auth/session";
 import { hostNeedsVerification } from "@/auth/verification";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { createEventAction } from "@/events/actions";
-import { timeZones } from "@/events/time";
-import { instanceLimits } from "@/instance/repository";
 import { ClientMessages } from "@/locale/client-messages";
-import { isMailConfigured } from "@/mail/config";
 import { ResendVerificationForm } from "../../resend-verification-form";
-import { EventForm } from "../event-form";
+import { StartEvent } from "./start-event";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("Events.new");
+  const t = await getTranslations("Editor.new");
   return { title: t("title") };
 }
 
@@ -35,17 +31,9 @@ export default async function NewEventPage() {
   }
   return (
     <>
-      <h1 className="text-2xl font-semibold tracking-tight">{t("new.title")}</h1>
-      <ClientMessages namespaces={["Events.form"]}>
-        <EventForm
-          action={createEventAction}
-          mail={isMailConfigured()}
-          maxReplies={(await instanceLimits()).maxRsvpsPerEvent}
-          timeZones={timeZones()}
-          submitLabel={t("new.submit")}
-          questions={[]}
-          answerCounts={{}}
-        />
+      <h1 className="text-2xl font-semibold tracking-tight">{(await getTranslations("Editor.new"))("title")}</h1>
+      <ClientMessages namespaces={["Editor.new"]}>
+        <StartEvent />
       </ClientMessages>
     </>
   );

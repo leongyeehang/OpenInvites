@@ -11,7 +11,7 @@ import { approvePending, promoteWaitlist } from "@/rsvps/repository";
 import { removeRenditions } from "@/uploads/files";
 import type { EventInput } from "./form";
 import { SLUG_TAKEN, withFreshSlug } from "./slug";
-import { eventEnd } from "./time";
+import { eventEnd, isDated, type MaybeDated } from "./time";
 
 export type Event = typeof event.$inferSelect;
 export type EventState = Event["state"];
@@ -42,7 +42,7 @@ export type EventChanges = EventInput & { locale: Locale };
 
 // A new event starts with the Birthday template's theme (ticket 06), unless it is given one: a
 // duplicate starts with the theme of the event it copies.
-export async function createEvent(hostId: string, input: EventChanges & { theme?: Theme }): Promise<Event> {
+export async function createEvent(hostId: string, input: MaybeDated<EventChanges> & { theme?: Theme }): Promise<Event> {
   return withFreshSlug(async (slug) => {
     try {
       const [created] = await getDb().insert(event).values({ hostId, slug, theme: DEFAULT_THEME, ...input }).returning();
@@ -77,14 +77,15 @@ export async function recordView(id: string): Promise<void> {
   }
 }
 
-// Saving the event form. The row is locked as a reply's write locks it (rsvps/repository.ts), so
+// Saving the event: the whole 0.4 form, or one piece of it from the editor (M4 spec, "The
+// editor"): its title, its date, its place, its description, or its settings. The row is locked as a reply's write locks it (rsvps/repository.ts), so
 // that a capacity raised or removed promotes from the waitlist in the same transaction, against
 // the headcount as it stands, and approval turned off approves every reply still waiting for it,
 // those already waiting for a place first (spec, "Approval"); turning it on changes no reply.
 // Dates that move the event's end take off its retention mark (spec, "Retention"): the next sweep
 // marks it again, and warns its hosts afresh, if it is still old enough. `mailed` says whether a
 // promoted or approved guest was queued an email.
-export async function updateEvent(hostId: string, id: string, input: EventChanges): Promise<{ updated: Event; mailed: boolean } | undefined> {
+export async function updateEvent(hostId: string, id: string, input: Partial<EventChanges>): Promise<{ updated: Event; mailed: boolean } | undefined> {
   const now = new Date();
   return getDb().transaction(async (tx) => {
     const [before] = await tx
@@ -100,7 +101,8 @@ export async function updateEvent(hostId: string, id: string, input: EventChange
       .where(and(eq(event.id, id), hostedBy(hostId)))
       .for("no key update");
     if (!before) return undefined;
-    const redated = eventEnd(input).getTime() !== eventEnd(before).getTime();
+    const after = { ...before, ...input };
+    const redated = isDated(after) && (!isDated(before) || eventEnd(after).getTime() !== eventEnd(before).getTime());
     const [updated] = await tx
       .update(event)
       .set({ ...input, updatedAt: now, ...(redated ? { retentionWarnedAt: null } : {}) })

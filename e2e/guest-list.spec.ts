@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "./test";
-import { createPublished } from "./events";
+import { createPublished, editSettings, openMore } from "./events";
 import { openMyReply } from "./reply";
 
 // The guest drives the test's own page; the host watches from a context of their own, so both
@@ -33,6 +33,7 @@ test("a reply appears on the host's open guest list without them touching anythi
     plusOnes: "0",
   });
 
+  await openMore(host.page);
   await host.page.getByRole("link", { name: "Guest list" }).click();
   await expect(host.page.getByRole("heading", { name: "Guest list" })).toBeVisible();
   await expect(host.page.getByText("Nobody has replied yet.")).toBeVisible();
@@ -224,9 +225,9 @@ test("a host who shows the list to everyone shows it before anyone replies", asy
   });
   await someoneElseReplies(browser, host.link, "Mei Lin");
 
-  await host.page.getByLabel("Who can see the guest list").selectOption("always");
-  await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText(/^Saved\./)).toBeVisible();
+  await editSettings(host.page, async () => {
+    await host.page.getByLabel("Who can see the guest list").selectOption("always");
+  });
 
   await page.goto(host.link);
   await expect(page.getByText("Mei Lin")).toBeVisible();
@@ -249,9 +250,9 @@ test("a host who hides the list shows nothing, even to a guest who has replied",
   });
   await someoneElseReplies(browser, host.link, "Mei Lin");
 
-  await host.page.getByLabel("Who can see the guest list").selectOption("hidden");
-  await host.page.getByRole("button", { name: "Save changes" }).click();
-  await expect(host.page.getByText(/^Saved\./)).toBeVisible();
+  await editSettings(host.page, async () => {
+    await host.page.getByLabel("Who can see the guest list").selectOption("hidden");
+  });
 
   await rsvp(page, host.link, "Priya Nair");
   await expect(page.getByRole("heading", { name: "Guests" })).toHaveCount(0);

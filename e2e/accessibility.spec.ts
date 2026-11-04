@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
-import { createDraft, createPublished, type DraftFields } from "./events";
+import { createDraft, createPublished, type DraftFields, openMore, publishInEditor } from "./events";
 import { latestMailTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { clientAddress, expect, test, type APIRequestContext, type Browser, type Locator, type Page } from "./test";
 import { closeReply, openMyReply } from "./reply";
@@ -77,9 +77,10 @@ async function deleteOwnComment(page: Page, text: string, heading: Locator, wher
   await expect(heading).toBeFocused();
 }
 
-// The host calls the event off from its manage page.
+// The host calls the event off from the editor's More.
 async function cancel(hostPage: Page, manage: string) {
   await hostPage.goto(manage);
+  await openMore(hostPage);
   await hostPage.getByRole("button", { name: "Cancel event" }).click();
   await hostPage.getByRole("button", { name: "Cancel the event" }).click();
   await expect(hostPage.getByText("Cancelled", { exact: true })).toBeVisible({ timeout: 15_000 });
@@ -113,20 +114,39 @@ test("the pages anyone can open: home, signing up and in, the legal pages, too f
   }
 });
 
-test("a host's own pages: the dashboard, the event form, the share screen and the guest list", async ({ page, browser, request }) => {
+test("a host's own pages: the dashboard, the editor and its sheets, the share screen and the guest list", async ({ page, browser, request }) => {
   test.slow();
   await signUpVerified(page, request, "a11y-host");
   await page.goto("/dashboard");
   await expectNoSeriousViolations(page, "the dashboard, empty");
 
+  // The editor (M4 ticket 05): a blank invitation, and each of its sheets open.
   await page.goto("/events/new");
-  await page.getByRole("button", { name: "Add a question" }).click();
-  await expectNoSeriousViolations(page, "the event form, creating");
-  const link = await createDraft(page, EVENT);
+  await expect(page.getByRole("textbox", { name: "Event title" })).toBeVisible({ timeout: 20_000 });
+  await expectNoSeriousViolations(page, "the editor, a blank invitation");
+  const sheets: [opener: Locator, name: string][] = [
+    [page.getByRole("button", { name: /^When:/ }), "When"],
+    [page.getByRole("button", { name: /^Where:/ }), "Where"],
+    [page.getByRole("button", { name: /^About:/ }), "About"],
+    [page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Settings" }), "Settings"],
+    [page.getByRole("button", { name: "More" }), "More"],
+  ];
+  for (const [opener, name] of sheets) {
+    await opener.click();
+    await expect(page.getByRole("dialog", { name })).toBeVisible();
+    if (name === "Settings") await page.getByRole("button", { name: "Add a question" }).click();
+    await expectNoSeriousViolations(page, `the editor's ${name} sheet`);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name })).toBeHidden();
+  }
   await page.getByRole("button", { name: "Publish" }).click();
-  await expect(page.getByText("Published", { exact: true })).toBeVisible();
+  await expect(page.getByText("Add a title first.")).toBeVisible();
+  await expectNoSeriousViolations(page, "the editor, publishing refused");
+
+  const link = await createDraft(page, EVENT);
+  await publishInEditor(page);
   const manage = page.url();
-  await expectNoSeriousViolations(page, "the event form, editing");
+  await expectNoSeriousViolations(page, "the editor, published");
 
   await page.goto("/dashboard");
   await expectNoSeriousViolations(page, "the dashboard, with an event");
@@ -251,8 +271,8 @@ test("a draft, as a guest and as its host, and a cancelled event, in both text t
   await expectNoSeriousViolations(hostPage, "a draft, as its host sees it, dark tone");
 
   await hostPage.goto(manage);
-  await hostPage.getByRole("button", { name: "Publish" }).click();
-  await expect(hostPage.getByText("Published", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await publishInEditor(hostPage);
+  await openMore(hostPage);
   await hostPage.getByRole("button", { name: "Cancel event" }).click();
   await hostPage.getByRole("button", { name: "Cancel the event" }).click();
   await expect(hostPage.getByText("Cancelled", { exact: true })).toBeVisible();
@@ -351,6 +371,7 @@ test("the Broadsheet layout: the event page, its ballot and the receipt, the ann
   }
 
   await host.page.goto(manage);
+  await openMore(host.page);
   await host.page.getByRole("button", { name: "Cancel event" }).click();
   await host.page.getByRole("button", { name: "Cancel the event" }).click();
   await expect(host.page.getByText("Cancelled", { exact: true })).toBeVisible({ timeout: 15_000 });
@@ -410,6 +431,7 @@ test("the Thread layout: the event page, each turn of the conversation and the d
   }
 
   await host.page.goto(manage);
+  await openMore(host.page);
   await host.page.getByRole("button", { name: "Cancel event" }).click();
   await host.page.getByRole("button", { name: "Cancel the event" }).click();
   await expect(host.page.getByText("Cancelled", { exact: true })).toBeVisible({ timeout: 15_000 });

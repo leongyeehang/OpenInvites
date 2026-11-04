@@ -1,4 +1,4 @@
-import { createPublished } from "./events";
+import { createPublished, openMore } from "./events";
 import { MAILPIT, latestMailTo, mailCountTo, newHost } from "./hosts";
 import { expect, test, type APIRequestContext, type Browser, type Page } from "./test";
 
@@ -142,6 +142,7 @@ test("“Send a reminder now” drafts a reminder the host can change and send, 
 
   // Calling the event off leaves it on the page.
   await host.page.getByRole("link", { name: "Back to the event" }).click();
+  await openMore(host.page);
   await host.page.getByRole("button", { name: "Cancel event" }).click();
   await host.page.getByRole("button", { name: "Cancel the event" }).click();
   await expect(host.page.getByText("Cancelled", { exact: true })).toBeVisible({ timeout: 15_000 });

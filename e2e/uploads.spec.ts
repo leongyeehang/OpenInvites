@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "./test";
 import sharp from "sharp";
-import { createPublished } from "./events";
+import { createPublished, openMore } from "./events";
 import { PASSWORD } from "./hosts";
 
 // Ticket 12: a host uploads their own picture. The server processes it, samples it for the theme,
@@ -205,6 +205,7 @@ test("replacing a picture removes the old one's files, and deleting the event re
   for (const file of filesOf(second)) expect((await request.get(file)).status(), file).toBe(200);
 
   await host.page.goto(manage);
+  await openMore(host.page);
   await host.page.getByRole("button", { name: "Delete event" }).click();
   await host.page.getByRole("button", { name: "Delete it" }).click();
   await expect(host.page).toHaveURL(/\/dashboard$/);

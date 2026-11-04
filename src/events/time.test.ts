@@ -116,6 +116,13 @@ describe("partitionByEnd", () => {
     expect(upcoming.map((event) => event.id)).toEqual(["b", "c"]);
     expect(past.map((event) => event.id)).toEqual(["a", "d"]);
   });
+
+  it("keeps a draft with no date yet under upcoming, after every dated event", () => {
+    const blank = { id: "e", startsAt: null, endsAt: null, ...zone };
+    const { upcoming, past } = partitionByEnd([blank, later, ended, endsLater], now);
+    expect(upcoming.map((event) => event.id)).toEqual(["b", "c", "e"]);
+    expect(past.map((event) => event.id)).toEqual(["a"]);
+  });
 });
 
 describe("formatWhenBrief", () => {

@@ -128,7 +128,9 @@ export const guestListVisibility = pgEnum("guest_list_visibility", GUEST_LIST_VI
 export const contactField = pgEnum("contact_field", CONTACT_FIELDS);
 
 // An event belongs to one host. Its time is an instant plus the event's own IANA zone; all-day
-// events store midnight in that zone with the flag set. The slug is the event link (ADR-0004).
+// events store midnight in that zone with the flag set. A draft may have no date yet (M4 spec, "A
+// draft with no date"): it is made blank and dated in the editor, and cannot be published until
+// it is. The slug is the event link (ADR-0004).
 // The theme is stored whole as JSON; parseTheme fills in whatever a row lacks, so an empty
 // object is a complete default.
 export const event = pgTable(
@@ -143,7 +145,7 @@ export const event = pgTable(
     customSlug: text("custom_slug").unique(),
     state: eventState("state").notNull().default("draft"),
     title: text("title").notNull(),
-    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
     endsAt: timestamp("ends_at", { withTimezone: true }),
     allDay: boolean("all_day").notNull().default(false),
     timeZone: text("time_zone").notNull(),
@@ -201,7 +203,10 @@ export const event = pgTable(
     retentionWarnedAt: timestamp("retention_warned_at", { withTimezone: true }),
     ...timestamps,
   },
-  (table) => [index("event_host_id_idx").on(table.hostId)],
+  (table) => [
+    index("event_host_id_idx").on(table.hostId),
+    check("event_dated_unless_draft", sql`${table.state} = 'draft' or ${table.startsAt} is not null`),
+  ],
 );
 
 // A co-host (CONTEXT.md): a host who shares management of an event they did not create (spec,

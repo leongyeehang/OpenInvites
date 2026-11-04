@@ -132,7 +132,9 @@
       "headcountOf": "预计 {count, plural, other {# 人}}（共 {capacity, plural, other {# 个名额}}）",
       "deletedOn": "将于 {date} 删除",
       "coHost": "共同主办人",
-      "limitReached": "你已有 {count, plural, other {# 场活动}}，这是本实例允许的上限。删除一场不再需要的活动，才能再创建新的。"
+      "limitReached": "你已有 {count, plural, other {# 场活动}}，这是本实例允许的上限。删除一场不再需要的活动，才能再创建新的。",
+      "untitled": "未命名活动",
+      "noDate": "尚未定日期"
     }
   },
   "Account": {
@@ -780,6 +782,45 @@
       "aurora": "极光",
       "bokeh": "光斑",
       "streamers": "彩带"
+    }
+  },
+  "Editor": {
+    "close": "关闭编辑器",
+    "closeSheet": "关闭",
+    "draft": "草稿",
+    "live": "已发布",
+    "cancelled": "已取消",
+    "saving": "正在保存…",
+    "saved": "已保存",
+    "failed": "未能保存",
+    "retry": "重试",
+    "preview": "预览",
+    "publish": "发布",
+    "share": "分享",
+    "more": "更多",
+    "toolbar": "设计邀请",
+    "settings": "设置",
+    "settingsIntro": "宾客看不到的一切都在这里。默认设置已经可用，不打开也能直接发布。",
+    "emailsAndComments": "邮件和评论",
+    "titleLabel": "活动标题",
+    "titlePlaceholder": "未命名活动",
+    "when": "时间",
+    "where": "地点",
+    "about": "简介",
+    "setDate": "设置日期和时间",
+    "addPlace": "添加地点",
+    "sayWhat": "介绍一下活动",
+    "done": "完成",
+    "guestsAlsoSee": "宾客还会看到谁会来、主办人的公告和评论。",
+    "seeAsGuest": "以宾客身份查看",
+    "new": {
+      "title": "新建活动",
+      "starting": "正在创建你的邀请…",
+      "start": "开始"
+    },
+    "publishing": {
+      "needsTitle": "请先添加标题。",
+      "needsDate": "请先设置日期。"
     }
   },
   "Guests": {

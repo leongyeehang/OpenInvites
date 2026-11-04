@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { createDraft, createPublished } from "./events";
+import { createDraft, createPublished, openMore, publishInEditor } from "./events";
 import { latestMailTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { clientAddress, expect, test, type APIRequestContext, type Browser, type Page } from "./test";
 
@@ -54,8 +54,8 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await page.goto(link);
   await expectStill(page, "a draft, as a guest sees it");
   await host.goto(manage);
-  await host.getByRole("button", { name: "Publish" }).click();
-  await expect(host.getByText("Published", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await publishInEditor(host);
+  await openMore(host);
   await host.getByRole("button", { name: "Delete event" }).hover();
   await host.getByRole("button", { name: "Delete event" }).click();
   await expect(host.getByRole("alertdialog")).toBeVisible();
@@ -189,6 +189,7 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
 
   // Called off: the page with its notice.
   await host.goto(manage);
+  await openMore(host);
   await host.getByRole("button", { name: "Cancel event" }).click();
   await host.getByRole("button", { name: "Cancel the event" }).click();
   await expect(host.getByText("Cancelled", { exact: true })).toBeVisible();
@@ -230,8 +231,7 @@ test("under reduced motion nothing M3 added moves: the code step, approval and t
   await signUpVerified(host, request, "still-m3");
   const link = await createDraft(host, { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0", capacity: "1", approval: true, email: "optional", verifyEmail: true });
   const manage = host.url();
-  await host.getByRole("button", { name: "Publish" }).click();
-  await expect(host.getByText("Published", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await publishInEditor(host);
   const decide = async (name: string, button: "Approve" | "Decline", lands: RegExp) => {
     await host.goto(`${manage}/guests`);
     await host.getByRole("region", { name: /^Waiting for approval/ }).getByRole("listitem").filter({ hasText: name }).getByRole("button", { name: button }).click();

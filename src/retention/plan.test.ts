@@ -179,3 +179,15 @@ describe("the period", () => {
     expect([DEFAULT_RETENTION_DAYS, RETENTION_MIN_DAYS, RETENTION_MAX_DAYS, WARNING_DAYS]).toEqual([365, 30, 3650, 30]);
   });
 });
+
+// M4 ticket 05: a draft may have no date yet. It has not ended, so retention leaves it alone.
+describe("a draft with no date yet", () => {
+  const undated: RetainedEvent = { id: "blank", startsAt: null, endsAt: null, allDay: false, timeZone: "Asia/Singapore", retentionWarnedAt: null };
+
+  it("is neither marked nor deleted, nor has a day it will be deleted", () => {
+    expect(retentionPlan([undated, ended("old", daysBefore(NOW, 5000))], NOW, RETENTION_MIN_DAYS)).toEqual({ warn: ["old"], remove: [] });
+    expect(retentionPlan([{ ...undated, retentionWarnedAt: daysBefore(NOW, 400) }], NOW, RETENTION_MIN_DAYS)).toEqual(NOTHING);
+    expect(deletionDate({ ...undated, retentionWarnedAt: daysBefore(NOW, 400) }, RETENTION_MIN_DAYS)).toBeUndefined();
+    expect(staleMarks([{ ...undated, retentionWarnedAt: daysBefore(NOW, 400) }], NOW, null)).toEqual([]);
+  });
+});

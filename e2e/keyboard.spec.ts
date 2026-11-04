@@ -424,25 +424,32 @@ test("a host picks a poster, changes a knob, restores the poster's look and clos
 // and from the page beyond. The host pages keep one look whatever the device's colour scheme, so
 // each scheme is looked at.
 for (const colorScheme of ["light", "dark"] as const) {
-  test(`every focused control on a host's pages and in the Design drawer is ringed at 3:1, with a ${colorScheme} colour scheme`, async ({ page, request }) => {
+  test(`every focused control in the editor's sheets, on a host's pages and in the Design drawer is ringed at 3:1, with a ${colorScheme} colour scheme`, async ({ page, request }) => {
     test.slow();
     await page.emulateMedia({ colorScheme });
     await signUpVerified(page, request, `rings-${colorScheme}`);
     const link = await createDraft(page, { title: "Ada’s birthday", start: "2027-03-06T19:00" });
     const manage = page.url();
 
-    const form = [
-      page.getByLabel("Title"),
-      page.getByLabel("All day"),
-      page.getByLabel("Time zone"),
-      page.getByLabel("Description"),
-      page.getByRole("button", { name: "Bold" }),
-      page.getByRole("button", { name: "Add a question" }),
-      page.getByRole("button", { name: "Save changes" }),
-      page.getByRole("button", { name: "Publish" }),
-      page.getByRole("button", { name: "Delete event" }),
+    // The editor's sheets: When, About, Settings and More.
+    const sheets: [opener: Locator, name: string, controls: (sheet: Locator) => Locator[]][] = [
+      [page.getByRole("button", { name: /^When:/ }), "When", (sheet) => [sheet.getByLabel("All day"), sheet.getByLabel("Time zone"), sheet.getByRole("button", { name: "Done" })]],
+      [page.getByRole("button", { name: /^About:/ }), "About", (sheet) => [sheet.getByLabel("Description"), sheet.getByRole("button", { name: "Bold" })]],
+      [
+        page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Settings" }),
+        "Settings",
+        (sheet) => [sheet.getByLabel("Plus-ones per guest"), sheet.getByRole("button", { name: "Add a question" })],
+      ],
+      [page.getByRole("button", { name: "More" }), "More", (sheet) => [sheet.getByRole("link", { name: "Guest list" }), sheet.getByRole("button", { name: "Delete event" })]],
     ];
-    for (const control of form) await expectRingStandsOut(page, control);
+    for (const [opener, name, controls] of sheets) {
+      await opener.click();
+      const sheet = page.getByRole("dialog", { name });
+      await expect(sheet).toBeVisible();
+      for (const control of controls(sheet)) await expectRingStandsOut(page, control);
+      await page.keyboard.press("Escape");
+      await expect(sheet).toBeHidden();
+    }
 
     await page.goto(`${manage}/share`);
     await expectRingStandsOut(page, page.getByRole("link", { name: "Back to the event" }));

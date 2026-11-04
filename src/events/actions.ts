@@ -3,135 +3,17 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { after } from "next/server";
 import { requireHost } from "@/auth/session";
-import { hostNeedsVerification } from "@/auth/verification";
 import { can } from "@/hosts/role";
 import type { FormState } from "@/lib/form-state";
-import { kickMailWorker } from "@/mail/worker";
-import { parseQuestions } from "@/questions/question";
-import { parseRichText } from "@/rich-text/rich-text";
 import { listQuestions, saveQuestions } from "@/questions/repository";
 import { notifyGuestsOfCancellation } from "@/rsvps/notify-cancellation";
 import { copyPicture } from "@/uploads/copy";
 import { findEventUpload } from "@/uploads/repository";
 import { duplicateInput } from "./duplicate";
-import { parseEventForm } from "./form";
 import { eventsOwnedAtLimit } from "./limit";
-import { cancelEvent, createEvent, CUSTOM_SLUG_TAKEN, deleteEvent, findHostEvent, publishEvent, resetEventLink, setCustomSlug, updateEvent } from "./repository";
+import { cancelEvent, createEvent, CUSTOM_SLUG_TAKEN, deleteEvent, findHostEvent, resetEventLink, setCustomSlug } from "./repository";
 import { eventPaths, isCustomSlug, normaliseCustomSlug } from "./slug";
-
-// The editor writes its document into one field, as the questions editor does. An empty field
-// is an empty description; a field that will not parse is a mistake worth saying out loud,
-// because treating it as empty would quietly throw the host's words away.
-const UNREADABLE = Symbol("unreadable description");
-
-function postedDescription(formData: FormData): unknown {
-  const raw = formData.get("description");
-  if (typeof raw !== "string" || !raw) return { blocks: [] };
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return UNREADABLE;
-  }
-}
-
-function fields(formData: FormData) {
-  const text = (name: string) => {
-    const value = formData.get(name);
-    return typeof value === "string" ? value : "";
-  };
-  return {
-    title: text("title"),
-    allDay: formData.get("allDay") === "on",
-    start: text("start"),
-    end: text("end"),
-    timeZone: text("timeZone"),
-    location: text("location"),
-    plusOnesAllowed: text("plusOnesAllowed"),
-    requirePlusOneNames: formData.get("requirePlusOneNames") === "on",
-    capacity: text("capacity"),
-    approvalRequired: formData.get("approvalRequired") === "on",
-    emailField: text("emailField"),
-    phoneField: text("phoneField"),
-    verifyEmail: formData.get("verifyEmail") === "on",
-    guestListVisibility: text("guestListVisibility"),
-    notifyOnRsvp: formData.get("notifyOnRsvp") === "on",
-    remindersEnabled: formData.get("remindersEnabled") === "on",
-    commentsEnabled: formData.get("commentsEnabled") === "on",
-    notifyOnComment: formData.get("notifyOnComment") === "on",
-  };
-}
-
-// The editor writes its whole list into one field. A payload that is not JSON at all is null,
-// which parseQuestions refuses like any other shape it does not know.
-function postedQuestions(formData: FormData): unknown {
-  const raw = formData.get("questions");
-  if (typeof raw !== "string" || !raw) return [];
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-// The verification gate on creating events (spec, "Identity and access"). The page explains
-// it and offers a resend; the action enforces it.
-export async function createEventAction(_: FormState, formData: FormData): Promise<FormState> {
-  const host = await requireHost();
-  const t = await getTranslations("Events");
-  if (hostNeedsVerification(host)) return { error: t("verify.text", { email: host.email }) };
-  const owned = await eventsOwnedAtLimit(host.id);
-  if (owned !== undefined) return { error: t("errors.limitReached", { count: owned }) };
-  const posted = postedDescription(formData);
-  if (posted === UNREADABLE) return { error: t("errors.descriptionUnreadable") };
-  const description = parseRichText(posted);
-  if (!description.ok) return { error: t(`errors.${description.error}`) };
-  const parsed = parseEventForm({ ...fields(formData), description: description.doc });
-  if (!parsed.ok) return { error: t(`errors.${parsed.error}`) };
-  const questions = parseQuestions(postedQuestions(formData));
-  if (!questions.ok) return { error: t(`errors.${questions.error}`) };
-
-  // The language the host saves in is the one their event's mail to its hosts is written in.
-  const created = await createEvent(host.id, { ...parsed.input, locale: await getLocale() });
-  await saveQuestions(created.id, questions.questions);
-  redirect(`/events/${created.id}`);
-}
-
-// Every action below finds the event through the one gate, which answers for its owner and its
-// co-hosts, and asks whether their role may do this (hosts/role.ts). One it may not is answered as
-// an event that is not theirs would be, so nothing tells them more.
-export async function updateEventAction(id: string, _: FormState, formData: FormData): Promise<FormState> {
-  const host = await requireHost();
-  const t = await getTranslations("Events");
-  const event = await findHostEvent(host.id, id);
-  if (!event || !can(event.role, "edit")) return { error: t("errors.notFound") };
-  const posted = postedDescription(formData);
-  if (posted === UNREADABLE) return { error: t("errors.descriptionUnreadable") };
-  const description = parseRichText(posted);
-  if (!description.ok) return { error: t(`errors.${description.error}`) };
-  const parsed = parseEventForm({ ...fields(formData), description: description.doc });
-  if (!parsed.ok) return { error: t(`errors.${parsed.error}`) };
-  const questions = parseQuestions(postedQuestions(formData));
-  if (!questions.ok) return { error: t(`errors.${questions.error}`) };
-
-  const saved = await updateEvent(host.id, id, { ...parsed.input, locale: await getLocale() });
-  if (!saved) return { error: t("errors.notFound") };
-  // A capacity raised or removed may have promoted guests from the waitlist, and approval turned off
-  // approved the guests waiting for it, whose email goes now.
-  if (saved.mailed) after(kickMailWorker);
-  await saveQuestions(saved.updated.id, questions.questions);
-  // The heading and link card on the manage page show the event too.
-  revalidatePath(`/events/${id}`);
-  return { success: t("edit.saved") };
-}
-
-export async function publishEventAction(id: string): Promise<void> {
-  const host = await requireHost();
-  const event = await findHostEvent(host.id, id);
-  if (event && can(event.role, "publish")) await publishEvent(host.id, id);
-  redirect(`/events/${id}`);
-}
 
 export async function cancelEventAction(id: string): Promise<void> {
   const host = await requireHost();

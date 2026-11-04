@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Browser, type Page } from "./test";
-import { createDraft } from "./events";
+import { createDraft, setWhen } from "./events";
 import { MAILPIT, newHost, signUp, signUpVerified, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
 
@@ -84,12 +84,19 @@ async function addCoHost(browser: Browser, ownerPage: Page, baseURL: string, sig
   return { page, email };
 }
 
-// The event's dates moved on its manage page.
+// The instance's period, said beneath the event's dates in the editor's date sheet.
+async function policySaid(page: Page, policy: string | RegExp) {
+  await page.getByRole("button", { name: /^When:/ }).click();
+  const when = page.getByRole("dialog", { name: "When" });
+  await expect(when.getByText(policy)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(when).toBeHidden();
+}
+
+// The event's dates moved in the editor's date sheet.
 async function redate(page: Page, manage: string, start: string) {
   await page.goto(manage);
-  await page.getByLabel("Starts").fill(start);
-  await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("Saved. Guests who open the link see the change straight away.")).toBeVisible();
+  await setWhen(page, { start });
 }
 
 // The warning about this event that reached this address, found by its subject among whatever
@@ -185,12 +192,12 @@ test("the first sweep after a restart marks the old events and deletes nothing: 
   const today = [...new Set([dayAfter(started, 0), dayAfter(Date.now(), 0)])];
 
   await expect(operator.getByText(markedOn(thirtyDaysOn))).toBeVisible();
-  await expect(operator.getByText(POLICY)).toBeVisible();
+  await policySaid(operator, POLICY);
   await operator.goto("/dashboard");
   const card = operator.getByRole("region", { name: "Past" }).getByRole("link", { name: new RegExp(TITLE) });
   await expect(card.getByText(new RegExp(`^Will be deleted on (${thirtyDaysOn.join("|")})$`))).toBeVisible();
   await expect(noMailHost.getByText(markedOn(today))).toBeVisible();
-  await expect(noMailHost.getByText(POLICY)).toBeVisible();
+  await policySaid(noMailHost, POLICY);
 
   // Every host of the event, the co-host too, has the warning.
   for (const email of [operatorEmail, coHostEmail]) {
@@ -209,7 +216,7 @@ test("new dates, a longer period and Keep forever take off the marks they no lon
   await expect(operator.getByText(MARKED)).toBeVisible();
   await redate(operator, picnic, daysAgo(-365));
   await operator.reload();
-  await expect(operator.getByText(POLICY)).toBeVisible();
+  await policySaid(operator, POLICY);
   await expect(operator.getByText(MARKED)).toHaveCount(0);
 
   await operator.goto("/instance");
@@ -226,7 +233,7 @@ test("new dates, a longer period and Keep forever take off the marks they no lon
   await limits.getByRole("button", { name: "Save" }).click();
   await expect(limits.getByText("Saved.")).toBeVisible();
   await operator.goto(party);
-  await expect(operator.getByText("Events on this instance are deleted 3,650 days after they end.")).toBeVisible();
+  await policySaid(operator, "Events on this instance are deleted 3,650 days after they end.");
   await expect(operator.getByText(MARKED)).toHaveCount(0);
   await operator.goto(reunion);
   await expect(operator.getByText(MARKED)).toBeVisible();
@@ -242,7 +249,7 @@ test("new dates, a longer period and Keep forever take off the marks they no lon
   await operator.goto("/dashboard");
   await expect(operator.getByText(/^Will be deleted on /)).toHaveCount(0);
   await operator.goto(reunion);
-  await expect(operator.getByRole("heading", { name: ANCIENT, level: 1 })).toBeVisible();
+  await expect(operator.getByRole("textbox", { name: "Event title" })).toHaveText(ANCIENT);
   await expect(operator.getByText(/^Events on this instance are deleted /)).toHaveCount(0);
   await expect(operator.getByText(MARKED)).toHaveCount(0);
 
@@ -253,7 +260,7 @@ test("new dates, a longer period and Keep forever take off the marks they no lon
   await expect(limits.getByText("Saved.")).toBeVisible();
   for (const manage of [reunion, party]) {
     await operator.goto(manage);
-    await expect(operator.getByText(POLICY)).toBeVisible();
+    await policySaid(operator, POLICY);
     await expect(operator.getByText(MARKED)).toHaveCount(0);
   }
 });
@@ -289,7 +296,7 @@ test("on an instance upgraded with the default, a new event's manage page gives 
   const page = await (await browser.newContext({ baseURL: "http://localhost:3000" })).newPage();
   await signUpVerified(page, request, "retention-app");
   await createDraft(page, { title: "Mei’s picnic", start: "2027-05-01T12:00" });
-  await expect(page.getByText(POLICY)).toBeVisible();
+  await policySaid(page, POLICY);
   await expect(page.getByText(MARKED)).toHaveCount(0);
   await page.context().close();
 });

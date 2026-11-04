@@ -132,7 +132,9 @@
       "headcountOf": "{count, plural, one {# person} other {# people}} expected of {capacity, plural, one {# place} other {# places}}",
       "deletedOn": "Will be deleted on {date}",
       "coHost": "Co-host",
-      "limitReached": "You have {count, plural, one {# event} other {# events}}, the most this instance allows. Delete an event you no longer need to make another."
+      "limitReached": "You have {count, plural, one {# event} other {# events}}, the most this instance allows. Delete an event you no longer need to make another.",
+      "untitled": "Untitled event",
+      "noDate": "No date yet"
     }
   },
   "Account": {
@@ -780,6 +782,45 @@
       "aurora": "Aurora",
       "bokeh": "Bokeh",
       "streamers": "Streamers"
+    }
+  },
+  "Editor": {
+    "close": "Close the editor",
+    "closeSheet": "Close",
+    "draft": "Draft",
+    "live": "Live",
+    "cancelled": "Cancelled",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "failed": "Couldn’t save",
+    "retry": "Try again",
+    "preview": "Preview",
+    "publish": "Publish",
+    "share": "Share",
+    "more": "More",
+    "toolbar": "Design the invitation",
+    "settings": "Settings",
+    "settingsIntro": "Everything a guest doesn’t see. The defaults are ready, so you can publish without opening this.",
+    "emailsAndComments": "Emails and comments",
+    "titleLabel": "Event title",
+    "titlePlaceholder": "Untitled event",
+    "when": "When",
+    "where": "Where",
+    "about": "About",
+    "setDate": "Set a date and time",
+    "addPlace": "Add a place",
+    "sayWhat": "Say what to expect",
+    "done": "Done",
+    "guestsAlsoSee": "Guests also see who’s coming, the host’s announcements and the comments.",
+    "seeAsGuest": "See it as a guest",
+    "new": {
+      "title": "New event",
+      "starting": "Starting your invitation…",
+      "start": "Start"
+    },
+    "publishing": {
+      "needsTitle": "Add a title first.",
+      "needsDate": "Add a date first."
     }
   },
   "Guests": {

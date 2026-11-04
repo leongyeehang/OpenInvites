@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { createPublished } from "./events";
+import { createPublished, openMore } from "./events";
 import { PASSWORD } from "./hosts";
 import { openMyReply } from "./reply";
 
@@ -28,6 +28,7 @@ test("a cancelled event keeps its page, with the news and no way to reply", asyn
   });
   await rsvp(page, host.link, "Priya Nair");
 
+  await openMore(host.page);
   await host.page.getByRole("button", { name: "Cancel event" }).click();
   await expect(host.page.getByText("Cancel “Ada’s birthday”?")).toBeVisible();
   await host.page.getByRole("button", { name: "Cancel the event" }).click();
@@ -75,6 +76,7 @@ test("a host is told what deleting an event costs, and then its links say the ev
   await setCustomLink(host.page, custom);
 
   await host.page.goto(manage);
+  await openMore(host.page);
   await host.page.getByRole("button", { name: "Delete event" }).click();
   await expect(host.page.getByText("Delete “Ada’s birthday”?")).toBeVisible();
   await expect(host.page.getByText("One RSVP, and the answers with it, are deleted.")).toBeVisible();

@@ -21,9 +21,21 @@ export const fitted = ({ width, height }: ResolvedPoster): CSSProperties => ({ w
 // over anything (legibility.ts, POSTER_SURFACES). A colour is a block of its gradient, 4:5, with
 // the title on it the same way. It follows the theme as the host changes it, so the server hands
 // it its pieces and it arranges them.
-export function PosterHero({ title, when, className }: { title: string; when: ReactNode; className?: string }) {
+export function PosterHero({
+  title,
+  when,
+  editable,
+  className,
+}: {
+  title: string;
+  when?: ReactNode;
+  // In the editor, the title typed on the poster where it shows, at either size.
+  editable?: { full: ReactNode; compact: ReactNode };
+  className?: string;
+}) {
   const { resolved } = useTheme();
   const { poster, background } = resolved;
+  const heading = (compact: boolean) => (editable ? (compact ? editable.compact : editable.full) : <PosterTitle title={title} compact={compact} />);
 
   if (!poster || poster.titlePlacement === "on") {
     return (
@@ -41,8 +53,8 @@ export function PosterHero({ title, when, className }: { title: string; when: Re
           <div className="relative col-start-1 row-start-1 self-end px-5 pt-20 pb-5 sm:px-6" style={posterTitleVariables(resolved) as CSSProperties}>
             <div aria-hidden className="absolute inset-0 bg-theme-title-scrim backdrop-blur-xl [mask-image:linear-gradient(to_top,#000_calc(100%-5rem),transparent)]" />
             <div className="relative">
-              <PosterTitle title={title} compact />
-              <p className="mt-2 text-sm font-medium text-theme-text-muted">{when}</p>
+              {heading(true)}
+              {when && <p className="mt-2 text-sm font-medium text-theme-text-muted">{when}</p>}
             </div>
           </div>
         </div>
@@ -56,8 +68,8 @@ export function PosterHero({ title, when, className }: { title: string; when: Re
         <Picture poster={poster} sizes={HERO_SIZES} className="[mask-image:linear-gradient(#000_70%,transparent)]" />
       </div>
       <div className="relative -mt-8 px-5 sm:px-6">
-        <PosterTitle title={title} />
-        <p className="mt-2 text-sm font-medium text-theme-text-muted">{when}</p>
+        {heading(false)}
+        {when && <p className="mt-2 text-sm font-medium text-theme-text-muted">{when}</p>}
       </div>
     </div>
   );

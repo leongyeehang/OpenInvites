@@ -1,4 +1,4 @@
-import { createPublished, type DraftFields } from "./events";
+import { createPublished, type DraftFields, editSettings, openMore } from "./events";
 import { latestMailTo, linkIn, mailCountTo, newHost } from "./hosts";
 import { clientAddress, expect, test, type Browser, type Page } from "./test";
 import { openMyReply } from "./reply";
@@ -32,13 +32,13 @@ async function replyGoing(page: Page, link: string, name: string, plusOnes: numb
 
 const waitlisted = (page: Page, position: number) => page.getByRole("heading", { name: `You’re on the waitlist, number ${position}.` });
 
-// The host changes the capacity on the event form, from the manage page: a number, or empty to
+// The host changes the capacity in the editor's Settings sheet: a number, or empty to
 // take everyone.
 async function setCapacity(hostPage: Page, manage: string, capacity: string) {
   await hostPage.goto(manage);
-  await hostPage.getByRole("group", { name: "Guests", exact: true }).getByLabel("Capacity").fill(capacity);
-  await hostPage.getByRole("button", { name: "Save changes" }).click();
-  await expect(hostPage.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
+  await editSettings(hostPage, async () => {
+    await hostPage.getByRole("group", { name: "Guests", exact: true }).getByLabel("Capacity").fill(capacity);
+  });
 }
 
 async function closeAll(...pages: Page[]) {
@@ -99,6 +99,7 @@ test("a party that does not fit waits, the page says the event is full, and a wi
   // The manage page and the dashboard read the headcount against the capacity too, and the
   // announcement form offers the waitlist, unticked.
   await host.page.goto(manage);
+  await openMore(host.page);
   await expect(host.page.getByText("3 people expected of 3 places", { exact: true })).toBeVisible();
   await host.page.goto("/dashboard");
   await expect(host.page.getByText(/ · 3 people expected of 3 places$/)).toBeVisible();
@@ -308,6 +309,7 @@ test("a cancelled event promotes nobody: a Going guest who withdraws leaves the 
   await expect(waitlisted(bea, 1)).toBeVisible();
 
   // The host calls it off, and Bea, who was hoping to come, is told.
+  await openMore(host.page);
   await host.page.getByRole("button", { name: "Cancel event" }).click();
   await host.page.getByRole("button", { name: "Cancel the event" }).click();
   await expect(host.page.getByText("Cancelled", { exact: true })).toBeVisible();

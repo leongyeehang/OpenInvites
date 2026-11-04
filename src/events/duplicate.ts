@@ -2,6 +2,7 @@ import type { Locale } from "@/locale/resolve-locale";
 import type { Question, QuestionInput } from "@/questions/question";
 import type { Theme } from "@/themes/theme";
 import type { EventChanges, Event } from "./repository";
+import type { MaybeDated } from "./time";
 
 // What a duplicate starts from: the details, look, settings and questions of the event it copies,
 // and nothing that belongs to that event alone: its state (the copy is a draft), link, replies,
@@ -13,7 +14,7 @@ export function duplicateInput(
   questions: Question[],
   locale: Locale,
   copySuffix: string,
-): { event: EventChanges & { theme: Theme }; questions: QuestionInput[] } {
+): { event: MaybeDated<EventChanges> & { theme: Theme }; questions: QuestionInput[] } {
   return {
     event: {
       title: `${source.title} ${copySuffix}`,

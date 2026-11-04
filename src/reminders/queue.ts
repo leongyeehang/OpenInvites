@@ -2,7 +2,7 @@ import { and, asc, eq, gt, isNull, lte, or, type Column, type SQL } from "drizzl
 import { getDb } from "@/db/client";
 import { event } from "@/db/schema";
 import type { Event } from "@/events/repository";
-import { formatWhen } from "@/events/time";
+import { formatWhen, isDated } from "@/events/time";
 import type { Translator } from "@/locale/messages";
 import { guestMails, type GuestMailContent } from "@/mail/guest-mail";
 import { queueMail } from "@/mail/outbox";
@@ -99,7 +99,8 @@ function reminder(
 ): GuestMailContent {
   const values = {
     title: event.title,
-    when: formatWhen(event, guest.locale),
+    // Only a published event, which is dated, mails its guests.
+    when: isDated(event) ? formatWhen(event, guest.locale) : "",
     located: event.location ? "yes" : "no",
     location: event.location,
     plusOnes: guest.plusOnes,

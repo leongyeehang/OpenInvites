@@ -11,6 +11,8 @@
 @custom-variant themed (body:has(.event-page) &);
 /* The Thread layout is showing (src/themes/thread-layout.tsx): its composer holds the foot of the screen. */
 @custom-variant thread-page (body:has([data-layout="thread"]) &);
+/* The Poster layout's page, whose reply bar is fixed to the foot of the screen. */
+@custom-variant poster-page (body:has([data-slot="rsvp-bar"]) &);
 /* The Broadsheet's labels (src/themes/broadsheet-layout.tsx): small spaced capitals in the mono face. */
 @utility label-mono {
   font-family: var(--font-mono);

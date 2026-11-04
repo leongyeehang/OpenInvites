@@ -88,6 +88,29 @@ function parseWall(value: string, allDay: boolean, timeZone: string): Date | und
 export function parseEventForm(fields: EventFormFields): ParsedEventForm {
   const title = fields.title.trim();
   if (!title) return { ok: false, error: "titleRequired" };
+  const when = parseWhen(fields);
+  if (!when.ok) return when;
+  const settings = parseEventSettings(fields);
+  if (!settings.ok) return settings;
+  return {
+    ok: true,
+    input: {
+      title,
+      ...when.when,
+      location: fields.location.trim(),
+      description: richTextToPlain(fields.description),
+      descriptionRich: fields.description,
+      ...settings.settings,
+    },
+  };
+}
+
+// When the event happens, as the editor's date sheet and the 0.4 form post it: a start, an end
+// after it if any, all day or not, in a real zone.
+export type EventWhen = Pick<EventInput, "startsAt" | "endsAt" | "allDay" | "timeZone">;
+export type WhenFields = Pick<EventFormFields, "allDay" | "start" | "end" | "timeZone">;
+
+export function parseWhen(fields: WhenFields): { ok: true; when: EventWhen } | { ok: false; error: EventFormError } {
   if (!isTimeZone(fields.timeZone)) return { ok: false, error: "timeZoneInvalid" };
   if (!fields.start) return { ok: false, error: "startRequired" };
 
@@ -103,7 +126,15 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
     else if (end <= startsAt) return { ok: false, error: "endBeforeStart" };
     else endsAt = end;
   }
+  return { ok: true, when: { startsAt, endsAt, allDay: fields.allDay, timeZone: fields.timeZone } };
+}
 
+// Everything a guest does not see (M4 spec, "Settings sheet"): who may come and bring whom, what
+// they are asked, who sees the list, and what is emailed.
+export type EventSettings = Omit<EventInput, "title" | "startsAt" | "endsAt" | "allDay" | "timeZone" | "location" | "description" | "descriptionRich">;
+export type SettingsFields = Omit<EventFormFields, "title" | "allDay" | "start" | "end" | "timeZone" | "location" | "description">;
+
+export function parseEventSettings(fields: SettingsFields): { ok: true; settings: EventSettings } | { ok: false; error: EventFormError } {
   const plusOnesAllowed = Number(fields.plusOnesAllowed);
   if (!Number.isInteger(plusOnesAllowed) || plusOnesAllowed < 0 || plusOnesAllowed > MAX_PLUS_ONES) {
     return { ok: false, error: "plusOnesAllowedInvalid" };
@@ -121,15 +152,7 @@ export function parseEventForm(fields: EventFormFields): ParsedEventForm {
 
   return {
     ok: true,
-    input: {
-      title,
-      allDay: fields.allDay,
-      startsAt,
-      endsAt,
-      timeZone: fields.timeZone,
-      location: fields.location.trim(),
-      description: richTextToPlain(fields.description),
-      descriptionRich: fields.description,
+    settings: {
       plusOnesAllowed,
       requirePlusOneNames: fields.requirePlusOneNames,
       capacity,

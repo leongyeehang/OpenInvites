@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Browser, type Page } from "./test";
-import { createDraft, type DraftFields } from "./events";
+import { createDraft, type DraftFields, publishInEditor } from "./events";
 import { MAILPIT, mailCountTo, newHost, signUpVerified } from "./hosts";
 
 // Automatic reminders (ticket 04): guests who gave an email are reminded the day before if they
@@ -23,8 +23,7 @@ const ASK_EMAIL_HINT = "Guests get email only if you ask for their email on the 
 
 async function publish(page: Page, fields: DraftFields) {
   const link = await createDraft(page, fields);
-  await page.getByRole("button", { name: "Publish" }).click();
-  await expect(page.getByText("Published", { exact: true })).toBeVisible();
+  await publishInEditor(page);
   return link;
 }
 

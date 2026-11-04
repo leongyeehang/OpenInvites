@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { eventsOwnedAtLimit } from "@/events/limit";
 import { listHostEvents, type HostEvent } from "@/events/repository";
-import { formatDay, formatWhen, partitionByEnd } from "@/events/time";
+import { formatDay, formatWhen, isDated, partitionByEnd } from "@/events/time";
 import { instanceLimits } from "@/instance/repository";
 import { retentionFloorDays } from "@/retention/floor";
 import { deletionDate } from "@/retention/plan";
@@ -94,11 +94,11 @@ async function EventList({
                   className="flex flex-col gap-1 rounded-xl bg-card p-4 ring-1 ring-foreground/10 transition-colors hover:bg-muted/50"
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{event.title}</span>
+                    <span className="font-medium">{event.title || t("untitled")}</span>
                     <EventStateBadge state={event.state} />
                     {event.role === "coHost" && <Badge variant="outline">{t("coHost")}</Badge>}
                   </div>
-                  <span className="text-sm text-muted-foreground">{formatWhen(event, locale)}</span>
+                  <span className="text-sm text-muted-foreground">{isDated(event) ? formatWhen(event, locale) : t("noDate")}</span>
                   {deletion && <span className="text-sm font-medium">{t("deletedOn", { date: formatDay(deletion, event.timeZone, locale) })}</span>}
                   <span className="text-sm text-muted-foreground">
                     {t("counts", { going: replies.going, maybe: replies.maybe, declined: replies.cant })}

@@ -1,3 +1,4 @@
+import { isDated } from "@/events/time";
 import { notFound } from "next/navigation";
 import { buildIcs } from "@/calendar/ics";
 import { acceptsRsvps } from "@/events/access";
@@ -12,7 +13,7 @@ export async function GET(_request: Request, context: RouteContext<"/e/[slug]/ca
   const event = await findEventBySlug(slug);
   // Only a published event: a draft is not public, and nobody wants a cancelled party in their
   // calendar.
-  if (!event || !acceptsRsvps(event.state)) notFound();
+  if (!event || !acceptsRsvps(event.state) || !isDated(event)) notFound();
 
   const link = eventUrl(event);
   return new Response(buildIcs(event, link, new Date()), {

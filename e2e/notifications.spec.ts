@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "./test";
-import { createPublished } from "./events";
+import { createPublished, editSettings } from "./events";
 import { latestMailTo, mailCountTo } from "./hosts";
 
 // The host is emailed when a guest replies (story 105), and can turn it off (story 106). Mail is
@@ -11,12 +11,12 @@ async function expectNewestMail(request: APIRequestContext, email: string, says:
   await expect.poll(() => latestMailTo(request, email), { timeout: 30_000, message: `an email to the host saying “${says}”` }).toContain(says);
 }
 
-// On the event's manage page, loaded afresh so that "Saved." is this save's and not the last one's.
+// In the editor's Settings sheet, which waits for this save, not the last one.
 async function saveEmailSetting(hostPage: Page, on: boolean) {
   await hostPage.reload();
-  await hostPage.getByLabel("Email the hosts when a guest replies").setChecked(on);
-  await hostPage.getByRole("button", { name: "Save changes" }).click();
-  await expect(hostPage.getByText(/^Saved\./)).toBeVisible({ timeout: 15_000 });
+  await editSettings(hostPage, async () => {
+    await hostPage.getByLabel("Email the hosts when a guest replies").setChecked(on);
+  });
 }
 
 test("the host is emailed when a guest replies and changes their status, and not once they turn it off", async ({

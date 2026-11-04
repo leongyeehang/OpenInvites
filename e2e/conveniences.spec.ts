@@ -1,5 +1,5 @@
 import { expect, test } from "./test";
-import { createDraft, createPublished } from "./events";
+import { createDraft, createPublished, openMore } from "./events";
 import { signUpVerified } from "./hosts";
 import { closeReply } from "./reply";
 
@@ -80,6 +80,7 @@ test("the calendar links stack in the Poster's column, however wide the screen",
 test("a cancelled event is not offered to anyone's calendar", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "calendar-cancelled", EVENT);
+  await openMore(host.page);
   await host.page.getByRole("button", { name: "Cancel event" }).click();
   await host.page.getByRole("button", { name: "Cancel the event" }).click();
   await expect(host.page.getByText("Cancelled", { exact: true })).toBeVisible();

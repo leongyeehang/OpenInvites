@@ -1,6 +1,6 @@
 import type { Event } from "@/events/repository";
 import { eventUrl } from "@/events/slug";
-import { formatWhen } from "@/events/time";
+import { formatWhen, isDated } from "@/events/time";
 import type { Translator } from "@/locale/messages";
 import type { Locale } from "@/locale/resolve-locale";
 import type { GuestMailContent } from "@/mail/guest-mail";
@@ -16,7 +16,8 @@ export function promotionMail(
 ): GuestMailContent {
   const values = {
     title: event.title,
-    when: formatWhen(event, guest.locale),
+    // Only a published event, which is dated, mails its guests.
+    when: isDated(event) ? formatWhen(event, guest.locale) : "",
     located: event.location ? "yes" : "no",
     location: event.location,
     url: eventUrl(event),
