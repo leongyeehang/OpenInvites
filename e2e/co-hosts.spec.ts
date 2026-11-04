@@ -5,7 +5,7 @@ import { latestMailTo, newHost, PASSWORD, signOut, signUp, signUpVerified, verif
 // A host shares an event's management through a co-host link (spec, "Co-hosts"): whoever accepts it
 // while signed in can do everything the owner can, but delete the event or manage its co-hosts.
 
-const EVENT = { rsvpStyle: "Inline" as const, title: "Ada’s birthday", start: "2027-03-06T19:00" };
+const EVENT = { title: "Ada’s birthday", start: "2027-03-06T19:00" };
 const LINK = /^https?:\/\/\S+\/co-host\/[A-Za-z0-9_-]{32}$/;
 
 // On the event's manage page: the owner opens its hosts page and makes a co-host link, which is

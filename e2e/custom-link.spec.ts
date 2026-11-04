@@ -8,7 +8,6 @@ import { expect, test, type Page } from "./test";
 // unique across the whole instance.
 
 const EVENT = {
-  rsvpStyle: "Inline",
   title: "Ada’s birthday",
   start: "2027-03-06T19:00",
   location: "12 Orchard Road",

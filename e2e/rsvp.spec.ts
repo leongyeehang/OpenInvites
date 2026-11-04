@@ -1,11 +1,12 @@
 import { expect, expectNotFoundAsSent, test, type Page } from "./test";
 import { createDraft, createPublished } from "./events";
 import { signUpVerified } from "./hosts";
+import { openMyReply, replyBar } from "./reply";
 
-// The Inline RSVP style: the steps open under the three buttons, and the confirmation takes the
-// buttons' place. (The Sheet style, the same flow in a sheet, is rsvp-sheet.spec.ts.) The guest
-// drives the test's own page, so the whole flow runs at 390 pixels in the mobile project and at
-// desktop width in the other.
+// The RSVP flow: the steps and the confirmation in the sheet that rises from the reply bar (its
+// own behaviour is rsvp-sheet.spec.ts's). A guest coming back finds their answer in the bar, and
+// Change opens it. The guest drives the test's own page, so the whole flow runs at 390 pixels in
+// the mobile project and at desktop width in the other.
 
 const EDIT_LINK = /^https?:\/\/\S+\/r\/\S+$/;
 
@@ -17,7 +18,6 @@ async function counts(hostPage: Page) {
 test("a guest goes, brings someone, and lands on a confirmation with an edit link", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "rsvp-going", {
-    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "2",
@@ -56,6 +56,8 @@ test("a guest goes, brings someone, and lands on a confirmation with an edit lin
 
   // Coming back on the same device finds the answer rather than an empty form.
   await page.reload();
+  await expect(replyBar(page)).toContainText("You’re going");
+  await openMyReply(page);
   await expect(page.getByText("You’re going!")).toBeVisible();
   await page.getByRole("button", { name: "Edit details" }).click();
   await expect(page.getByLabel("Your name")).toHaveValue("Priya Nair");
@@ -67,7 +69,6 @@ test("a guest goes, brings someone, and lands on a confirmation with an edit lin
 test("a guest who can’t go answers in one step and is never asked who they are bringing", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "rsvp-cant", {
-    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "2",
@@ -91,7 +92,6 @@ test("a guest who can’t go answers in one step and is never asked who they are
 test("answering again from the same device replaces the earlier RSVP", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "rsvp-again", {
-    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "2",
@@ -124,7 +124,6 @@ test("answering again from the same device replaces the earlier RSVP", async ({ 
 test("the edit link opens the RSVP on a device that has never seen the invitation", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "rsvp-editlink", {
-    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "0",
@@ -141,6 +140,8 @@ test("the edit link opens the RSVP on a device that has never seen the invitatio
   await elsewherePage.goto(editLink);
   // The token does its work and gets out of the way.
   await expect(elsewherePage).toHaveURL(host.link);
+  await expect(replyBar(elsewherePage)).toContainText("You’re going");
+  await openMyReply(elsewherePage);
   await expect(elsewherePage.getByText("You’re going!")).toBeVisible();
 
   await elsewherePage.getByRole("button", { name: "Edit details" }).click();
@@ -151,6 +152,7 @@ test("the edit link opens the RSVP on a device that has never seen the invitatio
   // Still one guest, and the first device sees the change.
   await expect((await counts(host.page)).getByText("1 going · 0 maybe · 0 can’t go")).toBeVisible();
   await page.reload();
+  await openMyReply(page);
   await expect(page.getByText("Priya N., just you.")).toBeVisible();
 
   await elsewhere.close();
@@ -160,7 +162,6 @@ test("the edit link opens the RSVP on a device that has never seen the invitatio
 test("a guest removes their RSVP and the event forgets them", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "rsvp-remove", {
-    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "0",
@@ -186,7 +187,6 @@ test("a guest removes their RSVP and the event forgets them", async ({ page, bro
 test("the host's plus-one settings decide what the guest is asked", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "rsvp-settings", {
-    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "1",
@@ -217,6 +217,7 @@ test("the host's plus-one settings decide what the guest is asked", async ({ pag
   await expect(host.page.getByText(/^Saved\./)).toBeVisible();
 
   await page.reload();
+  await openMyReply(page);
   await page.getByRole("button", { name: "Edit details" }).click();
   await page.getByRole("button", { name: "Send RSVP" }).click();
   await expect(page.getByText("Priya Nair, just you.")).toBeVisible();

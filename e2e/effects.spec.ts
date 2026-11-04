@@ -1,18 +1,17 @@
 import { createPublished } from "./events";
 import { expect, test, type APIRequestContext, type Locator, type Page } from "./test";
+import { openMyReply } from "./reply";
 
 // Ticket 11 (M2): the theme's effect, chosen in the Design drawer's Details. Sparkles and doodles
-// are drawn in the backdrop, the doodles tilt the Poster layout's date sticker, and confetti falls
-// once over the page when a guest's answer makes them Going. Under reduced motion none of it is
-// drawn and nothing moves; the sticker stays tilted. The page is a new event's, which starts with
-// the Birthday template's look of 0.4: it sparkles.
+// are drawn in the backdrop, and confetti falls once over the page when a guest's answer makes
+// them Going. Under reduced motion none of it is drawn and nothing moves. The page is a new
+// event's, which starts with the Birthday template's look of 0.4: it sparkles. (The doodles'
+// tilted date sticker went with the sticker in M4.)
 
 const EVENT = { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0" } as const;
 
 type Effect = "sparkles" | "doodles" | "confetti";
 const drawn = (page: Page, effect: Effect) => page.locator(`[data-effect="${effect}"]`);
-const sticker = (page: Page) => page.locator('[data-slot="date-sticker"]');
-const tilt = (page: Page) => sticker(page).evaluate((element) => getComputedStyle(element).rotate);
 // How much confetti is on the page this instant. It comes with the confirmation, in the same
 // paint, so once the confirmation shows, none now means none at all: waiting for none would also
 // pass for confetti that fell and was gone.
@@ -49,7 +48,7 @@ test("a host picks each effect in the Design drawer, and guests see it", async (
   test.slow();
   // Guests answer inline, so the confirmation is on the page itself, under the confetti. (In the
   // sheet the page takes no taps until the sheet closes, confetti or not.)
-  const host = await createPublished(browser, request, "effects", { ...EVENT, rsvpStyle: "Inline" });
+  const host = await createPublished(browser, request, "effects", { ...EVENT });
   await host.page.goto(host.link);
 
   // Birthday sparkles, over the backdrop, for the host and for a guest.
@@ -60,24 +59,20 @@ test("a host picks each effect in the Design drawer, and guests see it", async (
   await page.goto(host.link);
   await expect(drawn(page, "sparkles")).toBeVisible();
   await expect(drawn(page, "doodles")).toHaveCount(0);
-  expect(await tilt(page)).toBe("none");
 
-  // Doodles: shapes in the backdrop, and the date sticker lands tilted.
+  // Doodles: shapes in the backdrop.
   await chooseEffect(drawer, request, host.link, "Doodles");
   await expect(drawn(host.page, "doodles")).toBeVisible();
   await expect(drawn(host.page, "sparkles")).toHaveCount(0);
-  await expect.poll(() => tilt(host.page)).toBe("-6deg");
   await page.reload();
   await expect(drawn(page, "doodles")).toBeVisible();
   await expect(drawn(page, "sparkles")).toHaveCount(0);
-  await expect.poll(() => tilt(page)).toBe("-6deg");
 
-  // None: nothing over the backdrop, and the sticker sits straight.
+  // None: nothing over the backdrop.
   await chooseEffect(drawer, request, host.link, "None");
   await page.reload();
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   for (const effect of ["sparkles", "doodles"] as const) await expect(drawn(page, effect)).toHaveCount(0);
-  expect(await tilt(page)).toBe("none");
 
   // Confetti: nothing in the backdrop, and nothing falls until a guest says Going.
   await chooseEffect(drawer, request, host.link, "Confetti");
@@ -119,6 +114,7 @@ test("a host picks each effect in the Design drawer, and guests see it", async (
   expect(await confettiNow(second)).toBe(0);
   await other.close();
   await page.reload();
+  await openMyReply(page);
   await expect(page.getByText("You’re going!")).toBeVisible();
   expect(await confettiNow(page)).toBe(0);
 
@@ -128,7 +124,7 @@ test("a host picks each effect in the Design drawer, and guests see it", async (
 test.describe("under reduced motion", () => {
   test.use({ contextOptions: { reducedMotion: "reduce" } });
 
-  test("no effect is drawn, confetti never falls, and the tilted sticker stays still", async ({ page, browser, request }) => {
+  test("no effect is drawn, and confetti never falls", async ({ page, browser, request }) => {
     test.slow();
     const host = await createPublished(browser, request, "effects-still", EVENT);
     await host.page.emulateMedia({ reducedMotion: "reduce" });
@@ -140,16 +136,13 @@ test.describe("under reduced motion", () => {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(drawn(page, "sparkles")).toBeHidden();
 
-    // Nor are the doodles' shapes; the sticker is tilted from the first, and does not move.
+    // Nor are the doodles' shapes.
     const drawer = await openDetails(host.page);
     await chooseEffect(drawer, request, host.link, "Doodles");
     await expect(drawn(host.page, "doodles")).toBeHidden();
-    expect(await tilt(host.page)).toBe("-6deg");
     await page.reload();
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(drawn(page, "doodles")).toBeHidden();
-    expect(await tilt(page)).toBe("-6deg");
-    expect(await sticker(page).evaluate((element) => element.getAnimations({ subtree: true }).length)).toBe(0);
 
     // Confetti never falls.
     await chooseEffect(drawer, request, host.link, "Confetti");

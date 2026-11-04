@@ -8,7 +8,6 @@ import { expect, test, type APIRequestContext, type Browser, type Page } from ".
 // own, so no other test's mail is counted.
 
 const EVENT = {
-  rsvpStyle: "Inline",
   title: "Ada’s birthday",
   start: "2027-03-06T19:00",
   location: "12 Orchard Road",

@@ -106,14 +106,14 @@ test("a guest who sends RSVP after RSVP is told to slow down where the flow's ot
 
   // Removing it counts as an RSVP too, and is refused the same way, with the confirmation.
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Show my RSVP" }).click();
+  await page.getByRole("button", { name: "Change", exact: true }).click();
   await sheet.getByRole("button", { name: "Remove my RSVP" }).click();
   await expect(sheet.getByRole("alert")).toHaveText(TOO_FAST);
   await expect(sheet.getByText("You’re going!")).toBeVisible();
 
   // The RSVP they had already sent still stands.
   await page.reload();
-  await expect(page.getByText("You replied as Priya Nair.")).toBeVisible();
+  await expect(page.locator('[data-slot="rsvp-bar"]')).toContainText("You’re going");
 });
 
 test("someone asking for verification emails to another person's address is held up, so that inbox is not flooded", async ({ page, request }) => {

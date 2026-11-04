@@ -1,13 +1,14 @@
 import { expect, expectNotFoundAsSent, test, type APIRequestContext, type Browser, type Page } from "./test";
 import { createPublished } from "./events";
 import { MAILPIT, latestMailTo, mailCountTo, newHost } from "./hosts";
+import { openMyReply } from "./reply";
 
 // The first email to guests (ticket 02): cancelling a published event tells the Going and Maybe
 // guests who gave an email, in the language they replied in, and every email to a guest ends with
 // why they got it and a link to a page where one tap stops email about the event. Mail is read in
 // Mailpit; each guest has an address of their own, so no other test's mail is counted.
 
-const EVENT = { rsvpStyle: "Inline", title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0", askEmail: true } as const;
+const EVENT = { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0", askEmail: true } as const;
 
 const EDIT_LINK = /^https?:\/\/\S+\/r\/\S+$/;
 const STOP_LINK = /https?:\/\/\S+\/m\/[A-Za-z0-9]{24}/;
@@ -72,6 +73,7 @@ test("cancelling tells the Going and Maybe guests who gave an email, and the sto
   // A mail client opening the link ahead of its reader changes nothing.
   expect((await request.get(maybeStop)).status()).toBe(200);
   await maybe.page.reload();
+  await openMyReply(maybe.page);
   await expect(maybe.page.getByText(`We’ll reach you at ${maybe.email}.`)).toBeVisible();
 
   // The link is no edit link, and a token nobody was given leads nowhere.
@@ -94,6 +96,7 @@ test("cancelling tells the Going and Maybe guests who gave an email, and the sto
   const elsewhere = await browser.newContext();
   const elsewherePage = await elsewhere.newPage();
   await elsewherePage.goto(going.editLink);
+  await openMyReply(elsewherePage);
   await expect(elsewherePage.getByText("You’re going!")).toBeVisible();
   await expect(elsewherePage.getByText(/We’ll reach you at/)).toHaveCount(0);
   await elsewherePage.getByRole("button", { name: "Edit details" }).click();

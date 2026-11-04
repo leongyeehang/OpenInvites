@@ -253,8 +253,6 @@
      pace in custom properties, which mean nothing until motion-safe: applies the animation. */
   --animate-theme-twinkle: theme-twinkle var(--twinkle-duration) ease-in-out var(--twinkle-delay) infinite;
   --animate-theme-float: theme-float var(--float-duration) ease-in-out infinite;
-  /* The doodles' date sticker lands at its tilt with a small spring, once. */
-  --animate-theme-sticker-in: theme-sticker-in 0.6s ease-out 0.25s both;
   /* The Broadsheet's "Received" stamp comes down onto the ballot at its tilt, once. */
   --animate-theme-stamp-in: theme-stamp-in 0.45s ease-out both;
   /* The Thread's typing dots, each a little after the one before (its own animation-delay). */
@@ -307,27 +305,6 @@
     }
     100% {
       rotate: -8deg;
-      scale: 1;
-    }
-  }
-  /* A spring, overshooting once and settling at the -6 degrees the sticker rests at. */
-  @keyframes theme-sticker-in {
-    0% {
-      opacity: 0;
-      rotate: -20deg;
-      scale: 0.6;
-    }
-    35% {
-      opacity: 1;
-      rotate: -3deg;
-      scale: 1.08;
-    }
-    70% {
-      rotate: -6.5deg;
-      scale: 0.985;
-    }
-    100% {
-      rotate: -6deg;
       scale: 1;
     }
   }

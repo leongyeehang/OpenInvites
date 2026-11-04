@@ -49,11 +49,12 @@ test("a new event's page wears the Birthday template: serif title, golden accent
   expect(titleStyle.color).toBe("rgb(255, 255, 255)");
   expect(titleStyle.loaded).toBe(true);
 
-  // The details are all there, in glass tiles under the poster card.
-  await expect(page.getByText("You’re invited to")).toBeVisible();
-  await expect(page.getByText("Saturday, March 6, 2027, 7:00 – 10:00 PM GMT+8")).toBeVisible();
-  await expect(page.getByText("Ah Ma’s house, 3rd floor")).toBeVisible();
-  await expect(page.getByText("Bring nothing.")).toBeVisible();
+  // The date under the title, and the details all there, in one list under the poster.
+  await expect(page.locator('[data-slot="poster-card"]').getByText("Sat, Mar 6 · 7:00 PM")).toBeVisible();
+  const details = page.locator('[data-slot="details"]');
+  await expect(details.getByText("Saturday, March 6, 2027, 7:00 – 10:00 PM GMT+8")).toBeVisible();
+  await expect(details.getByText("Ah Ma’s house, 3rd floor")).toBeVisible();
+  await expect(details.getByText("Bring nothing.")).toBeVisible();
 
   // The poster card rises in on load, and stays put when the guest asks for reduced motion.
   const card = page.locator('[data-slot="poster-card"]');

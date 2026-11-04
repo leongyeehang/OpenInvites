@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "./test";
 import { createPublished } from "./events";
+import { openMyReply } from "./reply";
 
 // The guest drives the test's own page; the host watches from a context of their own.
 
@@ -69,7 +70,6 @@ test("coming back to change an answer brings back what was said before", async (
   test.slow();
   const host = await createPublished(browser, request, "questions-edit", {
     // Inline, so the confirmation is in place of the buttons when the guest comes back.
-    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "0",
@@ -82,6 +82,7 @@ test("coming back to change an answer brings back what was said before", async (
   await expect(page.getByText("You’re going!")).toBeVisible();
 
   await page.reload();
+  await openMyReply(page);
   await page.getByRole("button", { name: "Edit details" }).click();
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByLabel("Any dietary needs?")).toHaveValue("No nuts");
@@ -116,7 +117,6 @@ test("a guest is not locked out when the host rewrites a question they answered"
   test.slow();
   const host = await createPublished(browser, request, "questions-rewrite", {
     // Inline, so the confirmation is in place of the buttons when the guest comes back.
-    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "0",
@@ -134,6 +134,7 @@ test("a guest is not locked out when the host rewrites a question they answered"
 
   // The answer nobody offers any more is forgotten rather than carried into every save.
   await page.reload();
+  await openMyReply(page);
   await page.getByRole("button", { name: "Edit details" }).click();
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("radio", { name: "Soup" })).toHaveCount(0);
@@ -228,7 +229,6 @@ test("when the host removes an option, a guest's other pick is kept and their ne
   test.slow();
   const host = await createPublished(browser, request, "questions-multiple-rewrite", {
     // Inline, so the confirmation is in place of the buttons when the guest comes back.
-    rsvpStyle: "Inline",
     title: "Ada’s conference",
     start: "2027-03-06T19:00",
     plusOnes: "0",
@@ -247,6 +247,7 @@ test("when the host removes an option, a guest's other pick is kept and their ne
 
   // The removed option is forgotten, the other pick comes back prefilled, and saving works.
   await page.reload();
+  await openMyReply(page);
   await page.getByRole("button", { name: "Edit details" }).click();
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("checkbox", { name: "Workshop" })).toHaveCount(0);

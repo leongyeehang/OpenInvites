@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type Page } from "./test";
 import { createPublished } from "./events";
+import { openMyReply } from "./reply";
 
 // The guest drives the test's own page; the host watches from a context of their own, so both
 // sides of every change are seen at once.
@@ -110,7 +111,6 @@ test("the host changes a guest's answer, and that guest's edit link still works"
   test.slow();
   const host = await createPublished(browser, request, "guests-edit", {
     // Inline, so the confirmation is in place of the buttons when the guest comes back.
-    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "2",
@@ -149,12 +149,14 @@ test("the host changes a guest's answer, and that guest's edit link still works"
 
   // The guest sees the host's change, and the link they were given still opens their RSVP.
   await page.reload();
+  await openMyReply(page);
   await expect(page.getByText("You’re a maybe.")).toBeVisible();
   await expect(page.getByText("Bringing Arjun.")).toBeVisible();
 
   const elsewhere = await browser.newContext();
   const elsewherePage = await elsewhere.newPage();
   await elsewherePage.goto(editLink);
+  await openMyReply(elsewherePage);
   await expect(elsewherePage.getByText("You’re a maybe.")).toBeVisible();
   await elsewhere.close();
 

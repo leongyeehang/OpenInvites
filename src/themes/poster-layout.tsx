@@ -1,19 +1,22 @@
-import { Clock, MapPin, MessageCircle } from "lucide-react";
+import { AlignLeft, Clock, MapPin, MessageCircle } from "lucide-react";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import type { CommentsShown } from "@/comments/visibility";
 import type { EventWithHost } from "@/events/repository";
-import { formatDateSticker, formatWhen } from "@/events/time";
+import { formatWhen, formatWhenBrief } from "@/events/time";
 import { cn } from "@/lib/utils";
 import { RichTextView } from "@/rich-text/rich-text-view";
 import { Glass } from "./glass";
-import { PosterCard } from "./poster-card";
+import { PosterHero } from "./poster-card";
 import { AnnouncementsSection, type ShownAnnouncement } from "./sections/announcements-section";
 import { COMMENTS_HEADING, CommentsSection } from "./sections/comments-section";
 
-// The Poster layout (PROTOTYPE.md, the verdict): a frosted poster card with the title in the
-// theme's font (or the host's own poster), the RSVP buttons beneath it, then the details in
-// glass tiles. It renders inside a ThemedPage, which carries the theme.
+// The Poster layout, poster first (M4 spec, "The guest page"): the poster as wide as the page's
+// column, the title on it or under it with its date, who is hosting, then one frosted list of
+// When, Where and About, and Who's coming, the host's announcements and the comments as panels of
+// their own. The reply buttons are a bar fixed to the foot of the screen (rsvp-flow.tsx), so a
+// guest can answer wherever they are on the page. On a wider screen the page stays a phone's
+// width, in the middle. It renders inside a ThemedPage, which carries the theme.
 export async function PosterLayout({
   event,
   hosts,
@@ -45,71 +48,78 @@ export async function PosterLayout({
   calendar?: ReactNode;
 }) {
   const [t, locale, format] = await Promise.all([getTranslations("EventPage"), getLocale(), getFormatter()]);
-  const sticker = formatDateSticker(event, locale);
 
   return (
-    <main className="mx-auto max-w-xl px-4 pt-6 pb-16 sm:pt-10">
-      {notice && <div className="mb-4">{notice}</div>}
+    <main className="mx-auto w-full max-w-[28rem] pb-8">
+      {notice && <div className="px-4 pt-4">{notice}</div>}
 
-      <PosterCard
-        title={event.title}
-        eyebrow={<p className={cn(label, "text-theme-text-muted")}>{t("eyebrow")}</p>}
-        sticker={<DateSticker {...sticker} />}
-        host={
-          <div className="flex items-center gap-3">
-            <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-theme-accent text-xs font-semibold text-theme-on-accent">
-              {initialsOf(event.hostName)}
-            </span>
-            <p className="text-sm text-theme-text-muted">{t("hostedBy", { hosts: format.list(hosts, { type: "conjunction" }) })}</p>
-          </div>
-        }
-        className={cn(invitationEntrance, "motion-safe:delay-0")}
-      />
+      <PosterHero title={event.title} when={formatWhenBrief(event, locale)} className={cn(invitationEntrance, "motion-safe:delay-0")} />
 
-      {rsvp && <div className={cn("mt-3", entrance, "motion-safe:delay-100")}>{rsvp}</div>}
+      <div className={cn("mt-4 flex items-center gap-3 px-5 sm:px-6", entrance, "motion-safe:delay-100")}>
+        <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-full bg-theme-accent text-xs font-semibold text-theme-on-accent">
+          {initialsOf(event.hostName)}
+        </span>
+        <p className="text-sm text-theme-text-muted">{t("hostedBy", { hosts: format.list(hosts, { type: "conjunction" }) })}</p>
+      </div>
 
-      <div className={cn("mt-5 grid gap-3", event.location && "sm:grid-cols-2")}>
-        <Glass className={cn("p-5", entrance, "motion-safe:delay-200")}>
-          <SectionLabel icon={Clock}>{t("when")}</SectionLabel>
-          <p className="text-lg leading-tight font-medium">{formatWhen(event, locale)}</p>
-          {underWhen}
+      {/* The reply bar is fixed to the foot of the screen; it is here for a screen reader and the
+          keyboard, after the invitation's opening and before its details. */}
+      {rsvp}
+
+      <div className="flex flex-col gap-3 px-4 pt-5">
+        <Glass data-slot="details" className={cn("divide-y divide-theme-glass-border overflow-hidden rounded-[1.75rem]", entrance, "motion-safe:delay-200")}>
+          <DetailRow icon={Clock} label={t("when")}>
+            <p className="text-base leading-snug font-medium">{formatWhen(event, locale)}</p>
+            {underWhen}
+            {calendar && <div className="mt-3">{calendar}</div>}
+          </DetailRow>
+          {event.location && (
+            <DetailRow icon={MapPin} label={t("where")}>
+              <p className="text-base leading-snug font-medium break-words">{event.location}</p>
+              {underWhere}
+            </DetailRow>
+          )}
+          {event.descriptionRich.blocks.length > 0 && (
+            <DetailRow icon={AlignLeft} label={t("about")} slot="description">
+              <RichTextView doc={event.descriptionRich} className="leading-relaxed text-theme-text-muted" />
+            </DetailRow>
+          )}
         </Glass>
-        {event.location && (
-          <Glass className={cn("p-5", entrance, "motion-safe:delay-300")}>
-            <SectionLabel icon={MapPin}>{t("where")}</SectionLabel>
-            <p className="text-lg leading-tight font-medium">{event.location}</p>
-            {underWhere}
+
+        {guestList && <Glass className={cn("rounded-[1.75rem] p-5", entrance, "motion-safe:delay-300")}>{guestList}</Glass>}
+
+        {announcements.length > 0 && (
+          <Glass data-slot="announcements" className={cn("rounded-[1.75rem] p-5", entrance, "motion-safe:delay-300")}>
+            <SectionLabel>{t("announcements")}</SectionLabel>
+            <AnnouncementsSection announcements={announcements} timeZone={event.timeZone} />
+          </Glass>
+        )}
+
+        {comments && (
+          <Glass data-slot="comments" className={cn("rounded-[1.75rem] p-5", entrance, "motion-safe:delay-400")}>
+            <SectionLabel icon={MessageCircle} id={COMMENTS_HEADING}>
+              {t("comments.title")}
+            </SectionLabel>
+            <CommentsSection comments={comments} form={commentForm} slug={event.slug} timeZone={event.timeZone} />
           </Glass>
         )}
       </div>
-
-      {event.descriptionRich.blocks.length > 0 && (
-        <Glass data-slot="description" className={cn("mt-3 p-5", entrance, "motion-safe:delay-300")}>
-          <SectionLabel>{t("about")}</SectionLabel>
-          <RichTextView doc={event.descriptionRich} className="leading-relaxed text-theme-text-muted" />
-        </Glass>
-      )}
-
-      {announcements.length > 0 && (
-        <Glass data-slot="announcements" className={cn("mt-3 p-5", entrance, "motion-safe:delay-300")}>
-          <SectionLabel>{t("announcements")}</SectionLabel>
-          <AnnouncementsSection announcements={announcements} timeZone={event.timeZone} />
-        </Glass>
-      )}
-
-      {calendar && <Glass className={cn("mt-3 p-5", entrance, "motion-safe:delay-400")}>{calendar}</Glass>}
-
-      {guestList && <Glass className={cn("mt-3 p-5", entrance, "motion-safe:delay-500")}>{guestList}</Glass>}
-
-      {comments && (
-        <Glass data-slot="comments" className={cn("mt-3 p-5", entrance, "motion-safe:delay-500")}>
-          <SectionLabel icon={MessageCircle} id={COMMENTS_HEADING}>
-            {t("comments.title")}
-          </SectionLabel>
-          <CommentsSection comments={comments} form={commentForm} slug={event.slug} timeZone={event.timeZone} />
-        </Glass>
-      )}
     </main>
+  );
+}
+
+// One row of the details list: its icon in a small tile, its heading, and what it says.
+function DetailRow({ icon: Icon, label, slot, children }: { icon: ComponentType<{ className?: string }>; label: string; slot?: string; children: ReactNode }) {
+  return (
+    <section data-slot={slot} className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-3 p-4">
+      <span aria-hidden className="grid size-9 place-items-center rounded-xl bg-theme-glass-strong text-theme-accent-ink">
+        <Icon className="size-4.5" />
+      </span>
+      <div className="min-w-0 pt-0.5">
+        <h2 className={cn(CAPS, "mb-1 text-theme-text-faint")}>{label}</h2>
+        {children}
+      </div>
+    </section>
   );
 }
 
@@ -124,30 +134,17 @@ const entrance = cn(rise, "motion-safe:fade-in");
 // (the countdown), as a slow phone's first view of the page. From 1% it counts at once.
 const invitationEntrance = cn(rise, "motion-safe:fade-in-1");
 
-// The small spaced capitals used for the eyebrow, the tile headings, and the sticker.
-const label = "text-xs font-medium tracking-label uppercase";
+// The small spaced capitals of the details' and the panels' headings.
+const CAPS = "text-xs font-medium tracking-label uppercase";
 
 // A heading with an `id` is where the focus is sent once something under it is deleted, so it can
 // take the focus, though it is never a stop for Tab.
-export function SectionLabel({ icon: Icon, id, children }: { icon?: React.ComponentType<{ className?: string }>; id?: string; children: ReactNode }) {
+export function SectionLabel({ icon: Icon, id, children }: { icon?: ComponentType<{ className?: string }>; id?: string; children: ReactNode }) {
   return (
-    <h2 id={id} tabIndex={id ? -1 : undefined} className={cn(label, "mb-3 flex items-center gap-2 text-theme-text-faint outline-none")}>
+    <h2 id={id} tabIndex={id ? -1 : undefined} className={cn(CAPS, "mb-3 flex items-center gap-2 text-theme-text-faint outline-none")}>
       {Icon && <Icon className="size-3.5" aria-hidden />}
       {children}
     </h2>
-  );
-}
-
-// The date at a glance, top right of the poster card, or beside the title below a host's poster
-// (a title set on the poster goes without it). The When tile carries the full date for
-// assistive technology, so this one is decorative.
-function DateSticker({ weekday, day, month }: { weekday: string; day: string; month: string }) {
-  return (
-    <Glass strong aria-hidden className="flex min-w-14 flex-col items-center rounded-2xl px-3 py-2 text-center">
-      <span className={cn(label, "text-theme-text-faint")}>{weekday}</span>
-      <span className="text-2xl leading-none font-semibold">{day}</span>
-      <span className={cn(label, "text-theme-text-muted")}>{month}</span>
-    </Glass>
   );
 }
 

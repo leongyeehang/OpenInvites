@@ -35,14 +35,14 @@ const LANGUAGES = [
 type Themed = { name: string; make: (browser: Browser, request: APIRequestContext) => Promise<string> };
 
 const THEMES: Themed[] = [
-  // Every event starts from the Birthday template: Golden hour, sparkles, and the Sheet style.
-  { name: "Curated background with sparkles, Sheet RSVP style", make: (browser, request) => published(browser, request, { ...EVENT, rsvpStyle: "Sheet" }) },
-  { name: "Curated background with sparkles, Inline RSVP style", make: (browser, request) => published(browser, request, { ...EVENT, rsvpStyle: "Inline" }) },
-  { name: "Uploaded photo as background", make: (browser, request) => withPicture(browser, request, "background") },
+  // Every event starts on Golden hour, a colour poster, with sparkles.
+  { name: "Colour poster with sparkles", make: (browser, request) => published(browser, request, EVENT) },
+  { name: "Gallery poster", make: (browser, request) => withGalleryPoster(browser, request, "Candles") },
+  { name: "Uploaded photo", make: (browser, request) => withPicture(browser, request, "photo") },
   { name: "Portrait poster", make: (browser, request) => withPicture(browser, request, "poster") },
-  // The other two layouts, as their templates apply them.
-  { name: "Supper club template, Broadsheet layout", make: (browser, request) => withTemplate(browser, request, "Supper club", "broadsheet") },
-  { name: "Kids’ party template, Thread layout", make: (browser, request) => withTemplate(browser, request, "Kids’ party", "thread") },
+  // The other two layouts, with a gallery poster.
+  { name: "Gallery poster, Broadsheet layout", make: (browser, request) => withGalleryPoster(browser, request, "Candlelight", "Broadsheet") },
+  { name: "Gallery poster, Thread layout", make: (browser, request) => withGalleryPoster(browser, request, "Balloons", "Thread") },
 ];
 
 async function published(browser: Browser, request: APIRequestContext, fields: DraftFields) {
@@ -51,38 +51,33 @@ async function published(browser: Browser, request: APIRequestContext, fields: D
   return host.link;
 }
 
-// The host uploads a phone's photo as the background, or a poster exported for print as the
-// poster, and describes it, as the Design drawer asks.
-async function withPicture(browser: Browser, request: APIRequestContext, as: "background" | "poster") {
+// The host uploads a phone's photo or a poster exported for print, which is the poster either
+// way, and describes it, as the Design drawer asks.
+async function withPicture(browser: Browser, request: APIRequestContext, as: "photo" | "poster") {
   const host = await createPublished(browser, request, "perf", EVENT);
   const guestHtml = async () => (await request.get(host.link)).text();
   await host.page.goto(host.link);
   await host.page.getByRole("button", { name: "Design" }).click();
   const drawer = host.page.getByRole("dialog", { name: "Design" });
   await drawer.getByLabel("Upload your photo or poster").setInputFiles(as === "poster" ? await fairPoster() : await gardenPhoto());
-  const useAs = drawer.getByRole("group", { name: "Use it as" });
-  await expect(useAs.getByRole("radio", { name: "Background" })).toBeChecked({ timeout: 30_000 });
+  await expect(drawer.getByLabel("Describe your picture")).toBeVisible({ timeout: 30_000 });
   const alt = as === "poster" ? POSTER_ALT : PHOTO_ALT;
   await drawer.getByLabel("Describe your picture").fill(alt);
   await drawer.getByLabel("Describe your picture").press("Enter");
-  await expect.poll(guestHtml, { timeout: 15_000 }).toContain(alt);
-  if (as === "poster") {
-    await useAs.getByRole("radio", { name: "Poster" }).check();
-    // Only the poster is an <img>, and so only the poster carries its description as alt.
-    await expect.poll(guestHtml, { timeout: 15_000 }).toContain(`alt="${alt}"`);
-  }
+  // The poster is an <img>, and carries its description as alt.
+  await expect.poll(guestHtml, { timeout: 15_000 }).toContain(`alt="${alt}"`);
   await host.context.close();
   return host.link;
 }
 
-// The host applies a template in the Design drawer, which brings its layout with it.
-async function withTemplate(browser: Browser, request: APIRequestContext, template: string, layout: "broadsheet" | "thread") {
-  const host = await createPublished(browser, request, "perf", EVENT);
+// The host picks a gallery poster in the Design drawer, in one of the other layouts if asked.
+async function withGalleryPoster(browser: Browser, request: APIRequestContext, poster: string, layout?: "Broadsheet" | "Thread") {
+  const host = await createPublished(browser, request, "perf", layout ? { ...EVENT, layout } : EVENT);
   await host.page.goto(host.link);
   await host.page.getByRole("button", { name: "Design" }).click();
   const drawer = host.page.getByRole("dialog", { name: "Design" });
-  await drawer.getByRole("group", { name: "Templates" }).getByRole("radio", { name: template }).check();
-  await expect.poll(async () => (await request.get(host.link)).text(), { timeout: 15_000 }).toContain(`data-layout="${layout}"`);
+  await drawer.getByRole("group", { name: "Poster" }).getByRole("radio", { name: poster }).check();
+  await expect.poll(async () => (await request.get(host.link)).text(), { timeout: 15_000 }).toMatch(/src="\/posters\/[a-z-]+\.[0-9a-f]{8}\.svg"/);
   await host.context.close();
   return host.link;
 }

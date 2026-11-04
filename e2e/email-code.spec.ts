@@ -115,7 +115,7 @@ test("a guest proves their email with the code it was sent, keeps it proven whil
 
 test("a guest at the mail limit who asks for another code is told so, and can still enter the last one", async ({ browser, request }) => {
   test.slow();
-  const host = await createPublished(browser, request, "code-limit", { ...PARTY, rsvpStyle: "Inline" });
+  const host = await createPublished(browser, request, "code-limit", { ...PARTY });
   const email = newHost("code-limit-guest").email;
   // The guest's address is their own, apart from the host's, whose sign-up email counted too.
   const guest = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
@@ -158,7 +158,7 @@ test("a guest at the mail limit who asks for another code is told so, and can st
 
 test("two asks for another code at the same moment send one, and the other is told one just went", async ({ page, browser, request }) => {
   test.slow();
-  const host = await createPublished(browser, request, "code-twice", { ...PARTY, rsvpStyle: "Inline" });
+  const host = await createPublished(browser, request, "code-twice", { ...PARTY });
   const email = newHost("code-twice-guest").email;
 
   // The guest has the invitation open in two tabs, and answers in both.

@@ -13,7 +13,7 @@ import { TITLE_FONTS } from "@/themes/fonts";
 import { GALLERY_POSTERS, OCCASIONS, type GalleryPosterId } from "@/themes/posters";
 import { resolveTheme, type ThemeUpload } from "@/themes/resolve";
 import { SWATCHES } from "@/themes/swatches";
-import { BUTTON_STYLES, EFFECTS, FONTS, OFFERED_LAYOUTS, RSVP_STYLES, TEXT_TONES, TITLE_PLACEMENTS, type Layout, type Poster } from "@/themes/theme";
+import { BUTTON_STYLES, EFFECTS, FONTS, OFFERED_LAYOUTS, TEXT_TONES, TITLE_PLACEMENTS, type Layout, type Poster } from "@/themes/theme";
 import { useTheme } from "@/themes/themed-page";
 import { TITLE_FONT_CLASSES } from "@/themes/title-fonts";
 import { describeUploadAction } from "@/uploads/actions";
@@ -313,18 +313,6 @@ export function DesignPanel({ eventId, maxUploadBytes, onClose }: { eventId: str
               options={BUTTON_STYLES.map((style) => ({ value: style, label: t(`buttonStyles.${style}`) }))}
               onSelect={(value) => choose({ knob: "buttonStyle", value })}
             />
-
-            {/* Only the Poster has an RSVP style; under another layout it is kept, unseen. */}
-            {resolved.layout === "poster" && (
-              <Segmented
-                legend={t("rsvpStyle")}
-                hint={t(`rsvpStyleHints.${theme.rsvpStyle}`)}
-                name="rsvpStyle"
-                value={theme.rsvpStyle}
-                options={RSVP_STYLES.map((style) => ({ value: style, label: t(`rsvpStyles.${style}`) }))}
-                onSelect={(value) => choose({ knob: "rsvpStyle", value })}
-              />
-            )}
 
             {/* Only a poster has a title placement: on its foot, or below it. */}
             {resolved.poster && (

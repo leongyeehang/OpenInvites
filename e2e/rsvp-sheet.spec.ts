@@ -1,10 +1,10 @@
 import { expect, test, type Locator, type Page } from "./test";
 import { createPublished } from "./events";
 
-// Ticket 11: the Sheet RSVP style, which Birthday (where every new event starts) uses. It is the
-// same flow as the Inline style (rsvp.spec.ts): the steps and the confirmation rise over the
-// invitation in a frosted sheet instead of opening under the buttons. The guest drives the test's
-// own page, so it all runs at 390 pixels in the mobile project and at desktop width in the other.
+// Ticket 11: the RSVP sheet, which the Poster layout always uses since M4: the steps and the
+// confirmation rise over the invitation in a frosted sheet, from the reply bar fixed to the foot
+// of the screen (M4 ticket 03). The guest drives the test's own page, so it all runs at 390
+// pixels in the mobile project and at desktop width in the other.
 
 const EVENT = { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "2" } as const;
 
@@ -67,25 +67,26 @@ test("a guest answers in a sheet that rises over the invitation and grows throug
   await expect(sheet.getByText(/^https?:\/\/\S+\/r\/\S+$/)).toBeVisible();
   await expect((await counts(host.page)).getByText("3 people expected")).toBeVisible();
 
-  // The confirmed sheet closes, and opens again.
+  // The confirmed sheet closes, the bar says so, and Change opens it again.
   await sheet.getByRole("button", { name: "Close" }).click();
   await expect(sheet).toBeHidden();
-  await expect(page.getByText("You replied as Priya Nair.")).toBeVisible();
-  await page.getByRole("button", { name: "Show my RSVP" }).click();
+  const bar = page.locator('[data-slot="rsvp-bar"]');
+  await expect(bar).toContainText("You’re going");
+  await bar.getByRole("button", { name: "Change" }).click();
   await expect(sheet.getByText("You’re going!")).toBeVisible();
 
   // Coming back on the same device finds the RSVP behind the same button, not a sheet in the way.
   await page.reload();
-  await expect(page.getByText("You replied as Priya Nair.")).toBeVisible();
+  await expect(bar).toContainText("You’re going");
   await expect(sheet).toHaveCount(0);
-  await page.getByRole("button", { name: "Show my RSVP" }).click();
+  await page.getByRole("button", { name: "Change", exact: true }).click();
   await sheet.getByRole("button", { name: "Edit details" }).click();
   await expect(sheet.getByLabel("Your name")).toHaveValue("Priya Nair");
 
   // Changing the answer closes the sheet on the buttons, keeps the name, and replaces the RSVP.
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();
-  await page.getByRole("button", { name: "Show my RSVP" }).click();
+  await page.getByRole("button", { name: "Change", exact: true }).click();
   await sheet.getByRole("button", { name: "Change my answer" }).click();
   await expect(sheet).toBeHidden();
   await page.getByRole("button", { name: "Maybe" }).click();
@@ -174,10 +175,10 @@ test("a guest can answer in the sheet with the keyboard alone", async ({ page, b
 
   await expect(sheet.getByText("You’re going!")).toBeVisible();
   await expect(sheet.getByText("Bringing Arjun.")).toBeVisible();
+  // Closed, the focus goes back to the bar, whose buttons have made way for Change.
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();
-  await expect(going).toBeFocused();
-  await expect(page.getByText("You replied as Priya Nair.")).toBeVisible();
+  await expect(page.locator('[data-slot="rsvp-bar"]').getByRole("button", { name: "Change" })).toBeFocused();
 
   await host.context.close();
 });
@@ -211,3 +212,87 @@ test("under reduced motion the sheet is simply there: nothing slides, fades or r
 
   await host.context.close();
 });
+
+// M4 ticket 03: the reply bar. Fixed to the foot of the screen at the top of a long page and at its
+// end, edge to edge less its margins on a phone and at the foot of the page's column on a wider
+// screen; the sheet opens from it, and the focus comes back to it, before and after a reply.
+test("the reply bar stays at the foot of the screen, opens the sheet, and takes the focus back", async ({ page, browser, request }) => {
+  test.slow();
+  const long = Array.from({ length: 30 }, (_, line) => `Line ${line + 1} of the plan for the evening.`).join("\n");
+  const host = await createPublished(browser, request, "reply-bar", { ...EVENT, location: "Ah Ma’s house", description: long });
+  await page.goto(host.link);
+  const bar = page.locator('[data-slot="rsvp-bar"]');
+  const viewport = page.viewportSize()!;
+
+  // At the foot of the screen, as the page opens and once it is scrolled to its end.
+  const atFoot = async () => {
+    const found = await box(bar);
+    const gap = viewport.height - (found.y + found.height);
+    expect(gap, "between the bar and the foot of the screen").toBeGreaterThanOrEqual(0);
+    expect(gap, "between the bar and the foot of the screen").toBeLessThanOrEqual(24);
+    return found;
+  };
+  const top = await atFoot();
+  expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeGreaterThan(viewport.height * 2);
+  // The page grows a little once the guest's device adds its pieces (the countdown, Open in Maps),
+  // so it is scrolled again until it is at its end.
+  const toEnd = () =>
+    page.evaluate(() => {
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" });
+      return Math.ceil(window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight;
+    });
+  await expect.poll(toEnd).toBe(true);
+  await page.waitForTimeout(300);
+  await expect.poll(toEnd).toBe(true);
+  expect(await atFoot()).toEqual(top);
+  // Nothing of the page is left under it at the end: the footer clears it.
+  const footer = await box(page.getByRole("contentinfo"));
+  expect(footer.y + footer.height).toBeLessThanOrEqual(top.y + 1);
+
+  const column = await box(page.locator("main"));
+  if (viewport.width < 768) {
+    expect(top.x).toBeGreaterThan(0);
+    expect(top.x).toBeLessThanOrEqual(16);
+    expect(viewport.width - (top.x + top.width)).toBeLessThanOrEqual(16);
+  } else {
+    // The page is a phone's width in the middle, and the bar sits in it.
+    expect(column.width).toBeLessThanOrEqual(448);
+    expect(Math.abs(column.x + column.width / 2 - viewport.width / 2)).toBeLessThanOrEqual(2);
+    expect(top.x).toBeGreaterThanOrEqual(column.x);
+    expect(top.x + top.width).toBeLessThanOrEqual(column.x + column.width);
+  }
+
+  // The sheet opens from it, by the keyboard too, and Escape hands the focus back to it.
+  const going = bar.getByRole("button", { name: "Going" });
+  await going.focus();
+  await page.keyboard.press("Enter");
+  const sheet = sheetOf(page);
+  await expect(sheet.getByLabel("Your name")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  await expect(going).toBeFocused();
+
+  // After a reply it says what it was, and Change opens the sheet on it.
+  await going.click();
+  await sheet.getByLabel("Your name").fill("Priya Nair");
+  await sheet.getByRole("button", { name: "Continue" }).click();
+  await sheet.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(sheet.getByRole("heading", { name: "You’re going!" })).toBeVisible({ timeout: 15_000 });
+  await sheet.getByRole("button", { name: "Close" }).click();
+  await expect(sheet).toBeHidden();
+  const change = bar.getByRole("button", { name: "Change" });
+  await expect(bar).toContainText("You’re going");
+  await expect(change).toBeFocused();
+  await expect(bar.getByRole("button", { name: "Going" })).toHaveCount(0);
+  await change.click();
+  await expect(sheet.getByRole("heading", { name: "You’re going!" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(change).toBeFocused();
+
+  // Coming back, the bar still says so.
+  await page.reload();
+  await expect(bar).toContainText("You’re going");
+
+  await host.context.close();
+});
+

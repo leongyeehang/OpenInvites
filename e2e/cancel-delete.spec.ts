@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "./test";
 import { createPublished } from "./events";
 import { PASSWORD } from "./hosts";
+import { openMyReply } from "./reply";
 
 // On the event's share page: the custom link set and shown.
 async function setCustomLink(hostPage: Page, custom: string) {
@@ -21,8 +22,6 @@ async function rsvp(page: Page, link: string, name: string) {
 test("a cancelled event keeps its page, with the news and no way to reply", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "cancel", {
-    // Inline, so the confirmation is in place of the buttons when the guest comes back.
-    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "0",
@@ -38,6 +37,7 @@ test("a cancelled event keeps its page, with the news and no way to reply", asyn
   await page.reload();
   await expect(page.getByRole("heading", { name: "Ada’s birthday" })).toBeVisible();
   await expect(page.getByText("This event is cancelled")).toBeVisible();
+  await openMyReply(page);
   await page.getByRole("button", { name: "Change my answer" }).click();
   await expect(page.getByRole("button", { name: "Going" })).toBeDisabled();
   await expect(page.getByText("This invitation is not taking RSVPs.")).toBeVisible();

@@ -11,7 +11,6 @@ import type { Question } from "@/questions/question";
 import { chosenStatus, RSVP_STATUSES, type RsvpStatus } from "@/rsvps/form";
 import type { GuestRsvp } from "@/rsvps/guest";
 import { Confetti } from "@/themes/effects/confetti";
-import { Glass } from "@/themes/glass";
 import { sheetVariables } from "@/themes/resolve";
 import { rsvpButtonClasses } from "@/themes/rsvp-buttons";
 import { useTheme } from "@/themes/themed-page";
@@ -19,24 +18,24 @@ import { Turnstile } from "@/turnstile/turnstile";
 import { useCopyLink } from "./use-copy-link";
 import { confirmedAs, offersCalendar, useRsvpFlow, type RsvpFlowProps, type Step } from "./use-rsvp-flow";
 
-// The guest's whole RSVP in the Poster layout: the three buttons under the poster, the steps, and
-// once they have answered, their confirmation. The flow's rules are use-rsvp-flow.ts's; this is
-// how the Poster presents them, whichever RSVP style the theme sets; only what the steps and the
-// confirmation appear in differs. Inline, they open under the buttons, and the confirmation takes
-// the buttons' place. In the Sheet style they rise over the invitation in a sheet (PROTOTYPE.md),
-// the buttons stay, and a guest who has answered can close the sheet and open it again.
+// The guest's whole RSVP in the Poster layout (M4 spec, "The guest page"): a bar fixed to the
+// foot of the screen, with the three buttons, or once they have answered, what they answered and
+// Change; and the steps and the confirmation in a sheet that rises over the invitation from it
+// (PROTOTYPE.md). The flow's rules are use-rsvp-flow.ts's; this is how the Poster presents them.
+// The theme's RSVP style knob is kept but no longer read here: a reply always opens in the sheet.
 // Everything wears the page's theme, which the host may be changing as the guest would see it.
 export function RsvpFlow(props: RsvpFlowProps) {
   const { settings, open, questions, calendar } = props;
   const t = useTranslations("Rsvp");
-  const { buttonStyle, rsvpStyle } = useTheme().resolved;
+  const { resolved } = useTheme();
+  const { buttonStyle } = resolved;
   const form = useRef<HTMLFormElement>(null);
-  // The sheet opens when the guest chooses a status or asks to see their RSVP, and hands focus
-  // back to whichever button that was when it closes.
-  const sheet = rsvpStyle === "sheet";
+  // The sheet opens when the guest chooses a status or asks to change their reply, and hands
+  // focus back to whichever button that was when it closes.
   const [sheetOpen, setSheetOpen] = useState(false);
   const opener = useRef<HTMLButtonElement | null>(null);
   const statusButtons = useRef<Partial<Record<RsvpStatus, HTMLButtonElement | null>>>({});
+  const changeButton = useRef<HTMLButtonElement | null>(null);
   const followFocus = useRef(false);
   const confirmationHeading = useRef<HTMLHeadingElement>(null);
   const codeField = useRef<HTMLInputElement>(null);
@@ -44,12 +43,12 @@ export function RsvpFlow(props: RsvpFlowProps) {
 
   // Sending, removing or going back to change an answer takes away the button that was pressed.
   // The focus goes to the confirmation's heading once the answer is saved, which a screen reader
-  // then reads out, back to the status buttons once it is removed or being changed, and to the
-  // code's field once a code is sent. The sheet, closing, hands it back to the buttons itself.
-  const flow = useRsvpFlow(props, (target, status) => {
-    if (target === "confirmation") confirmationHeading.current?.focus({ preventScroll: sheet });
-    if (target === "status" && !sheet) statusButtons.current[status]?.focus();
-    if (target === "code") codeField.current?.focus({ preventScroll: sheet });
+  // then reads out, and to the code's field once a code is sent; once it is removed or being
+  // changed, the sheet, closing, hands it back to the bar itself. Nothing scrolls the page under
+  // the sheet, which is fixed to the screen.
+  const flow = useRsvpFlow(props, (target) => {
+    if (target === "confirmation") confirmationHeading.current?.focus({ preventScroll: true });
+    if (target === "code") codeField.current?.focus({ preventScroll: true });
   });
   const { step, draft, change, recordAnswer, steps, position, last, confirmed, answering, working } = flow;
 
@@ -64,7 +63,7 @@ export function RsvpFlow(props: RsvpFlowProps) {
   // Back from the code to the email, with the focus in it.
   const changeEmail = () => {
     flushSync(flow.changeEmail);
-    form.current?.querySelector<HTMLInputElement>('input[name="email"]')?.focus({ preventScroll: sheet });
+    form.current?.querySelector<HTMLInputElement>('input[name="email"]')?.focus({ preventScroll: true });
   };
 
   const openSheet = (from: HTMLButtonElement) => {
@@ -77,16 +76,17 @@ export function RsvpFlow(props: RsvpFlowProps) {
     flow.stopAnswering();
   };
   // Once the sheet has gone, however it went (the guest may have changed or removed their answer
-  // from inside it), it stays shut, and focus goes back to what opened it or, when that has gone
-  // too, to the button for the status they are choosing from.
+  // from inside it), it stays shut, and focus goes back to the bar: to what opened it or, when that
+  // has gone too, to the button for the status they are choosing from, or to Change.
   const sheetClosed = () => {
     setSheetOpen(false);
-    (opener.current?.isConnected ? opener.current : statusButtons.current[draft.status])?.focus();
+    const back = [opener.current, statusButtons.current[draft.status], changeButton.current].find((button) => button?.isConnected);
+    back?.focus();
   };
 
   const pick = (status: RsvpStatus, from: HTMLButtonElement) => {
     flow.pick(status);
-    if (sheet) openSheet(from);
+    openSheet(from);
   };
 
   // Enter moves on from inside a step, which hides the field it was pressed in. Focus follows to
@@ -109,14 +109,12 @@ export function RsvpFlow(props: RsvpFlowProps) {
       refusal={flow.withdrawRefusal && t(`errors.${flow.withdrawRefusal}`)}
       calendar={calendar}
       dismiss={
-        sheet && (
-          <Dialog.Close
-            aria-label={t("sheet.close")}
-            className="-mt-1 -mr-2 grid size-9 shrink-0 cursor-pointer place-items-center rounded-full hover:bg-theme-glass"
-          >
-            <X className="size-5" aria-hidden />
-          </Dialog.Close>
-        )
+        <Dialog.Close
+          aria-label={t("sheet.close")}
+          className="-mt-1 -mr-2 grid size-9 shrink-0 cursor-pointer place-items-center rounded-full hover:bg-theme-glass"
+        >
+          <X className="size-5" aria-hidden />
+        </Dialog.Close>
       }
     />
   );
@@ -413,81 +411,71 @@ export function RsvpFlow(props: RsvpFlowProps) {
     </form>
   );
 
-  // What the buttons show as chosen: the saved answer once there is one (Going for a guest on the
-  // waitlist, which they asked for), else the one being given.
-  const chosen = confirmed ? chosenStatus(confirmed.status) : answering ? draft.status : undefined;
-  const buttons = (
-    <>
-      <div className="grid grid-cols-3 gap-2">
-        {RSVP_STATUSES.map((status) => (
-          <button
-            key={status}
-            ref={(button) => {
-              statusButtons.current[status] = button;
-            }}
-            type="button"
-            disabled={!open}
-            onClick={(event) => pick(status, event.currentTarget)}
-            className={rsvpButtonClasses(buttonStyle, { selected: chosen === status })}
-          >
-            {t(status)}
-          </button>
-        ))}
-      </div>
-      {/* Set on the page itself, so on the veil that keeps bare text readable. */}
-      {!open && <p className="mx-auto mt-2 w-fit rounded-full bg-theme-veil px-3 py-1 text-center text-xs text-theme-text-faint backdrop-blur-xl">{t("errors.closed")}</p>}
-      {flow.fullNotice && (
-        <p className="mx-auto mt-2 w-fit rounded-full bg-theme-veil px-3 py-1.5 text-center text-xs text-theme-text-muted backdrop-blur-xl">{t(flow.fullNotice)}</p>
-      )}
-    </>
-  );
+  // What the buttons show as chosen while the guest is choosing again: the saved answer (Going for
+  // a guest on the waitlist, which they asked for), else the one being given.
+  const chosen = answering ? draft.status : flow.answer ? chosenStatus(flow.answer.status) : undefined;
+  // Once they have answered, until they choose to answer again, the bar says what they answered.
+  const replied = confirmed;
 
   // The confetti falls as the confirmation appears. It sits first, apart from whatever the flow
   // shows, so going on from the confirmation neither stops it nor starts it again.
   const confetti = flow.falls > 0 && <Confetti key={flow.falls} />;
 
-  if (!sheet) {
-    if (confirmation)
-      return (
-        <>
-          {confetti}
-          <Glass className="p-5">{confirmation}</Glass>
-        </>
-      );
-    return (
-      <>
-        {confetti}
-        <div>
-          {buttons}
-          {stepper && <Glass className="mt-3 p-5">{stepper}</Glass>}
-        </div>
-      </>
-    );
-  }
-
   return (
     <>
       {confetti}
-      <div>
-        {buttons}
-        {/* On the veil too. It stays while the sheet is open, so focus can come back to it. */}
-        {confirmed && (
-          <p className="mx-auto mt-2 w-fit rounded-full bg-theme-veil px-3 py-1.5 text-center text-xs text-theme-text-muted backdrop-blur-xl">
-            {t("replied", { name: confirmed.name })}{" "}
-            <button type="button" onClick={(event) => openSheet(event.currentTarget)} className="cursor-pointer font-medium text-theme-text underline underline-offset-2">
-              {t("showMine")}
-            </button>
-          </p>
-        )}
-        <RsvpSheet open={sheetOpen && (answering || confirmed !== undefined)} onClose={closeSheet} onClosed={sheetClosed}>
-          {confirmation || stepper}
-        </RsvpSheet>
+      {/* Fixed to the foot of the screen, inside the safe area, and on a wider screen to the foot of
+          the page's column. It floats over whatever the page has under it there, so it is a surface
+          of the sheet's kind, solved against anything (legibility.ts, SHEET_SURFACES). The page
+          leaves room for it at its foot (themed-page.tsx). */}
+      <div
+        data-slot="rsvp-bar"
+        className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 mx-auto max-w-[26rem] designing:max-md:hidden designing:md:right-auto designing:md:left-[calc(50%-25.625rem)] designing:md:w-[26rem]"
+        style={sheetVariables(resolved) as CSSProperties}
+      >
+        <div className="rounded-[1.6rem] border border-theme-glass-border bg-theme-sheet p-2 text-theme-text shadow-sheet backdrop-blur-2xl">
+          {!open && <p className="px-2 pt-1 pb-2 text-center text-xs text-theme-text-faint">{t("errors.closed")}</p>}
+          {flow.fullNotice && <p className="px-2 pt-1 pb-2 text-center text-xs text-theme-text-muted">{t(flow.fullNotice)}</p>}
+          {replied ? (
+            <div className="flex items-center gap-3 pl-3">
+              <p className="min-w-0 flex-1 text-sm font-medium">{t(`bar.${confirmedAs(replied)}`, { position: replied.waitlistPosition ?? 0 })}</p>
+              <button
+                ref={changeButton}
+                type="button"
+                onClick={(event) => openSheet(event.currentTarget)}
+                className="h-11 shrink-0 cursor-pointer rounded-2xl bg-theme-glass-strong px-4 text-sm font-medium hover:bg-theme-glass"
+              >
+                {t("bar.change")}
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              {RSVP_STATUSES.map((status) => (
+                <button
+                  key={status}
+                  ref={(button) => {
+                    statusButtons.current[status] = button;
+                  }}
+                  type="button"
+                  disabled={!open}
+                  onClick={(event) => pick(status, event.currentTarget)}
+                  className={rsvpButtonClasses(buttonStyle, { selected: chosen === status })}
+                >
+                  {t(status)}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+      <RsvpSheet open={sheetOpen && (answering || confirmed !== undefined)} onClose={closeSheet} onClosed={sheetClosed}>
+        {confirmation || stepper}
+      </RsvpSheet>
     </>
   );
 }
 
-// The Sheet style's container: a frosted sheet that rises from the foot of the screen over the
+// The sheet: a frosted sheet that rises from the foot of the screen over the
 // invitation, which stays in view above it, and grows and shrinks with its step. It is modal to
 // the flow: focus stays inside it until it closes, and Escape closes it. A tap on the page behind
 // does nothing, so a guest who taps away the keyboard mid-answer keeps their place. It is put

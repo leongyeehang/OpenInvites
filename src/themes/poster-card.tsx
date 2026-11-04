@@ -2,73 +2,49 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { BackgroundDescription } from "./background-description";
-import { Glass } from "./glass";
 import { PosterTitle } from "./poster-title";
 import { posterTitleVariables, type ResolvedPoster } from "./resolve";
 import { useTheme } from "./themed-page";
 
-// The poster is as wide as the card, unless that would make it taller than the screen: then it
-// is as tall as the screen allows, with room to see the page goes on, and narrower, so a guest
-// sees all of it at once. It is never narrower than 20rem, where a title still fits on it.
+// Beside the Broadsheet's title and in the Thread's bubble, the poster is as wide as its place,
+// unless that would make it taller than the screen: then it is as tall as the screen allows, with
+// room to see the page goes on, and narrower, so a guest sees all of it at once. It is never
+// narrower than 20rem, where a title still fits on it.
 export const fitted = ({ width, height }: ResolvedPoster): CSSProperties => ({ width: `min(100%, max(20rem, calc((100svh - 6rem) * ${width / height})))` });
 
-// The invitation at the top of the Poster layout: a frosted card with the title large, the date
-// and who is hosting. In poster mode the host's picture is the invitation itself, at its own
-// proportions, with the title on its foot over a scrim or in a card below it. It follows the
-// theme as the host changes it, so the server hands it its pieces and it arranges them.
-export function PosterCard({
-  title,
-  eyebrow,
-  sticker,
-  host,
-  className,
-}: {
-  title: string;
-  eyebrow: ReactNode;
-  sticker: ReactNode;
-  host: ReactNode;
-  className?: string;
-}) {
-  const { theme, resolved } = useTheme();
-  const { poster } = resolved;
-  const date = <StickerHolder tilted={theme.effect === "doodles"}>{sticker}</StickerHolder>;
+// The top of the Poster layout (M4 spec, "The guest page"): the poster first, as wide as the
+// page's column, and the title with its date on it or below it. A picture, the host's or the
+// gallery's, is shown at its own proportions; one too tall for the screen is narrowed so the page
+// shows it whole. With the title below it, it fades into the blurred copy behind the page, and the
+// title rises a little into the faded foot, where almost nothing of the picture is left to read
+// against. With the title on it, the title and date sit on a frosted shade at its foot that reads
+// over anything (legibility.ts, POSTER_SURFACES). A colour is a block of its gradient, 4:5, with
+// the title on it the same way. It follows the theme as the host changes it, so the server hands
+// it its pieces and it arranges them.
+export function PosterHero({ title, when, className }: { title: string; when: ReactNode; className?: string }) {
+  const { resolved } = useTheme();
+  const { poster, background } = resolved;
 
-  if (!poster) {
+  if (!poster || poster.titlePlacement === "on") {
     return (
-      <Glass data-slot="poster-card" className={cn("relative overflow-hidden rounded-4xl p-6 shadow-poster sm:p-8", className)}>
-        <div className="absolute top-5 right-5 sm:top-7 sm:right-7">{date}</div>
-        {eyebrow}
-        <PosterTitle title={title} className="mt-12 sm:mt-14" />
-        <div className="mt-6">{host}</div>
-        <BackgroundDescription />
-      </Glass>
-    );
-  }
-
-  if (poster.titlePlacement === "on") {
-    // The picture and the title's block share one cell, the block at its foot, as wide as the
-    // picture whatever the title's longest word. A block taller than a wide, short poster makes
-    // the card taller, on the base colour, rather than lose any of the title. Under the block
-    // the poster is frosted and shaded as the glass is, at the strength that reads over anything
-    // (legibility.ts, POSTER_SURFACES), fading out over its top padding so that it holds wherever
-    // the title wraps. Who is hosting goes beneath, so the block covers as little as it can.
-    return (
-      <div data-slot="poster-card" className={className}>
-        <div className="@container mx-auto grid grid-cols-1 overflow-hidden rounded-4xl bg-theme-base shadow-poster ring-1 ring-theme-glass-border" style={fitted(poster)}>
-          <Picture poster={poster} className="col-start-1 row-start-1" />
-          <div className="relative col-start-1 row-start-1 self-end px-6 pt-16 pb-6 sm:px-8 sm:pb-7" style={posterTitleVariables(resolved) as CSSProperties}>
-            <div aria-hidden className="absolute inset-0 bg-theme-title-scrim backdrop-blur-xl [mask-image:linear-gradient(to_top,#000_calc(100%-4rem),transparent)]" />
+      <div data-slot="poster-card" className={cn("@container", className)}>
+        <div
+          className="mx-auto grid grid-cols-1 bg-theme-base md:mt-6 md:overflow-hidden md:rounded-4xl md:shadow-poster md:ring-1 md:ring-theme-glass-border"
+          style={poster ? heroWidth(poster) : undefined}
+        >
+          {poster ? (
+            <Picture poster={poster} sizes={HERO_SIZES} className="col-start-1 row-start-1" />
+          ) : (
+            // A colour poster: its gradient, which the page behind it wears too.
+            <div aria-hidden className="col-start-1 row-start-1 aspect-[4/5] max-h-[70svh] w-full" style={{ background: background.kind === "gradient" ? background.css : undefined }} />
+          )}
+          <div className="relative col-start-1 row-start-1 self-end px-5 pt-20 pb-5 sm:px-6" style={posterTitleVariables(resolved) as CSSProperties}>
+            <div aria-hidden className="absolute inset-0 bg-theme-title-scrim backdrop-blur-xl [mask-image:linear-gradient(to_top,#000_calc(100%-5rem),transparent)]" />
             <div className="relative">
-              {eyebrow}
-              <PosterTitle title={title} compact className="mt-2" />
+              <PosterTitle title={title} compact />
+              <p className="mt-2 text-sm font-medium text-theme-text-muted">{when}</p>
             </div>
           </div>
-        </div>
-        <div className="mt-3 flex justify-center">
-          <Glass strong className="rounded-full py-1.5 pr-4 pl-1.5">
-            {host}
-          </Glass>
         </div>
       </div>
     );
@@ -76,45 +52,23 @@ export function PosterCard({
 
   return (
     <div data-slot="poster-card" className={cn("@container", className)}>
-      <Picture poster={poster} className="mx-auto rounded-4xl shadow-poster ring-1 ring-theme-glass-border" style={fitted(poster)} />
-      <Glass className="mt-3 rounded-4xl p-6 sm:p-8">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            {eyebrow}
-            <PosterTitle title={title} compact className="mt-3" />
-          </div>
-          {date}
-        </div>
-        <div className="mt-6">{host}</div>
-      </Glass>
+      <div className="mx-auto md:mt-6 md:overflow-hidden md:rounded-t-4xl" style={heroWidth(poster)}>
+        <Picture poster={poster} sizes={HERO_SIZES} className="[mask-image:linear-gradient(#000_70%,transparent)]" />
+      </div>
+      <div className="relative -mt-8 px-5 sm:px-6">
+        <PosterTitle title={title} />
+        <p className="mt-2 text-sm font-medium text-theme-text-muted">{when}</p>
+      </div>
     </div>
   );
 }
 
-// Holds the date sticker the layout drew. The Doodles effect tilts it about 6 degrees and fills it
-// with the accent, as round one's B had it (PROTOTYPE.md, "Effect"): when motion is welcome it
-// lands at its tilt with a small spring, once; under reduced motion it is simply there, tilted.
-// On the accent its three lines take the accent's own text colour, as everything filled with the
-// accent does (legibility.ts, onAccent), so the holder sets the glass and the text strengths the
-// sticker draws with on itself.
-function StickerHolder({ tilted, children }: { tilted: boolean; children: ReactNode }) {
-  return (
-    <div
-      data-slot="date-sticker"
-      className={cn("shrink-0", tilted && "-rotate-6 text-theme-on-accent motion-safe:animate-theme-sticker-in")}
-      style={tilted ? ON_ACCENT : undefined}
-    >
-      {children}
-    </div>
-  );
-}
+// The poster spans the page's column (28rem at most), edge to edge on a phone.
+const HERO_SIZES = "(min-width: 28rem) 28rem, 100vw";
 
-const ON_ACCENT = {
-  "--theme-glass-strong": "var(--theme-accent)",
-  "--theme-glass-border": "var(--theme-accent)",
-  "--theme-text-muted": "var(--theme-on-accent)",
-  "--theme-text-faint": "var(--theme-on-accent)",
-} as CSSProperties;
+// As wide as the column, unless that would make it taller than most of the screen: then narrower,
+// so a guest sees all of it at once. Never narrower than 20rem, where a title still fits on it.
+const heroWidth = ({ width, height }: ResolvedPoster): CSSProperties => ({ width: `min(100%, max(20rem, calc(85svh * ${width / height})))` });
 
 // The poster itself, at its own proportions: its size is known before it arrives, so the page
 // keeps its place. It is the first thing a guest sees, and the largest, so it is fetched first.

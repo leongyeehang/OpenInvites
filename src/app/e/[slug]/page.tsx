@@ -211,7 +211,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // The same rule the file itself follows: there is nothing to put in a calendar until an event
   // is published, and nothing worth keeping there once it is called off.
   const calendar = acceptsRsvps(event.state) ? (
-    <AddToCalendar event={event} link={link} inCard={resolved.layout === "broadsheet"} chips={resolved.layout === "thread"} />
+    <AddToCalendar event={event} link={link} inCard={resolved.layout !== "thread"} chips={resolved.layout === "thread"} />
   ) : undefined;
 
   const notice = isDraft ? <DraftNotice eventId={event.id} /> : event.state === "cancelled" ? <CancelledNotice /> : undefined;

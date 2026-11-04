@@ -1,5 +1,6 @@
 import { createPublished } from "./events";
 import { MAILPIT, latestMailTo, mailCountTo } from "./hosts";
+import { closeReply } from "./reply";
 import { expect, test, type APIRequestContext, type Page } from "./test";
 
 // Ticket 06: guests who have replied, and the hosts, comment on the event page; a guest who has not
@@ -8,7 +9,6 @@ import { expect, test, type APIRequestContext, type Page } from "./test";
 // often is refused. Mail is read in Mailpit; each host has an address of their own.
 
 const EVENT = {
-  rsvpStyle: "Inline",
   title: "Ada’s birthday",
   start: "2027-03-06T19:00",
   plusOnes: "0",
@@ -18,13 +18,15 @@ const EVENT = {
 // default, 30 a ten minutes.
 const COMMENT_LIMIT = 30;
 
-// A guest answers Going on the page already open, which then shows them the comments.
+// A guest answers Going on the page already open, closes the confirmation, and is shown the
+// comments.
 async function reply(page: Page, link: string, name: string) {
   await page.goto(link);
   await page.getByRole("button", { name: "Going" }).click();
   await page.getByLabel("Your name").fill(name);
   await page.getByRole("button", { name: "Send RSVP" }).click();
   await expect(page.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+  await closeReply(page);
   await expect(page.getByLabel("Add a comment")).toBeVisible();
 }
 

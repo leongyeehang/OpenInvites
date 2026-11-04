@@ -100,12 +100,9 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await expect(sheet).toBeHidden();
   await expectStill(page, "the event page, the sheet closed");
 
-  // Inline, another guest answers under the buttons, step by step, and their Going brings no
-  // confetti.
+  // With confetti chosen, another guest answers step by step, and their Going brings none.
   await host.getByRole("button", { name: "Design" }).click();
   await drawer.getByRole("button", { name: "Details" }).click();
-  await drawer.getByRole("group", { name: "RSVP style" }).getByRole("radio", { name: "Inline" }).check();
-  await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain('rsvpStyle\\":\\"inline');
   await drawer.getByRole("group", { name: "Effect" }).getByRole("radio", { name: "Confetti" }).check();
   await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain('effect\\":\\"confetti');
   const second = await browser.newContext({ reducedMotion: "reduce" });
@@ -113,22 +110,20 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await inline.goto(link);
   await inline.getByRole("button", { name: "Going" }).click();
   await inline.getByLabel("Your name").fill("Mei Tan");
-  await expect(inline.getByRole("dialog")).toHaveCount(0);
-  await expectStill(inline, "the Inline RSVP flow, the name step");
+  await expectStill(inline, "the RSVP sheet with confetti chosen, the name step");
   await inline.getByRole("button", { name: "Continue" }).click();
   await inline.getByRole("radio", { name: "+1" }).click();
-  await expectStill(inline, "the Inline RSVP flow, the plus-ones step");
+  await expectStill(inline, "the RSVP sheet with confetti chosen, the plus-ones step");
   await inline.getByRole("button", { name: "Continue" }).click();
-  await expectStill(inline, "the Inline RSVP flow, the questions step");
+  await expectStill(inline, "the RSVP sheet with confetti chosen, the questions step");
   await inline.getByRole("button", { name: "Send RSVP" }).click();
   await expect(inline.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
   // It would come with the confirmation, so none now is none at all.
   expect(await inline.locator('[data-effect="confetti"]').count()).toBe(0);
-  await expectStill(inline, "the Inline RSVP flow, the confirmation, with confetti chosen");
+  await expectStill(inline, "the RSVP sheet, the confirmation, with confetti chosen");
   await second.close();
 
-  // Doodles: the shapes are not drawn, and the date sticker sits tilted and still, here and on the
-  // poster below.
+  // Doodles: the shapes are not drawn.
   await drawer.getByRole("group", { name: "Effect" }).getByRole("radio", { name: "Doodles" }).check();
   await expect.poll(() => guestHtml(request, link), { timeout: 15_000 }).toContain('effect\\":\\"doodles');
   await expectStill(host, "the Design drawer, with doodles");
@@ -283,7 +278,7 @@ test("under reduced motion nothing M3 added moves: the code step, approval and t
     [chen, "The host wasn’t able to accept your reply."],
   ] as const) {
     await guest.reload();
-    await guest.getByRole("button", { name: "Show my RSVP" }).click();
+    await guest.getByRole("button", { name: "Change", exact: true }).click();
     await expect(guest.getByRole("dialog", { name: "Your RSVP" }).getByRole("heading", { name: heading })).toBeVisible();
     await expectStill(guest, `the sheet: ${heading}`);
   }

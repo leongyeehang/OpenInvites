@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eventEnd, formatDateSticker, formatDay, formatWhen, isTimeZone, partitionByEnd, timeZones, toInstant, toWallTime } from "./time";
+import { eventEnd, formatDay, formatWhenBrief, formatWhen, isTimeZone, partitionByEnd, timeZones, toInstant, toWallTime } from "./time";
 
 describe("toInstant", () => {
   it("reads a wall-clock time in the event's zone", () => {
@@ -118,15 +118,23 @@ describe("partitionByEnd", () => {
   });
 });
 
-describe("formatDateSticker", () => {
+describe("formatWhenBrief", () => {
   const startsAt = new Date("2027-03-06T11:00:00Z"); // 7 PM on Saturday 6 March in Singapore
+  const at = (timeZone: string) => ({ startsAt, endsAt: null, allDay: false, timeZone });
 
-  it("gives the weekday, day, and month in the event's zone and the guest's language", () => {
-    expect(formatDateSticker({ startsAt, timeZone: "Asia/Singapore" }, "en")).toEqual({ weekday: "Sat", day: "6", month: "Mar" });
-    // The same instant is still Saturday morning in Los Angeles.
-    expect(formatDateSticker({ startsAt, timeZone: "America/Los_Angeles" }, "en")).toEqual({ weekday: "Sat", day: "6", month: "Mar" });
-    // In New Zealand it is already Sunday.
-    expect(formatDateSticker({ startsAt, timeZone: "Pacific/Auckland" }, "en")).toEqual({ weekday: "Sun", day: "7", month: "Mar" });
-    expect(formatDateSticker({ startsAt, timeZone: "Asia/Singapore" }, "zh-Hans")).toEqual({ weekday: "周六", day: "6日", month: "3月" });
+  it("gives the start's day, short, and its time, in the event's zone and the guest's language", () => {
+    expect(formatWhenBrief(at("Asia/Singapore"), "en")).toBe("Sat, Mar 6 · 7:00 PM");
+    // The same instant is still Saturday morning in Los Angeles; in New Zealand it is Sunday.
+    expect(formatWhenBrief(at("America/Los_Angeles"), "en")).toBe("Sat, Mar 6 · 3:00 AM");
+    expect(formatWhenBrief(at("Pacific/Auckland"), "en")).toBe("Sun, Mar 7 · 12:00 AM");
+    expect(formatWhenBrief(at("Asia/Singapore"), "zh-Hans")).toBe("3月6日周六 · 19:00");
+  });
+
+  it("gives an all-day event its days alone", () => {
+    const day = new Date("2027-03-05T16:00:00Z"); // midnight on 6 March in Singapore
+    expect(formatWhenBrief({ startsAt: day, endsAt: null, allDay: true, timeZone: "Asia/Singapore" }, "en")).toBe("Sat, Mar 6");
+    const end = new Date("2027-03-06T16:00:00Z");
+    expect(formatWhenBrief({ startsAt: day, endsAt: end, allDay: true, timeZone: "Asia/Singapore" }, "en")).toMatch(/^Sat, Mar 6\s–\sSun, Mar 7$/);
   });
 });
+

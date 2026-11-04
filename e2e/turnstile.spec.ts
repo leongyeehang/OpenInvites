@@ -129,7 +129,7 @@ test.describe("on an instance whose operator has set Turnstile's keys", () => {
 
   test("a guest's reply sent without its token is refused, and goes once sent again", async ({ page, browser, request }) => {
     test.slow();
-    const host = await createPublished(browser, request, "turnstile-poster", { rsvpStyle: "Inline", title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "1" });
+    const host = await createPublished(browser, request, "turnstile-poster", { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "1" });
 
     // Up to the last step, whose submit sends the reply: the check stands beside it.
     const send = page.getByRole("button", { name: "Send RSVP" });
@@ -312,7 +312,7 @@ test.describe("on an instance whose operator has set Turnstile's keys", () => {
     request,
   }) => {
     test.slow();
-    const host = await createPublished(browser, request, "turnstile-sheet", { rsvpStyle: "Sheet", title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0" });
+    const host = await createPublished(browser, request, "turnstile-sheet", { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0" });
 
     // A guest whose browser blocks Cloudflare. Can't go asks only the name, so its step is the
     // last, and Enter in its one field would send the form if nothing stopped it.

@@ -116,12 +116,10 @@ test("the drawer keeps its order, offers the three layouts, and gets out of the 
   await expect(broadsheet).toBeEnabled();
   await expect(broadsheet.locator("..")).toContainText("An editorial page with one reply form.");
 
-  // Choosing it changes the layout and nothing else, and the RSVP style, the Poster's alone, goes.
+  // Choosing it changes the layout and nothing else.
   await drawer.getByRole("button", { name: "Details" }).click();
-  await expect(drawer.getByRole("group", { name: "RSVP style" }).getByRole("radio", { name: "Sheet" })).toBeChecked();
   await broadsheet.check();
   await expect(host.page.locator("[data-layout]")).toHaveAttribute("data-layout", "broadsheet");
-  await expect(drawer.getByRole("group", { name: "RSVP style" })).toHaveCount(0);
   await expect(drawer.getByRole("group", { name: "Poster" }).getByRole("radio", { name: "Golden hour" })).toBeChecked();
   await expect(drawer.getByRole("radio", { name: "Instrument Serif" })).toBeChecked();
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('data-layout="broadsheet"');
@@ -129,10 +127,9 @@ test("the drawer keeps its order, offers the three layouts, and gets out of the 
   await expect(page.getByRole("radio", { name: "I’ll be there" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Going" })).toHaveCount(0);
 
-  // Back to the Poster, the RSVP style is where the host left it.
+  // Back to the Poster.
   await layouts.getByRole("radio", { name: /Poster/ }).check();
   await expect(host.page.locator("[data-layout]")).toHaveAttribute("data-layout", "poster");
-  await expect(drawer.getByRole("group", { name: "RSVP style" }).getByRole("radio", { name: "Sheet" })).toBeChecked();
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).toContain('data-layout="poster"');
 
   // A gallery poster's look leaves the layout as the host set it.
@@ -154,7 +151,7 @@ test("the drawer keeps its order, offers the three layouts, and gets out of the 
   await host.context.close();
 });
 
-// Ticket 11: the RSVP style row, and the drawer's two forms.
+// Ticket 11: the drawer's two forms.
 
 // Its slide-in has finished, so it is where it will stay.
 async function settled(locator: Locator) {
@@ -166,42 +163,6 @@ async function box(locator: Locator) {
   expect(found, "on screen").not.toBeNull();
   return found!;
 }
-
-test("a host chooses whether guests answer inline or in a sheet, and a poster's look leaves it be", async ({ page, browser, request }) => {
-  test.slow();
-  const host = await createPublished(browser, request, "design-rsvp-style", EVENT);
-  await host.page.goto(host.link);
-  const drawer = await openDrawer(host.page);
-  await drawer.getByRole("button", { name: "Details" }).click();
-  const style = drawer.getByRole("group", { name: "RSVP style" });
-
-  // Every event starts on the sheet.
-  await expect(style.getByRole("radio", { name: "Sheet" })).toBeChecked();
-  await page.goto(host.link);
-  await page.getByRole("button", { name: "Going" }).click();
-  await expect(page.getByRole("dialog", { name: "Your RSVP" }).getByLabel("Your name")).toBeVisible();
-
-  // Inline makes the theme the host's own, and guests answer under the buttons.
-  await style.getByRole("radio", { name: "Inline" }).check();
-  await expect(drawer.getByText("Saved", { exact: true })).toBeVisible();
-  await page.reload();
-  await page.getByRole("button", { name: "Going" }).click();
-  await expect(page.getByLabel("Your name")).toBeVisible();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-
-  // A gallery poster keeps how guests answer; the host sets the sheet back themselves.
-  await drawer.getByRole("radio", { name: "Balloons" }).check();
-  await expect(drawer.getByRole("radio", { name: "Balloons" })).toBeChecked();
-  await expect(style.getByRole("radio", { name: "Inline" })).toBeChecked();
-  await style.getByRole("radio", { name: "Sheet" }).check();
-  await expect(style.getByRole("radio", { name: "Sheet" })).toBeChecked();
-  await expect(drawer.getByText("Saved", { exact: true })).toBeVisible();
-  await page.reload();
-  await page.getByRole("button", { name: "Going" }).click();
-  await expect(page.getByRole("dialog", { name: "Your RSVP" })).toBeVisible();
-
-  await host.context.close();
-});
 
 test("the drawer is a bottom sheet on a phone and a side panel on a wider screen, with the page in view and changing", async ({ browser, request }) => {
   test.slow();
@@ -222,6 +183,9 @@ test("the drawer is a bottom sheet on a phone and a side panel on a wider screen
     await expect.poll(edges).toEqual({ left: 0, right: 0, foot: 0 });
     const panel = await box(drawer);
     expect(panel.height).toBeLessThan(page.viewportSize()!.height * 0.7);
+    // The poster runs the column's width, so the title may sit below the fold; scrolled to, it is
+    // in view above the sheet.
+    await page.evaluate(() => document.querySelector("h1")!.scrollIntoView({ block: "start" }));
     const title = await box(page.locator("h1"));
     expect(title.y + title.height).toBeLessThanOrEqual(panel.y);
     // And room to scroll the whole page up above it.

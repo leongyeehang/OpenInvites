@@ -1,13 +1,14 @@
 import { expect, test, type Browser, type Page } from "./test";
 import { createPublished } from "./events";
 import { latestMailTo, linkIn, newHost, PASSWORD } from "./hosts";
+import { replyBar } from "./reply";
 
 // Ticket 20: the core guest flow (open the invitation, answer Going with a plus-one, see the
 // confirmation, be offered the calendar) in each of the three languages, chosen as a guest's own
 // browser chooses it, by its Accept-Language, and once through the language switcher. The host
 // is English-speaking, as the other specs' hosts are; what changes is the guest's browser.
 
-const EVENT = { title: "Ada’s birthday", start: "2027-03-06T19:00", end: "2027-03-06T22:00", plusOnes: "2", rsvpStyle: "Inline" } as const;
+const EVENT = { title: "Ada’s birthday", start: "2027-03-06T19:00", end: "2027-03-06T22:00", plusOnes: "2" } as const;
 
 // What a guest reads in each language. The when-line is Intl's own long date in the event's zone,
 // so it is matched by its date, which is what a guest checks.
@@ -83,10 +84,10 @@ async function goingWithAPlusOne(page: Page, copy: Copy) {
   await expect(page.getByText(copy.done)).toBeVisible();
   await expect(page.getByText(copy.summary)).toBeVisible();
   await expect(page.getByText(copy.bringing)).toBeVisible();
-  // Offered in the confirmation, and in the page's own calendar card.
-  const calendar = page.getByRole("link", { name: copy.calendar });
-  await expect(calendar).toHaveCount(2);
-  await expect(calendar.first()).toHaveAttribute("href", /\/calendar\.ics$/);
+  // Offered in the confirmation, in the sheet over the page.
+  const calendar = page.getByRole("dialog").getByRole("link", { name: copy.calendar });
+  await expect(calendar).toHaveCount(1);
+  await expect(calendar).toHaveAttribute("href", /\/calendar\.ics$/);
 }
 
 for (const [acceptLanguage, locale] of [
@@ -117,9 +118,12 @@ test("a guest switches the invitation to Traditional Chinese, and it stays that 
   await switcher.getByRole("button", { name: "繁體中文" }).click();
   await goingWithAPlusOne(page, COPY["zh-Hant"]);
 
-  // The choice is remembered on this device, over the browser's own language.
+  // The choice is remembered on this device, over the browser's own language: the bar's one
+  // button, Change, opens the answer in it.
   await page.reload();
+  await replyBar(page).getByRole("button").click();
   await expect(page.getByText(COPY["zh-Hant"].done)).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("contentinfo").getByRole("form", { name: "語言" }).getByRole("button", { name: "繁體中文" })).toHaveAttribute(
     "aria-current",
     "true",

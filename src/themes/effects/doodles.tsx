@@ -7,8 +7,8 @@ const floats = "absolute motion-safe:animate-theme-float";
 
 // The Doodles effect, in the backdrop (PROTOTYPE.md, "Effect"; round one's B): seven shapes in the
 // accent at low opacity, rings, dots, a tile, a stroke and a squiggle, near the screen's edges,
-// each floating up and back at its own slow pace. On the Poster layout the date sticker tilts too
-// (poster-card.tsx). Under reduced motion none of the shapes are drawn.
+// each floating up and back at its own slow pace. Under reduced motion none of the shapes are
+// drawn.
 export function Doodles() {
   return (
     <div data-effect="doodles" className="pointer-events-none absolute inset-0 text-theme-accent motion-reduce:hidden">

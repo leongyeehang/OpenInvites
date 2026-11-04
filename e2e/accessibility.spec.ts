@@ -3,6 +3,7 @@ import { expectNoSeriousViolations } from "./axe";
 import { createDraft, createPublished, type DraftFields } from "./events";
 import { latestMailTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { clientAddress, expect, test, type APIRequestContext, type Browser, type Locator, type Page } from "./test";
+import { closeReply, openMyReply } from "./reply";
 
 // Ticket 20: axe-core finds nothing serious or critical on any page a person meets, at 390px and
 // at desktop width (the two projects), and on the event page in both text tones. Each check is
@@ -23,7 +24,7 @@ const EVENT = {
 const ALT = "A garden at dusk, strung with paper lanterns";
 
 // An event a guest answers with their name alone, inline on the page.
-const SIMPLE = { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0", rsvpStyle: "Inline" } satisfies DraftFields;
+const SIMPLE = { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0" } satisfies DraftFields;
 
 async function openDrawer(page: Page) {
   await page.getByRole("button", { name: "Design" }).click();
@@ -287,11 +288,11 @@ async function everyStep(page: Page, flow: Locator | Page, where: string) {
   await expectNoSeriousViolations(page, `${where}: the confirmation`);
 }
 
-for (const style of ["Inline", "Sheet"] as const) {
+for (const style of ["Sheet"] as const) {
   test(`the RSVP flow in the ${style} style, every step and the confirmation, in both text tones`, async ({ browser, request }) => {
     // Ten pages to read, each a view at a time.
     test.setTimeout(180_000);
-    const host = await createPublished(browser, request, `a11y-${style.toLowerCase()}`, { ...EVENT, rsvpStyle: style });
+    const host = await createPublished(browser, request, `a11y-${style.toLowerCase()}`, { ...EVENT });
     await host.page.goto(host.link);
     const drawer = await openDrawer(host.page);
     for (const tone of ["Light", "Dark"] as const) {
@@ -300,7 +301,7 @@ for (const style of ["Inline", "Sheet"] as const) {
       const guest = await browser.newContext();
       const page = await guest.newPage();
       await page.goto(host.link);
-      const flow = style === "Sheet" ? page.getByRole("dialog", { name: "Your RSVP" }) : page;
+      const flow = page.getByRole("dialog", { name: "Your RSVP" });
       await everyStep(page, flow, `the ${style} RSVP flow, ${tone.toLowerCase()} tone`);
       await guest.close();
     }
@@ -449,6 +450,7 @@ for (const tone of ["Light", "Dark"] as const) {
     await page.getByLabel("Your name").fill("Priya Nair");
     await page.getByRole("button", { name: "Send RSVP" }).click();
     await expect(page.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+    await closeReply(page);
     await comment(page, "See you there!");
     await expectNoSeriousViolations(page, `${where}: open, with the host's comment, the guest's and the form`);
     await deleteOwnComment(page, "See you there!", page.getByRole("heading", { name: "Comments" }), where);
@@ -769,9 +771,11 @@ for (const layout of LAYOUTS) {
     await decide("Chen Wei", "Decline", /^Declined/);
     await expectNoSeriousViolations(host.page, `${where}'s guest list, with the waitlist and a reply declined`);
     await bea.reload();
+    if (layout === "Poster") await openMyReply(bea);
     await expect(standing(bea, layout, "Bea", "waitlisted")).toBeVisible();
     await expectNoSeriousViolations(bea, `${where}: on the waitlist`);
     await chen.reload();
+    if (layout === "Poster") await openMyReply(chen);
     await expect(standing(chen, layout, "Chen", "declined")).toBeVisible();
     await expectNoSeriousViolations(chen, `${where}: declined`);
 

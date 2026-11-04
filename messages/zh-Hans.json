@@ -522,7 +522,6 @@
     }
   },
   "EventPage": {
-    "eyebrow": "诚邀你参加",
     "hostedBy": "主办人：{hosts}",
     "when": "时间",
     "where": "地点",
@@ -718,15 +717,6 @@
       "glass": "玻璃",
       "solid": "实色",
       "outline": "线框"
-    },
-    "rsvpStyle": "回复方式",
-    "rsvpStyles": {
-      "inline": "内嵌",
-      "sheet": "面板"
-    },
-    "rsvpStyleHints": {
-      "inline": "回复步骤直接在三个按钮下方展开。",
-      "sheet": "点按钮后，邀请上方会升起一块毛玻璃面板，随着步骤展开。"
     },
     "titlePlacement": "标题位置",
     "titlePlacements": {
@@ -1013,8 +1003,6 @@
     "change": "更改回复",
     "edit": "修改详情",
     "remove": "撤回我的回复",
-    "replied": "{name}，你已回复。",
-    "showMine": "查看我的回复",
     "sheet": {
       "title": "你的回复",
       "close": "关闭"
@@ -1075,6 +1063,15 @@
       "post": "发送我的回复",
       "amend": "修改详情",
       "change": "更改回复"
+    },
+    "bar": {
+      "going": "你会出席",
+      "maybe": "你回复了“也许”",
+      "cant": "你无法出席",
+      "waitlisted": "你在候补名单上，第 {position} 位",
+      "pending": "正在等待主办人批准",
+      "declined": "主办人未能接受你的回复",
+      "change": "更改"
     }
   },
   "StopMail": {

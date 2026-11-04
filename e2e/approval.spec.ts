@@ -1,6 +1,7 @@
 import { APPROVAL, createPublished, type DraftFields } from "./events";
 import { latestMailTo, linkIn, newHost } from "./hosts";
 import { clientAddress, expect, test, type Browser, type Page } from "./test";
+import { closeReply, openMyReply } from "./reply";
 
 // Ticket 07 (M3): approval. With approval on, a reply waits for the host; the guest sees the
 // invitation and their own reply, but not the guest list or the comments, until the host approves
@@ -14,7 +15,7 @@ const LIST_WAITING = "Once the host approves your reply you’ll see who’s com
 const COMMENTS_WAITING = "Once the host approves your reply you can join the conversation.";
 const DECLINED = "The host wasn’t able to accept your reply.";
 
-const SUPPER = { rsvpStyle: "Inline", title: "Ada’s supper club", start: "2027-03-06T19:00", plusOnes: "1", askEmail: true, approval: true } satisfies DraftFields;
+const SUPPER = { title: "Ada’s supper club", start: "2027-03-06T19:00", plusOnes: "1", askEmail: true, approval: true } satisfies DraftFields;
 
 // A guest on a device of their own.
 async function newGuest(browser: Browser): Promise<Page> {
@@ -94,7 +95,9 @@ test("a reply waits for the host, who approves it with an email; a guest waiting
   // Back on her page she is Going with the list open, and Mailpit has "You're in" with the event's
   // path.
   await asha.reload();
+  await openMyReply(asha);
   await expect(asha.getByRole("heading", { name: "You’re going!" })).toBeVisible();
+  await closeReply(asha);
   await expect(asha.getByText("1 person expected")).toBeVisible();
   await expect(asha.getByLabel("Add a comment")).toBeVisible();
   const mail = await latestMailTo(request, ashaEmail);
@@ -149,6 +152,7 @@ test("a reply waits for the host, who approves it with an email; a guest waiting
   await expect(host.page.getByRole("region", { name: /^Declined/ }).getByText("Mei Lin")).toBeVisible();
   await expect(host.page.getByRole("heading", { level: 2 }).last()).toHaveText("Declined (1)");
   await mei.reload();
+  await openMyReply(mei);
   await expect(mei.getByRole("heading", { name: DECLINED })).toBeVisible();
   await expect(mei.getByRole("button", { name: "Change my answer" })).toBeVisible();
   await expect(mei.getByRole("button", { name: "Remove my RSVP" })).toBeVisible();
@@ -171,6 +175,7 @@ test("a reply waits for the host, who approves it with an email; a guest waiting
   await decide(host.page, /^Declined/, "Mei Lin", "Approve");
   await expect(host.page.getByRole("region", { name: /^Going/ }).getByText("Mei Lin")).toBeVisible();
   await mei.reload();
+  await openMyReply(mei);
   await expect(mei.getByRole("heading", { name: "You’re going!" })).toBeVisible();
   await expect(mei.getByText("2 people expected")).toBeVisible();
   await expect(mei.getByText(comment)).toBeVisible();
@@ -210,6 +215,7 @@ test("approving applies the capacity, with the waitlist's email, and turning app
   expect(beaMail).toContain("The host approved your reply to Supper for one, but the event is full, so you’re number 1 on the waitlist.");
   expect(new URL(linkIn(beaMail)).pathname).toBe(new URL(host.link).pathname);
   await bea.reload();
+  await openMyReply(bea);
   await expect(bea.getByRole("heading", { name: "You’re on the waitlist, number 1." })).toBeVisible();
 
   // The event is full now. A guest whose reply waits for the host is told it joins the waitlist once
@@ -228,8 +234,10 @@ test("approving applies the capacity, with the waitlist's email, and turning app
   expect(await latestMailTo(request, chenEmail)).toContain("so you’re number 2 on the waitlist.");
   expect(await latestMailTo(request, devEmail)).toContain("so you’re number 3 on the waitlist.");
   await chen.reload();
+  await openMyReply(chen);
   await expect(chen.getByRole("heading", { name: "You’re on the waitlist, number 2." })).toBeVisible();
   await dev.reload();
+  await openMyReply(dev);
   await expect(dev.getByRole("heading", { name: "You’re on the waitlist, number 3." })).toBeVisible();
   await host.page.goto(guests);
   await expect(host.page.getByRole("heading", { name: "Waitlist (3)" })).toBeVisible();

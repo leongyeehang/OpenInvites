@@ -88,8 +88,10 @@ test("a host's picture is the poster, with the title below it or on it, and gues
   await expect(page.getByRole("img", { name: ALT })).toHaveAttribute("src", `/uploads/${id}/poster.webp`);
   await expectProportions(picture, 900, 1350);
   expect(await guestHtml(request, host.link)).not.toContain(`/uploads/${id}/background.webp`);
+  // The title sits under the poster, rising into the faded last fifth of it at most.
   const title = page.getByRole("heading", { level: 1, name: EVENT.title });
-  expect((await box(title)).y).toBeGreaterThanOrEqual((await box(picture)).y + (await box(picture)).height);
+  const shown = await box(picture);
+  expect((await box(title)).y).toBeGreaterThanOrEqual(shown.y + shown.height * 0.8);
 
   // The poster itself is made for the card: the picture's own size here, never enlarged, and
   // 720 pixels wide for a screen that needs no more. The copy behind the page is a small wash.
@@ -112,7 +114,8 @@ test("a host's picture is the poster, with the title below it or on it, and gues
   await placement.getByRole("radio", { name: "Below the poster" }).check();
   await expect.poll(() => guestHtml(request, host.link), { timeout: 15_000 }).not.toContain(TITLE_ON_POSTER);
   await page.reload();
-  expect((await box(title)).y).toBeGreaterThanOrEqual((await box(picture)).y + (await box(picture)).height);
+  const below = await box(picture);
+  expect((await box(title)).y).toBeGreaterThanOrEqual(below.y + below.height * 0.8);
 
   await host.context.close();
 });

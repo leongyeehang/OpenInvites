@@ -1,6 +1,7 @@
 import { expect, test } from "./test";
 import { createDraft, createPublished } from "./events";
 import { signUpVerified } from "./hosts";
+import { closeReply } from "./reply";
 
 const EVENT = {
   title: "Ada’s birthday",
@@ -45,7 +46,7 @@ test("a guest can put the event straight into their calendar", async ({ page, br
   await host.context.close();
 });
 
-test("the calendar links stack on a narrow screen and sit side by side from 640 pixels", async ({ page, browser, request }) => {
+test("the calendar links stack in the Poster's column, however wide the screen", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "calendar-widths", EVENT);
   const links = ["Add to calendar", "Google Calendar", "Outlook"].map((name) => page.getByRole("link", { name }));
@@ -67,13 +68,11 @@ test("the calendar links stack on a narrow screen and sit side by side from 640 
   const narrow = await boxes();
   for (const [above, below] of [narrow.slice(0, 2), narrow.slice(1, 3)]) expect(below.y).toBeGreaterThanOrEqual(above.y + above.height);
 
-  await page.setViewportSize({ width: 700, height: 900 });
+  // The page stays a phone's width on a wider screen, so they stay stacked there too, one line each.
+  await page.setViewportSize({ width: 1280, height: 900 });
   const wide = await boxes();
-  for (const box of wide) {
-    expect(box.y).toBe(wide[0].y);
-    // One line each, at the links' own height.
-    expect(box.height).toBe(44);
-  }
+  for (const [above, below] of [wide.slice(0, 2), wide.slice(1, 3)]) expect(below.y).toBeGreaterThanOrEqual(above.y + above.height);
+  for (const box of wide) expect(box.height).toBe(44);
 
   await host.context.close();
 });
@@ -136,8 +135,7 @@ test("a guest in another zone is told what the time is where they are", async ({
 
 test("a guest who has just replied is offered the calendar there and then", async ({ page, browser, request }) => {
   test.slow();
-  // Inline, so the offer in the confirmation and the calendar tile below it are counted together.
-  const host = await createPublished(browser, request, "calendar-done", { ...EVENT, rsvpStyle: "Inline" });
+  const host = await createPublished(browser, request, "calendar-done", { ...EVENT });
 
   await page.goto(host.link);
   await page.getByRole("button", { name: "Going" }).click();
@@ -151,6 +149,9 @@ test("a guest who has just replied is offered the calendar there and then", asyn
   await page.getByRole("button", { name: "Can’t go" }).click();
   await page.getByRole("button", { name: "Send RSVP" }).click();
   await expect(page.getByText("We’ll miss you.")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Your RSVP" }).getByRole("link", { name: "Add to calendar" })).toHaveCount(0);
+  // The page's own When still offers it.
+  await closeReply(page);
   await expect(page.getByRole("link", { name: "Add to calendar" })).toHaveCount(1);
 
   await host.context.close();

@@ -26,7 +26,6 @@ test("the host is emailed when a guest replies and changes their status, and not
 }) => {
   test.slow();
   const host = await createPublished(browser, request, "notify", {
-    rsvpStyle: "Inline",
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "1",

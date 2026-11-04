@@ -1,13 +1,14 @@
 import { createPublished, type DraftFields } from "./events";
 import { latestMailTo, linkIn, newHost } from "./hosts";
 import { expect, test } from "./test";
+import { openMyReply } from "./reply";
 
 // Ticket 04 (M3): contact details. The host asks for an email and a phone number each in one of
 // three ways, don't ask, optional or required; a guest is held to them in every layout, and the
 // host reads both on the guest list and can set them there. The guest drives the test's own page,
 // so all of it runs at 390 pixels in the mobile project and at desktop width in the other.
 
-const PARTY = { rsvpStyle: "Inline", title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "1" } satisfies DraftFields;
+const PARTY = { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "1" } satisfies DraftFields;
 
 test("an event that requires an email and a phone number refuses each left blank, at the step that holds it", async ({ page, browser, request }) => {
   test.slow();
@@ -98,6 +99,7 @@ test("a phone number asked for optionally reaches the host's guest list, and the
 
   // The guest sees what the host set.
   await page.reload();
+  await openMyReply(page);
   await expect(page.getByText("Phone: +65 8123 0000", { exact: true })).toBeVisible();
   await expect(page.getByText(`We’ll reach you at ${email}.`)).toBeVisible();
 
@@ -169,6 +171,7 @@ test("a guest who stops email with the stop link is given no email by the host, 
 
   // The guest gives the email again themselves, and the host sees it.
   await page.goto(host.link);
+  await openMyReply(page);
   await expect(page.getByText("You’re a maybe.")).toBeVisible();
   await page.getByRole("button", { name: "Edit details" }).click();
   await expect(page.getByLabel("Email")).toHaveValue("");

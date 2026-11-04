@@ -192,7 +192,7 @@ export function SHEET_SURFACES(tone: Tone, { glass, glassStrong, sheet }: Pick<T
 export function POSTER_SURFACES(tone: Tone, { titleOnPoster }: { titleOnPoster: Pick<ToneTokens["titleOnPoster"], "scrim"> }) {
   const anything: Rgba = [...(tone === "light" ? WHITE : BLACK), 1];
   return {
-    // The eyebrow and the title.
+    // The title and its date.
     titleOnPoster: { layers: [anything, titleOnPoster.scrim], carries: "every strength" },
   } satisfies Record<string, Surface>;
 }

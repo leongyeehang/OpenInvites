@@ -1,6 +1,7 @@
 import { chooseLayout, createPublished, type DraftFields } from "./events";
 import { latestMailTo, mailCountTo, newHost } from "./hosts";
 import { clientAddress, expect, expectNotFoundAsSent, test, type Browser, type Page } from "./test";
+import { openMyReply } from "./reply";
 
 // Ticket 08 (M3): personal invite links. A host makes a link for a named guest; opening it fills in
 // the guest's name and the email the host gave, which counts as proven; the reply is tied to the
@@ -12,7 +13,7 @@ import { clientAddress, expect, expectNotFoundAsSent, test, type Browser, type P
 
 const INVITE_LINK = /^https?:\/\/\S+\/i\/[A-Za-z0-9]{24}$/;
 
-const SUPPER = { rsvpStyle: "Inline", title: "Ada’s supper club", start: "2027-03-06T19:00", plusOnes: "0", askEmail: true } satisfies DraftFields;
+const SUPPER = { title: "Ada’s supper club", start: "2027-03-06T19:00", plusOnes: "0", askEmail: true } satisfies DraftFields;
 
 // A guest on a device of their own.
 async function newGuest(browser: Browser): Promise<Page> {
@@ -125,6 +126,7 @@ test("a guest opens their personal invite with their name and email filled in, r
   const meiPhone = await newGuest(browser);
   await meiPhone.goto(meiLink);
   await expect(meiPhone).toHaveURL(customUrl);
+  await openMyReply(meiPhone);
   await expect(meiPhone.getByText("You’re going!")).toBeVisible();
   await meiPhone.getByRole("button", { name: "Change my answer" }).click();
   await meiPhone.getByRole("button", { name: "Maybe", exact: true }).click();
@@ -132,6 +134,7 @@ test("a guest opens their personal invite with their name and email filled in, r
   await meiPhone.getByRole("button", { name: "Send RSVP" }).click();
   await expect(meiPhone.getByText("You’re a maybe.")).toBeVisible({ timeout: 15_000 });
   await mei.reload();
+  await openMyReply(mei);
   await expect(mei.getByText("You’re a maybe.")).toBeVisible();
   // One reply, not two.
   await host.page.reload();
@@ -152,6 +155,7 @@ test("a guest opens their personal invite with their name and email filled in, r
   await expectNotFoundAsSent(await request.get("/i/not-a-real-token", { maxRedirects: 0 }));
   for (const device of [mei, meiPhone]) {
     await device.goto(customUrl);
+    await openMyReply(device);
     await expect(device.getByText("You’re a maybe.")).toBeVisible();
     await expect(device.getByText(meiLink.replace("/i/", "/r/"), { exact: true })).toBeVisible();
   }
@@ -243,16 +247,19 @@ test("a device that opened an invite before its guest replied elsewhere holds th
 
   // The tablet, reloaded, shows the phone's reply.
   await tablet.reload();
+  await openMyReply(tablet);
   await expect(tablet.getByText("You’re going!")).toBeVisible();
   await expect(tablet.getByText(meiLink, { exact: true })).toBeVisible();
 
-  // The laptop's form, sent as a Maybe, changes that reply.
+  // The laptop's form, closed and sent as a Maybe, changes that reply.
+  await laptop.keyboard.press("Escape");
   await laptop.getByRole("button", { name: "Maybe", exact: true }).click();
   await laptop.getByRole("button", { name: "Send RSVP" }).click();
   await expect(laptop.getByText("You’re a maybe.")).toBeVisible({ timeout: 15_000 });
   await expect(laptop.getByText(meiLink, { exact: true })).toBeVisible();
   for (const device of [laptop, phone, tablet]) {
     await device.reload();
+    await openMyReply(device);
     await expect(device.getByText("You’re a maybe.")).toBeVisible();
   }
 
@@ -313,6 +320,7 @@ test("with approval on and the email checked by a code, an invited guest with th
   await asha.getByRole("button", { name: "Send RSVP" }).click();
   await expect(asha.getByRole("heading", { name: "Your reply is waiting for the host’s approval." })).toBeVisible({ timeout: 15_000 });
   await asha.goto(devLink);
+  await openMyReply(asha);
   await expect(asha.getByRole("heading", { name: "Your reply is waiting for the host’s approval." })).toBeVisible();
   await expect(asha.getByText("Asha Menon, just you.")).toBeVisible();
   await expect(asha.getByLabel("Your name")).toHaveCount(0);

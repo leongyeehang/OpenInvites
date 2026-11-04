@@ -52,12 +52,12 @@ async function tabTo(page: Page, target: Locator) {
   throw new Error(`never reached ${target}`);
 }
 
-for (const style of ["Inline", "Sheet"] as const) {
+for (const style of ["Sheet"] as const) {
   test(`a guest answers Going with a plus-one and a required question by keyboard alone, in the ${style} style`, async ({ page, browser, request }) => {
     test.slow();
-    const host = await createPublished(browser, request, `keyboard-${style.toLowerCase()}`, { ...EVENT, rsvpStyle: style });
+    const host = await createPublished(browser, request, `keyboard-${style.toLowerCase()}`, { ...EVENT });
     await page.goto(host.link);
-    const flow = style === "Sheet" ? page.getByRole("dialog", { name: "Your RSVP" }) : page;
+    const flow = page.getByRole("dialog", { name: "Your RSVP" });
 
     await tabTo(page, page.getByRole("button", { name: "Going" }));
     await page.keyboard.press("Enter");
@@ -174,7 +174,7 @@ test("a guest proves their email with the code by keyboard alone, on the Poster,
   const codeSentTo = async (email: string) => (await latestMailTo(request, email)).match(/^([0-9]{6})\r?$/m)![1];
 
   for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
-    const host = await createPublished(browser, request, `keyboard-code-${layout.toLowerCase()}`, layout === "Poster" ? { ...PROVEN, rsvpStyle: "Inline" } : { ...PROVEN, layout });
+    const host = await createPublished(browser, request, `keyboard-code-${layout.toLowerCase()}`, layout === "Poster" ? { ...PROVEN } : { ...PROVEN, layout });
     const email = newHost(`keyboard-code-${layout.toLowerCase()}-guest`).email;
     const guest = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
     const page = await guest.newPage();
@@ -235,7 +235,7 @@ test("a guest proves their email with the code by keyboard alone, on the Poster,
 // unavailable, and does nothing when it is pressed.
 test("a guest tabs to the code step's Send it again while it waits, and pressing it sends nothing", async ({ browser, request }) => {
   test.slow();
-  const host = await createPublished(browser, request, "keyboard-resend", { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0", email: "optional", verifyEmail: true, rsvpStyle: "Inline" });
+  const host = await createPublished(browser, request, "keyboard-resend", { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0", email: "optional", verifyEmail: true });
   const email = newHost("keyboard-resend-guest").email;
   const guest = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
   const page = await guest.newPage();
