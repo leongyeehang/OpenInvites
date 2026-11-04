@@ -13,7 +13,7 @@ import { EditorSheet } from "./sheet";
 import { useEditor } from "./status";
 
 // The editor's chrome sits over the invitation, which can be any colour, so it is dark frosted
-// glass, as the Design drawer's button is. Focus rings it inside, in its own label's colour.
+// glass, as the reply bar is. Focus rings it inside, in its own label's colour.
 export const PILL =
   "dark inline-flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border bg-popover/90 px-3.5 text-sm font-medium text-popover-foreground shadow-lg backdrop-blur-xl transition-colors hover:bg-popover focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-current";
 

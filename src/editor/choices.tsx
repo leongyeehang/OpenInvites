@@ -9,7 +9,7 @@ import type { ThemeUpload } from "@/themes/resolve";
 import type { Layout } from "@/themes/theme";
 import { ALT_TEXT_MAX, UPLOAD_TYPES } from "@/uploads/validate";
 
-// The pieces the editor's design sheets are made of (M4 spec, "The toolbar"), the Design drawer's
+// The pieces the editor's design sheets are made of (M4 spec, "The toolbar"), the 0.4 Design drawer's
 // before them: tiles chosen as radios, groups of them under a heading, segmented choices, the
 // layouts' sketches, and the picture's file picker and description.
 

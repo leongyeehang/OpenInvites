@@ -11,7 +11,7 @@ import type { Effect, Theme } from "./theme";
 import { TITLE_FONT_CLASSES, TITLE_FONT_FILES } from "./title-fonts";
 
 // The theme the page is wearing right now. For a guest that is the saved theme, always. For the
-// host with the Design drawer open it runs ahead of the save: `change` shows a change at once,
+// host with a design sheet open it runs ahead of the save: `change` shows a change at once,
 // inside the transition that saves it, and the page settles on the saved theme once it returns.
 // `root` is the page's own element, where anything that rises over the page (the RSVP sheet) is
 // put, so that it wears the theme too. `upload` is the event's upload, shown or not.
@@ -34,7 +34,7 @@ export function useTheme(): ThemeState {
 // The root of a themed event page: carries the resolved theme as CSS variables and data
 // attributes (see globals.css, "Event page theme"), the chosen title font, and the backdrop every
 // layout shares. It renders on the server like any other, so the first paint is the finished
-// look. The layout renders inside it; `designer` is the host's Design drawer, beside it.
+// look. The layout renders inside it; `designer` is the editor's chrome around it (top bar, toolbar, sheets).
 export function ThemedPage({
   theme: saved,
   upload = null,

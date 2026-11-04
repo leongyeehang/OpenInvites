@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync } from "node:fs";
 import sharp from "sharp";
 import { createDraft, openDesign, openMore, pickDesign, publishInEditor } from "../e2e/events";
 import { submitSignUp, verifyEmail } from "../e2e/hosts";
@@ -35,6 +35,19 @@ const FAIR = {
   description: "Street food, string lights, and a band from eight. Everyone is welcome.",
   plusOnes: "4",
 };
+
+// A picnic that has happened, whose album fills with the day's pictures (M4 ticket 11).
+const PICNIC = {
+  title: "Picnic by the reservoir",
+  start: "2026-09-12T12:00",
+  end: "2026-09-12T17:00",
+  location: "MacRitchie Reservoir, the lawn by the boardwalk",
+  description: "Bring a blanket and something to share.",
+  plusOnes: "2",
+};
+
+// The album's pictures: some of the gallery's own posters, standing in for the guests' photos.
+const ALBUM = ["string-lights", "picnic", "sunset-sea", "seaside", "sunshine", "bokeh"];
 
 // Who answers the birthday, and how.
 const GUESTS = [
@@ -80,21 +93,51 @@ test("README screenshots", async ({ browser }) => {
   await save(host, "guest-list");
 
   // The fair wears the Aurora poster and its look (0.4's Festival template), chosen in the editor's
-  // Poster sheet, which is then opened afresh, as a host finds it.
+  // Poster sheet, which is then opened afresh, as a host finds it: on a desktop, a panel beside the
+  // invitation.
   const fair = await publish(host, FAIR);
+  const fairEditor = host.url();
   await pickDesign(host, "Poster", "Poster", "Aurora", "Gallery");
   const drawer = await openDesign(host, "Poster");
   await expect(drawer.getByRole("radio", { name: "Aurora" })).toBeChecked();
-  await save(host, "design-drawer");
+  await save(host, "editor-desktop");
+  await host.keyboard.press("Escape");
 
   await guest.goto(fair);
   await save(guest, "event-festival");
+
+  // The same host on their phone: the invitation is the editor, and the Poster sheet rises over a
+  // live copy of it.
+  const phoneHost = await (await someone(browser, PHONE, await host.context().storageState())).newPage();
+  await phoneHost.goto(fairEditor);
+  await expect(phoneHost.getByRole("textbox", { name: "Event title" })).toHaveText(FAIR.title);
+  await save(phoneHost, "editor");
+  await openDesign(phoneHost, "Poster", "Gallery");
+  await save(phoneHost, "poster-sheet");
+  await phoneHost.keyboard.press("Escape");
+
+  // The picnic has happened: its album holds the day's pictures.
+  const picnic = await publish(host, PICNIC);
+  await phoneHost.goto(picnic);
+  const album = phoneHost.locator('[data-slot="album"]');
+  const files = readdirSync("public/posters");
+  await album.getByLabel("Add photos").setInputFiles(
+    ALBUM.map((name) => {
+      const file = files.find((each) => each.startsWith(`${name}.`) && each.endsWith(".jpg"))!;
+      return { name: `${name}.jpg`, mimeType: "image/jpeg", buffer: readFileSync(`public/posters/${file}`) };
+    }),
+  );
+  await expect(album.getByRole("img")).toHaveCount(ALBUM.length, { timeout: 30_000 });
+  await phoneHost.reload();
+  await album.scrollIntoViewIfNeeded();
+  await phoneHost.evaluate(() => document.querySelector('[data-slot="album"]')?.scrollIntoView({ block: "center" }));
+  await save(phoneHost, "album");
 });
 
 // Someone on a device of their own, reaching the instance from an address of their own, so that no
 // one's replies count against another's rate limit (e2e/test.ts).
-async function someone(browser: Browser, device: BrowserContextOptions) {
-  return browser.newContext({ ...device, ...WHERE, extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
+async function someone(browser: Browser, device: BrowserContextOptions, storageState?: BrowserContextOptions["storageState"]) {
+  return browser.newContext({ ...device, ...WHERE, storageState, extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
 }
 
 async function publish(host: Page, fields: Parameters<typeof createDraft>[1]) {

@@ -3,7 +3,7 @@ import { findGalleryPoster, type GalleryPoster } from "./posters";
 
 // The theme: the look of one event page, stored on the event (spec, "Themes and templates").
 // The shape was settled by the prototype on branch prototype/event-page. The host changes knobs
-// in the Design drawer.
+// in the editor's design sheets.
 
 export const LAYOUTS = ["poster", "broadsheet", "thread"] as const;
 export const TITLE_PLACEMENTS = ["on", "below"] as const;

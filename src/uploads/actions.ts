@@ -7,7 +7,7 @@ import { can } from "@/hosts/role";
 import { describeUpload } from "./repository";
 import { parseAltText } from "./validate";
 
-// The host's description of their picture, from the Design drawer. The page says it to guests
+// The host's description of their picture, from the Poster sheet's Upload tab. The page says it to guests
 // who use a screen reader; this saves it and refreshes the page, so the host's view has it too.
 export async function describeUploadAction(eventId: string, posted: unknown): Promise<{ saved: boolean }> {
   const host = await requireHost();

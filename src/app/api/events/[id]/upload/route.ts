@@ -7,7 +7,7 @@ import { consume, retryAfter } from "@/rate-limit/rate-limit";
 import { parseEmojiChoice } from "@/uploads/emoji";
 import { uploadPicture, type UploadOutcome } from "@/uploads/uploads";
 
-// The Design drawer's upload: the request's body is the picture's bytes, and the answer is the
+// The Poster sheet's upload: the request's body is the picture's bytes, and the answer is the
 // new upload's id or what was wrong. A route handler rather than a server action, because a
 // server action's body limit is fixed when the app is built (1 MB unless next.config.ts raises
 // it), while the operator sets MAX_UPLOAD_MB when the app starts; here the body is read up to

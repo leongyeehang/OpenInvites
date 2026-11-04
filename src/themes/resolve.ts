@@ -4,7 +4,7 @@ import { css, GLOW, TONES, toneTokens, type ToneTokens } from "./legibility";
 import { findGalleryPoster, GALLERY_POSTER_SIZE, type GalleryPoster } from "./posters";
 import { OFFERED_LAYOUTS, type ButtonStyle, type Layout, type RsvpStyle, type Theme, type TitlePlacement } from "./theme";
 
-// The host's own picture, as the theme needs it: the small copy the Design drawer shows (the
+// The host's own picture, as the theme needs it: the small copy the Poster sheet shows (the
 // picture is always the poster since M4, so the page never asks for its background renditions,
 // and is not told where they are), what the server sampled from it
 // (uploads/sample.ts: its average luminance, accent, and brightest and darkest points as the

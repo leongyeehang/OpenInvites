@@ -26,7 +26,7 @@ import { useEditor } from "./status";
 // The editor's design sheets (M4 spec, "The toolbar"): Poster, Title, Theme and Effect, each a
 // sheet of large swatches over a live copy of the invitation, which shrinks above it on a phone.
 // Every choice shows on the invitation at once and is saved as it is made, through the action the
-// Design drawer used; the top bar says how the save went.
+// Design drawer of 0.4 used; the top bar says how the save went.
 
 // The page's tone as a host thinks of it: the page Dark carries light text, Light dark text.
 const PAGES: { page: "auto" | "dark" | "light"; tone: TextTone }[] = [

@@ -31,7 +31,7 @@ Add a new colour at the end of the list: the drawer shows them in this order, an
 
 ## Its name, in every language
 
-What the drawer calls a colour is shown in the host's language, so it lives in every file in `messages/`, under `DesignDrawer.colourNames`, keyed by the `id`:
+What the Poster sheet calls a colour is shown in the host's language, so it lives in every file in `messages/`, under `Design.colourNames`, keyed by the `id`:
 
 ```json
 "colourNames": { "dusk": "Dusk" }
@@ -64,7 +64,7 @@ The three are measured on the event page itself, as a guest's browser draws it, 
 
 4. Put the measured values in `backgrounds.ts`, and run `pnpm test`.
 
-What it does: a host publishes an event and picks the colour as the poster in the Design drawer, and the page a guest is sent is photographed with everything but the backdrop hidden.
+What it does: a host publishes an event and picks the colour as the poster in the editor's Poster sheet, and the page a guest is sent is photographed with everything but the backdrop hidden.
 
 - `luminance`: the gradient alone, without the blobs, scrim, fade or grain, on a 390x844 phone: the mean of (0.2126 R + 0.7152 G + 0.0722 B) / 255.
 - `lightest`: the backdrop in the light text tone with the White accent (the brightest blob there can be), under a pane with the glass's 24px blur, at 360x740, 390x844, 768x1024, 1280x800 and 1920x1080, with the blobs at rest and at the far end of their drift: the pixel of highest WCAG relative luminance.

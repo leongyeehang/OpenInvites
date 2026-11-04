@@ -10,7 +10,7 @@ Every word the interface shows, and every email it sends, lives in a translation
 
 ## The shape
 
-Each file is one JSON object, organised by screen: the top-level keys are namespaces such as `Auth`, `Host`, `Events`, `EventPage`, `DesignDrawer`, `Rsvp`, `Guests` and `Mail`. A string shown on two screens is in both namespaces; screens never share a key. The names of templates, backgrounds, title fonts and accent colours are messages too, in `DesignDrawer` (`templateNames`, `templateBlurbs`, `backgroundNames`, `fontNames`, `swatches`), keyed by the ids in their data files. `Locales` names each language in its own script, for the language switcher in every page's footer.
+Each file is one JSON object, organised by screen: the top-level keys are namespaces such as `Auth`, `Host`, `Events`, `EventPage`, `Design`, `Rsvp`, `Guests` and `Mail`. A string shown on two screens is in both namespaces; screens never share a key. The names of templates, backgrounds, title fonts and accent colours are messages too, in `Design` (`templateNames`, `templateBlurbs`, `backgroundNames`, `fontNames`, `swatches`), keyed by the ids in their data files. `Locales` names each language in its own script, for the language switcher in every page's footer.
 
 Messages are in ICU message format, which [next-intl](https://next-intl.dev/) reads:
 

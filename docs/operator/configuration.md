@@ -53,14 +53,16 @@ else that address is a page that does not exist.
   invitation can create an account, by email, Google, or GitHub alike. Open lets anyone sign up.
   A change takes effect at once. With mail configured, Open also lets anyone who signs up have the
   instance email addresses of their choosing ([Mail](#mail)).
-- **Limits** are two caps, set on the same page and read each time they are checked, so a change
+- **Limits** are three caps, set on the same page and read each time they are checked, so a change
   takes effect at once. **Events per host** (50 by default) counts every event a host owns,
   drafts and past events included but not events they only co-host; a host at the limit cannot
   create or duplicate an event until they delete one. **Replies per event** (500 by default)
   counts every reply to an event, whatever its answer; a guest who has not yet replied is told
   the event can't take more replies, while guests who have replied can still change or withdraw
-  theirs. Each is a whole number from 1 to 100,000. Lowering a limit below what exists leaves
-  the existing events and replies alone and refuses only new ones. The same card sets how long
+  theirs. **Photos per event** (300 by default) counts the photos in an event's album; guests and
+  hosts adding more are told how many places are left, and those already there stay. Each is a
+  whole number from 1 to 100,000. Lowering a limit below what exists leaves the existing events,
+  replies and photos alone and refuses only new ones. The same card sets how long
   events are kept ([Retention](#retention)).
 - **Host invitations** are single-use links the operator makes on the same page, optionally
   addressed to an email, which then fills in the sign-up form (anyone with the link can still
@@ -284,7 +286,7 @@ removes their last passkey, is never locked out.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `MAX_UPLOAD_MB` | `10` | The largest picture a host may upload, in megabytes. Decimals are allowed. |
+| `MAX_UPLOAD_MB` | `10` | The largest picture a host may upload, and the largest photo anyone may add to an album (up to ten at once), in megabytes. Decimals are allowed. |
 | `STORAGE_BACKEND` | `local` | `local` keeps pictures in the `uploads` volume; `s3` in an S3-compatible bucket. |
 | `UPLOADS_DIR` | `uploads` | Local storage's directory, relative to `/app` in the container. `compose.yaml` mounts the `uploads` volume at `/app/uploads`: leave it. |
 | `S3_ENDPOINT` | Required for `s3` | The provider's S3 endpoint, such as `https://s3.eu-central-1.amazonaws.com`. |
@@ -299,6 +301,11 @@ the page needs: `<id>-background.webp` (the page's background) and `<id>-backgro
 picture as the invitation, at two widths) and `<id>-poster-copy.webp` (the small copy blurred
 behind it), and `<id>-card.jpg` (the link's preview card). They are removed when the host
 replaces the picture or deletes the event or their account.
+
+A photo added to an event's album is re-encoded the same way and kept as two files named after
+the photo's id: `<id>-photo.webp` (up to 2048 pixels, for the viewer and Download) and
+`<id>-photo-thumb.webp` (the album's square thumbnail). They are removed with the photo: when
+whoever may deletes it, or the event, the guest's reply or the host's account goes.
 
 ### Configuring S3
 
@@ -352,7 +359,7 @@ runs.
 | Variable | Default | What it counts |
 | --- | --- | --- |
 | `TRUSTED_PROXY_HOPS` | `1` | Not a limit: how many reverse proxies stand in front of the app (below). |
-| `RATE_LIMIT_EVENT_PAGE` | `120/1m` | Every request under an event link: the page, its preview card, its calendar file, whether the link exists or not, so links cannot be found by trying them. Opening a personal invite link counts too, whether it exists or not. The host's own changes in the Design drawer on their event page do not count; their visits to the page do, and so does the refresh that shows a picture they have just uploaded. |
+| `RATE_LIMIT_EVENT_PAGE` | `120/1m` | Every request under an event link: the page, its preview card, its calendar file, whether the link exists or not, so links cannot be found by trying them. Opening a personal invite link counts too, whether it exists or not. The host's own changes in the editor do not count, as the editor is not under the event link; their visits to the page do, and so does the refresh that shows a picture they have just uploaded. |
 | `RATE_LIMIT_RSVP` | `60/10m` | Sending an RSVP, and removing one. Asking for a code to prove a guest's email, and entering it, each count as sending. This also bounds the emails that tell hosts about replies. |
 | `RATE_LIMIT_UPLOAD` | `20/10m` | Uploading a picture. |
 | `RATE_LIMIT_SIGN_UP` | `10/1h` | Signing up, and opening a host invitation link. |

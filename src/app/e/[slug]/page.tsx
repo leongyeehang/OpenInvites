@@ -100,14 +100,14 @@ async function commentsFor(event: EventWithHost, viewer: CommentViewer, reactor:
   };
 }
 
-// One of this page's own server actions (a guest's RSVP, the host's Design drawer) that changed
+// One of this page's own server actions (a guest's RSVP, a comment) that changed
 // something (revalidated, refreshed, or set a cookie) is answered with the page it was posted to,
 // drawn again, whatever slug that page's address names. So such an action posted to an event link
 // asks for that page as surely as a visit does, and would tell whether its slug exists. (Next.js
 // hands any other action to a page it belongs to, which never draws this one.) The proxy lets
 // actions through, as they are forms with limits and messages of their own (src/proxy.ts); the
 // page counts its own redrawing instead, against the event page limit, for anyone but the event's
-// hosts, whose Design drawer redraws it at every change. Past the limit it is drawn as "too fast"
+// hosts, whose own changes redraw it. Past the limit it is drawn as "too fast"
 // whatever the slug. Cached, so the page and its metadata count once.
 const redrawAllowed = cache(async (slug: string): Promise<boolean> => {
   const requestHeaders = await headers();
@@ -184,7 +184,7 @@ export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Prom
 // The event page: the invitation itself, rendered on the server in the event's theme so the
 // first paint is the finished look, in the layout the theme names. Every layout shows the same things, and the guest's RSVP flow is one
 // set of rules (use-rsvp-flow.ts) that each layout presents in its own way, so the page hands each
-// its own presentation of it. The host also gets the Design drawer on their own page.
+// its own presentation of it.
 export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const { slug } = await params;
   if (!(await redrawAllowed(slug))) return <TooFast />;
@@ -200,7 +200,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // the random link, the private one (ADR-0004).
   const event = { ...found, slug };
 
-  // Who is looking decides whether a draft shows at all, and whether the Design drawer is here.
+  // Who is looking decides whether a draft shows at all, and whose comments and album these are.
   // A guest has no session cookie, and the lookup returns without touching the database.
   const isDraft = event.state === "draft";
   const isHost = await isHostOf(event.id);
@@ -304,12 +304,11 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // A guest whose reply is not approved is told why the list is locked for them.
   const guestList = view === "hidden" ? undefined : { view, guests, counts: countRsvps(guests.map(asTally)), approval: mine?.rsvp.approval };
 
-  // The client components below read their messages in the browser; the host's Design drawer, only
-  // on the host's own page, brings its own.
+  // The client components below read their messages in the browser.
   return (
     <ClientMessages namespaces={["EventPage", "Rsvp", "Turnstile"]}>
       <ThemedPage
-        // A picture the host put aside is sent to nobody but the host, whose Design drawer works
+        // A picture the host put aside is sent to nobody but the host, whose Poster sheet works
         // with it (spec, "Events, guests and the page").
         theme={event.theme}
         upload={isHost ? picture : resolved.upload}

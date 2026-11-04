@@ -29,7 +29,7 @@ export type Background = {
   darkest: string; // #rrggbb
 } & ({ kind: "gradient"; css: string } | { kind: "photo"; src: string });
 
-// A colour of the gallery. What the Design drawer calls it is a message
+// A colour of the gallery. What the Poster sheet calls it is a message
 // (Design.colourNames, in every file in messages/), so its id has to be one they name.
 export type CuratedBackground = Background & { kind: "gradient"; id: keyof typeof en.Design.colourNames };
 

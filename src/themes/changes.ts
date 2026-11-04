@@ -21,7 +21,7 @@ import {
   type TitlePlacement,
 } from "./theme";
 
-// What the Design drawer asks for: one knob set to one value. The layout is one of those offered;
+// What a design sheet asks for: one knob set to one value. The layout is one of those offered;
 // changing it keeps every other knob, the Poster's RSVP style included. The poster is a curated
 // one or the event's own upload; a new upload is not the drawer's to show, the server shows it
 // once it has stored the picture (showNewUpload, uploads/repository.ts).

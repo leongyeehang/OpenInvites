@@ -35,6 +35,35 @@ a newer copy may move it to a later one: that needs nothing more than `docker co
 Going back to an older release after a newer one has migrated the database is not supported.
 Restore the backup you took instead.
 
+### Upgrading to 0.5
+
+0.5 redesigns how events are made and shown, and adds reactions, date polls, a photo album and
+passkeys. Upgrading needs nothing of you: the migrations run as the app starts, as before.
+
+- **New event opens the invitation itself.** The 0.4 form and manage page are gone: a host types
+  the title on the poster, fills in When, Where and About from small sheets, and designs it from
+  the toolbar under it (Poster, Title, Theme, Effect, Settings). Every change saves as it is made.
+  The manage page's links (guests, share, hosts, invites, announcements, duplicate, cancel,
+  delete) are under **More** in the editor's top bar.
+- **Templates became gallery posters.** Every event's theme is read into a poster when it is
+  shown; nothing is rewritten in the database. An event on a 0.4 template wears that template's
+  poster (Birthday becomes Candles, Vows Rose garden, Supper club Candlelight, Kids' party
+  Balloons, Festival Aurora, Quiet Bokeh), with its look; an event on a background colour keeps
+  it, now as a colour poster; a host's picture is the poster as before.
+- **The guest page puts the poster first.** Going, Maybe and Can't go sit in a bar at the foot of
+  the screen. Broadsheet and Thread are still there.
+- **Drafts may have no date.** A new event is a blank draft until its host dates it, and a date
+  poll's event is published without one until the host picks the date. Reminders and retention
+  pass over an event without a date.
+- **Passkeys** need the instance on HTTPS and a stable `BASE_URL`
+  ([configuration.md](configuration.md#passkeys)); on plain HTTP the account page says so and the
+  sign-in page offers none.
+- **The photo album** keeps its photos through the storage you configured, beside the posters, so
+  a backup of the uploads covers them ([Backups](#backups)). The Limits card gains **Photos per
+  event** (300).
+
+There are no new settings and `compose.yaml` gains no service.
+
 ### Upgrading to 0.4
 
 0.4 adds the operator's limits and reports, custom links, guests' phone numbers and emails proven
@@ -138,7 +167,7 @@ An instance is four things:
 | What | Where | How to keep it |
 | --- | --- | --- |
 | The database: hosts, events, RSVPs, answers, settings | The `db-data` volume | A dump, below. Copying the volume's files while Postgres runs is not a backup. |
-| Hosts' pictures | The `uploads` volume, or the bucket with `STORAGE_BACKEND=s3` | An archive of the volume, below, or the provider's own tools for the bucket (versioning, replication, `rclone sync`). |
+| Hosts' pictures and the albums' photos | The `uploads` volume, or the bucket with `STORAGE_BACKEND=s3` | An archive of the volume, below, or the provider's own tools for the bucket (versioning, replication, `rclone sync`). |
 | `.env` | Next to `compose.yaml` | A copy, kept as secret as the file. Without the same `AUTH_SECRET` every host is signed out; without `POSTGRES_PASSWORD` a restored database cannot be opened. |
 | Certificates | The `caddy-data` volume | Nothing: Caddy gets new ones on its own. |
 

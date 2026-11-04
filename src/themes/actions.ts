@@ -9,7 +9,7 @@ import { applyChange, parseThemeChange } from "./changes";
 
 export type ThemeChangeResult = { saved: boolean };
 
-// One change from the Design drawer: a template applied or one knob set. The page has already
+// One change from the editor's design sheets: a template applied or one knob set. The page has already
 // shown it; this saves it and refreshes the page, so the host's view settles on what guests see.
 export async function changeThemeAction(eventId: string, posted: unknown): Promise<ThemeChangeResult> {
   const host = await requireHost();

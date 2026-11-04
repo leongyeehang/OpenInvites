@@ -114,7 +114,7 @@ function expectEveryTextReads(tone: Tone, backdrop: Backdrop, accent: string, us
   }
 }
 
-// Nothing the Design drawer offers can make the page unreadable (spec, story 44): every
+// Nothing the design sheets offer can make the page unreadable (spec, story 44): every
 // background, in both text tones, with every accent, and so every button style.
 describe("every combination the drawer offers", () => {
   for (const background of BACKGROUNDS) {

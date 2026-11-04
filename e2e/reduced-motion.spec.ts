@@ -386,3 +386,61 @@ async function picture() {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1350"><rect width="100%" height="100%" fill="#1d2340"/><circle cx="450" cy="450" r="220" fill="#f5c16c"/></svg>`;
   return { name: "poster.jpg", mimeType: "image/jpeg", buffer: await sharp(Buffer.from(svg)).jpeg({ quality: 90 }).toBuffer() };
 }
+
+// M4's extras under reduced motion: a reaction's six, the album's viewer, an editor sheet beside the
+// invitation on a desktop, and a date poll's sheet.
+test("under reduced motion the reactions, the album, the desktop editor and the vote are still", async ({ browser, request }) => {
+  test.setTimeout(240_000);
+  const host = await createPublished(browser, request, "still-extras", { title: "Ada’s picnic", start: "2026-01-10T12:00", plusOnes: "0" });
+  const page = host.page;
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const editor = page.url();
+
+  await page.goto(host.link);
+  const box = page.getByLabel("Add a comment");
+  await box.fill("See you on the lawn.");
+  await page.getByRole("button", { name: "Post", exact: true }).click();
+  await expect(box).toHaveValue("", { timeout: 15_000 });
+  await page.getByRole("listitem").filter({ hasText: "See you on the lawn." }).getByRole("button", { name: "Add a reaction" }).click();
+  await expect(page.getByRole("group", { name: "React with" })).toBeVisible();
+  await expectStill(page, "a comment's six reactions, open");
+  await page.getByRole("group", { name: "React with" }).getByRole("button", { name: "Party" }).click();
+  await expectStill(page, "a comment with a reaction");
+
+  const album = page.locator('[data-slot="album"]');
+  const picture = await sharp({ create: { width: 800, height: 600, channels: 3, background: "#3a6b4f" } }).jpeg().toBuffer();
+  await album.getByLabel("Add photos").setInputFiles([{ name: "lawn.jpg", mimeType: "image/jpeg", buffer: picture }]);
+  await album.getByRole("button", { name: /^Photo 1 by / }).click({ timeout: 20_000 });
+  await expect(page.getByRole("dialog", { name: "Photo 1 of 1" })).toBeVisible();
+  await expectStill(page, "the photo viewer");
+  await page.keyboard.press("Escape");
+
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto(editor);
+  await page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Settings" }).click();
+  await expect(page.getByRole("dialog", { name: "Settings" })).toBeVisible();
+  await expectStill(page, "the Settings sheet beside the invitation at 1024 pixels");
+  await page.keyboard.press("Escape");
+
+  // A second event, whose date is put to a vote.
+  await page.goto("/events/new");
+  await expect(page).toHaveURL(/\/events\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+  await savedAfter(page, async () => {
+    const title = page.getByRole("textbox", { name: "Event title" });
+    await title.fill("Ada’s supper");
+    await title.press("Enter");
+  });
+  await page.getByRole("button", { name: /^When:/ }).click();
+  const when = page.getByRole("dialog", { name: "When" });
+  await when.getByRole("button", { name: "Not sure yet? Let guests vote" }).click();
+  await when.getByLabel("Date 1", { exact: true }).fill("2027-05-08");
+  await when.getByLabel("Date 2", { exact: true }).fill("2027-05-09");
+  await expectStill(page, "the When sheet's candidates");
+  await savedAfter(page, () => when.getByRole("button", { name: "Done" }).click());
+  await publishInEditor(page);
+  await page.getByRole("link", { name: "Preview" }).click();
+  await page.locator('[data-slot="rsvp-bar"]').getByRole("button", { name: "Vote on a date" }).click();
+  await expect(page.getByRole("dialog", { name: "Which dates work for you?" })).toBeVisible();
+  await expectStill(page, "the vote's sheet");
+  await host.context.close();
+});

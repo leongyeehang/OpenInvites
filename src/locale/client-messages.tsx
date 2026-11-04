@@ -11,7 +11,7 @@ export type MessageNamespace = NamespaceKeys<Messages, NestedKeyOf<Messages>>;
 // others: server components read theirs on the server, and every message in every namespace would
 // otherwise travel with every page. A page wraps what it renders in one, naming the namespaces its
 // client components pass to useTranslations, and a part it renders only for some visitors (the
-// host's Design drawer) in one of its own. client-messages.test.ts fails when a client component
+// the editor's sheets) in one of its own. client-messages.test.ts fails when a client component
 // uses a namespace its page does not pass, or a page passes one no client component of it uses.
 export async function ClientMessages({ namespaces, children }: { namespaces: readonly MessageNamespace[]; children: ReactNode }) {
   const messages = (await getMessages()) as MessageTree;

@@ -7,10 +7,15 @@ OpenInvites is open source and made to be self-hosted: one Compose file runs it 
 <p>
   <img src="docs/screenshots/event-birthday.webp" width="250" alt="An invitation to Mei’s 30th on a phone: a large serif title over a golden-hour gradient with sparkles, three buttons for Going, Maybe and Can’t go, and the date and place on frosted glass.">
   <img src="docs/screenshots/rsvp-sheet.webp" width="250" alt="A guest replying in a sheet that has risen over the invitation, bringing one guest, named Leo.">
-  <img src="docs/screenshots/event-festival.webp" width="250" alt="An invitation to a night market in the Festival template: a heavy grotesque title over a dark aurora, with floating shapes and a tilted date.">
+  <img src="docs/screenshots/album.webp" width="250" alt="The photo album of a picnic that has happened: a grid of six pictures, with Add photos under it.">
 </p>
 <p>
-  <img src="docs/screenshots/design-drawer.webp" width="760" alt="The host’s Design drawer beside their event page: upload a photo or poster, templates, the three layouts, and backgrounds.">
+  <img src="docs/screenshots/editor.webp" width="250" alt="A host editing a night-market invitation on their phone: the invitation itself, with its title on an aurora poster, the When row, and a toolbar of Poster, Title, Theme, Effect and Settings.">
+  <img src="docs/screenshots/poster-sheet.webp" width="250" alt="The Poster sheet risen over a live, half-size copy of the invitation: tabs for Gallery, Emoji, Colour and Upload, occasions, and the gallery’s posters.">
+  <img src="docs/screenshots/event-festival.webp" width="250" alt="The night-market invitation as a guest sees it: a heavy grotesque title over the Aurora poster, with floating shapes, and the reply buttons at the foot of the screen.">
+</p>
+<p>
+  <img src="docs/screenshots/editor-desktop.webp" width="760" alt="The editor on a desktop: the invitation in the middle, its toolbar under it, and the Poster sheet as a panel down the right.">
 </p>
 <p>
   <img src="docs/screenshots/guest-list.webp" width="760" alt="The host’s guest list: seven people expected, grouped under Going, Maybe and Can’t go, with plus-ones and reply times.">
@@ -18,10 +23,11 @@ OpenInvites is open source and made to be self-hosted: one Compose file runs it 
 
 ## What it does
 
-- **Event pages worth opening.** Twenty ready-made posters for the usual occasions, each bringing a look to suit it, nine colours, or the host's own photo or poster; three layouts (a poster, an editorial page, or a chat with the host), four title fonts, an accent colour, and an effect. Whatever the host picks, the text stays readable.
-- **Replies without an account.** Guests answer Going, Maybe or Can't go, bring plus-ones, answer the host's questions, and change their answer later from the same phone or a private edit link. They can add the event to their calendar, open the place in their maps, and once they have replied, talk with the host and each other in the comments. A host can ask for an email, checked with a code, or a phone number, and send a named guest a personal invite link that fills their name in.
+- **The invitation is the editor.** New event opens a blank invitation: the host types the title on the poster, fills in When, Where and About from small sheets, and every change saves as it is made. A toolbar under it opens the Poster, Title, Theme, Effect and Settings sheets over a live copy of the invitation, or beside it on a desktop.
+- **Event pages worth opening.** Twenty ready-made posters for the usual occasions, each bringing a look to suit it, an emoji pattern, nine colours, or the host's own photo or poster; three layouts (a poster, an editorial page, or a chat with the host), four title fonts, an accent colour, and an effect. Whatever the host picks, the text stays readable.
+- **Replies without an account.** Guests answer Going, Maybe or Can't go, bring plus-ones, answer the host's questions, and change their answer later from the same phone or a private edit link. They can add the event to their calendar, open the place in their maps, and once they have replied, talk with the host and each other in the comments, react to a comment with an emoji, and from the start of the event add their photos to its album. A host who has not fixed a date can let guests vote on two to six, and pick one. A host can ask for an email, checked with a code, or a phone number, and send a named guest a personal invite link that fills their name in.
 - **A guest list that keeps itself.** The host sees who is coming and the headcount as replies arrive, is emailed as they do, and chooses whether guests see the list. Announcements go on the page and to guests' inboxes, guests who gave an email are reminded before the event, and co-hosts can share the work. A capacity puts later guests on a waitlist that moves up by itself, and the host can approve each guest before they are on the list. The link, or a custom one such as `/e/adas-50th`, can be shared, shown as a QR code, and unfurls into a preview card.
-- **An instance you run.** The first account becomes the operator, who decides whether anyone may sign up or only the hosts they invite. Email and password sign-in or a link by email, with Google and GitHub when configured. The operator sets how many events a host may have and how many replies an event may take, reads visitors' reports about event pages, and decides how long events are kept once they end, a year unless changed. Cloudflare Turnstile can guard sign-up, replies and reports when its keys are set. Pages in English, Simplified Chinese and Traditional Chinese, following each visitor's browser.
+- **An instance you run.** The first account becomes the operator, who decides whether anyone may sign up or only the hosts they invite. Email and password sign-in, a passkey, or a link by email, with Google and GitHub when configured. The operator sets how many events a host may have, how many replies an event may take and how many photos its album may hold, reads visitors' reports about event pages, and decides how long events are kept once they end, a year unless changed. Cloudflare Turnstile can guard sign-up, replies and reports when its keys are set. Pages in English, Simplified Chinese and Traditional Chinese, following each visitor's browser.
 
 ## Run it locally
 

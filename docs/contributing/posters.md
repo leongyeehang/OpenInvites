@@ -99,7 +99,7 @@ Run `pnpm typecheck` and `pnpm test`:
 - **The legibility tests** ([`src/themes/legibility.test.ts`](../../src/themes/legibility.test.ts), "every gallery poster"): every text on the page reads at WCAG AA over the poster's measured copy, in both text tones, with its accent and every swatch.
 - **The translation tests** ([`src/locale/translations.test.ts`](../../src/locale/translations.test.ts)): every language names it.
 
-Then look at it (`pnpm dev`, then a published event's Design drawer) with the title on it and below it, at phone width and on a desktop. The tests prove it is readable, not that it is lovely.
+Then look at it (`pnpm dev`, then an event's Poster sheet in the editor) with the title on it and below it, at phone width and on a desktop. The tests prove it is readable, not that it is lovely.
 
 ## Licence
 
