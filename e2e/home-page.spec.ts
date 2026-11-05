@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from "./test";
+import { expect, test, type Browser, type Locator, type Page } from "./test";
 import { mailCountTo, newHost, signUp, submitSignUp, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
 
@@ -27,6 +27,14 @@ test.afterAll(async () => {
 // The home page's bar, and the poster it shows.
 const bar = (page: Page) => page.locator('[data-slot="home-bar"]');
 const posterSrc = (page: Page) => page.locator('[data-slot="poster-card"] img').getAttribute("src");
+
+// A heading's words as they are drawn: how many lines they take, and at what size.
+const drawn = (heading: Locator) =>
+  heading.evaluate((element) => {
+    const text = [element, ...element.querySelectorAll("*")].find((each) => [...each.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()))!;
+    const style = getComputedStyle(text);
+    return { lines: Math.round(text.getBoundingClientRect().height / parseFloat(style.lineHeight)), size: parseFloat(style.fontSize) };
+  });
 
 // The Home page card's form.
 const homeForm = (page: Page) => page.locator("form").filter({ has: page.getByLabel("Welcome line") });
@@ -187,7 +195,7 @@ test("a name of 40 characters with no spaces wraps, and the page does not scroll
   const title = page.getByRole("heading", { level: 1, name: long });
   await expect(title).toBeVisible();
   // More than one line: it wrapped inside the page's column.
-  expect(await title.evaluate((element) => element.getBoundingClientRect().height > parseFloat(getComputedStyle(element).lineHeight) * 1.5)).toBe(true);
+  expect((await drawn(title)).lines).toBeGreaterThan(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 
   await operator.getByLabel("Name", { exact: true }).fill("Casa Ada");
@@ -247,4 +255,29 @@ test("with registration Open, the home page offers Create an account first", asy
   await page.goto("/");
   await expect(bar(page).getByRole("link")).toHaveText(["Create an account", "Sign in"]);
   await expect(page.getByText("Create an account to make your own invitation pages.")).toBeVisible();
+});
+
+// The review of ticket 02: "OpenInvites" in Bricolage Grotesque at the everyday size was wider than
+// the column on a wide screen, and broke in two. One poster of each face and placement, with
+// Sunshine and Aurora, the grotesque below the poster, at 390 px and at desktop width.
+test("the name keeps its word whole on every face and placement, on a phone and a wide screen", async ({ page }) => {
+  test.slow();
+  await operator.goto("/instance");
+  await operator.getByLabel("Name", { exact: true }).fill("");
+  await operator.getByLabel("Always the same poster").check();
+  for (const poster of ["Sunshine", "Aurora", "Seaside", "Candles", "Candlelight", "Disco", "Balloons"]) {
+    await operator.getByText(poster, { exact: true }).click();
+    await expect((await save(operator)).getByText("Saved.")).toBeVisible();
+    for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      const title = page.getByRole("heading", { level: 1, name: "OpenInvites" });
+      await expect(title).toBeVisible();
+      // On one line, and no smaller than a fitted title is drawn (1.75rem).
+      const { lines, size } = await drawn(title);
+      expect(lines, `${poster} at ${viewport.width} px`).toBe(1);
+      expect(size, `${poster} at ${viewport.width} px`).toBeGreaterThanOrEqual(28);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+    }
+  }
 });

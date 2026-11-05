@@ -25,17 +25,23 @@ export function PosterHero({
   title,
   when,
   editable,
+  fitTitle = false,
   className,
 }: {
   title: string;
   when?: ReactNode;
   // In the editor, the title typed on the poster where it shows, at either size.
   editable?: { full: ReactNode; compact: ReactNode };
+  // The home page's title keeps its words whole (poster-title.tsx, `fitTo`).
+  fitTitle?: boolean;
   className?: string;
 }) {
   const { resolved } = useTheme();
   const { poster, background } = resolved;
-  const heading = (compact: boolean) => (editable ? (compact ? editable.compact : editable.full) : <PosterTitle title={title} compact={compact} />);
+  // The title has the card's width below the poster, and the poster's own on it (heroWidth).
+  const titleWidth = poster?.titlePlacement === "on" ? `min(100cqi, max(20rem, calc(85svh * ${poster.width / poster.height})))` : "100cqi";
+  const heading = (compact: boolean) =>
+    editable ? (compact ? editable.compact : editable.full) : <PosterTitle title={title} compact={compact} fitTo={fitTitle ? titleWidth : undefined} />;
 
   if (!poster || poster.titlePlacement === "on") {
     return (

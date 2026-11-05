@@ -63,7 +63,7 @@ export default async function Home() {
   return (
     <ThemedPage theme={theme}>
       <main className="mx-auto w-full max-w-[28rem] pb-8">
-        <PosterHero title={fresh ? t("fresh.title") : instanceDisplayName(page)} className={cn(invitationEntrance, "motion-safe:delay-0")} />
+        <PosterHero title={fresh ? t("fresh.title") : instanceDisplayName(page)} fitTitle className={cn(invitationEntrance, "motion-safe:delay-0")} />
         <p className={cn("mt-3 px-5 text-[1.0625rem] leading-relaxed text-theme-text-muted sm:px-6", entrance, "motion-safe:delay-100")}>
           {fresh ? t("fresh.text") : (page.welcomeLine ?? t("defaultWelcome"))}
         </p>
