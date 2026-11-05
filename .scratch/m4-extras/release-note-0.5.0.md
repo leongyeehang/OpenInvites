@@ -26,9 +26,10 @@ stays phone-width in the centre.
 - **Date polls.** Not sure of the date? Offer two to six, and guests answer Yes, If need be or No
   to each with their name. You see the votes by name and pick one: it becomes the event's date,
   everyone who left an email is told, and the page asks for replies as usual.
-- **The photo album.** From the event's start, the hosts and guests whose replies are approved add
-  photos, up to ten at a time, and everyone browses them full screen. Hosts can delete any photo, guests their
-  own. The operator sets how many photos one event may hold (300 by default).
+- **The photo album.** From the event's start, the hosts and any guest who has replied add photos,
+  up to ten at a time, and everyone browses them full screen. Hosts can delete any photo, guests their
+  own. On an event where you approve replies, a guest can add photos once you've accepted them. The
+  operator sets how many photos one event may hold (300 by default).
 - **Passkeys.** Hosts can add passkeys on their account page and sign in with a fingerprint, face or
   screen lock. Email and password keep working. Passkeys need the instance on HTTPS.
 

@@ -22,6 +22,10 @@ _Avoid_: collaborator, editor, co-organizer
 The person who runs an instance and configures it.
 _Avoid_: admin, sysadmin, superuser
 
+**Passkey**:
+A credential on a host's device that signs them in without their password, made for the instance's domain.
+_Avoid_: security key, biometric login
+
 **Host invitation**:
 Permission from the operator for one person to become a host on an instance, carried by a single-use link. Unrelated to inviting guests to an event.
 _Avoid_: invite, signup link, access code, beta code
@@ -56,6 +60,22 @@ _Avoid_: nudge, notification
 A message a guest or host posts on an event page for everyone with access to read.
 _Avoid_: post, activity, wall message, discussion
 
+**Reaction**:
+One of six emoji a guest who may comment, or a host, gives a comment; one of each per person per comment.
+_Avoid_: like, emote
+
+**Date poll**:
+The two to six candidate dates a host offers in place of a date, which guests vote Yes, If need be, or No on. It closes for good when the host picks one, which becomes the event's date.
+_Avoid_: survey, doodle, vote (for the whole)
+
+**Voter**:
+Someone who voted on a date poll, by name, with an optional email. Voting makes no RSVP.
+_Avoid_: respondent
+
+**Album**:
+An event's photos, open from its start to the hosts and to guests whose RSVPs are not pending or declined.
+_Avoid_: gallery (the gallery is the posters'), media
+
 **Draft**:
 An event the host is still preparing. Its event link does not work for guests yet.
 _Avoid_: unpublished, private, hidden
@@ -88,19 +108,19 @@ _Avoid_: design, skin, style, look
 
 **Layout**:
 The arrangement of an event page's parts, chosen from a shipped set such as Poster, Broadsheet, or Thread. Part of the theme.
-_Avoid_: variant, template (a template sets a layout, it is not one), view, mode
-
-**Template**:
-A named, ready-made theme that ships with the software. A host starts from a template and may change any part of it; the event's theme is then its own.
-_Avoid_: preset, starter, style pack, theme (for the shipped set)
-
-**Background**:
-The full-page image or gradient behind an event page, chosen from the curated gallery or uploaded by the host.
-_Avoid_: cover, banner, hero image, wallpaper
+_Avoid_: variant, template, view, mode
 
 **Poster**:
-A host-uploaded image shown as the invitation itself, at its own proportions, with the title placed on it or beneath it. An alternative to using the upload as a background.
-_Avoid_: cover image, flyer, card image
+The invitation's picture at the top of the event page: a gallery poster, an emoji pattern, a colour, or the host's upload, with the title on it or beneath it.
+_Avoid_: cover image, flyer, card image, background (the blurred copy behind it is not the poster)
+
+**Gallery poster**:
+One of the posters that ship with the software, each bringing a look (title font, title placement, effect, button style). Picking one again restores its look; the host may change any part, and the event's theme is then its own.
+_Avoid_: template (what 0.4 shipped), preset, starter
+
+**Background**:
+Only what fills the page behind the poster: a colour poster's gradient, or a blurred copy of the poster. It is not chosen on its own.
+_Avoid_: cover, banner, hero image, wallpaper
 
 ### Responses
 

@@ -39,3 +39,5 @@
   - **Album**: an event's photos, open from its start to the hosts and to guests whose replies are approved. _Avoid_: gallery (the posters'), media.
   - **Passkey**: a credential on a host's device that signs them in without their password, made for the instance's domain. _Avoid_: security key, biometric login.
 
+
+**2026-11-04, maintainer's answers (via the implementing agent).** All accepted: zh-Hant "passkey" is now **通行密鑰** (Apple's term, beside zh-Hans 通行密钥); 勉强可以 / 勉強可以 stays; guests who answered Can't go keep the album; the glossary entries above are in `CONTEXT.md`; the release note's album line no longer reads as if hosts need approval.

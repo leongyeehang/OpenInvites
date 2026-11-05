@@ -55,8 +55,8 @@
       "linkSubmit": "寄連結給我",
       "linkSent": "如果這裡有對應的帳號，我們已把登入連結寄到 {email}。",
       "linkExpired": "這個登入連結已過期或已被使用。",
-      "passkey": "使用通行金鑰登入",
-      "passkeyFailed": "這個通行金鑰未能讓你登入。請再試一次，或使用電子郵件和密碼登入。"
+      "passkey": "使用通行密鑰登入",
+      "passkeyFailed": "這個通行密鑰未能讓你登入。請再試一次，或使用電子郵件和密碼登入。"
     },
     "forgotPassword": {
       "title": "重設密碼",
@@ -165,16 +165,16 @@
       "changed": "密碼已變更。"
     },
     "passkeys": {
-      "title": "通行金鑰",
+      "title": "通行密鑰",
       "description": "用指紋、臉孔或螢幕鎖定登入，不必輸入密碼。你的電子郵件和密碼仍然可以使用。",
-      "unavailable": "只有當此實例透過 HTTPS 提供服務時才能使用通行金鑰。請聯絡此實例的營運者進行設定。",
-      "none": "你還沒有通行金鑰。",
-      "add": "新增通行金鑰",
+      "unavailable": "只有當此實例透過 HTTPS 提供服務時才能使用通行密鑰。請聯絡此實例的營運者進行設定。",
+      "none": "你還沒有通行密鑰。",
+      "add": "新增通行密鑰",
       "adding": "正在等待你的裝置…",
-      "added": "已新增通行金鑰。",
-      "failed": "通行金鑰未能新增，請再試一次。",
+      "added": "已新增通行密鑰。",
+      "failed": "通行密鑰未能新增，請再試一次。",
       "tooFast": "操作太頻繁了，請稍後再試。",
-      "unnamed": "通行金鑰",
+      "unnamed": "通行密鑰",
       "created": "新增於 {date}",
       "lastUsed": "上次使用於 {date}",
       "neverUsed": "尚未用於登入",
@@ -186,11 +186,11 @@
       "nameInvalid": "請填寫不超過 60 個字元的名稱。",
       "remove": "移除",
       "removeLabel": "移除 {name}",
-      "removeTitle": "要移除這個通行金鑰嗎？",
+      "removeTitle": "要移除這個通行密鑰嗎？",
       "removeText": "你將無法再用 {name} 登入。其他登入方式仍然可以使用。",
       "removeConfirm": "移除",
       "keep": "保留",
-      "removed": "已移除通行金鑰。"
+      "removed": "已移除通行密鑰。"
     },
     "delete": {
       "title": "刪除帳號",
