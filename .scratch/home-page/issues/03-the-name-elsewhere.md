@@ -35,3 +35,5 @@ Decisions and things to know:
 Left for later tickets or noted: nothing.
 
 Chinese least sure of: `Mail.resetPassword.body` "为你在 {instance} 的账号设置新密码" / "為你在 {instance} 的帳號設定新密碼".
+
+**2026-11-05, final-review fix.** Noted: the spec's test list named a verification email; the reset email was tested instead, since all four senders share one helper. The root layout's metadata now falls back to the default name when the database cannot be read, so `/privacy`, `/terms`, not-found and `/too-fast` still draw.

@@ -45,3 +45,5 @@ Decisions and things to know: inputs are `id="instance-name"` and `id="welcome-l
 Left for later: ticket 02 extends `e2e/home-page.spec.ts` and `src/instance/home.ts`. Chinese strings least sure of: `showOperator` ("运营者"/"營運者") and `postersMode.all`.
 
 Evidence: RED was `vitest run src/instance/home.test.ts` failing to load `./home` (no module); GREEN was 18 passed after `home.ts`.
+
+**2026-11-05, final-review fix.** "Run by" is the operator's own consent, so it no longer passes to the next operator: `seatFirstAccount` and `takeOperatorSeat` turn `show_operator` off in the same update whenever `operator_id` changes (the OPERATOR_EMAIL takeover scenario in `e2e/registration-without-mail.spec.ts` checks `/` and the card's checkbox). A refused poster choice now opens More options so its error is seen (extended scenario in `e2e/home-page.spec.ts`). `normaliseText` drops control characters after folding whitespace, so a NUL cannot make Postgres refuse the update. Docs and release note now say the name is the home page's tab title, and in the subject of all four account emails but the text of three.

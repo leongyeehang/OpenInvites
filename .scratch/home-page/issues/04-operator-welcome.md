@@ -49,3 +49,5 @@ Decisions and things to know:
 Left for later tickets or noted: ticket 05 may want the Chinese reviewed.
 
 Chinese least sure of: `Dashboard.operatorWelcome.title` "这个实例属于你" / "這個實例屬於你"; `notNow` "暂不设置" / "暫不設定"; `limits.kept` "每位主办人 N 个活动 · 活动结束后保留 N 天".
+
+**2026-11-05, final-review fix.** Navigation after the welcome sheet is dismissed happens even if the dismiss action rejects (the rejection is swallowed, the sheet shows again next visit). Row links clicked with Ctrl, Cmd, Shift or Alt, or a non-primary button, keep the browser's own behaviour and still dismiss.
