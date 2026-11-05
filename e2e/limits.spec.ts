@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import { expect, test, type Browser, type Page } from "./test";
 import { APPROVAL, editSettings, eventLinkIn, openMore, publishInEditor, setWhen, typeTitle } from "./events";
-import { mailCountTo, newHost, signUp, verifyEmail } from "./hosts";
+import { dismissOperatorWelcome, mailCountTo, newHost, signUp, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
 
 // Ticket 01: the operator's two limits. Runs against `app-fresh` after the fresh-instance specs
@@ -54,6 +54,7 @@ test("the operator sets the limits to two and sees them saved", async ({ browser
   const host = newHost("limits");
   const mails = await mailCountTo(request, host.email);
   await signUp(operator, host);
+  await dismissOperatorWelcome(operator);
   await verifyEmail(operator, request, host.email, mails);
 
   await operator.goto("/dashboard");

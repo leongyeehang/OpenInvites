@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { newHost, signUp } from "./hosts";
+import { dismissOperatorWelcome, newHost, signUp } from "./hosts";
 import { recreate } from "./instances";
 
 // Runs against `app-no-mail` (compose.yaml): an instance of its own that has no mail, so no email
@@ -29,6 +29,7 @@ test.afterAll(async () => {
 test("the first account is the operator, and has no way to email a host invitation", async ({ browser }) => {
   firstHost = await (await browser.newContext()).newPage();
   await signUp(firstHost, newHost("no-mail-first"));
+  await dismissOperatorWelcome(firstHost);
   await firstHost.getByRole("link", { name: "Instance settings" }).click();
   await expect(firstHost.getByLabel("Email (optional)")).toBeVisible();
   await expect(firstHost.getByLabel("Email the link to this address")).toHaveCount(0);
@@ -51,6 +52,20 @@ test("a restart hands the instance to the account OPERATOR_EMAIL names", async (
   test.slow();
   recreate("app-no-mail");
   await operator.goto("/dashboard");
+  // The new operator's welcome sheet, by keyboard alone: the Tab key stays inside it, and Escape
+  // closes it as Not now does, the focus going to the page's heading.
+  const welcome = operator.getByRole("dialog", { name: "This site is yours" });
+  await expect(welcome.getByRole("heading", { name: "This site is yours" })).toBeFocused();
+  for (let tab = 0; tab < 6; tab++) {
+    await operator.keyboard.press("Tab");
+    expect(await operator.evaluate(() => document.activeElement?.closest('[role="dialog"]') !== null)).toBe(true);
+  }
+  await operator.keyboard.press("Escape");
+  await expect(welcome).toBeHidden();
+  await expect(operator.getByRole("heading", { name: "Your events" })).toBeFocused();
+  await operator.reload();
+  await expect(operator.getByRole("heading", { name: "Your events" })).toBeVisible();
+  await expect(operator.getByRole("dialog")).toHaveCount(0);
   await expect(operator.getByRole("link", { name: "Instance settings" })).toBeVisible();
 
   await firstHost.goto("/dashboard");

@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Browser, type Page } from "./test";
 import { createDraft, openMore, setWhen } from "./events";
-import { MAILPIT, newHost, signUp, signUpVerified, verifyEmail } from "./hosts";
+import { dismissOperatorWelcome, MAILPIT, newHost, signUp, signUpVerified, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
 
 // Ticket 10: retention. Runs against `app-fresh` (with mail) and `app-no-mail` after the limits
@@ -128,6 +128,7 @@ test("the first host of each instance shares an event with a co-host and dates i
   const host = newHost("retention");
   operatorEmail = host.email;
   await signUp(operator, host);
+  await dismissOperatorWelcome(operator);
   await verifyEmail(operator, request, host.email);
   await openRegistration(operator);
   // Dated ahead until the co-host has joined, so that no sweep marks it before they are a host.
@@ -145,6 +146,7 @@ test("the first host of each instance shares an event with a co-host and dates i
   // Without mail no email is verified: the hosts make and join events at once.
   noMailHost = await (await browser.newContext({ baseURL: NO_MAIL })).newPage();
   await signUp(noMailHost, newHost("retention-no-mail"));
+  await dismissOperatorWelcome(noMailHost);
   await openRegistration(noMailHost);
   // An event that ended long ago, which the first minute after this instance started marks. Once
   // its mark shows, nothing sweeps here until the restart, so the party, dated back only then, is

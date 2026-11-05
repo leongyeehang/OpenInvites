@@ -99,6 +99,19 @@ export const isOperator = cache(async (hostId: string): Promise<boolean> => {
   return settings.operatorId === hostId;
 });
 
+// Whether this host is the operator and has not yet been shown the welcome sheet on their
+// dashboard. Not cached: dismissing it must show on the very next read.
+export async function operatorToWelcome(hostId: string): Promise<boolean> {
+  const [settings] = await getDb()
+    .select({ operatorId: instanceSettings.operatorId, welcomedId: instanceSettings.welcomedOperatorId })
+    .from(instanceSettings);
+  return settings.operatorId === hostId && settings.welcomedId !== hostId;
+}
+
+export async function markOperatorWelcomed(hostId: string): Promise<void> {
+  await getDb().update(instanceSettings).set({ welcomedOperatorId: hostId });
+}
+
 // The operator account's email, which is where reports go (not OPERATOR_CONTACT_EMAIL, the public
 // address); nothing while the instance has no operator.
 export async function operatorEmail(): Promise<string | undefined> {

@@ -57,7 +57,7 @@ export default async function InstancePage() {
             </ClientMessages>
           </CardContent>
         </Card>
-        <Card>
+        <Card id="registration">
           <CardHeader>
             <CardTitle>
               <h2>{t("registration.title")}</h2>
@@ -70,7 +70,7 @@ export default async function InstancePage() {
             </ClientMessages>
           </CardContent>
         </Card>
-        <Card>
+        <Card id="limits">
           <CardHeader>
             <CardTitle>
               <h2>{t("limits.title")}</h2>

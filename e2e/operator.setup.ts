@@ -1,5 +1,5 @@
 import { expect, test as setup } from "./test";
-import { mailCountTo, OPERATOR, PASSWORD, signIn, signUp, verifyEmail } from "./hosts";
+import { dismissOperatorWelcome, mailCountTo, OPERATOR, PASSWORD, signIn, signUp, verifyEmail } from "./hosts";
 
 // Every other spec signs up hosts of its own, so `app` runs with registration open. Its operator
 // opens it here, on the instance settings page, as a person would: signing in to the account an
@@ -13,9 +13,12 @@ setup("the operator opens registration to everyone", async ({ page, request }) =
   await expect(page.getByRole("banner").or(noAccount)).toBeVisible({ timeout: 15_000 });
   if (await noAccount.isVisible()) await signUp(page, OPERATOR);
   else if (await unverified.isVisible()) await page.getByRole("button", { name: "Resend email" }).click();
+  // An account that is made or verified here has only now become the operator, and is welcomed.
+  const welcomed = (await noAccount.isVisible()) || (await unverified.isVisible());
   if (await unverified.isVisible()) await verifyEmail(page, request, OPERATOR.email, mails);
 
   await page.goto("/dashboard");
+  if (welcomed) await dismissOperatorWelcome(page);
   await page.getByRole("link", { name: "Instance settings" }).click();
   await page.getByLabel("Open", { exact: true }).check();
   // The Limits card has a Save button too: this one is the Registration form's.

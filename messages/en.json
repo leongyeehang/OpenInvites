@@ -165,6 +165,28 @@
       "noDate": "No date yet"
     }
   },
+  "Dashboard": {
+    "operatorWelcome": {
+      "title": "This site is yours",
+      "description": "You’re its operator, the one account that decides how it works. Three things to look at first:",
+      "name": {
+        "label": "Name and welcome line",
+        "notSet": "Not set: the home page says “{name}”"
+      },
+      "signUp": {
+        "label": "Who can sign up",
+        "invitationOnly": "Invitation only",
+        "open": "Open"
+      },
+      "limits": {
+        "label": "Limits and retention",
+        "kept": "{events, plural, one {# event} other {# events}} per host · kept {days, plural, one {# day} other {# days}} after they end",
+        "keptForever": "{events, plural, one {# event} other {# events}} per host · kept for ever"
+      },
+      "notNow": "Not now",
+      "nameIt": "Name your instance"
+    }
+  },
   "Account": {
     "title": "Account settings",
     "displayName": {

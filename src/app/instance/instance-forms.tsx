@@ -2,7 +2,7 @@
 
 import { Check, ChevronDown, Copy } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { FormOutcome } from "@/components/form-outcome";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -28,6 +28,11 @@ export function HomePageForm({ home }: { home: HomePage }) {
   // Closed unless the stored settings differ from the defaults, so that what was changed is seen.
   const [open, setOpen] = useState(home.posters !== DEFAULT_HOME_PAGE.posters || home.showOperator !== DEFAULT_HOME_PAGE.showOperator);
   const error = (field: string) => (state?.field === field ? state.error : undefined);
+  // Arriving by "Name your instance" on the operator's welcome sheet (dashboard/operator-welcome.tsx)
+  // is arriving to type the name.
+  useEffect(() => {
+    if (window.location.hash === "#home-page") document.getElementById("instance-name")?.focus();
+  }, []);
 
   const choosePosters = (mode: HomePage["posters"]) => {
     setPosters(mode);

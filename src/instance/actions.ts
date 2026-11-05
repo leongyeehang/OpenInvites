@@ -13,7 +13,7 @@ import { generateHostInvitationToken, hashHostInvitationToken, hostInvitationLin
 import { parseHomePage, type HomePageField } from "./home";
 import { parseLimits } from "./limits";
 import { isRegistrationMode } from "./registration";
-import { createHostInvitation, revokeHostInvitation, setHomePage, setInstanceLimits, setRegistrationMode } from "./repository";
+import { createHostInvitation, markOperatorWelcomed, revokeHostInvitation, setHomePage, setInstanceLimits, setRegistrationMode } from "./repository";
 
 // Every action here is the operator's alone; anyone else is told the page does not exist.
 
@@ -30,6 +30,13 @@ export async function setRegistrationModeAction(_: FormState, formData: FormData
 
 // An error says which field it belongs to, so the form shows it beside that field.
 export type HomePageFormState = { error?: string; field?: HomePageField; success?: string } | undefined;
+
+// The welcome sheet on the operator's dashboard, whichever way it is closed: it never comes back.
+export async function dismissOperatorWelcomeAction(): Promise<void> {
+  const operator = await requireOperator();
+  await markOperatorWelcomed(operator.id);
+  revalidatePath("/dashboard");
+}
 
 // Read when the home page is drawn, so a change shows at once.
 export async function setHomePageAction(_: HomePageFormState, formData: FormData): Promise<HomePageFormState> {

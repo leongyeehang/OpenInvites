@@ -165,6 +165,28 @@
       "noDate": "尚未定日期"
     }
   },
+  "Dashboard": {
+    "operatorWelcome": {
+      "title": "這個實例屬於你",
+      "description": "你是它的營運者，也是唯一能決定它如何運作的帳號。先看這三項：",
+      "name": {
+        "label": "名稱與歡迎語",
+        "notSet": "尚未設定：首頁顯示「{name}」"
+      },
+      "signUp": {
+        "label": "誰可以註冊",
+        "invitationOnly": "僅限邀請",
+        "open": "開放"
+      },
+      "limits": {
+        "label": "限額與保留期",
+        "kept": "{events, plural, other {每位主辦人 # 個活動}} · {days, plural, other {活動結束後保留 # 天}}",
+        "keptForever": "{events, plural, other {每位主辦人 # 個活動}} · 永久保留"
+      },
+      "notNow": "暫不設定",
+      "nameIt": "為你的實例命名"
+    }
+  },
   "Account": {
     "title": "帳號設定",
     "displayName": {

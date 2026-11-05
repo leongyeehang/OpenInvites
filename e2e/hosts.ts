@@ -26,7 +26,17 @@ export async function signUp(page: Page, host: { name: string; email: string }) 
   await submitSignUp(page, host);
   // Sign-up hashes the password and sends the verification email before it redirects.
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
-  await expect(page.getByRole("banner").getByText(host.name)).toBeVisible();
+  // The operator's welcome sheet, if it is open, hides the page behind it from the accessibility tree.
+  await expect(page.getByRole("banner").getByText(host.name).or(page.getByRole("dialog", { name: "This site is yours" }))).toBeVisible();
+}
+
+// The operator's first visit to their dashboard opens a welcome sheet (home page, ticket 04). A
+// spec whose first account becomes the operator closes it with Not now, as that account would.
+export async function dismissOperatorWelcome(page: Page) {
+  const welcome = page.getByRole("dialog", { name: "This site is yours" });
+  await expect(welcome).toBeVisible();
+  await welcome.getByRole("button", { name: "Not now" }).click();
+  await expect(welcome).toBeHidden();
 }
 
 export async function signIn(page: Page, email: string, password: string) {

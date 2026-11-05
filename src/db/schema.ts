@@ -136,6 +136,10 @@ export const instanceSettings = pgTable(
     homePosters: text("home_posters").notNull().default("all"),
     homePosterIds: text("home_poster_ids").array().notNull().default(sql`'{}'`),
     showOperator: boolean("show_operator").notNull().default(false),
+    // The operator who has been shown the welcome sheet on their dashboard, so that it shows once
+    // per operator: a new operator (OPERATOR_EMAIL's takeover) is welcomed in their turn. The
+    // migration that added it marked the operator of an upgraded instance as welcomed.
+    welcomedOperatorId: uuid("welcomed_operator_id").references(() => user.id, { onDelete: "set null" }),
   },
   (table) => [
     check("instance_settings_one_row", sql`${table.id}`),

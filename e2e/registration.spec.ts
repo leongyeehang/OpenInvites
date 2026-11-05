@@ -1,5 +1,6 @@
 import { expect, expectNotFoundAsSent, test, type Browser, type Page } from "./test";
-import { latestMailTo, linkIn, mailCountTo, newHost, PASSWORD, signIn, signUp, submitSignUp, verifyEmail } from "./hosts";
+import { dismissOperatorWelcome, latestMailTo, linkIn, mailCountTo, newHost, PASSWORD, signIn, signUp, submitSignUp, verifyEmail } from "./hosts";
+import { expectNoSeriousViolations } from "./axe";
 import { recreate } from "./instances";
 
 // Runs against `app-fresh` (compose.yaml), an instance of its own whose database starts empty:
@@ -33,14 +34,37 @@ async function onPhone(browser: Browser): Promise<Page> {
   return (await browser.newContext(PHONE)).newPage();
 }
 
-test("the first account on an empty instance is its operator, and registration starts invitation only", async ({
+// The first visit to the operator's dashboard (home page, ticket 04) opens a welcome sheet, which
+// hides the page behind it, so the first account's way to Instance settings is through it.
+test("the first account on an empty instance is its operator, is welcomed once, and registration starts invitation only", async ({
   browser,
 }) => {
   firstHost = await (await browser.newContext()).newPage();
   await signUp(firstHost, newHost("first"));
-  await firstHost.getByRole("link", { name: "Instance settings" }).click();
+  const welcome = firstHost.getByRole("dialog", { name: "This site is yours" });
+  await expect(welcome).toBeVisible();
+  await expect(welcome.getByRole("heading", { name: "This site is yours" })).toBeFocused();
+  await expect(welcome.getByText("Not set: the home page says “OpenInvites”")).toBeVisible();
+  await expect(welcome.getByText("Invitation only", { exact: true })).toBeVisible();
+  await expect(welcome.getByText("50 events per host · kept 365 days after they end")).toBeVisible();
+  await expect(welcome.locator("img")).toHaveAttribute("alt", "");
+
+  // An open sheet is as accessible at a phone's width as at a desktop's.
+  await expectNoSeriousViolations(firstHost, "the operator's welcome sheet, at desktop width");
+  await firstHost.setViewportSize({ width: 390, height: 844 });
+  await expectNoSeriousViolations(firstHost, "the operator's welcome sheet, at 390px");
+  await firstHost.setViewportSize({ width: 1280, height: 800 });
+
+  await welcome.getByRole("button", { name: "Name your instance" }).click();
+  await expect(firstHost).toHaveURL(/\/instance#home-page$/);
   await expect(firstHost.getByRole("heading", { name: "Instance settings" })).toBeVisible();
+  await expect(firstHost.getByLabel("Name", { exact: true })).toBeFocused();
   await expect(firstHost.getByLabel("Invitation only")).toBeChecked();
+
+  await firstHost.goto("/dashboard");
+  await firstHost.reload();
+  await expect(firstHost.getByRole("heading", { name: "Your events" })).toBeVisible();
+  await expect(firstHost.getByRole("dialog")).toHaveCount(0);
 });
 
 test("the sign-up page says a host invitation is needed, and a sign-up without one is refused", async ({ browser }) => {
@@ -81,7 +105,11 @@ test("the email OPERATOR_EMAIL names signs up anyway, and takes over as the oper
 
   await verifyEmail(operator, request, OPERATOR.email, mails);
   await operator.goto("/dashboard");
+  // The new operator is welcomed in their turn, and once: Not now is for good.
+  await dismissOperatorWelcome(operator);
+  await operator.reload();
   await expect(operator.getByRole("link", { name: "Instance settings" })).toBeVisible();
+  await expect(operator.getByRole("dialog")).toHaveCount(0);
 
   await firstHost.goto("/dashboard");
   await expect(firstHost.getByRole("banner").getByRole("button", { name: "Sign out" })).toBeVisible();
@@ -106,6 +134,9 @@ test("a host invitation link lets one person sign up, and nobody after them", as
   await submitSignUp(invited, host);
   await expect(invited).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
   await expect(invited.getByRole("banner").getByText(host.name)).toBeVisible();
+  // A host who is not the operator is not welcomed as one.
+  await expect(invited.getByRole("heading", { name: "Your events" })).toBeVisible();
+  await expect(invited.getByRole("dialog")).toHaveCount(0);
 
   const second = await onPhone(browser);
   await second.goto(link);

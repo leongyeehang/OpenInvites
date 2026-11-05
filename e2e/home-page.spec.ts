@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Browser, type Locator, type Page } from "./test";
-import { MAILPIT, latestMailTo, mailCountTo, newHost, signUp, submitSignUp, verifyEmail } from "./hosts";
+import { MAILPIT, dismissOperatorWelcome, latestMailTo, mailCountTo, newHost, signUp, submitSignUp, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
 
 // Home page, tickets 01 to 03: the operator's Home page card, and the home page it sets. Runs
@@ -84,6 +84,7 @@ test("once the operator exists, with nothing set, an Invitation only site offers
   operatorEmail = host.email;
   const mails = await mailCountTo(request, host.email);
   await signUp(operator, host);
+  await dismissOperatorWelcome(operator);
   await verifyEmail(operator, request, host.email, mails);
 
   await page.goto("/");

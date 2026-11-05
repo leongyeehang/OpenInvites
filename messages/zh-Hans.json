@@ -165,6 +165,28 @@
       "noDate": "尚未定日期"
     }
   },
+  "Dashboard": {
+    "operatorWelcome": {
+      "title": "这个实例属于你",
+      "description": "你是它的运营者，也是唯一能决定它如何运作的账号。先看这三项：",
+      "name": {
+        "label": "名称和欢迎语",
+        "notSet": "未设置：首页显示“{name}”"
+      },
+      "signUp": {
+        "label": "谁可以注册",
+        "invitationOnly": "仅限邀请",
+        "open": "开放"
+      },
+      "limits": {
+        "label": "限额与保留期",
+        "kept": "{events, plural, other {每位主办人 # 个活动}} · {days, plural, other {活动结束后保留 # 天}}",
+        "keptForever": "{events, plural, other {每位主办人 # 个活动}} · 永久保留"
+      },
+      "notNow": "暂不设置",
+      "nameIt": "为你的实例命名"
+    }
+  },
   "Account": {
     "title": "账号设置",
     "displayName": {

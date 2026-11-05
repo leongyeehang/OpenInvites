@@ -7,12 +7,17 @@ import { Button } from "@/components/ui/button";
 import { eventsOwnedAtLimit } from "@/events/limit";
 import { listHostEvents, type HostEvent } from "@/events/repository";
 import { formatDay, formatWhen, isDated, partitionByEnd } from "@/events/time";
-import { instanceLimits } from "@/instance/repository";
+import type { Limits } from "@/instance/limits";
+import { pickPoster, posterPool } from "@/instance/home";
+import { homePage, instanceLimits, operatorToWelcome, registrationMode } from "@/instance/repository";
+import { ClientMessages } from "@/locale/client-messages";
 import { retentionFloorDays } from "@/retention/floor";
 import { deletionDate } from "@/retention/plan";
 import { NO_RSVPS, type RsvpCounts } from "@/rsvps/counts";
 import { countRsvpsByEvent } from "@/rsvps/repository";
+import { findGalleryPoster } from "@/themes/posters";
 import { EventStateBadge } from "../events/event-state-badge";
+import { OperatorWelcome } from "./operator-welcome";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Host.dashboard");
@@ -21,22 +26,27 @@ export async function generateMetadata(): Promise<Metadata> {
 
 // Upcoming and past, decided by when the event ends, each card carrying how its RSVPs stand, and
 // the day it will be deleted once it is marked for its age (spec, "Retention"). The events the host
-// co-hosts are among them, marked so.
+// co-hosts are among them, marked so. A new operator is first welcomed on it, once.
 export default async function DashboardPage() {
   const host = await requireHost();
-  const [t, locale, events, { retentionDays }] = await Promise.all([
+  const [t, locale, events, limits, welcome] = await Promise.all([
     getTranslations("Host.dashboard"),
     getLocale(),
     listHostEvents(host.id),
     instanceLimits(),
+    operatorToWelcome(host.id),
   ]);
+  const { retentionDays } = limits;
   const { upcoming, past } = partitionByEnd(events, new Date());
   const [counts, atLimit] = await Promise.all([countRsvpsByEvent(events.map((event) => event.id)), eventsOwnedAtLimit(host.id)]);
 
   return (
     <>
+      {welcome && <Welcome limits={limits} />}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        <h1 tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
+          {t("title")}
+        </h1>
         {atLimit === undefined ? (
           <Button asChild>
             <Link href="/events/new">{t("new")}</Link>
@@ -54,6 +64,21 @@ export default async function DashboardPage() {
         </>
       )}
     </>
+  );
+}
+
+async function Welcome({ limits }: { limits: Limits }) {
+  const [home, mode] = await Promise.all([homePage(), registrationMode()]);
+  return (
+    <ClientMessages namespaces={["Dashboard.operatorWelcome"]}>
+      <OperatorWelcome
+        poster={findGalleryPoster(pickPoster(posterPool(home)))!.card}
+        instanceName={home.instanceName}
+        mode={mode}
+        maxEventsPerHost={limits.maxEventsPerHost}
+        retentionDays={limits.retentionDays}
+      />
+    </ClientMessages>
   );
 }
 
