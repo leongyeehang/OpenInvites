@@ -66,7 +66,7 @@ The home page becomes a server component that reads the instance settings once a
 
 ### Instance settings: the Home page card **(maintainer, 2026-11-04)**
 
-- New columns on `instance_settings`, one migration:
+- New columns on `instance_settings`, in two migrations (the last column comes with the welcome sheet's ticket):
   - `instance_name text` (null = not set), 1 to 40 characters after trimming;
   - `welcome_line text` (null = not set), 1 to 140 characters after trimming;
   - `home_posters text` with check `IN ('all', 'picked', 'one')`, default `'all'`;
