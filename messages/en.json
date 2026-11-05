@@ -1,7 +1,5 @@
 {
   "Home": {
-    "title": "OpenInvites",
-    "tagline": "An open source, self-hostable service for event invitations.",
     "signIn": "Sign in",
     "signUp": "Create an account",
     "defaultWelcome": "Event invitations, made here: one link that is the invite, the reply and the place guests come back to.",
@@ -345,16 +343,16 @@
   },
   "Mail": {
     "verifyEmail": {
-      "subject": "Verify your email for OpenInvites",
-      "body": "Hi {name},\n\nOpen the link below to confirm this is your email address. It is valid for one hour.\n\n{url}\n\nIf you did not sign up for OpenInvites, you can ignore this message."
+      "subject": "Verify your email for {instance}",
+      "body": "Hi {name},\n\nOpen the link below to confirm this is your email address. It is valid for one hour.\n\n{url}\n\nIf you did not sign up for {instance}, you can ignore this message."
     },
     "resetPassword": {
-      "subject": "Reset your OpenInvites password",
-      "body": "Hi {name},\n\nOpen the link below to choose a new password. It is valid for one hour.\n\n{url}\n\nIf you did not ask for this, you can ignore this message and your password stays as it is."
+      "subject": "Reset your {instance} password",
+      "body": "Hi {name},\n\nOpen the link below to choose a new password for {instance}. It is valid for one hour.\n\n{url}\n\nIf you did not ask for this, you can ignore this message and your password stays as it is."
     },
     "hostInvitation": {
-      "subject": "Your host invitation for OpenInvites",
-      "body": "Hello,\n\nHere is your host invitation for OpenInvites. Open the link below to create your host account and start making event pages.\n\n{url}\n\nThe link works for one account and expires in {days} days. If you were not expecting this, you can ignore this message."
+      "subject": "Your host invitation for {instance}",
+      "body": "Hello,\n\nHere is your host invitation for {instance}. Open the link below to create your host account and start making event pages.\n\n{url}\n\nThe link works for one account and expires in {days} days. If you were not expecting this, you can ignore this message."
     },
     "rsvpReply": {
       "subject": {
@@ -415,7 +413,7 @@
     },
     "guestFooter": "You’re getting this because your email is on your reply to {title}. To stop emails about this event: {url}",
     "magicLink": {
-      "subject": "Your sign-in link for OpenInvites",
+      "subject": "Your sign-in link for {instance}",
       "body": "Hi {name},\n\nOpen the link below to sign in. It is valid for 15 minutes and works once.\n\n{url}\n\nIf you did not ask for this, you can ignore this message and nobody is signed in."
     },
     "report": {

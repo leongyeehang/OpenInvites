@@ -1,7 +1,5 @@
 {
   "Home": {
-    "title": "OpenInvites",
-    "tagline": "開源、可自行架設的活動邀請服務。",
     "signIn": "登入",
     "signUp": "建立帳號",
     "defaultWelcome": "在這裡製作活動邀請：一個連結，就是邀請函、回覆處，也是賓客日後回來看看的地方。",
@@ -345,16 +343,16 @@
   },
   "Mail": {
     "verifyEmail": {
-      "subject": "驗證你在 OpenInvites 的電子郵件",
-      "body": "{name}，你好：\n\n請開啟下方連結，確認這是你的電子郵件地址。連結一小時內有效。\n\n{url}\n\n如果你沒有註冊過 OpenInvites，可以忽略這封郵件。"
+      "subject": "驗證你在 {instance} 的電子郵件",
+      "body": "{name}，你好：\n\n請開啟下方連結，確認這是你的電子郵件地址。連結一小時內有效。\n\n{url}\n\n如果你沒有註冊過 {instance}，可以忽略這封郵件。"
     },
     "resetPassword": {
-      "subject": "重設你的 OpenInvites 密碼",
-      "body": "{name}，你好：\n\n請開啟下方連結設定新密碼。連結一小時內有效。\n\n{url}\n\n如果這不是你本人的操作，可以忽略這封郵件，你的密碼不會變更。"
+      "subject": "重設你的 {instance} 密碼",
+      "body": "{name}，你好：\n\n請開啟下方連結，為你在 {instance} 的帳號設定新密碼。連結一小時內有效。\n\n{url}\n\n如果這不是你本人的操作，可以忽略這封郵件，你的密碼不會變更。"
     },
     "hostInvitation": {
-      "subject": "你的 OpenInvites 主辦人邀請",
-      "body": "你好：\n\n這是你的 OpenInvites 主辦人邀請。開啟下方連結，建立主辦人帳號，就可以開始製作活動頁面了。\n\n{url}\n\n這個連結只能建立一個帳號，{days} 天後失效。如果你沒想到會收到這封郵件，可以忽略它。"
+      "subject": "你的 {instance} 主辦人邀請",
+      "body": "你好：\n\n這是你的 {instance} 主辦人邀請。開啟下方連結，建立主辦人帳號，就可以開始製作活動頁面了。\n\n{url}\n\n這個連結只能建立一個帳號，{days} 天後失效。如果你沒想到會收到這封郵件，可以忽略它。"
     },
     "rsvpReply": {
       "subject": {
@@ -415,7 +413,7 @@
     },
     "guestFooter": "你收到這封郵件，是因為你對「{title}」的回覆上留有這個電子郵件。如果不想再收到關於這個活動的郵件，請開啟這個連結：{url}",
     "magicLink": {
-      "subject": "你的 OpenInvites 登入連結",
+      "subject": "你的 {instance} 登入連結",
       "body": "{name}，你好：\n\n請開啟下方連結登入。連結 15 分鐘內有效，且只能使用一次。\n\n{url}\n\n如果這不是你本人的操作，可以忽略這封郵件，不會有人因此登入。"
     },
     "report": {

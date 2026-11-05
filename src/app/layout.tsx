@@ -3,11 +3,13 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PageFooter } from "@/components/page-footer";
 import { analyticsSnippet } from "@/instance/env";
+import { instanceDisplayName } from "@/instance/home";
+import { homePage } from "@/instance/repository";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("Home");
-  return { title: t("title"), description: t("tagline") };
+  const [t, page] = await Promise.all([getTranslations("Home"), homePage()]);
+  return { title: instanceDisplayName(page), description: page.welcomeLine ?? t("defaultWelcome") };
 }
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

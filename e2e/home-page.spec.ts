@@ -1,17 +1,18 @@
-import { expect, test, type Browser, type Locator, type Page } from "./test";
-import { mailCountTo, newHost, signUp, submitSignUp, verifyEmail } from "./hosts";
+import { expect, test, type APIRequestContext, type Browser, type Locator, type Page } from "./test";
+import { MAILPIT, latestMailTo, mailCountTo, newHost, signUp, submitSignUp, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
 
-// Home page, tickets 01 and 02: the operator's Home page card, and the home page it sets. Runs
+// Home page, tickets 01 to 03: the operator's Home page card, and the home page it sets. Runs
 // against `app-fresh` after the retention spec (the `home-instance` project), and recreates it
 // first, so the first account here is the operator. The scenarios run in order, each leaving the
 // instance as the next expects it: the fresh home page before anyone signs up, then the operator's
-// account, the card, and the home page as each of its settings changes it. Registration stays
+// account, the card, and the home page as each of its settings changes it, then the name where it is not the home page: the tab, the header and the account emails. Registration stays
 // Invitation only, the default, until the last scenario opens it.
 test.describe.configure({ mode: "serial" });
 
 let operator: Page;
 let operatorName: string;
+let operatorEmail: string;
 // The operator's first save, as the browser sent it, for the scenario that replays it.
 let firstSave: { url: string; headers: Record<string, string>; body: Buffer } | undefined;
 
@@ -80,6 +81,7 @@ test("once the operator exists, with nothing set, an Invitation only site offers
   operator = await (await browser.newContext()).newPage();
   const host = newHost("home");
   operatorName = host.name;
+  operatorEmail = host.email;
   const mails = await mailCountTo(request, host.email);
   await signUp(operator, host);
   await verifyEmail(operator, request, host.email, mails);
@@ -244,6 +246,51 @@ test("Run by names the operator only while it is turned on", async ({ page }) =>
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Casa Ada" })).toBeVisible();
   await expect(page.getByText(/^Run by/)).toBeHidden();
+});
+
+// Ticket 03. The name goes into plain-text mail and the tab as typed, "&" and "<" included.
+async function nameThe(instance: string) {
+  await operator.goto("/instance");
+  await operator.getByLabel("Name", { exact: true }).fill(instance);
+  await expect((await save(operator)).getByText("Saved.")).toBeVisible();
+}
+
+// Asks for a reset link as the operator and returns the email that arrives, once there is a new one.
+async function resetMail(request: APIRequestContext, page: Page): Promise<{ subject: string; text: string }> {
+  const before = await mailCountTo(request, operatorEmail);
+  await page.goto("/forgot-password");
+  await page.getByLabel("Email").fill(operatorEmail);
+  await page.getByRole("button", { name: "Send reset link" }).click();
+  await expect(page.getByText("a reset link is on its way")).toBeVisible();
+  const text = await latestMailTo(request, operatorEmail, before);
+  const { messages } = (await (await request.get(`${MAILPIT}/api/v1/search`, { params: { query: `to:${operatorEmail}` } })).json()) as { messages: { Subject: string }[] };
+  return { subject: messages[0].Subject, text };
+}
+
+test("the name is the host header's, the tab's, and the account emails' as typed", async ({ request, page }) => {
+  await nameThe("Lim & <Family>");
+  await operator.goto("/dashboard");
+  await expect(operator.getByRole("banner").getByRole("link", { name: "Lim & <Family>", exact: true })).toBeVisible();
+  // Every page names its own tab, so the root layout's title is the fallback no visitor reaches;
+  // the home page's tab is where a visitor sees the name.
+  await page.goto("/");
+  await expect(page).toHaveTitle("Lim & <Family>");
+
+  const mail = await resetMail(request, page);
+  expect(mail.subject).toBe("Reset your Lim & <Family> password");
+  expect(mail.text).toContain("choose a new password for Lim & <Family>.");
+});
+
+test("with the name cleared, the header, the tab and the next reset email say OpenInvites", async ({ request, page }) => {
+  await nameThe("");
+  await operator.goto("/dashboard");
+  await expect(operator.getByRole("banner").getByRole("link", { name: "OpenInvites", exact: true })).toBeVisible();
+  await page.goto("/");
+  await expect(page).toHaveTitle("OpenInvites");
+
+  const mail = await resetMail(request, page);
+  expect(mail.subject).toBe("Reset your OpenInvites password");
+  expect(mail.text).toContain("choose a new password for OpenInvites.");
 });
 
 test("with registration Open, the home page offers Create an account first", async ({ page }) => {

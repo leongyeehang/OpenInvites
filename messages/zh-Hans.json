@@ -1,7 +1,5 @@
 {
   "Home": {
-    "title": "OpenInvites",
-    "tagline": "开源、可自托管的活动邀请服务。",
     "signIn": "登录",
     "signUp": "创建账号",
     "defaultWelcome": "在这里制作活动邀请：一条链接，就是邀请函、回复处，也是宾客日后回来看看的地方。",
@@ -345,16 +343,16 @@
   },
   "Mail": {
     "verifyEmail": {
-      "subject": "验证你在 OpenInvites 的邮箱",
-      "body": "{name}，你好：\n\n请打开下面的链接，确认这是你的邮箱地址。链接一小时内有效。\n\n{url}\n\n如果你没有注册过 OpenInvites，可以忽略这封邮件。"
+      "subject": "验证你在 {instance} 的邮箱",
+      "body": "{name}，你好：\n\n请打开下面的链接，确认这是你的邮箱地址。链接一小时内有效。\n\n{url}\n\n如果你没有注册过 {instance}，可以忽略这封邮件。"
     },
     "resetPassword": {
-      "subject": "重置你的 OpenInvites 密码",
-      "body": "{name}，你好：\n\n请打开下面的链接设置新密码。链接一小时内有效。\n\n{url}\n\n如果这不是你本人的操作，可以忽略这封邮件，你的密码不会改变。"
+      "subject": "重置你的 {instance} 密码",
+      "body": "{name}，你好：\n\n请打开下面的链接，为你在 {instance} 的账号设置新密码。链接一小时内有效。\n\n{url}\n\n如果这不是你本人的操作，可以忽略这封邮件，你的密码不会改变。"
     },
     "hostInvitation": {
-      "subject": "你的 OpenInvites 主办人邀请",
-      "body": "你好：\n\n这是你的 OpenInvites 主办人邀请。打开下面的链接，创建主办人账号，就可以开始制作活动页面了。\n\n{url}\n\n这个链接只能创建一个账号，{days} 天后过期。如果你没想到会收到这封邮件，可以忽略它。"
+      "subject": "你的 {instance} 主办人邀请",
+      "body": "你好：\n\n这是你的 {instance} 主办人邀请。打开下面的链接，创建主办人账号，就可以开始制作活动页面了。\n\n{url}\n\n这个链接只能创建一个账号，{days} 天后过期。如果你没想到会收到这封邮件，可以忽略它。"
     },
     "rsvpReply": {
       "subject": {
@@ -415,7 +413,7 @@
     },
     "guestFooter": "你收到这封邮件，是因为你对“{title}”的回复上留有这个邮箱。如果不想再收到关于这个活动的邮件，请打开这个链接：{url}",
     "magicLink": {
-      "subject": "你的 OpenInvites 登录链接",
+      "subject": "你的 {instance} 登录链接",
       "body": "{name}，你好：\n\n请打开下面的链接登录。链接 15 分钟内有效，且只能使用一次。\n\n{url}\n\n如果这不是你本人的操作，可以忽略这封邮件，不会有人因此登录。"
     },
     "report": {
