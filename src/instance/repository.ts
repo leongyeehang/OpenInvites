@@ -4,6 +4,8 @@ import { getDb } from "@/db/client";
 import { event, hostInvitation, instanceSettings, user } from "@/db/schema";
 import { chunks } from "@/lib/chunks";
 import { staleMarks } from "@/retention/plan";
+import { findGalleryPoster, type GalleryPosterId } from "@/themes/posters";
+import type { HomePage, HomePosterMode } from "./home";
 import { hostInvitationExpiry } from "./host-invitation";
 import { hashHostInvitationToken } from "./host-invitation-token";
 import type { Limits } from "./limits";
@@ -32,6 +34,38 @@ export const instanceLimits = cache(async (): Promise<Limits> => {
     .from(instanceSettings);
   return settings;
 });
+
+// Cached per request: the header, the page and the settings card may all ask. Posters that have
+// left the gallery since they were chosen are dropped as they are read.
+export const homePage = cache(async (): Promise<HomePage> => {
+  const [settings] = await getDb()
+    .select({
+      instanceName: instanceSettings.instanceName,
+      welcomeLine: instanceSettings.welcomeLine,
+      posters: instanceSettings.homePosters,
+      posterIds: instanceSettings.homePosterIds,
+      showOperator: instanceSettings.showOperator,
+    })
+    .from(instanceSettings);
+  return {
+    ...settings,
+    // The column's check keeps it to the three modes.
+    posters: settings.posters as HomePosterMode,
+    posterIds: settings.posterIds.filter((id): id is GalleryPosterId => findGalleryPoster(id) !== undefined),
+  };
+});
+
+export async function setHomePage(page: HomePage): Promise<void> {
+  await getDb()
+    .update(instanceSettings)
+    .set({
+      instanceName: page.instanceName,
+      welcomeLine: page.welcomeLine,
+      homePosters: page.posters,
+      homePosterIds: page.posterIds,
+      showOperator: page.showOperator,
+    });
+}
 
 // Saving the period takes off every retention mark it no longer bears out (retention/plan.ts,
 // staleMarks): with Keep forever all of them, so that a period set again later warns the hosts

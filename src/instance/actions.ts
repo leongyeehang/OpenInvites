@@ -10,9 +10,10 @@ import { isMailConfigured } from "@/mail/config";
 import { consume } from "@/rate-limit/rate-limit";
 import { sendHostInvitationEmail } from "./emails";
 import { generateHostInvitationToken, hashHostInvitationToken, hostInvitationLink } from "./host-invitation-token";
+import { parseHomePage, type HomePageField } from "./home";
 import { parseLimits } from "./limits";
 import { isRegistrationMode } from "./registration";
-import { createHostInvitation, revokeHostInvitation, setInstanceLimits, setRegistrationMode } from "./repository";
+import { createHostInvitation, revokeHostInvitation, setHomePage, setInstanceLimits, setRegistrationMode } from "./repository";
 
 // Every action here is the operator's alone; anyone else is told the page does not exist.
 
@@ -23,6 +24,33 @@ export async function setRegistrationModeAction(_: FormState, formData: FormData
   const mode = formData.get("mode");
   if (!isRegistrationMode(mode)) return { error: t("unknown") };
   await setRegistrationMode(mode);
+  revalidatePath("/instance");
+  return { success: t("saved") };
+}
+
+// An error says which field it belongs to, so the form shows it beside that field.
+export type HomePageFormState = { error?: string; field?: HomePageField; success?: string } | undefined;
+
+// Read when the home page is drawn, so a change shows at once.
+export async function setHomePageAction(_: HomePageFormState, formData: FormData): Promise<HomePageFormState> {
+  await requireOperator();
+  const t = await getTranslations("Instance.homePage");
+  const text = (name: string) => {
+    const value = formData.get(name);
+    return typeof value === "string" ? value : "";
+  };
+  const parsed = parseHomePage({
+    instanceName: text("instanceName"),
+    welcomeLine: text("welcomeLine"),
+    posters: text("posters"),
+    posterIds: formData.getAll("posterIds").filter((id): id is string => typeof id === "string"),
+    showOperator: formData.get("showOperator") === "on",
+  });
+  if (!parsed.ok) {
+    const error = parsed.field === "posters" ? t(`errors.posters.${parsed.reason}`) : t(`errors.${parsed.field}.tooLong`);
+    return { error, field: parsed.field };
+  }
+  await setHomePage(parsed.page);
   revalidatePath("/instance");
   return { success: t("saved") };
 }

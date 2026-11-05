@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy } from "lucide-react";
+import { Check, ChevronDown, Copy } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 import { FormOutcome } from "@/components/form-outcome";
@@ -8,10 +8,169 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { createHostInvitationAction, setInstanceLimitsAction, setRegistrationModeAction } from "@/instance/actions";
+import { createHostInvitationAction, setHomePageAction, setInstanceLimitsAction, setRegistrationModeAction } from "@/instance/actions";
+import { DEFAULT_HOME_PAGE, DEFAULT_INSTANCE_NAME, HOME_POSTER_MODES, type HomePage } from "@/instance/home";
 import { LIMIT_MAX, LIMIT_MIN, type Limits } from "@/instance/limits";
 import { REGISTRATION_MODES, type RegistrationMode } from "@/instance/registration";
+import { GALLERY_POSTERS, OCCASIONS, type GalleryPosterId } from "@/themes/posters";
 import { DEFAULT_RETENTION_DAYS, RETENTION_MAX_DAYS, RETENTION_MIN_DAYS } from "@/retention/plan";
+
+// The name, the welcome line and, under More options, the posters and who runs the site. The fields
+// are kept in state, so that a refused save leaves what was typed where it was.
+export function HomePageForm({ home }: { home: HomePage }) {
+  const t = useTranslations("Instance.homePage");
+  const [state, action, pending] = useActionState(setHomePageAction, undefined);
+  const [name, setName] = useState(home.instanceName ?? "");
+  const [line, setLine] = useState(home.welcomeLine ?? "");
+  const [posters, setPosters] = useState(home.posters);
+  const [ids, setIds] = useState<GalleryPosterId[]>(home.posterIds);
+  const [showOperator, setShowOperator] = useState(home.showOperator);
+  // Closed unless the stored settings differ from the defaults, so that what was changed is seen.
+  const [open, setOpen] = useState(home.posters !== DEFAULT_HOME_PAGE.posters || home.showOperator !== DEFAULT_HOME_PAGE.showOperator);
+  const error = (field: string) => (state?.field === field ? state.error : undefined);
+
+  const choosePosters = (mode: HomePage["posters"]) => {
+    setPosters(mode);
+    // One poster at a time for `one`: of several that were picked, the first stays.
+    if (mode === "one") setIds((current) => current.slice(0, 1));
+  };
+  const toggle = (id: GalleryPosterId, on: boolean) => setIds((current) => (on ? [...current, id] : current.filter((each) => each !== id)));
+
+  return (
+    <form action={action}>
+      <FieldGroup>
+        <Field data-invalid={error("instanceName") ? true : undefined}>
+          <FieldLabel htmlFor="instance-name">{t("name")}</FieldLabel>
+          <Input
+            id="instance-name"
+            name="instanceName"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder={DEFAULT_INSTANCE_NAME}
+            autoComplete="off"
+            aria-invalid={error("instanceName") ? true : undefined}
+          />
+          <FieldDescription>{t("nameHint", { name: DEFAULT_INSTANCE_NAME })}</FieldDescription>
+          {error("instanceName") && <FieldError>{error("instanceName")}</FieldError>}
+        </Field>
+        <Field data-invalid={error("welcomeLine") ? true : undefined}>
+          <FieldLabel htmlFor="welcome-line">{t("welcomeLine")}</FieldLabel>
+          <Input
+            id="welcome-line"
+            name="welcomeLine"
+            value={line}
+            onChange={(event) => setLine(event.target.value)}
+            autoComplete="off"
+            aria-invalid={error("welcomeLine") ? true : undefined}
+          />
+          <FieldDescription>{t("welcomeLineHint")}</FieldDescription>
+          {error("welcomeLine") && <FieldError>{error("welcomeLine")}</FieldError>}
+        </Field>
+
+        <div className="flex flex-col gap-4">
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls="home-page-more"
+            onClick={() => setOpen(!open)}
+            className="inline-flex cursor-pointer items-center gap-1.5 self-start rounded-md text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <ChevronDown className={open ? "size-4" : "size-4 -rotate-90"} aria-hidden />
+            {t("more")}
+          </button>
+          {/* Hidden, not unmounted, so that a closed disclosure still posts what it holds. */}
+          <div id="home-page-more" hidden={!open} className="flex flex-col gap-6">
+            <FieldSet>
+              <FieldLegend variant="label">{t("posters")}</FieldLegend>
+              {HOME_POSTER_MODES.map((mode) => (
+                <Field key={mode} orientation="horizontal">
+                  <input
+                    type="radio"
+                    id={`home-posters-${mode}`}
+                    name="posters"
+                    value={mode}
+                    checked={posters === mode}
+                    onChange={() => choosePosters(mode)}
+                    className="mt-0.5 size-4 shrink-0 accent-primary"
+                  />
+                  <FieldLabel htmlFor={`home-posters-${mode}`}>{t(`postersMode.${mode}`)}</FieldLabel>
+                </Field>
+              ))}
+              {posters !== "all" && (
+                <PosterChoices mode={posters} ids={ids} onToggle={toggle} onPick={(id) => setIds([id])} />
+              )}
+              {error("posters") && <FieldError>{error("posters")}</FieldError>}
+            </FieldSet>
+            <Field orientation="horizontal">
+              <Checkbox id="show-operator" name="showOperator" checked={showOperator} onCheckedChange={(checked) => setShowOperator(checked === true)} />
+              <FieldContent>
+                <FieldLabel htmlFor="show-operator">{t("showOperator")}</FieldLabel>
+                <FieldDescription>{t("showOperatorHint")}</FieldDescription>
+              </FieldContent>
+            </Field>
+          </div>
+        </div>
+
+        {state?.success && <FormOutcome state={state} />}
+        {state?.error && !state.field && <FormOutcome state={state} />}
+        <Button type="submit" disabled={pending} className="self-start">
+          {t("submit")}
+        </Button>
+      </FieldGroup>
+    </form>
+  );
+}
+
+// The gallery as thumbnails, grouped by occasion as the editor's Poster sheet groups it: checkboxes
+// to pick several, radios to pick the one.
+function PosterChoices({
+  mode,
+  ids,
+  onToggle,
+  onPick,
+}: {
+  mode: "picked" | "one";
+  ids: GalleryPosterId[];
+  onToggle: (id: GalleryPosterId, on: boolean) => void;
+  onPick: (id: GalleryPosterId) => void;
+}) {
+  const names = useTranslations("Posters");
+  return (
+    <div className="flex flex-col gap-4">
+      {OCCASIONS.map((occasion) => (
+        <section key={occasion} aria-labelledby={`home-occasion-${occasion}`} className="flex flex-col gap-2">
+          <h3 id={`home-occasion-${occasion}`} className="text-xs font-medium text-muted-foreground">
+            {names(`occasions.${occasion}`)}
+          </h3>
+          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+            {GALLERY_POSTERS.filter((poster) => poster.occasion === occasion).map((poster) => {
+              const checked = ids.includes(poster.id);
+              const label = names(`names.${poster.id}`);
+              return (
+                <li key={poster.id}>
+                  <label className="relative block cursor-pointer overflow-hidden rounded-lg ring-1 ring-foreground/10 has-[:checked]:ring-2 has-[:checked]:ring-primary has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring">
+                    <input
+                      type={mode === "one" ? "radio" : "checkbox"}
+                      name="posterIds"
+                      value={poster.id}
+                      checked={checked}
+                      onChange={(event) => (mode === "one" ? onPick(poster.id) : onToggle(poster.id, event.target.checked))}
+                      aria-label={label}
+                      className="peer sr-only"
+                    />
+                    {/* eslint-disable-next-line @next/next/no-img-element -- the card is already made to size */}
+                    <img src={poster.card} alt="" loading="lazy" className="aspect-[4/5] w-full object-cover" />
+                    <span className="block truncate px-1.5 py-1 text-xs">{label}</span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
 
 export function RegistrationForm({ mode }: { mode: RegistrationMode }) {
   const t = useTranslations("Instance.registration");

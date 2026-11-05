@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { boolean, check, date, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, time, timestamp, unique, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { DEFAULT_REGISTRATION_MODE, REGISTRATION_MODES } from "../instance/registration";
+import { HOME_POSTER_MODES } from "../instance/home";
 import { DEFAULT_LIMITS } from "../instance/limits";
 import { defaultLocale, type Locale } from "../locale/resolve-locale";
 import { QUESTION_TYPES } from "../questions/question";
@@ -127,8 +128,19 @@ export const instanceSettings = pgTable(
     // How many days after it ends an event is deleted (spec, "Retention"; retention/plan.ts), or
     // null to keep events for ever. The migration that added it set the one row to a year.
     retentionDays: integer("retention_days"),
+    // The home page (instance/home.ts): the name and the welcome line, null while the operator has
+    // set none; which gallery posters it shows and which ones are picked; and whether it says who
+    // runs the site.
+    instanceName: text("instance_name"),
+    welcomeLine: text("welcome_line"),
+    homePosters: text("home_posters").notNull().default("all"),
+    homePosterIds: text("home_poster_ids").array().notNull().default(sql`'{}'`),
+    showOperator: boolean("show_operator").notNull().default(false),
   },
-  (table) => [check("instance_settings_one_row", sql`${table.id}`)],
+  (table) => [
+    check("instance_settings_one_row", sql`${table.id}`),
+    check("instance_settings_home_posters", sql`${table.homePosters} in (${sql.raw(HOME_POSTER_MODES.map((mode) => `'${mode}'`).join(", "))})`),
+  ],
 );
 
 // A host invitation (CONTEXT.md): the operator's permission for one person to become a host,

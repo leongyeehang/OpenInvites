@@ -9,6 +9,9 @@ const FRESH_INSTANCE = /registration(-without-mail)?\.spec\.ts/;
 const LIMITS_INSTANCE = /(^|\/)limits\.spec\.ts$/;
 // The spec that takes `app-fresh` and `app-no-mail` after the limits spec has left them.
 const RETENTION_INSTANCE = /(^|\/)retention\.spec\.ts$/;
+// The spec that takes `app-fresh` after the retention spec, and saves the home page settings, which
+// change what every page shows: so never on the shared `app`.
+const HOME_INSTANCE = /(^|\/)home-page\.spec\.ts$/;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -36,13 +39,13 @@ export default defineConfig({
     {
       name: "mobile",
       dependencies: ["operator"],
-      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE],
+      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE, HOME_INSTANCE],
       use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
     },
     {
       name: "desktop",
       dependencies: ["operator"],
-      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE],
+      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE, HOME_INSTANCE],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } },
     },
     // One instance per spec, so one project: each spec's scenarios run in order and change what
@@ -66,6 +69,14 @@ export default defineConfig({
       name: "retention-instance",
       testMatch: RETENTION_INSTANCE,
       dependencies: ["limits-instance", "operator"],
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, baseURL: "http://localhost:3002" },
+    },
+    // After the retention spec, which leaves app-fresh and app-no-mail as it likes; this spec
+    // recreates app-fresh.
+    {
+      name: "home-instance",
+      testMatch: HOME_INSTANCE,
+      dependencies: ["retention-instance"],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, baseURL: "http://localhost:3002" },
     },
   ],

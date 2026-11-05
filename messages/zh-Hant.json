@@ -205,6 +205,38 @@
   },
   "Instance": {
     "title": "實例設定",
+    "homePage": {
+      "title": "首頁",
+      "description": "訪客在本站網址上看到的內容。",
+      "name": "名稱",
+      "nameHint": "顯示在首頁、瀏覽器分頁和帳號郵件裡。留空則使用「{name}」。",
+      "welcomeLine": "歡迎語",
+      "welcomeLineHint": "名稱下方的一句話。留空則使用預設的歡迎語。",
+      "more": "更多選項",
+      "posters": "首頁上的海報",
+      "postersMode": {
+        "all": "圖庫裡的所有海報，每次造訪換一張",
+        "picked": "只用我挑選的",
+        "one": "一律用同一張海報"
+      },
+      "showOperator": "用我的顯示名稱標明「營運者」",
+      "showOperatorHint": "讓訪客知道是誰在營運本站。",
+      "submit": "儲存",
+      "saved": "已儲存。",
+      "errors": {
+        "instanceName": {
+          "tooLong": "名稱請控制在 40 個字元以內。"
+        },
+        "welcomeLine": {
+          "tooLong": "歡迎語請控制在 140 個字元以內。"
+        },
+        "posters": {
+          "noneChosen": "請至少選一張海報。",
+          "chooseOne": "請選出要顯示的那張海報。",
+          "unknownPoster": "請從圖庫裡選擇海報。"
+        }
+      }
+    },
     "registration": {
       "title": "註冊",
       "description": "誰能在此實例上建立主辦人帳號。變更立即生效。",

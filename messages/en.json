@@ -205,6 +205,38 @@
   },
   "Instance": {
     "title": "Instance settings",
+    "homePage": {
+      "title": "Home page",
+      "description": "What visitors see at this site’s address.",
+      "name": "Name",
+      "nameHint": "Shown on the home page, in the browser tab and in account emails. Leave it empty to use “{name}”.",
+      "welcomeLine": "Welcome line",
+      "welcomeLineHint": "One sentence under the name. Leave it empty for the default line.",
+      "more": "More options",
+      "posters": "Posters on the home page",
+      "postersMode": {
+        "all": "All gallery posters, a different one each visit",
+        "picked": "Only the ones I pick",
+        "one": "Always the same poster"
+      },
+      "showOperator": "Show “Run by” with my display name",
+      "showOperatorHint": "Tells visitors who runs this site.",
+      "submit": "Save",
+      "saved": "Saved.",
+      "errors": {
+        "instanceName": {
+          "tooLong": "Keep the name to 40 characters."
+        },
+        "welcomeLine": {
+          "tooLong": "Keep the welcome line to 140 characters."
+        },
+        "posters": {
+          "noneChosen": "Pick at least one poster.",
+          "chooseOne": "Pick the poster to show.",
+          "unknownPoster": "Pick posters from the gallery."
+        }
+      }
+    },
     "registration": {
       "title": "Registration",
       "description": "Who can create a host account on this instance. A change takes effect at once.",

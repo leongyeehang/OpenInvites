@@ -288,6 +288,13 @@
       "when": 1793782073591,
       "tag": "0040_photo_album",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793857658968,
+      "tag": "0041_home_page_settings",
+      "breakpoints": true
     }
   ]
 }

@@ -7,12 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { revokeHostInvitationAction } from "@/instance/actions";
 import { HOST_INVITATION_DAYS, hostInvitationDaysLeft, hostInvitationState, type HostInvitationState } from "@/instance/host-invitation";
-import { instanceLimits, listHostInvitations, registrationMode, type HostInvitation } from "@/instance/repository";
+import { homePage, instanceLimits, listHostInvitations, registrationMode, type HostInvitation } from "@/instance/repository";
 import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
 import { countUnhandledReports } from "@/reports/repository";
 import { HostHeader } from "../(host)/host-header";
-import { HostInvitationForm, LimitsForm, RegistrationForm } from "./instance-forms";
+import { HomePageForm, HostInvitationForm, LimitsForm, RegistrationForm } from "./instance-forms";
 
 // Outside the host area's layout, which sends a signed-out visitor to sign in: this page does
 // not exist for anyone but the operator, so everyone else gets the not-found page, title and all.
@@ -24,8 +24,9 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function InstancePage() {
   const host = await requireOperator();
-  const [t, mode, limits, invitations, unhandledReports] = await Promise.all([
+  const [t, home, mode, limits, invitations, unhandledReports] = await Promise.all([
     getTranslations("Instance"),
+    homePage(),
     registrationMode(),
     instanceLimits(),
     listHostInvitations(),
@@ -43,6 +44,19 @@ export default async function InstancePage() {
             <Link href="/instance/reports">{t("reports.link", { count: unhandledReports })}</Link>
           </Button>
         </div>
+        <Card id="home-page">
+          <CardHeader>
+            <CardTitle>
+              <h2>{t("homePage.title")}</h2>
+            </CardTitle>
+            <CardDescription>{t("homePage.description")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ClientMessages namespaces={["Instance.homePage", "Posters"]}>
+              <HomePageForm home={home} />
+            </ClientMessages>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <CardTitle>

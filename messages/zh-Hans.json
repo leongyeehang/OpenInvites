@@ -205,6 +205,38 @@
   },
   "Instance": {
     "title": "实例设置",
+    "homePage": {
+      "title": "首页",
+      "description": "访客在本站地址上看到的内容。",
+      "name": "名称",
+      "nameHint": "显示在首页、浏览器标签页和账号邮件里。留空则使用“{name}”。",
+      "welcomeLine": "欢迎语",
+      "welcomeLineHint": "名称下方的一句话。留空则使用默认的欢迎语。",
+      "more": "更多选项",
+      "posters": "首页上的海报",
+      "postersMode": {
+        "all": "图库里的所有海报，每次访问换一张",
+        "picked": "只用我挑选的",
+        "one": "始终用同一张海报"
+      },
+      "showOperator": "用我的显示名称标明“运营者”",
+      "showOperatorHint": "让访客知道是谁在运营本站。",
+      "submit": "保存",
+      "saved": "已保存。",
+      "errors": {
+        "instanceName": {
+          "tooLong": "名称请控制在 40 个字符以内。"
+        },
+        "welcomeLine": {
+          "tooLong": "欢迎语请控制在 140 个字符以内。"
+        },
+        "posters": {
+          "noneChosen": "请至少选一张海报。",
+          "chooseOne": "请选出要显示的那张海报。",
+          "unknownPoster": "请从图库里选择海报。"
+        }
+      }
+    },
     "registration": {
       "title": "注册",
       "description": "谁能在此实例上创建主办人账号。更改立即生效。",
