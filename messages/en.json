@@ -1,10 +1,38 @@
 {
   "Home": {
     "title": "OpenInvites",
-    "status": "This instance is up.",
     "tagline": "An open source, self-hostable service for event invitations.",
     "signIn": "Sign in",
-    "signUp": "Create an account"
+    "signUp": "Create an account",
+    "defaultWelcome": "Event invitations, made here: one link that is the invite, the reply and the place guests come back to.",
+    "how": {
+      "title": "How this works",
+      "invitedTitle": "Invited to something?",
+      "invitedText": "Open the link you were sent. Guests never need an account.",
+      "hostingTitle": "Hosting?",
+      "hostingInvitationOnly": "Sign in to make an invitation. New hosts join with an invitation from whoever runs this site.",
+      "hostingOpen": "Create an account to make your own invitation pages."
+    },
+    "runBy": "Run by {name}",
+    "poweredBy": "Powered by OpenInvites",
+    "fresh": {
+      "title": "Your OpenInvites is ready",
+      "text": "Create the first account to finish setting up. That account runs this site: you choose its name, who can join, and how long events are kept.",
+      "stepsTitle": "Three steps",
+      "step1": {
+        "title": "Create the operator account",
+        "text": "The first account is the operator. Do it before you share the address."
+      },
+      "step2": {
+        "title": "Name your instance",
+        "text": "The name and a welcome line go on this page."
+      },
+      "step3": {
+        "title": "Invite your hosts",
+        "text": "Send host invitations, or open registration to everyone."
+      },
+      "button": "Create the operator account"
+    }
   },
   "LocaleSwitcher": {
     "label": "Language"

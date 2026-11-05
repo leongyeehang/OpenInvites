@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { GALLERY_POSTERS } from "@/themes/posters";
-import { DEFAULT_HOME_PAGE, DEFAULT_INSTANCE_NAME, instanceDisplayName, normaliseText, parseHomePage, posterPool, type HomePage } from "./home";
+import { findGalleryPoster, GALLERY_POSTERS } from "@/themes/posters";
+import {
+  DEFAULT_HOME_PAGE,
+  DEFAULT_INSTANCE_NAME,
+  homeTheme,
+  instanceDisplayName,
+  normaliseText,
+  parseHomePage,
+  pickPoster,
+  posterPool,
+  runBy,
+  type HomePage,
+} from "./home";
 
 const fields = (over: Partial<Parameters<typeof parseHomePage>[0]> = {}) => ({
   instanceName: "",
@@ -106,5 +117,40 @@ describe("instanceDisplayName", () => {
     expect(instanceDisplayName({ instanceName: "Ada's place" })).toBe("Ada's place");
     expect(instanceDisplayName({ instanceName: null })).toBe(DEFAULT_INSTANCE_NAME);
     expect(DEFAULT_INSTANCE_NAME).toBe("OpenInvites");
+  });
+});
+
+describe("pickPoster", () => {
+  it("takes the first of the pool at 0 and the last just under 1", () => {
+    expect(pickPoster(["candlelight", "rose", "disco"], () => 0)).toBe("candlelight");
+    expect(pickPoster(["candlelight", "rose", "disco"], () => 0.999999)).toBe("disco");
+  });
+
+  it("takes the one poster of a pool of one, whatever the draw", () => {
+    expect(pickPoster(["disco"], () => 0)).toBe("disco");
+    expect(pickPoster(["disco"], () => 0.999999)).toBe("disco");
+  });
+});
+
+describe("homeTheme", () => {
+  it("wears the poster with its font and placement, and no effect", () => {
+    const disco = findGalleryPoster("disco")!;
+    expect(disco.look.effect).not.toBe("none");
+    const theme = homeTheme("disco");
+    expect(theme.poster).toEqual({ kind: "gallery", id: "disco" });
+    expect(theme.font).toBe(disco.look.font);
+    expect(theme.titlePlacement).toBe(disco.look.titlePlacement);
+    expect(theme.layout).toBe("poster");
+    expect(theme.accentOverride).toBeNull();
+    expect(theme.effect).toBe("none");
+  });
+});
+
+describe("runBy", () => {
+  it("is the operator's name only while the setting is on and there is an operator", () => {
+    expect(runBy(true, "Wei Lim")).toBe("Wei Lim");
+    expect(runBy(false, "Wei Lim")).toBeNull();
+    expect(runBy(true, null)).toBeNull();
+    expect(runBy(false, null)).toBeNull();
   });
 });

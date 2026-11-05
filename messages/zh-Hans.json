@@ -1,10 +1,38 @@
 {
   "Home": {
     "title": "OpenInvites",
-    "status": "此实例正在运行。",
     "tagline": "开源、可自托管的活动邀请服务。",
     "signIn": "登录",
-    "signUp": "创建账号"
+    "signUp": "创建账号",
+    "defaultWelcome": "在这里制作活动邀请：一条链接，就是邀请函、回复处，也是宾客日后回来看看的地方。",
+    "how": {
+      "title": "使用方式",
+      "invitedTitle": "收到了邀请？",
+      "invitedText": "打开别人发给你的链接就行。宾客不需要账号。",
+      "hostingTitle": "要办活动？",
+      "hostingInvitationOnly": "登录后即可制作邀请函。新的主办人需要本站运营者发出的邀请才能加入。",
+      "hostingOpen": "创建账号，制作你自己的邀请页面。"
+    },
+    "runBy": "由 {name} 运营",
+    "poweredBy": "由 OpenInvites 驱动",
+    "fresh": {
+      "title": "你的 OpenInvites 已准备就绪",
+      "text": "创建第一个账号，完成设置。这个账号负责运营本站：由你决定它的名称、谁可以加入，以及活动保留多久。",
+      "stepsTitle": "三个步骤",
+      "step1": {
+        "title": "创建运营者账号",
+        "text": "第一个账号就是运营者。请在分享网址之前完成。"
+      },
+      "step2": {
+        "title": "为你的实例命名",
+        "text": "名称和一句欢迎语会显示在这个页面上。"
+      },
+      "step3": {
+        "title": "邀请主办人",
+        "text": "发送主办人邀请，或向所有人开放注册。"
+      },
+      "button": "创建运营者账号"
+    }
   },
   "LocaleSwitcher": {
     "label": "语言"

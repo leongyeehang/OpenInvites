@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { RichTextView } from "@/rich-text/rich-text-view";
 import { Glass } from "./glass";
 import { PosterHero } from "./poster-card";
+import { CAPS, entrance, HostLine, IconTile, invitationEntrance, SectionLabel } from "./poster-parts";
 import { AnnouncementsSection, type ShownAnnouncement } from "./sections/announcements-section";
 import { ALBUM_HEADING } from "./sections/album-section";
 import { COMMENTS_HEADING, CommentsSection } from "./sections/comments-section";
@@ -75,12 +76,9 @@ export async function PosterLayout({
         className={cn(invitationEntrance, "motion-safe:delay-0")}
       />
 
-      <div className={cn("mt-4 flex items-center gap-3 px-5 sm:px-6", entrance, "motion-safe:delay-100")}>
-        <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-full bg-theme-accent text-xs font-semibold text-theme-on-accent">
-          {initialsOf(event.hostName)}
-        </span>
-        <p className="text-sm text-theme-text-muted">{t("hostedBy", { hosts: format.list(hosts, { type: "conjunction" }) })}</p>
-      </div>
+      <HostLine name={event.hostName} className={cn(entrance, "motion-safe:delay-100")}>
+        {t("hostedBy", { hosts: format.list(hosts, { type: "conjunction" }) })}
+      </HostLine>
 
       {/* The reply bar is fixed to the foot of the screen; it is here for a screen reader and the
           keyboard, after the invitation's opening and before its details. */}
@@ -156,48 +154,13 @@ export async function PosterLayout({
 function DetailRow({ icon: Icon, label, slot, children }: { icon: ComponentType<{ className?: string }>; label: string; slot?: string; children: ReactNode }) {
   return (
     <section data-slot={slot} className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-3 p-4">
-      <span aria-hidden className="grid size-9 place-items-center rounded-xl bg-theme-glass-strong text-theme-accent-ink">
+      <IconTile>
         <Icon className="size-4.5" />
-      </span>
+      </IconTile>
       <div className="min-w-0 pt-0.5">
         <h2 className={cn(CAPS, "mb-1 text-theme-text-faint")}>{label}</h2>
         {children}
       </div>
     </section>
   );
-}
-
-// Each piece rises into place on load. Under reduced motion none of these classes apply, so
-// nothing moves.
-const rise = "motion-safe:animate-in motion-safe:slide-in-from-bottom-4 motion-safe:fill-mode-both motion-safe:duration-700 motion-safe:ease-out";
-const entrance = cn(rise, "motion-safe:fade-in");
-// The invitation fades in from a trace (1%) rather than from nothing, which looks the same. A
-// browser counts the largest thing it paints only where it is visible when painted, and a piece
-// faded in from nothing is painted once, unseen, and then only faded: the invitation would never
-// count, and the page's largest paint would wait for whatever is drawn after the scripts run
-// (the countdown), as a slow phone's first view of the page. From 1% it counts at once.
-const invitationEntrance = cn(rise, "motion-safe:fade-in-1");
-
-// The small spaced capitals of the details' and the panels' headings.
-const CAPS = "text-xs font-medium tracking-label uppercase";
-
-// A heading with an `id` is where the focus is sent once something under it is deleted, so it can
-// take the focus, though it is never a stop for Tab.
-export function SectionLabel({ icon: Icon, id, children }: { icon?: ComponentType<{ className?: string }>; id?: string; children: ReactNode }) {
-  return (
-    <h2 id={id} tabIndex={id ? -1 : undefined} className={cn(CAPS, "mb-3 flex items-center gap-2 text-theme-text-faint outline-none")}>
-      {Icon && <Icon className="size-3.5" aria-hidden />}
-      {children}
-    </h2>
-  );
-}
-
-export function initialsOf(name: string): string {
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0] ?? "")
-    .join("")
-    .toUpperCase();
 }

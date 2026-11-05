@@ -6,6 +6,7 @@ import { Dialog } from "radix-ui";
 import { createContext, use, useRef, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 import { voteAction, type VoteRefusal, type VoteResult } from "@/polls/actions";
 import { VOTE_ANSWERS, type VoteAnswer } from "@/polls/poll";
+import { PinnedBar } from "@/themes/pinned-bar";
 import { sheetVariables } from "@/themes/resolve";
 import { rsvpButtonClasses } from "@/themes/rsvp-buttons";
 import { useTheme } from "@/themes/themed-page";
@@ -108,26 +109,24 @@ export function PollBar() {
   const { resolved } = useTheme();
   if (!votable) return null;
   return (
-    <div data-slot="rsvp-bar" className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 mx-auto max-w-[26rem]" style={sheetVariables(resolved) as CSSProperties}>
-      <div className="rounded-[1.6rem] border border-theme-glass-border bg-theme-sheet p-2 text-theme-text shadow-sheet backdrop-blur-2xl">
-        {mine ? (
-          <div className="flex items-center gap-3 pl-3">
-            <p className="min-w-0 flex-1 text-sm font-medium">{t("sent", { name: mine.name })}</p>
-            <button
-              type="button"
-              onClick={(event) => open(event.currentTarget)}
-              className="h-11 shrink-0 cursor-pointer rounded-2xl bg-theme-glass-strong px-4 text-sm font-medium hover:bg-theme-glass"
-            >
-              {t("changeVotes")}
-            </button>
-          </div>
-        ) : (
-          <button type="button" onClick={(event) => open(event.currentTarget)} className={cn(rsvpButtonClasses(resolved.buttonStyle, { selected: false }), "w-full")}>
-            {t("vote")}
+    <PinnedBar slot="rsvp-bar">
+      {mine ? (
+        <div className="flex items-center gap-3 pl-3">
+          <p className="min-w-0 flex-1 text-sm font-medium">{t("sent", { name: mine.name })}</p>
+          <button
+            type="button"
+            onClick={(event) => open(event.currentTarget)}
+            className="h-11 shrink-0 cursor-pointer rounded-2xl bg-theme-glass-strong px-4 text-sm font-medium hover:bg-theme-glass"
+          >
+            {t("changeVotes")}
           </button>
-        )}
-      </div>
-    </div>
+        </div>
+      ) : (
+        <button type="button" onClick={(event) => open(event.currentTarget)} className={cn(rsvpButtonClasses(resolved.buttonStyle, { selected: false }), "w-full")}>
+          {t("vote")}
+        </button>
+      )}
+    </PinnedBar>
   );
 }
 

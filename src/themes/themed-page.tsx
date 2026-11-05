@@ -59,7 +59,7 @@ export function ThemedPage({
         data-tone={resolved.textTone}
         data-layout={resolved.layout}
         // No background of its own: a positioned box would paint over the fixed backdrop below.
-        // The Poster layout leaves room at its foot for the reply bar fixed there (rsvp-flow.tsx).
+        // The Poster layout leaves room at its foot for the bar fixed there (pinned-bar.tsx).
         className={cn(
           "event-page relative min-h-dvh font-sans text-theme-text data-[layout=poster]:pb-28",
           TITLE_FONT_CLASSES[resolved.font.key],

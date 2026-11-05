@@ -1,4 +1,5 @@
 import { findGalleryPoster, GALLERY_POSTERS, type GalleryPosterId } from "../themes/posters";
+import { applyPosterLook, DEFAULT_THEME, type Theme } from "../themes/theme";
 
 // What the operator sets about the home page, the page at the site's address (spec,
 // .scratch/home-page/spec.md): the instance's name and a welcome line under it, which gallery
@@ -71,4 +72,21 @@ export function posterPool(page: Pick<HomePage, "posters" | "posterIds">): Galle
 
 export function instanceDisplayName(page: Pick<HomePage, "instanceName">): string {
   return page.instanceName ?? DEFAULT_INSTANCE_NAME;
+}
+
+// The poster of one visit to the home page, drawn at random from the pool, which is never empty.
+export function pickPoster(pool: GalleryPosterId[], random: () => number = Math.random): GalleryPosterId {
+  return pool[Math.floor(random() * pool.length)];
+}
+
+// The home page wears its poster as an event page would: the poster's font, placement and accent,
+// in the Poster layout. Effects are not drawn on the home page (spec, "What the home page shows").
+export function homeTheme(id: GalleryPosterId): Theme {
+  return { ...applyPosterLook(DEFAULT_THEME, findGalleryPoster(id)!), effect: "none" };
+}
+
+// Who the home page says runs the site: the operator's display name while the operator has turned
+// "Run by" on, and nobody when there is no operator (the account was deleted).
+export function runBy(showOperator: boolean, operatorName: string | null): string | null {
+  return showOperator && operatorName !== null ? operatorName : null;
 }

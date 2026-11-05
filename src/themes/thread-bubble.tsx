@@ -51,7 +51,7 @@ const STAGGER = ["motion-safe:delay-0", "motion-safe:delay-90", "motion-safe:del
 // What the page holds when it opens arrives at once: the host's first six bubbles one after
 // another, 90 ms apart, and the rest with the sixth (by default). The first, the invitation, fades
 // in from a trace rather than from nothing, so the browser counts it as the page's largest paint
-// at once (poster-layout.tsx says why).
+// at once (poster-parts.tsx says why).
 export function arriving(index = STAGGER.length - 1): string {
   return cn(RISE, index === 0 ? "motion-safe:fade-in-1" : "motion-safe:fade-in", STAGGER[Math.min(index, STAGGER.length - 1)]);
 }

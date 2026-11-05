@@ -11,6 +11,7 @@ import type { Question } from "@/questions/question";
 import { chosenStatus, RSVP_STATUSES, type RsvpStatus } from "@/rsvps/form";
 import type { GuestRsvp } from "@/rsvps/guest";
 import { Confetti } from "@/themes/effects/confetti";
+import { PinnedBar } from "@/themes/pinned-bar";
 import { sheetVariables } from "@/themes/resolve";
 import { rsvpButtonClasses } from "@/themes/rsvp-buttons";
 import { useTheme } from "@/themes/themed-page";
@@ -424,50 +425,40 @@ export function RsvpFlow(props: RsvpFlowProps) {
   return (
     <>
       {confetti}
-      {/* Fixed to the foot of the screen, inside the safe area, and on a wider screen to the foot of
-          the page's column. It floats over whatever the page has under it there, so it is a surface
-          of the sheet's kind, solved against anything (legibility.ts, SHEET_SURFACES). The page
-          leaves room for it at its foot (themed-page.tsx). */}
-      <div
-        data-slot="rsvp-bar"
-        className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 mx-auto max-w-[26rem]"
-        style={sheetVariables(resolved) as CSSProperties}
-      >
-        <div className="rounded-[1.6rem] border border-theme-glass-border bg-theme-sheet p-2 text-theme-text shadow-sheet backdrop-blur-2xl">
-          {!open && <p className="px-2 pt-1 pb-2 text-center text-xs text-theme-text-faint">{t("errors.closed")}</p>}
-          {flow.fullNotice && <p className="px-2 pt-1 pb-2 text-center text-xs text-theme-text-muted">{t(flow.fullNotice)}</p>}
-          {replied ? (
-            <div className="flex items-center gap-3 pl-3">
-              <p className="min-w-0 flex-1 text-sm font-medium">{t(`bar.${confirmedAs(replied)}`, { position: replied.waitlistPosition ?? 0 })}</p>
+      <PinnedBar slot="rsvp-bar">
+        {!open && <p className="px-2 pt-1 pb-2 text-center text-xs text-theme-text-faint">{t("errors.closed")}</p>}
+        {flow.fullNotice && <p className="px-2 pt-1 pb-2 text-center text-xs text-theme-text-muted">{t(flow.fullNotice)}</p>}
+        {replied ? (
+          <div className="flex items-center gap-3 pl-3">
+            <p className="min-w-0 flex-1 text-sm font-medium">{t(`bar.${confirmedAs(replied)}`, { position: replied.waitlistPosition ?? 0 })}</p>
+            <button
+              ref={changeButton}
+              type="button"
+              onClick={(event) => openSheet(event.currentTarget)}
+              className="h-11 shrink-0 cursor-pointer rounded-2xl bg-theme-glass-strong px-4 text-sm font-medium hover:bg-theme-glass"
+            >
+              {t("bar.change")}
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            {RSVP_STATUSES.map((status) => (
               <button
-                ref={changeButton}
+                key={status}
+                ref={(button) => {
+                  statusButtons.current[status] = button;
+                }}
                 type="button"
-                onClick={(event) => openSheet(event.currentTarget)}
-                className="h-11 shrink-0 cursor-pointer rounded-2xl bg-theme-glass-strong px-4 text-sm font-medium hover:bg-theme-glass"
+                disabled={!open}
+                onClick={(event) => pick(status, event.currentTarget)}
+                className={rsvpButtonClasses(buttonStyle, { selected: chosen === status })}
               >
-                {t("bar.change")}
+                {t(status)}
               </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-2">
-              {RSVP_STATUSES.map((status) => (
-                <button
-                  key={status}
-                  ref={(button) => {
-                    statusButtons.current[status] = button;
-                  }}
-                  type="button"
-                  disabled={!open}
-                  onClick={(event) => pick(status, event.currentTarget)}
-                  className={rsvpButtonClasses(buttonStyle, { selected: chosen === status })}
-                >
-                  {t(status)}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+            ))}
+          </div>
+        )}
+      </PinnedBar>
       <RsvpSheet open={sheetOpen && (answering || confirmed !== undefined)} onClose={closeSheet} onClosed={sheetClosed}>
         {confirmation || stepper}
       </RsvpSheet>

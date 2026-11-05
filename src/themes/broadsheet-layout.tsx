@@ -140,7 +140,7 @@ const PAPER = "bg-theme-veil p-5 backdrop-blur-xl sm:p-8";
 
 // Each piece rises into place on load, as on the Poster. Under reduced motion none of these
 // classes apply, so nothing moves. The masthead and title fade in from a trace rather than from
-// nothing, so the browser counts them as the page's largest paint at once (poster-layout.tsx).
+// nothing, so the browser counts them as the page's largest paint at once (poster-parts.tsx).
 const rise = "motion-safe:animate-in motion-safe:slide-in-from-bottom-4 motion-safe:fill-mode-both motion-safe:duration-700 motion-safe:ease-out";
 const entrance = cn(rise, "motion-safe:fade-in");
 const invitationEntrance = cn(rise, "motion-safe:fade-in-1");

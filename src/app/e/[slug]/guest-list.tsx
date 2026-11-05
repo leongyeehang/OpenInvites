@@ -5,7 +5,7 @@ import type { Approval } from "@/rsvps/admission";
 import type { RsvpCounts } from "@/rsvps/counts";
 import type { PublicGuest } from "@/rsvps/repository";
 import type { GuestListView } from "@/rsvps/visibility";
-import { initialsOf, SectionLabel } from "@/themes/poster-layout";
+import { initialsOf, SectionLabel } from "@/themes/poster-parts";
 
 // The guest list as a guest sees it: a pile of who is coming, the headcount, then everyone as a
 // chip. When the host has made it a reward for answering, the pile is there but blurred and

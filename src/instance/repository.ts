@@ -109,6 +109,16 @@ export async function operatorEmail(): Promise<string | undefined> {
   return row?.email;
 }
 
+// The operator's display name, for "Run by" on the home page; null while the instance has no
+// operator.
+export async function operatorName(): Promise<string | null> {
+  const [row] = await getDb()
+    .select({ name: user.name })
+    .from(instanceSettings)
+    .innerJoin(user, eq(user.id, instanceSettings.operatorId));
+  return row?.name ?? null;
+}
+
 export async function hasAccounts(): Promise<boolean> {
   const [any] = await getDb().select({ id: user.id }).from(user).limit(1);
   return any !== undefined;

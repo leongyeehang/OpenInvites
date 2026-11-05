@@ -10,7 +10,7 @@ import type { Approval } from "@/rsvps/admission";
 import type { RsvpCounts } from "@/rsvps/counts";
 import type { PublicGuest } from "@/rsvps/repository";
 import { Glass } from "./glass";
-import { initialsOf } from "./poster-layout";
+import { initialsOf } from "./poster-parts";
 import { ALBUM_HEADING } from "./sections/album-section";
 import { COMMENTS_HEADING, CommentsSection } from "./sections/comments-section";
 import type { ShownAnnouncement } from "./sections/announcements-section";

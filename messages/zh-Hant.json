@@ -1,10 +1,38 @@
 {
   "Home": {
     "title": "OpenInvites",
-    "status": "此實例正常運作中。",
     "tagline": "開源、可自行架設的活動邀請服務。",
     "signIn": "登入",
-    "signUp": "建立帳號"
+    "signUp": "建立帳號",
+    "defaultWelcome": "在這裡製作活動邀請：一個連結，就是邀請函、回覆處，也是賓客日後回來看看的地方。",
+    "how": {
+      "title": "使用方式",
+      "invitedTitle": "收到了邀請？",
+      "invitedText": "開啟別人傳給你的連結就好。賓客不需要帳號。",
+      "hostingTitle": "要辦活動？",
+      "hostingInvitationOnly": "登入後即可製作邀請函。新的主辦人需要本站營運者發出的邀請才能加入。",
+      "hostingOpen": "建立帳號，製作你自己的邀請頁面。"
+    },
+    "runBy": "由 {name} 營運",
+    "poweredBy": "由 OpenInvites 驅動",
+    "fresh": {
+      "title": "你的 OpenInvites 已準備就緒",
+      "text": "建立第一個帳號，完成設定。這個帳號負責營運本站：由你決定它的名稱、誰可以加入，以及活動保留多久。",
+      "stepsTitle": "三個步驟",
+      "step1": {
+        "title": "建立營運者帳號",
+        "text": "第一個帳號就是營運者。請在分享網址之前完成。"
+      },
+      "step2": {
+        "title": "為你的實例命名",
+        "text": "名稱和一句歡迎語會顯示在這個頁面上。"
+      },
+      "step3": {
+        "title": "邀請主辦人",
+        "text": "寄出主辦人邀請，或向所有人開放註冊。"
+      },
+      "button": "建立營運者帳號"
+    }
   },
   "LocaleSwitcher": {
     "label": "語言"
