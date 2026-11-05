@@ -1,35 +1,14 @@
 import sharp from "sharp";
 import { closeDesign, createDraft, createPublished, type DesignSheet, openDesign, openMore, openSettings, publishInEditor, savedAfter } from "./events";
+import { openHome } from "./home";
 import { latestMailTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
+import { expectStill } from "./still";
 import { clientAddress, expect, test, type APIRequestContext, type Browser, type Page } from "./test";
 
 // Ticket 20 (spec, story 65): when the guest's device asks for reduced motion, nothing moves
 // anywhere. After each thing a person does, the page is running no animation or transition, and
-// no element (nor its ::before or ::after) would run one: every duration is zero.
+// no element (nor its ::before or ::after) would run one: every duration is zero (e2e/still.ts).
 test.use({ contextOptions: { reducedMotion: "reduce" } });
-
-async function expectStill(page: Page, where: string) {
-  const moving = await page.evaluate(() => {
-    const running = document.getAnimations().map((animation) => `${animation.constructor.name} on ${describe(animation.effect instanceof KeyframeEffect ? animation.effect.target : null)}`);
-    const timed = [...document.querySelectorAll("*")].flatMap((element) =>
-      [null, "::before", "::after"].flatMap((pseudo) => {
-        const style = getComputedStyle(element, pseudo);
-        const lasts = (durations: string) => durations.split(",").some((duration) => parseFloat(duration) > 0);
-        return lasts(style.animationDuration) || lasts(style.transitionDuration)
-          ? [`${describe(element)}${pseudo ?? ""}: animation ${style.animationName} ${style.animationDuration}, transition ${style.transitionProperty} ${style.transitionDuration}`]
-          : [];
-      }),
-    );
-    return [...running, ...timed];
-
-    function describe(element: Element | null) {
-      if (!element) return "nothing";
-      const classes = typeof element.className === "string" ? element.className.split(/\s+/).slice(0, 4).join(".") : "";
-      return `${element.tagName.toLowerCase()}${classes ? `.${classes}` : ""}`;
-    }
-  });
-  expect.soft(moving, `what moves on ${where}`).toEqual([]);
-}
 
 test("under reduced motion nothing moves, on any page, whatever a person does", async ({ page, browser, request }) => {
   test.setTimeout(240_000);
@@ -227,6 +206,17 @@ async function codeSentTo(request: APIRequestContext, email: string) {
 // a reply waiting for the host, the event full, a reply on the waitlist and one declined; the
 // host's guest list with its new sections, and the invites page; a report sent, and the operator's
 // reports page.
+// Home page, ticket 05: the home page `app` draws, Open, under a light gallery poster and a dark
+// one. The entrance its pieces rise in with is not run. Its other two states are checked the same
+// way on an instance of their own, in e2e/home-page.spec.ts.
+test("under reduced motion the home page is still, under the Balloons poster and the Disco poster", async ({ page }) => {
+  for (const poster of ["Balloons", "Disco"] as const) {
+    await openHome(page, poster);
+    await expect(page.getByRole("heading", { level: 1, name: "OpenInvites" })).toBeVisible();
+    await expectStill(page, `the home page, Open, under ${poster}`);
+  }
+});
+
 test("under reduced motion nothing M3 added moves: the code step, approval and the waitlist in the sheet, invites, and reports", async ({
   page,
   browser,

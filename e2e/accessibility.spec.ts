@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
 import { closeDesign, createDraft, createPublished, type DraftFields, openDesign, openMore, pickDesign, publishInEditor, toEditor } from "./events";
+import { homeBar, openHome } from "./home";
 import { latestMailTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { clientAddress, expect, test, type APIRequestContext, type Browser, type Locator, type Page } from "./test";
 import { closeReply, openMyReply } from "./reply";
@@ -111,6 +112,18 @@ test("the pages anyone can open: home, signing up and in, the legal pages, too f
     await expectNoSeriousViolations(page, path);
   }
 });
+
+// Home page, ticket 05: the home page as `app` draws it, Open and with no name set, under a light
+// gallery poster and a dark one. Its other two states, before the first account and Invitation
+// only, need an instance of their own: e2e/home-page.spec.ts checks them the same way.
+for (const poster of ["Balloons", "Disco"] as const) {
+  test(`the home page, with registration Open, under the ${poster} poster`, async ({ page }) => {
+    await openHome(page, poster);
+    await expect(page.getByRole("heading", { level: 1, name: "OpenInvites" })).toBeVisible();
+    await expect(homeBar(page).getByRole("link")).toHaveText(["Create an account", "Sign in"]);
+    await expectNoSeriousViolations(page, `the home page, Open, under ${poster}`);
+  });
+}
 
 test("a host's own pages: the dashboard, the editor and its sheets, the share screen and the guest list", async ({ page, browser, request }) => {
   test.slow();

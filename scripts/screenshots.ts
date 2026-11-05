@@ -1,7 +1,7 @@
 import { mkdirSync, readdirSync, readFileSync } from "node:fs";
 import sharp from "sharp";
 import { createDraft, openDesign, openMore, pickDesign, publishInEditor } from "../e2e/events";
-import { submitSignUp, verifyEmail } from "../e2e/hosts";
+import { OPERATOR, PASSWORD, signIn, submitSignUp, verifyEmail } from "../e2e/hosts";
 import { clientAddress, expect, test, type Browser, type BrowserContextOptions, type Page } from "../e2e/test";
 
 // `pnpm screenshots`: the pictures in README.md, taken from the app on port 3000 (`pnpm dev`, or
@@ -45,6 +45,10 @@ const PICNIC = {
   description: "Bring a blanket and something to share.",
   plusOnes: "2",
 };
+
+// What the operator calls the instance for the home page's picture (home page ticket 05), which
+// always wears the Candlelight poster while it is taken.
+const INSTANCE = { name: "Orchard Lane Supper Club", welcomeLine: "Long tables, good food and good company, once a month." };
 
 // The album's pictures: some of the gallery's own posters, standing in for the guests' photos.
 const ALBUM = ["string-lights", "picnic", "sunset-sea", "seaside", "sunshine", "bokeh"];
@@ -132,7 +136,38 @@ test("README screenshots", async ({ browser }) => {
   await album.scrollIntoViewIfNeeded();
   await phoneHost.evaluate(() => document.querySelector('[data-slot="album"]')?.scrollIntoView({ block: "center" }));
   await save(phoneHost, "album");
+
+  // The home page on a phone, the instance named and always on Candlelight. The operator sets the
+  // Home page card for the picture, then puts it back as it was on a new instance, as the browser
+  // tests expect `app` to be.
+  const operator = await (await someone(browser, DESKTOP)).newPage();
+  await signIn(operator, OPERATOR.email, PASSWORD);
+  await expect(operator).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
+  try {
+    await setHomePage(operator, { ...INSTANCE, posters: "Always the same poster", poster: "Candlelight" });
+    const visitor = await (await someone(browser, PHONE)).newPage();
+    await visitor.goto("/");
+    await expect(visitor.getByRole("heading", { level: 1, name: INSTANCE.name })).toBeVisible();
+    await save(visitor, "home");
+  } finally {
+    await setHomePage(operator, { name: "", welcomeLine: "", posters: "All gallery posters, a different one each visit" });
+  }
 });
+
+// The operator's Home page card on Instance settings, filled in and saved.
+async function setHomePage(operator: Page, home: { name: string; welcomeLine: string; posters: string; poster?: string }) {
+  await operator.goto("/instance");
+  await operator.getByLabel("Name", { exact: true }).fill(home.name);
+  await operator.getByLabel("Welcome line").fill(home.welcomeLine);
+  const more = operator.getByRole("button", { name: "More options" });
+  if ((await more.getAttribute("aria-expanded")) === "false") await more.click();
+  await operator.getByLabel(home.posters).check();
+  // The thumbnails' boxes are hidden behind their pictures: a person taps the poster.
+  if (home.poster && !(await operator.getByLabel(home.poster).isChecked())) await operator.getByText(home.poster, { exact: true }).click();
+  const form = operator.locator("form").filter({ has: operator.getByLabel("Welcome line") });
+  await form.getByRole("button", { name: "Save" }).click();
+  await expect(form.getByText("Saved.")).toBeVisible();
+}
 
 // Someone on a device of their own, reaching the instance from an address of their own, so that no
 // one's replies count against another's rate limit (e2e/test.ts).

@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type Page } from "./test";
 import { createPublished } from "./events";
+import { expectHomeIn, openHome } from "./home";
 import { latestMailTo, linkIn, newHost, PASSWORD } from "./hosts";
 import { replyBar } from "./reply";
 
@@ -131,6 +132,23 @@ test("a guest switches the invitation to Traditional Chinese, and it stays that 
   await page.context().close();
   await host.context.close();
 });
+
+// Home page, ticket 05: the home page `app` draws, Open and with no name set, in each Chinese
+// script as a visitor's browser asks for it, under a light gallery poster and a dark one. Its other
+// two states are read the same way on an instance of their own, in e2e/home-page.spec.ts.
+for (const [acceptLanguage, locale] of [
+  ["zh-CN,zh;q=0.9", "zh-Hans"],
+  ["zh-TW,zh;q=0.9", "zh-Hant"],
+] as const) {
+  test(`a visitor whose browser asks for ${acceptLanguage.split(",")[0]} reads the home page in ${locale}, under the Balloons poster and the Disco poster`, async ({ browser }) => {
+    const page = await guestWithBrowserIn(browser, acceptLanguage);
+    for (const poster of ["Balloons", "Disco"] as const) {
+      await openHome(page, poster);
+      await expectHomeIn(page, locale, "open");
+    }
+    await page.context().close();
+  });
+}
 
 test("a host who signs up in Simplified Chinese is sent their verification email in it", async ({ browser, request }) => {
   test.slow();

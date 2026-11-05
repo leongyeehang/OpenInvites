@@ -114,6 +114,42 @@ recover it by resetting its password by email, then verifying it:
 2. Sign in with the new password and choose **Resend email** in the banner on your dashboard.
    Open the link it sends: the account is now the operator.
 
+### The home page
+
+The page at your address is laid out like an invitation: a gallery poster, the instance's name as
+its title, a welcome line under it, a card saying how the site works for a guest and for a host,
+and the way in on a bar at the foot of the screen. The **Home page** card, first on Instance
+settings, sets it. Changes show on the next visit.
+
+- **Name**: up to 40 characters, on one line. It is the home page's title and the browser tab's,
+  it replaces "OpenInvites" in the header of the host area, and it is in the subject and text of
+  the account emails: the email verification, the password reset, the host invitation and the
+  sign-in link. Left empty, the instance is called "OpenInvites".
+- **Welcome line**: one sentence under the name, up to 140 characters, also given as the page's
+  description when its link is shared. Left empty, the page says "Event invitations, made here: one
+  link that is the invite, the reply and the place guests come back to." in the visitor's language.
+  The name and the welcome line are shown as you type them, in every language.
+- **More options**, folded away unless something in it differs from its default:
+  - **Posters on the home page**: **All gallery posters, a different one each visit** (the
+    default), **Only the ones I pick**, or **Always the same poster**, choosing from the gallery's
+    thumbnails. The poster brings its title font, the title's place on or under it, and its accent
+    colour; the home page draws no effect.
+  - **Show "Run by" with my display name**: off by default. When on, "Run by" and your display name
+    stand under the welcome line, as "Hosted by" does on an event page.
+
+The bar follows the registration mode: with **Open**, **Create an account** and **Sign in**; with
+**Invitation only**, **Sign in** alone, and the card tells would-be hosts that they join with an
+invitation from whoever runs the site. A host who is signed in and opens the address goes straight
+to their dashboard. The footer's first link, **Powered by OpenInvites**, leads to the project's
+source code on GitHub; if you run a modified version, the licence asks you to offer its source too.
+
+Before the first account exists, the home page is a setup page instead, whatever is stored: **Your
+OpenInvites is ready**, three steps, and one button, **Create the operator account**
+([install.md](install.md#4-create-your-account)). The first time the operator opens their
+dashboard, a welcome points to the name, registration and limits; it shows once for each
+operator, so one who takes over with `OPERATOR_EMAIL` sees it once too. An instance upgraded from
+an earlier version does not greet the operator it already has.
+
 ### Retention
 
 Events are deleted a set time after they end: **Keep events for**, on the Limits card of

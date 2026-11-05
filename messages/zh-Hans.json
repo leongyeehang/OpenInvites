@@ -167,7 +167,7 @@
   },
   "Dashboard": {
     "operatorWelcome": {
-      "title": "这个实例属于你",
+      "title": "这个实例由你做主",
       "description": "你是它的运营者，也是唯一能决定它如何运作的账号。先看这三项：",
       "name": {
         "label": "名称和欢迎语",
@@ -180,8 +180,8 @@
       },
       "limits": {
         "label": "限额与保留期",
-        "kept": "{events, plural, other {每位主办人 # 个活动}} · {days, plural, other {活动结束后保留 # 天}}",
-        "keptForever": "{events, plural, other {每位主办人 # 个活动}} · 永久保留"
+        "kept": "{events, plural, other {每位主办人 # 场活动}} · {days, plural, other {活动结束后保留 # 天}}",
+        "keptForever": "{events, plural, other {每位主办人 # 场活动}} · 永久保留"
       },
       "notNow": "暂不设置",
       "nameIt": "为你的实例命名"
@@ -255,7 +255,7 @@
     "title": "实例设置",
     "homePage": {
       "title": "首页",
-      "description": "访客在本站地址上看到的内容。",
+      "description": "访客打开本站网址时看到的页面。",
       "name": "名称",
       "nameHint": "显示在首页、浏览器标签页和账号邮件里。留空则使用“{name}”。",
       "welcomeLine": "欢迎语",
@@ -267,7 +267,7 @@
         "picked": "只用我挑选的",
         "one": "始终用同一张海报"
       },
-      "showOperator": "用我的显示名称标明“运营者”",
+      "showOperator": "显示“由……运营”，署上我的显示名称",
       "showOperatorHint": "让访客知道是谁在运营本站。",
       "submit": "保存",
       "saved": "已保存。",

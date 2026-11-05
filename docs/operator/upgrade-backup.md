@@ -61,8 +61,13 @@ passkeys. Upgrading needs nothing of you: the migrations run as the app starts, 
 - **The photo album** keeps its photos through the storage you configured, beside the posters, so
   a backup of the uploads covers them ([Backups](#backups)). The Limits card gains **Photos per
   event** (300).
+- **The home page is an invitation to your instance.** It says "OpenInvites" with a default welcome
+  line until you name it on the new **Home page** card of Instance settings
+  ([configuration.md](configuration.md#the-home-page)), and offers **Create an account** only
+  while registration is Open. The welcome new operators see on their dashboard is not shown to
+  the operator an upgraded instance already has.
 
-There are no new settings and `compose.yaml` gains no service.
+There are no new environment variables and `compose.yaml` gains no service.
 
 ### Upgrading to 0.4
 

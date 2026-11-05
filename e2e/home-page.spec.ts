@@ -1,13 +1,18 @@
-import { expect, test, type APIRequestContext, type Browser, type Locator, type Page } from "./test";
+import { expectNoSeriousViolations } from "./axe";
+import { clientAddress, expect, test, type APIRequestContext, type Browser, type BrowserContextOptions, type Locator, type Page } from "./test";
+import { expectHomeIn, homeByKeyboard, openHome } from "./home";
 import { MAILPIT, dismissOperatorWelcome, latestMailTo, mailCountTo, newHost, signUp, submitSignUp, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
+import { expectStill } from "./still";
 
-// Home page, tickets 01 to 03: the operator's Home page card, and the home page it sets. Runs
+// Home page, tickets 01 to 03 and 05: the operator's Home page card, and the home page it sets. Runs
 // against `app-fresh` after the retention spec (the `home-instance` project), and recreates it
 // first, so the first account here is the operator. The scenarios run in order, each leaving the
 // instance as the next expects it: the fresh home page before anyone signs up, then the operator's
 // account, the card, and the home page as each of its settings changes it, then the name where it is not the home page: the tab, the header and the account emails. Registration stays
-// Invitation only, the default, until the last scenario opens it.
+// Invitation only, the default, until the last scenario opens it. The fresh and Invitation only
+// home pages are also put through the checks every page passes (ticket 05), which need this
+// instance: `app` is Open.
 test.describe.configure({ mode: "serial" });
 
 let operator: Page;
@@ -62,6 +67,51 @@ async function secondHost(browser: Browser): Promise<Page> {
   return page;
 }
 
+// Ticket 05: the checks every page passes (accessibility.spec.ts, keyboard.spec.ts,
+// reduced-motion.spec.ts and locales.spec.ts), on the home page in a state only this instance has,
+// under a light gallery poster and a dark one, on a phone at 390 px and on a desktop: axe finds
+// nothing serious, a visitor reaches every control and the first way in by keyboard, nothing moves
+// under reduced motion, and it reads in both Chinese scripts. `app`'s Open home page has the same
+// rows in those specs.
+const PHONE: BrowserContextOptions = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true };
+const DESKTOP: BrowserContextOptions = { viewport: { width: 1280, height: 800 } };
+
+async function passesTheChecks(browser: Browser, state: "fresh" | "invitationOnly", { title, ways, to }: { title: string; ways: string[]; to: RegExp }) {
+  const visitor = async (options: BrowserContextOptions) => (await browser.newContext({ ...options, extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
+  for (const [width, device] of [["390 px", PHONE], ["a desktop", DESKTOP]] as const) {
+    for (const poster of ["Balloons", "Disco"] as const) {
+      const where = `the home page, ${state === "fresh" ? "before the first account" : "Invitation only"}, under ${poster} on ${width}`;
+      const page = await visitor(device);
+      await openHome(page, poster);
+      await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+      await expectNoSeriousViolations(page, where);
+      await homeByKeyboard(page, ways);
+      await expect(page).toHaveURL(to);
+      await page.context().close();
+
+      const still = await visitor({ ...device, reducedMotion: "reduce" });
+      await openHome(still, poster);
+      await expect(still.getByRole("heading", { level: 1, name: title })).toBeVisible();
+      await expectStill(still, where);
+      await still.context().close();
+    }
+  }
+  // In each Chinese script, as the visitor's browser asks for it.
+  for (const device of [PHONE, DESKTOP]) {
+    for (const [locale, acceptLanguage] of [
+      ["zh-Hans", "zh-CN"],
+      ["zh-Hant", "zh-TW"],
+    ] as const) {
+      const page = await visitor({ ...device, locale: acceptLanguage });
+      for (const poster of ["Balloons", "Disco"] as const) {
+        await openHome(page, poster);
+        await expectHomeIn(page, locale, state);
+      }
+      await page.context().close();
+    }
+  }
+}
+
 test("before anyone signs up, the home page asks for the operator account first", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Your OpenInvites is ready" })).toBeVisible();
@@ -74,6 +124,11 @@ test("before anyone signs up, the home page asks for the operator account first"
 
   await bar(page).getByRole("link", { name: "Create the operator account" }).click();
   await expect(page).toHaveURL(/\/sign-up$/);
+});
+
+test("before anyone signs up, the home page passes the checks every page passes", async ({ browser }) => {
+  test.slow();
+  await passesTheChecks(browser, "fresh", { title: "Your OpenInvites is ready", ways: ["Create the operator account"], to: /\/sign-up$/ });
 });
 
 test("once the operator exists, with nothing set, an Invitation only site offers Sign in alone", async ({ browser, request, page }) => {
@@ -93,6 +148,11 @@ test("once the operator exists, with nothing set, an Invitation only site offers
   await expect(bar(page).getByRole("link")).toHaveText(["Sign in"]);
   await expect(page.getByText("Sign in to make an invitation. New hosts join with an invitation from whoever runs this site.")).toBeVisible();
   await expect(page.getByText(/^Run by/)).toBeHidden();
+});
+
+test("with Invitation only and nothing set, the home page passes the checks every page passes", async ({ browser }) => {
+  test.slow();
+  await passesTheChecks(browser, "invitationOnly", { title: "OpenInvites", ways: ["Sign in"], to: /\/sign-in$/ });
 });
 
 test("the operator saves the name and the welcome line, and they are there after a reload", async () => {

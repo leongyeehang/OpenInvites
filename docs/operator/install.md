@@ -74,14 +74,19 @@ starting, with a message naming the variable.
 
 ## 4. Create your account
 
-Open your address and choose **Create an account**. **The first account created on a fresh
-instance becomes its operator**, so do this before you tell anyone the address. With mail
-configured, open the verification link you are sent.
+Open your address. Until there is an account, the home page says **Your OpenInvites is ready**,
+lists the three steps ahead, and offers one button: **Create the operator account**. **The first
+account created on a fresh instance becomes its operator**, so do this before you tell anyone the
+address. With mail configured, open the verification link you are sent.
 
-As the operator you find **Instance settings** in the header. A new instance is **Invitation
-only**: nobody else can create an account until you make them a host invitation there, or switch
-registration to **Open**. [configuration.md, "The operator"](configuration.md#the-operator-registration-and-host-invitations)
-has the details, including how to take the instance back if someone else signed up first.
+Your dashboard then opens on a welcome, once: **This site is yours**, with links to the instance's
+name and welcome line, who can sign up, and the limits and retention. **Name your instance** takes
+you to the Home page card; **Not now** closes it for good. Either way you find **Instance
+settings** in the header later. A new instance is **Invitation only**: nobody else can create an
+account until you make them a host invitation there, or switch registration to **Open**.
+[configuration.md, "The operator"](configuration.md#the-operator-registration-and-host-invitations)
+has the details, including how to take the instance back if someone else signed up first, and
+["The home page"](configuration.md#the-home-page) says what visitors see at your address.
 
 That is a running instance. From here:
 

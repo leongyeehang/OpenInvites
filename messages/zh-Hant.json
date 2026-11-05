@@ -167,7 +167,7 @@
   },
   "Dashboard": {
     "operatorWelcome": {
-      "title": "這個實例屬於你",
+      "title": "這個實例由你做主",
       "description": "你是它的營運者，也是唯一能決定它如何運作的帳號。先看這三項：",
       "name": {
         "label": "名稱與歡迎語",
@@ -180,8 +180,8 @@
       },
       "limits": {
         "label": "限額與保留期",
-        "kept": "{events, plural, other {每位主辦人 # 個活動}} · {days, plural, other {活動結束後保留 # 天}}",
-        "keptForever": "{events, plural, other {每位主辦人 # 個活動}} · 永久保留"
+        "kept": "{events, plural, other {每位主辦人 # 場活動}} · {days, plural, other {活動結束後保留 # 天}}",
+        "keptForever": "{events, plural, other {每位主辦人 # 場活動}} · 永久保留"
       },
       "notNow": "暫不設定",
       "nameIt": "為你的實例命名"
@@ -255,7 +255,7 @@
     "title": "實例設定",
     "homePage": {
       "title": "首頁",
-      "description": "訪客在本站網址上看到的內容。",
+      "description": "訪客開啟本站網址時看到的頁面。",
       "name": "名稱",
       "nameHint": "顯示在首頁、瀏覽器分頁和帳號郵件裡。留空則使用「{name}」。",
       "welcomeLine": "歡迎語",
@@ -267,7 +267,7 @@
         "picked": "只用我挑選的",
         "one": "一律用同一張海報"
       },
-      "showOperator": "用我的顯示名稱標明「營運者」",
+      "showOperator": "顯示「由……營運」，署上我的顯示名稱",
       "showOperatorHint": "讓訪客知道是誰在營運本站。",
       "submit": "儲存",
       "saved": "已儲存。",

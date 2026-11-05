@@ -19,6 +19,27 @@ flyer, as before.
 and Can't go sit in a bar at the foot of the screen, always within reach. On a desktop the page
 stays phone-width in the centre.
 
+## Every instance opens on an invitation
+
+**The home page is laid out like an event page,** so your instance invites a visitor in: a gallery
+poster, a different one each visit; the instance's name as its title; a welcome line under it; a
+card saying how the site works (guests only need the link they were sent; hosts sign in, or join
+with an invitation); and the way in on a bar at the foot of the screen. **Create an account** is
+offered only while registration is Open; Invitation only shows **Sign in** alone. A host who is
+signed in goes straight to their events. The footer's **Powered by OpenInvites** links to the
+source.
+
+**The Home page card** comes first on Instance settings. Give the instance a **name** (up to 40
+characters), which is also the browser tab's title, the host area's header and the name in the
+account emails, and a one-sentence **welcome line** (up to 140). Under **More options**, choose the
+posters (all of the gallery, only the ones you pick, or always the same one) and whether the page
+says **Run by** with your display name, which is off unless you turn it on. Left alone, the
+instance is called "OpenInvites", with a default welcome line in each visitor's language.
+
+**A fresh instance says it is ready,** and asks for the operator account first, with the three
+steps ahead and one button, **Create the operator account**. The new operator's dashboard then
+opens once on **This site is yours**, pointing to the name, who can sign up, and the limits.
+
 ## New
 
 - **Reactions.** Anyone who can comment can react to a comment with one of six emoji, see who
@@ -40,5 +61,8 @@ read into a poster when it is shown, so a 0.4 template becomes its gallery poste
 Candles; Vows, Rose garden; Supper club, Candlelight; Kids' party, Balloons; Festival, Aurora;
 Quiet, Bokeh) with its look. Drafts may now have no date, and an event whose date is being voted on
 is published without one; reminders and retention pass over an event until it has a date. The
-one new setting, how many photos an event may hold, is on the instance settings page and defaults to
-300; there are no new services. See `docs/operator/upgrade-backup.md`, "Upgrading to 0.5".
+new settings are on the instance settings page: how many photos an event may hold, 300 by default,
+and the Home page card, which starts empty, so the home page says "OpenInvites" until you name it.
+You are not greeted as a new operator: the welcome is only for the first account of a new
+instance, or an operator who takes over later. There are no new environment variables and no new
+services. See `docs/operator/upgrade-backup.md`, "Upgrading to 0.5".
