@@ -26,8 +26,8 @@ stays phone-width in the centre.
 - **Date polls.** Not sure of the date? Offer two to six, and guests answer Yes, If need be or No
   to each with their name. You see the votes by name and pick one: it becomes the event's date,
   everyone who left an email is told, and the page asks for replies as usual.
-- **The photo album.** From the event's start, guests who replied and the hosts add photos, up to
-  ten at a time, and everyone browses them full screen. Hosts can delete any photo, guests their
+- **The photo album.** From the event's start, the hosts and guests whose replies are approved add
+  photos, up to ten at a time, and everyone browses them full screen. Hosts can delete any photo, guests their
   own. The operator sets how many photos one event may hold (300 by default).
 - **Passkeys.** Hosts can add passkeys on their account page and sign in with a fingerprint, face or
   screen lock. Email and password keep working. Passkeys need the instance on HTTPS.
@@ -38,5 +38,6 @@ Nothing to do: the migrations run as the app starts. No theme is rewritten; ever
 read into a poster when it is shown, so a 0.4 template becomes its gallery poster (Birthday,
 Candles; Vows, Rose garden; Supper club, Candlelight; Kids' party, Balloons; Festival, Aurora;
 Quiet, Bokeh) with its look. Drafts may now have no date, and an event whose date is being voted on
-is published without one; reminders and retention pass over an event until it has a date. There
-are no new settings and no new services. See `docs/operator/upgrade-backup.md`, "Upgrading to 0.5".
+is published without one; reminders and retention pass over an event until it has a date. The
+one new setting, how many photos an event may hold, is on the instance settings page and defaults to
+300; there are no new services. See `docs/operator/upgrade-backup.md`, "Upgrading to 0.5".
