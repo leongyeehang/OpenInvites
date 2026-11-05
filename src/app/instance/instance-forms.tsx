@@ -28,6 +28,13 @@ export function HomePageForm({ home }: { home: HomePage }) {
   // Closed unless the stored settings differ from the defaults, so that what was changed is seen.
   const [open, setOpen] = useState(home.posters !== DEFAULT_HOME_PAGE.posters || home.showOperator !== DEFAULT_HOME_PAGE.showOperator);
   const error = (field: string) => (state?.field === field ? state.error : undefined);
+  // The posters' error sits inside More options: a refused save opens it, so that it is seen.
+  // Adjusted while drawing, as React advises for a change that follows from the action's new result.
+  const [seen, setSeen] = useState(state);
+  if (state !== seen) {
+    setSeen(state);
+    if (state?.field === "posters") setOpen(true);
+  }
   // Arriving by "Name your instance" on the operator's welcome sheet (dashboard/operator-welcome.tsx)
   // is arriving to type the name.
   useEffect(() => {

@@ -14,6 +14,7 @@ test.use({ baseURL: "http://localhost:3003" });
 const OPERATOR = { name: "Olive Operator", email: "operator@no-mail.openinvites.test" };
 
 let firstHost: Page;
+let firstHostName: string;
 let operator: Page;
 
 test.beforeAll(() => {
@@ -28,13 +29,25 @@ test.afterAll(async () => {
 
 test("the first account is the operator, and has no way to email a host invitation", async ({ browser }) => {
   firstHost = await (await browser.newContext()).newPage();
-  await signUp(firstHost, newHost("no-mail-first"));
+  const host = newHost("no-mail-first");
+  firstHostName = host.name;
+  await signUp(firstHost, host);
   await dismissOperatorWelcome(firstHost);
   await firstHost.getByRole("link", { name: "Instance settings" }).click();
   await expect(firstHost.getByLabel("Email (optional)")).toBeVisible();
   await expect(firstHost.getByLabel("Email the link to this address")).toHaveCount(0);
   await firstHost.getByRole("button", { name: "Create host invitation" }).click();
   await expect(firstHost.getByLabel("Host invitation link")).toHaveValue(/^http:\/\/localhost:3003\/host-invitation\//);
+});
+
+test("the operator can have the home page say Run by their name", async ({ page }) => {
+  await firstHost.goto("/instance");
+  await firstHost.getByRole("button", { name: "More options" }).click();
+  await firstHost.getByLabel("Show “Run by” with my display name").check();
+  await firstHost.locator("form").filter({ has: firstHost.getByLabel("Welcome line") }).getByRole("button", { name: "Save" }).click();
+  await expect(firstHost.getByText("Saved.")).toBeVisible();
+  await page.goto("/");
+  await expect(page.getByText(`Run by ${firstHostName}`, { exact: true })).toBeVisible();
 });
 
 test("a new account with the email OPERATOR_EMAIL names does not take over from the operator", async ({ browser }) => {
@@ -48,7 +61,7 @@ test("a new account with the email OPERATOR_EMAIL names does not take over from 
   await expect(firstHost.getByRole("link", { name: "Instance settings" })).toBeVisible();
 });
 
-test("a restart hands the instance to the account OPERATOR_EMAIL names", async () => {
+test("a restart hands the instance to the account OPERATOR_EMAIL names", async ({ page }) => {
   test.slow();
   recreate("app-no-mail");
   await operator.goto("/dashboard");
@@ -67,6 +80,14 @@ test("a restart hands the instance to the account OPERATOR_EMAIL names", async (
   await expect(operator.getByRole("heading", { name: "Your events" })).toBeVisible();
   await expect(operator.getByRole("dialog")).toHaveCount(0);
   await expect(operator.getByRole("link", { name: "Instance settings" })).toBeVisible();
+
+  // The first operator's consent to be named does not pass to the account that took the seat.
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByText(/^Run by/)).toBeHidden();
+  await operator.goto("/instance");
+  await operator.getByRole("button", { name: "More options" }).click();
+  await expect(operator.getByLabel("Show “Run by” with my display name")).not.toBeChecked();
 
   await firstHost.goto("/dashboard");
   await expect(firstHost.getByRole("banner").getByRole("button", { name: "Sign out" })).toBeVisible();

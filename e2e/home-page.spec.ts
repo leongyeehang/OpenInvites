@@ -9,7 +9,8 @@ import { expectStill } from "./still";
 // against `app-fresh` after the retention spec (the `home-instance` project), and recreates it
 // first, so the first account here is the operator. The scenarios run in order, each leaving the
 // instance as the next expects it: the fresh home page before anyone signs up, then the operator's
-// account, the card, and the home page as each of its settings changes it, then the name where it is not the home page: the tab, the header and the account emails. Registration stays
+// account, the card, and the home page as each of its settings changes it, then the name where it
+// is not the home page: the tab, the header and the account emails. Registration stays
 // Invitation only, the default, until the last scenario opens it. The fresh and Invitation only
 // home pages are also put through the checks every page passes (ticket 05), which need this
 // instance: `app` is Open.
@@ -188,6 +189,12 @@ test("More options starts closed, and one poster must be picked for Always the s
 
   await operator.getByLabel("Only the ones I pick").check();
   await expect((await save(operator)).getByText("Pick at least one poster.")).toBeVisible();
+
+  // Folded away again, a refused save opens More options on its error.
+  await more.click();
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+  await expect((await save(operator)).getByText("Pick at least one poster.")).toBeVisible();
+  await expect(more).toHaveAttribute("aria-expanded", "true");
 });
 
 test("a poster picked for Always the same poster is kept, and More options opens on it", async () => {

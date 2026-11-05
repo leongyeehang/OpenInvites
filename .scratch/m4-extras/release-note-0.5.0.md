@@ -30,9 +30,9 @@ signed in goes straight to their events. The footer's **Powered by OpenInvites**
 source.
 
 **The Home page card** comes first on Instance settings. Give the instance a **name** (up to 40
-characters), which is also the browser tab's title, the host area's header and the name in the
-account emails, and a one-sentence **welcome line** (up to 140). Under **More options**, choose the
-posters (all of the gallery, only the ones you pick, or always the same one) and whether the page
+characters), which is also the home page's browser tab title, the host area's header and the name in
+the account emails, and a one-sentence **welcome line** (up to 140). Under **More options**, choose
+the posters (all of the gallery, only the ones you pick, or always the same one) and whether the page
 says **Run by** with your display name, which is off unless you turn it on. Left alone, the
 instance is called "OpenInvites", with a default welcome line in each visitor's language.
 

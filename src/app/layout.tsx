@@ -3,12 +3,15 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PageFooter } from "@/components/page-footer";
 import { analyticsSnippet } from "@/instance/env";
-import { instanceDisplayName } from "@/instance/home";
+import { DEFAULT_HOME_PAGE, instanceDisplayName } from "@/instance/home";
 import { homePage } from "@/instance/repository";
 import "./globals.css";
 
+// The privacy and terms pages, the not-found page and the too-fast page (every 429 is rewritten to
+// it) draw without the database, so the instance's name falling back to the default when it cannot
+// be read must not stop them: a 429 above all must not cost a query that may fail.
 export async function generateMetadata(): Promise<Metadata> {
-  const [t, page] = await Promise.all([getTranslations("Home"), homePage()]);
+  const [t, page] = await Promise.all([getTranslations("Home"), homePage().catch(() => DEFAULT_HOME_PAGE)]);
   return { title: instanceDisplayName(page), description: page.welcomeLine ?? t("defaultWelcome") };
 }
 

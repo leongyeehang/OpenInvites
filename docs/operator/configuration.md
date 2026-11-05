@@ -121,10 +121,11 @@ its title, a welcome line under it, a card saying how the site works for a guest
 and the way in on a bar at the foot of the screen. The **Home page** card, first on Instance
 settings, sets it. Changes show on the next visit.
 
-- **Name**: up to 40 characters, on one line. It is the home page's title and the browser tab's,
-  it replaces "OpenInvites" in the header of the host area, and it is in the subject and text of
-  the account emails: the email verification, the password reset, the host invitation and the
-  sign-in link. Left empty, the instance is called "OpenInvites".
+- **Name**: up to 40 characters, on one line. It is the home page's title, and its tab's title in
+  the browser; it replaces "OpenInvites" in the header of the host area; and it is in the subject of
+  the account emails (the email verification, the password reset, the host invitation and the
+  sign-in link) and in the text of all of them but the sign-in link. Left empty, the instance is
+  called "OpenInvites".
 - **Welcome line**: one sentence under the name, up to 140 characters, also given as the page's
   description when its link is shared. Left empty, the page says "Event invitations, made here: one
   link that is the invite, the reply and the place guests come back to." in the visitor's language.

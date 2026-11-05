@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import { cache } from "react";
 import { getDb } from "@/db/client";
 import { event, hostInvitation, instanceSettings, user } from "@/db/schema";
@@ -155,13 +155,23 @@ export async function claimEmptyInstance(email: string): Promise<boolean> {
   return claimed.length > 0;
 }
 
+// "Run by" is the operator's own consent to be named on the home page, so it does not pass to
+// whoever takes the seat next: whenever the seat changes hands it is turned off in the same update,
+// and stays as it was when the seat stays where it is.
+const showOperatorAfter = (newOperator: SQL) =>
+  sql`case when ${instanceSettings.operatorId} is not distinct from ${newOperator} then ${instanceSettings.showOperator} else false end`;
+
 // Once a new host's account exists: if it took the empty instance, it becomes the operator,
 // unless the account OPERATOR_EMAIL names was seated in the meantime. There is one operator
 // whatever happens: it is one column.
 export async function seatFirstAccount(host: { id: string; email: string }): Promise<void> {
   await getDb()
     .update(instanceSettings)
-    .set({ operatorId: sql`coalesce(${instanceSettings.operatorId}, ${host.id}::uuid)`, firstAccountEmail: null })
+    .set({
+      operatorId: sql`coalesce(${instanceSettings.operatorId}, ${host.id}::uuid)`,
+      showOperator: showOperatorAfter(sql`coalesce(${instanceSettings.operatorId}, ${host.id}::uuid)`),
+      firstAccountEmail: null,
+    })
     .where(eq(instanceSettings.firstAccountEmail, host.email));
 }
 
@@ -171,7 +181,7 @@ export async function takeOperatorSeat(hostId: string, seat: OperatorSeat): Prom
   if (seat === "none") return;
   await getDb()
     .update(instanceSettings)
-    .set({ operatorId: hostId })
+    .set({ operatorId: hostId, showOperator: showOperatorAfter(sql`${hostId}::uuid`) })
     .where(seat === "takeIfEmpty" ? isNull(instanceSettings.operatorId) : undefined);
 }
 

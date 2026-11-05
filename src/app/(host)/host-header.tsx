@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { instanceDisplayName } from "@/instance/home";
 import { homePage, isOperator } from "@/instance/repository";
 
-// The header of every signed-in page: the instance's name, the host's display name, signing out, and for the operator
-// alone, the way to the instance settings. On a phone that link is its icon, named for a screen reader.
+// The header of every signed-in page: the instance's name, the host's display name, signing out,
+// and for the operator alone, the way to the instance settings. On a phone that link is its icon,
+// named for a screen reader.
 export async function HostHeader({ host }: { host: Host }) {
   const [t, page, operator] = await Promise.all([getTranslations("Host.header"), homePage(), isOperator(host.id)]);
   return (

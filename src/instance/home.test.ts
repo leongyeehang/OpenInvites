@@ -29,6 +29,11 @@ describe("normaliseText", () => {
     expect(normaliseText("  Ada  and\n\n Bo\t house ")).toBe("Ada and Bo house");
   });
 
+  it("drops control characters, after tabs and line breaks have become spaces", () => {
+    expect(normaliseText("Ada\u0000 and\u0007\tBo")).toBe("Ada and Bo");
+    expect(normaliseText("\u0000")).toBeNull();
+  });
+
   it("turns nothing, or only whitespace, into null", () => {
     expect(normaliseText("")).toBeNull();
     expect(normaliseText(" \n\t ")).toBeNull();

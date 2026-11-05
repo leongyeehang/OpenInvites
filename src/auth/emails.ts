@@ -9,7 +9,7 @@ import { sendMail } from "@/mail/send";
 
 type Host = { name: string; email: string };
 
-// Both run inside the request that asked for them, so the mail is in the host's language. Each
+// These run inside the request that asked for them, so the mail is in the host's language. Each
 // says the instance's name as the operator typed it: the mail is plain text, so nothing escapes it.
 
 const instanceName = async () => instanceDisplayName(await homePage());

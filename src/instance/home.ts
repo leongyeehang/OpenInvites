@@ -26,9 +26,10 @@ export type HomePage = {
 export const DEFAULT_HOME_PAGE: HomePage = { instanceName: null, welcomeLine: null, posters: "all", posterIds: [], showOperator: false };
 
 // Text typed into a one-line field: trimmed, every run of whitespace (line breaks included) one
-// space, and nothing at all is null.
+// space, and nothing at all is null. Control characters are dropped once the whitespace among them
+// is folded: a NUL would make Postgres refuse the update.
 export function normaliseText(raw: string): string | null {
-  const text = raw.trim().replace(/\s+/g, " ");
+  const text = raw.replace(/\s+/g, " ").replace(/\p{Cc}/gu, "").trim();
   return text === "" ? null : text;
 }
 

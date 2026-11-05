@@ -36,12 +36,24 @@ export function OperatorWelcome({
   const router = useRouter();
   const [open, setOpen] = useState(true);
 
+  // The sheet closes at once. Should the server refuse or not be reached, the sheet shows again on
+  // the next visit, which is better than leaving the person on a page they cannot leave.
   const dismiss = async () => {
     setOpen(false);
-    await dismissOperatorWelcomeAction();
+    try {
+      await dismissOperatorWelcomeAction();
+    } catch {
+      // Nothing to tell the person: what they asked for, the way out, has happened.
+    }
   };
-  // Dismissing first, so that the sheet is gone for good before the page it points to opens.
+  // Dismissing first, so that the sheet is gone for good before the page it points to opens. A click
+  // with a modifier key or a button other than the main one asks the browser for a new tab or window:
+  // the browser does that itself, and the sheet is dismissed beside it.
   const goTo = (href: string) => async (event?: MouseEvent) => {
+    if (event && (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0)) {
+      void dismiss();
+      return;
+    }
     event?.preventDefault();
     await dismiss();
     router.push(href);
