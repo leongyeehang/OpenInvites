@@ -4,9 +4,9 @@
 
 **Blocked by:** nothing
 
-**Status:** open
+**Status:** done
 
-- [ ] `src/dashboard/shelves.ts` (pure, no imports from the database or React):
+- [x] `src/dashboard/shelves.ts` (pure, no imports from the database or React):
   - `type ShelfEvent = HostEvent & { counts: RsvpCounts; deletion: Date | null }` (`HostEvent` from `src/events/repository.ts`, `RsvpCounts` from `src/rsvps/counts.ts`). The page builds it from what it reads today: `countRsvpsByEvent` (or `NO_RSVPS`) and `deletionDate(event, retentionDays, retentionFloorDays()) ?? null`.
   - `type Shelves = { nextUp: ShelfEvent | null; comingUp: ShelfEvent[]; drafts: ShelfEvent[]; past: ShelfEvent[] }`.
   - `shelve(events: ShelfEvent[], now: Date): Shelves`. Built on `partitionByEnd` (`src/events/time.ts`), not a copy of it:
@@ -18,7 +18,7 @@
   - `type TileChip = { kind: "toApprove"; count: number } | { kind: "cancelled" } | { kind: "draft" } | { kind: "coHost" }` and `tileChip(event: ShelfEvent): TileChip | null`, in that priority: pending replies (`counts.pending > 0`), else `state === "cancelled"`, else `state === "draft"`, else `role === "coHost"`, else null.
   - `type TileNumber = { kind: "places"; headcount: number; capacity: number } | { kind: "going"; count: number } | { kind: "went"; count: number } | { kind: "deletion"; date: Date }` and `tileNumber(event: ShelfEvent, shelf: "comingUp" | "drafts" | "past"): TileNumber`. On `past`: `deletion` when `event.deletion` is set, else `went` with `counts.going`. Elsewhere: `places` when `capacity !== null`, else `going` with `counts.going`.
   - `glowEvent(shelves: Shelves): ShelfEvent | null`: `nextUp`, else the first of `comingUp`, `drafts`, `past`, else null.
-- [ ] Unit tests (`src/dashboard/shelves.test.ts`), with a small `event({...})` builder:
+- [x] Unit tests (`src/dashboard/shelves.test.ts`), with a small `event({...})` builder:
   - `shelve`: a draft dated sooner than a published event does not become Next up; a cancelled event sooner than a published one does not either, and is in `comingUp`; a voting published event is Next up only when no dated published event is upcoming; nothing published and upcoming gives `nextUp` null; drafts with and without a date are in `drafts` in the upcoming order; an ended draft is in `past`; `past` is newest first; the Next up event is in no other shelf.
   - `whenKind` for each case, including a closed poll with no date (`none`).
   - `tileChip` for each kind and its priority: a cancelled co-hosted event with two pending replies gives `toApprove` 2; a draft co-hosted event gives `draft`.
@@ -32,3 +32,9 @@
 - Commit subject, e.g. `Dashboard: the rules for Next up and the shelves are in one place`.
 
 ## Comments
+
+**2026-11-06, implementing agent (inline).** Done. `src/dashboard/shelves.ts` and `shelves.test.ts`: the tests failed first because the module did not exist (`no tests`, import failed), then 11 passed. `pnpm lint` and `pnpm typecheck` pass.
+
+How it landed: `shelve` builds on `partitionByEnd`, so the upcoming order, the undated-last rule and Past's newest-first order are its own; Next up is the first published event of the upcoming list, and `comingUp` is the rest of the upcoming events that are not drafts. `whenKind`, `tileChip`, `tileNumber` and `glowEvent` as the ticket names them.
+
+Left for later tickets or noted: nothing. The dashboard still draws the old way until ticket 03.
