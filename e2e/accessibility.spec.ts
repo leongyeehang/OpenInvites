@@ -876,7 +876,7 @@ test("the report form, a reason refused and a report sent, and the reports page"
   const words = `This page is not what it says it is (a11y ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}).`;
   await reason.fill(words);
   await page.getByRole("button", { name: "Send report" }).click();
-  await expect(page.getByText("Thank you. Your report has reached the operator of this instance.")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Thank you. Your report has reached whoever runs this site.")).toBeVisible({ timeout: 15_000 });
   await expectNoSeriousViolations(page, "the report form, sent");
 
   const operator = await browser.newContext();

@@ -13,8 +13,8 @@ test.describe.configure({ mode: "serial" });
 const OPERATOR = { name: "Olive Operator", email: "operator@fresh.openinvites.test" };
 const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true };
 
-const REFUSED = "You need a host invitation from its operator to create an account.";
-const UNUSABLE = "This host invitation can no longer be used. Ask the operator of this instance for a new one.";
+const REFUSED = "You need a host invitation from whoever runs it to create an account.";
+const UNUSABLE = "This host invitation can no longer be used. Ask whoever runs this site for a new one.";
 
 let firstHost: Page;
 let operator: Page;
@@ -55,7 +55,7 @@ test("the first account on an empty instance is its operator, is welcomed once, 
   await expectNoSeriousViolations(firstHost, "the operator's welcome sheet, at 390px");
   await firstHost.setViewportSize({ width: 1280, height: 800 });
 
-  await welcome.getByRole("button", { name: "Name your instance" }).click();
+  await welcome.getByRole("button", { name: "Name your site" }).click();
   await expect(firstHost).toHaveURL(/\/instance#home-page$/);
   await expect(firstHost.getByRole("heading", { name: "Site settings" })).toBeVisible();
   await expect(firstHost.getByLabel("Name", { exact: true })).toBeFocused();
@@ -71,7 +71,7 @@ test("the sign-up page says a host invitation is needed, and a sign-up without o
   const page = await onPhone(browser);
   const host = newHost("uninvited");
   await page.goto("/sign-up");
-  await expect(page.getByText("This instance is invitation only. To create an account, you need a host invitation")).toBeVisible();
+  await expect(page.getByText("This site is invitation only. To create an account, you need a host invitation")).toBeVisible();
 
   await submitSignUp(page, host);
   await expect(page.getByText(REFUSED)).toBeVisible();
@@ -205,7 +205,7 @@ test("switching registration to Open lets anyone sign up", async ({ browser }) =
 
   const page = await onPhone(browser);
   await page.goto("/sign-up");
-  await expect(page.getByText("This instance is invitation only")).toHaveCount(0);
+  await expect(page.getByText("This site is invitation only")).toHaveCount(0);
   await signUp(page, newHost("open"));
   await page.context().close();
 });

@@ -246,7 +246,7 @@ test.describe("on an instance whose operator has set Turnstile's keys", () => {
     await expect(field).toHaveValue(reason);
     await field.fill(reason.replace("first try", "second try"));
     await sendReport.click();
-    await expect(page.getByText("Thank you. Your report has reached the operator of this instance.")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Thank you. Your report has reached whoever runs this site.")).toBeVisible({ timeout: 15_000 });
     // The operator's reports inbox has the report that went, and not the refused one; so has their
     // mail, which is queued as a report is kept, so the refused one would have come first.
     const operator = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });

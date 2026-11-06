@@ -12,7 +12,7 @@ const footer = (page: Page) => page.getByRole("contentinfo");
 
 // The operator's address under a legal page (OPERATOR_CONTACT_EMAIL, which differs between the
 // Compose test profile and .env.development).
-const contact = (page: Page) => page.getByText("Questions? Contact the operator of this instance at").getByRole("link");
+const contact = (page: Page) => page.getByText("Questions? Contact whoever runs this site at").getByRole("link");
 
 test.describe("on an instance whose operator has written nothing", () => {
   test("the legal pages say what is missing, and who to ask", async ({ page }) => {
@@ -20,14 +20,14 @@ test.describe("on an instance whose operator has written nothing", () => {
     await footer(page).getByRole("link", { name: "Privacy policy" }).click();
     await expect(page).toHaveURL(/\/privacy$/);
     await expect(page.getByRole("heading", { level: 1, name: "Privacy policy" })).toBeVisible();
-    await expect(page.getByText("The operator of this instance has not published a privacy policy yet.")).toBeVisible();
+    await expect(page.getByText("Whoever runs this site has not published a privacy policy yet.")).toBeVisible();
     await expect(page.getByText("PRIVACY_POLICY_FILE", { exact: true })).toBeVisible();
     await expect(contact(page)).toHaveAttribute("href", /^mailto:\S+@\S+$/);
 
     await footer(page).getByRole("link", { name: "Terms of use" }).click();
     await expect(page).toHaveURL(/\/terms$/);
     await expect(page.getByRole("heading", { level: 1, name: "Terms of use" })).toBeVisible();
-    await expect(page.getByText("The operator of this instance has not published terms of use yet.")).toBeVisible();
+    await expect(page.getByText("Whoever runs this site has not published terms of use yet.")).toBeVisible();
     await expect(page.getByText("TERMS_FILE", { exact: true })).toBeVisible();
     await expect(contact(page)).toBeVisible();
   });

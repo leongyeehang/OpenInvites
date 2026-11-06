@@ -22,7 +22,7 @@
         "text": "The first account is the operator. Do it before you share the address."
       },
       "step2": {
-        "title": "Name your instance",
+        "title": "Name your site",
         "text": "The name and a welcome line go on this page."
       },
       "step3": {
@@ -56,8 +56,8 @@
       "continueWithGoogle": "Continue with Google",
       "continueWithGithub": "Continue with GitHub",
       "invitationPending": "You have a host invitation. Create your account below.",
-      "invitationRequired": "This instance is invitation only. To create an account, you need a host invitation from its operator.",
-      "invitationUnusable": "This host invitation can no longer be used: it has been used, revoked, or it has expired. Ask the operator of this instance for a new one."
+      "invitationRequired": "This site is invitation only. To create an account, you need a host invitation from whoever runs it.",
+      "invitationUnusable": "This host invitation can no longer be used: it has been used, revoked, or it has expired. Ask whoever runs this site for a new one."
     },
     "signIn": {
       "title": "Sign in",
@@ -73,8 +73,8 @@
       "orContinueWith": "or continue with",
       "continueWithGoogle": "Continue with Google",
       "continueWithGithub": "Continue with GitHub",
-      "HOST_INVITATION_REQUIRED": "This instance is invitation only. To create an account with Google or GitHub, open your host invitation link first, then continue.",
-      "HOST_INVITATION_UNUSABLE": "This host invitation can no longer be used. Ask the operator of this instance for a new one.",
+      "HOST_INVITATION_REQUIRED": "This site is invitation only. To create an account with Google or GitHub, open your host invitation link first, then continue.",
+      "HOST_INVITATION_UNUSABLE": "This host invitation can no longer be used. Ask whoever runs this site for a new one.",
       "TOO_MANY_REQUESTS": "You’re going too fast. Try again shortly.",
       "linkTitle": "Email me a sign-in link",
       "linkEmail": "Email for the sign-in link",
@@ -90,9 +90,9 @@
       "email": "Email",
       "submit": "Send reset link",
       "sent": "If an account exists for that email, a reset link is on its way. It is valid for one hour.",
-      "noMail": "This instance cannot send email, so the operator resets passwords by hand.",
+      "noMail": "This site cannot send email, so the operator resets passwords by hand.",
       "contactOperator": "Contact the operator at <link>{email}</link> to reset your password.",
-      "contactOperatorUnknown": "Contact the operator of this instance to reset your password.",
+      "contactOperatorUnknown": "Contact whoever runs this site to reset your password.",
       "backToSignIn": "Back to sign in"
     },
     "resetPassword": {
@@ -130,11 +130,11 @@
       "INVALID_TOKEN": "This link is not valid or has expired.",
       "TOKEN_EXPIRED": "This link has expired.",
       "EMAIL_ALREADY_VERIFIED": "Your email is already verified.",
-      "VERIFICATION_EMAIL_NOT_ENABLED": "This instance cannot send email.",
+      "VERIFICATION_EMAIL_NOT_ENABLED": "This site cannot send email.",
       "SESSION_EXPIRED": "Your session has ended. Sign in again.",
       "CREDENTIAL_ACCOUNT_NOT_FOUND": "This account has no password to check.",
-      "HOST_INVITATION_REQUIRED": "This instance is invitation only. You need a host invitation from its operator to create an account.",
-      "HOST_INVITATION_UNUSABLE": "This host invitation can no longer be used. Ask the operator of this instance for a new one.",
+      "HOST_INVITATION_REQUIRED": "This site is invitation only. You need a host invitation from whoever runs it to create an account.",
+      "HOST_INVITATION_UNUSABLE": "This host invitation can no longer be used. Ask whoever runs this site for a new one.",
       "TOO_MANY_REQUESTS": "You’re going too fast. Try again shortly.",
       "checkFailed": "Please complete the check and try again."
     }
@@ -155,7 +155,7 @@
       "headcountOf": "{count, plural, one {# person} other {# people}} expected of {capacity, plural, one {# place} other {# places}}",
       "deletedOn": "Will be deleted on {date}",
       "coHost": "Co-host",
-      "limitReached": "You have {count, plural, one {# event} other {# events}}, the most this instance allows. Delete an event you no longer need to make another.",
+      "limitReached": "You have {count, plural, one {# event} other {# events}}, the most this site allows. Delete an event you no longer need to make another.",
       "untitled": "Untitled event",
       "noDate": "No date yet",
       "nextUp": "Next up",
@@ -197,7 +197,7 @@
         "keptForever": "{events, plural, one {# event} other {# events}} per host · kept for ever"
       },
       "notNow": "Not now",
-      "nameIt": "Name your instance"
+      "nameIt": "Name your site"
     }
   },
   "Account": {
@@ -228,7 +228,7 @@
     "passkeys": {
       "title": "Passkeys",
       "description": "Sign in with your fingerprint, face or screen lock instead of typing your password. Your email and password keep working.",
-      "unavailable": "Passkeys work only when this instance is served over HTTPS. Ask its operator to set that up to use them.",
+      "unavailable": "Passkeys work only when this site is served over HTTPS. Ask whoever runs it to set that up to use them.",
       "none": "You have no passkeys yet.",
       "add": "Add a passkey",
       "adding": "Waiting for your device…",
@@ -300,11 +300,11 @@
     },
     "registration": {
       "title": "Registration",
-      "description": "Who can create a host account on this instance. A change takes effect at once.",
+      "description": "Who can create a host account on this site. A change takes effect at once.",
       "invitationOnly": "Invitation only",
       "invitationOnlyHint": "Only people you give a host invitation to can create an account.",
       "open": "Open",
-      "openHint": "Anyone who finds this instance can create an account.",
+      "openHint": "Anyone who finds this site can create an account.",
       "submit": "Save",
       "saved": "Saved.",
       "unknown": "Choose Invitation only or Open."
@@ -359,7 +359,7 @@
     },
     "reports": {
       "title": "Reports",
-      "description": "What visitors have reported about event pages on this instance. Unhandled reports come first.",
+      "description": "What visitors have reported about event pages on this site. Unhandled reports come first.",
       "back": "Site settings",
       "link": "{count, plural, =0 {Reports} other {Reports (#)}}",
       "empty": "No reports yet.",
@@ -453,7 +453,7 @@
     },
     "report": {
       "subject": "Report about {title}",
-      "body": "Someone reported the event page “{title}”.\n\nThe event page:\n{url}\n\nWhat they said:\n{reason}\n\nHow to reach them: {contact}\n\nThe report is also on your instance’s reports page:\n{reportsUrl}",
+      "body": "Someone reported the event page “{title}”.\n\nThe event page:\n{url}\n\nWhat they said:\n{reason}\n\nHow to reach them: {contact}\n\nThe report is also on your site’s reports page:\n{reportsUrl}",
       "noContact": "no contact given"
     },
     "code": {
@@ -462,7 +462,7 @@
     },
     "retentionWarning": {
       "subject": "{title} will be deleted on {date}",
-      "body": "{title} will be deleted on {date}, with its guest list and everything else about it.\n\nEvents on this instance are kept {days, plural, one {# day} other {# days}} after they end; that is the instance’s rule for every event.\n\nTo keep the details for another time, open the event before then and choose Duplicate. The copy keeps the details, look, questions and settings, but not the guests. Give it its new date.\n\nYour event:\n{url}"
+      "body": "{title} will be deleted on {date}, with its guest list and everything else about it.\n\nEvents on this site are kept {days, plural, one {# day} other {# days}} after they end; that is the site’s rule for every event.\n\nTo keep the details for another time, open the event before then and choose Duplicate. The copy keeps the details, look, questions and settings, but not the guests. Give it its new date.\n\nYour event:\n{url}"
     },
     "dateSet": {
       "subject": "The date is set: {title}",
@@ -495,7 +495,7 @@
       "endHint": "Optional.",
       "timeZone": "Time zone",
       "timeZoneHint": "Guests elsewhere will see the time in this zone.",
-      "retention": "Events on this instance are deleted {days, plural, one {# day} other {# days}} after they end.",
+      "retention": "Events on this site are deleted {days, plural, one {# day} other {# days}} after they end.",
       "location": "Where",
       "locationHint": "An address, or “Ah Ma’s house, 3rd floor”. Optional.",
       "description": "Description",
@@ -507,7 +507,7 @@
       "guests": {
         "title": "Guests",
         "capacity": "Capacity",
-        "capacityHint": "Counts guests who say Going and their plus-ones, as the headcount does. Maybe doesn’t count. Leave empty to take everyone. This instance takes up to {max, number} replies per event.",
+        "capacityHint": "Counts guests who say Going and their plus-ones, as the headcount does. Maybe doesn’t count. Leave empty to take everyone. This site takes up to {max, number} replies per event.",
         "approval": "Approve each guest before they’re on the list",
         "approvalHint": "Guests see the invitation while they wait, but not the comments, and the guest list only if everyone who opens the link can."
       },
@@ -578,7 +578,7 @@
       "tooManyQuestions": "Ten questions is the most an invitation can carry.",
       "descriptionTooLong": "That description is longer than an invitation can carry.",
       "descriptionUnreadable": "The description could not be read. Copy it somewhere safe and try again.",
-      "limitReached": "You have {count, plural, one {# event} other {# events}}, the most this instance allows. Delete an event you no longer need to make another.",
+      "limitReached": "You have {count, plural, one {# event} other {# events}}, the most this site allows. Delete an event you no longer need to make another.",
       "pollTooFew": "Offer at least two dates.",
       "pollTooMany": "Offer six dates at most.",
       "pollDayInvalid": "One of the dates isn’t a real date.",
@@ -1202,7 +1202,7 @@
     "backToEvent": "Back to the event",
     "explainer": "Everyone who opens the event link can read announcements on the page. The email goes to the guests you pick who gave an email.",
     "askEmailHint": "Guests get email only if you ask for their email on the RSVP form.",
-    "noMail": "This instance cannot send email, so announcements appear on the event page only.",
+    "noMail": "This site cannot send email, so announcements appear on the event page only.",
     "message": "Message",
     "remind": "Send a reminder now",
     "reminderDraft": "A reminder: {title} is coming up.\n\nWhen: {when}{located, select, yes {\nWhere: {location}} other {}}\n\nThe event page:\n{url}",
@@ -1399,8 +1399,8 @@
     "intro": "Accept to co-host this event and manage it with its host.",
     "accept": "Accept",
     "signIn": "Sign in to accept this co-host link",
-    "needsAccount": "A co-host link needs a host account on this instance. If you don’t have one, create one, then open this link again.",
-    "needsInvitation": "A co-host link needs a host account on this instance. This instance is invitation only, so to create an account you need a host invitation from its operator.",
+    "needsAccount": "A co-host link needs a host account on this site. If you don’t have one, create one, then open this link again.",
+    "needsInvitation": "A co-host link needs a host account on this site. This site is invitation only, so to create an account you need a host invitation from whoever runs it.",
     "owner": "This is your own event.",
     "openEvent": "Open your event",
     "used": "This co-host link has already been used. Ask the host for a new one.",
@@ -1430,7 +1430,7 @@
     "contact": "Your email (optional)",
     "contactHint": "So the operator can write back if they need to know more.",
     "submit": "Send report",
-    "thanks": "Thank you. Your report has reached the operator of this instance.",
+    "thanks": "Thank you. Your report has reached whoever runs this site.",
     "back": "Back to the event page",
     "errors": {
       "reasonTooShort": "Tell us a little more: at least 20 characters.",
@@ -1449,10 +1449,10 @@
     "privacy": "Privacy policy",
     "terms": "Terms of use",
     "notPublished": {
-      "privacy": "The operator of this instance has not published a privacy policy yet.",
-      "terms": "The operator of this instance has not published terms of use yet."
+      "privacy": "Whoever runs this site has not published a privacy policy yet.",
+      "terms": "Whoever runs this site has not published terms of use yet."
     },
-    "contact": "Questions? Contact the operator of this instance at <link>{email}</link>.",
-    "contactUnknown": "The operator of this instance has not given a contact address."
+    "contact": "Questions? Contact whoever runs this site at <link>{email}</link>.",
+    "contactUnknown": "Whoever runs this site has not given a contact address."
   }
 }

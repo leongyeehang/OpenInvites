@@ -22,7 +22,7 @@
         "text": "第一个账号就是运营者。请在分享网址之前完成。"
       },
       "step2": {
-        "title": "为你的实例命名",
+        "title": "为本站命名",
         "text": "名称和一句欢迎语会显示在这个页面上。"
       },
       "step3": {
@@ -56,8 +56,8 @@
       "continueWithGoogle": "使用 Google 继续",
       "continueWithGithub": "使用 GitHub 继续",
       "invitationPending": "你已收到主办人邀请，请在下方创建账号。",
-      "invitationRequired": "此实例仅限受邀注册。要创建账号，你需要此实例的运营者发出的主办人邀请。",
-      "invitationUnusable": "此主办人邀请已无法使用：它已被使用、已被撤销或已过期。请向此实例的运营者索取新的邀请。"
+      "invitationRequired": "本站仅限受邀注册。要创建账号，你需要本站运营者发出的主办人邀请。",
+      "invitationUnusable": "此主办人邀请已无法使用：它已被使用、已被撤销或已过期。请向本站运营者索取新的邀请。"
     },
     "signIn": {
       "title": "登录",
@@ -73,8 +73,8 @@
       "orContinueWith": "或使用以下方式继续",
       "continueWithGoogle": "使用 Google 继续",
       "continueWithGithub": "使用 GitHub 继续",
-      "HOST_INVITATION_REQUIRED": "此实例仅限受邀注册。要使用 Google 或 GitHub 创建账号，请先打开你的主办人邀请链接，再继续。",
-      "HOST_INVITATION_UNUSABLE": "此主办人邀请已无法使用。请向此实例的运营者索取新的邀请。",
+      "HOST_INVITATION_REQUIRED": "本站仅限受邀注册。要使用 Google 或 GitHub 创建账号，请先打开你的主办人邀请链接，再继续。",
+      "HOST_INVITATION_UNUSABLE": "此主办人邀请已无法使用。请向本站运营者索取新的邀请。",
       "TOO_MANY_REQUESTS": "操作太频繁了，请稍后再试。",
       "linkTitle": "通过邮件获取登录链接",
       "linkEmail": "接收登录链接的邮箱",
@@ -90,9 +90,9 @@
       "email": "邮箱",
       "submit": "发送重置链接",
       "sent": "如果这个邮箱有对应的账号，重置链接已经发出，一小时内有效。",
-      "noMail": "此实例无法发送邮件，密码由运营者手动重置。",
+      "noMail": "本站无法发送邮件，密码由运营者手动重置。",
       "contactOperator": "请发邮件至 <link>{email}</link>，联系运营者重置密码。",
-      "contactOperatorUnknown": "请联系此实例的运营者重置密码。",
+      "contactOperatorUnknown": "请联系本站运营者重置密码。",
       "backToSignIn": "返回登录"
     },
     "resetPassword": {
@@ -130,11 +130,11 @@
       "INVALID_TOKEN": "这个链接无效或已过期。",
       "TOKEN_EXPIRED": "这个链接已过期。",
       "EMAIL_ALREADY_VERIFIED": "你的邮箱已经验证过了。",
-      "VERIFICATION_EMAIL_NOT_ENABLED": "此实例无法发送邮件。",
+      "VERIFICATION_EMAIL_NOT_ENABLED": "本站无法发送邮件。",
       "SESSION_EXPIRED": "登录已过期，请重新登录。",
       "CREDENTIAL_ACCOUNT_NOT_FOUND": "这个账号没有设置密码。",
-      "HOST_INVITATION_REQUIRED": "此实例仅限受邀注册。你需要运营者发出的主办人邀请才能创建账号。",
-      "HOST_INVITATION_UNUSABLE": "此主办人邀请已无法使用。请向此实例的运营者索取新的邀请。",
+      "HOST_INVITATION_REQUIRED": "本站仅限受邀注册。你需要运营者发出的主办人邀请才能创建账号。",
+      "HOST_INVITATION_UNUSABLE": "此主办人邀请已无法使用。请向本站运营者索取新的邀请。",
       "TOO_MANY_REQUESTS": "操作太频繁了，请稍后再试。",
       "checkFailed": "请先完成人机验证，再试一次。"
     }
@@ -143,7 +143,7 @@
     "header": {
       "account": "账号",
       "signOut": "退出登录",
-      "instanceSettings": "实例设置",
+      "instanceSettings": "站点设置",
       "newEvent": "新建活动",
       "accountMenu": "账号菜单"
     },
@@ -155,7 +155,7 @@
       "headcountOf": "预计 {count, plural, other {# 人}}（共 {capacity, plural, other {# 个名额}}）",
       "deletedOn": "将于 {date} 删除",
       "coHost": "共同主办人",
-      "limitReached": "你已有 {count, plural, other {# 场活动}}，这是本实例允许的上限。删除一场不再需要的活动，才能再创建新的。",
+      "limitReached": "你已有 {count, plural, other {# 场活动}}，这是本站允许的上限。删除一场不再需要的活动，才能再创建新的。",
       "untitled": "未命名活动",
       "noDate": "尚未定日期",
       "nextUp": "下一场",
@@ -180,7 +180,7 @@
   },
   "Dashboard": {
     "operatorWelcome": {
-      "title": "这个实例由你做主",
+      "title": "本站由你做主",
       "description": "你是它的运营者，也是唯一能决定它如何运作的账号。先看这三项：",
       "name": {
         "label": "名称和欢迎语",
@@ -197,7 +197,7 @@
         "keptForever": "{events, plural, other {每位主办人 # 场活动}} · 永久保留"
       },
       "notNow": "暂不设置",
-      "nameIt": "为你的实例命名"
+      "nameIt": "为本站命名"
     }
   },
   "Account": {
@@ -228,7 +228,7 @@
     "passkeys": {
       "title": "通行密钥",
       "description": "用指纹、面容或屏幕锁登录，无需输入密码。你的邮箱和密码仍然可以使用。",
-      "unavailable": "只有当此实例通过 HTTPS 提供服务时才能使用通行密钥。请联系此实例的运营者进行设置。",
+      "unavailable": "只有当本站通过 HTTPS 提供服务时才能使用通行密钥。请联系本站运营者进行设置。",
       "none": "你还没有通行密钥。",
       "add": "添加通行密钥",
       "adding": "正在等待你的设备…",
@@ -265,7 +265,7 @@
     }
   },
   "Instance": {
-    "title": "实例设置",
+    "title": "站点设置",
     "homePage": {
       "title": "首页",
       "description": "访客打开本站网址时看到的页面。",
@@ -300,11 +300,11 @@
     },
     "registration": {
       "title": "注册",
-      "description": "谁能在此实例上创建主办人账号。更改立即生效。",
+      "description": "谁能在本站创建主办人账号。更改立即生效。",
       "invitationOnly": "仅限受邀",
       "invitationOnlyHint": "只有拿到你的主办人邀请的人才能创建账号。",
       "open": "开放",
-      "openHint": "任何找到此实例的人都能创建账号。",
+      "openHint": "任何找到本站的人都能创建账号。",
       "submit": "保存",
       "saved": "已保存。",
       "unknown": "请选择“仅限受邀”或“开放”。"
@@ -359,8 +359,8 @@
     },
     "reports": {
       "title": "举报",
-      "description": "访客对这个实例上活动页面的举报。尚未处理的排在最前面。",
-      "back": "实例设置",
+      "description": "访客对本站活动页面的举报。尚未处理的排在最前面。",
+      "back": "站点设置",
       "link": "{count, plural, =0 {举报} other {举报（#）}}",
       "empty": "还没有举报。",
       "eventDeleted": "活动已删除",
@@ -453,7 +453,7 @@
     },
     "report": {
       "subject": "关于“{title}”的举报",
-      "body": "有人举报了活动页面“{title}”。\n\n活动页面：\n{url}\n\n举报内容：\n{reason}\n\n联系方式：{contact}\n\n这条举报也在你的实例的举报页面上：\n{reportsUrl}",
+      "body": "有人举报了活动页面“{title}”。\n\n活动页面：\n{url}\n\n举报内容：\n{reason}\n\n联系方式：{contact}\n\n这条举报也在本站的举报页面上：\n{reportsUrl}",
       "noContact": "未留联系方式"
     },
     "code": {
@@ -462,7 +462,7 @@
     },
     "retentionWarning": {
       "subject": "“{title}”将于 {date} 删除",
-      "body": "“{title}”将于 {date} 删除，宾客名单和其他所有相关内容也会一并删除。\n\n这个实例上的活动会在结束 {days, plural, other {# 天}}后删除，这是实例对所有活动的规定。\n\n如果想保留活动详情以后再用，请在删除前打开活动，选择“复制活动”。副本会保留详情、外观、问题和设置，但不包括宾客。记得给副本设定新的日期。\n\n你的活动：\n{url}"
+      "body": "“{title}”将于 {date} 删除，宾客名单和其他所有相关内容也会一并删除。\n\n本站的活动会在结束 {days, plural, other {# 天}}后删除，这是本站对所有活动的规定。\n\n如果想保留活动详情以后再用，请在删除前打开活动，选择“复制活动”。副本会保留详情、外观、问题和设置，但不包括宾客。记得给副本设定新的日期。\n\n你的活动：\n{url}"
     },
     "dateSet": {
       "subject": "日期已确定：{title}",
@@ -495,7 +495,7 @@
       "endHint": "选填。",
       "timeZone": "时区",
       "timeZoneHint": "身在别处的宾客，看到的也是这个时区的时间。",
-      "retention": "这个实例上的活动会在结束 {days, plural, other {# 天}}后删除。",
+      "retention": "本站的活动会在结束 {days, plural, other {# 天}}后删除。",
       "location": "地点",
       "locationHint": "填地址，或写“奶奶家三楼”也行。选填。",
       "description": "活动介绍",
@@ -507,7 +507,7 @@
       "guests": {
         "title": "宾客",
         "capacity": "人数上限",
-        "capacityHint": "和预计人数的算法一样：回复“参加”的宾客及其同伴都算在内，待定的不算。留空则接纳所有人。本实例每场活动最多接受 {max, number} 条回复。",
+        "capacityHint": "和预计人数的算法一样：回复“参加”的宾客及其同伴都算在内，待定的不算。留空则接纳所有人。本站每场活动最多接受 {max, number} 条回复。",
         "approval": "每位宾客须经你批准，才会列入宾客名单",
         "approvalHint": "等待期间，宾客可以看到邀请，但看不到留言；只有当所有打开链接的人都能看到宾客名单时，他们才能看到。"
       },
@@ -578,7 +578,7 @@
       "tooManyQuestions": "一份邀请最多只能有 10 个问题。",
       "descriptionTooLong": "活动介绍太长了，邀请装不下。",
       "descriptionUnreadable": "无法读取活动介绍。请先把它复制到安全的地方，然后重试。",
-      "limitReached": "你已有 {count, plural, other {# 场活动}}，这是本实例允许的上限。删除一场不再需要的活动，才能再创建新的。",
+      "limitReached": "你已有 {count, plural, other {# 场活动}}，这是本站允许的上限。删除一场不再需要的活动，才能再创建新的。",
       "pollTooFew": "请至少提供两个日期。",
       "pollTooMany": "最多提供六个日期。",
       "pollDayInvalid": "有一个日期无效。",
@@ -1202,7 +1202,7 @@
     "backToEvent": "返回活动",
     "explainer": "任何打开活动链接的人都能在页面上看到公告。邮件只发给你选中的、并且留下了邮箱的宾客。",
     "askEmailHint": "只有你在回复表单中请宾客留下邮箱，宾客才会收到邮件。",
-    "noMail": "此实例无法发送邮件，所以公告只会显示在活动页面上。",
+    "noMail": "本站无法发送邮件，所以公告只会显示在活动页面上。",
     "message": "公告内容",
     "remind": "立即发送提醒",
     "reminderDraft": "提醒一下：“{title}”快到了。\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}\n\n活动页面：\n{url}",
@@ -1399,8 +1399,8 @@
     "intro": "接受后，你会成为这个活动的共同主办人，和主办人一起管理它。",
     "accept": "接受",
     "signIn": "登录以接受这个共同主办人链接",
-    "needsAccount": "共同主办人链接需要你在此实例上有主办人账号。如果还没有，请先创建一个，然后再次打开这个链接。",
-    "needsInvitation": "共同主办人链接需要你在此实例上有主办人账号。此实例仅限受邀注册，要创建账号，你需要此实例的运营者发出的主办人邀请。",
+    "needsAccount": "共同主办人链接需要你在本站有主办人账号。如果还没有，请先创建一个，然后再次打开这个链接。",
+    "needsInvitation": "共同主办人链接需要你在本站有主办人账号。本站仅限受邀注册，要创建账号，你需要本站运营者发出的主办人邀请。",
     "owner": "这是你自己的活动。",
     "openEvent": "打开你的活动",
     "used": "这个共同主办人链接已经被使用了。请向主办人索取新的链接。",
@@ -1428,9 +1428,9 @@
     "title": "举报“{title}”",
     "reason": "这个页面有什么问题？",
     "contact": "你的邮箱（选填）",
-    "contactHint": "如果需要了解更多情况，实例运营者可以回复你。",
+    "contactHint": "如果需要了解更多情况，本站运营者可以回复你。",
     "submit": "发送举报",
-    "thanks": "谢谢。你的举报已经送达这个实例的运营者。",
+    "thanks": "谢谢。你的举报已经送达本站运营者。",
     "back": "返回活动页面",
     "errors": {
       "reasonTooShort": "请再多写一点：至少 20 个字符。",
@@ -1449,10 +1449,10 @@
     "privacy": "隐私政策",
     "terms": "使用条款",
     "notPublished": {
-      "privacy": "此实例的运营者还没有发布隐私政策。",
-      "terms": "此实例的运营者还没有发布使用条款。"
+      "privacy": "本站运营者还没有发布隐私政策。",
+      "terms": "本站运营者还没有发布使用条款。"
     },
-    "contact": "有疑问？请发邮件至 <link>{email}</link>，联系此实例的运营者。",
-    "contactUnknown": "此实例的运营者没有提供联系地址。"
+    "contact": "有疑问？请发邮件至 <link>{email}</link>，联系本站运营者。",
+    "contactUnknown": "本站运营者没有提供联系地址。"
   }
 }

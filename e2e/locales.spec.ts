@@ -1,7 +1,7 @@
 import { expect, test, type Browser, type Page } from "./test";
 import { createPublished } from "./events";
 import { expectHomeIn, openHome } from "./home";
-import { latestMailTo, linkIn, newHost, PASSWORD } from "./hosts";
+import { latestMailTo, linkIn, newHost, OPERATOR, PASSWORD, signIn } from "./hosts";
 import { replyBar } from "./reply";
 
 // Ticket 20: the core guest flow (open the invitation, answer Going with a plus-one, see the
@@ -268,9 +268,9 @@ test("a guest whose browser asks for zh-CN reports an event page in Simplified C
   await expect(page.getByText("请再多写一点：至少 20 个字符。")).toBeVisible();
   await reason.fill(`这个页面和它说的不一样，请看看是不是骗人的（${Date.now().toString(36)}）。`);
   await page.getByLabel("你的邮箱（选填）").fill("reporter@example.com");
-  await expect(page.getByText("如果需要了解更多情况，实例运营者可以回复你。")).toBeVisible();
+  await expect(page.getByText("如果需要了解更多情况，本站运营者可以回复你。")).toBeVisible();
   await page.getByRole("button", { name: "发送举报" }).click();
-  await expect(page.getByText("谢谢。你的举报已经送达这个实例的运营者。")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("谢谢。你的举报已经送达本站运营者。")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("link", { name: "返回活动页面" })).toBeVisible();
   await page.context().close();
   await host.context.close();
@@ -298,4 +298,19 @@ test("a host makes a personal invite link in Traditional Chinese", async ({ brow
   await dialog.getByRole("button", { name: "刪除專屬邀請" }).click();
   await expect(page.getByText("還沒有專屬邀請。")).toBeVisible({ timeout: 15_000 });
   await host.context.close();
+});
+
+// The interface says 本站 where it said 实例 (dashboard, ticket 04): the operator's account menu
+// offers 站点设置, and the page it opens is headed so too.
+test("the operator who switches to Simplified Chinese finds 站点设置 in their account menu", async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await signIn(page, OPERATOR.email, PASSWORD);
+  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
+  await page.getByRole("button", { name: "简体中文" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "我的活动" })).toBeVisible();
+  await page.getByRole("banner").getByRole("button", { name: "账号菜单" }).click();
+  await page.getByRole("menu").getByRole("menuitem", { name: "站点设置" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "站点设置" })).toBeVisible();
+  await context.close();
 });

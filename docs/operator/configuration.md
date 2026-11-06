@@ -46,8 +46,9 @@ These are read by `compose.yaml` itself rather than by the app.
 ### The operator, registration, and host invitations
 
 The first account created on a fresh instance is its operator; there is only ever one. The
-operator finds **Instance settings** in the header of the host area (`/instance`); for anyone
-else that address is a page that does not exist.
+operator finds **Site settings** in the account menu, under their initials in the header of the
+host area (`/instance`); for anyone else that address is a page that does not exist. (The
+interface says "site" where these docs say "instance".)
 
 - **Registration** is Invitation only on a fresh instance: only someone holding a host
   invitation can create an account, by email, Google, or GitHub alike. Open lets anyone sign up.
@@ -75,7 +76,7 @@ else that address is a page that does not exist.
 - **Reports**: every published or cancelled event page has a "Report this event" link in its
   footer, which opens a form for a reason (20 to 1,000 characters) and an optional email to reach
   the reporter. A report is always kept on the **Reports** page (`/instance/reports`, linked from
-  Instance settings with the number not yet handled), and, with mail configured, also emailed to
+  Site settings with the number not yet handled), and, with mail configured, also emailed to
   the email of your operator account (not `OPERATOR_CONTACT_EMAIL`, which is the public
   address). For each report you can open the event, **Delete event** (the event, its guest list
   and everything else about it are deleted, and its reports are marked handled), or **Mark
@@ -154,7 +155,7 @@ an earlier version does not greet the operator it already has.
 ### Retention
 
 Events are deleted a set time after they end: **Keep events for**, on the Limits card of
-Instance settings, from 30 to 3,650 days, 365 (a year) by default, on a new instance and on one
+Site settings, from 30 to 3,650 days, 365 (a year) by default, on a new instance and on one
 upgraded from 0.3 alike. An event ends at its end time, or its start time if it has none; an
 all-day event at the end of its last day, in its own time zone. Drafts and cancelled events are
 counted the same way.

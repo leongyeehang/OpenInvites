@@ -297,7 +297,7 @@ test("under reduced motion nothing M3 added moves: the code step, approval and t
   await expectStill(page, "the report form");
   await page.getByLabel("What’s wrong with this page?").fill(`This page is not what it says it is (still ${Date.now().toString(36)}).`);
   await page.getByRole("button", { name: "Send report" }).click();
-  await expect(page.getByText("Thank you. Your report has reached the operator of this instance.")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Thank you. Your report has reached whoever runs this site.")).toBeVisible({ timeout: 15_000 });
   await expectStill(page, "the report form, sent");
   await signIn(page, OPERATOR.email, PASSWORD);
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });

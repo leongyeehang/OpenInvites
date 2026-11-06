@@ -62,7 +62,7 @@ passkeys. Upgrading needs nothing of you: the migrations run as the app starts, 
   a backup of the uploads covers them ([Backups](#backups)). The Limits card gains **Photos per
   event** (300).
 - **The home page is an invitation to your instance.** It says "OpenInvites" with a default welcome
-  line until you name it on the new **Home page** card of Instance settings
+  line until you name it on the new **Home page** card of Site settings
   ([configuration.md](configuration.md#the-home-page)), and offers **Create an account** only
   while registration is Open. The welcome new operators see on their dashboard is not shown to
   the operator an upgraded instance already has.
@@ -84,7 +84,7 @@ retention. Read the first point before you upgrade: it is the one change that de
   and everything else about it, at the first hourly check after its day, so up to an hour late,
   never early. Its links stay retired.
   - **To keep every event**, sign in as the operator as soon as the upgraded app answers, and in
-    Instance settings, under **Limits**, tick **Keep forever** and save. The first check runs a
+    Site settings, under **Limits**, tick **Keep forever** and save. The first check runs a
     minute after the start, so the hosts of old events may already have been emailed by then;
     once Keep forever is saved their events' marks are cleared, their pages say nothing more, and
     nothing is deleted.
@@ -109,11 +109,11 @@ retention. Read the first point before you upgrade: it is the one change that de
 - **The limits apply at once, to what exists too.** A host who already owns 50 events or more
   cannot create or duplicate another, and an event that already has 500 replies takes no new guest
   (those who replied can still change or withdraw theirs). If a host or an event is past them, raise
-  **Events per host** or **Replies per event** in Instance settings first.
+  **Events per host** or **Replies per event** in Site settings first.
 - **Nothing else changes on existing events.** None has a capacity or asks for approval, and every
   existing reply stays on the guest list as it was, approved.
 
-The instance settings page gains the **Limits** card (Events per host, 50; Replies per event, 500;
+The settings page (Site settings since 0.5) gains the **Limits** card (Events per host, 50; Replies per event, 500;
 Keep events for, 365 days) and a link to the **Reports** page; with mail, each report is also
 emailed to your operator account. There are three new settings, all optional:
 `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`, which put Cloudflare's bot check on the sign-up,

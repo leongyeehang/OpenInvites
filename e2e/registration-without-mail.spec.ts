@@ -99,7 +99,7 @@ test("a restart hands the instance to the account OPERATOR_EMAIL names", async (
 test("a host who forgets their password is told how to reach the operator, as readers of the legal pages are", async ({ page }) => {
   const contact = "help@no-mail.openinvites.test";
   await page.goto("/forgot-password");
-  await expect(page.getByText("This instance cannot send email, so the operator resets passwords by hand.")).toBeVisible();
+  await expect(page.getByText("This site cannot send email, so the operator resets passwords by hand.")).toBeVisible();
   await expect(page.getByText(`Contact the operator at ${contact} to reset your password.`)).toBeVisible();
   await expect(page.getByRole("link", { name: contact })).toHaveAttribute("href", `mailto:${contact}`);
   for (const path of ["/privacy", "/terms"]) {

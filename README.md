@@ -43,7 +43,7 @@ pnpm dev
 
 `pnpm install` may end by saying it ignored the build scripts of a few packages: nothing here needs them. `pnpm dev` starts Postgres 18 and [Mailpit](https://mailpit.axllent.org/), a fake mail server that catches every email the app sends (their images are downloaded the first time), then starts the app, which brings its database up to date before it answers the first request. It needs ports 3000, 5432, 1025 and 8025 free.
 
-1. Open <http://localhost:3000> and choose **Create the operator account**. The first account on a new instance becomes its operator, and its dashboard opens on a welcome that points to Instance settings.
+1. Open <http://localhost:3000> and choose **Create the operator account**. The first account on a new instance becomes its operator, and its dashboard opens on a welcome that points to Site settings, in the menu under your initials.
 2. Open Mailpit at <http://localhost:8025> and follow the link in **Verify your email for OpenInvites**.
 3. On your dashboard, choose **New event**: the invitation opens as its own editor. Type a title on the poster, tap **When** to give it a date, and **Publish** it. The toolbar under it opens the Poster sheet in the screenshot above.
 

@@ -218,7 +218,7 @@ test("a co-host link opened signed out goes through sign-in and back", async ({ 
   await page.goto(link);
   await expect(page.getByRole("heading", { name: EVENT.title })).toBeVisible();
   await expect(
-    page.getByText("A co-host link needs a host account on this instance. If you don’t have one, create one, then open this link again."),
+    page.getByText("A co-host link needs a host account on this site. If you don’t have one, create one, then open this link again."),
   ).toBeVisible();
   await page.getByRole("link", { name: "Sign in to accept this co-host link" }).click();
   await expect(page).toHaveURL(/\/sign-in\?next=/);

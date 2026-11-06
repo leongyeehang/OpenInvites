@@ -282,7 +282,7 @@ test("a guest reports an event page by keyboard alone", async ({ page, browser, 
   await page.keyboard.type("reporter@example.com");
   await tabUntil(page, send);
   await page.keyboard.press("Enter");
-  await expect(page.getByText("Thank you. Your report has reached the operator of this instance.")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Thank you. Your report has reached whoever runs this site.")).toBeVisible({ timeout: 15_000 });
   await tabUntil(page, page.getByRole("link", { name: "Back to the event page" }));
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(new URL(host.link).pathname);

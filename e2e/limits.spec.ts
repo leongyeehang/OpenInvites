@@ -9,7 +9,7 @@ import { recreate } from "./instances";
 // operator. The scenarios run in order, each leaving the instance as the next expects it.
 test.describe.configure({ mode: "serial" });
 
-const EVENTS_REFUSAL = "You have 2 events, the most this instance allows. Delete an event you no longer need to make another.";
+const EVENTS_REFUSAL = "You have 2 events, the most this site allows. Delete an event you no longer need to make another.";
 const REPLIES_REFUSAL = /This event can.t take more replies\./;
 
 let operator: Page;

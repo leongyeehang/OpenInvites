@@ -22,7 +22,7 @@
         "text": "第一個帳號就是營運者。請在分享網址之前完成。"
       },
       "step2": {
-        "title": "為你的實例命名",
+        "title": "為本站命名",
         "text": "名稱和一句歡迎語會顯示在這個頁面上。"
       },
       "step3": {
@@ -56,8 +56,8 @@
       "continueWithGoogle": "使用 Google 繼續",
       "continueWithGithub": "使用 GitHub 繼續",
       "invitationPending": "你已收到主辦人邀請，請在下方建立帳號。",
-      "invitationRequired": "此實例僅限受邀註冊。要建立帳號，你需要此實例的營運者發出的主辦人邀請。",
-      "invitationUnusable": "此主辦人邀請已無法使用：它已被使用、已被撤銷或已過期。請向此實例的營運者索取新的邀請。"
+      "invitationRequired": "本站僅限受邀註冊。要建立帳號，你需要本站營運者發出的主辦人邀請。",
+      "invitationUnusable": "此主辦人邀請已無法使用：它已被使用、已被撤銷或已過期。請向本站營運者索取新的邀請。"
     },
     "signIn": {
       "title": "登入",
@@ -73,8 +73,8 @@
       "orContinueWith": "或使用以下方式繼續",
       "continueWithGoogle": "使用 Google 繼續",
       "continueWithGithub": "使用 GitHub 繼續",
-      "HOST_INVITATION_REQUIRED": "此實例僅限受邀註冊。要使用 Google 或 GitHub 建立帳號，請先開啟你的主辦人邀請連結，再繼續。",
-      "HOST_INVITATION_UNUSABLE": "此主辦人邀請已無法使用。請向此實例的營運者索取新的邀請。",
+      "HOST_INVITATION_REQUIRED": "本站僅限受邀註冊。要使用 Google 或 GitHub 建立帳號，請先開啟你的主辦人邀請連結，再繼續。",
+      "HOST_INVITATION_UNUSABLE": "此主辦人邀請已無法使用。請向本站營運者索取新的邀請。",
       "TOO_MANY_REQUESTS": "操作太頻繁了，請稍後再試。",
       "linkTitle": "透過電子郵件取得登入連結",
       "linkEmail": "接收登入連結的電子郵件",
@@ -90,9 +90,9 @@
       "email": "電子郵件",
       "submit": "寄送重設連結",
       "sent": "如果這個電子郵件有對應的帳號，重設連結已經寄出，一小時內有效。",
-      "noMail": "此實例無法寄送電子郵件，密碼由營運者手動重設。",
+      "noMail": "本站無法寄送電子郵件，密碼由營運者手動重設。",
       "contactOperator": "請寄信至 <link>{email}</link>，聯絡營運者重設密碼。",
-      "contactOperatorUnknown": "請聯絡此實例的營運者重設密碼。",
+      "contactOperatorUnknown": "請聯絡本站營運者重設密碼。",
       "backToSignIn": "返回登入"
     },
     "resetPassword": {
@@ -130,11 +130,11 @@
       "INVALID_TOKEN": "這個連結無效或已過期。",
       "TOKEN_EXPIRED": "這個連結已過期。",
       "EMAIL_ALREADY_VERIFIED": "你的電子郵件已經驗證過了。",
-      "VERIFICATION_EMAIL_NOT_ENABLED": "此實例無法寄送電子郵件。",
+      "VERIFICATION_EMAIL_NOT_ENABLED": "本站無法寄送電子郵件。",
       "SESSION_EXPIRED": "登入已逾時，請重新登入。",
       "CREDENTIAL_ACCOUNT_NOT_FOUND": "這個帳號沒有設定密碼。",
-      "HOST_INVITATION_REQUIRED": "此實例僅限受邀註冊。你需要營運者發出的主辦人邀請，才能建立帳號。",
-      "HOST_INVITATION_UNUSABLE": "此主辦人邀請已無法使用。請向此實例的營運者索取新的邀請。",
+      "HOST_INVITATION_REQUIRED": "本站僅限受邀註冊。你需要營運者發出的主辦人邀請，才能建立帳號。",
+      "HOST_INVITATION_UNUSABLE": "此主辦人邀請已無法使用。請向本站營運者索取新的邀請。",
       "TOO_MANY_REQUESTS": "操作太頻繁了，請稍後再試。",
       "checkFailed": "請先完成人機驗證，再試一次。"
     }
@@ -143,7 +143,7 @@
     "header": {
       "account": "帳號",
       "signOut": "登出",
-      "instanceSettings": "實例設定",
+      "instanceSettings": "網站設定",
       "newEvent": "新增活動",
       "accountMenu": "帳號選單"
     },
@@ -155,7 +155,7 @@
       "headcountOf": "預計 {count, plural, other {# 人}}（共 {capacity, plural, other {# 個名額}}）",
       "deletedOn": "將於 {date} 刪除",
       "coHost": "共同主辦人",
-      "limitReached": "你已有 {count, plural, other {# 場活動}}，這是本實例允許的上限。刪除一場不再需要的活動，才能再建立新的。",
+      "limitReached": "你已有 {count, plural, other {# 場活動}}，這是本站允許的上限。刪除一場不再需要的活動，才能再建立新的。",
       "untitled": "未命名活動",
       "noDate": "尚未定日期",
       "nextUp": "下一場",
@@ -180,7 +180,7 @@
   },
   "Dashboard": {
     "operatorWelcome": {
-      "title": "這個實例由你做主",
+      "title": "本站由你做主",
       "description": "你是它的營運者，也是唯一能決定它如何運作的帳號。先看這三項：",
       "name": {
         "label": "名稱與歡迎語",
@@ -197,7 +197,7 @@
         "keptForever": "{events, plural, other {每位主辦人 # 場活動}} · 永久保留"
       },
       "notNow": "暫不設定",
-      "nameIt": "為你的實例命名"
+      "nameIt": "為本站命名"
     }
   },
   "Account": {
@@ -228,7 +228,7 @@
     "passkeys": {
       "title": "通行密鑰",
       "description": "用指紋、臉孔或螢幕鎖定登入，不必輸入密碼。你的電子郵件和密碼仍然可以使用。",
-      "unavailable": "只有當此實例透過 HTTPS 提供服務時才能使用通行密鑰。請聯絡此實例的營運者進行設定。",
+      "unavailable": "只有當本站透過 HTTPS 提供服務時才能使用通行密鑰。請聯絡本站營運者進行設定。",
       "none": "你還沒有通行密鑰。",
       "add": "新增通行密鑰",
       "adding": "正在等待你的裝置…",
@@ -265,7 +265,7 @@
     }
   },
   "Instance": {
-    "title": "實例設定",
+    "title": "網站設定",
     "homePage": {
       "title": "首頁",
       "description": "訪客開啟本站網址時看到的頁面。",
@@ -300,11 +300,11 @@
     },
     "registration": {
       "title": "註冊",
-      "description": "誰能在此實例上建立主辦人帳號。變更立即生效。",
+      "description": "誰能在本站建立主辦人帳號。變更立即生效。",
       "invitationOnly": "僅限受邀",
       "invitationOnlyHint": "只有拿到你的主辦人邀請的人才能建立帳號。",
       "open": "開放",
-      "openHint": "任何找到此實例的人都能建立帳號。",
+      "openHint": "任何找到本站的人都能建立帳號。",
       "submit": "儲存",
       "saved": "已儲存。",
       "unknown": "請選擇「僅限受邀」或「開放」。"
@@ -359,8 +359,8 @@
     },
     "reports": {
       "title": "檢舉",
-      "description": "訪客對這個實例上活動頁面的檢舉。尚未處理的排在最前面。",
-      "back": "實例設定",
+      "description": "訪客對本站活動頁面的檢舉。尚未處理的排在最前面。",
+      "back": "網站設定",
       "link": "{count, plural, =0 {檢舉} other {檢舉（#）}}",
       "empty": "還沒有檢舉。",
       "eventDeleted": "活動已刪除",
@@ -453,7 +453,7 @@
     },
     "report": {
       "subject": "關於「{title}」的檢舉",
-      "body": "有人檢舉了活動頁面「{title}」。\n\n活動頁面：\n{url}\n\n檢舉內容：\n{reason}\n\n聯絡方式：{contact}\n\n這則檢舉也在你的實例的檢舉頁面上：\n{reportsUrl}",
+      "body": "有人檢舉了活動頁面「{title}」。\n\n活動頁面：\n{url}\n\n檢舉內容：\n{reason}\n\n聯絡方式：{contact}\n\n這則檢舉也在本站的檢舉頁面上：\n{reportsUrl}",
       "noContact": "未留聯絡方式"
     },
     "code": {
@@ -462,7 +462,7 @@
     },
     "retentionWarning": {
       "subject": "「{title}」將於 {date} 刪除",
-      "body": "「{title}」將於 {date} 刪除，賓客名單和其他所有相關內容也會一併刪除。\n\n這個實例上的活動會在結束 {days, plural, other {# 天}}後刪除，這是實例對所有活動的規定。\n\n如果想保留活動詳情日後再用，請在刪除前開啟活動，選擇「複製活動」。副本會保留詳情、外觀、問題和設定，但不包括賓客。記得為副本設定新的日期。\n\n你的活動：\n{url}"
+      "body": "「{title}」將於 {date} 刪除，賓客名單和其他所有相關內容也會一併刪除。\n\n本站的活動會在結束 {days, plural, other {# 天}}後刪除，這是本站對所有活動的規定。\n\n如果想保留活動詳情日後再用，請在刪除前開啟活動，選擇「複製活動」。副本會保留詳情、外觀、問題和設定，但不包括賓客。記得為副本設定新的日期。\n\n你的活動：\n{url}"
     },
     "dateSet": {
       "subject": "日期已確定：{title}",
@@ -495,7 +495,7 @@
       "endHint": "選填。",
       "timeZone": "時區",
       "timeZoneHint": "身在他處的賓客，看到的也是這個時區的時間。",
-      "retention": "這個實例上的活動會在結束 {days, plural, other {# 天}}後刪除。",
+      "retention": "本站的活動會在結束 {days, plural, other {# 天}}後刪除。",
       "location": "地點",
       "locationHint": "填地址，或寫「阿嬤家三樓」也可以。選填。",
       "description": "活動介紹",
@@ -507,7 +507,7 @@
       "guests": {
         "title": "賓客",
         "capacity": "人數上限",
-        "capacityHint": "和預計人數的算法一樣：回覆「參加」的賓客及其同伴都算在內，待定的不算。留空則接納所有人。本實例每場活動最多接受 {max, number} 則回覆。",
+        "capacityHint": "和預計人數的算法一樣：回覆「參加」的賓客及其同伴都算在內，待定的不算。留空則接納所有人。本站每場活動最多接受 {max, number} 則回覆。",
         "approval": "每位賓客須經你核准，才會列入賓客名單",
         "approvalHint": "等待期間，賓客可以看到邀請，但看不到留言；只有當所有開啟連結的人都看得到賓客名單時，他們才看得到。"
       },
@@ -578,7 +578,7 @@
       "tooManyQuestions": "一份邀請最多只能有 10 個問題。",
       "descriptionTooLong": "活動介紹太長了，邀請放不下。",
       "descriptionUnreadable": "無法讀取活動介紹。請先把它複製到安全的地方，再試一次。",
-      "limitReached": "你已有 {count, plural, other {# 場活動}}，這是本實例允許的上限。刪除一場不再需要的活動，才能再建立新的。",
+      "limitReached": "你已有 {count, plural, other {# 場活動}}，這是本站允許的上限。刪除一場不再需要的活動，才能再建立新的。",
       "pollTooFew": "請至少提供兩個日期。",
       "pollTooMany": "最多提供六個日期。",
       "pollDayInvalid": "有一個日期無效。",
@@ -1202,7 +1202,7 @@
     "backToEvent": "返回活動",
     "explainer": "任何開啟活動連結的人都能在頁面上看到公告。郵件只會寄給你選取、而且留下了電子郵件的賓客。",
     "askEmailHint": "只有你在回覆表單中請賓客留下電子郵件，賓客才會收到郵件。",
-    "noMail": "此實例無法寄送電子郵件，所以公告只會顯示在活動頁面上。",
+    "noMail": "本站無法寄送電子郵件，所以公告只會顯示在活動頁面上。",
     "message": "公告內容",
     "remind": "立即寄送提醒",
     "reminderDraft": "提醒一下：「{title}」快到了。\n\n時間：{when}{located, select, yes {\n地點：{location}} other {}}\n\n活動頁面：\n{url}",
@@ -1399,8 +1399,8 @@
     "intro": "接受後，你會成為這個活動的共同主辦人，和主辦人一起管理它。",
     "accept": "接受",
     "signIn": "登入以接受這個共同主辦人連結",
-    "needsAccount": "共同主辦人連結需要你在此實例上有主辦人帳號。如果還沒有，請先建立一個，然後再次開啟這個連結。",
-    "needsInvitation": "共同主辦人連結需要你在此實例上有主辦人帳號。此實例僅限受邀註冊，要建立帳號，你需要此實例的營運者發出的主辦人邀請。",
+    "needsAccount": "共同主辦人連結需要你在本站有主辦人帳號。如果還沒有，請先建立一個，然後再次開啟這個連結。",
+    "needsInvitation": "共同主辦人連結需要你在本站有主辦人帳號。本站僅限受邀註冊，要建立帳號，你需要本站營運者發出的主辦人邀請。",
     "owner": "這是你自己的活動。",
     "openEvent": "開啟你的活動",
     "used": "這個共同主辦人連結已經被使用了。請向主辦人索取新的連結。",
@@ -1428,9 +1428,9 @@
     "title": "檢舉「{title}」",
     "reason": "這個頁面有什麼問題？",
     "contact": "你的電子郵件（選填）",
-    "contactHint": "如果需要了解更多情況，實例營運者可以回覆你。",
+    "contactHint": "如果需要了解更多情況，本站營運者可以回覆你。",
     "submit": "送出檢舉",
-    "thanks": "謝謝。你的檢舉已經送達這個實例的營運者。",
+    "thanks": "謝謝。你的檢舉已經送達本站營運者。",
     "back": "返回活動頁面",
     "errors": {
       "reasonTooShort": "請再多寫一點：至少 20 個字元。",
@@ -1449,10 +1449,10 @@
     "privacy": "隱私權政策",
     "terms": "使用條款",
     "notPublished": {
-      "privacy": "此實例的營運者還沒有發布隱私權政策。",
-      "terms": "此實例的營運者還沒有發布使用條款。"
+      "privacy": "本站營運者還沒有發布隱私權政策。",
+      "terms": "本站營運者還沒有發布使用條款。"
     },
-    "contact": "有疑問嗎？請寄信至 <link>{email}</link>，聯絡此實例的營運者。",
-    "contactUnknown": "此實例的營運者沒有提供聯絡地址。"
+    "contact": "有疑問嗎？請寄信至 <link>{email}</link>，聯絡本站營運者。",
+    "contactUnknown": "本站營運者沒有提供聯絡地址。"
   }
 }

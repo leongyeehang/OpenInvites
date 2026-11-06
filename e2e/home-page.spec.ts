@@ -120,7 +120,7 @@ test("before anyone signs up, the home page asks for the operator account first"
   await expect(page.getByText("Create the first account to finish setting up. That account runs this site:")).toBeVisible();
   const card = page.locator('[data-slot="how"]');
   await expect(card.getByRole("heading", { level: 2 })).toHaveText("Three steps");
-  await expect(card.getByRole("listitem").getByRole("heading")).toHaveText(["Create the operator account", "Name your instance", "Invite your hosts"]);
+  await expect(card.getByRole("listitem").getByRole("heading")).toHaveText(["Create the operator account", "Name your site", "Invite your hosts"]);
   await expect(bar(page).getByRole("link")).toHaveText(["Create the operator account"]);
 
   await bar(page).getByRole("link", { name: "Create the operator account" }).click();

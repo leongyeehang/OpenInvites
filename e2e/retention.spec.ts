@@ -19,7 +19,7 @@ const NO_MAIL = "http://localhost:3003";
 const TITLE = "Ada’s garden party";
 const REDATED = "Ada’s picnic";
 const ANCIENT = "Ada’s school reunion";
-const POLICY = "Events on this instance are deleted 365 days after they end.";
+const POLICY = "Events on this site are deleted 365 days after they end.";
 const MARKED = /^This event will be deleted on /;
 const DELETED = "This event has been deleted.";
 const CUSTOM = `garden-party-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -206,7 +206,7 @@ test("the first sweep after a restart marks the old events and deletes nothing: 
   for (const email of [operatorEmail, coHostEmail]) {
     const warning = await warningTo(request, email, TITLE);
     expect(thirtyDaysOn.some((day) => warning.includes(`${TITLE} will be deleted on ${day}`))).toBe(true);
-    expect(warning).toContain("Events on this instance are kept 365 days after they end");
+    expect(warning).toContain("Events on this site are kept 365 days after they end");
     expect(warning).toContain("Duplicate");
     expect(warning).toContain(new URL(party).pathname);
   }
@@ -236,7 +236,7 @@ test("new dates, a longer period and Keep forever take off the marks they no lon
   await limits.getByRole("button", { name: "Save" }).click();
   await expect(limits.getByText("Saved.")).toBeVisible();
   await operator.goto(party);
-  await policySaid(operator, "Events on this instance are deleted 3,650 days after they end.");
+  await policySaid(operator, "Events on this site are deleted 3,650 days after they end.");
   await expect(operator.getByText(MARKED)).toHaveCount(0);
   await operator.goto(reunion);
   await expect(operator.getByText(MARKED)).toBeVisible();
@@ -253,7 +253,7 @@ test("new dates, a longer period and Keep forever take off the marks they no lon
   await expect(operator.getByText(/^Will be deleted on /)).toHaveCount(0);
   await operator.goto(reunion);
   await expect(operator.getByRole("textbox", { name: "Event title" })).toHaveText(ANCIENT);
-  await expect(operator.getByText(/^Events on this instance are deleted /)).toHaveCount(0);
+  await expect(operator.getByText(/^Events on this site are deleted /)).toHaveCount(0);
   await expect(operator.getByText(MARKED)).toHaveCount(0);
 
   await operator.goto("/instance");

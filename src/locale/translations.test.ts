@@ -83,3 +83,20 @@ describe("the translation files", () => {
     });
   }
 });
+
+// The interface says "site" (本站): "instance" is the code's word and the operator docs' (dashboard
+// spec, ""Instance" becomes "site" in the interface"). Placeholders such as {instance} are names,
+// not words a reader sees, so they are left out of the check.
+describe("the words a reader sees", () => {
+  const instance = /instance|实例|實例/i;
+  const said = (tree: MessageTree, path: string[] = []): [string, string][] =>
+    Object.entries(tree).flatMap(([key, value]) =>
+      typeof value === "string" ? [[[...path, key].join("."), value.replace(/\{\s*instance\s*\}/g, "")] as [string, string]] : said(value, [...path, key]),
+    );
+  for (const locale of locales) {
+    it(`never say "instance" in ${locale}`, () => {
+      const messages = JSON.parse(readFileSync(`messages/${locale}.json`, "utf8")) as MessageTree;
+      expect(said(messages).filter(([, text]) => instance.test(text)).map(([key]) => key)).toEqual([]);
+    });
+  }
+});

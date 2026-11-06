@@ -71,7 +71,7 @@ test("a guest reports an event from its footer, and the operator reads it, by em
   const contact = `reporter-${Math.random().toString(36).slice(2, 8)}@example.com`;
 
   await sendReport(page, host.link, reason, contact);
-  await expect(page.getByText("Thank you. Your report has reached the operator of this instance.")).toBeVisible();
+  await expect(page.getByText("Thank you. Your report has reached whoever runs this site.")).toBeVisible();
   await page.getByRole("link", { name: "Back to the event page" }).click();
   await expect(page).toHaveURL(new URL(host.link).pathname);
 
@@ -107,7 +107,7 @@ test("the operator deletes a reported event from the inbox: its link says it was
   const host = await createPublished(browser, request, "report-deleted", { title: "Grace’s reunion", start: "2027-04-10T18:00" });
   const reason = reasonFor("deleted");
   await sendReport(page, host.link, reason);
-  await expect(page.getByText("Thank you. Your report has reached the operator of this instance.")).toBeVisible();
+  await expect(page.getByText("Thank you. Your report has reached whoever runs this site.")).toBeVisible();
 
   const operator = await operatorOnReports(browser);
   const report = inbox(operator.page, reason);
@@ -138,7 +138,7 @@ test("a cancelled event's page keeps its report link, and a report from it reach
   await expect(page.getByText("This event is cancelled")).toBeVisible();
   const reason = reasonFor("cancelled");
   await sendReport(page, host.link, reason);
-  await expect(page.getByText("Thank you. Your report has reached the operator of this instance.")).toBeVisible();
+  await expect(page.getByText("Thank you. Your report has reached whoever runs this site.")).toBeVisible();
 
   const operator = await operatorOnReports(browser);
   await expect(inbox(operator.page, reason).getByRole("link", { name: "Called off" })).toHaveAttribute("href", new URL(host.link).pathname);
@@ -180,7 +180,7 @@ test("the sixth report from one client in a minute is refused as too fast", asyn
   const host = await createPublished(browser, request, "report-fast", { title: "Many reports", start: "2027-07-01T12:00" });
   for (let sent = 1; sent <= 5; sent++) {
     await sendReport(page, host.link, reasonFor(`fast ${sent}`), undefined, sent === 1);
-    await expect(page.getByText("Thank you. Your report has reached the operator of this instance.")).toBeVisible();
+    await expect(page.getByText("Thank you. Your report has reached whoever runs this site.")).toBeVisible();
   }
   await sendReport(page, host.link, reasonFor("fast 6"), undefined, false);
   await expect(page.getByText("You’re going too fast. Try again shortly.")).toBeVisible();
