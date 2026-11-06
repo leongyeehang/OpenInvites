@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { latestMailTo, linkIn, mailCountTo, newHost, PASSWORD, signIn, signOut, signUp, signUpVerified, verifyEmail } from "./hosts";
+import { expectSignedInAs, latestMailTo, linkIn, mailCountTo, newHost, PASSWORD, signIn, signOut, signUp, signUpVerified, verifyEmail } from "./hosts";
 
 // A host with mail can sign in through a link emailed to them (spec, "Magic-link login"): it signs
 // an existing host in, once, within 15 minutes, and never creates an account. That an instance
@@ -27,7 +27,7 @@ test("a host asks for a sign-in link, and opening it signs them in", async ({ pa
 
   await page.goto(linkIn(mail));
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole("banner").getByText(host.name)).toBeVisible();
+  await expectSignedInAs(page, host.name);
 });
 
 test("an address with no account is told the same, and gets no mail", async ({ page, request }) => {

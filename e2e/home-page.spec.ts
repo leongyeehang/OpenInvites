@@ -1,7 +1,7 @@
 import { expectNoSeriousViolations } from "./axe";
 import { clientAddress, expect, test, type APIRequestContext, type Browser, type BrowserContextOptions, type Locator, type Page } from "./test";
 import { expectHomeIn, homeByKeyboard, openHome } from "./home";
-import { MAILPIT, dismissOperatorWelcome, latestMailTo, mailCountTo, newHost, signUp, submitSignUp, verifyEmail } from "./hosts";
+import { dismissOperatorWelcome, expectSignedInAs, latestMailTo, mailCountTo, MAILPIT, newHost, signUp, submitSignUp, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
 import { expectStill } from "./still";
 
@@ -64,7 +64,7 @@ async function secondHost(browser: Browser): Promise<Page> {
   await page.goto(link);
   await submitSignUp(page, host);
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
-  await expect(page.getByRole("banner").getByText(host.name)).toBeVisible();
+  await expectSignedInAs(page, host.name);
   return page;
 }
 
@@ -267,6 +267,21 @@ test("a name of 40 characters with no spaces wraps, and the page does not scroll
   // More than one line: it wrapped inside the page's column.
   expect((await drawn(title)).lines).toBeGreaterThan(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+
+  // The operator's own header keeps to one line with the long name, which is cut short there
+  // (dashboard, ticket 02).
+  await operator.setViewportSize({ width: 390, height: 844 });
+  await operator.goto("/dashboard");
+  const header = operator.getByRole("banner");
+  await expect(header.getByRole("link", { name: long })).toBeVisible();
+  const heights = await header.evaluate((banner) => [banner.getBoundingClientRect().height, banner.querySelector("a")!.getBoundingClientRect().height]);
+  expect(heights[0]).toBeLessThanOrEqual(64);
+  expect(heights[1]).toBeLessThan(40);
+  await expect(header.getByRole("link", { name: "New event" })).toBeVisible();
+  await expect(header.getByRole("button", { name: "Account menu" })).toBeVisible();
+  expect(await operator.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  await operator.setViewportSize({ width: 1280, height: 800 });
+  await operator.goto("/instance");
 
   await operator.getByLabel("Name", { exact: true }).fill("Casa Ada");
   await expect((await save(operator)).getByText("Saved.")).toBeVisible();

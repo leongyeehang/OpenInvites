@@ -24,7 +24,7 @@ test("a host makes an event on the invitation itself, from New event to publishe
   test.slow();
   const host = await signUpVerified(page, request, "publish");
   await page.goto("/dashboard");
-  await page.getByRole("link", { name: "New event" }).click();
+  await page.getByRole("banner").getByRole("link", { name: "New event" }).click();
   await expect(page).toHaveURL(/\/events\/[0-9a-f-]{36}$/, { timeout: 20_000 });
   // A blank invitation, a draft, and nothing a guest would call a form.
   const title = page.getByRole("textbox", { name: "Event title" });

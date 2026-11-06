@@ -20,7 +20,7 @@ async function operatorOnReports(browser: Browser) {
   const context = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
   const page = await context.newPage();
   await signIn(page, OPERATOR.email, PASSWORD);
-  await expect(page.getByRole("link", { name: "Instance settings" })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("banner").getByRole("button", { name: "Account menu" })).toBeVisible({ timeout: 15_000 });
   await page.goto("/instance/reports");
   await expect(page.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();
   return { context, page };

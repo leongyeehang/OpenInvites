@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { dismissOperatorWelcome, newHost, signUp } from "./hosts";
+import { dismissOperatorWelcome, newHost, offersSiteSettings, signUp, toSiteSettings } from "./hosts";
 import { recreate } from "./instances";
 
 // Runs against `app-no-mail` (compose.yaml): an instance of its own that has no mail, so no email
@@ -33,7 +33,7 @@ test("the first account is the operator, and has no way to email a host invitati
   firstHostName = host.name;
   await signUp(firstHost, host);
   await dismissOperatorWelcome(firstHost);
-  await firstHost.getByRole("link", { name: "Instance settings" }).click();
+  await toSiteSettings(firstHost);
   await expect(firstHost.getByLabel("Email (optional)")).toBeVisible();
   await expect(firstHost.getByLabel("Email the link to this address")).toHaveCount(0);
   await firstHost.getByRole("button", { name: "Create host invitation" }).click();
@@ -53,12 +53,12 @@ test("the operator can have the home page say Run by their name", async ({ page 
 test("a new account with the email OPERATOR_EMAIL names does not take over from the operator", async ({ browser }) => {
   operator = await (await browser.newContext()).newPage();
   await signUp(operator, OPERATOR);
-  await expect(operator.getByRole("link", { name: "Instance settings" })).toHaveCount(0);
+  expect(await offersSiteSettings(operator)).toBe(false);
   await operator.goto("/instance");
   await expect(operator.getByRole("heading", { name: "Page not found" })).toBeVisible();
 
   await firstHost.goto("/dashboard");
-  await expect(firstHost.getByRole("link", { name: "Instance settings" })).toBeVisible();
+  expect(await offersSiteSettings(firstHost)).toBe(true);
 });
 
 test("a restart hands the instance to the account OPERATOR_EMAIL names", async ({ page }) => {
@@ -76,10 +76,12 @@ test("a restart hands the instance to the account OPERATOR_EMAIL names", async (
   await operator.keyboard.press("Escape");
   await expect(welcome).toBeHidden();
   await expect(operator.getByRole("heading", { name: "Your events" })).toBeFocused();
+  // Escape's dismissal is a request of its own: a reload before it lands would find the sheet again.
+  await operator.waitForLoadState("networkidle");
   await operator.reload();
   await expect(operator.getByRole("heading", { name: "Your events" })).toBeVisible();
   await expect(operator.getByRole("dialog")).toHaveCount(0);
-  await expect(operator.getByRole("link", { name: "Instance settings" })).toBeVisible();
+  expect(await offersSiteSettings(operator)).toBe(true);
 
   // The first operator's consent to be named does not pass to the account that took the seat.
   await page.goto("/");
@@ -90,8 +92,8 @@ test("a restart hands the instance to the account OPERATOR_EMAIL names", async (
   await expect(operator.getByLabel("Show “Run by” with my display name")).not.toBeChecked();
 
   await firstHost.goto("/dashboard");
-  await expect(firstHost.getByRole("banner").getByRole("button", { name: "Sign out" })).toBeVisible();
-  await expect(firstHost.getByRole("link", { name: "Instance settings" })).toHaveCount(0);
+  await expect(firstHost.getByRole("banner").getByRole("button", { name: "Account menu" })).toBeVisible();
+  expect(await offersSiteSettings(firstHost)).toBe(false);
 });
 
 test("a host who forgets their password is told how to reach the operator, as readers of the legal pages are", async ({ page }) => {

@@ -2,7 +2,7 @@ import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
 import { closeDesign, createDraft, createPublished, type DraftFields, openDesign, openMore, pickDesign, publishInEditor, toEditor } from "./events";
 import { homeBar, openHome } from "./home";
-import { latestMailTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
+import { latestMailTo, newHost, openAccountMenu, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { clientAddress, expect, test, type APIRequestContext, type Browser, type Locator, type Page } from "./test";
 import { closeReply, openMyReply } from "./reply";
 
@@ -130,6 +130,13 @@ test("a host's own pages: the dashboard, the editor and its sheets, the share sc
   await signUpVerified(page, request, "a11y-host");
   await page.goto("/dashboard");
   await expectNoSeriousViolations(page, "the dashboard, empty");
+  // The frame of every signed-in page (dashboard, ticket 02): another host page on the host
+  // ground, and the account menu open.
+  await page.goto("/account");
+  await expectNoSeriousViolations(page, "the account page");
+  await openAccountMenu(page);
+  await expectNoSeriousViolations(page, "the account menu, open");
+  await page.keyboard.press("Escape");
 
   // The editor (M4 ticket 05): a blank invitation, and each of its sheets open.
   await page.goto("/events/new");
@@ -192,7 +199,7 @@ test("the instance settings page, and its Limits card refusing a value and with 
   await signIn(page, OPERATOR.email, PASSWORD);
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
   await page.goto("/instance");
-  await expect(page.getByRole("heading", { level: 1, name: "Instance settings" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Site settings" })).toBeVisible();
   await expectNoSeriousViolations(page, "the instance settings page");
 
   // A value the server refuses, which the browser's own check would stop first; nothing is saved,

@@ -1,5 +1,5 @@
 import { expect, expectNotFoundAsSent, test, type Browser, type Page } from "./test";
-import { dismissOperatorWelcome, latestMailTo, linkIn, mailCountTo, newHost, PASSWORD, signIn, signUp, submitSignUp, verifyEmail } from "./hosts";
+import { dismissOperatorWelcome, expectSignedInAs, latestMailTo, linkIn, mailCountTo, newHost, offersSiteSettings, PASSWORD, signIn, signUp, submitSignUp, verifyEmail } from "./hosts";
 import { expectNoSeriousViolations } from "./axe";
 import { recreate } from "./instances";
 
@@ -35,7 +35,7 @@ async function onPhone(browser: Browser): Promise<Page> {
 }
 
 // The first visit to the operator's dashboard (home page, ticket 04) opens a welcome sheet, which
-// hides the page behind it, so the first account's way to Instance settings is through it.
+// hides the page behind it, so the first account's way to Site settings is through it.
 test("the first account on an empty instance is its operator, is welcomed once, and registration starts invitation only", async ({
   browser,
 }) => {
@@ -57,7 +57,7 @@ test("the first account on an empty instance is its operator, is welcomed once, 
 
   await welcome.getByRole("button", { name: "Name your instance" }).click();
   await expect(firstHost).toHaveURL(/\/instance#home-page$/);
-  await expect(firstHost.getByRole("heading", { name: "Instance settings" })).toBeVisible();
+  await expect(firstHost.getByRole("heading", { name: "Site settings" })).toBeVisible();
   await expect(firstHost.getByLabel("Name", { exact: true })).toBeFocused();
   await expect(firstHost.getByLabel("Invitation only")).toBeChecked();
 
@@ -91,29 +91,29 @@ test("the email OPERATOR_EMAIL names signs up anyway, and takes over as the oper
   const mails = await mailCountTo(request, OPERATOR.email);
   await signUp(operator, OPERATOR);
   await expect(operator.getByText("Verify your email")).toBeVisible();
-  await expect(operator.getByRole("link", { name: "Instance settings" })).toHaveCount(0);
+  expect(await offersSiteSettings(operator)).toBe(false);
   await operator.goto("/instance");
   await expect(operator.getByRole("heading", { name: "Page not found" })).toBeVisible();
 
   // Nor does a restart make an account the operator before its email is verified.
   recreate("app-fresh");
   await operator.goto("/dashboard");
-  await expect(operator.getByRole("banner").getByText(OPERATOR.name)).toBeVisible();
-  await expect(operator.getByRole("link", { name: "Instance settings" })).toHaveCount(0);
+  await expect(operator.getByRole("banner").getByRole("button", { name: "Account menu" })).toBeVisible();
+  expect(await offersSiteSettings(operator)).toBe(false);
   await firstHost.goto("/dashboard");
-  await expect(firstHost.getByRole("link", { name: "Instance settings" })).toBeVisible();
+  expect(await offersSiteSettings(firstHost)).toBe(true);
 
   await verifyEmail(operator, request, OPERATOR.email, mails);
   await operator.goto("/dashboard");
   // The new operator is welcomed in their turn, and once: Not now is for good.
   await dismissOperatorWelcome(operator);
   await operator.reload();
-  await expect(operator.getByRole("link", { name: "Instance settings" })).toBeVisible();
+  expect(await offersSiteSettings(operator)).toBe(true);
   await expect(operator.getByRole("dialog")).toHaveCount(0);
 
   await firstHost.goto("/dashboard");
-  await expect(firstHost.getByRole("banner").getByRole("button", { name: "Sign out" })).toBeVisible();
-  await expect(firstHost.getByRole("link", { name: "Instance settings" })).toHaveCount(0);
+  await expect(firstHost.getByRole("banner").getByRole("button", { name: "Account menu" })).toBeVisible();
+  expect(await offersSiteSettings(firstHost)).toBe(false);
   await firstHost.goto("/instance");
   await expect(firstHost.getByRole("heading", { name: "Page not found" })).toBeVisible();
 });
@@ -133,7 +133,7 @@ test("a host invitation link lets one person sign up, and nobody after them", as
   await expect(invited.getByText("You have a host invitation.")).toBeVisible();
   await submitSignUp(invited, host);
   await expect(invited).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
-  await expect(invited.getByRole("banner").getByText(host.name)).toBeVisible();
+  await expectSignedInAs(invited, host.name);
   // A host who is not the operator is not welcomed as one.
   await expect(invited.getByRole("heading", { name: "Your events" })).toBeVisible();
   await expect(invited.getByRole("dialog")).toHaveCount(0);

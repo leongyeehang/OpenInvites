@@ -1,5 +1,5 @@
 import { expect, test as setup } from "./test";
-import { dismissOperatorWelcome, mailCountTo, OPERATOR, PASSWORD, signIn, signUp, verifyEmail } from "./hosts";
+import { dismissOperatorWelcome, mailCountTo, OPERATOR, PASSWORD, signIn, signUp, toSiteSettings, verifyEmail } from "./hosts";
 
 // Every other spec signs up hosts of its own, so `app` runs with registration open. Its operator
 // opens it here, on the instance settings page, as a person would: signing in to the account an
@@ -19,7 +19,7 @@ setup("the operator opens registration to everyone", async ({ page, request }) =
 
   await page.goto("/dashboard");
   if (welcomed) await dismissOperatorWelcome(page);
-  await page.getByRole("link", { name: "Instance settings" }).click();
+  await toSiteSettings(page);
   await page.getByLabel("Open", { exact: true }).check();
   // The Limits card has a Save button too: this one is the Registration form's.
   await page.locator("form").filter({ has: page.getByLabel("Open", { exact: true }) }).getByRole("button", { name: "Save" }).click();

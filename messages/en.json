@@ -143,7 +143,9 @@
     "header": {
       "account": "Account",
       "signOut": "Sign out",
-      "instanceSettings": "Instance settings"
+      "instanceSettings": "Site settings",
+      "newEvent": "New event",
+      "accountMenu": "Account menu"
     },
     "dashboard": {
       "title": "Your events",
@@ -252,7 +254,7 @@
     }
   },
   "Instance": {
-    "title": "Instance settings",
+    "title": "Site settings",
     "homePage": {
       "title": "Home page",
       "description": "What visitors see at this site’s address.",
@@ -347,7 +349,7 @@
     "reports": {
       "title": "Reports",
       "description": "What visitors have reported about event pages on this instance. Unhandled reports come first.",
-      "back": "Instance settings",
+      "back": "Site settings",
       "link": "{count, plural, =0 {Reports} other {Reports (#)}}",
       "empty": "No reports yet.",
       "eventDeleted": "Event deleted",

@@ -1,5 +1,5 @@
 import { createPublished, openMore } from "./events";
-import { latestMailTo, mailCountTo, MAILPIT, newHost, OPERATOR, PASSWORD, signIn, submitSignUp } from "./hosts";
+import { expectSignedInAs, latestMailTo, mailCountTo, MAILPIT, newHost, OPERATOR, PASSWORD, signIn, submitSignUp } from "./hosts";
 import { clientAddress, expect, scriptsNotFromTheApp, test, type APIRequestContext, type Page, type Route } from "./test";
 
 // Ticket 09 (M3): Cloudflare Turnstile guards the email sign-up form, the RSVP form in every
@@ -94,7 +94,7 @@ test.describe("on an instance whose operator has set Turnstile's keys", () => {
     // The widget starts again, and the sign-up goes once it has passed.
     await submitSignUp(page, host);
     await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
-    await expect(page.getByRole("banner").getByText(host.name)).toBeVisible();
+    await expectSignedInAs(page, host.name);
   });
 
   test("a sign-up posted straight to the sign-up endpoint, past the form and its check, is refused", async ({ page, request }) => {
@@ -252,7 +252,7 @@ test.describe("on an instance whose operator has set Turnstile's keys", () => {
     const operator = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
     const operatorPage = await operator.newPage();
     await signIn(operatorPage, OPERATOR.email, PASSWORD);
-    await expect(operatorPage.getByRole("link", { name: "Instance settings" })).toBeVisible({ timeout: 15_000 });
+    await expect(operatorPage.getByRole("banner").getByRole("button", { name: "Account menu" })).toBeVisible({ timeout: 15_000 });
     await operatorPage.goto("/instance/reports");
     await expect(operatorPage.getByRole("listitem").filter({ hasText: `${marker}, second try` })).toHaveCount(1);
     await expect(operatorPage.getByRole("listitem").filter({ hasText: `${marker}, first try` })).toHaveCount(0);

@@ -5,6 +5,7 @@ import {
   linkIn,
   mailCountTo,
   newHost,
+  openAccountMenu,
   PASSWORD,
   requestResetLink,
   signIn,
@@ -55,23 +56,26 @@ test("sessions on two devices are independent: signing out of one keeps the othe
 
   await otherPage.reload();
   await expect(otherPage).toHaveURL(/\/dashboard$/);
-  await expect(otherPage.getByRole("banner").getByText(host.name)).toBeVisible();
+  await expect((await openAccountMenu(otherPage)).getByText(host.name)).toBeVisible();
   await otherDevice.close();
 });
 
+// The header's account menu names the host, and its initials stand for them (dashboard, ticket 02).
 test("a host changes their display name and sees it in the header", async ({ page }) => {
   const host = newHost("rename");
   await signUp(page, host);
-  await page.getByRole("banner").getByRole("link", { name: host.name }).click();
+  await (await openAccountMenu(page)).getByRole("menuitem", { name: "Account" }).click();
   await expect(page).toHaveURL(/\/account$/);
 
   await page.getByLabel("Display name").fill("Grace Hopper");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Display name saved.")).toBeVisible();
-  await expect(page.getByRole("banner").getByText("Grace Hopper")).toBeVisible();
+  await expect((await openAccountMenu(page)).getByText("Grace Hopper")).toBeVisible();
+  await page.keyboard.press("Escape");
 
   await page.goto("/dashboard");
-  await expect(page.getByRole("banner").getByText("Grace Hopper")).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("button", { name: "Account menu" })).toHaveText("GH");
+  await expect((await openAccountMenu(page)).getByText("Grace Hopper")).toBeVisible();
 });
 
 test("a host changes their password and signs in with the new one", async ({ page }) => {

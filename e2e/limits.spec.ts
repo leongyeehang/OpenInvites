@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import { expect, test, type Browser, type Page } from "./test";
 import { APPROVAL, editSettings, eventLinkIn, openMore, publishInEditor, setWhen, typeTitle } from "./events";
-import { dismissOperatorWelcome, mailCountTo, newHost, signUp, verifyEmail } from "./hosts";
+import { dismissOperatorWelcome, mailCountTo, newHost, signUp, toSiteSettings, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
 
 // Ticket 01: the operator's two limits. Runs against `app-fresh` after the fresh-instance specs
@@ -58,7 +58,7 @@ test("the operator sets the limits to two and sees them saved", async ({ browser
   await verifyEmail(operator, request, host.email, mails);
 
   await operator.goto("/dashboard");
-  await operator.getByRole("link", { name: "Instance settings" }).click();
+  await toSiteSettings(operator);
   await expect(operator.getByLabel("Events per host")).toHaveValue("50");
   await expect(operator.getByLabel("Replies per event")).toHaveValue("500");
   await expect(operator.getByText("Counts every event a host owns, drafts and past events included.")).toBeVisible();
@@ -88,6 +88,8 @@ test("a limit outside the range is refused", async () => {
 
 test("a host at the events limit cannot create or duplicate an event", async () => {
   test.slow();
+  await operator.goto("/account");
+  await expect(operator.getByRole("banner").getByRole("link", { name: "New event" })).toBeVisible();
   await fillDraft(operator, "First party");
   await expect(operator).toHaveURL(/\/events\/[0-9a-f-]{36}$/, { timeout: 15_000 });
   await fillDraft(operator, "Second party");
@@ -100,6 +102,10 @@ test("a host at the events limit cannot create or duplicate an event", async () 
 
   await operator.goto("/dashboard");
   await expect(operator.getByText(EVENTS_REFUSAL)).toBeVisible();
+  await expect(operator.getByRole("link", { name: "New event" })).toHaveCount(0);
+  // The header's New event pill is on every host page, and gone from all of them at the limit.
+  await operator.goto("/account");
+  await expect(operator.getByRole("banner").getByRole("button", { name: "Account menu" })).toBeVisible();
   await expect(operator.getByRole("link", { name: "New event" })).toHaveCount(0);
 
   await operator.goto(second);

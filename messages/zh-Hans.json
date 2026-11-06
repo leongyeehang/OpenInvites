@@ -143,7 +143,9 @@
     "header": {
       "account": "账号",
       "signOut": "退出登录",
-      "instanceSettings": "实例设置"
+      "instanceSettings": "实例设置",
+      "newEvent": "新建活动",
+      "accountMenu": "账号菜单"
     },
     "dashboard": {
       "title": "我的活动",

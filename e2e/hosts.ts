@@ -27,7 +27,7 @@ export async function signUp(page: Page, host: { name: string; email: string }) 
   // Sign-up hashes the password and sends the verification email before it redirects.
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
   // The operator's welcome sheet, if it is open, hides the page behind it from the accessibility tree.
-  await expect(page.getByRole("banner").getByText(host.name).or(page.getByRole("dialog", { name: "This site is yours" }))).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("button", { name: "Account menu" }).or(page.getByRole("dialog", { name: "This site is yours" }))).toBeVisible();
 }
 
 // The operator's first visit to their dashboard opens a welcome sheet (home page, ticket 04). A
@@ -46,9 +46,42 @@ export async function signIn(page: Page, email: string, password: string) {
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
 }
 
+// The host's initials in the header open the account menu (dashboard, ticket 02): their name and
+// email, Account, Site settings for the operator, and Sign out.
+export async function openAccountMenu(page: Page) {
+  await page.getByRole("banner").getByRole("button", { name: "Account menu" }).click();
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  return menu;
+}
+
+// Who is signed in: the account menu names them, where the header named them before.
+export async function expectSignedInAs(page: Page, name: string) {
+  const menu = await openAccountMenu(page);
+  await expect(menu.getByText(name, { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+}
+
 export async function signOut(page: Page) {
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await (await openAccountMenu(page)).getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL("/");
+}
+
+export async function toSiteSettings(page: Page) {
+  await (await openAccountMenu(page)).getByRole("menuitem", { name: "Site settings" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Site settings" })).toBeVisible();
+}
+
+// Whether the account menu offers Site settings, which only the operator's does. The menu is
+// closed again afterwards.
+export async function offersSiteSettings(page: Page): Promise<boolean> {
+  const menu = await openAccountMenu(page);
+  await expect(menu.getByRole("menuitem", { name: "Account" })).toBeVisible();
+  const offered = (await menu.getByRole("menuitem", { name: "Site settings" }).count()) > 0;
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  return offered;
 }
 
 export async function mailCountTo(request: APIRequestContext, email: string): Promise<number> {

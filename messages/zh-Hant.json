@@ -143,7 +143,9 @@
     "header": {
       "account": "帳號",
       "signOut": "登出",
-      "instanceSettings": "實例設定"
+      "instanceSettings": "實例設定",
+      "newEvent": "新增活動",
+      "accountMenu": "帳號選單"
     },
     "dashboard": {
       "title": "我的活動",
