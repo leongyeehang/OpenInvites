@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
+import { hostWithShelves } from "./dashboard";
 import { closeDesign, createDraft, createPublished, type DraftFields, openDesign, openMore, pickDesign, publishInEditor, toEditor } from "./events";
 import { homeBar, openHome } from "./home";
 import { latestMailTo, newHost, openAccountMenu, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
@@ -192,6 +193,16 @@ test("a host's own pages: the dashboard, the editor and its sheets, the share sc
   await expectNoSeriousViolations(page, "the guest list");
   await page.getByRole("button", { name: "Edit" }).click();
   await expectNoSeriousViolations(page, "the guest list, editing a guest");
+});
+
+// The dashboard with an event on every shelf (dashboard, ticket 05): Next up with a reply to approve,
+// Coming up, Drafts and Past, at the project's width.
+test("the dashboard with an event on every shelf", async ({ browser, request }) => {
+  test.slow();
+  const host = await hostWithShelves(browser, request, "a11y-shelves");
+  await expect(host.page.getByRole("region", { name: "Next up", exact: true }).getByText("1 to approve", { exact: true })).toBeVisible();
+  await expectNoSeriousViolations(host.page, "the dashboard, every shelf");
+  await host.context.close();
 });
 
 test("the instance settings page, and its Limits card refusing a value and with Keep forever ticked", async ({ page }) => {

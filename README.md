@@ -11,6 +11,7 @@ OpenInvites is open source and made to be self-hosted: one Compose file runs it 
   <img src="docs/screenshots/album.webp" width="200" alt="The photo album of a picnic that has happened: a grid of six pictures, with Add photos under it.">
 </p>
 <p>
+  <img src="docs/screenshots/dashboard.webp" width="200" alt="A host’s dashboard on a phone: Mei’s 30th as Next up, its poster with the title on it, its date, how many are going, maybe and can’t go, and Guests, Edit and Share.">
   <img src="docs/screenshots/editor.webp" width="200" alt="A host editing a night-market invitation on their phone: the invitation itself, with its title on an aurora poster, the When row, and a toolbar of Poster, Title, Theme, Effect and Settings.">
   <img src="docs/screenshots/poster-sheet.webp" width="200" alt="The Poster sheet risen over a live, half-size copy of the invitation: tabs for Gallery, Emoji, Colour and Upload, occasions, and the gallery’s posters.">
   <img src="docs/screenshots/event-festival.webp" width="200" alt="The night-market invitation as a guest sees it: a heavy grotesque title over the Aurora poster, with floating shapes, and the reply buttons at the foot of the screen.">

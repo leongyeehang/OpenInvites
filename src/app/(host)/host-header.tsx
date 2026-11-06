@@ -22,7 +22,11 @@ export async function HostHeader({ host }: { host: Host }) {
   return (
     <header data-slot="host-header">
       <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between gap-3 px-4">
-        <Link href="/dashboard" className="min-w-0 truncate text-lg font-semibold tracking-tight">
+        {/* Cut short when long, which would clip an outline: its focus is a ring of its own. */}
+        <Link
+          href="/dashboard"
+          className="min-w-0 truncate rounded-md text-lg font-semibold tracking-tight outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
           {instanceDisplayName(page)}
         </Link>
         <nav className="flex shrink-0 items-center gap-2">

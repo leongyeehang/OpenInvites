@@ -3,6 +3,7 @@ import { closeDesign, createDraft, createPublished, type DesignSheet, openDesign
 import { openHome } from "./home";
 import { latestMailTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { expectStill } from "./still";
+import { hostWithShelves } from "./dashboard";
 import { clientAddress, expect, test, type APIRequestContext, type Browser, type Page } from "./test";
 
 // Ticket 20 (spec, story 65): when the guest's device asks for reduced motion, nothing moves
@@ -432,5 +433,16 @@ test("under reduced motion the reactions, the album, the desktop editor and the 
   await page.locator('[data-slot="rsvp-bar"]').getByRole("button", { name: "Vote on a date" }).click();
   await expect(page.getByRole("dialog", { name: "Which dates work for you?" })).toBeVisible();
   await expectStill(page, "the vote's sheet");
+  await host.context.close();
+});
+
+// The dashboard with an event on every shelf, still (dashboard, ticket 05): no tile lifts, nothing
+// fades in, and the glow behind it never moves.
+test("under reduced motion the dashboard with an event on every shelf is still", async ({ browser, request }) => {
+  test.slow();
+  const host = await hostWithShelves(browser, request, "still-shelves");
+  await expectStill(host.page, "the dashboard, every shelf");
+  await host.page.getByRole("region", { name: "Coming up", exact: true }).getByRole("link").first().hover();
+  await expectStill(host.page, "the dashboard, a tile hovered");
   await host.context.close();
 });

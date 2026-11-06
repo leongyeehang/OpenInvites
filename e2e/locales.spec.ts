@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type Page } from "./test";
 import { createPublished } from "./events";
+import { hostWithShelves } from "./dashboard";
 import { expectHomeIn, openHome } from "./home";
 import { latestMailTo, linkIn, newHost, OPERATOR, PASSWORD, signIn } from "./hosts";
 import { replyBar } from "./reply";
@@ -314,3 +315,25 @@ test("the operator who switches to Simplified Chinese finds 站点设置 in thei
   await expect(page.getByRole("heading", { level: 1, name: "站点设置" })).toBeVisible();
   await context.close();
 });
+
+// The dashboard in each Chinese script, chosen by the host's browser (dashboard, ticket 05): the
+// shelves' headings and Next up's chips.
+for (const [acceptLanguage, copy] of [
+  ["zh-CN", { title: "我的活动", nextUp: "下一场", comingUp: "即将举行", drafts: "草稿", past: "已结束", toApprove: "1 人待批准", guests: "宾客" }],
+  ["zh-TW", { title: "我的活動", nextUp: "下一場", comingUp: "即將舉行", drafts: "草稿", past: "已結束", toApprove: "1 人待核准", guests: "賓客" }],
+] as const) {
+  test(`a host whose browser asks for ${acceptLanguage} reads the dashboard in it`, async ({ browser, request }) => {
+    test.slow();
+    const host = await hostWithShelves(browser, request, `locale-shelves-${acceptLanguage}`);
+    const context = await browser.newContext({ locale: acceptLanguage, storageState: await host.context.storageState() });
+    const page = await context.newPage();
+    await page.goto("/dashboard");
+    await expect(page.getByRole("heading", { level: 1, name: copy.title })).toBeVisible();
+    for (const heading of [copy.nextUp, copy.comingUp, copy.drafts, copy.past]) await expect(page.getByRole("region", { name: heading, exact: true })).toBeVisible();
+    const nextUp = page.getByRole("region", { name: copy.nextUp, exact: true });
+    await expect(nextUp.getByText(copy.toApprove, { exact: true })).toBeVisible();
+    await expect(nextUp.getByRole("link", { name: copy.guests })).toBeVisible();
+    await context.close();
+    await host.context.close();
+  });
+}

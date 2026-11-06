@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import { closeDesign, createDraft, createPublished, type DraftFields, openDesign, saveStatus, toEditor } from "./events";
+import { hostWithShelves, SHELVES } from "./dashboard";
 import { expectVisibleFocus, tabTo } from "./focus";
 import { homeByKeyboard, openHome } from "./home";
 import { latestMailTo, mailCountTo, newHost, PASSWORD, signUpVerified } from "./hosts";
@@ -502,3 +503,32 @@ function contrast(a: number[], b: number[]) {
   const [lighter, darker] = [luminance(a), luminance(b)].sort((x, y) => y - x);
   return (lighter + 0.05) / (darker + 0.05);
 }
+
+// The dashboard by keyboard (dashboard, ticket 05): from the header's New event and account menu to
+// Next up's poster and its three buttons, then a tile on every shelf, in that order, each ringed.
+test("a host walks the dashboard by keyboard, from the header through Next up to every shelf", async ({ browser, request }) => {
+  test.slow();
+  const host = await hostWithShelves(browser, request, "keyboard-shelves");
+  const page = host.page;
+  const nextUp = page.getByRole("region", { name: "Next up", exact: true });
+  const order = [
+    page.getByRole("banner").getByRole("link", { name: "New event" }),
+    page.getByRole("banner").getByRole("button", { name: "Account menu" }),
+    nextUp.getByRole("link", { name: new RegExp(SHELVES.nextUp) }),
+    nextUp.getByRole("link", { name: "Guests" }),
+    nextUp.getByRole("link", { name: "Edit" }),
+    nextUp.getByRole("link", { name: "Share" }),
+    page.getByRole("region", { name: "Coming up", exact: true }).getByRole("link", { name: new RegExp(SHELVES.comingUp) }),
+    page.getByRole("region", { name: "Drafts", exact: true }).getByRole("link", { name: new RegExp(SHELVES.draft) }),
+    page.getByRole("region", { name: "Past", exact: true }).getByRole("link", { name: new RegExp(SHELVES.past) }),
+  ];
+  await tabTo(page, order[0]);
+  for (const next of order.slice(1)) {
+    await page.keyboard.press("Tab");
+    await expect(next).toBeFocused();
+    await expectVisibleFocus(page);
+  }
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/events\/[0-9a-f-]{36}$/);
+  await host.context.close();
+});

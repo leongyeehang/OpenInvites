@@ -52,6 +52,10 @@ passkeys. Upgrading needs nothing of you: the migrations run as the app starts, 
   it, now as a colour poster; a host's picture is the poster as before.
 - **The guest page puts the poster first.** Going, Maybe and Can't go sit in a bar at the foot of
   the screen. Broadsheet and Thread are still there.
+- **The dashboard and the header are new.** A host's events show as their posters, the next one
+  first. The header's account menu, under the host's initials, holds Account, Sign out and, for
+  you, **Site settings**: the page that was Instance settings, still at `/instance`. The interface
+  says "site" where these docs say "instance".
 - **Drafts may have no date.** A new event is a blank draft until its host dates it, and a date
   poll's event is published without one until the host picks the date. Reminders and retention
   pass over an event without a date.

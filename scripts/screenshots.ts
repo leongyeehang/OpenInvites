@@ -46,6 +46,10 @@ const PICNIC = {
   plusOnes: "2",
 };
 
+// A draft for later in the year, on the Candlelight poster, so the dashboard has a shelf of drafts
+// (dashboard ticket 05).
+const SUPPER = { title: "Supper club, December", start: "2027-12-04T19:30" };
+
 // What the operator calls the instance for the home page's picture (home page ticket 05), which
 // always wears the Candlelight poster while it is taken.
 const INSTANCE = { name: "Orchard Lane Supper Club", welcomeLine: "Long tables, good food and good company, once a month." };
@@ -137,6 +141,14 @@ test("README screenshots", async ({ browser }) => {
   await phoneHost.evaluate(() => document.querySelector('[data-slot="album"]')?.scrollIntoView({ block: "center" }));
   await save(phoneHost, "album");
 
+  // The host's dashboard on their phone (dashboard ticket 05): the birthday is Next up with its
+  // replies, the fair is coming up, the December supper is a draft, and the picnic is past.
+  await createDraft(host, SUPPER);
+  await pickDesign(host, "Poster", "Poster", "Candlelight", "Gallery");
+  await phoneHost.goto("/dashboard");
+  await expect(phoneHost.getByRole("region", { name: "Next up", exact: true }).getByText(BIRTHDAY.title)).toBeVisible();
+  await save(phoneHost, "dashboard");
+
   // The home page on a phone, the instance named and always on Candlelight. The operator sets the
   // Home page card for the picture, then puts it back as it was on a new instance, as the browser
   // tests expect `app` to be.
@@ -154,7 +166,7 @@ test("README screenshots", async ({ browser }) => {
   }
 });
 
-// The operator's Home page card on Instance settings, filled in and saved.
+// The operator's Home page card on Site settings, filled in and saved.
 async function setHomePage(operator: Page, home: { name: string; welcomeLine: string; posters: string; poster?: string }) {
   await operator.goto("/instance");
   await operator.getByLabel("Name", { exact: true }).fill(home.name);

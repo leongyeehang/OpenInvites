@@ -29,7 +29,7 @@ offered only while registration is Open; Invitation only shows **Sign in** alone
 signed in goes straight to their events. The footer's **Powered by OpenInvites** links to the
 source.
 
-**The Home page card** comes first on Instance settings. Give the instance a **name** (up to 40
+**The Home page card** comes first on Site settings. Give the instance a **name** (up to 40
 characters), which is also the home page's browser tab title, the host area's header and the name in
 the account emails, and a one-sentence **welcome line** (up to 140). Under **More options**, choose
 the posters (all of the gallery, only the ones you pick, or always the same one) and whether the page
@@ -39,6 +39,23 @@ instance is called "OpenInvites", with a default welcome line in each visitor's 
 **A fresh instance says it is ready,** and asks for the operator account first, with the three
 steps ahead and one button, **Create the operator account**. The new operator's dashboard then
 opens once on **This site is yours**, pointing to the name, who can sign up, and the limits.
+
+## Your events open as their posters
+
+**The dashboard shows your events as their invitations.** Your next event comes first, large: its
+poster, its date, how many are going, maybe and can't go, and, when you approve replies, how many
+are waiting for you, in amber so you see it. **Guests**, **Edit** and **Share** are under it. Every
+other event is a poster tile under **Coming up**, **Drafts** or **Past**, with one chip (to approve,
+cancelled, draft, co-host) and one number (places taken, or who is going). On a phone, Past is one
+row you swipe. With no events yet, there is one card: **Start an invitation**.
+
+**A new header on every signed-in page.** The site's name, a **New event** button on every page, and
+your initials, which open a menu with **Account**, **Site settings** (for the operator) and **Sign
+out**. The pages sit on a soft tinted background in place of white.
+
+**"Site", not "instance".** The interface calls the installation "this site" (本站 in Chinese), and
+Instance settings is now **Site settings**, in the menu under your initials. The address is still
+`/instance`, and the operator docs still say "instance".
 
 ## New
 
@@ -61,7 +78,8 @@ read into a poster when it is shown, so a 0.4 template becomes its gallery poste
 Candles; Vows, Rose garden; Supper club, Candlelight; Kids' party, Balloons; Festival, Aurora;
 Quiet, Bokeh) with its look. Drafts may now have no date, and an event whose date is being voted on
 is published without one; reminders and retention pass over an event until it has a date. The
-new settings are on the instance settings page: how many photos an event may hold, 300 by default,
+new settings are on the settings page, now called Site settings and found in the menu under your
+initials: how many photos an event may hold, 300 by default,
 and the Home page card, which starts empty, so the home page says "OpenInvites" until you name it.
 You are not greeted as a new operator: the welcome is only for the first account of a new
 instance, or an operator who takes over later. There are no new environment variables and no new
