@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "./test";
-import { createPublished } from "./events";
+import { createPublished, expectReplies, nextUp } from "./events";
 
 // Ticket 11: the RSVP sheet, which the Poster layout always uses since M4: the steps and the
 // confirmation rise over the invitation in a frosted sheet, from the reply bar fixed to the foot
@@ -24,10 +24,8 @@ async function settled(locator: Locator) {
   await locator.evaluate((element) => Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)));
 }
 
-async function counts(hostPage: Page) {
-  await hostPage.goto("/dashboard");
-  return hostPage.getByRole("region", { name: "Upcoming" });
-}
+// How the host's event stands, on the dashboard's Next up card.
+const counts = nextUp;
 
 test("a guest answers in a sheet that rises over the invitation and grows through the steps", async ({ page, browser, request }) => {
   test.slow();
@@ -99,7 +97,9 @@ test("a guest answers in a sheet that rises over the invitation and grows throug
   expect(await box(send)).toEqual(sendAgainAt);
   await send.click();
   await expect(sheet.getByText("You’re a maybe.")).toBeVisible();
-  await expect((await counts(host.page)).getByText("0 going · 1 maybe · 0 can’t go · no one expected yet")).toBeVisible();
+  const card = await counts(host.page);
+  await expectReplies(card, 0, 1, 0);
+  await expect(card.getByText("no one expected yet")).toBeVisible();
 
   await host.context.close();
 });

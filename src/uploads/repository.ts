@@ -23,6 +23,14 @@ export const findEventUpload = cache(async (eventId: string): Promise<Upload | u
   return getDb().query.upload.findFirst({ where: eq(upload.eventId, eventId) });
 });
 
+// The pictures of many events at once, by event: the dashboard's tiles, in one query rather than
+// one per event. Events without a picture are not in the map.
+export async function findEventUploads(eventIds: string[]): Promise<Map<string, Upload>> {
+  if (eventIds.length === 0) return new Map();
+  const rows = await getDb().select().from(upload).where(inArray(upload.eventId, eventIds));
+  return new Map(rows.map((row) => [row.eventId, row]));
+}
+
 // The host's own events only, owned or co-hosted.
 const hostEvent = (hostId: string, eventId: string) =>
   getDb().select({ id: event.id }).from(event).where(and(eq(event.id, eventId), hostedBy(hostId)));

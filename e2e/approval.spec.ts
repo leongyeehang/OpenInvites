@@ -79,7 +79,7 @@ test("a reply waits for the host, who approves it with an email; a guest waiting
 
   // The host sees her under Waiting for approval, at the top, and the dashboard counts her.
   await host.page.goto("/dashboard");
-  await expect(host.page.getByText(/ · 1 waiting for approval · /)).toBeVisible();
+  await expect(host.page.getByRole("region", { name: "Next up", exact: true }).getByText("1 to approve", { exact: true })).toBeVisible();
   await host.page.goto(guests);
   await expect(host.page.getByText(/ · 1 waiting for approval$/)).toBeVisible();
   await expect(host.page.getByRole("heading", { level: 2 }).first()).toHaveText("Waiting for approval (1)");

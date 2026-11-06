@@ -102,7 +102,7 @@ test("a party that does not fit waits, the page says the event is full, and a wi
   await openMore(host.page);
   await expect(host.page.getByText("3 people expected of 3 places", { exact: true })).toBeVisible();
   await host.page.goto("/dashboard");
-  await expect(host.page.getByText(/ · 3 people expected of 3 places$/)).toBeVisible();
+  await expect(host.page.getByRole("region", { name: "Next up", exact: true }).getByText("3 people expected of 3 places", { exact: true })).toBeVisible();
   await host.page.goto(`${manage}/announcements`);
   await expect(host.page.getByRole("checkbox", { name: "Waitlist" })).not.toBeChecked();
 

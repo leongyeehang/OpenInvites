@@ -1,5 +1,5 @@
-import { expect, expectNotFoundAsSent, test, type Page } from "./test";
-import { createDraft, createPublished, editSettings } from "./events";
+import { expect, expectNotFoundAsSent, test } from "./test";
+import { createDraft, createPublished, editSettings, expectReplies, nextUp } from "./events";
 import { signUpVerified } from "./hosts";
 import { openMyReply, replyBar } from "./reply";
 
@@ -10,10 +10,8 @@ import { openMyReply, replyBar } from "./reply";
 
 const EDIT_LINK = /^https?:\/\/\S+\/r\/\S+$/;
 
-async function counts(hostPage: Page) {
-  await hostPage.goto("/dashboard");
-  return hostPage.getByRole("region", { name: "Upcoming" });
-}
+// How the host's event stands, on the dashboard's Next up card.
+const counts = nextUp;
 
 test("a guest goes, brings someone, and lands on a confirmation with an edit link", async ({ page, browser, request }) => {
   test.slow();
@@ -51,7 +49,7 @@ test("a guest goes, brings someone, and lands on a confirmation with an edit lin
   await expect(page.getByText(EDIT_LINK)).toBeVisible();
 
   // The host counts the guest and the person they bring.
-  await expect((await counts(host.page)).getByText("1 going · 0 maybe · 0 can’t go")).toBeVisible();
+  await expectReplies(await counts(host.page), 1, 0, 0);
   await expect((await counts(host.page)).getByText("2 people expected")).toBeVisible();
 
   // Coming back on the same device finds the answer rather than an empty form.
@@ -84,7 +82,8 @@ test("a guest who can’t go answers in one step and is never asked who they are
   await expect(page.getByText("Mei Lin, marked as can’t go.")).toBeVisible();
 
   const upcoming = await counts(host.page);
-  await expect(upcoming.getByText("0 going · 0 maybe · 1 can’t go · no one expected yet")).toBeVisible();
+  await expectReplies(upcoming, 0, 0, 1);
+  await expect(upcoming.getByText("no one expected yet")).toBeVisible();
 
   await host.context.close();
 });
@@ -116,7 +115,8 @@ test("answering again from the same device replaces the earlier RSVP", async ({ 
 
   // One guest, not two, and a maybe never joins the headcount.
   const upcoming = await counts(host.page);
-  await expect(upcoming.getByText("0 going · 1 maybe · 0 can’t go · no one expected yet")).toBeVisible();
+  await expectReplies(upcoming, 0, 1, 0);
+  await expect(upcoming.getByText("no one expected yet")).toBeVisible();
 
   await host.context.close();
 });
@@ -150,7 +150,7 @@ test("the edit link opens the RSVP on a device that has never seen the invitatio
   await expect(elsewherePage.getByText("Priya N., just you.")).toBeVisible();
 
   // Still one guest, and the first device sees the change.
-  await expect((await counts(host.page)).getByText("1 going · 0 maybe · 0 can’t go")).toBeVisible();
+  await expectReplies(await counts(host.page), 1, 0, 0);
   await page.reload();
   await openMyReply(page);
   await expect(page.getByText("Priya N., just you.")).toBeVisible();
@@ -180,7 +180,9 @@ test("a guest removes their RSVP and the event forgets them", async ({ page, bro
   await expect(page.getByText("You’re going!")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Going" })).toBeEnabled();
 
-  await expect((await counts(host.page)).getByText("0 going · 0 maybe · 0 can’t go · no one expected yet")).toBeVisible();
+  const card = await counts(host.page);
+  await expectReplies(card, 0, 0, 0);
+  await expect(card.getByText("no one expected yet")).toBeVisible();
   await host.context.close();
 });
 

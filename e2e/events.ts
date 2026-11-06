@@ -230,3 +230,16 @@ export async function pickDesign(page: Page, sheet: DesignSheet, group: string, 
 export async function chooseLayout(page: Page, _link: string, layout: "Poster" | "Broadsheet" | "Thread") {
   await pickDesign(page, "Theme", "Layout", new RegExp(`^${layout}`));
 }
+
+// The dashboard's Next up card (dashboard, ticket 03): the host's next event, with how its replies
+// stand as chips ("1 going", "0 maybe", "0 can’t go") and the headcount line under them.
+export async function nextUp(page: Page) {
+  await page.goto("/dashboard");
+  return page.getByRole("region", { name: "Next up", exact: true });
+}
+
+export async function expectReplies(card: Locator, going: number, maybe: number, cant: number) {
+  await expect(card.getByText(`${going} going`, { exact: true })).toBeVisible();
+  await expect(card.getByText(`${maybe} maybe`, { exact: true })).toBeVisible();
+  await expect(card.getByText(`${cant} can’t go`, { exact: true })).toBeVisible();
+}

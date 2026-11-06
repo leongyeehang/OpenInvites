@@ -53,9 +53,12 @@ test("a host accepts a co-host link, sees the event on their dashboard, edits it
   await expect(coHost.page.getByRole("banner").getByText("Co-host", { exact: true })).toBeVisible();
 
   await coHost.page.goto("/dashboard");
-  const upcoming = coHost.page.getByRole("region", { name: "Upcoming" });
+  // The co-hosted event is the co-host's Next up, and its Guests button opens its guest list.
+  const upcoming = coHost.page.getByRole("region", { name: "Next up", exact: true });
   await expect(upcoming.getByText(EVENT.title)).toBeVisible();
   await expect(upcoming.getByText("Co-host", { exact: true })).toBeVisible();
+  await upcoming.getByRole("link", { name: "Guests" }).click();
+  await expect(coHost.page).toHaveURL(`${manage}/guests`);
 
   // The link has been used: the owner sees the co-host among the hosts and no link waiting.
   await owner.page.reload();
@@ -154,7 +157,7 @@ test("a co-host leaves the event, and it is gone from their dashboard", async ({
   await dialog.getByRole("button", { name: "Leave", exact: true }).click();
 
   await expect(coHost.page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
-  await expect(coHost.page.getByText("You have no events yet. Create one and share its link.")).toBeVisible();
+  await expect(coHost.page.getByRole("heading", { name: "Make your first invitation" })).toBeVisible();
   await expectNotFoundAsSent(await coHost.page.goto(manage));
   await coHost.context.close();
   await owner.context.close();

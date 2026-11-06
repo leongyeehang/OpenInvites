@@ -44,10 +44,11 @@ test("a host makes an event on the invitation itself, from New event to publishe
   expect(link).toMatch(/\/e\/[A-Za-z0-9-]+$/);
 
   await page.goto("/dashboard");
-  const upcoming = page.getByRole("region", { name: "Upcoming" });
-  await expect(upcoming.getByText("Ada’s birthday")).toBeVisible();
-  await expect(upcoming.getByText("Draft")).toBeVisible();
-  await expect(upcoming.getByText("0 going · 0 maybe · 0 can’t go")).toBeVisible();
+  const upcoming = page.getByRole("region", { name: "Drafts" });
+  const draft = upcoming.getByRole("link", { name: /Ada’s birthday/ });
+  await expect(draft).toBeVisible();
+  await expect(draft.getByText("Draft", { exact: true })).toBeVisible();
+  await expect(draft.getByText("0 going", { exact: true })).toBeVisible();
 
   const guest = await browser.newContext();
   const guestPage = await guest.newPage();
@@ -161,16 +162,16 @@ test("an all-day event shows its date and no time", async ({ page, request }) =>
   await expect(page.getByText("Saturday, April 10, 2027", { exact: true })).toBeVisible();
 });
 
-test("an event that has ended is listed under Past, and a draft with no date yet under Upcoming", async ({ page, request }) => {
+test("an event that has ended is listed under Past, and a draft with no date yet under Drafts", async ({ page, request }) => {
   await signUpVerified(page, request, "past");
   await createDraft(page, { title: "Last year’s party", start: "2020-01-01T10:00" });
   await page.goto("/events/new");
   await expect(page.getByRole("textbox", { name: "Event title" })).toBeVisible({ timeout: 20_000 });
   await page.goto("/dashboard");
   await expect(page.getByRole("region", { name: "Past" }).getByText("Last year’s party")).toBeVisible();
-  const upcoming = page.getByRole("region", { name: "Upcoming" });
-  await expect(upcoming.getByText("Untitled event")).toBeVisible();
-  await expect(upcoming.getByText("No date yet")).toBeVisible();
+  const drafts = page.getByRole("region", { name: "Drafts" });
+  await expect(drafts.getByText("Untitled event")).toBeVisible();
+  await expect(drafts.getByText("No date yet")).toBeVisible();
 });
 
 test("event pages carry a noindex signal in the header and in the page", async ({ page, request }) => {

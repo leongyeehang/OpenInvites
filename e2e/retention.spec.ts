@@ -197,7 +197,7 @@ test("the first sweep after a restart marks the old events and deletes nothing: 
   await expect(operator.getByText(markedOn(thirtyDaysOn))).toBeVisible();
   await policySaid(operator, POLICY);
   await operator.goto("/dashboard");
-  const card = operator.getByRole("region", { name: "Past" }).getByRole("link", { name: new RegExp(TITLE) });
+  const card = operator.getByRole("region", { name: "Past", exact: true }).getByRole("link", { name: new RegExp(TITLE) });
   await expect(card.getByText(new RegExp(`^Will be deleted on (${thirtyDaysOn.join("|")})$`))).toBeVisible();
   await expect(noMailHost.getByText(markedOn(today))).toBeVisible();
   await policySaid(noMailHost, POLICY);
@@ -286,7 +286,7 @@ test("on the instance with no floor, the next sweep deletes the marked event: it
 
   for (const host of [noMailHost, noMailCoHost]) {
     await host.goto("/dashboard");
-    await expect(host.getByText("You have no events yet. Create one and share its link.")).toBeVisible();
+    await expect(host.getByRole("heading", { name: "Make your first invitation" })).toBeVisible();
   }
   await createDraft(noMailCoHost, { title: "Mei’s picnic", start: "2027-05-01T12:00" });
   await noMailCoHost.goto(`${noMailCoHost.url()}/share`);
