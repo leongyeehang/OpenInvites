@@ -84,8 +84,9 @@ export function formatWhen(time: EventTime, locale: string): string {
 
 // The date under the poster's title (M4 spec, "The guest page"): the start's day, short, and its
 // time, in the event's zone; an all-day event's days alone. The When row gives it in full.
-export function formatWhenBrief(time: EventTime, locale: string): string {
-  const day = new Intl.DateTimeFormat(locale, { timeZone: time.timeZone, weekday: "short", month: "short", day: "numeric" });
+// Given `year`, the day carries its year too: the dashboard's tiles, for an event in another year.
+export function formatWhenBrief(time: EventTime, locale: string, { year = false }: { year?: boolean } = {}): string {
+  const day = new Intl.DateTimeFormat(locale, { timeZone: time.timeZone, weekday: "short", month: "short", day: "numeric", year: year ? "numeric" : undefined });
   if (time.allDay) return time.endsAt ? day.formatRange(time.startsAt, time.endsAt) : day.format(time.startsAt);
   const clock = new Intl.DateTimeFormat(locale, { timeZone: time.timeZone, hour: "numeric", minute: "2-digit" });
   return `${day.format(time.startsAt)} · ${clock.format(time.startsAt)}`;

@@ -8,7 +8,9 @@ import { TITLE_FONT_CLASSES } from "./title-fonts";
 // poster its theme names, resolved as the event page resolves it, at 4:5, with the title on it in
 // the event's own font. A gallery poster or the host's picture is the picture itself, a colour its
 // gradient. However the event page places the title, here it always sits on the poster, white on a
-// dark shade at its foot, so every tile on the shelf reads the same way. The picture is decoration:
+// dark shade at its foot, so every tile on the shelf reads the same way. The shade holds most of its
+// strength over the whole title, two or three lines of it on a light poster too, and fades only
+// above it. The picture is decoration:
 // the link around the tile carries the title.
 export function PosterTile({
   theme,
@@ -55,7 +57,7 @@ export function PosterTile({
       )}
       {chip && <div className="absolute top-2.5 left-2.5">{chip}</div>}
       {title && (
-        <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/65 via-black/35 to-transparent px-3 pt-10 pb-3">
+        <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 via-black/65 via-60% to-transparent px-3 pt-14 pb-3">
           <p
             className={cn(
               "font-title text-xl leading-none text-balance break-words text-white drop-shadow-title",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NO_RSVPS, type RsvpCounts } from "@/rsvps/counts";
-import { glowEvent, shelve, tileChip, tileNumber, whenKind, type ShelfEvent } from "./shelves";
+import { glowEvent, shelve, showsYear, tileChip, tileNumber, whenKind, type ShelfEvent } from "./shelves";
 
 const now = new Date("2026-11-06T00:00:00Z");
 
@@ -133,5 +133,16 @@ describe("glowEvent", () => {
     expect(glowEvent(shelve([past, draft], now))?.id).toBe("draft");
     expect(glowEvent(shelve([past], now))?.id).toBe("past");
     expect(glowEvent(shelve([], now))).toBeNull();
+  });
+});
+
+describe("showsYear", () => {
+  it("gives a tile the year when the event is in another year than now, in the event's zone", () => {
+    expect(showsYear(event("a", { startsAt: day("2026-12-20") }), now)).toBe(false);
+    expect(showsYear(event("b", { startsAt: day("2027-01-10") }), now)).toBe(true);
+    expect(showsYear(event("c", { startsAt: day("2019-09-09") }), now)).toBe(true);
+    // 31 December, 20:00 UTC is already New Year's Day in Singapore.
+    expect(showsYear(event("d", { startsAt: new Date("2026-12-31T20:00:00Z") }), now)).toBe(true);
+    expect(showsYear(event("e", { state: "draft" }), now)).toBe(false);
   });
 });

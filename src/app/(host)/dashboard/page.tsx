@@ -3,7 +3,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { requireHost } from "@/auth/session";
-import { glowEvent, shelve, tileChip, tileNumber, whenKind, type ShelfEvent, type TileChip } from "@/dashboard/shelves";
+import { glowEvent, shelve, showsYear, tileChip, tileNumber, whenKind, type ShelfEvent, type TileChip } from "@/dashboard/shelves";
 import { eventsOwnedAtLimit } from "@/events/limit";
 import { listHostEvents } from "@/events/repository";
 import { formatDay, formatWhen, formatWhenBrief, isDated } from "@/events/time";
@@ -50,13 +50,14 @@ export default async function DashboardPage() {
     countRsvpsByEvent(ids),
     findEventUploads(events.filter((event) => event.theme.poster.kind === "upload").map((event) => event.id)),
   ]);
+  const now = new Date();
   const shelves = shelve(
     events.map((event) => ({
       ...event,
       counts: counts.get(event.id) ?? NO_RSVPS,
       deletion: deletionDate(event, limits.retentionDays, retentionFloorDays()) ?? null,
     })),
-    new Date(),
+    now,
   );
   const pictureOf = (event: ShelfEvent): ThemeUpload | null => {
     const upload = uploads.get(event.id);
@@ -64,7 +65,7 @@ export default async function DashboardPage() {
   };
   const first = events.length === 0 ? homeTheme(pickPoster(posterPool(await homePage()))) : null;
   const glow = glowEvent(shelves);
-  const tile = { t, locale };
+  const tile = { t, locale, now };
 
   return (
     <div data-slot="dashboard" className="flex flex-col gap-8">
@@ -103,6 +104,8 @@ async function Welcome({ limits }: { limits: Limits }) {
 // Behind the top of the page, the blurred copy of a poster fading into the ground, as an event page
 // is painted with its poster's copy; a colour poster lends a faint wash of its gradient instead. It
 // is placed against the page itself, so it spans the screen under the header, and it never moves.
+// A dark copy is laid on faintly and a light one more strongly, so the header, the heading and the
+// shelves' grey labels keep 4.5:1 over it (the final review measured 2.3:1 under Disco at 60%).
 function Glow({ theme, upload }: { theme: Theme | null; upload: ThemeUpload | null }) {
   if (!theme) return null;
   const { background } = resolveTheme(theme, upload);
@@ -110,7 +113,12 @@ function Glow({ theme, upload }: { theme: Theme | null; upload: ThemeUpload | nu
     <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[30rem] overflow-hidden [mask-image:linear-gradient(#000_25%,transparent)]">
       {background.kind === "photo" ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={background.src} alt="" className="size-full scale-110 object-cover opacity-60 blur-3xl saturate-150" />
+        <img
+          src={background.src}
+          alt=""
+          className="size-full scale-110 object-cover blur-3xl saturate-150"
+          style={{ opacity: Math.min(0.55, 0.12 + background.luminance * 0.45) }}
+        />
       ) : (
         <div className="size-full opacity-35" style={{ background: background.css }} />
       )}
@@ -145,7 +153,7 @@ const button = "inline-flex h-10 flex-1 items-center justify-center rounded-full
 // replies become large figures.
 function NextUp({ event, upload, t, locale }: { event: ShelfEvent; upload: ThemeUpload | null; t: Translate; locale: string }) {
   const { going, maybe, cant, waitlisted, pending, headcount } = event.counts;
-  const figure = (key: "going" | "maybe" | "cant" | "toApprove", count: number, attention = false) => (
+  const figure = (key: "going" | "maybe" | "cant" | "waitlisted" | "toApprove", count: number, attention = false) => (
     <li
       className={cn(
         "rounded-full bg-muted px-2.5 py-1 text-xs font-semibold tabular-nums md:flex md:flex-col md:rounded-2xl md:px-4 md:py-3 md:text-sm md:font-medium",
@@ -180,11 +188,11 @@ function NextUp({ event, upload, t, locale }: { event: ShelfEvent; upload: Theme
             {figure("going", going)}
             {figure("maybe", maybe)}
             {figure("cant", cant)}
+            {waitlisted > 0 && figure("waitlisted", waitlisted)}
             {pending > 0 && figure("toApprove", pending, true)}
           </ul>
           <p className="text-sm text-muted-foreground">
             {event.capacity === null ? t("headcount", { count: headcount }) : t("headcountOf", { count: headcount, capacity: event.capacity })}
-            {waitlisted > 0 && ` · ${t("waitlisted", { count: waitlisted })}`}
           </p>
           {event.deletion && (
             <p className="w-fit rounded-full bg-destructive-soft px-2.5 py-1 text-xs font-semibold text-destructive">
@@ -218,6 +226,7 @@ function Shelf({
   pictureOf,
   t,
   locale,
+  now,
 }: {
   id: string;
   heading: string;
@@ -226,6 +235,7 @@ function Shelf({
   pictureOf: (event: ShelfEvent) => ThemeUpload | null;
   t: Translate;
   locale: string;
+  now: Date;
 }) {
   if (events.length === 0) return null;
   const past = shelf === "past";
@@ -254,7 +264,7 @@ function Shelf({
                 className="transition-transform group-hover:-translate-y-0.5"
               />
               <span className="text-sm font-semibold">
-                {whenKind(event) === "poll" ? t("datePoll") : isDated(event) ? formatWhenBrief(event, locale) : t("noDate")}
+                {whenKind(event) === "poll" ? t("datePoll") : isDated(event) ? formatWhenBrief(event, locale, { year: showsYear(event, now) }) : t("noDate")}
               </span>
               <TileNumber event={event} shelf={shelf} t={t} locale={locale} />
             </Link>

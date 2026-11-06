@@ -150,7 +150,7 @@
     "dashboard": {
       "title": "我的活动",
       "past": "已结束",
-      "waitlisted": "{count} 人候补",
+      "waitlisted": "<n>{count}</n> 人候补",
       "headcount": "{count, plural, =0 {还没有人确定要来} other {预计 # 人}}",
       "headcountOf": "预计 {count, plural, other {# 人}}（共 {capacity, plural, other {# 个名额}}）",
       "deletedOn": "将于 {date} 删除",

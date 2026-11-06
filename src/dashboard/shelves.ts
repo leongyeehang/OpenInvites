@@ -58,6 +58,14 @@ export function tileNumber(event: ShelfEvent, shelf: "comingUp" | "drafts" | "pa
   return { kind: "going", count: event.counts.going };
 }
 
+// A tile names the year only when the event is in another year than now, each read in the event's
+// own zone: Past reaches back years, and Coming up into the next.
+export function showsYear(event: ShelfEvent, now: Date): boolean {
+  if (event.startsAt === null) return false;
+  const year = (instant: Date) => new Intl.DateTimeFormat("en", { timeZone: event.timeZone, year: "numeric" }).format(instant);
+  return year(event.startsAt) !== year(now);
+}
+
 // Whose poster lends the page its glow: Next up's, else the first event on the page.
 export function glowEvent({ nextUp, comingUp, drafts, past }: Shelves): ShelfEvent | null {
   return nextUp ?? comingUp[0] ?? drafts[0] ?? past[0] ?? null;

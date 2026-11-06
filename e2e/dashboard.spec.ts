@@ -1,5 +1,6 @@
 import sharp from "sharp";
-import { createDraft, createPublished, openDesign, openMore, publishInEditor, toEditor } from "./events";
+import { createDraft, createPublished, openDesign, openMore, pickDesign, publishInEditor, toEditor } from "./events";
+import { worstContrast } from "./dashboard";
 import { signUpVerified } from "./hosts";
 import { clientAddress, expect, test, type Page } from "./test";
 
@@ -125,9 +126,32 @@ test("on a phone, many past events scroll inside their row, every one reachable 
   for (let tab = 0; tab < 9; tab++) await page.keyboard.press("Tab");
   await expect(last).toBeFocused();
   await expect(last).toBeInViewport();
+  // Another year's tile names its year (dashboard, final review).
+  await expect(last.getByText(/Sep 9, 2010/)).toBeVisible();
 
   // The long title wraps inside its tile: the tile is no wider than its column.
   const tile = region(page, "Drafts").getByRole("link", { name: new RegExp(long) });
   const [tileWidth, titleWidth] = await tile.evaluate((link) => [link.getBoundingClientRect().width, link.querySelector("p")!.scrollWidth]);
   expect(titleWidth).toBeLessThanOrEqual(tileWidth);
+});
+
+// The final review measured these by hand (dashboard, final review): the shelf labels over the glow
+// of a dark poster, and a tile's wrapped title on a light poster, each at 4.5:1 or more.
+test("over the glow of a dark poster the labels read, and a long title reads on a light poster's tile", async ({ page, request }) => {
+  test.slow();
+  await signUpVerified(page, request, "contrast");
+  await createDraft(page, { title: "Disco night", start: "2027-03-06T21:00" });
+  await pickDesign(page, "Poster", "Poster", "Disco", "Gallery");
+  await publishInEditor(page);
+  await createDraft(page, { title: "A birthday cake for Grandma Ada’s ninetieth", start: "2027-05-01T15:00" });
+  await pickDesign(page, "Poster", "Poster", "Cake", "Gallery");
+  await publishInEditor(page);
+
+  await page.goto("/dashboard");
+  await expect(page.locator('img[src*="disco-ball-copy"]')).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  expect(await worstContrast(region(page, "Next up").getByRole("heading", { name: "Next up" }))).toBeGreaterThanOrEqual(4.5);
+  expect(await worstContrast(page.getByRole("heading", { level: 1, name: "Your events" }))).toBeGreaterThanOrEqual(4.5);
+  const title = region(page, "Coming up").getByText("A birthday cake for Grandma Ada’s ninetieth");
+  expect(await worstContrast(title)).toBeGreaterThanOrEqual(4.5);
 });

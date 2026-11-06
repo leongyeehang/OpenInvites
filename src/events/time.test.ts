@@ -137,6 +137,11 @@ describe("formatWhenBrief", () => {
     expect(formatWhenBrief(at("Asia/Singapore"), "zh-Hans")).toBe("3月6日周六 · 19:00");
   });
 
+  it("adds the year when asked, as the dashboard's tiles do for another year's events", () => {
+    expect(formatWhenBrief(at("Asia/Singapore"), "en", { year: true })).toBe("Sat, Mar 6, 2027 · 7:00 PM");
+    expect(formatWhenBrief(at("Asia/Singapore"), "zh-Hans", { year: true })).toBe("2027年3月6日周六 · 19:00");
+  });
+
   it("gives an all-day event its days alone", () => {
     const day = new Date("2027-03-05T16:00:00Z"); // midnight on 6 March in Singapore
     expect(formatWhenBrief({ startsAt: day, endsAt: null, allDay: true, timeZone: "Asia/Singapore" }, "en")).toBe("Sat, Mar 6");

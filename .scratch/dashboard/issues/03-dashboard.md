@@ -57,3 +57,5 @@ Decisions (ledgered): the title always sits on the poster on a tile; a gallery t
 Chinese least sure of: `nextUp` 下一场 / 下一場, `toApprove` 人待批准 / 人待核准, `places` "{count} / # 个名额", `went` 人参加了, `firstTitle` 做你的第一张邀请函, `datePoll` 日期投票进行中.
 
 Left for later tickets or noted: ticket 05 adds the accessibility, keyboard, locale and reduced-motion rows and the screenshot. A draft's tile says "0 going", as the ticket's number rule has it.
+
+**2026-11-06, final-review fix.** The glow is laid on by the poster copy's lightness (0.12 + 0.45 × luminance, at most 0.55): under Disco at 60% the "Next up" label measured 2.3:1. The tile's shade holds 65% black up to 60% of its height, so a wrapped title on a light poster reads. Tiles give the year for an event in another year (`showsYear`, `formatWhenBrief({ year })`). The waitlist is one of Next up's chips, as the spec lists it, not a line of text. `dashboard.spec.ts` measures the label over Disco's glow, the heading, and a wrapped title on Cake at 4.5:1 or more (it failed at 2.31 before), and a Past tile's "Sep 9, 2010"; 101 dashboard-related scenarios pass on both projects.
