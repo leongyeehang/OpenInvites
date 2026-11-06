@@ -48,16 +48,17 @@ Posters are drawn from the event's stored theme through the M4 pieces (`resolveT
 - **Next up** is the first event in the upcoming order (`partitionByEnd`) that is published (not a draft, not cancelled). An event whose date is still being voted on sorts after every dated one, as it does today. It shows:
   - the poster with the title;
   - the date and time (`formatWhen`), or "Date poll open" for a voting event;
-  - the replies as chips: going, maybe, can't go, waitlisted (only when there are any), and **N to approve** in the attention colour when guests are pending; with a capacity, "N of M places" in place of the headcount;
-  - "Deleted on {day}" in the danger colour when the event is marked for its age (`deletionDate`);
+  - the replies as chips: going, maybe, can't go, waitlisted (only when there are any), and **N to approve** in the attention colour when guests are pending;
+  - the headcount line the dashboard has today: "N people expected", or "N people expected of M places" with a capacity;
+  - "Will be deleted on {date}" (the existing message) in the danger colour when the event is marked for its age (`deletionDate`);
   - three buttons: **Guests** (primary, `/events/{id}/guests`), **Edit** (`/events/{id}`), **Share** (`/events/{id}/share`). Tapping the poster opens the editor, as today's card does.
 
   On a phone it is one card, poster above. From `md` up the poster sits on the left and the reply numbers on the right as four large figures (going, maybe, can't go, to approve; to approve only when there are any).
 - **Coming up** holds every other upcoming event that is not a draft, cancelled ones included, in the upcoming order. **Drafts** holds every draft, dated or not, in the upcoming order. **Past** holds the events that have ended, newest first, with their posters faded.
-- **A tile** is the poster with the title on it, and at most one chip on the poster: **N to approve** (attention), else Cancelled, else Draft, else Co-host. Under it go the date (or "No date yet", or "Date poll open") and one number: places ("9 of 12 places") when the event has a capacity, else "N going". On Past the number is "N went", and "Deleted on {day}" takes its place when the event is marked.
+- **A tile** is the poster with the title on it, and at most one chip on the poster: **N to approve** (attention), else Cancelled, else Draft, else Co-host. Under it go the date (or "No date yet", or "Date poll open") and one number: places ("9 of 12 places") when the event has a capacity, else "N going". On Past the number is "N went", and "Will be deleted on {date}" takes its place when the event is marked.
 - **Columns**: two tiles across below `md`, four from `md`. Past is a row that scrolls sideways below `md` (with scroll snapping, and every tile still reachable by Tab), and the four-across grid from `md`.
 - **A shelf with nothing on it is not drawn.** Today's "Nothing coming up" and "Nothing has happened yet" lines go.
-- **No events at all**: one large card on a gallery poster chosen as the home page chooses it (`pickPoster(posterPool(homePage))`), "Make your first invitation", a line of text and a New event button.
+- **No events at all**: one large card on a gallery poster chosen as the home page chooses it (`pickPoster(posterPool(homePage))`), "Make your first invitation", a line of text and a **Start an invitation** button to `/events/new` (not "New event", so the page never has two links of that name beside the header's pill) **(decided here)**.
 - **At the event limit** the New event pill in the header is not drawn, and the dashboard shows the existing limit message under its heading, worded for "this site".
 - **The glow**: the dashboard's ground carries a blurred copy of the Next up poster at its top, fading into the ground. With no Next up it comes from the first tile on the page, and with no events from the empty state's poster. It is decorative (`aria-hidden`, no motion).
 - **Unchanged**: the operator's welcome sheet opens over the dashboard as before, the dashboard's `h1` still takes the focus when it closes, and every number comes from the same queries as today.
@@ -76,7 +77,7 @@ Posters are drawn from the event's stored theme through the M4 pieces (`resolveT
 - zh-Hans and zh-Hant say 本站 where they said 此实例 / 本实例 / 这个实例 (此實例 / 本實例 / 這個實例), and **站点设置 / 網站設定** for Site settings. The welcome sheet's title becomes 本站由你做主 in both scripts.
 - The site's name stays where it already is (the header, the tab, the account emails, the home page). It is not added to the other messages **(maintainer, 2026-11-05)**: that would mean passing it through the sign-up, password and passkey code for little gain.
 - The URL stays `/instance` **(decided here)**: renaming it would break bookmarks and the operator docs for nothing a visitor sees.
-- `instance` stays in the code, the database, the message keys and the self-hosting docs. `CONTEXT.md`'s **Instance** entry gains: "In the interface, say 'site' or the site's name; 'instance' is for the code and the operator docs." This also settles the home page's open question about "site".
+- `instance` stays in the code, the database, the message keys and the self-hosting docs, where the operator docs name the page by its new label, Site settings. The tickets do not edit `CONTEXT.md`; the maintainer adds to its **Instance** entry: "In the interface, say 'site' or the site's name; 'instance' is for the code and the operator docs." This also settles the home page's open question about "site".
 
 ## Testing Decisions
 
