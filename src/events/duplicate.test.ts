@@ -39,6 +39,7 @@ const source: Event = {
   retentionWarnedAt: new Date("2028-02-05T00:00:00Z"),
   pollOpenedAt: null,
   pollClosedAt: null,
+  scheduleRefresh: "reload",
   createdAt: new Date("2026-12-01T00:00:00Z"),
   updatedAt: new Date("2026-12-02T00:00:00Z"),
 };
@@ -96,7 +97,7 @@ describe("duplicateInput", () => {
   });
 
   it("copies nothing that belongs to the source alone", () => {
-    for (const own of ["id", "hostId", "slug", "state", "publishedAt", "weekReminderSentAt", "dayReminderSentAt", "retentionWarnedAt", "pollOpenedAt", "pollClosedAt", "createdAt", "updatedAt"]) {
+    for (const own of ["id", "hostId", "slug", "state", "publishedAt", "weekReminderSentAt", "dayReminderSentAt", "retentionWarnedAt", "pollOpenedAt", "pollClosedAt", "scheduleRefresh", "createdAt", "updatedAt"]) {
       expect(copy.event).not.toHaveProperty(own);
     }
   });

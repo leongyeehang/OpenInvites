@@ -31,6 +31,7 @@ import type { EditablePoll } from "@/editor/poll-sheet";
 import { formatOption } from "@/polls/format";
 import { leading, pollState, tally } from "@/polls/poll";
 import { loadPoll } from "@/polls/repository";
+import { listSchedule } from "@/schedule/repository";
 
 // The poll as the When sheet shows it: each candidate as typed and as read, with its votes by name.
 async function editablePoll(eventId: string, open: boolean, canStart: boolean, locale: string): Promise<EditablePoll> {
@@ -70,7 +71,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
   if (!event) notFound();
   // Where a duplicate came from, said only when the host can see that event themselves.
   const source = typeof from === "string" ? await findHostEvent(host.id, from) : undefined;
-  const [questions, answerCounts, counts, limits, upload, hosts, editor] = await Promise.all([
+  const [questions, answerCounts, counts, limits, upload, hosts, editor, schedule] = await Promise.all([
     listQuestions(event.id),
     countAnswersByQuestion(event.id),
     countRsvpsByEvent([event.id]),
@@ -78,6 +79,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
     findEventUpload(event.id),
     eventHosts(event.id),
     getTranslations("Editor"),
+    listSchedule(event.id),
   ]);
   const picture = upload ? themeUpload(upload) : null;
   const replies = counts.get(event.id);
@@ -102,6 +104,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
     retentionDays: limits.retentionDays,
     description: event.description,
     descriptionRich: event.descriptionRich,
+    schedule: { items: schedule, refresh: event.scheduleRefresh },
   };
   const link = eventUrl(event);
   const facts = [t("opened", { count: event.views }), ...(event.capacity !== null ? [t("headcountOf", { count: replies?.headcount ?? 0, capacity: event.capacity })] : [])];

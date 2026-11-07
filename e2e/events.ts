@@ -73,7 +73,7 @@ export async function typeTitle(page: Page, title: string) {
 }
 
 // One of the details' sheets, opened from its row, filled, and done.
-async function detailSheet(page: Page, row: "When" | "Where" | "About", fill: (sheet: Locator) => Promise<void>) {
+async function detailSheet(page: Page, row: "When" | "Where" | "About" | "Schedule", fill: (sheet: Locator) => Promise<void>) {
   await page.getByRole("button", { name: new RegExp(`^${row}:`) }).click();
   const sheet = page.getByRole("dialog", { name: row });
   await savedAfter(page, async () => {
@@ -98,6 +98,30 @@ export async function setWhere(page: Page, location: string) {
 
 export async function setAbout(page: Page, description: string) {
   await detailSheet(page, "About", (sheet) => sheet.getByLabel("Description").fill(description));
+}
+
+// One item of the schedule as the host types it; its day is the event's when left out, which is
+// where a new row starts.
+export type ScheduleFields = { day?: string; start: string; end?: string; title: string; place?: string; note?: string };
+
+// The Schedule sheet (M6 ticket 01): each item added after those already there, and how guests'
+// pages keep fresh when given, then Done.
+export async function setSchedule(page: Page, items: ScheduleFields[], refresh?: "minute" | "reload") {
+  await detailSheet(page, "Schedule", async (sheet) => {
+    await expect(sheet.getByRole("button", { name: "Add an item" })).toBeVisible();
+    const before = await sheet.locator("ol > li").count();
+    for (const [index, item] of items.entries()) {
+      const n = before + index + 1;
+      await sheet.getByRole("button", { name: "Add an item" }).click();
+      if (item.day) await sheet.getByLabel(`Day ${n}`, { exact: true }).fill(item.day);
+      await sheet.getByLabel(`Start time ${n}`, { exact: true }).fill(item.start);
+      if (item.end) await sheet.getByLabel(`End time ${n} (optional)`).fill(item.end);
+      await sheet.getByLabel(`Title ${n}`, { exact: true }).fill(item.title);
+      if (item.place) await sheet.getByLabel(`Place ${n} (optional)`).fill(item.place);
+      if (item.note) await sheet.getByLabel(`Note ${n} (optional)`).fill(item.note);
+    }
+    if (refresh) await sheet.getByRole("radio", { name: refresh === "minute" ? "Refresh every minute while the event is on" : "Only when the page is opened" }).check();
+  });
 }
 
 // The Settings sheet, changed and closed, which saves what was changed.

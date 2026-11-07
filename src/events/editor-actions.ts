@@ -16,6 +16,8 @@ import { parseQuestions } from "@/questions/question";
 import { saveQuestions } from "@/questions/repository";
 import { EMPTY_RICH_TEXT, parseRichText, richTextToPlain } from "@/rich-text/rich-text";
 import { DEFAULT_GUEST_LIST_VISIBILITY } from "@/rsvps/visibility";
+import { saveSchedule } from "@/schedule/repository";
+import { parseSchedule, parseScheduleRefresh } from "@/schedule/schedule";
 import { parseEventSettings, parseWhen, type WhenFields } from "./form";
 import { eventsOwnedAtLimit } from "./limit";
 import { missingToPublish } from "./publish";
@@ -125,6 +127,23 @@ export async function savePollAction(id: string, posted: OptionInput[]): Promise
   const options = parseOptions(posted);
   if (!options.ok) return { saved: false, error: t(`errors.${options.error}`) };
   if ((await openPoll(event.id, options.options)) === "hasVotes") return { saved: false, error: t("errors.pollHasVotes") };
+  for (const path of eventPaths(event)) revalidatePath(path);
+  revalidatePath(`/events/${event.id}`);
+  return { saved: true };
+}
+
+// The schedule, from its sheet (M6 ticket 01): its items as typed, saved as a whole in day-and-time
+// order, and how guests' open pages pick up a change. A refusal names the row it is about.
+export async function saveScheduleAction(id: string, posted: { items: unknown; refresh: unknown }): Promise<SaveResult> {
+  const found = await editable(id);
+  const t = await getTranslations("Events");
+  if (!found) return { saved: false, error: t("errors.notFound") };
+  const { event } = found;
+  const schedule = parseSchedule(posted?.items);
+  if (!schedule.ok) return { saved: false, error: t(`errors.${schedule.error}`, { n: schedule.n ?? 0 }) };
+  const refresh = parseScheduleRefresh(posted?.refresh);
+  if (!refresh) return { saved: false, error: t("errors.scheduleInvalid") };
+  await saveSchedule(event.id, schedule.items, refresh);
   for (const path of eventPaths(event)) revalidatePath(path);
   revalidatePath(`/events/${event.id}`);
   return { saved: true };

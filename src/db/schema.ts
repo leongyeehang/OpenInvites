@@ -10,6 +10,7 @@ import { VOTE_ANSWERS } from "../polls/poll";
 import { APPROVALS } from "../rsvps/admission";
 import { CONTACT_FIELDS, SAVED_STATUSES } from "../rsvps/form";
 import { DEFAULT_GUEST_LIST_VISIBILITY, GUEST_LIST_VISIBILITIES } from "../rsvps/visibility";
+import { SCHEDULE_REFRESH } from "../schedule/schedule";
 import type { Theme } from "../themes/theme";
 import { UPLOAD_ORIGINS } from "../uploads/origin";
 
@@ -169,6 +170,8 @@ export const guestListVisibility = pgEnum("guest_list_visibility", GUEST_LIST_VI
 
 export const contactField = pgEnum("contact_field", CONTACT_FIELDS);
 
+export const scheduleRefresh = pgEnum("schedule_refresh", SCHEDULE_REFRESH);
+
 // An event belongs to one host. Its time is an instant plus the event's own IANA zone; all-day
 // events store midnight in that zone with the flag set. A draft may have no date yet (M4 spec, "A
 // draft with no date"): it is made blank and dated in the editor, and cannot be published until
@@ -248,6 +251,9 @@ export const event = pgTable(
     // the event has no date and may still be published.
     pollOpenedAt: timestamp("poll_opened_at", { withTimezone: true }),
     pollClosedAt: timestamp("poll_closed_at", { withTimezone: true }),
+    // How guests' open pages pick up a changed schedule (M6 spec, "The schedule"): by re-reading
+    // themselves every minute while the event is on, or only when opened. Saved with the schedule.
+    scheduleRefresh: scheduleRefresh("schedule_refresh").notNull().default("minute"),
     ...timestamps,
   },
   (table) => [
@@ -274,6 +280,27 @@ export const dateOption = pgTable(
     position: integer("position").notNull(),
   },
   (table) => [index("date_option_event_id_idx").on(table.eventId)],
+);
+
+// One item of an event's schedule (M6 spec, "The schedule"): a day and a start time in the event's
+// zone, kept as wall-clock time as a date option's are, an optional end time on that day, a title,
+// a place and a note. Up to fifty per event, in day-and-time order, which is their position.
+export const scheduleItem = pgTable(
+  "schedule_item",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    day: date("day", { mode: "string" }).notNull(),
+    startTime: time("start_time").notNull(),
+    endTime: time("end_time"),
+    title: text("title").notNull(),
+    place: text("place").notNull().default(""),
+    note: text("note").notNull().default(""),
+  },
+  (table) => [index("schedule_item_event_id_idx").on(table.eventId)],
 );
 
 export const voteAnswer = pgEnum("vote_answer", VOTE_ANSWERS);

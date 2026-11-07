@@ -302,6 +302,13 @@
       "when": 1793862751691,
       "tag": "0042_operator_welcome",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1794045296635,
+      "tag": "0043_schedule",
+      "breakpoints": true
     }
   ]
 }

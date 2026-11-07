@@ -7,8 +7,10 @@ import type { MaybeDated } from "./time";
 // What a duplicate starts from: the details, look, settings and questions of the event it copies,
 // and nothing that belongs to that event alone: its state (the copy is a draft), link, replies,
 // answers, comments, announcements, co-hosts, views, reminder and retention marks, and publication
-// date. The theme is copied whole: its poster names the event's own picture, not the source's, and
-// the copy gets a picture of its own (uploads/copy.ts). The title says it is a copy, in the words of the host who duplicates it.
+// date. Nor its schedule (M6 spec, "The schedule"): the copy has none, and its pages refresh as a
+// new event's do, every minute (schedule_refresh's default). The theme is copied whole: its poster
+// names the event's own picture, not the source's, and the copy gets a picture of its own
+// (uploads/copy.ts). The title says it is a copy, in the words of the host who duplicates it.
 export function duplicateInput(
   source: Event,
   questions: Question[],
