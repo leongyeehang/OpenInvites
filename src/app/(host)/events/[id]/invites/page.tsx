@@ -19,7 +19,7 @@ import { findHostEvent, type HostEvent } from "@/events/repository";
 import { formatMoment } from "@/events/time";
 import { can } from "@/hosts/role";
 import { deleteInviteAction } from "@/invites/actions";
-import { awaitsInvitation, canMailInvite, inviteState, inviteUrl, MAX_INVITES, MAX_LETTER, roomForInvite } from "@/invites/invite";
+import { awaitsInvitation, canMailInvite, inviteState, mailStopped, inviteUrl, MAX_INVITES, MAX_LETTER, roomForInvite } from "@/invites/invite";
 import { listInvites, type ListedInvite } from "@/invites/repository";
 import { ClientMessages } from "@/locale/client-messages";
 import { translatorFor } from "@/locale/messages";
@@ -135,8 +135,9 @@ async function InviteRow({
           <Badge variant={state === "replied" ? "default" : state === "opened" ? "secondary" : "outline"}>
             {state === "replied" && invite.status ? t("state.replied", { status: t(`status.${invite.status}`) }) : t(`state.${state}`)}
           </Badge>
-          {/* The guest used the stop link at the foot of an invitation: nothing more is sent. */}
-          {invite.mailStoppedAt && <Badge variant="outline">{t("stopped")}</Badge>}
+          {/* The guest used the stop link at the foot of an invitation, or of mail about the reply
+              they made through it: nothing more is sent. */}
+          {mailStopped(invite) && <Badge variant="outline">{t("stopped")}</Badge>}
         </div>
       </div>
       {invite.sentAt && (

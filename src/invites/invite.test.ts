@@ -158,7 +158,20 @@ describe("inviteState", () => {
 
 describe("canMailInvite and awaitsInvitation", () => {
   const SENT = new Date("2026-11-07T10:00:00Z");
-  const invite = (fields: { email?: string; sentAt?: Date; mailStoppedAt?: Date; rsvpId?: string }) => ({ email: null, sentAt: null, mailStoppedAt: null, rsvpId: null, ...fields });
+  const invite = (fields: { email?: string; sentAt?: Date; mailStoppedAt?: Date; rsvpId?: string; replyMailStoppedAt?: Date }) => ({
+    email: null,
+    sentAt: null,
+    mailStoppedAt: null,
+    rsvpId: null,
+    replyMailStoppedAt: null,
+    ...fields,
+  });
+
+  it("emails no invite whose guest stopped mail through the reply they made with it: a stop is for the whole event", () => {
+    const reply = "0190a000-0000-7000-8000-000000000000";
+    expect(canMailInvite(invite({ email: "mei@example.test", rsvpId: reply, replyMailStoppedAt: SENT }))).toBe(false);
+    expect(canMailInvite(invite({ email: "mei@example.test", sentAt: SENT, rsvpId: reply, replyMailStoppedAt: SENT }))).toBe(false);
+  });
 
   it("emails an invite with an email whose guest has not stopped mail, sent before or not", () => {
     expect(canMailInvite(invite({ email: "mei@example.test" }))).toBe(true);

@@ -14,6 +14,7 @@ const SUPPER: Parameters<typeof invitationMail>[0] = {
   location: "12 Jalan Bukit, #04-01",
   locale: "en",
   inviteOnly: false,
+  lettersEnabled: true,
 };
 
 const MEI = { name: "Mei Lin", letter: "", token: "AbCdEfGhIjKlMnOpQrStUvWx" };
@@ -41,6 +42,14 @@ describe("invitationMail", () => {
     const plain = invitationMail(SUPPER, MEI, "Ada Lovelace", t);
     expect(plain.body).not.toContain("\n\n\n");
     expect(plain.body).toBe(lettered.body.replace(`\n\n${letter}`, ""));
+  });
+
+  it("leaves the letter out while the event has personal letters off, as the event page does", async () => {
+    const letter = "亲爱的美玲：\n记得带上你的吉他。";
+    const t = await translatorFor("en");
+    const off = invitationMail({ ...SUPPER, lettersEnabled: false }, { ...MEI, letter }, "Ada Lovelace", t);
+    expect(off.body).not.toContain("亲爱的美玲");
+    expect(off.body).toBe(invitationMail(SUPPER, MEI, "Ada Lovelace", t).body);
   });
 
   it("leaves out where when the host has not said, and when while the date is not set", async () => {

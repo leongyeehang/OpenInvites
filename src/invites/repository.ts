@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, exists, inArray, isNotNull, isNull, not, sql } from "drizzle-orm";
 import { getDb, type Db } from "@/db/client";
 import { event, invite, rsvp } from "@/db/schema";
 import type { SavedStatus } from "@/rsvps/form";
@@ -54,9 +54,11 @@ export async function countInvites(eventId: string, db: Db = getDb()): Promise<n
 
 // An invite as the host's pages list it: whom it is for, how to reach them, the host's letter to
 // them, its link's token, when it was opened, when its invitation was sent and whether its guest
-// stopped mail, and the status of the RSVP saved through it, when there is one.
+// stopped mail, and the status of the RSVP saved through it, when there is one, and whether its
+// guest stopped mail through that RSVP's link.
 export type ListedInvite = Pick<Invite, "id" | "name" | "email" | "phone" | "letter" | "token" | "openedAt" | "rsvpId" | "sentAt" | "mailStoppedAt"> & {
   status: SavedStatus | null;
+  replyMailStoppedAt: Date | null;
 };
 
 // Every invite of the event, newest first.
@@ -74,6 +76,7 @@ export async function listInvites(eventId: string): Promise<ListedInvite[]> {
       sentAt: invite.sentAt,
       mailStoppedAt: invite.mailStoppedAt,
       status: rsvp.status,
+      replyMailStoppedAt: rsvp.mailStoppedAt,
     })
     .from(invite)
     .leftJoin(rsvp, eq(rsvp.id, invite.rsvpId))
@@ -88,7 +91,8 @@ export type SentInvite = Pick<Invite, "id" | "name" | "letter" | "token"> & { em
 // Marks these invites of the event as sent now, each given the mail token of its stop link the
 // first time, and kept from then on, so every invitation sent to a guest stops with one link (as
 // an RSVP's, rsvps/repository.ts). Only an invite that can still be emailed is marked, so one whose
-// guest has stopped mail meanwhile is not sent to; with `unsentOnly`, only one never sent before
+// guest has stopped mail meanwhile, through an invitation or through the reply they made with it
+// (invite.ts, canMailInvite), is not sent to; with `unsentOnly`, only one never sent before
 // and not replied through (invite.ts, awaitsInvitation), so two "Send to everyone not yet sent" at
 // once mail nobody twice, the second finding the rows the first has marked. One statement, so every row is marked or none, and those marked are returned.
 export async function markInvitesSent(eventId: string, ids: string[], now: Date, { unsentOnly = false } = {}, db: Db = getDb()): Promise<SentInvite[]> {
@@ -107,6 +111,7 @@ export async function markInvitesSent(eventId: string, ids: string[], now: Date,
         inArray(invite.id, ids),
         isNotNull(invite.email),
         isNull(invite.mailStoppedAt),
+        not(exists(db.select({ id: rsvp.id }).from(rsvp).where(and(eq(rsvp.id, invite.rsvpId), isNotNull(rsvp.mailStoppedAt))))),
         unsentOnly ? and(isNull(invite.sentAt), isNull(invite.rsvpId)) : undefined,
       ),
     )
@@ -138,16 +143,24 @@ export async function findInviteByMailToken(mailToken: string): Promise<{ title:
 
 // The stop link's power over an invite: no more invitations are sent to it, from the first time it
 // is used. Unlike an RSVP's, the email is kept: on an invite-only event it is how the guest proves
-// they are the one invited (M6 spec, "Invite-only events"). Returns the event's title, or nothing
-// when no invite has the token.
+// they are the one invited (M6 spec, "Invite-only events"). A stop is for the whole event, as its
+// page says, so the reply the guest made through the invite, if any, is stopped as its own link
+// stops it (rsvps/repository.ts, blankEmailByMailToken), in the same transaction. Returns the
+// event's title, or nothing when no invite has the token.
 export async function stopInviteMail(mailToken: string): Promise<{ title: string } | undefined> {
-  const [stopped] = await getDb()
-    .update(invite)
-    .set({ mailStoppedAt: sql`coalesce(${invite.mailStoppedAt}, now())` })
-    .from(event)
-    .where(and(eq(invite.mailToken, mailToken), eq(event.id, invite.eventId)))
-    .returning({ title: event.title });
-  return stopped;
+  return getDb().transaction(async (tx) => {
+    const [stopped] = await tx
+      .update(invite)
+      .set({ mailStoppedAt: sql`coalesce(${invite.mailStoppedAt}, now())` })
+      .from(event)
+      .where(and(eq(invite.mailToken, mailToken), eq(event.id, invite.eventId)))
+      .returning({ title: event.title, rsvpId: invite.rsvpId });
+    if (!stopped) return undefined;
+    if (stopped.rsvpId) {
+      await tx.update(rsvp).set({ email: null, emailVerifiedAt: null, mailStoppedAt: new Date() }).where(eq(rsvp.id, stopped.rsvpId));
+    }
+    return { title: stopped.title };
+  });
 }
 
 // The invite a token names, with its event's links, or undefined for one that was never made or

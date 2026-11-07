@@ -651,10 +651,15 @@ test("the host emails an invitation with its letter and link, again with the sam
   await expect(inviteRow(host.page, "Mei Lin").getByText(/^Sent /)).toBeVisible();
   await expect(host.page.getByRole("button", { name: "Send to everyone not yet sent (1)" })).toBeVisible();
 
-  // Send again: a second invitation, whose stop link is the first's.
+  // Letters off, then Send again: a second invitation, without the letter the event page no longer
+  // shows, whose stop link is the first's.
+  await host.page.getByRole("checkbox", { name: "Personal letters" }).click();
+  await expect(host.page.getByRole("textbox", { name: /^Letter/ })).toHaveCount(0, { timeout: 15_000 });
   await host.page.getByRole("button", { name: "Send the invitation to Mei Lin again" }).click();
   const second = await invitationTo(request, meiEmail, 2);
   expect(second.text.match(STOP_LINK)![0]).toBe(stopLink);
+  expect(second.text).toContain("Hi Mei Lin,");
+  expect(second.text).not.toContain("亲爱的美玲");
 
   // Everyone not yet sent is Dev alone; Mei has nothing more, Ravi nothing, and Asha nothing at all.
   await host.page.getByRole("button", { name: "Send to everyone not yet sent (1)" }).click();
@@ -691,6 +696,82 @@ test("the host emails an invitation with its letter and link, again with the sam
   await expect(mei.getByLabel("Email")).toHaveValue(meiEmail);
 
   await closeAll(host.page, mei, ravi);
+});
+
+// A guest replies Going on a device of their own, through their invite or, with a name and email,
+// through the event link.
+async function replyGoing(browser: Browser, link: string, who?: { name: string; email: string }): Promise<Page> {
+  const guest = await newGuest(browser);
+  await guest.goto(link);
+  await guest.getByRole("button", { name: "Going", exact: true }).click();
+  if (who) {
+    await guest.getByLabel("Your name").fill(who.name);
+    await guest.getByLabel("Email").fill(who.email);
+  }
+  await guest.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(guest.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+  return guest;
+}
+
+// The host posts an announcement to the Going and Maybe guests, from the announcements page.
+async function announce(hostPage: Page, manage: string, text: string) {
+  await hostPage.goto(`${manage}/announcements`);
+  const message = hostPage.getByLabel("Message");
+  await message.fill(text);
+  await hostPage.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(message).toHaveValue("", { timeout: 15_000 });
+}
+
+test("a stop is for the whole event: a reply's stop link ends the invitations, and an invitation's ends the mail about the reply", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "invites-stop", SUPPER);
+  const manage = host.page.url();
+  const raviEmail = newHost("invites-stop-ravi").email;
+  const meiEmail = newHost("invites-stop-mei").email;
+  const asha = { name: "Asha Menon", email: newHost("invites-stop-asha").email };
+  await host.page.goto(`${manage}/invites`);
+  const raviLink = await makeInvite(host.page, "Ravi Kumar", raviEmail);
+  const meiLink = await makeInvite(host.page, "Mei Lin", meiEmail);
+  await host.page.getByRole("button", { name: "Send the invitation to Mei Lin", exact: true }).click();
+  const invitationStop = (await invitationTo(request, meiEmail, 1)).text.match(STOP_LINK)![0];
+
+  // Ravi and Mei reply through their invites, Asha through the event link; an announcement
+  // reaches all three.
+  const ravi = await replyGoing(browser, raviLink);
+  const mei = await replyGoing(browser, meiLink);
+  const ashaPage = await replyGoing(browser, host.link, asha);
+  await announce(host.page, manage, "Bring a dish to share.");
+  const raviStop = (await invitationTo(request, raviEmail, 1)).text.match(STOP_LINK)![0];
+  await invitationTo(request, meiEmail, 2);
+  await invitationTo(request, asha.email, 1);
+
+  // Ravi stops mail with the link at the foot of the announcement, his reply's: his invite's row
+  // says so and offers no Send, and there is nobody for "Send to everyone not yet sent".
+  await ravi.goto(raviStop);
+  await ravi.getByRole("button", { name: "Stop emails about this event" }).click();
+  await expect(ravi.getByRole("status")).toHaveText("Done. You will get no more email about Ada’s supper club.", { timeout: 15_000 });
+  await host.page.goto(`${manage}/invites`);
+  const raviRow = inviteRow(host.page, "Ravi Kumar");
+  await expect(raviRow.getByText("Stopped email", { exact: true })).toBeVisible();
+  await expect(raviRow.getByRole("button", { name: /^Send/ })).toHaveCount(0);
+  await expect(host.page.getByRole("button", { name: "Send to everyone not yet sent (0)" })).toBeDisabled();
+
+  // Mei, who has replied, stops mail with her invitation's link: her row keeps her email, and the
+  // next announcement reaches Asha alone.
+  await mei.goto(invitationStop);
+  await mei.getByRole("button", { name: "Stop emails about this event" }).click();
+  await expect(mei.getByRole("status")).toHaveText("Done. You will get no more email about Ada’s supper club.", { timeout: 15_000 });
+  await host.page.reload();
+  const meiRow = inviteRow(host.page, "Mei Lin");
+  await expect(meiRow.getByText("Stopped email", { exact: true })).toBeVisible();
+  await expect(meiRow.getByText(meiEmail, { exact: true })).toBeVisible();
+  await expect(meiRow.getByRole("button", { name: /^Send/ })).toHaveCount(0);
+  await announce(host.page, manage, "See you at seven.");
+  await invitationTo(request, asha.email, 2);
+  expect(await mailCountTo(request, meiEmail)).toBe(2);
+  expect(await mailCountTo(request, raviEmail)).toBe(1);
+
+  await closeAll(host.page, ravi, mei, ashaPage);
 });
 
 test("a draft's invitations wait for it to be published; Share hands the link and the invitation's words to the device's share sheet", async ({ browser, request }) => {

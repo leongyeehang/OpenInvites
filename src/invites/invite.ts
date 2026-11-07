@@ -88,16 +88,29 @@ export function inviteState(invite: { openedAt: Date | null; rsvpId: string | nu
 }
 
 // Whether the invitation can be emailed to this invite's guest (M6 spec, "The invitation email"):
-// the host gave an email, and the guest has not stopped mail about the event with the link at the
-// foot of an earlier one. Whether the site has mail is the caller's to ask.
-export function canMailInvite(invite: { email: string | null; mailStoppedAt: Date | null }): boolean {
-  return invite.email !== null && invite.mailStoppedAt === null;
+// the host gave an email, and the guest has not stopped mail about the event, with the link at the
+// foot of an earlier invitation or with the one at the foot of mail about the reply they made
+// through the invite: a stop is for the whole event. Whether the site has mail is the caller's to
+// ask.
+export function canMailInvite(invite: { email: string | null; mailStoppedAt: Date | null; replyMailStoppedAt: Date | null }): boolean {
+  return invite.email !== null && !mailStopped(invite);
+}
+
+// Whether the guest has stopped mail about the event through either link (canMailInvite).
+export function mailStopped(invite: { mailStoppedAt: Date | null; replyMailStoppedAt: Date | null }): boolean {
+  return invite.mailStoppedAt !== null || invite.replyMailStoppedAt !== null;
 }
 
 // Whether "Send to everyone not yet sent" sends this invite its invitation: it can be emailed, never
 // has been, and nobody has replied through it yet. A guest who has replied, through a link the
 // host copied, is past the invitation; their row's Send still reaches them if the host wants.
-export function awaitsInvitation(invite: { email: string | null; mailStoppedAt: Date | null; sentAt: Date | null; rsvpId: string | null }): boolean {
+export function awaitsInvitation(invite: {
+  email: string | null;
+  mailStoppedAt: Date | null;
+  replyMailStoppedAt: Date | null;
+  sentAt: Date | null;
+  rsvpId: string | null;
+}): boolean {
   return canMailInvite(invite) && invite.sentAt === null && invite.rsvpId === null;
 }
 
