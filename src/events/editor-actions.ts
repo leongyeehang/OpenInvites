@@ -68,6 +68,7 @@ export async function newEventAction(_: FormState, formData: FormData): Promise<
     albumVisibility: "replied",
     albumApprovalRequired: false,
     notifyOnPhoto: true,
+    inviteOnly: false,
     locale: await getLocale(),
   });
   redirect(`/events/${created.id}`);
@@ -231,6 +232,7 @@ export async function saveSettingsAction(id: string, formData: FormData): Promis
     albumVisibility: text("albumVisibility"),
     albumApprovalRequired: formData.get("albumApprovalRequired") === "on",
     notifyOnPhoto: formData.get("notifyOnPhoto") === "on",
+    inviteOnly: formData.get("inviteOnly") === "on",
   });
   if (!settings.ok) return { saved: false, error: t(`errors.${settings.error}`), field: settings.error === "capacityInvalid" ? "capacity" : undefined };
   let posted: unknown = [];

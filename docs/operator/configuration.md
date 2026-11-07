@@ -242,7 +242,8 @@ With mail configured:
 - guests who gave an email are reminded of an event a week before if they said Maybe, and the day
   before if they said Going, unless the host turns reminders off for the event or has not
   approved their reply;
-- a guest proving their email is sent a code to it, when the host asks for it;
+- a guest proving their email is sent a code to it, when the host asks for it, and so is an
+  invited guest opening an invite-only event on a device, when the address is on its invite list;
 - an event's hosts are warned 30 days before the instance deletes it for its age
   ([Retention](#retention));
 - the operator is emailed each report about an event page, at their account's address (Reports,
@@ -271,13 +272,17 @@ a few times over about an hour and a half; if it still fails, it is dropped and 
 
 Without mail, none of those emails exist: hosts are not asked to verify, and you reset a
 forgotten password with the command in [upgrade-backup.md](upgrade-backup.md#resetting-a-hosts-password).
+An invite-only event then opens only to its hosts and to the guests invited without an email, by
+their personal invite links, as no code can reach the others.
 
 To check mail works after setting it up, sign up a host with an address you can read, or ask for a
 password reset for one. If nothing arrives, `docker compose logs app` shows the SMTP server's
 answer. Every request that sends one of the account emails (verification, password reset, an email
 change, a sign-in link, a host invitation) counts against `RATE_LIMIT_MAIL`, and so does a host's
 announcement that emails guests, once however many it reaches, a host's sending of invitations, once
-for one or for everyone not yet sent, and each code sent to a guest to prove their email. The hosts'
+for one or for everyone not yet sent, and each code sent to a guest to prove their email, as well as
+each ask for a code on an invite-only event's locked page, whether or not the address is on its
+invite list. The hosts'
 reply emails come from guests' RSVPs, so `RATE_LIMIT_RSVP` bounds them, and their comment emails
 come from comments, which `RATE_LIMIT_COMMENT` bounds.
 
@@ -407,12 +412,12 @@ runs.
 | --- | --- | --- |
 | `TRUSTED_PROXY_HOPS` | `1` | Not a limit: how many reverse proxies stand in front of the app (below). |
 | `RATE_LIMIT_EVENT_PAGE` | `120/1m` | Every request under an event link: the page, its preview card, its calendar file, whether the link exists or not, so links cannot be found by trying them. Opening a personal invite link counts too, whether it exists or not. The host's own changes in the editor do not count, as the editor is not under the event link; their visits to the page do, and so does the refresh that shows a picture they have just uploaded. |
-| `RATE_LIMIT_RSVP` | `60/10m` | Sending an RSVP, and removing one. Asking for a code to prove a guest's email, and entering it, each count as sending. This also bounds the emails that tell hosts about replies. |
+| `RATE_LIMIT_RSVP` | `60/10m` | Sending an RSVP, and removing one. Asking for a code to prove a guest's email, and entering it, each count as sending, on the RSVP form and on an invite-only event's locked page alike. This also bounds the emails that tell hosts about replies. |
 | `RATE_LIMIT_UPLOAD` | `20/10m` | Uploading a picture. |
 | `RATE_LIMIT_SIGN_UP` | `10/1h` | Signing up, and opening a host invitation link. |
 | `RATE_LIMIT_SIGN_IN` | `10/15m` | Signing in, and everything else that checks a password (changing it, deleting an account), starting a Google or GitHub sign-in, signing in with a passkey, and opening a co-host link. |
 | `RATE_LIMIT_PASSWORD_RESET` | `10/1h` | Asking for a password reset link, and setting the new password. |
-| `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an account email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, asking for a sign-in link, and the operator's emailed host invitations. Also each announcement a host emails to guests, counted once however many guests it reaches; each Send of an invitation from an invite list, and each "Send to everyone not yet sent", counted once however many it reaches; and each code sent to a guest to prove their email. |
+| `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an account email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, asking for a sign-in link, and the operator's emailed host invitations. Also each announcement a host emails to guests, counted once however many guests it reaches; each Send of an invitation from an invite list, and each "Send to everyone not yet sent", counted once however many it reaches; and each code sent to a guest to prove their email, and each ask for a code on an invite-only event's locked page, whether or not the address is on its invite list (so the answer never tells). |
 | `RATE_LIMIT_COMMENT` | `30/10m` | Posting a comment on an event page, and deleting one, by a guest or a host. This also bounds the emails that tell hosts about comments. |
 | `RATE_LIMIT_REPORT` | `5/1h` | Sending a report about an event page. This also bounds the emails that tell you about reports. |
 

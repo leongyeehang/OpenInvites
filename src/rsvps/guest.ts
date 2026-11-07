@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { baseUrl } from "@/instance/env";
 import { findInvitedRsvpOnThisDevice } from "@/invites/device";
 import { inviteUrl } from "@/invites/invite";
+import { findInviteById } from "@/invites/repository";
 import type { AnswerError } from "@/questions/answers";
 import type { Approval } from "./admission";
 import type { RsvpFormError, SavedStatus } from "./form";
@@ -47,24 +48,30 @@ export type SaveRsvpResult = {
   placesLeft?: number;
 };
 
-// The edit link of an RSVP saved through a personal invite is the invite link, whose token is its
-// edit token (spec, "Personal invite links"); once the host deletes the invite, the RSVP's own
-// /r/ link opens it, with the same token.
-export function guestRsvp({ rsvp, token }: MyRsvp, waitlistPosition: number | null): GuestRsvp {
+// The edit link of an RSVP tied to a personal invite is the invite link (spec, "Personal invite
+// links"), whichever edit token the RSVP has: the invite's own, when it was saved through it, or
+// one of its own, when it was made before its invite (M6 spec, "Identity on a device that is in").
+// Once the host deletes the invite, the RSVP's own /r/ link opens it.
+export function guestRsvp({ rsvp, token, inviteToken }: MyRsvp, waitlistPosition: number | null): GuestRsvp {
   const { status, approval, name, plusOnes, plusOneNames, email, phone } = rsvp;
-  const editLink = rsvp.inviteId ? inviteUrl(token) : `${baseUrl()}/r/${token}`;
+  const editLink = inviteToken ? inviteUrl(inviteToken) : `${baseUrl()}/r/${token}`;
   return { status, approval, name, plusOnes, plusOneNames, email, phone, editLink, waitlistPosition };
 }
 
 // The RSVP the guest in front of us holds on this device. The cookie carries their edit token,
 // so coming back to the event link finds their answer, and an edit link opened on another device
-// leaves the same cookie behind (see the /r/[token] route). Without one, a device that opened a
-// personal invite holds the RSVP saved through it, wherever it was saved (invites/device.ts).
+// leaves the same cookie behind (see the /r/[token] route); a reply tied to an invite comes with
+// the invite's token, for its edit link. Without one, a device that stands for a personal invite,
+// by its link or by a pass, holds the RSVP saved through it, wherever it was saved
+// (invites/device.ts).
 export async function findRsvpOnThisDevice(eventId: string): Promise<MyRsvp | undefined> {
   const token = (await cookies()).get(rsvpCookieName(eventId))?.value;
   if (token) {
     const found = await findRsvpByToken(eventId, token);
-    if (found) return { rsvp: found, token };
+    if (found) {
+      const tied = found.inviteId ? await findInviteById(eventId, found.inviteId) : undefined;
+      return { rsvp: found, token, inviteToken: tied?.token ?? null };
+    }
   }
   return findInvitedRsvpOnThisDevice(eventId);
 }

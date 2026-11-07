@@ -42,9 +42,9 @@ function isSlugCollision(error: unknown): boolean {
 // What saving the event form writes: the form, and the language it was saved in.
 export type EventChanges = EventInput & { locale: Locale };
 
-// What a new event is made from: the form, and, for a duplicate, the two settings the form does not
-// carry, personal letters and invite-only (M6 spec), which the copy keeps.
-export type NewEvent = MaybeDated<EventChanges> & Partial<Pick<Event, "lettersEnabled" | "inviteOnly">>;
+// What a new event is made from: the form, and, for a duplicate, personal letters, which the form
+// does not carry and the copy keeps (M6 spec).
+export type NewEvent = MaybeDated<EventChanges> & Partial<Pick<Event, "lettersEnabled">>;
 
 // A new event starts with the Birthday template's theme (ticket 06), unless it is given one: a
 // duplicate starts with the theme of the event it copies.

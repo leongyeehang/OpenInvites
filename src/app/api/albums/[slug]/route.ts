@@ -5,6 +5,7 @@ import { addPhotos, countPhotos } from "@/album/repository";
 import { albumViewer } from "@/album/viewer";
 import { photoStatusFor } from "@/album/visibility";
 import { findEventBySlug } from "@/events/repository";
+import { gateFor } from "@/invites/gate";
 import { eventPaths } from "@/events/slug";
 import { baseUrl, maxUploadBytes } from "@/instance/env";
 import { instanceLimits } from "@/instance/repository";
@@ -30,6 +31,8 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
   const { slug } = await context.params;
   const event = await findEventBySlug(slug);
   if (!event || albumState(event, new Date()) !== "open") return refused("closed", 409);
+  // An invite-only event's album takes photos only from a device that is in (invites/gate.ts).
+  if ((await gateFor(event)).page !== "invitation") return refused("closed", 409);
   const viewer = await albumViewer(event.id);
   if (!mayAddPhotos(viewer) || viewer.kind === "visitor") return refused("notAllowed", 403);
 

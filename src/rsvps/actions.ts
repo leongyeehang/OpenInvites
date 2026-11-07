@@ -10,6 +10,7 @@ import { acceptsRsvps } from "@/events/access";
 import { findEventBySlug, findHostEvent } from "@/events/repository";
 import { can } from "@/hosts/role";
 import { findInviteOnThisDevice } from "@/invites/device";
+import { gateFor } from "@/invites/gate";
 import { parseAnswers, type AnswerFields } from "@/questions/answers";
 import { listQuestions, saveAnswers } from "@/questions/repository";
 import type { FormState } from "@/lib/form-state";
@@ -72,6 +73,8 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
   if ((await checkTurnstile(formData, requestHeaders)) === "failed") return { error: "checkFailed" };
   const event = await findEventBySlug(slug);
   if (!event || !acceptsRsvps(event.state)) return { error: "closed" };
+  // An invite-only event takes a reply only from a device that is in (invites/gate.ts).
+  if ((await gateFor(event)).page !== "invitation") return { error: "closed" };
 
   const parsed = parseRsvpForm(fields(formData), event);
   if (!parsed.ok) return { error: parsed.error };
@@ -148,7 +151,7 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
 export async function removeRsvpAction(slug: string): Promise<{ error?: "tooFast" }> {
   if (!(await consume("rsvp", await headers())).allowed) return { error: "tooFast" };
   const event = await findEventBySlug(slug);
-  if (!event) return {};
+  if (!event || (await gateFor(event)).page !== "invitation") return {};
   const mine = await findRsvpOnThisDevice(event.id);
   const { removed, mailed } = mine ? await deleteRsvp(event.id, mine.rsvp.id, "guest") : { removed: undefined, mailed: false };
   sendQueuedMail(mailed);

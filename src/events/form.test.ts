@@ -24,6 +24,7 @@ const valid = {
   albumVisibility: "going",
   albumApprovalRequired: true,
   notifyOnPhoto: false,
+  inviteOnly: true,
 };
 
 describe("parseEventForm", () => {
@@ -55,6 +56,7 @@ describe("parseEventForm", () => {
         albumVisibility: "going",
         albumApprovalRequired: true,
         notifyOnPhoto: false,
+        inviteOnly: true,
       },
     });
   });

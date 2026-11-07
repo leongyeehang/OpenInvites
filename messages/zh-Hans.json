@@ -476,6 +476,10 @@
     "invitation": {
       "subject": "{host} 邀请你参加“{title}”",
       "body": "{name}，你好：\n\n{host} 邀请你参加“{title}”。{lettered, select, yes {\n\n{letter}} other {}}{dated, select, yes {\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}} other {{located, select, yes {\n\n地点：{location}} other {}}}}\n\n打开你的邀请：{url}{inviteOnly, select, yes {\n\n打开邀请时需要输入验证码，验证码会发送到这个邮箱。} other {}}"
+    },
+    "pass": {
+      "subject": "“{title}”的验证码",
+      "body": "打开“{title}”邀请的验证码是：\n\n{code}\n\n验证码十分钟内有效。\n\n你收到这封邮件，是因为有人填写了这个邮箱来打开“{title}”的邀请，而主办人正是用这个邮箱邀请了你。如果不是你本人填写的，请忽略这封邮件：没有验证码，邀请就打不开。"
     }
   },
   "Events": {
@@ -518,7 +522,10 @@
         "capacity": "人数上限",
         "capacityHint": "和预计人数的算法一样：回复“参加”的宾客及其同伴都算在内，待定的不算。留空则接纳所有人。本站每场活动最多接受 {max, number} 条回复。",
         "approval": "每位宾客须经你批准，才会列入宾客名单",
-        "approvalHint": "等待期间，宾客可以看到邀请，但看不到留言；只有当所有打开链接的人都能看到宾客名单时，他们才能看到。"
+        "approvalHint": "等待期间，宾客可以看到邀请，但看不到留言；只有当所有打开链接的人都能看到宾客名单时，他们才能看到。",
+        "inviteOnly": "仅限受邀者：只有邀请名单上的人才能打开邀请",
+        "inviteOnlyHint": "受邀者在每台设备上都要用验证码确认邮箱；只留了电话号码的人凭自己的链接即可打开。",
+        "manageInvites": "管理邀请名单"
       },
       "contact": {
         "title": "联系方式",
@@ -793,6 +800,7 @@
     "edit": "编辑活动",
     "notReadyTitle": "这份邀请还没准备好",
     "notReady": "主办人还在准备中，请稍后再打开这个链接。",
+    "lockedTitle": "你受到了邀请",
     "guests": "宾客",
     "headcount": "{count, plural, =0 {还没有人} other {预计 # 人}}",
     "alsoMaybe": "{count, plural, other {# 人待定}}",
@@ -1287,6 +1295,25 @@
       "tooManyAtOnce": "这份名单会让活动超过 {max} 个专属邀请的上限。没有生成任何链接。",
       "tooFast": "操作太频繁了，请稍后再试。",
       "noMail": "没有发送：本站无法发送邮件，或者这位宾客没有邮箱，或已停止接收这个活动的邮件。"
+    }
+  },
+  "InviteOnly": {
+    "title": "一份私人邀请",
+    "from": "来自 {host}",
+    "email": "你的邮箱",
+    "emailHint": "就是你受邀时用的邮箱。我们会把验证码发送到这个邮箱。",
+    "send": "发送验证码",
+    "sent": "如果这个邮箱在邀请名单上，验证码已在路上。",
+    "code": "验证码",
+    "open": "打开邀请",
+    "resend": "重新发送",
+    "resendIn": "{seconds} 秒后可重新发送",
+    "lost": "找不到你的链接？请联系主办人。",
+    "errors": {
+      "codeWrong": "验证码不正确。",
+      "codeExpired": "这个验证码已失效。请重新发送，获取新的验证码。",
+      "tooFast": "操作太频繁了，请稍后再试。",
+      "emailInvalid": "这看起来不像邮箱地址。"
     }
   },
   "Announcements": {

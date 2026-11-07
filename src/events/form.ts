@@ -30,6 +30,8 @@ export type EventInput = {
   albumVisibility: AlbumVisibility;
   albumApprovalRequired: boolean;
   notifyOnPhoto: boolean;
+  // Only the people on the invite list open the invitation (M6 spec, "Invite-only events").
+  inviteOnly: boolean;
 };
 
 // What the event form posts, as strings, before any of it is trusted.
@@ -56,6 +58,7 @@ export type EventFormFields = {
   albumVisibility: string;
   albumApprovalRequired: boolean;
   notifyOnPhoto: boolean;
+  inviteOnly: boolean;
 };
 
 // How many people one guest may bring at most (spec, "Per-event settings").
@@ -179,6 +182,7 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
       albumVisibility,
       albumApprovalRequired: fields.albumApprovalRequired,
       notifyOnPhoto: fields.notifyOnPhoto,
+      inviteOnly: fields.inviteOnly,
     },
   };
 }

@@ -47,8 +47,16 @@ export async function findEventForToken(token: string): Promise<{ eventId: strin
   return row;
 }
 
-// An RSVP together with the edit token that opened it, which is what the guest holds.
-export type MyRsvp = { rsvp: Rsvp; token: string };
+// One RSVP of an event by its id, as the invite it was tied to names it (invites/device.ts). Cached
+// per request, as findRsvpByToken is.
+export const findRsvpById = cache(async (eventId: string, id: string): Promise<Rsvp | undefined> => {
+  return getDb().query.rsvp.findFirst({ where: and(eq(rsvp.eventId, eventId), eq(rsvp.id, id)) });
+});
+
+// An RSVP together with the edit token that opened it, which is what the guest holds, and the token
+// of the personal invite it is tied to, if it is, whose link is then the guest's edit link
+// (guest.ts, guestRsvp).
+export type MyRsvp = { rsvp: Rsvp; token: string; inviteToken: string | null };
 
 // Every write of an RSVP goes through one transaction (spec, "Architecture"): it locks the event's
 // row first, FOR NO KEY UPDATE, then the reply's own row, the order removeEvents takes; it decides
@@ -219,7 +227,7 @@ export async function saveRsvp(
         .set({ ...plan.changes, ...placed, locale: input.locale, mailToken })
         .where(eq(rsvp.id, plan.replaces.id))
         .returning();
-      written = { rsvp: replaced, token: plan.replaces.token };
+      written = { rsvp: replaced, token: plan.replaces.token, inviteToken: mine?.inviteToken ?? null };
     } else {
       const token = invited?.token ?? generateEditToken();
       const [created] = await tx
@@ -235,13 +243,13 @@ export async function saveRsvp(
         })
         .returning();
       if (invited) await tx.update(invite).set({ rsvpId: created.id }).where(eq(invite.id, invited.id));
-      written = { rsvp: created, token };
+      written = { rsvp: created, token, inviteToken: invited?.token ?? null };
     }
 
     const { promoted, mailed } = await promoteWaitlist(locked, tx, now);
     const saved = promoted.find((each) => each.id === written.rsvp.id) ?? written.rsvp;
     return {
-      saved: { rsvp: saved, token: written.token },
+      saved: { ...written, rsvp: saved },
       written: written.rsvp,
       previous: current,
       waitlistPosition: await findWaitlistPosition(saved, tx),

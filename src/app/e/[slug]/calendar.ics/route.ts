@@ -3,10 +3,12 @@ import { notFound } from "next/navigation";
 import { buildIcs } from "@/calendar/ics";
 import { acceptsRsvps } from "@/events/access";
 import { findEventBySlug } from "@/events/repository";
+import { gateFor } from "@/invites/gate";
 import { eventUrl, isSlug } from "@/events/slug";
 
 // The event as a calendar file. Served from the event link itself, so whatever can open the
-// invitation can download it, and a draft stays as private as its page.
+// invitation can download it, and a draft and an invite-only event stay as private as their page
+// (invites/gate.ts).
 export async function GET(_request: Request, context: RouteContext<"/e/[slug]/calendar.ics">) {
   const { slug } = await context.params;
   if (!isSlug(slug)) notFound();
@@ -14,6 +16,7 @@ export async function GET(_request: Request, context: RouteContext<"/e/[slug]/ca
   // Only a published event: a draft is not public, and nobody wants a cancelled party in their
   // calendar.
   if (!event || !acceptsRsvps(event.state) || !isDated(event)) notFound();
+  if ((await gateFor(event)).page !== "invitation") notFound();
 
   const link = eventUrl(event);
   return new Response(buildIcs(event, link, new Date()), {

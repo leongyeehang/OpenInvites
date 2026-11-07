@@ -4,6 +4,7 @@ import { getLocale } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { findEventBySlug } from "@/events/repository";
+import { gateFor } from "@/invites/gate";
 import { eventPaths } from "@/events/slug";
 import { baseUrl } from "@/instance/env";
 import { consume } from "@/rate-limit/rate-limit";
@@ -29,6 +30,8 @@ export async function voteAction(slug: string, formData: FormData): Promise<Vote
   if ((await checkTurnstile(formData, requestHeaders)) === "failed") return { error: "checkFailed" };
   const event = await findEventBySlug(slug);
   if (!event || !mayVote(event)) return { error: "closed" };
+  // An invite-only event takes votes only from a device that is in (invites/gate.ts).
+  if ((await gateFor(event)).page !== "invitation") return { error: "closed" };
 
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { error: "nameRequired" };

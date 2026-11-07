@@ -11,13 +11,15 @@ import { countComments, listComments, listReactions } from "@/comments/repositor
 import { commentsView, takesComments, type CommentsShown, type CommentViewer } from "@/comments/visibility";
 import { PageFooter } from "@/components/page-footer";
 import { TooFast } from "@/components/too-fast";
-import { acceptsRsvps, eventPageFor } from "@/events/access";
-import { eventHosts } from "@/events/hosts";
+import { acceptsRsvps } from "@/events/access";
+import { hostsOf, isHostOf } from "@/events/hosts";
 import { findEventBySlug, findRetiredSlug, recordView, type EventWithHost } from "@/events/repository";
 import { countsAsView } from "@/events/views";
 import { eventPath, eventUrl, isSlug } from "@/events/slug";
 import { formatDay, isDated, type EventTime } from "@/events/time";
 import { findInviteOnThisDevice } from "@/invites/device";
+import { gateFor } from "@/invites/gate";
+import { isMailConfigured } from "@/mail/config";
 import { ClientMessages } from "@/locale/client-messages";
 import { answersStillOffered } from "@/questions/answers";
 import { findAnswers, listQuestions } from "@/questions/repository";
@@ -41,6 +43,7 @@ import { CancelledNotice } from "./cancelled-notice";
 import { CommentForm } from "./comment-form";
 import { RetiredLink } from "./retired-link";
 import { DraftNotice } from "./draft-notice";
+import { LockedPage } from "./locked-page";
 import { GuestList } from "./guest-list";
 import { RsvpFlow } from "./rsvp-flow";
 import { ThreadComposer } from "./thread-composer";
@@ -65,15 +68,6 @@ import { ScheduleSection, type ScheduleShown } from "@/themes/sections/schedule-
 
 // Event pages are never indexed (ADR-0004). The header carries the same signal (next.config.ts).
 const noindex: Metadata["robots"] = { index: false, follow: false };
-
-// Every host of the event, owner first: whom "Hosted by" names, and who sees a draft and the Design
-// drawer. Cached per request, as the page and its redrawing both ask.
-const hostsOf = cache(eventHosts);
-
-async function isHostOf(eventId: string): Promise<boolean> {
-  const session = await getSession();
-  return session !== null && (await hostsOf(eventId)).some((host) => host.id === session.user.id);
-}
 
 // What the comments section shows this viewer, or nothing when the host has turned comments off:
 // to the hosts and to a guest whose reply the host has approved, the comments themselves; to anyone
@@ -197,8 +191,13 @@ export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Prom
     const retired = isSlug(slug) && (await findRetiredSlug(slug)) !== undefined;
     return { title: retired ? t("retiredTitle") : notFound("title"), robots: noindex };
   }
-  // A draft unfurls as nothing: its title is not public until the host says so.
-  if (eventPageFor(event.state, { isHost: false }) === "notReady") return { title: t("notReadyTitle"), robots: noindex };
+  // A draft unfurls as nothing: its title is not public until the host says so. Nor does an
+  // invite-only event to anyone not in (M6 spec, "What the lock covers").
+  if (event.state === "draft") return { title: t("notReadyTitle"), robots: noindex };
+  if ((await gateFor(event)).page === "locked") return { title: t("lockedTitle"), robots: noindex };
+  // An invite-only event never unfurls, even for those in: a card is drawn for whoever fetches the
+  // link, and its picture is cached publicly (preview.png).
+  if (event.inviteOnly) return { title: event.title, robots: noindex };
 
   const link = eventUrl(event);
   // The version in the URL is what makes the card change when the event or its theme does,
@@ -237,11 +236,11 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // the random link, the private one (ADR-0004).
   const event = { ...found, slug };
 
-  // Who is looking decides whether a draft shows at all, and whose comments and album these are.
-  // A guest has no session cookie, and the lookup returns without touching the database.
+  // Who is looking decides whether a draft shows at all, whether an invite-only event opens to them
+  // (invites/gate.ts), and whose comments and album these are.
   const isDraft = event.state === "draft";
-  const isHost = await isHostOf(event.id);
-  if (eventPageFor(event.state, { isHost }) === "notReady") {
+  const { isHost, page, invite: standsFor } = await gateFor(found);
+  if (page === "notReady") {
     const t = await getTranslations("EventPage");
     return (
       <main className="mx-auto flex min-h-svh w-full max-w-xl flex-col justify-center gap-3 px-4 py-12">
@@ -250,6 +249,9 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
       </main>
     );
   }
+  // Nothing of the event but its host's name, and a way in for the invited (M6 spec, "The locked
+  // page"): the email of the invite whose link this device opened is filled in.
+  if (page === "locked") return <LockedPage slug={event.slug} host={event.hostName} email={standsFor?.email ?? null} mail={isMailConfigured()} />;
 
   // This is the one place a page render writes. A server action redraw is a POST naming its
   // action, which is all the page can tell of the method.

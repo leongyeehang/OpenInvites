@@ -2,6 +2,7 @@
 
 import { ImageIcon, Palette, SlidersHorizontal, Sparkles, Type } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { QuestionsEditor } from "@/app/(host)/events/questions-editor";
 import { ALBUM_VISIBILITIES } from "@/album/visibility";
@@ -179,6 +180,17 @@ export function SettingsSheet({
               <FieldContent>
                 <FieldLabel htmlFor={`${id}-approval`}>{t("guests.approval")}</FieldLabel>
                 <FieldDescription id={`${id}-approval-hint`}>{t("guests.approvalHint")}</FieldDescription>
+              </FieldContent>
+            </Field>
+            {/* Invite-only (M6 spec, "The setting"), with the way to the list it opens the invitation to. */}
+            <Field orientation="horizontal">
+              <Checkbox id={`${id}-invite-only`} name="inviteOnly" defaultChecked={settings.inviteOnly} aria-describedby={`${id}-invite-only-hint`} />
+              <FieldContent>
+                <FieldLabel htmlFor={`${id}-invite-only`}>{t("guests.inviteOnly")}</FieldLabel>
+                <FieldDescription id={`${id}-invite-only-hint`}>{t("guests.inviteOnlyHint")}</FieldDescription>
+                <Link href={`/events/${eventId}/invites`} className="self-start text-sm underline underline-offset-4 hover:opacity-80">
+                  {t("guests.manageInvites")}
+                </Link>
               </FieldContent>
             </Field>
           </FieldSet>

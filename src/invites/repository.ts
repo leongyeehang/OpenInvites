@@ -1,4 +1,5 @@
-import { and, count, desc, eq, exists, inArray, isNotNull, isNull, not, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, inArray, isNotNull, isNull, not, sql } from "drizzle-orm";
+import { cache } from "react";
 import { getDb, type Db } from "@/db/client";
 import { event, invite, rsvp } from "@/db/schema";
 import type { SavedStatus } from "@/rsvps/form";
@@ -163,16 +164,41 @@ export async function stopInviteMail(mailToken: string): Promise<{ title: string
   });
 }
 
-// The invite a token names, with its event's links, or undefined for one that was never made or
-// has been deleted.
-export async function findInviteByToken(token: string): Promise<(Invite & { slug: string; customSlug: string | null }) | undefined> {
+// The invite a token names, with its event's links and whether the event is invite-only, or
+// undefined for one that was never made or has been deleted.
+export async function findInviteByToken(token: string): Promise<(Invite & { slug: string; customSlug: string | null; inviteOnly: boolean }) | undefined> {
   const [found] = await getDb()
-    .select({ invite, slug: event.slug, customSlug: event.customSlug })
+    .select({ invite, slug: event.slug, customSlug: event.customSlug, inviteOnly: event.inviteOnly })
     .from(invite)
     .innerJoin(event, eq(event.id, invite.eventId))
     .where(eq(invite.token, token))
     .limit(1);
-  return found && { ...found.invite, slug: found.slug, customSlug: found.customSlug };
+  return found && { ...found.invite, slug: found.slug, customSlug: found.customSlug, inviteOnly: found.inviteOnly };
+}
+
+// One invite of the event by its id, as a pass or a reply names it; nothing once it is deleted,
+// which is what voids a pass (invites/pass.ts). Cached per request: the gate and the guest's
+// identity both ask.
+export const findInviteById = cache(async (eventId: string, id: string): Promise<Invite | undefined> => {
+  const [found] = await getDb()
+    .select()
+    .from(invite)
+    .where(and(eq(invite.id, id), eq(invite.eventId, eventId)))
+    .limit(1);
+  return found;
+});
+
+// The invite of the event an email belongs to, whatever its case, as a guest on the locked page
+// types it (M6 spec, "The locked page"). The first made, should a host have listed one address
+// twice.
+export async function findInviteByEmail(eventId: string, email: string): Promise<Invite | undefined> {
+  const [found] = await getDb()
+    .select()
+    .from(invite)
+    .where(and(eq(invite.eventId, eventId), sql`lower(${invite.email}) = lower(${email})`))
+    .orderBy(asc(invite.createdAt), asc(invite.id))
+    .limit(1);
+  return found;
 }
 
 // The first time the link is opened is the one the host is told of.

@@ -476,6 +476,10 @@
     "invitation": {
       "subject": "{host} invited you to {title}",
       "body": "Hi {name},\n\n{host} invited you to {title}.{lettered, select, yes {\n\n{letter}} other {}}{dated, select, yes {\n\nWhen: {when}{located, select, yes {\nWhere: {location}} other {}}} other {{located, select, yes {\n\nWhere: {location}} other {}}}}\n\nOpen your invitation: {url}{inviteOnly, select, yes {\n\nWhen you open it, you’ll be asked for a code, which is sent to this address.} other {}}"
+    },
+    "pass": {
+      "subject": "Your code for {title}",
+      "body": "Your code to open your invitation to {title}:\n\n{code}\n\nIt lasts ten minutes.\n\nYou’re getting this because someone entered this address to open the invitation to {title}, and the host invited you at it. If it wasn’t you, ignore this email: the invitation stays closed without the code."
     }
   },
   "Events": {
@@ -518,7 +522,10 @@
         "capacity": "Capacity",
         "capacityHint": "Counts guests who say Going and their plus-ones, as the headcount does. Maybe doesn’t count. Leave empty to take everyone. This site takes up to {max, number} replies per event.",
         "approval": "Approve each guest before they’re on the list",
-        "approvalHint": "Guests see the invitation while they wait, but not the comments, and the guest list only if everyone who opens the link can."
+        "approvalHint": "Guests see the invitation while they wait, but not the comments, and the guest list only if everyone who opens the link can.",
+        "inviteOnly": "Invite-only: only people on the invite list can open the invitation",
+        "inviteOnlyHint": "They prove their email on each device they use; someone with only a phone number gets in by their link.",
+        "manageInvites": "Manage the invite list"
       },
       "contact": {
         "title": "Contact details",
@@ -793,6 +800,7 @@
     "edit": "Edit event",
     "notReadyTitle": "This invitation isn’t ready yet",
     "notReady": "The host is still preparing it. Try the link again later.",
+    "lockedTitle": "You’re invited",
     "guests": "Guests",
     "headcount": "{count, plural, =0 {No one yet} =1 {1 person expected} other {# people expected}}",
     "alsoMaybe": "{count, plural, =1 {1 maybe} other {# maybes}}",
@@ -1287,6 +1295,25 @@
       "tooManyAtOnce": "That list would take this event past {max} invites, the most it can have. No links were made.",
       "tooFast": "You’re going too fast. Try again shortly.",
       "noMail": "Not sent: this site cannot send email, or the guest has no email or has stopped emails about this event."
+    }
+  },
+  "InviteOnly": {
+    "title": "A private invitation",
+    "from": "from {host}",
+    "email": "Your email",
+    "emailHint": "The one you were invited with. We’ll send a code to it.",
+    "send": "Send me a code",
+    "sent": "If that email is on the invite list, a code is on its way.",
+    "code": "Code",
+    "open": "Open the invitation",
+    "resend": "Send it again",
+    "resendIn": "Send it again in {seconds}s",
+    "lost": "Lost your link? Ask the host.",
+    "errors": {
+      "codeWrong": "That code isn’t right.",
+      "codeExpired": "That code no longer works. Send it again for a new one.",
+      "tooFast": "You’re going too fast. Try again shortly.",
+      "emailInvalid": "That does not look like an email address."
     }
   },
   "Announcements": {
