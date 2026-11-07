@@ -35,8 +35,12 @@ export async function signUp(page: Page, host: { name: string; email: string }) 
 export async function dismissOperatorWelcome(page: Page) {
   const welcome = page.getByRole("dialog", { name: "This site is yours" });
   await expect(welcome).toBeVisible();
+  // The sheet closes at once and the dismissal is saved after (operator-welcome.tsx): a reload
+  // before it is saved would bring the sheet back, so this waits for the save's answer.
+  const saved = page.waitForResponse((response) => response.request().method() === "POST" && "next-action" in response.request().headers());
   await welcome.getByRole("button", { name: "Not now" }).click();
   await expect(welcome).toBeHidden();
+  await saved;
 }
 
 export async function signIn(page: Page, email: string, password: string) {

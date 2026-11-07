@@ -24,6 +24,12 @@ const CHECK_FAILED = "Please complete the check and try again.";
 
 const botCheck = (page: Page) => page.getByRole("group", { name: "Bot check" });
 
+// After a post, the widget starts again and is solved anew (turnstile.tsx): a guest posts again
+// once it has, which on a slow machine is a moment after the refusal shows.
+async function passedAgain(page: Page) {
+  await expect.poll(() => page.locator('input[name="cf-turnstile-response"]').inputValue(), { timeout: 15_000 }).not.toBe("");
+}
+
 // What a script posting the form without solving the check would send: the form as it is, with no
 // token in it. Says how many token fields it blanked.
 function blankTheToken(page: Page) {
@@ -157,6 +163,7 @@ test.describe("on an instance whose operator has set Turnstile's keys", () => {
     await expect(page.getByText(CHECK_FAILED)).toBeVisible();
 
     // The widget starts again, and the reply goes once it has passed.
+    await passedAgain(page);
     await send.click();
     await expect(page.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(CHECK_FAILED)).toBeHidden();
@@ -203,6 +210,7 @@ test.describe("on an instance whose operator has set Turnstile's keys", () => {
     await page.evaluate(() => document.getElementById("planted-code")!.remove());
 
     await page.getByLabel("Email").fill(email);
+    await passedAgain(page);
     await post.click();
 
     // The code step keeps the check, beside "Send it again", and Confirm waits for it too.
@@ -245,6 +253,7 @@ test.describe("on an instance whose operator has set Turnstile's keys", () => {
     // What they wrote is kept, and the report goes once the widget has passed again.
     await expect(field).toHaveValue(reason);
     await field.fill(reason.replace("first try", "second try"));
+    await passedAgain(page);
     await sendReport.click();
     await expect(page.getByText("Thank you. Your report has reached whoever runs this site.")).toBeVisible({ timeout: 15_000 });
     // The operator's reports inbox has the report that went, and not the refused one; so has their
