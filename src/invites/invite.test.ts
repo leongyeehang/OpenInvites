@@ -158,17 +158,19 @@ describe("inviteState", () => {
 
 describe("canMailInvite and awaitsInvitation", () => {
   const SENT = new Date("2026-11-07T10:00:00Z");
-  const invite = (fields: { email?: string; sentAt?: Date; mailStoppedAt?: Date }) => ({ email: null, sentAt: null, mailStoppedAt: null, ...fields });
+  const invite = (fields: { email?: string; sentAt?: Date; mailStoppedAt?: Date; rsvpId?: string }) => ({ email: null, sentAt: null, mailStoppedAt: null, rsvpId: null, ...fields });
 
   it("emails an invite with an email whose guest has not stopped mail, sent before or not", () => {
     expect(canMailInvite(invite({ email: "mei@example.test" }))).toBe(true);
     expect(canMailInvite(invite({ email: "mei@example.test", sentAt: SENT }))).toBe(true);
     expect(canMailInvite(invite({}))).toBe(false);
+    expect(canMailInvite(invite({ email: "mei@example.test", rsvpId: "0190a000-0000-7000-8000-000000000000" }))).toBe(true);
     expect(canMailInvite(invite({ email: "mei@example.test", sentAt: SENT, mailStoppedAt: SENT }))).toBe(false);
   });
 
-  it("counts among those not yet sent only an invite that can be emailed and never was", () => {
+  it("counts among those not yet sent only an invite that can be emailed, never was, and has not been replied through", () => {
     expect(awaitsInvitation(invite({ email: "mei@example.test" }))).toBe(true);
+    expect(awaitsInvitation(invite({ email: "mei@example.test", rsvpId: "0190a000-0000-7000-8000-000000000000" }))).toBe(false);
     expect(awaitsInvitation(invite({ email: "mei@example.test", sentAt: SENT }))).toBe(false);
     expect(awaitsInvitation(invite({}))).toBe(false);
     expect(awaitsInvitation(invite({ email: "mei@example.test", mailStoppedAt: SENT }))).toBe(false);

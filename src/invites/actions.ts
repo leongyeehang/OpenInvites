@@ -124,7 +124,7 @@ export async function sendInviteAction(eventId: string, id: string): Promise<For
 }
 
 // "Send to everyone not yet sent": the invitation emailed to every invite with an email that has
-// never had one and whose guest has not stopped mail, counted once against the mail limit however
+// never had one, nobody has replied through, and whose guest has not stopped mail, counted once against the mail limit however
 // many it reaches; when there is nobody, nothing is sent and nothing counted.
 export async function sendUnsentInvitesAction(eventId: string): Promise<FormState> {
   const [host, t] = await Promise.all([requireHost(), getTranslations("Invites")]);

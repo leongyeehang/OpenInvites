@@ -88,9 +88,9 @@ export type SentInvite = Pick<Invite, "id" | "name" | "letter" | "token"> & { em
 // Marks these invites of the event as sent now, each given the mail token of its stop link the
 // first time, and kept from then on, so every invitation sent to a guest stops with one link (as
 // an RSVP's, rsvps/repository.ts). Only an invite that can still be emailed is marked, so one whose
-// guest has stopped mail meanwhile is not sent to; with `unsentOnly`, only one never sent before,
-// so two "Send to everyone not yet sent" at once mail nobody twice, the second finding the rows the
-// first has marked. One statement, so every row is marked or none, and those marked are returned.
+// guest has stopped mail meanwhile is not sent to; with `unsentOnly`, only one never sent before
+// and not replied through (invite.ts, awaitsInvitation), so two "Send to everyone not yet sent" at
+// once mail nobody twice, the second finding the rows the first has marked. One statement, so every row is marked or none, and those marked are returned.
 export async function markInvitesSent(eventId: string, ids: string[], now: Date, { unsentOnly = false } = {}, db: Db = getDb()): Promise<SentInvite[]> {
   if (ids.length === 0) return [];
   // A fresh token for each row, which keeps it only when it has none.
@@ -107,7 +107,7 @@ export async function markInvitesSent(eventId: string, ids: string[], now: Date,
         inArray(invite.id, ids),
         isNotNull(invite.email),
         isNull(invite.mailStoppedAt),
-        unsentOnly ? isNull(invite.sentAt) : undefined,
+        unsentOnly ? and(isNull(invite.sentAt), isNull(invite.rsvpId)) : undefined,
       ),
     )
     .returning({ id: invite.id, name: invite.name, letter: invite.letter, token: invite.token, email: invite.email, mailToken: invite.mailToken });
@@ -115,12 +115,13 @@ export async function markInvitesSent(eventId: string, ids: string[], now: Date,
 }
 
 // The invites of the event whose invitations "Send to everyone not yet sent" sends: with an email,
-// never sent, and whose guest has not stopped mail (invite.ts, awaitsInvitation).
+// never sent, not replied through, and whose guest has not stopped mail (invite.ts,
+// awaitsInvitation).
 export async function listUnsentInvites(eventId: string): Promise<{ id: string }[]> {
   return getDb()
     .select({ id: invite.id })
     .from(invite)
-    .where(and(eq(invite.eventId, eventId), isNotNull(invite.email), isNull(invite.sentAt), isNull(invite.mailStoppedAt)));
+    .where(and(eq(invite.eventId, eventId), isNotNull(invite.email), isNull(invite.sentAt), isNull(invite.mailStoppedAt), isNull(invite.rsvpId)));
 }
 
 // What the stop link at the foot of an invitation shows (app/m/[token]): the event's title and the

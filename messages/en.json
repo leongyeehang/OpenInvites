@@ -1226,7 +1226,7 @@
   "Invites": {
     "title": "Invites",
     "backToEvent": "Back to the event",
-    "explainer": "A personal invite link is for one guest. When they open it, their name is filled in, and their email if you give one, and their reply is tied to the link, which then works as their edit link. Copy each link and send it to its guest yourself.",
+    "explainer": "Each guest gets a personal invite link: opening it fills in their name, and their email if you give one, and ties their reply to the link, which then works as their edit link. Copy or share each link, or, where this site has mail, email it to them with the invitation.",
     "lettersEnabled": "Personal letters",
     "lettersEnabledHint": "Write a note to each guest, shown on their invitation.",
     "name": "Name",

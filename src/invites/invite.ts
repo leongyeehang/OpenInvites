@@ -94,10 +94,11 @@ export function canMailInvite(invite: { email: string | null; mailStoppedAt: Dat
   return invite.email !== null && invite.mailStoppedAt === null;
 }
 
-// Whether "Send to everyone not yet sent" sends this invite its invitation: it can be emailed, and
-// never has been.
-export function awaitsInvitation(invite: { email: string | null; mailStoppedAt: Date | null; sentAt: Date | null }): boolean {
-  return canMailInvite(invite) && invite.sentAt === null;
+// Whether "Send to everyone not yet sent" sends this invite its invitation: it can be emailed, never
+// has been, and nobody has replied through it yet. A guest who has replied, through a link the
+// host copied, is past the invitation; their row's Send still reaches them if the host wants.
+export function awaitsInvitation(invite: { email: string | null; mailStoppedAt: Date | null; sentAt: Date | null; rsvpId: string | null }): boolean {
+  return canMailInvite(invite) && invite.sentAt === null && invite.rsvpId === null;
 }
 
 // The link's secret, of the mail token's shape (rsvps/token.ts): 24 characters of the event link's
