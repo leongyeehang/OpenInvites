@@ -1,5 +1,6 @@
 import { albumState, MAX_PHOTOS_AT_ONCE, mayAddPhotos, photosRoom } from "@/album/album";
 import { processPhoto, removePhotoFiles, storePhoto } from "@/album/files";
+import { notifyHostsOfPhotos } from "@/album/notify-hosts";
 import { addPhotos, countPhotos } from "@/album/repository";
 import { albumViewer } from "@/album/viewer";
 import { photoStatusFor } from "@/album/visibility";
@@ -74,6 +75,8 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
     }
     pending = added.status === "pending";
     for (const path of eventPaths(event)) revalidatePath(path);
+    // The hosts are told once of the post, when what it added waits for them (M6 ticket 04).
+    if (pending && viewer.kind === "guest") await notifyHostsOfPhotos(event, { name: viewer.name, count: stored.length });
   }
   const results = outcomes.map((outcome) => (outcome.ok ? { ok: true as const, pending } : outcome));
   return Response.json({ results } satisfies AlbumUploadResult);

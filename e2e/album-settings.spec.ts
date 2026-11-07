@@ -1,16 +1,19 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
 import { chooseLayout, createPublished, editSettings } from "./events";
+import { latestMailTo, MAILPIT, mailCountTo } from "./hosts";
 import { closeReply } from "./reply";
-import { expect, test, type Browser, type Locator, type Page } from "./test";
+import { expect, test, type APIRequestContext, type Browser, type Locator, type Page } from "./test";
 
 // M6 ticket 03: the host chooses who sees the album (every guest who replied, only those Going, or
 // only the hosts), and may approve guests' photos before anyone else sees them. Adding stays the
-// rule it was: the hosts, and every guest whose reply is approved.
+// rule it was: the hosts, and every guest whose reply is approved. M6 ticket 04: the hosts are
+// emailed when a guest's photos wait for them, read in Mailpit.
 
 const PAST = { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" };
 const VISIBILITY = "Who can see the album";
 const APPROVE_PHOTOS = "Approve photos before they’re shown";
+const NOTIFY_PHOTOS = "Email the hosts when photos need approval";
 
 async function photo(name: string, colour: string) {
   return { name, mimeType: "image/jpeg", buffer: await sharp({ create: { width: 1600, height: 1200, channels: 3, background: colour } }).jpeg().toBuffer() };
@@ -26,6 +29,12 @@ async function guest(browser: Browser, link: string, name: string, status: "Goin
   await expect(page.getByText(status === "Going" ? "You’re going!" : "You’re a maybe.")).toBeVisible({ timeout: 15_000 });
   await closeReply(page);
   return page;
+}
+
+async function subjectOfLatestMailTo(request: APIRequestContext, email: string): Promise<string | undefined> {
+  const search = await request.get(`${MAILPIT}/api/v1/search`, { params: { query: `to:${email}` } });
+  const { messages } = (await search.json()) as { messages: { Subject: string }[] };
+  return messages[0]?.Subject;
 }
 
 const album = (page: Page) => page.locator('[data-slot="album"]');
@@ -179,6 +188,53 @@ test("with approval on, a guest's photos wait for the host, who approves one in 
   await expect(album(mei).getByRole("button", { name: /^Photo \d by Priya Nair$/ })).toHaveCount(3);
   await priya.reload();
   await expect(album(priya).getByText("Awaiting approval", { exact: true })).toHaveCount(0);
+
+  await Promise.all([host.context.close(), priya.context().close(), mei.context().close()]);
+});
+
+test("with approval on, the hosts are emailed once about a guest's photos waiting, not about their own, and not with the email turned off", async ({
+  browser,
+  request,
+}) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-notify", PAST);
+  const editor = host.page.url();
+  await editSettings(host.page, (sheet) => albumGroup(sheet).getByLabel(APPROVE_PHOTOS).check());
+
+  // Priya's two photos wait, and the host is told of them in one email: who, how many, and the
+  // event link, after the verification from signing up and the email about Priya's reply.
+  const priya = await guest(browser, host.link, "Priya Nair");
+  await album(priya).getByLabel("Add photos").setInputFiles([await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a")]);
+  await expect(album(priya).getByRole("status")).toContainText("cake.jpg: added, awaiting approval", { timeout: 20_000 });
+  await expect
+    .poll(() => subjectOfLatestMailTo(request, host.email), { timeout: 30_000, message: `an email to ${host.email} about Priya’s photos` })
+    .toBe("Priya Nair added 2 photos to Ada’s garden party for your approval");
+  expect(await mailCountTo(request, host.email)).toBe(3);
+  const [said, where, footer, ...rest] = (await latestMailTo(request, host.email, 2)).replace(/\r\n/g, "\n").trimEnd().split("\n\n");
+  expect(said).toBe("Priya Nair added 2 photos to Ada’s garden party for your approval.");
+  expect(where).toBe(`The event page:\n${host.link}`);
+  expect(footer).toBe("To stop these emails, untick “Email the hosts when photos need approval” in the event’s settings. That stops them for every host of the event.");
+  expect(rest).toEqual([]);
+
+  // The host's own photo is approved at once, and tells nobody.
+  await host.page.goto(host.link);
+  await album(host.page).getByLabel("Add photos").setInputFiles([await photo("toast.jpg", "#e0b040")]);
+  await expect(album(host.page).getByRole("status")).toHaveText("toast.jpg: added", { timeout: 20_000 });
+
+  // With the email turned off, Priya's next photo waits without one.
+  await host.page.goto(editor);
+  await editSettings(host.page, (sheet) => albumGroup(sheet).getByLabel(NOTIFY_PHOTOS).uncheck());
+  await priya.reload();
+  await album(priya).getByLabel("Add photos").setInputFiles([await photo("lanterns.jpg", "#3050a0")]);
+  await expect(album(priya).getByRole("status")).toHaveText("lanterns.jpg: added, awaiting approval", { timeout: 20_000 });
+
+  // Mail goes out in the order it was queued, so once the email about Mei's reply is in, an email
+  // about either upload would be in before it.
+  const mei = await guest(browser, host.link, "Mei Tan");
+  await expect
+    .poll(() => subjectOfLatestMailTo(request, host.email), { timeout: 30_000, message: `an email to ${host.email} about Mei’s reply` })
+    .toBe("Mei Tan replied to Ada’s garden party: Going");
+  expect(await mailCountTo(request, host.email)).toBe(4);
 
   await Promise.all([host.context.close(), priya.context().close(), mei.context().close()]);
 });

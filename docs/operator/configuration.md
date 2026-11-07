@@ -225,6 +225,8 @@ With mail configured:
   event;
 - the hosts are emailed when someone comments on the event page, unless they turn it off for the
   event;
+- the hosts are emailed once for each upload of a guest's photos that wait for their approval,
+  when they approve photos before they're shown, unless they turn it off for the event;
 - guests who gave an email are told when the host cancels the event, if they said Going or Maybe
   or are on the waitlist, whether or not the host had approved their reply yet; guests the host
   declined are not written to;

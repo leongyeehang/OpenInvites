@@ -426,6 +426,10 @@
       "subject": "{name} commented on {title}",
       "body": "{name} commented on {title}:\n\n{comment}\n\nThe event page:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest comments” in the event’s settings. That stops them for every host of the event."
     },
+    "photos": {
+      "subject": "{name} added {count, plural, one {a photo} other {# photos}} to {title} for your approval",
+      "body": "{name} added {count, plural, one {a photo} other {# photos}} to {title} for your approval.\n\nThe event page:\n{url}\n\nTo stop these emails, untick “Email the hosts when photos need approval” in the event’s settings. That stops them for every host of the event."
+    },
     "reminderWeek": {
       "subject": "{title} is in a week",
       "body": "{title} is in a week.\n\nWhen: {when}{located, select, yes {\nWhere: {location}} other {}}\n\nYou said Maybe{plusOnes, plural, =0 {} one {, with # plus-one} other {, with # plus-ones}}.\n\nThe event page:\n{url}"

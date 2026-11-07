@@ -21,8 +21,9 @@ export function albumState(event: { state: EventState; startsAt: Date | null }, 
 }
 
 // Who is in front of the album: a host of the event, a guest whose RSVP is on this device with the
-// host's word on it and what it says, or someone else.
-export type AlbumViewer = { kind: "host"; hostId: string } | { kind: "guest"; rsvpId: string; approval: Approval; status: SavedStatus } | { kind: "visitor" };
+// host's word on it, what it says and its name (for the hosts' email about photos waiting, M6
+// ticket 04), or someone else.
+export type AlbumViewer = { kind: "host"; hostId: string } | { kind: "guest"; rsvpId: string; approval: Approval; status: SavedStatus; name: string } | { kind: "visitor" };
 
 // Who adds to the album: the hosts, and a guest whose reply the host has approved (which a reply
 // needing no approval always is), whatever it says and whoever the host lets see the album. With

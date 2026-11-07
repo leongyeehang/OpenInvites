@@ -426,6 +426,10 @@
       "subject": "{name} 在“{title}”留言了",
       "body": "{name} 在“{title}”留言：\n\n{comment}\n\n活动页面：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客留言时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
     },
+    "photos": {
+      "subject": "{name} 在“{title}”添加了 {count, plural, other {# 张照片}}，正在等待你的批准",
+      "body": "{name} 在“{title}”添加了 {count, plural, other {# 张照片}}，正在等待你的批准。\n\n活动页面：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有照片等待批准时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
+    },
     "reminderWeek": {
       "subject": "“{title}”还有一周就到了",
       "body": "“{title}”还有一周就到了。\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}\n\n你的回复是：待定{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n活动页面：\n{url}"

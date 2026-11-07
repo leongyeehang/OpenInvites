@@ -9,6 +9,7 @@ const guest = (status: "going" | "maybe" | "cant" | "waitlisted", approval: "app
   rsvpId: "r1",
   approval,
   status,
+  name: "Priya Nair",
 });
 
 describe("albumView", () => {
@@ -50,11 +51,11 @@ describe("photoScope", () => {
   });
 
   it("is the approved photos and their own for a guest the album is open to", () => {
-    expect(photoScope("open", { kind: "guest", rsvpId: "r1", approval: "approved", status: "going" })).toEqual({ approved: true, own: "r1" });
+    expect(photoScope("open", { kind: "guest", rsvpId: "r1", approval: "approved", status: "going", name: "Priya Nair" })).toEqual({ approved: true, own: "r1" });
   });
 
   it("is their own alone for a guest shown only their own", () => {
-    expect(photoScope("own", { kind: "guest", rsvpId: "r1", approval: "approved", status: "maybe" })).toEqual({ own: "r1" });
+    expect(photoScope("own", { kind: "guest", rsvpId: "r1", approval: "approved", status: "maybe", name: "Priya Nair" })).toEqual({ own: "r1" });
   });
 });
 
