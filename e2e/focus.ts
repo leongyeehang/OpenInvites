@@ -4,7 +4,7 @@ import { expect, type Locator, type Page } from "@playwright/test";
 // of their own by keyboard (e2e/home-page.spec.ts). The control with the focus shows it: a ring
 // (an outline, or the host area's box-shadow ring) on it, or on the tile it sits in, that is not
 // there once the focus has gone.
-export async function expectVisibleFocus(page: Page) {
+export async function expectVisibleFocus(page: Page, context?: string) {
   const shown = await page.evaluate(() => {
     const focused = document.activeElement;
     if (!(focused instanceof HTMLElement) || focused === document.body) return "nothing has the focus";
@@ -27,14 +27,16 @@ export async function expectVisibleFocus(page: Page) {
     const ringed = focusedRing.some((withFocus, at) => withFocus !== unfocusedRing[at] && withFocus !== "none | none");
     return ringed ? "ringed" : `no ring on ${focused.outerHTML.slice(0, 160)}`;
   });
-  expect(shown).toBe("ringed");
+  expect(shown, context).toBe("ringed");
 }
 
 // Tab until `target` has the focus, checking every stop on the way shows it.
 export async function tabTo(page: Page, target: Locator) {
   for (let presses = 0; presses < 60; presses++) {
+    // Where the focus was, for the failure message: a stop that loses it is told by what it left.
+    const before = await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 160) ?? "nothing");
     await page.keyboard.press("Tab");
-    await expectVisibleFocus(page);
+    await expectVisibleFocus(page, `Tab ${presses + 1} towards ${target}, from ${before}`);
     if (await target.evaluate((element) => element === document.activeElement)) return;
   }
   throw new Error(`never reached ${target}`);

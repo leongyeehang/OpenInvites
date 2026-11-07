@@ -68,7 +68,7 @@ async function readPage(page: Page) {
   await page.evaluate(() => window.scrollTo(0, 0));
   const whole = await new AxeBuilder({ page }).analyze();
   for (const { id, impact, help, nodes } of whole.violations) {
-    if (id !== CONTRAST || !fixedBackdrop) violations.push({ id, impact, help, targets: nodes.map(({ target }) => target.join(" ")) });
+    if (id !== CONTRAST || !fixedBackdrop) violations.push({ id, impact, help, targets: nodes.map((node) => node.target.join(" ") + measuredAs(node, 0)) });
   }
   for (const { id, nodes } of whole.incomplete) {
     if (id !== CONTRAST || !fixedBackdrop) for (const { target } of nodes) note(id, target.join(" "));
@@ -88,15 +88,16 @@ async function readPage(page: Page) {
         ...read.incomplete.map((rule) => ({ rule, kind: "incomplete" as const })),
       ]
         .filter(({ rule }) => rule.id === CONTRAST)
-        .flatMap(({ rule, kind }) => rule.nodes.map(({ target }) => ({ rule, kind, target: target.join(" ") })));
+        .flatMap(({ rule, kind }) => rule.nodes.map((node) => ({ rule, kind, node, target: node.target.join(" ") })));
+      const scrolled = await page.evaluate(() => window.scrollY);
       const inSight = await page.evaluate((targets) => targets.map((target) => whollyInSight(document.querySelector(target))), verdicts.map(({ target }) => target));
-      verdicts.forEach(({ rule, kind, target }, at) => {
+      verdicts.forEach(({ rule, kind, node, target }, at) => {
         if (!inSight[at]) return;
         if (kind === "incomplete") return note(rule.id, target);
         measured.add(target);
         if (kind === "pass") return;
         const violation = contrast.get(rule.id) ?? { id: rule.id, impact: rule.impact, help: rule.help, targets: [] };
-        if (!violation.targets.includes(target)) violation.targets.push(target);
+        if (!violation.targets.some((each) => each === target || each.startsWith(`${target} [`))) violation.targets.push(target + measuredAs(node, scrolled));
         contrast.set(rule.id, violation);
       });
     };
@@ -187,4 +188,14 @@ async function settled(page: Page) {
         .map((animation) => animation.finished.catch(() => undefined)),
     ),
   );
+}
+
+// What axe measured for a piece of text it failed on contrast, so that a failure on a machine
+// that cannot be watched (CI) says why: the colours, the ratio, and how far the page was scrolled.
+function measuredAs(node: { any: { data?: unknown }[] }, scrolled: number) {
+  const data = node.any.find(({ data }) => data && typeof data === "object" && "contrastRatio" in data)?.data as
+    | { fgColor?: string; bgColor?: string; contrastRatio?: number; expectedContrastRatio?: string }
+    | undefined;
+  if (!data) return "";
+  return ` [${data.fgColor} on ${data.bgColor}, ${data.contrastRatio}:1 of ${data.expectedContrastRatio}, at y ${Math.round(scrolled)}]`;
 }

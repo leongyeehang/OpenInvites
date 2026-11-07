@@ -16,10 +16,9 @@ env:
 
 jobs:
   checks:
-    name: Lint, types, unit tests, browser tests
+    name: Lint, types, unit tests
     runs-on: ubuntu-latest
-    # The browser suite has 385 tests and takes about 26 minutes.
-    timeout-minutes: 45
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
 
@@ -43,6 +42,33 @@ jobs:
           docker compose --profile s3 up -d --wait
           pnpm test:s3
 
+      - name: Stop the S3 server
+        if: always()
+        run: docker compose --profile s3 down -v
+
+  browser:
+    name: Browser tests (${{ matrix.shard }} of 3)
+    runs-on: ubuntu-latest
+    # The browser suite has about 640 tests, over an hour in one job, so it runs in three, each
+    # on a test stack of its own. Playwright puts the operator's setup in every shard, and the
+    # specs that need an instance of their own (the fresh-instance chain) all in one.
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
@@ -50,7 +76,7 @@ jobs:
         run: docker compose --profile test up -d --build --wait
 
       - name: Browser tests at 390px and desktop widths
-        run: pnpm exec playwright test
+        run: pnpm exec playwright test --shard=${{ matrix.shard }}/3
 
       - name: App logs
         if: failure()
@@ -59,10 +85,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: playwright-report/
           retention-days: 7
 
       - name: Stop the test stack
         if: always()
-        run: docker compose --profile test --profile s3 down -v
+        run: docker compose --profile test down -v
