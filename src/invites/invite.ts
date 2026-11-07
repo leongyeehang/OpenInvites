@@ -57,6 +57,17 @@ export function parseLetter(typed: string): { ok: true; letter: string } | { ok:
   return { ok: true, letter };
 }
 
+// The letter the invitation shows, and whom it is for (M6 ticket 09): the invite's letter, while
+// the event has personal letters on and the letter is not blank. Its text is as the host saved it,
+// already trimmed, with its line breaks. Nothing otherwise: a letter kept while letters are off
+// stays with the host.
+export type Letter = { name: string; body: string };
+
+export function letterFor(event: { lettersEnabled: boolean }, invite: { name: string; letter: string } | undefined): Letter | undefined {
+  if (!event.lettersEnabled || !invite || !invite.letter.trim()) return undefined;
+  return { name: invite.name, body: invite.letter };
+}
+
 export type ParsedInviteLines = { ok: true; invites: InviteInput[] } | { ok: false; line: number; error: InviteError };
 
 // The host's pasted list, "Add several" (M6 spec, "The invite list"): one person per line, as

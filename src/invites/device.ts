@@ -35,6 +35,16 @@ export const inviteOnThisDevice = cache(async (eventId: string): Promise<{ invit
   return found && found.eventId === eventId ? { invite: found, pass: false } : undefined;
 });
 
+// The invite the device stands for, and whether it holds a pass for it: its pass's, or its invite
+// cookie's, or failing both the one the reply it holds is tied to (`mine`, M6 ticket 08). The gate
+// asks it who is in on an invite-only event (invites/gate.ts); the event page asks it whose letter
+// to show, on any event with personal letters on (M6 ticket 09).
+export async function deviceInvite(eventId: string, mine: MyRsvp | undefined): Promise<{ invite: Invite | undefined; pass: boolean }> {
+  const device = await inviteOnThisDevice(eventId);
+  const invite = device?.invite ?? (mine?.rsvp.inviteId ? await findInviteById(eventId, mine.rsvp.inviteId) : undefined);
+  return { invite, pass: device?.pass === true };
+}
+
 // The invite this device stands for, while nobody has replied through it: the guest in front of us
 // is then that invite's guest, and replies through it. An invite deleted since, or one already
 // answered, is none; the transaction that writes the RSVP asks again under its lock

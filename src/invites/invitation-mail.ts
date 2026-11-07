@@ -2,7 +2,7 @@ import type { Event } from "@/events/repository";
 import { formatWhen, isDated } from "@/events/time";
 import type { Translator } from "@/locale/messages";
 import type { GuestMailContent } from "@/mail/guest-mail";
-import { inviteUrl } from "./invite";
+import { inviteUrl, letterFor } from "./invite";
 
 // The invitation email (M6 spec, "The invitation email"), in the event's language, which the host
 // writes the letters in: who invited the guest to what, the host's letter to them when there is
@@ -16,7 +16,7 @@ export function invitationMail(
   hostName: string,
   t: Translator,
 ): GuestMailContent {
-  const letter = event.lettersEnabled ? invite.letter : "";
+  const letter = letterFor(event, invite)?.body ?? "";
   const values = {
     host: hostName,
     title: event.title,

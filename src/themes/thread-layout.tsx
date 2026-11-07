@@ -1,9 +1,10 @@
-import { ChevronDown, Clock, Images, ListOrdered, Lock, MapPin, Megaphone, MessageCircle, Users } from "lucide-react";
+import { ChevronDown, Clock, Images, ListOrdered, Lock, MailOpen, MapPin, Megaphone, MessageCircle, Users } from "lucide-react";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { Fragment, type ReactNode } from "react";
 import type { CommentsShown } from "@/comments/visibility";
 import type { EventWithHost } from "@/events/repository";
 import { formatMoment, formatWhen, type Dated } from "@/events/time";
+import type { Letter } from "@/invites/invite";
 import { cn } from "@/lib/utils";
 import { RichTextView } from "@/rich-text/rich-text-view";
 import type { Approval } from "@/rsvps/admission";
@@ -14,6 +15,7 @@ import { initialsOf } from "./poster-parts";
 import { ALBUM_HEADING } from "./sections/album-section";
 import { COMMENTS_HEADING, CommentsSection } from "./sections/comments-section";
 import type { ShownAnnouncement } from "./sections/announcements-section";
+import { LetterSection } from "./sections/letter-section";
 import { arriving, BubbleLabel, HOST_BUBBLE, HostBubble } from "./thread-bubble";
 import { ThreadCard } from "./thread-card";
 
@@ -24,11 +26,12 @@ export type ThreadGuests = { view: "open" | "locked"; guests: PublicGuest[]; cou
 
 // The Thread layout (spec, "Thread", from the prototype's layout-thread.tsx): the invitation as a
 // chat with the host, in one column at most 28rem wide at every width. A header names the hosts.
-// Then the host's bubbles, in order: the invitation as a card, the description, when, where, the
-// schedule, who's coming, each announcement, the comments; then `rsvp`, the conversation the guest
-// has with the host (the RSVP flow as Thread presents it) and the composer they answer in, which
-// stays at the foot of the screen. It renders inside a ThemedPage, which carries the theme and
-// paints the backdrop; the layout paints none of its own, so the effects show between the bubbles.
+// Then the host's bubbles, in order: the invitation as a card, the host's letter to the guest, the
+// description, when, where, the schedule, who's coming, each announcement, the comments; then
+// `rsvp`, the conversation the guest has with the host (the RSVP flow as Thread presents it) and the
+// composer they answer in, which stays at the foot of the screen. It renders inside a ThemedPage,
+// which carries the theme and paints the backdrop; the layout paints none of its own, so the
+// effects show between the bubbles.
 //
 // Every word sits on a surface legibility.ts solves: the header and the composer are glass, the
 // host's bubbles strong glass (thread-bubble.tsx), the line that says when the invitation was sent
@@ -42,6 +45,7 @@ export async function ThreadLayout({
   commentForm,
   album,
   schedule,
+  letter,
   notice,
   rsvp,
   guests,
@@ -63,6 +67,8 @@ export async function ThreadLayout({
   // The host's schedule (M6 ticket 02), following the guest's clock: a bubble of its own, as wide
   // as the album's.
   schedule?: ReactNode;
+  // The host's letter to the guest the page is open for (M6 ticket 09), right after the card.
+  letter?: Letter;
   notice?: ReactNode;
   // The conversation and the composer: the RSVP flow as the Thread presents it.
   rsvp?: ReactNode;
@@ -81,6 +87,14 @@ export async function ThreadLayout({
   const bubbles: ((className: string) => ReactNode)[] = [
     (className) => <ThreadCard title={event.title} invited={t("thread.invited")} when={formatWhen(event, locale)} className={className} />,
   ];
+  if (letter) {
+    bubbles.push((className) => (
+      <HostBubble data-slot="letter" className={className}>
+        <BubbleLabel icon={MailOpen}>{t("letter.for", { name: letter.name })}</BubbleLabel>
+        <LetterSection body={letter.body} />
+      </HostBubble>
+    ));
+  }
   if (event.descriptionRich.blocks.length > 0) {
     bubbles.push((className) => (
       <HostBubble data-slot="description" className={className}>

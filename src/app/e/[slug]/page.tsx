@@ -17,8 +17,9 @@ import { findEventBySlug, findRetiredSlug, recordView, type EventWithHost } from
 import { countsAsView } from "@/events/views";
 import { eventPath, eventUrl, isSlug } from "@/events/slug";
 import { formatDay, isDated, type EventTime } from "@/events/time";
-import { findInviteOnThisDevice } from "@/invites/device";
+import { deviceInvite, findInviteOnThisDevice } from "@/invites/device";
 import { gateFor } from "@/invites/gate";
+import { letterFor } from "@/invites/invite";
 import { isMailConfigured } from "@/mail/config";
 import { ClientMessages } from "@/locale/client-messages";
 import { answersStillOffered } from "@/questions/answers";
@@ -268,6 +269,13 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // starts from (invites/device.ts).
   const mine = await findRsvpOnThisDevice(event.id);
   const invite = mine ? undefined : await findInviteOnThisDevice(event.id);
+  // The host's letter to the guest this device stands for (M6 ticket 09), on any event with
+  // personal letters on, invite-only or not: the letter of the invite the device's pass, its invite
+  // cookie or the reply it holds is for (invites/device.ts). It is shown to whoever's device stands
+  // for an invite with a letter, a host too, so a host who opens a guest's personal link sees what
+  // that guest sees. Asked for only while letters are on, so an event without them pays nothing.
+  // Never in the page's metadata, its preview card or its calendar file: on this page alone.
+  const letter = event.lettersEnabled ? letterFor(event, (await deviceInvite(event.id, mine)).invite) : undefined;
   // Whether this guest may see the list decides whether it is even loaded: a reply the host has not
   // approved opens nothing (rsvps/visibility.ts).
   const view = guestListView(event.guestListVisibility, { rsvp: mine?.rsvp });
@@ -372,6 +380,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             commentForm={<CommentForm slug={event.slug} />}
             album={albumNode}
             schedule={scheduleNode}
+            letter={letter}
             notice={notice}
             rsvp={<ThreadComposer {...flow} closedAs={isDraft ? "draft" : event.state === "cancelled" ? "cancelled" : undefined} />}
             guests={guestList && { ...guestList, you: mine?.rsvp.id }}
@@ -392,6 +401,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             commentForm={<CommentForm slug={event.slug} />}
             album={albumNode}
             schedule={scheduleNode}
+            letter={letter}
             notice={notice}
             rsvp={<BroadsheetBallot {...flow} />}
             guests={guestList && { ...guestList, you: mine?.rsvp.id }}
@@ -416,6 +426,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
               commentForm={<CommentForm slug={event.slug} />}
               album={albumNode}
               schedule={scheduleNode}
+              letter={letter}
               notice={notice}
               rsvp={polling ? <PollBar /> : <RsvpFlow {...flow} />}
               poll={polling ? { label: (await getTranslations("EventPage"))("poll.toBeDecided"), when: <PollWhen candidates={candidates} /> } : undefined}

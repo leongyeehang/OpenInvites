@@ -1,3 +1,4 @@
+import { expectNoSeriousViolations } from "./axe";
 import { chooseLayout, createDraft, createPublished, type DraftFields, editSettings, openMore, publishInEditor } from "./events";
 import { latestMailTo, mailCountTo, MAILPIT, newHost, signUpVerified } from "./hosts";
 import { clientAddress, expect, expectNotFoundAsSent, test, type APIRequestContext, type Browser, type Page } from "./test";
@@ -20,6 +21,11 @@ import { openMyReply } from "./reply";
 // not yet sent; the stop link at its foot stops more and keeps the email. A Share button hands the
 // link to the device's share sheet. That an instance without mail offers no Send is in
 // registration-without-mail.spec.ts, whose project owns `app-no-mail`.
+//
+// Ticket 09 (M6): a personal letter on the invitation. With letters on, the guest whose invite has
+// a letter sees it on the event page, "For {name}", its lines as the host wrote them, in every
+// layout, whether or not the event is invite-only (invite-only.spec.ts opens it with a pass); a
+// guest without a letter, a stranger on the event link, and everyone once letters are off see none.
 
 const INVITE_LINK = /^https?:\/\/\S+\/i\/[A-Za-z0-9]{24}$/;
 
@@ -457,6 +463,79 @@ test("an invite made with a phone and a letter shows both on its row; letters tu
   await expect(host.page.getByRole("textbox", { name: "Letter Dev Patel" })).toHaveValue(LONGEST_LETTER, { timeout: 15_000 });
 
   await closeAll(host.page);
+});
+
+// Mei's letter: two paragraphs, in Chinese and English, the second over two lines.
+const MEI_LETTER = "親愛的 Mei，\n\n期待與你相見。\nWith love";
+
+// The letter panel on the event page, and that it reads "For {name}" over the letter as written,
+// each line break kept as the browser shows it.
+async function expectLetter(page: Page, name: string, letter: string) {
+  const panel = page.locator('[data-slot="letter"]');
+  await expect(panel.getByRole("heading", { name: `For ${name}`, exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(panel.getByRole("paragraph")).toHaveJSProperty("innerText", letter);
+}
+
+test("with letters on, the guest whose invite has a letter sees it, for her, in the Poster, the Broadsheet and the Thread; another guest, a stranger, and everyone once letters are off see none", async ({
+  page,
+  browser,
+  request,
+}) => {
+  test.slow();
+  const host = await createPublished(browser, request, "invites-letter-page", { ...SUPPER, description: "Bring a story." });
+  const editor = host.page.url();
+
+  // Letters on; Mei's invite has a letter, Dev's none.
+  await host.page.goto(`${editor}/invites`);
+  await host.page.getByRole("checkbox", { name: "Personal letters" }).click();
+  await expect(host.page.getByRole("textbox", { name: "Letter", exact: true })).toBeVisible({ timeout: 15_000 });
+  await host.page.getByRole("textbox", { name: "Letter", exact: true }).fill(MEI_LETTER);
+  const meiLink = await makeInvite(host.page, "Mei");
+  const devLink = await makeInvite(host.page, "Dev");
+
+  // The Poster: Mei's letter, in its own panel above the details.
+  const mei = await newGuest(browser);
+  await mei.goto(meiLink);
+  await expect(mei).toHaveURL(host.link);
+  await expectLetter(mei, "Mei", MEI_LETTER);
+  await expect(mei.locator('[data-slot="letter"] + [data-slot="details"]')).toBeVisible();
+  await expectNoSeriousViolations(mei, "the Poster with a letter");
+
+  // The Broadsheet: first in the paper, before the description.
+  await host.page.goto(editor);
+  await chooseLayout(host.page, host.link, "Broadsheet");
+  await mei.reload();
+  await expect(mei.locator('section[data-slot="letter"]:first-child + section[data-slot="description"]')).toBeVisible({ timeout: 15_000 });
+  await expectLetter(mei, "Mei", MEI_LETTER);
+  await expectNoSeriousViolations(mei, "the Broadsheet with a letter");
+
+  // The Thread: the bubble right after the invitation's card.
+  await chooseLayout(host.page, host.link, "Thread");
+  await mei.reload();
+  await expect(mei.locator('[data-slot="thread-card"] + [data-slot="letter"]')).toBeVisible({ timeout: 15_000 });
+  await expectLetter(mei, "Mei", MEI_LETTER);
+  await expectNoSeriousViolations(mei, "the Thread with a letter");
+
+  // Dev's invite has no letter, and a stranger on the event link has no invite: no panel for either.
+  const dev = await newGuest(browser);
+  await dev.goto(devLink);
+  await expect(dev.locator('[data-slot="thread-card"]')).toBeVisible();
+  await expect(dev.locator('[data-slot="letter"]')).toHaveCount(0);
+  await page.goto(host.link);
+  await expect(page.locator('[data-slot="thread-card"]')).toBeVisible();
+  await expect(page.locator('[data-slot="letter"]')).toHaveCount(0);
+  await expect(page.getByText("期待與你相見")).toHaveCount(0);
+
+  // Letters off: Mei's page shows none, though the host keeps it.
+  await host.page.goto(`${editor}/invites`);
+  await host.page.getByRole("checkbox", { name: "Personal letters" }).click();
+  await expect(host.page.getByRole("textbox", { name: /^Letter/ })).toHaveCount(0, { timeout: 15_000 });
+  await mei.reload();
+  await expect(mei.locator('[data-slot="thread-card"]')).toBeVisible();
+  await expect(mei.locator('[data-slot="letter"]')).toHaveCount(0);
+  await expect(mei.getByText("期待與你相見")).toHaveCount(0);
+
+  await closeAll(host.page, mei, dev);
 });
 
 test("pasting three lines makes three invites; a bad second line makes none and says which", async ({ browser, request }) => {

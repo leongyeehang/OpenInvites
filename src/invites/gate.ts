@@ -5,8 +5,8 @@ import type { EventState } from "@/events/repository";
 import { findRsvpOnThisDevice } from "@/rsvps/guest";
 import type { MyRsvp } from "@/rsvps/repository";
 import { admitted } from "./access";
-import { inviteOnThisDevice } from "./device";
-import { findInviteById, type Invite } from "./repository";
+import { deviceInvite } from "./device";
+import type { Invite } from "./repository";
 
 // Who is in front of an event, and what its page is to them (M6 spec, "Architecture"): whether they
 // host it, the RSVP this device holds, the invite it stands for, and so whether they see the
@@ -16,15 +16,15 @@ import { findInviteById, type Invite } from "./repository";
 export type Gate = { isHost: boolean; mine: MyRsvp | undefined; invite: Invite | undefined; page: EventPage };
 
 // The invite the device stands for is its pass's, or its invite cookie's, or failing both the one
-// its reply is tied to (invites/access.ts); it is asked for only where it decides anything, on an
-// invite-only event, of someone who does not host it. Cached per request by what decides it, so
-// the page, its metadata and an action redrawing it ask once.
+// its reply is tied to (deviceInvite), and who it admits is invites/access.ts's rule; it is asked
+// for only where it decides anything, on an invite-only event, of someone who does not host it.
+// Cached per request by what decides it, so the page, its metadata and an action redrawing it ask
+// once.
 const gate = cache(async (eventId: string, state: EventState, inviteOnly: boolean): Promise<Gate> => {
   const [isHost, mine] = await Promise.all([isHostOf(eventId), findRsvpOnThisDevice(eventId)]);
   if (!inviteOnly || isHost) return { isHost, mine, invite: undefined, page: eventPageFor({ state, inviteOnly }, { isHost, admitted: false }) };
-  const device = await inviteOnThisDevice(eventId);
-  const invite = device?.invite ?? (mine?.rsvp.inviteId ? await findInviteById(eventId, mine.rsvp.inviteId) : undefined);
-  const page = eventPageFor({ state, inviteOnly }, { isHost, admitted: admitted({ pass: device?.pass === true, invite }) });
+  const { invite, pass } = await deviceInvite(eventId, mine);
+  const page = eventPageFor({ state, inviteOnly }, { isHost, admitted: admitted({ pass, invite }) });
   return { isHost, mine, invite, page };
 });
 

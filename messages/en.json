@@ -903,6 +903,9 @@
       "deleteConfirm": "Delete it",
       "keep": "Keep it"
     },
+    "letter": {
+      "for": "For {name}"
+    },
     "schedule": {
       "title": "Schedule",
       "now": "Now",

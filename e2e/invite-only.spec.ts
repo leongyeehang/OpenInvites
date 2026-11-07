@@ -20,6 +20,9 @@ import { clientAddress, expect, test, type APIRequestContext, type Browser, type
 // cookie and their edit link, one with an email proves it once on each device and finds their
 // reply theirs. The Invites page says invite-only is on and which rows their link alone lets in.
 // Turning it off locks nobody out and deletes nothing.
+//
+// M6 ticket 09: on an invite-only event with personal letters on, an invitee let in by a pass sees
+// the host's letter to her.
 
 const INVITE_ONLY = "Invite-only: only people on the invite list can open the invitation";
 const SENT = "If that email is on the invite list, a code is on its way.";
@@ -205,6 +208,31 @@ test("an invitee proves their email on each device to open an invite-only event;
   // Nothing was ever sent to the address that is not on the list.
   expect(await mailCountTo(request, strangerEmail)).toBe(0);
   await Promise.all([host.context.close(), mei.context().close(), meiLaptop.context().close(), dev.context().close()]);
+});
+
+test("an invitee let in by her pass sees the host's letter to her", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "invite-only-letter", SECRET);
+  const meiEmail = newHost("invite-only-letter-mei").email;
+  const letter = "親愛的 Mei，\n\n期待與你相見。\nWith love";
+  await turnInviteOnlyOn(host.page);
+  await host.page.getByRole("checkbox", { name: "Personal letters" }).click();
+  await expect(host.page.getByRole("textbox", { name: "Letter", exact: true })).toBeVisible({ timeout: 15_000 });
+  await host.page.getByRole("textbox", { name: "Letter", exact: true }).fill(letter);
+  await makeInvite(host.page, "Mei", { email: meiEmail });
+
+  // Mei opens the event link, not her own, so only the pass her code earns says who she is.
+  const mei = await newGuest(browser);
+  await mei.goto(host.link);
+  await expectLocked(mei, host.name);
+  await expect(mei.locator('[data-slot="letter"]')).toHaveCount(0);
+  await askForCode(mei, meiEmail);
+  await enterCode(mei, await codeSentTo(request, meiEmail));
+  await expect(mei.getByRole("heading", { name: SECRET.title })).toBeVisible({ timeout: 15_000 });
+  const panel = mei.locator('[data-slot="letter"]');
+  await expect(panel.getByRole("heading", { name: "For Mei", exact: true })).toBeVisible();
+  await expect(panel.getByRole("paragraph")).toHaveJSProperty("innerText", letter);
+  await Promise.all([host.context.close(), mei.context().close()]);
 });
 
 test("a cancelled invite-only event shows its notice only to the invited", async ({ page, browser, request }) => {

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { CommentsShown } from "@/comments/visibility";
 import type { EventWithHost } from "@/events/repository";
 import { formatWhen, type Dated } from "@/events/time";
+import type { Letter } from "@/invites/invite";
 import { cn } from "@/lib/utils";
 import { RichTextView } from "@/rich-text/rich-text-view";
 import { BackgroundDescription } from "./background-description";
@@ -11,13 +12,14 @@ import { BroadsheetTitle } from "./broadsheet-title";
 import { AnnouncementsSection, type ShownAnnouncement } from "./sections/announcements-section";
 import { ALBUM_HEADING } from "./sections/album-section";
 import { COMMENTS_HEADING, CommentsSection } from "./sections/comments-section";
+import { LetterSection } from "./sections/letter-section";
 
 // The Broadsheet layout (spec, "Broadsheet", from the prototype's layout-broadsheet.tsx): an
 // editorial page at most 64rem wide. A masthead rule, one very large title (or the host's poster),
-// a facts grid, the description in columns, the host's schedule, the host's announcements, the
-// guest list typeset, and the comments, beside one ballot that stays in view on a wide screen. On a
-// phone the ballot comes straight after the facts. It renders inside a ThemedPage, which carries
-// the theme and paints the backdrop; the layout paints none of its own.
+// a facts grid, the host's letter to the guest, the description in columns, the host's schedule,
+// the host's announcements, the guest list typeset, and the comments, beside one ballot that stays
+// in view on a wide screen. On a phone the ballot comes straight after the facts. It renders inside
+// a ThemedPage, which carries the theme and paints the backdrop; the layout paints none of its own.
 //
 // Its text is set on the page rather than on glass, so it sits on the veil, the tint that keeps
 // bare text readable on the backdrop at its most extreme (legibility.ts, SURFACES.page), behind
@@ -33,6 +35,7 @@ export async function BroadsheetLayout({
   commentForm,
   album,
   schedule,
+  letter,
   notice,
   rsvp,
   guests,
@@ -54,6 +57,8 @@ export async function BroadsheetLayout({
   album?: ReactNode;
   // The host's schedule (M6 ticket 02), following the guest's clock.
   schedule?: ReactNode;
+  // The host's letter to the guest the page is open for (M6 ticket 09), first in the paper.
+  letter?: Letter;
   notice?: ReactNode;
   // The ballot: the RSVP flow as the Broadsheet presents it.
   rsvp?: ReactNode;
@@ -104,6 +109,12 @@ export async function BroadsheetLayout({
         {rsvp && <div className={cn("lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start", entrance, "motion-safe:delay-150")}>{rsvp}</div>}
 
         <div className={cn(PAPER, "flex flex-col gap-12 rounded-4xl lg:col-start-1 lg:rounded-t-none lg:pt-12", entrance, "motion-safe:delay-200")}>
+          {letter && (
+            <Section label={t("letter.for", { name: letter.name })} slot="letter">
+              <LetterSection body={letter.body} className="text-[17px] leading-relaxed" />
+            </Section>
+          )}
+
           {event.descriptionRich.blocks.length > 0 && (
             <Section label={t("broadsheet.details")} slot="description">
               <RichTextView doc={event.descriptionRich} className="text-[17px] leading-relaxed sm:columns-2 sm:gap-8 [&>*]:break-inside-avoid" />

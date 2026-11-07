@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SLUG_ALPHABET } from "@/events/slug";
-import { awaitsInvitation, canMailInvite, generateInviteToken, inviteFromRsvp, inviteState, MAX_INVITES, MAX_LETTER, parseInvite, parseInviteLines, parseLetter, roomForInvite, type InviteFields } from "./invite";
+import { awaitsInvitation, canMailInvite, generateInviteToken, inviteFromRsvp, inviteState, letterFor, MAX_INVITES, MAX_LETTER, parseInvite, parseInviteLines, parseLetter, roomForInvite, type InviteFields } from "./invite";
 
 // What the host's form posts, its fields left blank unless a test fills them.
 function posted(fields: Partial<InviteFields>): InviteFields {
@@ -87,6 +87,29 @@ describe("parseLetter", () => {
   it("is empty when blank", () => {
     expect(parseLetter("")).toEqual({ ok: true, letter: "" });
     expect(parseLetter(" \n\t ")).toEqual({ ok: true, letter: "" });
+  });
+});
+
+describe("letterFor", () => {
+  const on = { lettersEnabled: true };
+  const off = { lettersEnabled: false };
+  const mei = { name: "Mei Lin", letter: "親愛的 Mei，\n\n期待與你相見。\nWith love" };
+
+  it("is the invite's name and its letter as written, line breaks kept, while letters are on", () => {
+    expect(letterFor(on, mei)).toEqual({ name: "Mei Lin", body: "親愛的 Mei，\n\n期待與你相見。\nWith love" });
+  });
+
+  it("is nothing while letters are off, though the letter is kept", () => {
+    expect(letterFor(off, mei)).toBeUndefined();
+  });
+
+  it("is nothing for an invite with no letter, or a blank one", () => {
+    expect(letterFor(on, { name: "Dev Patel", letter: "" })).toBeUndefined();
+    expect(letterFor(on, { name: "Dev Patel", letter: " \n\t " })).toBeUndefined();
+  });
+
+  it("is nothing where the device stands for no invite", () => {
+    expect(letterFor(on, undefined)).toBeUndefined();
   });
 });
 

@@ -903,6 +903,9 @@
       "deleteConfirm": "刪除",
       "keep": "保留"
     },
+    "letter": {
+      "for": "致 {name}"
+    },
     "schedule": {
       "title": "日程",
       "now": "進行中",
