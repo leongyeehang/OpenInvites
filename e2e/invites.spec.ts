@@ -775,9 +775,10 @@ test("the host emails an invitation with its letter and link, again with the sam
   await expect(mei.getByText(`The email on file for this event is ${meiEmail}.`)).toBeVisible();
   await mei.getByRole("button", { name: "Stop emails about this event" }).click();
   await expect(mei.getByRole("status")).toHaveText("Done. You will get no more email about Ada’s supper club.", { timeout: 15_000 });
-  // The link still leads to its page, which now has nothing to stop.
+  // The link still leads to its page, which now says the mail is stopped, not that her email is gone.
   await mei.reload();
-  await expect(mei.getByText("No email is on file for this event.")).toBeVisible();
+  await expect(mei.getByText("Emails about this event are stopped.", { exact: true })).toBeVisible();
+  await expect(mei.getByText("No email is on file for this event.")).toHaveCount(0);
   await expect(mei.getByRole("button", { name: "Stop emails about this event" })).toHaveCount(0);
 
   // Her row keeps the email, says she stopped, and offers no Send; Dev's still does.
@@ -847,13 +848,13 @@ test("a stop is for the whole event: a reply's stop link ends the invitations, a
   await invitationTo(request, asha.email, 1);
 
   // Ravi stops mail with the link at the foot of the announcement, his reply's: his invitation's
-  // stop link has nothing left to stop, his invite's row says so and offers no Send, and there is
+  // stop link says the mail is stopped, his invite's row says so and offers no Send, and there is
   // nobody for "Send to everyone not yet sent".
   await ravi.goto(raviStop);
   await ravi.getByRole("button", { name: "Stop emails about this event" }).click();
   await expect(ravi.getByRole("status")).toHaveText("Done. You will get no more email about Ada’s supper club.", { timeout: 15_000 });
   await ravi.goto(raviInvitationStop);
-  await expect(ravi.getByText("No email is on file for this event.")).toBeVisible();
+  await expect(ravi.getByText("Emails about this event are stopped.", { exact: true })).toBeVisible();
   await expect(ravi.getByRole("button", { name: "Stop emails about this event" })).toHaveCount(0);
   await host.page.goto(`${manage}/invites`);
   const raviRow = inviteRow(host.page, "Ravi Kumar");

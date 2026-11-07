@@ -163,12 +163,12 @@ export async function listUnsentInvites(eventId: string): Promise<{ id: string }
     .where(and(eq(invite.eventId, eventId), isNotNull(invite.email), isNull(invite.sentAt), isNull(invite.mailStoppedAt), isNull(invite.rsvpId)));
 }
 
-// What the stop link at the foot of an invitation shows (app/m/[token]): the event's title and the
-// email the host gave, and nothing else of the invite. Once its guest has stopped mail, through
-// this link or through their reply's (invite.ts, mailStopped), there is nothing left to stop: the
-// page says so, as it does for a stopped reply, whose email is blanked, though the invite keeps its
-// email for the guest to prove.
-export async function findInviteByMailToken(mailToken: string): Promise<{ title: string; email: string | null } | undefined> {
+// What the stop link at the foot of an invitation shows (app/m/[token]): the event's title, the
+// email the host gave, and whether its guest has stopped mail, through this link or through their
+// reply's (invite.ts, mailStopped), and nothing else of the invite. A stopped invite keeps its
+// email, which is how its guest proves who they are, so the page says the mail is stopped rather
+// than that no email is on file.
+export async function findInviteByMailToken(mailToken: string): Promise<{ title: string; email: string | null; stopped: boolean } | undefined> {
   const [row] = await getDb()
     .select({ title: event.title, email: invite.email, mailStoppedAt: invite.mailStoppedAt, replyMailStoppedAt: rsvp.mailStoppedAt })
     .from(invite)
@@ -176,7 +176,7 @@ export async function findInviteByMailToken(mailToken: string): Promise<{ title:
     .leftJoin(rsvp, eq(rsvp.id, invite.rsvpId))
     .where(eq(invite.mailToken, mailToken))
     .limit(1);
-  return row && { title: row.title, email: mailStopped(row) ? null : row.email };
+  return row && { title: row.title, email: row.email, stopped: mailStopped(row) };
 }
 
 // The stop link's power over an invite: no more invitations are sent to it, from the first time it

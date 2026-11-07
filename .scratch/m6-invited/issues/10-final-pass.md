@@ -37,10 +37,12 @@ from the tree, `CI=1 … --workers=2`.
 4. `MyRsvp` is a union that keeps one token at least; `planRsvp` carries the held tokens
    generically; `editLinkOf` no longer throws. `pnpm typecheck`; `plan.test.ts`, `guest.test.ts`.
 5. Send on a deleted invite answers `Invites.errors.inviteGone` before the mail limit is spent
-   (`src/invites/actions.ts`); `invites.spec.ts` paste row, Send from a stale tab.
-6. A stopped invite's stop link (stopped through it or through the reply's link) shows "No email
-   is on file" (`findInviteByMailToken`, `mailStopped`); `invites.spec.ts` stop rows for Mei and
-   Ravi.
+   (`src/invites/actions.ts`); `invites.spec.ts` paste row, Send from a stale tab. Saving a letter
+   to a deleted invite answers the same (fix round 1).
+6. A stopped invite's stop link (stopped through it or through the reply's link) says "Emails
+   about this event are stopped." with no Stop button; the invite keeps its email
+   (`findInviteByMailToken` returns `stopped` from `mailStopped`; new `StopMail.stopped` in three
+   locales; fix round 1); `invites.spec.ts` stop rows for Mei and Ravi.
 7. `listInvites` orders by `created_at` desc then id asc, so a paste keeps its order;
    `invites.spec.ts` paste row checks the three names in order.
 8. "Add several" splits on `,` or `，`; `invite.test.ts` full-width row. Hint left as is.

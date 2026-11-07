@@ -264,13 +264,12 @@ describe("inviteFromRsvp", () => {
 
 describe("invitesNewReply", () => {
   it("is a new reply on an invite-only event through no invite, written as the event turned invite-only or by its host", () => {
-    expect(invitesNewReply({ inviteOnly: true }, { isNew: true, throughInvite: false })).toBe(true);
+    expect(invitesNewReply({ inviteOnly: true }, { throughInvite: false })).toBe(true);
   });
 
-  it("is no other reply: one through an invite, a change to one already written, or any on an open event", () => {
-    expect(invitesNewReply({ inviteOnly: true }, { isNew: true, throughInvite: true })).toBe(false);
-    expect(invitesNewReply({ inviteOnly: true }, { isNew: false, throughInvite: false })).toBe(false);
-    expect(invitesNewReply({ inviteOnly: false }, { isNew: true, throughInvite: false })).toBe(false);
+  it("is no other new reply: one through an invite, or any on an open event", () => {
+    expect(invitesNewReply({ inviteOnly: true }, { throughInvite: true })).toBe(false);
+    expect(invitesNewReply({ inviteOnly: false }, { throughInvite: false })).toBe(false);
   });
 });
 

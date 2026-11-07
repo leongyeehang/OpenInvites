@@ -1520,6 +1520,7 @@
     "title": "Emails about this event",
     "onFile": "The email on file for this event is {email}.",
     "noEmail": "No email is on file for this event.",
+    "stopped": "Emails about this event are stopped.",
     "stop": "Stop emails about this event",
     "done": "Done. You will get no more email about {title}."
   },

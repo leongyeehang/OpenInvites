@@ -138,14 +138,14 @@ export function inviteFromRsvp(
   return { name: reply.name, email: reply.email, phone: reply.phone, letter: "", rsvpId: reply.id, openedAt: now };
 }
 
-// Whether the reply being written needs an invite made for it, as it is written under the event's
-// lock (rsvps/repository.ts, saveRsvp): a new reply through no invite on an invite-only event. The
+// Whether a new reply being written needs an invite made for it, as it is written under the event's
+// lock (rsvps/repository.ts, saveRsvp): one through no invite on an invite-only event. The
 // action lets in only a device that is in (invites/gate.ts), so such a reply is one whose guest
 // passed the gate just before the host turned invite-only on, or the host's own; either is
 // invited as a guest who replied before the switch is (inviteFromRsvp), so nobody who replied is
 // locked out.
-export function invitesNewReply(event: { inviteOnly: boolean }, reply: { isNew: boolean; throughInvite: boolean }): boolean {
-  return event.inviteOnly && reply.isNew && !reply.throughInvite;
+export function invitesNewReply(event: { inviteOnly: boolean }, reply: { throughInvite: boolean }): boolean {
+  return event.inviteOnly && !reply.throughInvite;
 }
 
 // The link's secret, of the mail token's shape (rsvps/token.ts): 24 characters of the event link's

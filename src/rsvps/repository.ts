@@ -59,7 +59,15 @@ export const findRsvpById = cache(async (eventId: string, id: string): Promise<R
 // (guest.ts, guestRsvp). A device that holds the reply only through its invite holds no edit token
 // for a reply made before the invite was (invites/device.ts, M6 ticket 08); it always has the
 // invite's token then, so a device holds one of the two at least, as the type says.
-export type MyRsvp = { rsvp: Rsvp } & ({ token: string; inviteToken: string | null } | { token: null; inviteToken: string });
+export type MyRsvp = { rsvp: Rsvp } & HeldBy;
+
+// How a device holds its reply: its edit token, its invite's token, or both, never neither.
+export type HeldBy = { token: string; inviteToken: string | null } | { token: null; inviteToken: string };
+
+// The tokens alone, without the reply as it was read: what a change to the reply keeps (saveRsvp).
+function heldBy(mine: MyRsvp): HeldBy {
+  return mine.token === null ? { token: null, inviteToken: mine.inviteToken } : { token: mine.token, inviteToken: mine.inviteToken };
+}
 
 // Every write of an RSVP goes through one transaction (spec, "Architecture"): it locks the event's
 // row first, FOR NO KEY UPDATE, then the reply's own row, the order removeEvents takes; it decides
@@ -228,7 +236,7 @@ export async function saveRsvp(
       promotedAt: promotedSince(admitted.status, current),
     };
 
-    const plan = planRsvp(eventId, input, current && mine && { id: current.id, email: current.email, held: mine }, now, proven);
+    const plan = planRsvp(eventId, input, current && mine && { id: current.id, email: current.email, held: heldBy(mine) }, now, proven);
     let written: MyRsvp;
     if (plan.replaces) {
       const mailToken = input.email ? sql`coalesce(${rsvp.mailToken}, ${generateMailToken()})` : undefined;
@@ -253,7 +261,7 @@ export async function saveRsvp(
         })
         .returning();
       if (invited) await tx.update(invite).set({ rsvpId: created.id }).where(eq(invite.id, invited.id));
-      if (invitesNewReply(locked, { isNew: true, throughInvite: invited !== undefined })) {
+      if (invitesNewReply(locked, { throughInvite: invited !== undefined })) {
         const [made] = await tx
           .insert(invite)
           .values({ eventId, ...inviteFromRsvp(created, now), token: generateInviteToken() })
@@ -532,9 +540,10 @@ export async function listMailableRsvps(eventId: string, db: Db = getDb()): Prom
     .orderBy(asc(rsvp.repliedAt));
 }
 
-// What the stop link's page shows (app/m/[token]): the event's title and the email on file, and
-// nothing else of the RSVP, which a mail token never reveals or edits.
-export async function findByMailToken(mailToken: string): Promise<{ title: string; email: string | null } | undefined> {
+// What the stop link's page shows (app/m/[token]): the event's title, the email on file, and
+// whether mail is stopped, and nothing else of the RSVP, which a mail token never reveals or edits.
+// A reply's or a voter's stop blanks the email, so theirs is never `stopped`: the blank says it.
+export async function findByMailToken(mailToken: string): Promise<{ title: string; email: string | null; stopped: boolean } | undefined> {
   const [row] = await getDb()
     .select({ title: event.title, email: rsvp.email })
     .from(rsvp)
@@ -543,7 +552,8 @@ export async function findByMailToken(mailToken: string): Promise<{ title: strin
     .limit(1);
   // A date poll's voter gets guest mail too (M4 ticket 09), with a stop link of their own, and so
   // does an invite, at the foot of its invitation (M6 spec, "The invitation email").
-  return row ?? (await findVoterByMailToken(mailToken)) ?? findInviteByMailToken(mailToken);
+  const found = row ?? (await findVoterByMailToken(mailToken));
+  return found ? { ...found, stopped: false } : findInviteByMailToken(mailToken);
 }
 
 // The stop link's one power: blanking the email, so no more mail about the event reaches the

@@ -77,7 +77,7 @@ export async function saveLetterAction(eventId: string, id: string, _: FormState
 
   const parsed = parseLetter(posted(formData, "letter"));
   if (!parsed.ok) return { error: t(`errors.${parsed.error}`) };
-  if (!(await updateInviteLetter(event.id, id, parsed.letter))) return { error: t("errors.notFound") };
+  if (!(await updateInviteLetter(event.id, id, parsed.letter))) return { error: t("errors.inviteGone") };
   revalidateInvites(event.id);
   return { success: t("letterSaved") };
 }
