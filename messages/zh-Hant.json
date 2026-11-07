@@ -166,14 +166,14 @@
       "cant": "<n>{count}</n> 人無法參加",
       "toApprove": "<n>{count}</n> 人待核准",
       "places": "{count} / {capacity, plural, other {# 個名額}}",
-      "went": "{count} 人參加了",
+      "went": "{count} 人出席",
       "datePoll": "日期投票進行中",
       "guests": "賓客",
       "edit": "編輯",
       "share": "分享",
       "cancelled": "已取消",
       "draft": "草稿",
-      "firstTitle": "做你的第一張邀請函",
+      "firstTitle": "製作你的第一張邀請函",
       "firstText": "選一張海報，定個日期，再分享一個連結。賓客不需要帳號就能回覆。",
       "firstButton": "開始製作邀請函"
     }
