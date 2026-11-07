@@ -24,6 +24,9 @@ import { ThreadCard } from "./thread-card";
 // `approval` is whether the host has approved the viewer's own reply, which says why it is locked.
 export type ThreadGuests = { view: "open" | "locked"; guests: PublicGuest[]; counts: RsvpCounts; you?: string; approval?: Approval };
 
+// The id of the schedule bubble's heading, which names the bubble.
+const SCHEDULE_HEADING = "schedule-heading";
+
 // The Thread layout (spec, "Thread", from the prototype's layout-thread.tsx): the invitation as a
 // chat with the host, in one column at most 28rem wide at every width. A header names the hosts.
 // Then the host's bubbles, in order: the invitation as a card, the host's letter to the guest, the
@@ -120,8 +123,12 @@ export async function ThreadLayout({
   }
   if (schedule) {
     bubbles.push((className) => (
-      <section data-slot="schedule" className={cn(HOST_BUBBLE, "w-[85%]", className)}>
-        <BubbleLabel icon={ListOrdered}>{t("schedule.title")}</BubbleLabel>
+      // Lighter glass than a host bubble's, as the album's, so the item that is now, in strong
+      // glass and the accent's ring, stands out from the rest.
+      <section data-slot="schedule" aria-labelledby={SCHEDULE_HEADING} className={cn(HOST_BUBBLE, "w-[85%] bg-theme-glass", className)}>
+        <BubbleLabel icon={ListOrdered} id={SCHEDULE_HEADING}>
+          {t("schedule.title")}
+        </BubbleLabel>
         {schedule}
       </section>
     ));

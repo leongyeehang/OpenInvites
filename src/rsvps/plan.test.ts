@@ -16,15 +16,15 @@ describe("planRsvp", () => {
 
   it("replaces the RSVP the guest already owns, keeping its edit token and the time they first replied", () => {
     const changed: RsvpInput = { ...input, status: "cant", plusOnes: 0, plusOneNames: [] };
-    const mine = { id: "rsvp-1", token: "the-token-they-were-given", email: null };
+    const mine = { id: "rsvp-1", held: { token: "the-token-they-were-given", inviteToken: null }, email: null };
     expect(planRsvp("event-1", changed, mine, later)).toStrictEqual({
-      replaces: { id: "rsvp-1", token: "the-token-they-were-given" },
+      replaces: { id: "rsvp-1", held: { token: "the-token-they-were-given", inviteToken: null } },
       changes: { ...changed, updatedAt: later },
     });
   });
 
   it("takes back a stop on email once the guest gives an email again themselves", () => {
-    const mine = { id: "rsvp-1", token: "the-token-they-were-given", email: null };
+    const mine = { id: "rsvp-1", held: { token: "the-token-they-were-given", inviteToken: null }, email: null };
     const plan = planRsvp("event-1", { ...input, email: "priya@example.com" }, mine, later);
     expect(plan.replaces && plan.changes).toMatchObject({ email: "priya@example.com", mailStoppedAt: null });
     // A blank email, or one the host does not ask for, leaves the stop where it is.
@@ -38,13 +38,13 @@ describe("planRsvp", () => {
     const withEmail: RsvpInput = { ...input, email: "priya@example.com" };
     const fresh = planRsvp("event-1", withEmail, undefined, replied, true);
     expect(fresh.replaces === null && fresh.rsvp).toMatchObject({ email: "priya@example.com", emailVerifiedAt: replied });
-    const mine = { id: "rsvp-1", token: "the-token-they-were-given", email: "priya@example.org" };
+    const mine = { id: "rsvp-1", held: { token: "the-token-they-were-given", inviteToken: null }, email: "priya@example.org" };
     const changed = planRsvp("event-1", withEmail, mine, later, true);
     expect(changed.replaces && changed.changes).toMatchObject({ email: "priya@example.com", emailVerifiedAt: later });
   });
 
   it("keeps the mark while the email stays the same, and drops it with an email changed or blanked without a code", () => {
-    const mine = { id: "rsvp-1", token: "the-token-they-were-given", email: "priya@example.com" };
+    const mine = { id: "rsvp-1", held: { token: "the-token-they-were-given", inviteToken: null }, email: "priya@example.com" };
     const kept = planRsvp("event-1", { ...input, status: "maybe", email: "priya@example.com" }, mine, later);
     expect(kept.replaces && kept.changes).not.toHaveProperty("emailVerifiedAt");
     // A form that asks for no email leaves the stored one, and its mark, alone.

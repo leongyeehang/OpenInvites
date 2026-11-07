@@ -19,6 +19,7 @@ import { promotionMail } from "./promotion-mail";
 import { generateEditToken, generateMailToken, hashEditToken } from "./token";
 import { codeVerdict, MAX_ATTEMPTS, RESEND_SECONDS, type CodeVerdict } from "./verification";
 import { promotable } from "./waitlist";
+import { generateInviteToken, inviteFromRsvp, invitesNewReply } from "@/invites/invite";
 import { findInviteByMailToken, stopInviteMail } from "@/invites/repository";
 import { blankVoterEmail, findVoterByMailToken } from "@/polls/repository";
 
@@ -57,8 +58,8 @@ export const findRsvpById = cache(async (eventId: string, id: string): Promise<R
 // of the personal invite it is tied to, if it is, whose link is then the guest's edit link
 // (guest.ts, guestRsvp). A device that holds the reply only through its invite holds no edit token
 // for a reply made before the invite was (invites/device.ts, M6 ticket 08); it always has the
-// invite's token then.
-export type MyRsvp = { rsvp: Rsvp; token: string | null; inviteToken: string | null };
+// invite's token then, so a device holds one of the two at least, as the type says.
+export type MyRsvp = { rsvp: Rsvp } & ({ token: string; inviteToken: string | null } | { token: null; inviteToken: string });
 
 // Every write of an RSVP goes through one transaction (spec, "Architecture"): it locks the event's
 // row first, FOR NO KEY UPDATE, then the reply's own row, the order removeEvents takes; it decides
@@ -186,6 +187,13 @@ export type SaveOutcome =
 // setting, as the host issued it, and the capacity applies to it as to any reply (admission.ts). An
 // invite deleted or answered from another device since the guest's device found it is refused as
 // closed: the reply would be tied to nothing, or a second one to the same invite.
+//
+// A new reply through no invite on an event that is invite-only by the time it takes the lock
+// (invites/invite.ts, invitesNewReply) is invited as it is written, as the switch invites a reply
+// written before it (invites/repository.ts, inviteRepliedGuests): an invite made from it with a
+// fresh token, tied to it both ways, while it keeps its own edit token. Its guest passed the gate
+// just before the host turned invite-only on, or is the host, so the reply is not refused; without
+// the invite, its guest would be locked out of the reply they had just made.
 export async function saveRsvp(
   eventId: string,
   input: RsvpInput & { locale: Locale },
@@ -220,7 +228,7 @@ export async function saveRsvp(
       promotedAt: promotedSince(admitted.status, current),
     };
 
-    const plan = planRsvp(eventId, input, current && mine && { id: current.id, token: mine.token, email: current.email }, now, proven);
+    const plan = planRsvp(eventId, input, current && mine && { id: current.id, email: current.email, held: mine }, now, proven);
     let written: MyRsvp;
     if (plan.replaces) {
       const mailToken = input.email ? sql`coalesce(${rsvp.mailToken}, ${generateMailToken()})` : undefined;
@@ -229,7 +237,7 @@ export async function saveRsvp(
         .set({ ...plan.changes, ...placed, locale: input.locale, mailToken })
         .where(eq(rsvp.id, plan.replaces.id))
         .returning();
-      written = { rsvp: replaced, token: plan.replaces.token, inviteToken: mine?.inviteToken ?? null };
+      written = { ...plan.replaces.held, rsvp: replaced };
     } else {
       const token = invited?.token ?? generateEditToken();
       const [created] = await tx
@@ -245,7 +253,16 @@ export async function saveRsvp(
         })
         .returning();
       if (invited) await tx.update(invite).set({ rsvpId: created.id }).where(eq(invite.id, invited.id));
-      written = { rsvp: created, token, inviteToken: invited?.token ?? null };
+      if (invitesNewReply(locked, { isNew: true, throughInvite: invited !== undefined })) {
+        const [made] = await tx
+          .insert(invite)
+          .values({ eventId, ...inviteFromRsvp(created, now), token: generateInviteToken() })
+          .returning({ id: invite.id, token: invite.token });
+        const [tied] = await tx.update(rsvp).set({ inviteId: made.id }).where(eq(rsvp.id, created.id)).returning();
+        written = { rsvp: tied, token, inviteToken: made.token };
+      } else {
+        written = { rsvp: created, token, inviteToken: invited?.token ?? null };
+      }
     }
 
     const { promoted, mailed } = await promoteWaitlist(locked, tx, now);

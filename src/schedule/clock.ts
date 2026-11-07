@@ -69,3 +69,11 @@ export function liveWindow(instants: ScheduleInstant[], event: EventTime): LiveW
 export function shouldRefresh({ refresh, now, window, visible }: { refresh: ScheduleRefresh; now: Date; window: LiveWindow; visible: boolean }): boolean {
   return refresh === "minute" && visible && now >= window.from && now < window.to;
 }
+
+// Whether a page that re-reads itself every minute is due to, by how long ago it last did: on the
+// minute's tick, unless it did under half a minute ago, as on coming back to its tab just before;
+// on coming back to the tab, once a minute has passed. So a return and the next tick never both
+// re-read it within moments.
+export function refreshDue(by: "tick" | "return", sinceLast: number): boolean {
+  return sinceLast >= (by === "tick" ? 30_000 : 60_000);
+}

@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { PASS_DAYS, passCookieName, passExpiresAt, readPass, signPass } from "./pass";
 
@@ -19,6 +20,13 @@ describe("a pass", () => {
 
   it("is the invite's id, its expiry and a signature", () => {
     expect(pass).toMatch(new RegExp(`^${INVITE}\\.${YEAR_ON.getTime()}\\.[0-9a-f]{64}$`));
+  });
+
+  it("is signed for its purpose, so a signature over the same parts made for anything else is no pass", () => {
+    const expires = YEAR_ON.getTime();
+    const mac = (signed: string) => createHmac("sha256", SECRET).update(signed).digest("hex");
+    expect(pass).toBe(`${INVITE}.${expires}.${mac(`pass:${EVENT}:${INVITE}:${expires}`)}`);
+    expect(readPass(`${INVITE}.${expires}.${mac(`${EVENT}:${INVITE}:${expires}`)}`, EVENT, SECRET, NOW)).toBeUndefined();
   });
 
   it("reads back as its invite until it expires", () => {

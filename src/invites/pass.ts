@@ -21,8 +21,10 @@ export function passCookieName(eventId: string): string {
   return `pass_${eventId}`;
 }
 
+// Signed for its purpose: other features key their signatures from AUTH_SECRET too, so what is
+// signed starts with what it is for, and no signature made for anything else passes for a pass.
 function signature(eventId: string, inviteId: string, expires: number, secret: string): string {
-  return createHmac("sha256", secret).update(`${eventId}:${inviteId}:${expires}`).digest("hex");
+  return createHmac("sha256", secret).update(`pass:${eventId}:${inviteId}:${expires}`).digest("hex");
 }
 
 // `inviteId.expiresMs.hmac`.

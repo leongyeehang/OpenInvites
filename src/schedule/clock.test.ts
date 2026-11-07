@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EventTime } from "@/events/time";
-import { liveWindow, scheduleDays, scheduleFinish, scheduleInstants, scheduleStates, shouldRefresh } from "./clock";
+import { liveWindow, scheduleDays, scheduleFinish, scheduleInstants, scheduleStates, refreshDue, shouldRefresh } from "./clock";
 
 // A wedding evening in Singapore (UTC+8): 18:00 to 23:00 on 8 May 2027, which is 10:00 to 15:00 UTC.
 const ZONE = "Asia/Singapore";
@@ -140,5 +140,21 @@ describe("shouldRefresh", () => {
     expect(shouldRefresh({ refresh: "minute", now: during, window, visible: false })).toBe(false);
     expect(shouldRefresh({ refresh: "minute", now: before, window, visible: true })).toBe(false);
     expect(shouldRefresh({ refresh: "minute", now: after, window, visible: true })).toBe(false);
+  });
+});
+
+describe("refreshDue", () => {
+  const SECOND = 1000;
+
+  it("lets the minute's tick re-read the page unless it did so under half a minute ago", () => {
+    expect(refreshDue("tick", 60 * SECOND)).toBe(true);
+    expect(refreshDue("tick", 30 * SECOND)).toBe(true);
+    expect(refreshDue("tick", 29 * SECOND)).toBe(false);
+    expect(refreshDue("tick", 5 * SECOND)).toBe(false);
+  });
+
+  it("lets a return to the tab re-read the page once a minute has passed since it last did", () => {
+    expect(refreshDue("return", 60 * SECOND)).toBe(true);
+    expect(refreshDue("return", 59 * SECOND)).toBe(false);
   });
 });

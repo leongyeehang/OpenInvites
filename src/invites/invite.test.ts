@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SLUG_ALPHABET } from "@/events/slug";
-import { awaitsInvitation, canMailInvite, generateInviteToken, inviteFromRsvp, inviteState, letterFor, MAX_INVITES, MAX_LETTER, parseInvite, parseInviteLines, parseLetter, roomForInvite, type InviteFields } from "./invite";
+import { awaitsInvitation, canMailInvite, generateInviteToken, inviteFromRsvp, inviteState, invitesNewReply, letterFor, MAX_INVITES, MAX_LETTER, parseInvite, parseInviteLines, parseLetter, roomForInvite, type InviteFields } from "./invite";
 
 // What the host's form posts, its fields left blank unless a test fills them.
 function posted(fields: Partial<InviteFields>): InviteFields {
@@ -138,6 +138,17 @@ describe("parseInviteLines", () => {
     });
   });
 
+  it("reads the full-width comma a Chinese keyboard types as a comma", () => {
+    expect(parseInviteLines("王小明，wang@example.test，+65 9123 4567\n李华, li@example.test，8123 4567\n陈美，，8123 4567")).toEqual({
+      ok: true,
+      invites: [
+        invited({ name: "王小明", email: "wang@example.test", phone: "+65 9123 4567" }),
+        invited({ name: "李华", email: "li@example.test", phone: "8123 4567" }),
+        invited({ name: "陈美", phone: "8123 4567" }),
+      ],
+    });
+  });
+
   it("skips blank lines, and reads the lines a browser posts", () => {
     expect(parseInviteLines("\r\nMei Lin, mei@example.test\r\n   \r\nDev Patel\r\n")).toEqual({
       ok: true,
@@ -248,6 +259,18 @@ describe("inviteFromRsvp", () => {
 
   it("is never one the host could send an invitation to as not yet sent", () => {
     expect(awaitsInvitation({ ...inviteFromRsvp(reply, now), mailStoppedAt: null, replyMailStoppedAt: null, sentAt: null })).toBe(false);
+  });
+});
+
+describe("invitesNewReply", () => {
+  it("is a new reply on an invite-only event through no invite, written as the event turned invite-only or by its host", () => {
+    expect(invitesNewReply({ inviteOnly: true }, { isNew: true, throughInvite: false })).toBe(true);
+  });
+
+  it("is no other reply: one through an invite, a change to one already written, or any on an open event", () => {
+    expect(invitesNewReply({ inviteOnly: true }, { isNew: true, throughInvite: true })).toBe(false);
+    expect(invitesNewReply({ inviteOnly: true }, { isNew: false, throughInvite: false })).toBe(false);
+    expect(invitesNewReply({ inviteOnly: false }, { isNew: true, throughInvite: false })).toBe(false);
   });
 });
 

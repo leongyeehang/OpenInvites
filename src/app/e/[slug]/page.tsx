@@ -153,13 +153,15 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
   return { view: "open", photos, maxMegabytes };
 }
 
-// The schedule (M6 ticket 02), or nothing when the host has listed none or the event has no date
-// to follow. A client component is sent all it is handed, so only plain fields: the items, each
-// with its time written in the event's zone, the day headings, how guests' pages keep fresh, the
-// event's time alone, and the time the page is drawn at, which the browser's first drawing must
-// agree with. The times and days are written here, once, so the browser shows the server's words.
+// The schedule (M6 ticket 02), or nothing when the host has listed none, the event has no date
+// to follow, or it is cancelled: the notice that it is off takes the day's plan's place, and a
+// cancelled day is not worth re-reading every minute. A client component is sent all it is
+// handed, so only plain fields: the items, each with its time written in the event's zone, the day
+// headings, how guests' pages keep fresh, the event's time alone, and the time the page is drawn
+// at, which the browser's first drawing must agree with. The times and days are written here,
+// once, so the browser shows the server's words.
 async function scheduleFor(event: EventWithHost, now: Date, locale: string): Promise<ScheduleShown | undefined> {
-  if (!isDated(event)) return undefined;
+  if (!isDated(event) || event.state === "cancelled") return undefined;
   const items = await listSchedule(event.id);
   if (items.length === 0) return undefined;
   const { startsAt, endsAt, allDay, timeZone } = event;
@@ -273,9 +275,11 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // personal letters on, invite-only or not: the letter of the invite the device's pass, its invite
   // cookie or the reply it holds is for (invites/device.ts). It is shown to whoever's device stands
   // for an invite with a letter, a host too, so a host who opens a guest's personal link sees what
-  // that guest sees. Asked for only while letters are on, so an event without them pays nothing.
-  // Never in the page's metadata, its preview card or its calendar file: on this page alone.
-  const letter = event.lettersEnabled ? letterFor(event, (await deviceInvite(event.id, mine)).invite) : undefined;
+  // that guest sees. Asked for only while letters are on, so an event without them pays nothing,
+  // and only when the gate has not already found the invite, as it does on an invite-only event
+  // for anyone who does not host it. Never in the page's metadata, its preview card or its
+  // calendar file: on this page alone.
+  const letter = event.lettersEnabled ? letterFor(event, standsFor ?? (await deviceInvite(event.id, mine)).invite) : undefined;
   // Whether this guest may see the list decides whether it is even loaded: a reply the host has not
   // approved opens nothing (rsvps/visibility.ts).
   const view = guestListView(event.guestListVisibility, { rsvp: mine?.rsvp });

@@ -31,10 +31,10 @@ export function GuestBubble({ className, ...props }: ComponentProps<"div">) {
 export const BUBBLE_CHIP =
   "inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-current/30 px-3.5 text-sm font-medium hover:border-current/60";
 
-// A host bubble's small heading: When, Where, Who's coming.
-export function BubbleLabel({ icon: Icon, children }: { icon?: ComponentType<{ className?: string }>; children: ReactNode }) {
+// A host bubble's small heading: When, Where, Who's coming. `id` lets the bubble be named by it.
+export function BubbleLabel({ icon: Icon, id, children }: { icon?: ComponentType<{ className?: string }>; id?: string; children: ReactNode }) {
   return (
-    <h2 className="mb-1.5 flex items-center gap-1.5 text-xs font-medium tracking-label text-theme-text-faint uppercase">
+    <h2 id={id} className="mb-1.5 flex items-center gap-1.5 text-xs font-medium tracking-label text-theme-text-faint uppercase">
       {Icon && <Icon className="size-3.5" aria-hidden />}
       {children}
     </h2>

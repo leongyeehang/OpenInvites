@@ -14,7 +14,8 @@ export async function generateMetadata(): Promise<Metadata> {
 // of whoever opens it: the event, the email on file, and one button that blanks it. Opening it
 // changes nothing, as mail clients open links before anyone reads them; only the button does, and
 // it posts. A token no RSVP has is answered with the not-found page (src/proxy.ts). One whose email
-// is already blank says there is nothing to stop.
+// is already blank, or an invite whose guest has stopped mail (invites/repository.ts,
+// findInviteByMailToken), says there is nothing to stop.
 export default async function StopMailPage({ params }: PageProps<"/m/[token]">) {
   const { token } = await params;
   const [found, t] = await Promise.all([findByMailToken(token), getTranslations("StopMail")]);

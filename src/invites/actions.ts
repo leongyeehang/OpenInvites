@@ -13,7 +13,7 @@ import { queueGuestMail } from "@/mail/queue-guest-mail";
 import { consume } from "@/rate-limit/rate-limit";
 import { invitationMail } from "./invitation-mail";
 import { MAX_INVITES, parseInvite, parseInviteLines, parseLetter } from "./invite";
-import { createInvite, createInvites, deleteInvite, listUnsentInvites, markInvitesSent, updateInviteLetter, type SentInvite } from "./repository";
+import { createInvite, createInvites, deleteInvite, findInviteById, listUnsentInvites, markInvitesSent, updateInviteLetter, type SentInvite } from "./repository";
 
 // A host's personal invites are part of who is coming, so whoever may manage the guest list may
 // make and delete them (hosts/role.ts). Both pages that show them are drawn again: the invites
@@ -107,13 +107,15 @@ async function mailInvitations(event: HostEvent, host: Host, sent: SentInvite[])
 // The invitation emailed to one guest, from the Send on their row, or again from Send again
 // (M6 spec, "The invitation email"): only when the site has mail, while the event is published
 // (a draft's link does not open yet), and to an invite with an email whose guest has not stopped
-// mail. It counts once against the mail limit, before anything is written.
+// mail. An invite deleted meanwhile, from another tab, is said to be gone, and costs nothing;
+// otherwise the send counts once against the mail limit, before anything is written.
 export async function sendInviteAction(eventId: string, id: string): Promise<FormState> {
   const [host, t] = await Promise.all([requireHost(), getTranslations("Invites")]);
   const event = await findHostEvent(host.id, eventId);
   if (!event || !can(event.role, "guests") || !isUuid(id)) return { error: t("errors.notFound") };
   if (!isMailConfigured()) return { error: t("errors.noMail") };
   if (event.state !== "published") return { error: t("sendWhenPublished") };
+  if (!(await findInviteById(event.id, id))) return { error: t("errors.inviteGone") };
 
   if (!(await consume("mail", await headers())).allowed) return { error: t("errors.tooFast") };
   const [sent] = await markInvitesSent(event.id, [id], new Date());

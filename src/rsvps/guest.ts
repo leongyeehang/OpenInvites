@@ -52,17 +52,15 @@ export type SaveRsvpResult = {
 // links"), whichever edit token the RSVP has: the invite's own, when it was saved through it, or
 // one of its own, when it was made before its invite (M6 spec, "Identity on a device that is in").
 // Once the host deletes the invite, the RSVP's own /r/ link opens it.
-export function guestRsvp({ rsvp, token, inviteToken }: MyRsvp, waitlistPosition: number | null): GuestRsvp {
-  const { status, approval, name, plusOnes, plusOneNames, email, phone } = rsvp;
-  return { status, approval, name, plusOnes, plusOneNames, email, phone, editLink: editLinkOf(token, inviteToken), waitlistPosition };
+export function guestRsvp(mine: MyRsvp, waitlistPosition: number | null): GuestRsvp {
+  const { status, approval, name, plusOnes, plusOneNames, email, phone } = mine.rsvp;
+  return { status, approval, name, plusOnes, plusOneNames, email, phone, editLink: editLinkOf(mine), waitlistPosition };
 }
 
 // A device holds a reply by its edit token, or through the invite it is tied to, or both
 // (repository.ts, MyRsvp), so one of the two links is always there.
-function editLinkOf(token: string | null, inviteToken: string | null): string {
-  if (inviteToken) return inviteUrl(inviteToken);
-  if (token) return `${baseUrl()}/r/${token}`;
-  throw new Error("A reply held by neither its edit token nor an invite");
+function editLinkOf(held: MyRsvp): string {
+  return held.inviteToken !== null ? inviteUrl(held.inviteToken) : `${baseUrl()}/r/${held.token}`;
 }
 
 // The RSVP the guest in front of us holds on this device. The cookie carries their edit token,

@@ -538,7 +538,10 @@ test("with letters on, the guest whose invite has a letter sees it, for her, in 
   await closeAll(host.page, mei, dev);
 });
 
-test("pasting three lines makes three invites; a bad second line makes none and says which", async ({ browser, request }) => {
+test("pasting three lines makes three invites, listed in the pasted order; a bad second line makes none and says which; Send on an invite deleted meanwhile says it is gone", async ({
+  browser,
+  request,
+}) => {
   test.slow();
   const host = await createPublished(browser, request, "invites-paste", SUPPER);
   await host.page.goto(`${host.page.url()}/invites`);
@@ -560,12 +563,24 @@ test("pasting three lines makes three invites; a bad second line makes none and 
   await host.page.getByRole("button", { name: "Make these links" }).click();
   await expect(host.page.getByRole("status")).toHaveText("Made 3 links.", { timeout: 15_000 });
   await expect(host.page.getByLabel("Add several", { exact: true })).toHaveValue("");
-  await expect(host.page.getByRole("button", { name: /^Delete the invite for / })).toHaveCount(3);
+  const deletes = host.page.getByRole("button", { name: /^Delete the invite for / });
+  await expect(deletes).toHaveCount(3);
+  // Made at once, they are listed in the order they were pasted.
+  for (const [at, name] of ["Mei Lin", "Dev Patel", "Asha Menon"].entries()) await expect(deletes.nth(at)).toHaveAccessibleName(`Delete the invite for ${name}`);
   await expect(inviteRow(host.page, "Mei Lin").getByText("mei@example.test", { exact: true })).toBeVisible();
   await expect(inviteRow(host.page, "Mei Lin").getByText("+65 9123 4567", { exact: true })).toBeVisible();
   await expect(inviteRow(host.page, "Dev Patel").getByText("8123 4567", { exact: true })).toBeVisible();
   await expect(inviteRow(host.page, "Asha Menon").getByText("Not opened", { exact: true })).toBeVisible();
   await expect(inviteRow(host.page, "Asha Menon").getByText(INVITE_LINK)).toBeVisible();
+
+  // Mei's invite, deleted in another tab, is said to be gone when this one sends it.
+  const other = await host.context.newPage();
+  await other.goto(host.page.url());
+  await other.getByRole("button", { name: "Delete the invite for Mei Lin" }).click();
+  await other.getByRole("alertdialog").getByRole("button", { name: "Delete invite" }).click();
+  await expect(other.getByRole("button", { name: /^Delete the invite for / })).toHaveCount(2, { timeout: 15_000 });
+  await host.page.getByRole("button", { name: "Send the invitation to Mei Lin", exact: true }).click();
+  await expect(inviteRow(host.page, "Mei Lin").getByText("This invite no longer exists.", { exact: true })).toBeVisible({ timeout: 15_000 });
 
   await closeAll(host.page);
 });
@@ -760,6 +775,10 @@ test("the host emails an invitation with its letter and link, again with the sam
   await expect(mei.getByText(`The email on file for this event is ${meiEmail}.`)).toBeVisible();
   await mei.getByRole("button", { name: "Stop emails about this event" }).click();
   await expect(mei.getByRole("status")).toHaveText("Done. You will get no more email about Ada’s supper club.", { timeout: 15_000 });
+  // The link still leads to its page, which now has nothing to stop.
+  await mei.reload();
+  await expect(mei.getByText("No email is on file for this event.")).toBeVisible();
+  await expect(mei.getByRole("button", { name: "Stop emails about this event" })).toHaveCount(0);
 
   // Her row keeps the email, says she stopped, and offers no Send; Dev's still does.
   await host.page.reload();
@@ -813,6 +832,8 @@ test("a stop is for the whole event: a reply's stop link ends the invitations, a
   const meiLink = await makeInvite(host.page, "Mei Lin", meiEmail);
   await host.page.getByRole("button", { name: "Send the invitation to Mei Lin", exact: true }).click();
   const invitationStop = (await invitationTo(request, meiEmail, 1)).text.match(STOP_LINK)![0];
+  await host.page.getByRole("button", { name: "Send the invitation to Ravi Kumar", exact: true }).click();
+  const raviInvitationStop = (await invitationTo(request, raviEmail, 1)).text.match(STOP_LINK)![0];
 
   // Ravi and Mei reply through their invites, Asha through the event link; an announcement
   // reaches all three.
@@ -820,15 +841,20 @@ test("a stop is for the whole event: a reply's stop link ends the invitations, a
   const mei = await replyGoing(browser, meiLink);
   const ashaPage = await replyGoing(browser, host.link, asha);
   await announce(host.page, manage, "Bring a dish to share.");
-  const raviStop = (await invitationTo(request, raviEmail, 1)).text.match(STOP_LINK)![0];
+  const raviStop = (await invitationTo(request, raviEmail, 2)).text.match(STOP_LINK)![0];
+  expect(raviStop).not.toBe(raviInvitationStop);
   await invitationTo(request, meiEmail, 2);
   await invitationTo(request, asha.email, 1);
 
-  // Ravi stops mail with the link at the foot of the announcement, his reply's: his invite's row
-  // says so and offers no Send, and there is nobody for "Send to everyone not yet sent".
+  // Ravi stops mail with the link at the foot of the announcement, his reply's: his invitation's
+  // stop link has nothing left to stop, his invite's row says so and offers no Send, and there is
+  // nobody for "Send to everyone not yet sent".
   await ravi.goto(raviStop);
   await ravi.getByRole("button", { name: "Stop emails about this event" }).click();
   await expect(ravi.getByRole("status")).toHaveText("Done. You will get no more email about Ada’s supper club.", { timeout: 15_000 });
+  await ravi.goto(raviInvitationStop);
+  await expect(ravi.getByText("No email is on file for this event.")).toBeVisible();
+  await expect(ravi.getByRole("button", { name: "Stop emails about this event" })).toHaveCount(0);
   await host.page.goto(`${manage}/invites`);
   const raviRow = inviteRow(host.page, "Ravi Kumar");
   await expect(raviRow.getByText("Stopped email", { exact: true })).toBeVisible();
@@ -848,7 +874,7 @@ test("a stop is for the whole event: a reply's stop link ends the invitations, a
   await announce(host.page, manage, "See you at seven.");
   await invitationTo(request, asha.email, 2);
   expect(await mailCountTo(request, meiEmail)).toBe(2);
-  expect(await mailCountTo(request, raviEmail)).toBe(1);
+  expect(await mailCountTo(request, raviEmail)).toBe(2);
 
   await closeAll(host.page, ravi, mei, ashaPage);
 });

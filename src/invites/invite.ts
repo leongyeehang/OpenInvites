@@ -57,12 +57,13 @@ export function parseLetter(typed: string): { ok: true; letter: string } | { ok:
   return { ok: true, letter };
 }
 
+// The host's letter to one guest, as the invitation shows it, and whom it is for.
+export type Letter = { name: string; body: string };
+
 // The letter the invitation shows, and whom it is for (M6 ticket 09): the invite's letter, while
 // the event has personal letters on and the letter is not blank. Its text is as the host saved it,
 // already trimmed, with its line breaks. Nothing otherwise: a letter kept while letters are off
 // stays with the host.
-export type Letter = { name: string; body: string };
-
 export function letterFor(event: { lettersEnabled: boolean }, invite: { name: string; letter: string } | undefined): Letter | undefined {
   if (!event.lettersEnabled || !invite || !invite.letter.trim()) return undefined;
   return { name: invite.name, body: invite.letter };
@@ -72,15 +73,16 @@ export type ParsedInviteLines = { ok: true; invites: InviteInput[] } | { ok: fal
 
 // The host's pasted list, "Add several" (M6 spec, "The invite list"): one person per line, as
 // `Name, email, phone`, the email and the phone left blank or left out, each line held to the
-// form's rules and none with a letter. Blank lines are skipped; anything after the second comma is
-// the phone, and is refused as one. The first line that breaks a rule is named, numbered as the
+// form's rules and none with a letter. A comma is either the ASCII one or the full-width "，" a
+// Chinese keyboard types. Blank lines are skipped; anything after the second comma is the phone,
+// and is refused as one. The first line that breaks a rule is named, numbered as the
 // host sees it, and nobody is made; a list with nobody on it is refused at its first line.
 export function parseInviteLines(text: string): ParsedInviteLines {
   const invites: InviteInput[] = [];
   const lines = text.split(/\r\n?|\n/);
   for (const [at, line] of lines.entries()) {
     if (!line.trim()) continue;
-    const [name, email = "", ...phone] = line.split(",");
+    const [name, email = "", ...phone] = line.split(/[,，]/);
     const parsed = parseInvite({ name, email, phone: phone.join(","), letter: "" });
     if (!parsed.ok) return { ok: false, line: at + 1, error: parsed.error };
     invites.push(parsed.invite);
@@ -134,6 +136,16 @@ export function inviteFromRsvp(
   now: Date,
 ): InviteInput & { rsvpId: string; openedAt: Date } {
   return { name: reply.name, email: reply.email, phone: reply.phone, letter: "", rsvpId: reply.id, openedAt: now };
+}
+
+// Whether the reply being written needs an invite made for it, as it is written under the event's
+// lock (rsvps/repository.ts, saveRsvp): a new reply through no invite on an invite-only event. The
+// action lets in only a device that is in (invites/gate.ts), so such a reply is one whose guest
+// passed the gate just before the host turned invite-only on, or the host's own; either is
+// invited as a guest who replied before the switch is (inviteFromRsvp), so nobody who replied is
+// locked out.
+export function invitesNewReply(event: { inviteOnly: boolean }, reply: { isNew: boolean; throughInvite: boolean }): boolean {
+  return event.inviteOnly && reply.isNew && !reply.throughInvite;
 }
 
 // The link's secret, of the mail token's shape (rsvps/token.ts): 24 characters of the event link's

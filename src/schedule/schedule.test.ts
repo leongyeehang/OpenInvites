@@ -33,6 +33,10 @@ describe("parseSchedule", () => {
     expect(parsed).toEqual({ ok: true, items: [{ day: "2027-05-08", startTime: "19:00", endTime: null, title: "Dinner", place: "Garden", note: "Jumper", position: 0 }] });
   });
 
+  it("keeps the minutes of a time a field gives with its seconds", () => {
+    expect(parseSchedule([row({ startTime: "19:00:00", endTime: "21:30:00.000" })])).toMatchObject({ ok: true, items: [{ startTime: "19:00", endTime: "21:30" }] });
+  });
+
   it("puts the items in day-and-time order, whatever order they were typed in", () => {
     const parsed = parseSchedule([
       row({ day: "2027-05-09", startTime: "10:00", title: "Brunch" }),
@@ -64,6 +68,8 @@ describe("parseSchedule", () => {
     expect(second({ day: "2027-02-30" })).toEqual({ ok: false, error: "scheduleDayInvalid", n: 2 });
     expect(second({ startTime: "" })).toEqual({ ok: false, error: "scheduleTimeRequired", n: 2 });
     expect(second({ startTime: "25:00" })).toEqual({ ok: false, error: "scheduleTimeInvalid", n: 2 });
+    expect(second({ startTime: "19:00junk" })).toEqual({ ok: false, error: "scheduleTimeInvalid", n: 2 });
+    expect(second({ endTime: "21:00junk" })).toEqual({ ok: false, error: "scheduleTimeInvalid", n: 2 });
     expect(second({ endTime: "7pm" })).toEqual({ ok: false, error: "scheduleTimeInvalid", n: 2 });
     expect(second({ endTime: "18:30" })).toEqual({ ok: false, error: "scheduleEndBeforeStart", n: 2 });
     expect(second({ title: "  " })).toEqual({ ok: false, error: "scheduleTitleRequired", n: 2 });

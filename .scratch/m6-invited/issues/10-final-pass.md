@@ -19,3 +19,43 @@
 - Commit subject, e.g. `M6: translations, accessibility and docs`.
 
 ## Comments
+
+### 2026-11-07 — Hardening batch (before 10)
+
+The seventeen code-level minors the reviews of Tasks 1–9 deferred, in one commit. Unit evidence is
+`pnpm test` (all green); browser evidence is the named specs on the Docker test profile rebuilt
+from the tree, `CI=1 … --workers=2`.
+
+1. Pass signed for its purpose — `src/invites/pass.ts` signs `pass:eventId:inviteId:expires`;
+   `pass.test.ts` "is signed for its purpose" (an unprefixed signature reads as no pass).
+2. Switch race — `saveRsvp` invites a new reply through no invite on an invite-only event under
+   the lock (`invitesNewReply` in `src/invites/invite.ts`, unit-tested; `inviteFromRsvp`, fresh
+   token, reply tied both ways, `MyRsvp.inviteToken` its token); comment above
+   `inviteRepliedGuests` says so. No browser row: the race cannot be staged without timing.
+3. `inviteRepliedGuests` inserts a thousand at a time (`chunks`) and ties replies back with one
+   `UPDATE … FROM invite` naming no ids; covered by the 500-cap row of `invite-only.spec.ts`.
+4. `MyRsvp` is a union that keeps one token at least; `planRsvp` carries the held tokens
+   generically; `editLinkOf` no longer throws. `pnpm typecheck`; `plan.test.ts`, `guest.test.ts`.
+5. Send on a deleted invite answers `Invites.errors.inviteGone` before the mail limit is spent
+   (`src/invites/actions.ts`); `invites.spec.ts` paste row, Send from a stale tab.
+6. A stopped invite's stop link (stopped through it or through the reply's link) shows "No email
+   is on file" (`findInviteByMailToken`, `mailStopped`); `invites.spec.ts` stop rows for Mei and
+   Ravi.
+7. `listInvites` orders by `created_at` desc then id asc, so a paste keeps its order;
+   `invites.spec.ts` paste row checks the three names in order.
+8. "Add several" splits on `,` or `，`; `invite.test.ts` full-width row. Hint left as is.
+9. The schedule's minute tick skips a refresh under 30 s after the last (`refreshDue` in
+   `src/schedule/clock.ts`, unit-tested); `schedule.spec.ts` minute and reload rows green.
+10. Thread schedule bubble on `bg-theme-glass`, named by its heading (`aria-labelledby`);
+    `schedule.spec.ts` checks the named region; `accessibility.spec.ts` green.
+11. A cancelled event shows no schedule (`scheduleFor`); `cancel-delete.spec.ts` row.
+12. Approving one photo disables only its own Approve, in the grid and the viewer (`useOptimistic`
+    set of ids in `album.tsx`); `album-settings.spec.ts` green. No row for two at once: timing.
+13. Thumbnail Approve and Delete are named "Approve/Delete photo {n} by {name}" (new keys in all
+    three locales); `album-settings.spec.ts` asserts the names.
+14. Schedule and poll times are validated whole (`fieldTime` in `src/polls/poll.ts`; seconds still
+    taken); `schedule.test.ts` and `poll.test.ts` "19:00junk" rows.
+15. Null-token row in `invite-only.spec.ts`, through Dev's invite link (no email, so no code and no
+    30-second resend wait): a third device changes his reply and keeps it on reload.
+16. The page uses the gate's invite before asking `deviceInvite` again (`src/app/e/[slug]/page.tsx`).
+17. `letterFor`'s comment moved onto the function; one line left on `Letter`.

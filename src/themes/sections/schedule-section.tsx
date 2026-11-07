@@ -6,7 +6,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { useClock } from "@/events/use-clock";
 import type { EventTime } from "@/events/time";
 import { cn } from "@/lib/utils";
-import { liveWindow, scheduleDays, scheduleInstants, scheduleStates, shouldRefresh } from "@/schedule/clock";
+import { liveWindow, refreshDue, scheduleDays, scheduleInstants, scheduleStates, shouldRefresh } from "@/schedule/clock";
 import type { ScheduleItem, ScheduleRefresh } from "@/schedule/schedule";
 
 // What the event page hands the schedule (app/e/[slug]/page.tsx): the items in order, each with
@@ -32,9 +32,11 @@ function useDeviceZone(): string | null {
 
 // Under `minute`, while the schedule is live, the page re-reads itself every minute its tab is
 // visible, and on coming back to the tab when it last did so over a minute ago, so the host's
-// changes reach it (M6 spec, "The schedule"). Before the window opens the minute passes idly; once
-// it has closed, the loop stops. Under `reload`, nothing runs. `router.refresh()` draws the page
-// again on the server and keeps what is open on it.
+// changes reach it (M6 spec, "The schedule"). Every re-read is timed, and the minute's tick skips
+// one that comes under half a minute after the last (clock.ts, refreshDue), so coming back to the
+// tab just before it does not re-read the page twice. Before the window opens the minute passes
+// idly; once it has closed, the loop stops. Under `reload`, nothing runs. `router.refresh()`
+// draws the page again on the server and keeps what is open on it.
 function useRefreshWhileLive(refresh: ScheduleRefresh, from: number, to: number) {
   const router = useRouter();
   useEffect(() => {
@@ -50,9 +52,9 @@ function useRefreshWhileLive(refresh: ScheduleRefresh, from: number, to: number)
     };
     const everyMinute = setInterval(() => {
       if (Date.now() >= to) clearInterval(everyMinute);
-      else refreshIf(true);
+      else refreshIf(refreshDue("tick", Date.now() - last));
     }, MINUTE);
-    const onReturn = () => refreshIf(Date.now() - last >= MINUTE);
+    const onReturn = () => refreshIf(refreshDue("return", Date.now() - last));
     document.addEventListener("visibilitychange", onReturn);
     return () => {
       clearInterval(everyMinute);

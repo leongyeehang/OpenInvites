@@ -4,7 +4,7 @@ import { Check, ChevronLeft, ChevronRight, Download, ImagePlus, Trash2, X } from
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
-import { useRef, useState, useTransition, type ReactNode } from "react";
+import { useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
 import { approvePhotoAction, deletePhotoAction } from "@/album/actions";
 import { MAX_PHOTOS_AT_ONCE } from "@/album/album";
 import type { AlbumUploadResult } from "@/app/api/albums/[slug]/route";
@@ -40,6 +40,8 @@ type Line = { name: string; text: string; ok: boolean };
 // deleted, since the thumbnail that opened it goes with it.
 export const ALBUM_HEADING = "album-heading";
 
+const NONE_APPROVING: ReadonlySet<string> = new Set();
+
 // The album (M4 ticket 11): a grid of the photos, oldest first, each opening the viewer; and Add
 // photos, which sends up to ten at once and says what became of each. A photo waiting for approval
 // is marked under its thumbnail, and to a host has Approve and Delete there (M6 ticket 03).
@@ -50,7 +52,17 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
   const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState<string>();
   const [, startRefresh] = useTransition();
-  const [approving, startApproving] = useTransition();
+  // The photos being approved, from under their thumbnails or in the viewer: only their own Approve
+  // waits, and every photo is back to none once the approvals and the page's redrawing are done.
+  const [approving, markApproving] = useOptimistic(NONE_APPROVING, (ids, id: string) => new Set(ids).add(id));
+  const [, startApproving] = useTransition();
+  const approve = (id: string, then: () => void) =>
+    startApproving(async () => {
+      markApproving(id);
+      await approvePhotoAction(slug, id);
+      then();
+      router.refresh();
+    });
   const [shown, setShown] = useState<number>();
   // The photo last shown, whose thumbnail has the focus back once the viewer closes.
   const last = useRef<number | undefined>(undefined);
@@ -118,15 +130,11 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    aria-label={t("approve")}
-                    disabled={approving}
+                    aria-label={t("approvePhoto", { n: index + 1, name: photo.name })}
+                    disabled={approving.has(photo.id)}
                     onClick={() =>
-                      startApproving(async () => {
-                        await approvePhotoAction(slug, photo.id);
-                        // The controls go once it is approved; the focus stays with its photo.
-                        thumbnails.current[index]?.focus();
-                        router.refresh();
-                      })
+                      // The controls go once it is approved; the focus stays with its photo.
+                      approve(photo.id, () => thumbnails.current[index]?.focus())
                     }
                     className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-theme-accent text-theme-on-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text disabled:cursor-wait"
                   >
@@ -140,7 +148,7 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
                   >
                     <button
                       type="button"
-                      aria-label={t("delete")}
+                      aria-label={t("deletePhoto", { n: index + 1, name: photo.name })}
                       className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-theme-glass-strong hover:bg-theme-glass focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
                     >
                       <Trash2 className="size-4" aria-hidden />
@@ -197,6 +205,8 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
           setShown(index);
         }}
         slug={slug}
+        approving={approving}
+        approve={approve}
         onClosed={(deleted) => {
           if (deleted) document.getElementById(ALBUM_HEADING)?.focus();
           else if (last.current !== undefined) thumbnails.current[last.current]?.focus();
@@ -208,24 +218,27 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
 
 // The viewer: the photo full screen, the previous and next by the buttons, the arrow keys or a
 // swipe, who added it, Download (the large rendition), Approve where this viewer may (M6 ticket
-// 03), which stays on the photo, Delete where this viewer may, and Escape. Closed, the focus is
-// back on the photo's thumbnail, or on the album's heading once it is deleted.
+// 03), which stays on the photo and waits, as the one under its thumbnail does, while that photo
+// is being approved, Delete where this viewer may, and Escape. Closed, the focus is back on the
+// photo's thumbnail, or on the album's heading once it is deleted.
 function Viewer({
   photos,
   index,
   onIndex,
   slug,
+  approving,
+  approve,
   onClosed,
 }: {
   photos: ShownPhoto[];
   index: number | undefined;
   onIndex: (index: number | undefined) => void;
   slug: string;
+  approving: ReadonlySet<string>;
+  approve: (id: string, then: () => void) => void;
   onClosed: (deleted: boolean) => void;
 }) {
   const t = useTranslations("EventPage.album");
-  const router = useRouter();
-  const [approving, startApproving] = useTransition();
   const deleted = useRef(false);
   const download = useRef<HTMLAnchorElement>(null);
   const swipe = useRef<number | undefined>(undefined);
@@ -273,14 +286,10 @@ function Viewer({
                 {photo.approvable && (
                   <button
                     type="button"
-                    disabled={approving}
+                    disabled={approving.has(photo.id)}
                     onClick={() =>
-                      startApproving(async () => {
-                        await approvePhotoAction(slug, photo.id);
-                        // Approve goes once it is approved; the viewer stays on the photo.
-                        download.current?.focus();
-                        router.refresh();
-                      })
+                      // Approve goes once it is approved; the viewer stays on the photo.
+                      approve(photo.id, () => download.current?.focus())
                     }
                     className="inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-full bg-white/15 px-4 text-sm font-medium hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-white disabled:cursor-wait"
                   >

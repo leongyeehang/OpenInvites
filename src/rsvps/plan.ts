@@ -3,8 +3,10 @@ import type { RsvpInput } from "./form";
 // When the reply's email was proven by a code (verification.ts), or nothing to change about it.
 type Proof = { emailVerifiedAt?: Date | null };
 
-export type RsvpPlan =
-  | { replaces: { id: string; token: string | null }; changes: RsvpInput & Proof & { updatedAt: Date; mailStoppedAt?: null } }
+// `Held` is how the guest holds the RSVP they change: its edit token, or its invite's, or both
+// (repository.ts, MyRsvp), which the replacement keeps as they are.
+export type RsvpPlan<Held> =
+  | { replaces: { id: string; held: Held }; changes: RsvpInput & Proof & { updatedAt: Date; mailStoppedAt?: null } }
   | { replaces: null; rsvp: RsvpInput & Proof & { eventId: string; repliedAt: Date; updatedAt: Date } };
 
 // Where one answer goes. A guest who comes back — from the device they answered on, or through
@@ -18,16 +20,16 @@ export type RsvpPlan =
 // An email is proven when the guest has just entered the code sent to it (`proven`); it keeps
 // that mark while it stays the same, and loses it once the guest changes or blanks it without a
 // code (spec, "Contact details").
-export function planRsvp(
+export function planRsvp<Held>(
   eventId: string,
   input: RsvpInput,
-  mine: { id: string; token: string | null; email: string | null } | undefined,
+  mine: { id: string; email: string | null; held: Held } | undefined,
   now: Date,
   proven = false,
-): RsvpPlan {
+): RsvpPlan<Held> {
   if (mine) {
     const proof: Proof = proven ? { emailVerifiedAt: now } : input.email !== undefined && input.email !== mine.email ? { emailVerifiedAt: null } : {};
-    const replaces = { id: mine.id, token: mine.token };
+    const replaces = { id: mine.id, held: mine.held };
     return { replaces, changes: { ...input, ...proof, ...(input.email ? { mailStoppedAt: null } : {}), updatedAt: now } };
   }
   return { replaces: null, rsvp: { ...input, ...(proven ? { emailVerifiedAt: now } : {}), eventId, repliedAt: now, updatedAt: now } };

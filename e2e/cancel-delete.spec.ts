@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { createPublished, openMore } from "./events";
+import { createPublished, openMore, setSchedule } from "./events";
 import { PASSWORD } from "./hosts";
 import { openMyReply } from "./reply";
 
@@ -19,14 +19,16 @@ async function rsvp(page: Page, link: string, name: string) {
   await expect(page.getByText("You’re going!")).toBeVisible();
 }
 
-test("a cancelled event keeps its page, with the news and no way to reply", async ({ page, browser, request }) => {
+test("a cancelled event keeps its page, with the news, no way to reply and no schedule", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "cancel", {
     title: "Ada’s birthday",
     start: "2027-03-06T19:00",
     plusOnes: "0",
   });
+  await setSchedule(host.page, [{ day: "2027-03-06", start: "19:30", title: "Dinner" }]);
   await rsvp(page, host.link, "Priya Nair");
+  await expect(page.locator('[data-slot="schedule"]').getByText("Dinner")).toBeVisible();
 
   await openMore(host.page);
   await host.page.getByRole("button", { name: "Cancel event" }).click();
@@ -38,6 +40,8 @@ test("a cancelled event keeps its page, with the news and no way to reply", asyn
   await page.reload();
   await expect(page.getByRole("heading", { name: "Ada’s birthday" })).toBeVisible();
   await expect(page.getByText("This event is cancelled")).toBeVisible();
+  // The notice takes the day's plan's place.
+  await expect(page.locator('[data-slot="schedule"]')).toHaveCount(0);
   await openMyReply(page);
   await page.getByRole("button", { name: "Change my answer" }).click();
   await expect(page.getByRole("button", { name: "Going" })).toBeDisabled();

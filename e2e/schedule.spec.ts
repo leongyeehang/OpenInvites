@@ -130,6 +130,8 @@ test("a live schedule is in order and follows the clock, past, now and upcoming,
     }
     const schedule = await guestSchedule(page, host.link);
     await expect(page.locator("[data-layout]")).toHaveAttribute("data-layout", layout);
+    // The Thread's bubble is named by its heading.
+    if (layout === "thread") await expect(page.getByRole("region", { name: "Schedule", exact: true })).toBeVisible();
 
     // In day-and-time order, whatever order they were typed in, on one day with no day heading
     // (unless the run is so near midnight that they span two).

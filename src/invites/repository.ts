@@ -2,9 +2,10 @@ import { and, asc, count, desc, eq, exists, inArray, isNotNull, isNull, not, sql
 import { cache } from "react";
 import { getDb, type Db } from "@/db/client";
 import { event, invite, rsvp } from "@/db/schema";
+import { chunks } from "@/lib/chunks";
 import type { SavedStatus } from "@/rsvps/form";
 import { generateMailToken } from "@/rsvps/token";
-import { generateInviteToken, inviteFromRsvp, roomForInvite, type InviteInput } from "./invite";
+import { generateInviteToken, inviteFromRsvp, mailStopped, roomForInvite, type InviteInput } from "./invite";
 
 export type Invite = typeof invite.$inferSelect;
 
@@ -37,29 +38,34 @@ export async function createInvites(eventId: string, inputs: InviteInput[]): Pro
   });
 }
 
+// How many invites one statement inserts: each binds eight parameters, and Postgres takes at most
+// 65,535 in a statement, which an event's replies (up to the operator's limit) could pass at once.
+const INVITES_AT_ONCE = 1000;
+
 // Turning invite-only on (M6 ticket 08): every reply of the event that is tied to no invite gets
 // one, made from the reply (invite.ts, inviteFromRsvp) with a fresh token, and the reply is tied to
 // it both ways, so nobody who replied is locked out. Run by the transaction that turns the setting
 // on, under its lock on the event's row, which every write of a reply takes first too, so a reply
-// being written at that moment is either written first, and invited here, or after. Not held to
-// the most invites a host may make: these are the guests the event already has. How many were
-// made.
+// being written at that moment is either written first, and invited here, or after, when the event
+// is invite-only and the reply is invited as it is written (rsvps/repository.ts, saveRsvp). Not
+// held to the most invites a host may make: these are the guests the event already has. The
+// invites go in a thousand at a time, and each reply is then tied to the invite made from it in
+// one statement that names no ids. How many were made.
 export async function inviteRepliedGuests(eventId: string, tx: Db, now: Date): Promise<number> {
   const replies = await tx
     .select({ id: rsvp.id, name: rsvp.name, email: rsvp.email, phone: rsvp.phone })
     .from(rsvp)
     .where(and(eq(rsvp.eventId, eventId), isNull(rsvp.inviteId)));
   if (replies.length === 0) return 0;
-  const made = await tx
-    .insert(invite)
-    .values(replies.map((reply) => ({ eventId, ...inviteFromRsvp(reply, now), token: generateInviteToken() })))
-    .returning({ id: invite.id });
+  for (const some of chunks(replies, INVITES_AT_ONCE)) {
+    await tx.insert(invite).values(some.map((reply) => ({ eventId, ...inviteFromRsvp(reply, now), token: generateInviteToken() })));
+  }
   await tx
     .update(rsvp)
     .set({ inviteId: sql`${invite.id}` })
     .from(invite)
-    .where(and(eq(invite.rsvpId, rsvp.id), inArray(invite.id, made.map((each) => each.id))));
-  return made.length;
+    .where(and(eq(invite.eventId, eventId), eq(invite.rsvpId, rsvp.id), isNull(rsvp.inviteId)));
+  return replies.length;
 }
 
 // The host's letter to one guest, scoped to the event, so another host's page cannot reach an
@@ -87,7 +93,9 @@ export type ListedInvite = Pick<Invite, "id" | "name" | "email" | "phone" | "let
   replyMailStoppedAt: Date | null;
 };
 
-// Every invite of the event, newest first.
+// Every invite of the event, newest first, and those made at once by a pasted list in the order
+// they were pasted: they share one time, and their ids, uuidv7s drawn in turn as one statement
+// inserts them, rise in that order.
 export async function listInvites(eventId: string): Promise<ListedInvite[]> {
   return getDb()
     .select({
@@ -107,7 +115,7 @@ export async function listInvites(eventId: string): Promise<ListedInvite[]> {
     .from(invite)
     .leftJoin(rsvp, eq(rsvp.id, invite.rsvpId))
     .where(eq(invite.eventId, eventId))
-    .orderBy(desc(invite.createdAt), desc(invite.id));
+    .orderBy(desc(invite.createdAt), asc(invite.id));
 }
 
 // An invite whose invitation is being emailed: whom to, the secret of the stop link at its foot,
@@ -156,15 +164,19 @@ export async function listUnsentInvites(eventId: string): Promise<{ id: string }
 }
 
 // What the stop link at the foot of an invitation shows (app/m/[token]): the event's title and the
-// email the host gave, and nothing else of the invite.
+// email the host gave, and nothing else of the invite. Once its guest has stopped mail, through
+// this link or through their reply's (invite.ts, mailStopped), there is nothing left to stop: the
+// page says so, as it does for a stopped reply, whose email is blanked, though the invite keeps its
+// email for the guest to prove.
 export async function findInviteByMailToken(mailToken: string): Promise<{ title: string; email: string | null } | undefined> {
   const [row] = await getDb()
-    .select({ title: event.title, email: invite.email })
+    .select({ title: event.title, email: invite.email, mailStoppedAt: invite.mailStoppedAt, replyMailStoppedAt: rsvp.mailStoppedAt })
     .from(invite)
     .innerJoin(event, eq(event.id, invite.eventId))
+    .leftJoin(rsvp, eq(rsvp.id, invite.rsvpId))
     .where(eq(invite.mailToken, mailToken))
     .limit(1);
-  return row;
+  return row && { title: row.title, email: mailStopped(row) ? null : row.email };
 }
 
 // The stop link's power over an invite: no more invitations are sent to it, from the first time it

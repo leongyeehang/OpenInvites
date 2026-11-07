@@ -363,7 +363,25 @@ test("turning invite-only on invites everyone who replied, says whom the link al
   await devLaptop.goto(devLink);
   await expect(devLaptop).toHaveURL(host.link);
   await expectInWithReply(devLaptop, SECRET.title);
-  await Promise.all([dev.context().close(), devLaptop.context().close()]);
+  // His reply now shows his invite's link, made by the switch, which lets in a third device: that
+  // holds his reply through the invite alone, without its edit token, changes it, and keeps it on a
+  // reload.
+  await openMyReply(devLaptop);
+  const devInvite = (await devLaptop.getByText(INVITE_LINK).textContent())!.trim();
+  const devPhone = await newGuest(browser);
+  await devPhone.goto(devInvite);
+  await expectInWithReply(devPhone, SECRET.title);
+  await openMyReply(devPhone);
+  await expect(devPhone.getByText(devInvite, { exact: true })).toBeVisible();
+  await devPhone.getByRole("button", { name: "Edit details" }).click();
+  await devPhone.getByLabel("Your name").fill("Dev P.");
+  await devPhone.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(devPhone.getByText("Dev P., just you.")).toBeVisible({ timeout: 15_000 });
+  await devPhone.reload();
+  await expectInWithReply(devPhone, SECRET.title);
+  await openMyReply(devPhone);
+  await expect(devPhone.getByText("Dev P., just you.")).toBeVisible();
+  await Promise.all([dev.context().close(), devLaptop.context().close(), devPhone.context().close()]);
 
   // Ana's edit link, opened on a new device, asks for a code sent to her email, once; then her
   // reply is hers, her edit link is her invite's, and changing her reply works.

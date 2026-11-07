@@ -1,4 +1,4 @@
-import { isDay, TIME } from "../polls/poll";
+import { fieldTime, isDay, TIME } from "../polls/poll";
 
 // The schedule (M6 spec, "The schedule"): the host's list of timed items for the event's day or
 // days, each a day and a start time in the event's zone, kept as wall-clock time as date options
@@ -80,9 +80,10 @@ export function parseSchedule(posted: unknown): ParsedSchedule {
   const items: Omit<ScheduleEntry, "position">[] = [];
   for (const { input, n } of rows) {
     const refuse = (error: ScheduleError): ParsedSchedule => ({ ok: false, error, n });
-    // A time field gives seconds when asked to; the schedule keeps minutes, as the poll does.
-    const startTime = input.startTime.slice(0, 5);
-    const endTime = input.endTime.slice(0, 5);
+    // A time field gives seconds when asked to; the schedule keeps minutes, as the poll does, and
+    // the whole time is checked, so nothing after it slips through (polls/poll.ts, fieldTime).
+    const startTime = fieldTime(input.startTime);
+    const endTime = fieldTime(input.endTime);
     if (!isDay(input.day)) return refuse("scheduleDayInvalid");
     if (!startTime) return refuse("scheduleTimeRequired");
     if (!TIME.test(startTime) || (endTime && !TIME.test(endTime))) return refuse("scheduleTimeInvalid");

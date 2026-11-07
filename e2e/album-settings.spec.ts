@@ -151,6 +151,11 @@ test("with approval on, a guest's photos wait for the host, who approves one in 
   await expect(album(host.page).getByRole("button", { name: /^Photo \d by Priya Nair, awaiting approval$/ })).toHaveCount(2);
   await expect(album(host.page).getByRole("button", { name: "Approve" })).toHaveCount(2);
   await expect(album(host.page).getByRole("button", { name: "Delete" })).toHaveCount(2);
+  // Each names the photo it is for.
+  for (const n of [1, 2]) {
+    await expect(album(host.page).getByRole("button", { name: `Approve photo ${n} by Priya Nair`, exact: true })).toBeVisible();
+    await expect(album(host.page).getByRole("button", { name: `Delete photo ${n} by Priya Nair`, exact: true })).toBeVisible();
+  }
   await expectControlsInTheirCells(host.page);
   const second = await album(host.page).getByRole("button", { name: "Photo 2 by Priya Nair, awaiting approval" }).locator("img").getAttribute("src");
   await album(host.page).getByRole("button", { name: "Photo 1 by Priya Nair, awaiting approval" }).click();
