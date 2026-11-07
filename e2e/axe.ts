@@ -4,8 +4,11 @@ import { expect, test, type Page } from "@playwright/test";
 // Ticket 20: the automated accessibility check every spec runs the same way. axe-core runs all of
 // its rules against the page as it stands, once whatever is still settling into place (a piece
 // rising in, a sheet sliding up) has finished, since a colour read halfway through a fade is not
-// the colour a person reads. A serious or critical violation fails the test, after the rest of
-// the test has run, so one run shows every page that has one.
+// the colour a person reads, and once the page has stopped changing: a redraw from the server
+// that lands while axe reads (a reaction's, on a slow CI runner) leaves it reading a page that is
+// no longer there, so the page is read again if anything was added or taken away meanwhile. A
+// serious or critical violation fails the test, after the rest of the test has run, so one run
+// shows every page that has one.
 //
 // What axe found at each impact is kept as an annotation on the test, for the report, with what
 // it could not decide ("incomplete", by rule) and how many pieces of text it measured the
@@ -15,8 +18,16 @@ import { expect, test, type Page } from "@playwright/test";
 // against the backdrop at its most extreme and is unit-tested for every combination the drawer
 // offers.
 export async function expectNoSeriousViolations(page: Page, where: string) {
-  await settled(page);
-  const { violations, incomplete, contrastMeasured, scene } = await readPage(page);
+  let read: Awaited<ReturnType<typeof readPage>>;
+  for (let attempt = 1; ; attempt++) {
+    await settled(page);
+    await page.evaluate(WATCH_CHANGES);
+    read = await readPage(page);
+    const changed = await page.evaluate(() => (window as unknown as { axeSawChanges: () => boolean }).axeSawChanges());
+    if (!changed || attempt === 3) break;
+    test.info().annotations.push({ type: "axe", description: `${where}: the page changed while axe read it; read again` });
+  }
+  const { violations, incomplete, contrastMeasured, scene } = read;
   const found = Object.fromEntries(IMPACTS.map((impact) => [impact, violations.filter((violation) => violation.impact === impact).length]));
   const unsure = Object.fromEntries([...incomplete].map(([id, targets]) => [id, targets.size]));
   test.info().annotations.push({ type: "axe", description: `${where}: ${JSON.stringify({ ...found, incomplete: unsure, contrastMeasured })}` });
@@ -182,8 +193,30 @@ const WHOLLY_IN_SIGHT = () => {
 
 declare function whollyInSight(element: Element | null): boolean;
 
-// Every animation that ends has ended. The backdrop's drift never does, and moves no text.
+// Every animation that ends has ended, and no element has been added or taken away for half a
+// second (up to ten seconds of waiting). The backdrop's drift never ends, and moves no text; a
+// ticking countdown changes only its text, which is not counted.
 async function settled(page: Page) {
+  await page.evaluate(
+    (quiet) =>
+      new Promise<void>((resolve) => {
+        let last = performance.now();
+        const started = last;
+        const observer = new MutationObserver((records) => {
+          if (records.some((record) => [...record.addedNodes, ...record.removedNodes].some((node) => node instanceof Element))) last = performance.now();
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        const check = () => {
+          const now = performance.now();
+          if (now - last >= quiet || now - started >= 10_000) {
+            observer.disconnect();
+            resolve();
+          } else setTimeout(check, 50);
+        };
+        setTimeout(check, quiet);
+      }),
+    500,
+  );
   await page.evaluate(() =>
     Promise.all(
       document
@@ -224,4 +257,18 @@ function SCENE(target: string) {
     `under it: ${under}`,
     `focus on ${describe(document.activeElement)}`,
   ].join("; ");
+}
+
+// Notes whether any element is added or taken away from now on, until asked (axeSawChanges).
+function WATCH_CHANGES() {
+  const w = window as unknown as { axeSawChanges: () => boolean };
+  let changed = false;
+  const observer = new MutationObserver((records) => {
+    if (records.some((record) => [...record.addedNodes, ...record.removedNodes].some((node) => node instanceof Element))) changed = true;
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  w.axeSawChanges = () => {
+    observer.disconnect();
+    return changed;
+  };
 }
