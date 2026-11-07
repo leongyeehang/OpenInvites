@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
-import { createPublished, editSettings } from "./events";
+import { chooseLayout, createPublished, editSettings } from "./events";
 import { closeReply } from "./reply";
 import { expect, test, type Browser, type Locator, type Page } from "./test";
 
@@ -30,6 +30,25 @@ async function guest(browser: Browser, link: string, name: string, status: "Goin
 
 const album = (page: Page) => page.locator('[data-slot="album"]');
 const albumGroup = (sheet: Locator) => sheet.getByRole("group", { name: "Album", exact: true });
+
+// At a phone's width, the host's Approve and Delete under each waiting thumbnail lie inside the
+// thumbnail's column, side by side, not over each other.
+async function expectControlsInTheirCells(page: Page) {
+  if (test.info().project.name !== "mobile") return;
+  const cells = album(page).getByRole("listitem").filter({ has: page.getByRole("button", { name: "Approve" }) });
+  for (const cell of await cells.all()) {
+    const [box, approve, remove] = await Promise.all([
+      cell.boundingBox(),
+      cell.getByRole("button", { name: "Approve" }).boundingBox(),
+      cell.getByRole("button", { name: "Delete" }).boundingBox(),
+    ]);
+    for (const control of [approve!, remove!]) {
+      expect(control.x).toBeGreaterThanOrEqual(box!.x);
+      expect(control.x + control.width).toBeLessThanOrEqual(box!.x + box!.width + 0.5);
+    }
+    expect(approve!.x + approve!.width).toBeLessThanOrEqual(remove!.x);
+  }
+}
 
 test("only guests who are going: a Going guest's photo is hidden from a Maybe guest until the host opens the album to everyone who replied", async ({ browser, request }) => {
   test.slow();
@@ -123,6 +142,7 @@ test("with approval on, a guest's photos wait for the host, who approves one in 
   await expect(album(host.page).getByRole("button", { name: /^Photo \d by Priya Nair, awaiting approval$/ })).toHaveCount(2);
   await expect(album(host.page).getByRole("button", { name: "Approve" })).toHaveCount(2);
   await expect(album(host.page).getByRole("button", { name: "Delete" })).toHaveCount(2);
+  await expectControlsInTheirCells(host.page);
   const second = await album(host.page).getByRole("button", { name: "Photo 2 by Priya Nair, awaiting approval" }).locator("img").getAttribute("src");
   await album(host.page).getByRole("button", { name: "Photo 1 by Priya Nair, awaiting approval" }).click();
   const viewer = host.page.getByRole("dialog", { name: "Photo 1 of 2" });
@@ -162,6 +182,45 @@ test("with approval on, a guest's photos wait for the host, who approves one in 
 
   await Promise.all([host.context.close(), priya.context().close(), mei.context().close()]);
 });
+
+// The Thread's column is the narrowest, the Broadsheet's set apart; the Poster's is above. The
+// reply and the photos are added on the Poster, whose reply the guest helper knows; the host then
+// changes the layout, and the album is read in it.
+for (const layout of ["Thread", "Broadsheet"] as const) {
+  test(`with approval on in the ${layout}, a visitor's count leaves out a photo waiting, the host's own needs none, and the host's controls fit`, async ({
+    browser,
+    request,
+  }) => {
+    test.slow();
+    const host = await createPublished(browser, request, `album-approval-${layout.toLowerCase()}`, PAST);
+    const editor = host.page.url();
+    await editSettings(host.page, (sheet) => albumGroup(sheet).getByLabel(APPROVE_PHOTOS).check());
+
+    const priya = await guest(browser, host.link, "Priya Nair");
+    await album(priya).getByLabel("Add photos").setInputFiles([await photo("garden.jpg", "#2f6b3a")]);
+    await expect(album(priya).getByRole("status")).toHaveText("garden.jpg: added, awaiting approval", { timeout: 20_000 });
+
+    // The host's own photo is approved at once.
+    await host.page.goto(host.link);
+    await album(host.page).getByLabel("Add photos").setInputFiles([await photo("toast.jpg", "#e0b040")]);
+    await expect(album(host.page).getByRole("status")).toHaveText("toast.jpg: added", { timeout: 20_000 });
+    await expect(album(host.page).getByRole("button", { name: `Photo 2 by ${host.name}` })).toBeVisible({ timeout: 15_000 });
+
+    await host.page.goto(editor);
+    await chooseLayout(host.page, host.link, layout);
+    await host.page.goto(host.link);
+    await expect(album(host.page).getByRole("button", { name: "Photo 1 by Priya Nair, awaiting approval" })).toBeVisible();
+    await expect(album(host.page).getByRole("button", { name: "Approve" })).toHaveCount(1);
+    await expectControlsInTheirCells(host.page);
+
+    const visitor = await (await browser.newContext()).newPage();
+    await visitor.goto(host.link);
+    await expect(album(visitor)).toContainText("1 photo");
+    await expect(album(visitor)).not.toContainText("2 photos");
+
+    await Promise.all([host.context.close(), priya.context().close(), visitor.context().close()]);
+  });
+}
 
 test("the album's own view in Traditional Chinese", async ({ browser, request }) => {
   test.slow();

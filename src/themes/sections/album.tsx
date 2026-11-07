@@ -113,9 +113,12 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
               </button>
               {photo.pending && <p className="text-xs text-theme-text-muted">{t("pending")}</p>}
               {photo.approvable && (
+                // Two round buttons in one row, which fit the narrowest column (the Thread's, about
+                // 80px at a phone's width): Approve, in the accent, and Delete.
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
+                    aria-label={t("approve")}
                     disabled={approving}
                     onClick={() =>
                       startApproving(async () => {
@@ -125,10 +128,9 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
                         router.refresh();
                       })
                     }
-                    className="inline-flex h-9 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1 rounded-full bg-theme-glass-strong px-2 text-xs font-medium hover:bg-theme-glass focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text disabled:cursor-wait"
+                    className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-theme-accent text-theme-on-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text disabled:cursor-wait"
                   >
-                    <Check className="size-3.5 shrink-0" aria-hidden />
-                    {t("approve")}
+                    <Check className="size-4" aria-hidden />
                   </button>
                   <DeletePhoto
                     slug={slug}

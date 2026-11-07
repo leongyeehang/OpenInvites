@@ -31,8 +31,6 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
   if (!event || albumState(event, new Date()) !== "open") return refused("closed", 409);
   const viewer = await albumViewer(event.id);
   if (!mayAddPhotos(viewer) || viewer.kind === "visitor") return refused("notAllowed", 403);
-  // A guest's photos wait for a host while the host approves them; a host's never do.
-  const status = photoStatusFor(event, viewer);
 
   const maxBytes = maxUploadBytes();
   // Ten photos at the most, each at the most the operator allows, and room for the form's framing.
@@ -51,28 +49,33 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
   if (!room.ok) return Response.json({ error: room.error, left: room.left } satisfies AlbumUploadResult, { status: 409 });
 
   // Each is processed and stored before the rows that name them, so no page asks for a file not there.
-  const results: NonNullable<AlbumUploadResult["results"]> = [];
+  const outcomes: ({ ok: true } | { ok: false; problem: UploadProblem })[] = [];
   const stored: { id: string; width: number; height: number }[] = [];
   for (const file of files) {
     const processed = await processPhoto(new Uint8Array(await file.arrayBuffer()), maxBytes);
     if (!processed.ok) {
-      results.push({ ok: false, problem: processed.problem });
+      outcomes.push({ ok: false, problem: processed.problem });
       continue;
     }
     const id = await newUploadId();
     await storePhoto(id, processed.photo.files);
     stored.push({ id, width: processed.photo.width, height: processed.photo.height });
-    results.push({ ok: true, pending: status === "pending" });
+    outcomes.push({ ok: true });
   }
+  // A guest's photos wait for a host while the host approves them, as the event stands once it is
+  // locked for the adding; a host's never do.
+  let pending = false;
   if (stored.length > 0) {
     const owner = viewer.kind === "host" ? { hostId: viewer.hostId } : { rsvpId: viewer.rsvpId };
-    const added = await addPhotos(event.id, owner, stored, maxPhotosPerEvent, status);
-    if (added !== "added") {
+    const added = await addPhotos(event.id, owner, stored, maxPhotosPerEvent, (locked) => photoStatusFor(locked, viewer));
+    if ("full" in added) {
       await removePhotoFiles(stored.map((each) => each.id));
       return Response.json({ error: "albumFull", left: added.full } satisfies AlbumUploadResult, { status: 409 });
     }
+    pending = added.status === "pending";
     for (const path of eventPaths(event)) revalidatePath(path);
   }
+  const results = outcomes.map((outcome) => (outcome.ok ? { ok: true as const, pending } : outcome));
   return Response.json({ results } satisfies AlbumUploadResult);
 }
 

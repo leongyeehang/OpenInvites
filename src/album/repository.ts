@@ -42,23 +42,30 @@ export async function countPhotos(eventId: string, status?: PhotoStatus): Promis
   return held;
 }
 
-// Adds photos whose files are already stored, with the status they start with, unless the album
-// would then hold more than the operator allows; then nothing is added, and the caller removes the
-// files. The event's row is locked while its photos, pending or not, are counted, so two people
-// adding at once cannot both take the last places.
+// Adds photos whose files are already stored, unless the album would then hold more than the
+// operator allows; then nothing is added, and the caller removes the files. The event's row is
+// locked while its photos, pending or not, are counted, so two people adding at once cannot both
+// take the last places. The status the photos start with is decided from the locked row
+// (`statusFor`, album/visibility.ts, photoStatusFor), as a reply's approval is: a host turning
+// approval off meanwhile approves what waits under the same lock, so nothing added after waits.
 export async function addPhotos(
   eventId: string,
   owner: PhotoOwner,
   added: { id: string; width: number; height: number }[],
   limit: number,
-  status: PhotoStatus,
-): Promise<"added" | { full: number }> {
+  statusFor: (locked: { albumApprovalRequired: boolean }) => PhotoStatus,
+): Promise<{ status: PhotoStatus } | { full: number }> {
   return getDb().transaction(async (tx) => {
-    await tx.select({ id: event.id }).from(event).where(eq(event.id, eventId)).for("no key update");
+    const [locked] = await tx
+      .select({ albumApprovalRequired: event.albumApprovalRequired })
+      .from(event)
+      .where(eq(event.id, eventId))
+      .for("no key update");
     const [{ held }] = await tx.select({ held: count() }).from(photo).where(eq(photo.eventId, eventId));
     if (held + added.length > limit) return { full: Math.max(0, limit - held) };
+    const status = statusFor(locked);
     await tx.insert(photo).values(added.map((each) => ({ ...each, eventId, rsvpId: owner.rsvpId ?? null, hostId: owner.hostId ?? null, status })));
-    return "added";
+    return { status };
   });
 }
 
