@@ -114,6 +114,17 @@ export function awaitsInvitation(invite: {
   return canMailInvite(invite) && invite.sentAt === null && invite.rsvpId === null;
 }
 
+// The invite made for a guest who replied before the event was invite-only, as it is turned on
+// (M6 ticket 08), so nobody who replied is locked out: their name, email and phone as they replied
+// with them, no letter, tied to their reply, so it stands as replied, and opened when it was made.
+// Its token is drawn by the caller (invites/repository.ts, inviteRepliedGuests).
+export function inviteFromRsvp(
+  reply: { id: string; name: string; email: string | null; phone: string | null },
+  now: Date,
+): InviteInput & { rsvpId: string; openedAt: Date } {
+  return { name: reply.name, email: reply.email, phone: reply.phone, letter: "", rsvpId: reply.id, openedAt: now };
+}
+
 // The link's secret, of the mail token's shape (rsvps/token.ts): 24 characters of the event link's
 // alphabet, about 143 bits, from a cryptographic source. It is stored as it is, since the host may
 // see the link again whenever they ask: it is the guest's key, not a secret from the host. It is

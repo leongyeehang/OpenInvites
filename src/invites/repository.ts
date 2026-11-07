@@ -4,7 +4,7 @@ import { getDb, type Db } from "@/db/client";
 import { event, invite, rsvp } from "@/db/schema";
 import type { SavedStatus } from "@/rsvps/form";
 import { generateMailToken } from "@/rsvps/token";
-import { generateInviteToken, roomForInvite, type InviteInput } from "./invite";
+import { generateInviteToken, inviteFromRsvp, roomForInvite, type InviteInput } from "./invite";
 
 export type Invite = typeof invite.$inferSelect;
 
@@ -35,6 +35,31 @@ export async function createInvites(eventId: string, inputs: InviteInput[]): Pro
       .values(inputs.map((input) => ({ eventId, ...input, token: generateInviteToken() })))
       .returning();
   });
+}
+
+// Turning invite-only on (M6 ticket 08): every reply of the event that is tied to no invite gets
+// one, made from the reply (invite.ts, inviteFromRsvp) with a fresh token, and the reply is tied to
+// it both ways, so nobody who replied is locked out. Run by the transaction that turns the setting
+// on, under its lock on the event's row, which every write of a reply takes first too, so a reply
+// being written at that moment is either written first, and invited here, or after. Not held to
+// the most invites a host may make: these are the guests the event already has. How many were
+// made.
+export async function inviteRepliedGuests(eventId: string, tx: Db, now: Date): Promise<number> {
+  const replies = await tx
+    .select({ id: rsvp.id, name: rsvp.name, email: rsvp.email, phone: rsvp.phone })
+    .from(rsvp)
+    .where(and(eq(rsvp.eventId, eventId), isNull(rsvp.inviteId)));
+  if (replies.length === 0) return 0;
+  const made = await tx
+    .insert(invite)
+    .values(replies.map((reply) => ({ eventId, ...inviteFromRsvp(reply, now), token: generateInviteToken() })))
+    .returning({ id: invite.id });
+  await tx
+    .update(rsvp)
+    .set({ inviteId: sql`${invite.id}` })
+    .from(invite)
+    .where(and(eq(invite.rsvpId, rsvp.id), inArray(invite.id, made.map((each) => each.id))));
+  return made.length;
 }
 
 // The host's letter to one guest, scoped to the event, so another host's page cannot reach an

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SLUG_ALPHABET } from "@/events/slug";
-import { awaitsInvitation, canMailInvite, generateInviteToken, inviteState, MAX_INVITES, MAX_LETTER, parseInvite, parseInviteLines, parseLetter, roomForInvite, type InviteFields } from "./invite";
+import { awaitsInvitation, canMailInvite, generateInviteToken, inviteFromRsvp, inviteState, MAX_INVITES, MAX_LETTER, parseInvite, parseInviteLines, parseLetter, roomForInvite, type InviteFields } from "./invite";
 
 // What the host's form posts, its fields left blank unless a test fills them.
 function posted(fields: Partial<InviteFields>): InviteFields {
@@ -204,6 +204,27 @@ describe("roomForInvite", () => {
     expect(roomForInvite(497, 3)).toBe(true);
     expect(roomForInvite(498, 3)).toBe(false);
     expect(roomForInvite(0, 501)).toBe(false);
+  });
+});
+
+describe("inviteFromRsvp", () => {
+  const now = new Date("2026-11-07T10:00:00Z");
+  const reply = { id: "5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a", name: "Mei Lin", email: "mei@example.test", phone: "+65 9123 4567" };
+
+  it("keeps the name, email and phone the guest replied with, and writes them no letter", () => {
+    expect(inviteFromRsvp(reply, now)).toMatchObject({ name: "Mei Lin", email: "mei@example.test", phone: "+65 9123 4567", letter: "" });
+    expect(inviteFromRsvp({ ...reply, email: null, phone: null }, now)).toMatchObject({ name: "Mei Lin", email: null, phone: null });
+  });
+
+  it("is tied to the reply, so it stands as replied, and was opened when it was made", () => {
+    const made = inviteFromRsvp(reply, now);
+    expect(made.rsvpId).toBe(reply.id);
+    expect(made.openedAt).toEqual(now);
+    expect(inviteState(made)).toBe("replied");
+  });
+
+  it("is never one the host could send an invitation to as not yet sent", () => {
+    expect(awaitsInvitation({ ...inviteFromRsvp(reply, now), mailStoppedAt: null, replyMailStoppedAt: null, sentAt: null })).toBe(false);
   });
 });
 

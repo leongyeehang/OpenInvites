@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireHost } from "@/auth/session";
 import { DeleteDialogContent } from "@/components/delete-dialog-content";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -47,7 +48,9 @@ export async function generateMetadata(): Promise<Metadata> {
 // while nobody has replied through it, the way to delete it, and its letter while letters are on.
 // With mail, while the event is published, the invitation can be emailed to each guest with an
 // email who has not stopped mail, or to all of them not yet sent at once (M6 spec, "The invitation
-// email").
+// email"). On an invite-only event, a banner says so, and each row whose link alone lets its holder
+// in says that; on a site without mail, the banner says that only those without an email can get
+// in, as no code can reach the others (M6 ticket 08).
 export default async function InvitesPage({ params }: PageProps<"/events/[id]/invites">) {
   const [host, { id }, t, locale] = await Promise.all([requireHost(), params, getTranslations("Invites"), getLocale()]);
   const event = await findHostEvent(host.id, id);
@@ -73,6 +76,17 @@ export default async function InvitesPage({ params }: PageProps<"/events/[id]/in
         </h1>
       </div>
       <p className="text-muted-foreground">{t("explainer")}</p>
+      {event.inviteOnly && (
+        <Alert role="note" className="rounded-2xl border-0 bg-attention-soft px-4 py-3 *:data-[slot=alert-title]:text-attention">
+          <AlertTitle>{t("inviteOnlyBanner")}</AlertTitle>
+          <AlertDescription>
+            <p>
+              {!mail && `${t("inviteOnlyNoMail")} `}
+              <Link href={`/events/${event.id}?sheet=settings`}>{t("inviteOnlySettings")}</Link>
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <ClientMessages namespaces={["Invites"]}>
         <LettersSwitch eventId={event.id} on={event.lettersEnabled} />
@@ -140,6 +154,9 @@ async function InviteRow({
           {mailStopped(invite) && <Badge variant="outline">{t("stopped")}</Badge>}
         </div>
       </div>
+      {/* On an invite-only event, an invite with no email is let in by its link alone, which the
+          host should know before passing it on (M6 spec, "The invite list"). */}
+      {event.inviteOnly && !invite.email && <p className="text-sm text-attention">{t("linkLetsIn")}</p>}
       {invite.sentAt && (
         <p className="text-sm text-muted-foreground">
           <time dateTime={invite.sentAt.toISOString()}>{t("sentAt", { date: formatMoment(invite.sentAt, event.timeZone, locale) })}</time>

@@ -30,5 +30,7 @@ describe("guestRsvp's edit link", () => {
     expect(guestRsvp({ rsvp: tied, token: "invite-token", inviteToken: "invite-token" }, null).editLink).toBe(`${BASE}/i/invite-token`);
     // Made before the invite was (M6 ticket 08): it keeps an edit token of its own.
     expect(guestRsvp({ rsvp: tied, token: "own-edit-token", inviteToken: "invite-token" }, null).editLink).toBe(`${BASE}/i/invite-token`);
+    // Held on this device through its invite alone, without its own edit token (M6 ticket 08).
+    expect(guestRsvp({ rsvp: tied, token: null, inviteToken: "invite-token" }, null).editLink).toBe(`${BASE}/i/invite-token`);
   });
 });

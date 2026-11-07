@@ -54,16 +54,22 @@ export type SaveRsvpResult = {
 // Once the host deletes the invite, the RSVP's own /r/ link opens it.
 export function guestRsvp({ rsvp, token, inviteToken }: MyRsvp, waitlistPosition: number | null): GuestRsvp {
   const { status, approval, name, plusOnes, plusOneNames, email, phone } = rsvp;
-  const editLink = inviteToken ? inviteUrl(inviteToken) : `${baseUrl()}/r/${token}`;
-  return { status, approval, name, plusOnes, plusOneNames, email, phone, editLink, waitlistPosition };
+  return { status, approval, name, plusOnes, plusOneNames, email, phone, editLink: editLinkOf(token, inviteToken), waitlistPosition };
+}
+
+// A device holds a reply by its edit token, or through the invite it is tied to, or both
+// (repository.ts, MyRsvp), so one of the two links is always there.
+function editLinkOf(token: string | null, inviteToken: string | null): string {
+  if (inviteToken) return inviteUrl(inviteToken);
+  if (token) return `${baseUrl()}/r/${token}`;
+  throw new Error("A reply held by neither its edit token nor an invite");
 }
 
 // The RSVP the guest in front of us holds on this device. The cookie carries their edit token,
 // so coming back to the event link finds their answer, and an edit link opened on another device
 // leaves the same cookie behind (see the /r/[token] route); a reply tied to an invite comes with
 // the invite's token, for its edit link. Without one, a device that stands for a personal invite,
-// by its link or by a pass, holds the RSVP saved through it, wherever it was saved
-// (invites/device.ts).
+// by its link or by a pass, holds the RSVP tied to it, wherever it was saved (invites/device.ts).
 export async function findRsvpOnThisDevice(eventId: string): Promise<MyRsvp | undefined> {
   const token = (await cookies()).get(rsvpCookieName(eventId))?.value;
   if (token) {

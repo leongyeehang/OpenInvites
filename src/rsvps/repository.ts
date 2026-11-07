@@ -55,8 +55,10 @@ export const findRsvpById = cache(async (eventId: string, id: string): Promise<R
 
 // An RSVP together with the edit token that opened it, which is what the guest holds, and the token
 // of the personal invite it is tied to, if it is, whose link is then the guest's edit link
-// (guest.ts, guestRsvp).
-export type MyRsvp = { rsvp: Rsvp; token: string; inviteToken: string | null };
+// (guest.ts, guestRsvp). A device that holds the reply only through its invite holds no edit token
+// for a reply made before the invite was (invites/device.ts, M6 ticket 08); it always has the
+// invite's token then.
+export type MyRsvp = { rsvp: Rsvp; token: string | null; inviteToken: string | null };
 
 // Every write of an RSVP goes through one transaction (spec, "Architecture"): it locks the event's
 // row first, FOR NO KEY UPDATE, then the reply's own row, the order removeEvents takes; it decides

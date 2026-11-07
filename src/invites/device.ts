@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 import { authSecret } from "@/instance/env";
 import { findRsvpById, type MyRsvp } from "@/rsvps/repository";
-import { rsvpCookieOptions } from "@/rsvps/token";
+import { editTokenThroughInvite, rsvpCookieOptions } from "@/rsvps/token";
 import { readPass, passCookieName } from "./pass";
 import { findInviteById, findInviteByToken, type Invite } from "./repository";
 
@@ -44,14 +44,16 @@ export async function findInviteOnThisDevice(eventId: string): Promise<Invite | 
   return found && found.rsvpId === null ? found : undefined;
 }
 
-// The RSVP saved through the invite this device stands for, wherever its guest saved it (M3 ticket
-// 08, review): it shows the guest their reply, and a form left filled in here changes it rather
-// than adding a second. Found by the invite's id, not by its token, as a reply made before its
-// invite was keeps an edit token of its own (M6 spec, "Identity on a device that is in"). Nothing
-// once the invite is deleted.
+// The RSVP tied to the invite this device stands for, wherever its guest saved it (M3 ticket 08,
+// review): it shows the guest their reply, and a form left filled in here changes it rather than
+// adding a second. Found by the invite's id, not by its token, as a reply made before its invite
+// was keeps an edit token of its own (M6 spec, "Identity on a device that is in"). The device
+// holds the reply's edit token only when that is the invite's token, as for a reply saved through
+// the invite; for one made before its invite (M6 ticket 08) it holds none, and keeps finding the
+// reply through the invite. Nothing once the invite is deleted.
 export async function findInvitedRsvpOnThisDevice(eventId: string): Promise<MyRsvp | undefined> {
   const found = (await inviteOnThisDevice(eventId))?.invite;
   if (!found?.rsvpId) return undefined;
   const reply = await findRsvpById(eventId, found.rsvpId);
-  return reply && { rsvp: reply, token: found.token, inviteToken: found.token };
+  return reply && { rsvp: reply, token: editTokenThroughInvite(found.token, reply), inviteToken: found.token };
 }

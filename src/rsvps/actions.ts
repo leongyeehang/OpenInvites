@@ -131,10 +131,12 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
   // its previous answers, which the guest can put right by answering again.
   await saveAnswers(saved.rsvp.id, answers.answers);
   const jar = await cookies();
-  if (jar.get(rsvpCookieName(event.id))?.value !== saved.token) {
+  if (saved.token && jar.get(rsvpCookieName(event.id))?.value !== saved.token) {
     // A new RSVP, or one this device held only by the personal invite it opened: this device now
     // remembers the guest, so the link finds their answer next time. One saved through a personal
-    // invite is remembered by the invite's token, its edit token.
+    // invite is remembered by the invite's token, its edit token. A reply made before its invite,
+    // held here only through the invite, has no edit token on this device (MyRsvp), and the device
+    // keeps finding it through the invite (M6 ticket 08).
     jar.set(rsvpCookieName(event.id), saved.token, rsvpCookieOptions());
   }
   // Once the RSVP is saved and remembered, so that nothing about the hosts' email can undo either.

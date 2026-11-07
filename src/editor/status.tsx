@@ -29,11 +29,13 @@ export function useEditor(): EditorState {
   return state;
 }
 
-export function EditorProvider({ children }: { children: ReactNode }) {
+// `sheet` is the sheet open when the editor opens, as a link to the event's settings asks
+// (M6 ticket 08); none unless one is named.
+export function EditorProvider({ sheet: opened = null, children }: { sheet?: SheetName | null; children: ReactNode }) {
   const [status, setStatus] = useState<EditorState["status"]>("idle");
   const [error, setError] = useState<string>();
   const [saves, setSaves] = useState(0);
-  const [sheet, openSheet] = useState<SheetName | null>(null);
+  const [sheet, openSheet] = useState<SheetName | null>(opened);
   const last = useRef<() => Promise<SaveResult>>(undefined);
   // Saves answer in the order they were sent; only the latest one's outcome is shown.
   const sent = useRef(0);

@@ -4,7 +4,7 @@ import type { RsvpInput } from "./form";
 type Proof = { emailVerifiedAt?: Date | null };
 
 export type RsvpPlan =
-  | { replaces: { id: string; token: string }; changes: RsvpInput & Proof & { updatedAt: Date; mailStoppedAt?: null } }
+  | { replaces: { id: string; token: string | null }; changes: RsvpInput & Proof & { updatedAt: Date; mailStoppedAt?: null } }
   | { replaces: null; rsvp: RsvpInput & Proof & { eventId: string; repliedAt: Date; updatedAt: Date } };
 
 // Where one answer goes. A guest who comes back — from the device they answered on, or through
@@ -21,7 +21,7 @@ export type RsvpPlan =
 export function planRsvp(
   eventId: string,
   input: RsvpInput,
-  mine: { id: string; token: string; email: string | null } | undefined,
+  mine: { id: string; token: string | null; email: string | null } | undefined,
   now: Date,
   proven = false,
 ): RsvpPlan {

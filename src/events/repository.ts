@@ -10,6 +10,7 @@ import { DEFAULT_THEME, parseTheme, type Theme } from "@/themes/theme";
 import { approvePending, promoteWaitlist } from "@/rsvps/repository";
 import { removePhotoFiles } from "@/album/files";
 import { approvePendingPhotos } from "@/album/repository";
+import { inviteRepliedGuests } from "@/invites/repository";
 import { removeRenditions } from "@/uploads/files";
 import type { EventInput } from "./form";
 import { SLUG_TAKEN, withFreshSlug } from "./slug";
@@ -89,7 +90,8 @@ export async function recordView(id: string): Promise<void> {
 // the headcount as it stands, and approval turned off approves every reply still waiting for it,
 // those already waiting for a place first (spec, "Approval"); turning it on changes no reply. In
 // the same way, the album's approval turned off approves every photo still waiting for it, and
-// tells nobody (M6 spec, "The album: who sees it, and approval").
+// tells nobody (M6 spec, "The album: who sees it, and approval"); invite-only turned on gives every
+// reply without an invite one, and turning it off deletes none (M6 spec, "Turning it on and off").
 // Dates that move the event's end take off its retention mark (spec, "Retention"): the next sweep
 // marks it again, and warns its hosts afresh, if it is still old enough. `mailed` says whether a
 // promoted or approved guest was queued an email.
@@ -101,6 +103,7 @@ export async function updateEvent(hostId: string, id: string, input: Partial<Eve
         capacity: event.capacity,
         approvalRequired: event.approvalRequired,
         albumApprovalRequired: event.albumApprovalRequired,
+        inviteOnly: event.inviteOnly,
         startsAt: event.startsAt,
         endsAt: event.endsAt,
         allDay: event.allDay,
@@ -120,6 +123,9 @@ export async function updateEvent(hostId: string, id: string, input: Partial<Eve
     const promotionMailed = updated.capacity === before.capacity ? false : (await promoteWaitlist(updated, tx, now)).mailed;
     const approvalMailed = before.approvalRequired && !updated.approvalRequired ? await approvePending(updated, tx, now) : false;
     if (before.albumApprovalRequired && !updated.albumApprovalRequired) await approvePendingPhotos(updated.id, tx);
+    // Turning invite-only on invites everyone who already replied, so nobody is locked out; turning
+    // it off deletes nothing (M6 ticket 08).
+    if (!before.inviteOnly && updated.inviteOnly) await inviteRepliedGuests(updated.id, tx, now);
     return { updated: withTheme(updated), mailed: promotionMailed || approvalMailed };
   });
 }

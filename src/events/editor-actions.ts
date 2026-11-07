@@ -82,13 +82,19 @@ async function editable(id: string) {
 }
 
 // Saves one piece, refreshing every page that shows the event, and kicks the mail worker when a
-// change queued mail (a capacity raised, approval turned off).
+// change queued mail (a capacity raised, approval turned off). Invite-only turned on or off also
+// refreshes the invite list, which it may have added to and whose rows it changes, and the guest
+// list (M6 ticket 08).
 async function save(hostId: string, event: Event, changes: Partial<EventChanges>): Promise<SaveResult> {
   const saved = await updateEvent(hostId, event.id, { ...changes, locale: await getLocale() });
   if (!saved) return { saved: false, error: (await getTranslations("Events"))("errors.notFound") };
   if (saved.mailed) after(kickMailWorker);
   for (const path of eventPaths(saved.updated)) revalidatePath(path);
   revalidatePath(`/events/${event.id}`);
+  if (saved.updated.inviteOnly !== event.inviteOnly) {
+    revalidatePath(`/events/${event.id}/invites`);
+    revalidatePath(`/events/${event.id}/guests`);
+  }
   return { saved: true };
 }
 

@@ -66,7 +66,7 @@ export async function generateMetadata({ params }: PageProps<"/events/[id]">): P
 // or Share, and More, where the 0.4 manage page's links went; below it, the toolbar, with Poster,
 // Title, Theme, Effect and Settings. Its co-hosts get the same, less what is the owner's alone (hosts/role.ts).
 export default async function EditorPage({ params, searchParams }: PageProps<"/events/[id]">) {
-  const [host, { id }, { from }, locale, t] = await Promise.all([requireHost(), params, searchParams, getLocale(), getTranslations("Events.manage")]);
+  const [host, { id }, { from, sheet }, locale, t] = await Promise.all([requireHost(), params, searchParams, getLocale(), getTranslations("Events.manage")]);
   const event = await findHostEvent(host.id, id);
   if (!event) notFound();
   // Where a duplicate came from, said only when the host can see that event themselves.
@@ -120,7 +120,8 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
   // EventPage.comments and EventPage.album, though the editor shows neither.
   return (
     <ClientMessages namespaces={["Editor", "Design", "Posters", "Events.form", "Events.manage", "EventPage.comments", "EventPage.album"]}>
-      <EditorProvider>
+      {/* The invite list's link to the settings opens the editor with them open (M6 ticket 08). */}
+      <EditorProvider sheet={sheet === "settings" ? "settings" : null}>
         <ThemedPage
           theme={event.theme}
           upload={picture}

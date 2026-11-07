@@ -524,7 +524,7 @@
         "approval": "Approve each guest before they’re on the list",
         "approvalHint": "Guests see the invitation while they wait, but not the comments, and the guest list only if everyone who opens the link can.",
         "inviteOnly": "Invite-only: only people on the invite list can open the invitation",
-        "inviteOnlyHint": "They prove their email on each device they use; someone with only a phone number gets in by their link.",
+        "inviteOnlyHint": "They prove their email on each device they use; someone with only a phone number gets in by their link. Guests who already replied are added to the list; those with an email prove it once.",
         "manageInvites": "Manage the invite list"
       },
       "contact": {
@@ -1235,6 +1235,10 @@
     "title": "Invites",
     "backToEvent": "Back to the event",
     "explainer": "Each guest gets a personal invite link: opening it fills in their name, and their email if you give one, and ties their reply to the link, which then works as their edit link. Copy or share each link, or, where this site has mail, email it to them with the invitation.",
+    "inviteOnlyBanner": "Invite-only is on: only these people can open the invitation.",
+    "inviteOnlyNoMail": "This site cannot send email, so only the people here without an email can get in.",
+    "inviteOnlySettings": "Change it in the event’s settings",
+    "linkLetsIn": "Anyone with this link can open the invitation",
     "lettersEnabled": "Personal letters",
     "lettersEnabledHint": "Write a note to each guest, shown on their invitation.",
     "name": "Name",
