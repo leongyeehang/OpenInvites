@@ -1,4 +1,6 @@
-# OpenInvites 0.5.0 (draft)
+# OpenInvites 0.5.0
+
+The GitHub release note for tag v0.5.0, written 2026-11-07 in the shape of the 0.4.0 note. For the maintainer to paste when the release is published (docs/releasing.md).
 
 ## Making an event is now designing an invitation
 
@@ -51,7 +53,7 @@ row you swipe. With no events yet, there is one card: **Start an invitation**.
 
 **A new header on every signed-in page.** The site's name, a **New event** button on every page, and
 your initials, which open a menu with **Account**, **Site settings** (for the operator) and **Sign
-out**. The pages sit on a soft tinted background in place of white.
+out**; the Account page has **Sign out** too. The pages sit on a soft tinted background in place of white.
 
 **"Site", not "instance".** The interface calls the installation "this site" (本站 in Chinese), and
 Instance settings is now **Site settings**, in the menu under your initials. The address is still
