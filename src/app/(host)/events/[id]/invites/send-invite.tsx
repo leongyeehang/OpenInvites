@@ -32,14 +32,28 @@ export function SendInvite({ eventId, inviteId, name, again }: { eventId: string
 }
 
 // "Send to everyone not yet sent", above the list, with how many that is. It stays once they are
-// all sent, unable to send, so that what it did is still said under it.
+// all sent, so that what it did is still said under it: then it reads as disabled and does
+// nothing, but keeps its place in the tab order, so the focus it had when it sent them stays on it,
+// as Send's does (M6 final review). While it sends, it is disabled outright.
 export function SendUnsentInvites({ eventId, count }: { eventId: string; count: number }) {
   const t = useTranslations("Invites");
   const [state, send, sending] = useActionState(sendUnsentInvitesAction.bind(null, eventId), undefined);
+  const [button, keepFocus] = useFocusKept(sending);
+  const none = count === 0;
 
   return (
-    <form action={send} className="flex flex-col items-start gap-2">
-      <Button type="submit" variant="outline" disabled={sending || count === 0}>
+    <form action={send} onSubmit={keepFocus} className="flex flex-col items-start gap-2">
+      <Button
+        ref={button}
+        type="submit"
+        variant="outline"
+        disabled={sending}
+        aria-disabled={none || undefined}
+        onClick={(click) => {
+          if (none) click.preventDefault();
+        }}
+        className="aria-disabled:cursor-default aria-disabled:opacity-50"
+      >
         <Mail />
         {t("sendAll", { count })}
       </Button>

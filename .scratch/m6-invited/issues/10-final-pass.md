@@ -282,3 +282,49 @@ this pass changed:
 Left for the controller: the full run on a machine whose desktop Chromiums do not crash, then
 box 6 and the status. Left for the maintainer: the glossary entries above; a host guide (above);
 the date poll sheet's focus on removing its last date (above); the Chinese list above.
+
+**2026-11-07, implementing agent: final review fixes.** The whole-branch review's two Important and
+six Minor findings, and this ticket's own review's six minors, in one round.
+
+What changed:
+- **One guest, one invite (B1).** Turning invite-only on ties a reply to the oldest unanswered invite
+  with the same email, in any case, before it makes new ones (`tieRepliesToInvites`, pure, in
+  `src/invites/invite.ts`; `inviteRepliedGuests` sets those invites' `rsvp_id` and, if unset,
+  `opened_at`, a thousand pairs a statement, then ties every reply back by the id-free
+  `UPDATE … FROM` as before). `findInviteByEmail` takes an answered invite first.
+- **A host's email correction reaches the invite (B2).** `editRsvpAsHost` writes the reply's new
+  email to the invite it is tied to, in the same transaction under the same lock
+  (`inviteEmailAfterHostEdit`, pure, in `src/rsvps/plan.ts`); a blank one blanks the invite's, which
+  then admits by the link alone. The guest list's save revalidates the Invites page.
+- **The reply before the cookie (B3).** `deviceInvite` stands for the pass's invite, else the
+  invite of the reply the device holds, else the invite cookie's (`standsFor`, pure, in
+  `src/invites/access.ts`), so a guest who replied stays in after opening a forwarded email invite's
+  link.
+- **Turnstile on the locked page (B4).** The locked form carries the widget when it is configured,
+  and each of its posts (Send me a code, Open the invitation, Send it again) waits for it; `passAction`
+  runs `checkTurnstile` after the RSVP limit and before the mail limit, as `saveRsvpAction` does, and
+  a failed check answers "Please complete the check and try again." (`InviteOnly.errors.checkFailed`,
+  three locales). The operator docs list the locked page among the checked forms.
+- **The title (B5).** An invite-only event's page title is "You're invited" for everyone but its
+  hosts. **B6** comment rewrapped. **B7** the no-mail row turns invite-only on and reads the no-mail
+  banner. **B8** `AUTH_SECRET`'s row says rotating it voids every guest's pass.
+- **A1** `saveLetterAction` returns the letter as kept; the field takes it only while it still holds
+  what was sent (`adoptSaved`, `src/lib/adopt-saved.ts`). **A2** the locked keyboard row checks the
+  waiting state after Enter and counts the mail after the next round trip. **A3** the viewer's first
+  stop is asserted (Approve). **A4** the album row covers `going`; the schedule keyboard row removes a
+  middle row and keeps the focus on "Remove item 2". **A5** "Send to everyone not yet sent" is
+  `aria-disabled`, focusable and inert once nobody is left, and keeps the focus. **A6** the release
+  note says Share appears where there is a share sheet, beside Copy, until the guest replies.
+
+Evidence:
+- Unit RED: 11 failed (`tieRepliesToInvites`, `standsFor`, `inviteEmailAfterHostEdit` not functions;
+  `./adopt-saved` missing). GREEN: those four files 65 passed. `pnpm lint`, `pnpm typecheck` clean;
+  `pnpm test` 93 files, 990 passed.
+- Browser RED, the new rows against the profile built from 6dfcfc4, desktop, no retries: the
+  invitee's title (B5), the switch row (4 invites, not 3: B1), the correction row (old email on the
+  row: B2), the send-all row (focus lost: A5), the Turnstile locked-page row (no bot check: B4)
+  failed; the viewer, locked keyboard, schedule and album rows passed (behaviour already there).
+- Browser GREEN, rebuilt from the tree, `CI=1`, two workers, both widths: invite-only, invites,
+  keyboard, album-settings, schedule, turnstile 124 passed; one desktop "Target crashed" in the
+  switch row, passed on retry, and `invite-only` alone at one worker then passed 15 of 15. The
+  no-mail spec needs the docker group to recreate its instance; under `sg docker` 7 passed.

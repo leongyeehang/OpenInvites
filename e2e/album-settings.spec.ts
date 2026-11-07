@@ -147,6 +147,13 @@ test("a guest whose reply awaits the host's approval is told the album opens onc
   const visitor = await (await browser.newContext()).newPage();
   await visitor.goto(host.link);
   await expect(album(visitor)).toContainText("The hosts keep this album. Reply to add your photos.");
+
+  // Only for guests who are going: the album says so.
+  await editSettings(host.page, async (sheet) => {
+    await albumGroup(sheet).getByLabel(VISIBILITY).selectOption({ label: "Guests who are going" });
+  });
+  await priya.reload();
+  await expect(album(priya)).toContainText("Once the host approves your reply you can add your photos; the album is for guests who are going.");
   await Promise.all([host.context.close(), priya.context().close(), visitor.context().close()]);
 });
 

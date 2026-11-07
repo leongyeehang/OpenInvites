@@ -43,3 +43,15 @@ export function planHostEdit(edit: RsvpInput, current: { mailStoppedAt: Date | n
   if (current.mailStoppedAt) return { ...edit, email: undefined };
   return edit.email !== undefined && edit.email !== current.email ? { ...edit, emailVerifiedAt: null } : edit;
 }
+
+// What a host's change of a reply's email writes to the invite the reply is tied to (M6 final
+// review): the same email, so a corrected typo reaches the invite, whose email is what its guest
+// proves on an invite-only event. A blank one blanks the invite's too, which then lets its guest in
+// by the link alone: the host's choice. Nothing when the email is unchanged or there is no invite.
+export function inviteEmailAfterHostEdit(
+  previous: { email: string | null },
+  current: { inviteId: string | null; email: string | null },
+): { inviteId: string; email: string | null } | undefined {
+  if (current.inviteId === null || current.email === previous.email) return undefined;
+  return { inviteId: current.inviteId, email: current.email };
+}

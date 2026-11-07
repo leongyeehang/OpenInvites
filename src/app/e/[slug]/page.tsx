@@ -198,10 +198,11 @@ export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Prom
   // A draft unfurls as nothing: its title is not public until the host says so. Nor does an
   // invite-only event to anyone not in (M6 spec, "What the lock covers").
   if (event.state === "draft") return { title: t("notReadyTitle"), robots: noindex };
-  if ((await gateFor(event)).page === "locked") return { title: t("lockedTitle"), robots: noindex };
   // An invite-only event never unfurls, even for those in: a card is drawn for whoever fetches the
-  // link, and its picture is cached publicly (preview.png).
-  if (event.inviteOnly) return { title: event.title, robots: noindex };
+  // link, and its picture is cached publicly (preview.png). Its title is "You're invited" to all
+  // but its hosts, those let in too (M6 final review), so the title never tells whether a device
+  // is in, and the event's own title stays inside the page.
+  if (event.inviteOnly) return { title: (await gateFor(event)).isHost ? event.title : t("lockedTitle"), robots: noindex };
 
   const link = eventUrl(event);
   // The version in the URL is what makes the card change when the event or its theme does,

@@ -5,7 +5,7 @@ import { event, invite, rsvp } from "@/db/schema";
 import { chunks } from "@/lib/chunks";
 import type { SavedStatus } from "@/rsvps/form";
 import { generateMailToken } from "@/rsvps/token";
-import { generateInviteToken, inviteFromRsvp, mailStopped, roomForInvite, type InviteInput } from "./invite";
+import { generateInviteToken, inviteFromRsvp, mailStopped, roomForInvite, tieRepliesToInvites, type InviteInput } from "./invite";
 
 export type Invite = typeof invite.$inferSelect;
 
@@ -42,22 +42,46 @@ export async function createInvites(eventId: string, inputs: InviteInput[]): Pro
 // 65,535 in a statement, which an event's replies (up to the operator's limit) could pass at once.
 const INVITES_AT_ONCE = 1000;
 
-// Turning invite-only on (M6 ticket 08): every reply of the event that is tied to no invite gets
-// one, made from the reply (invite.ts, inviteFromRsvp) with a fresh token, and the reply is tied to
-// it both ways, so nobody who replied is locked out. Run by the transaction that turns the setting
-// on, under its lock on the event's row, which every write of a reply takes first too, so a reply
-// being written at that moment is either written first, and invited here, or after, when the event
-// is invite-only and the reply is invited as it is written (rsvps/repository.ts, saveRsvp). Not
-// held to the most invites a host may make: these are the guests the event already has. The
-// invites go in a thousand at a time, and each reply is then tied to the invite made from it in
-// one statement that names no ids. How many were made.
+// How many replies one statement ties to the invites the host made for them: each binds two
+// parameters.
+const TIES_AT_ONCE = 1000;
+
+// Turning invite-only on (M6 ticket 08): every reply of the event that is tied to no invite is
+// tied to one, so nobody who replied is locked out. A reply whose email is that of an invite the
+// host made and nobody has answered is that invite's guest, and is tied to it, which is marked
+// opened if it was not (invite.ts, tieRepliesToInvites; M6 final review): one guest, one invite,
+// and the code they ask for proves into the invite that holds their reply. Every other reply gets
+// an invite made from it (inviteFromRsvp) with a fresh token. Run by the transaction that turns
+// the setting on, under its lock on the event's row, which every write of a reply takes first too,
+// so a reply being written at that moment is either written first, and invited here, or after,
+// when the event is invite-only and the reply is invited as it is written (rsvps/repository.ts,
+// saveRsvp). Not held to the most invites a host may make: these are the guests the event already
+// has. The ties and the new invites go a thousand at a time, and each reply is then tied back to
+// its invite in one statement that names no ids. How many replies were tied to an invite.
 export async function inviteRepliedGuests(eventId: string, tx: Db, now: Date): Promise<number> {
   const replies = await tx
     .select({ id: rsvp.id, name: rsvp.name, email: rsvp.email, phone: rsvp.phone })
     .from(rsvp)
-    .where(and(eq(rsvp.eventId, eventId), isNull(rsvp.inviteId)));
+    .where(and(eq(rsvp.eventId, eventId), isNull(rsvp.inviteId)))
+    .orderBy(asc(rsvp.repliedAt), asc(rsvp.id));
   if (replies.length === 0) return 0;
-  for (const some of chunks(replies, INVITES_AT_ONCE)) {
+  const unanswered = await tx
+    .select({ id: invite.id, email: invite.email })
+    .from(invite)
+    .where(and(eq(invite.eventId, eventId), isNull(invite.rsvpId), isNotNull(invite.email)))
+    .orderBy(asc(invite.createdAt), asc(invite.id));
+  const { tied, untied } = tieRepliesToInvites(replies, unanswered);
+  for (const some of chunks(tied, TIES_AT_ONCE)) {
+    const pairs = sql.join(
+      some.map(({ inviteId, replyId }) => sql`(${inviteId}::uuid, ${replyId}::uuid)`),
+      sql`, `,
+    );
+    await tx.execute(sql`
+      update ${invite} set rsvp_id = tie.rsvp_id, opened_at = coalesce(${invite.openedAt}, ${now.toISOString()}::timestamptz)
+      from (values ${pairs}) as tie (invite_id, rsvp_id)
+      where ${invite.id} = tie.invite_id and ${invite.eventId} = ${eventId} and ${invite.rsvpId} is null`);
+  }
+  for (const some of chunks(untied, INVITES_AT_ONCE)) {
     await tx.insert(invite).values(some.map((reply) => ({ eventId, ...inviteFromRsvp(reply, now), token: generateInviteToken() })));
   }
   await tx
@@ -227,14 +251,14 @@ export const findInviteById = cache(async (eventId: string, id: string): Promise
 });
 
 // The invite of the event an email belongs to, whatever its case, as a guest on the locked page
-// types it (M6 spec, "The locked page"). The first made, should a host have listed one address
-// twice.
+// types it (M6 spec, "The locked page"). Should one address be on more than one invite, an answered
+// one first, so the pass it earns finds the guest's reply (M6 final review), then the first made.
 export async function findInviteByEmail(eventId: string, email: string): Promise<Invite | undefined> {
   const [found] = await getDb()
     .select()
     .from(invite)
     .where(and(eq(invite.eventId, eventId), sql`lower(${invite.email}) = lower(${email})`))
-    .orderBy(asc(invite.createdAt), asc(invite.id))
+    .orderBy(sql`${invite.rsvpId} is null`, asc(invite.createdAt), asc(invite.id))
     .limit(1);
   return found;
 }

@@ -10,13 +10,14 @@ import { consume } from "@/rate-limit/rate-limit";
 import { sendCode, type CodeMail } from "@/rsvps/email-code";
 import { isEmail } from "@/rsvps/form";
 import { tryEmailCode } from "@/rsvps/repository";
+import { checkTurnstile } from "@/turnstile/verify";
 import { rsvpCookieOptions } from "@/rsvps/token";
 import { passCookieName, passExpiresAt, signPass } from "./pass";
 import { findInviteByEmail } from "./repository";
 
 // Why the locked page did not let the guest in. The guest's own browser turns it into a sentence.
 // None of them says whether the email is on the invite list.
-export type PassRefusal = "codeWrong" | "codeExpired" | "tooFast" | "emailInvalid";
+export type PassRefusal = "codeWrong" | "codeExpired" | "tooFast" | "emailInvalid" | "checkFailed";
 
 // What asking did: a code is on its way if the email is on the list (with how long until another
 // can be sent), or why not. A right code sets the pass and draws the page again, as the invitation.
@@ -38,17 +39,22 @@ function passMail(event: { title: string }): CodeMail {
 // all the same and never sent (rsvps/email-code.ts, sendCode), so a wrong, dead or too-soon code is
 // answered alike too. The code is kept under the invite's email as the host wrote it, so a guest
 // may type it in any case.
+//
+// When the operator has Turnstile on, every post passes its check next after the RSVP limit, as an
+// RSVP does (rsvps/actions.ts, saveRsvpAction; M6 final review): "Send me a code", "Send it again"
+// and the code alike, and before the mail limit, so a post that fails it spends none of it.
 export async function passAction(slug: string, _: PassState, formData: FormData): Promise<PassState> {
   const requestHeaders = await headers();
   const code = formData.get("code");
   if (!(await consume("rsvp", requestHeaders)).allowed) return { error: "tooFast" };
+  if ((await checkTurnstile(formData, requestHeaders)) === "failed") return { error: "checkFailed" };
   if (typeof code !== "string" && !(await consume("mail", requestHeaders)).allowed) return { error: "tooFast" };
   const posted = formData.get("email");
   const email = typeof posted === "string" ? posted.trim() : "";
   if (!isEmail(email)) return { error: "emailInvalid" };
 
-  // Only a published or cancelled invite-only event has a locked page to ask from, and only an
-  // site with mail can send the code. Anything else is drawn again as it now is.
+  // Only a published or cancelled invite-only event has a locked page to ask from, and only a site
+  // with mail can send the code. Anything else is drawn again as it now is.
   const event = await findEventBySlug(slug);
   if (!event) return undefined;
   if (!event.inviteOnly || event.state === "draft" || !isMailConfigured()) {

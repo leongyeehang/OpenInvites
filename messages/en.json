@@ -1324,7 +1324,8 @@
       "codeWrong": "That code isn’t right.",
       "codeExpired": "That code no longer works. Send it again for a new one.",
       "tooFast": "You’re going too fast. Try again shortly.",
-      "emailInvalid": "That does not look like an email address."
+      "emailInvalid": "That does not look like an email address.",
+      "checkFailed": "Please complete the check and try again."
     }
   },
   "Announcements": {

@@ -39,7 +39,7 @@ These are read by `compose.yaml` itself rather than by the app.
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `BASE_URL` | Required | The instance's public address, exactly as a browser shows it, such as `https://invites.example.org`, with no trailing slash and no path. Event links and the links in emails start with it; uploads from any other origin are refused; the bundled Caddy gets its certificate for this name. |
-| `AUTH_SECRET` | Required | Signs sessions and the links in emails. At least 32 characters; `openssl rand -hex 32` makes one. Changing it signs every host out. |
+| `AUTH_SECRET` | Required | Signs sessions and the links in emails. At least 32 characters; `openssl rand -hex 32` makes one. Changing it signs every host out, and voids every guest's pass to an invite-only event: they prove their email again. |
 | `OPERATOR_CONTACT_EMAIL` | None | Shown on the privacy policy and terms pages, and to hosts who need a password reset on an instance without mail. |
 | `OPERATOR_EMAIL` | None | Your own account, to take the instance back (next section). |
 
@@ -460,8 +460,8 @@ request. `compose.yaml` publishes it on `127.0.0.1` only; keep it that way.
 | `TURNSTILE_SECRET_KEY` | None | That widget's secret key. |
 
 Set both to put [Cloudflare Turnstile](https://www.cloudflare.com/application-services/products/turnstile/)'s
-check on three forms: signing up with an email and password, a guest's RSVP in every layout, and
-reporting an event page. Each form's submit waits until the check has passed, which for most
+check on these forms: signing up with an email and password, a guest's RSVP in every layout,
+reporting an event page, and the code that opens an invite-only event's locked page. Each form's submit waits until the check has passed, which for most
 visitors happens by itself in a second or two. Every time a form is sent, a guest's code to prove
 their email included, the app asks Cloudflare whether the check really passed before it does
 anything with the form beyond counting it against the rate limits. A form that fails it says

@@ -68,9 +68,13 @@ export async function createInvitesAction(eventId: string, _: FormState, formDat
   return { success: t("madeMany", { count: made.length }) };
 }
 
+// What saving a letter did: why not, or that it was saved, with the letter as it was kept, which
+// the field then shows (letter-field.tsx).
+export type LetterState = (NonNullable<FormState> & { letter?: string }) | undefined;
+
 // The host's letter to one guest (M6 spec, "Personal letters"), written on its row of the invites
 // page; an empty one takes the letter away.
-export async function saveLetterAction(eventId: string, id: string, _: FormState, formData: FormData): Promise<FormState> {
+export async function saveLetterAction(eventId: string, id: string, _: LetterState, formData: FormData): Promise<LetterState> {
   const [host, t] = await Promise.all([requireHost(), getTranslations("Invites")]);
   const event = await findHostEvent(host.id, eventId);
   if (!event || !can(event.role, "guests") || !isUuid(id)) return { error: t("errors.notFound") };
@@ -79,7 +83,7 @@ export async function saveLetterAction(eventId: string, id: string, _: FormState
   if (!parsed.ok) return { error: t(`errors.${parsed.error}`) };
   if (!(await updateInviteLetter(event.id, id, parsed.letter))) return { error: t("errors.inviteGone") };
   revalidateInvites(event.id);
-  return { success: t("letterSaved") };
+  return { success: t("letterSaved"), letter: parsed.letter };
 }
 
 // Personal letters on or off for the event, from the switch at the top of the invites page.

@@ -1324,7 +1324,8 @@
       "codeWrong": "验证码不正确。",
       "codeExpired": "这个验证码已失效。请重新发送，获取新的验证码。",
       "tooFast": "操作太频繁了，请稍后再试。",
-      "emailInvalid": "这看起来不像邮箱地址。"
+      "emailInvalid": "这看起来不像邮箱地址。",
+      "checkFailed": "请先完成人机验证，再试一次。"
     }
   },
   "Announcements": {

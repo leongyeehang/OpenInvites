@@ -14,7 +14,7 @@ import { approvalAudience, recipients } from "./audience";
 import { countRsvps, type RsvpCounts, type StatusTally } from "./counts";
 import { chosenStatus, type RsvpInput, type RsvpStatus, type SavedStatus } from "./form";
 import { repliesAtLimit } from "./limit";
-import { planHostEdit, planRsvp } from "./plan";
+import { inviteEmailAfterHostEdit, planHostEdit, planRsvp } from "./plan";
 import { promotionMail } from "./promotion-mail";
 import { generateEditToken, generateMailToken, hashEditToken } from "./token";
 import { codeVerdict, MAX_ATTEMPTS, RESEND_SECONDS, type CodeVerdict } from "./verification";
@@ -379,6 +379,12 @@ export async function editRsvpAsHost(eventId: string, id: string, edit: RsvpInpu
       })
       .where(eq(rsvp.id, id))
       .returning();
+    // A reply tied to an invite takes the invite's email with it (M6 final review): under
+    // invite-only that email is what the guest proves, so a corrected typo would otherwise lock them
+    // out. A blank one blanks the invite's too, which then lets its guest in by the link alone: the
+    // host's choice. Under the same lock, in the same transaction.
+    const follows = inviteEmailAfterHostEdit(previous, current);
+    if (follows) await tx.update(invite).set({ email: follows.email }).where(and(eq(invite.id, follows.inviteId), eq(invite.eventId, eventId)));
     const { mailed } = await promoteWaitlist(locked, tx, now);
     return { previous, current, mailed };
   });

@@ -6,13 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { passAction, type PassState } from "@/invites/pass-actions";
+import { Turnstile } from "@/turnstile/turnstile";
 
 // The locked page's way in (invites/pass-actions.ts): the email, "Send me a code", then the code
 // and "Send it again", which waits thirty seconds after each code, counting them down, as the RSVP
 // form's code step does. The answer to "Send me a code" is the same whether or not the email is on
 // the invite list. A right code gives this device a pass, and the page is drawn again as the
-// invitation. Changing the email goes back to asking for a code.
-export function LockedForm({ slug, email: given }: { slug: string; email: string | null }) {
+// invitation. Changing the email goes back to asking for a code. With Turnstile on, its check
+// stands above the buttons, as on the RSVP form, and every post waits for it and spends its token:
+// Send me a code, Open the invitation, and Send it again (M6 final review).
+export function LockedForm({ slug, email: given, turnstileSiteKey }: { slug: string; email: string | null; turnstileSiteKey?: string }) {
   const t = useTranslations("InviteOnly");
   const id = useId();
   const [email, setEmail] = useState(given ?? "");
@@ -20,8 +23,11 @@ export function LockedForm({ slug, email: given }: { slug: string; email: string
   // The address the last code was asked for, and the seconds until another may be.
   const [sentTo, setSentTo] = useState<string>();
   const [resendIn, setResendIn] = useState(0);
+  const [checked, setChecked] = useState(turnstileSiteKey === undefined);
+  const form = useRef<HTMLFormElement>(null);
   const codeField = useRef<HTMLInputElement>(null);
   const [state, send, sending] = useActionState(async (previous: PassState, formData: FormData) => {
+    if (turnstileSiteKey !== undefined) setChecked(false);
     const answer = await passAction(slug, previous, formData);
     if (answer?.sent) {
       setSentTo(answer.sent.email);
@@ -41,18 +47,20 @@ export function LockedForm({ slug, email: given }: { slug: string; email: string
     if (codeStep) codeField.current?.focus();
   }, [codeStep, sentTo]);
 
-  // "Send it again" posts the email alone, which asks for another code.
+  // "Send it again" posts the form without its code, which asks for another code; the check's
+  // token, when there is one, goes with it.
+  const waiting = sending || resendIn > 0 || !checked;
   const resend = () => {
-    if (sending || resendIn > 0) return;
-    const data = new FormData();
-    data.set("email", email);
+    if (waiting || !form.current) return;
+    const data = new FormData(form.current);
+    data.delete("code");
     setCode("");
     startTransition(() => send(data));
   };
 
   const error = state?.error;
   return (
-    <form action={send}>
+    <form ref={form} action={send}>
       <FieldGroup>
         <Field data-invalid={error === "emailInvalid" || undefined}>
           <FieldLabel htmlFor={`${id}-email`}>{t("email")}</FieldLabel>
@@ -96,9 +104,11 @@ export function LockedForm({ slug, email: given }: { slug: string; email: string
 
         {error && <FieldError>{t(`errors.${error}`)}</FieldError>}
 
+        {turnstileSiteKey && <Turnstile siteKey={turnstileSiteKey} onToken={setChecked} resets={state} />}
+
         {codeStep ? (
           <div className="flex flex-col gap-3">
-            <Button type="submit" disabled={sending || !code.trim()}>
+            <Button type="submit" disabled={sending || !checked || !code.trim()}>
               {t("open")}
             </Button>
             {/* While it waits the button stays in the tab order, `aria-disabled` and a no-op, under
@@ -106,7 +116,7 @@ export function LockedForm({ slug, email: given }: { slug: string; email: string
             <button
               type="button"
               onClick={resend}
-              aria-disabled={sending || resendIn > 0}
+              aria-disabled={waiting}
               aria-label={t("resend")}
               aria-describedby={resendIn > 0 ? `${id}-resend-in` : undefined}
               className="cursor-pointer self-start rounded-sm text-sm underline underline-offset-2 hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-disabled:cursor-default aria-disabled:no-underline aria-disabled:opacity-70"
@@ -115,7 +125,7 @@ export function LockedForm({ slug, email: given }: { slug: string; email: string
             </button>
           </div>
         ) : (
-          <Button type="submit" disabled={sending}>
+          <Button type="submit" disabled={sending || !checked}>
             {t("send")}
           </Button>
         )}

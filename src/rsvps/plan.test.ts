@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RsvpInput } from "./form";
-import { planHostEdit, planRsvp } from "./plan";
+import { inviteEmailAfterHostEdit, planHostEdit, planRsvp } from "./plan";
 
 const input: RsvpInput = { status: "going", name: "Priya Nair", plusOnes: 1, plusOneNames: ["Arjun"], email: null, phone: null };
 const replied = new Date("2027-03-01T10:00:00Z");
@@ -79,5 +79,24 @@ describe("planHostEdit", () => {
       email: null,
       emailVerifiedAt: null,
     });
+  });
+});
+
+// A host's correction of a reply's email reaches the invite the reply is tied to (M6 final review,
+// B2): under invite-only the invite's email is the key a guest proves.
+describe("inviteEmailAfterHostEdit", () => {
+  const tied = { inviteId: "invite-1", email: "mei@exmaple.test" };
+
+  it("is the reply's new email, for the invite the reply is tied to", () => {
+    expect(inviteEmailAfterHostEdit({ email: "mei@exmaple.test" }, { ...tied, email: "mei@example.test" })).toEqual({ inviteId: "invite-1", email: "mei@example.test" });
+  });
+
+  it("blanks the invite's email when the host blanks the reply's", () => {
+    expect(inviteEmailAfterHostEdit({ email: "mei@exmaple.test" }, { ...tied, email: null })).toEqual({ inviteId: "invite-1", email: null });
+  });
+
+  it("is nothing when the email did not change, or the reply is tied to no invite", () => {
+    expect(inviteEmailAfterHostEdit({ email: "mei@exmaple.test" }, tied)).toBeUndefined();
+    expect(inviteEmailAfterHostEdit({ email: "mei@exmaple.test" }, { inviteId: null, email: "mei@example.test" })).toBeUndefined();
   });
 });

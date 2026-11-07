@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { ClientMessages } from "@/locale/client-messages";
+import { turnstileSiteKey } from "@/turnstile/config";
 import { LockedForm } from "./locked-form";
 
 // What an invite-only event shows a device that is not in (M6 spec, "The locked page"): a plain
@@ -16,8 +17,8 @@ export async function LockedPage({ slug, host, email, mail }: { slug: string; ho
         <p className="text-lg break-words text-muted-foreground">{t("from", { host })}</p>
       </div>
       {mail && (
-        <ClientMessages namespaces={["InviteOnly"]}>
-          <LockedForm slug={slug} email={email} />
+        <ClientMessages namespaces={["InviteOnly", "Turnstile"]}>
+          <LockedForm slug={slug} email={email} turnstileSiteKey={turnstileSiteKey()} />
         </ClientMessages>
       )}
       <p className="text-sm text-muted-foreground">{t("lost")}</p>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SLUG_ALPHABET } from "@/events/slug";
-import { awaitsInvitation, canMailInvite, generateInviteToken, inviteFromRsvp, inviteState, invitesNewReply, letterFor, MAX_INVITES, MAX_LETTER, parseInvite, parseInviteLines, parseLetter, roomForInvite, type InviteFields } from "./invite";
+import { awaitsInvitation, canMailInvite, generateInviteToken, inviteFromRsvp, inviteState, invitesNewReply, letterFor, MAX_INVITES, MAX_LETTER, parseInvite, parseInviteLines, parseLetter, roomForInvite, tieRepliesToInvites, type InviteFields } from "./invite";
 
 // What the host's form posts, its fields left blank unless a test fills them.
 function posted(fields: Partial<InviteFields>): InviteFields {
@@ -259,6 +259,48 @@ describe("inviteFromRsvp", () => {
 
   it("is never one the host could send an invitation to as not yet sent", () => {
     expect(awaitsInvitation({ ...inviteFromRsvp(reply, now), mailStoppedAt: null, replyMailStoppedAt: null, sentAt: null })).toBe(false);
+  });
+});
+
+// Turning invite-only on (M6 final review, B1): a guest the host invited by email who replied
+// through the event link instead is that invite's guest, so the reply is tied to it rather than
+// given a second invite.
+describe("tieRepliesToInvites", () => {
+  const reply = (id: string, email: string | null) => ({ id, email });
+  const open = (id: string, email: string | null) => ({ id, email });
+
+  it("ties a reply to the unanswered invite with its email, whatever its case", () => {
+    const { tied, untied } = tieRepliesToInvites([reply("r1", "Alice@Example.test")], [open("i1", "alice@example.TEST")]);
+    expect(tied).toEqual([{ replyId: "r1", inviteId: "i1" }]);
+    expect(untied).toEqual([]);
+  });
+
+  it("leaves for a new invite a reply without an email, or with one no invite has", () => {
+    const replies = [reply("r1", null), reply("r2", ""), reply("r3", "bo@example.test")];
+    const { tied, untied } = tieRepliesToInvites(replies, [open("i1", "alice@example.test"), open("i2", null), open("i3", "")]);
+    expect(tied).toEqual([]);
+    expect(untied).toEqual(replies);
+  });
+
+  it("ties to the oldest such invite, and each invite to one reply only, the oldest", () => {
+    // Both lists come oldest first.
+    const replies = [reply("r1", "alice@example.test"), reply("r2", "ALICE@example.test"), reply("r3", "alice@example.test")];
+    const { tied, untied } = tieRepliesToInvites(replies, [open("i1", "alice@example.test"), open("i2", "Alice@example.test")]);
+    expect(tied).toEqual([
+      { replyId: "r1", inviteId: "i1" },
+      { replyId: "r2", inviteId: "i2" },
+    ]);
+    expect(untied).toEqual([replies[2]]);
+  });
+
+  it("keeps the replies it leaves in their order, with all they carry", () => {
+    const replies = [
+      { id: "r1", email: "a@example.test", name: "A" },
+      { id: "r2", email: "b@example.test", name: "B" },
+      { id: "r3", email: null, name: "C" },
+    ];
+    const { untied } = tieRepliesToInvites(replies, [open("i1", "b@example.test")]);
+    expect(untied).toEqual([replies[0], replies[2]]);
   });
 });
 

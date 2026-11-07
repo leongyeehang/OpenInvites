@@ -16,8 +16,9 @@ already replied to the list, so nobody is locked out, and turning it off deletes
 
 **The invite list grows up.** Each person on it has a name and, if you like, an email and a phone
 number, which are filled in for them when they reply. **Add several** takes a whole list at once,
-one person per line as `Name, email, phone`. Each row has **Share**, which hands the personal link
-to your phone's share sheet, beside Copy.
+one person per line as `Name, email, phone`. Until a guest has replied, their row has **Copy** for
+their personal link and, on a phone or browser with a share sheet, **Share**, which hands the link
+to it.
 
 **Personal letters.** Turn on **Personal letters** at the top of the Invites page and write a few
 lines to each guest. Their letter shows on their invitation, above the details, in every layout,

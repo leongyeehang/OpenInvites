@@ -183,6 +183,8 @@ export async function editGuestAction(
   if (changed) {
     sendQueuedMail(changed.mailed);
     await notifyHostsOfRsvp(event, changed.previous, changed.current);
+    // A changed email reaches the invite the reply is tied to (repository.ts, editRsvpAsHost).
+    if (changed.current.inviteId) revalidatePath(`/events/${eventId}/invites`);
   }
   revalidatePath(`/events/${eventId}/guests`);
   return { success: t("saved") };

@@ -138,6 +138,33 @@ export function inviteFromRsvp(
   return { name: reply.name, email: reply.email, phone: reply.phone, letter: "", rsvpId: reply.id, openedAt: now };
 }
 
+// As invite-only is turned on, which replies are the guests of invites the host already made (M6
+// final review): a reply whose email, in any case, is that of an invite nobody has answered is that
+// invite's guest, so the reply is tied to it rather than given a second invite, and the code its
+// guest asks for on a new device proves into the invite that holds their reply. Both lists come
+// oldest first: a reply takes the oldest such invite, and an invite takes one reply, the oldest. A
+// reply without an email, or with one no unanswered invite has, is left for an invite of its own
+// (inviteFromRsvp), in the order it came.
+export function tieRepliesToInvites<Reply extends { id: string; email: string | null }>(
+  replies: Reply[],
+  unanswered: { id: string; email: string | null }[],
+): { tied: { replyId: string; inviteId: string }[]; untied: Reply[] } {
+  const key = (email: string | null) => email?.trim().toLowerCase() || undefined;
+  const waiting = new Map<string, string[]>();
+  for (const invite of unanswered) {
+    const email = key(invite.email);
+    if (email) waiting.set(email, [...(waiting.get(email) ?? []), invite.id]);
+  }
+  const tied: { replyId: string; inviteId: string }[] = [];
+  const untied: Reply[] = [];
+  for (const reply of replies) {
+    const inviteId = waiting.get(key(reply.email) ?? "")?.shift();
+    if (inviteId) tied.push({ replyId: reply.id, inviteId });
+    else untied.push(reply);
+  }
+  return { tied, untied };
+}
+
 // Whether a new reply being written needs an invite made for it, as it is written under the event's
 // lock (rsvps/repository.ts, saveRsvp): one through no invite on an invite-only event. The
 // action lets in only a device that is in (invites/gate.ts), so such a reply is one whose guest

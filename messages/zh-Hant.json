@@ -1324,7 +1324,8 @@
       "codeWrong": "驗證碼不正確。",
       "codeExpired": "這個驗證碼已失效。請重新寄送，取得新的驗證碼。",
       "tooFast": "操作太頻繁了，請稍後再試。",
-      "emailInvalid": "這看起來不像電子郵件地址。"
+      "emailInvalid": "這看起來不像電子郵件地址。",
+      "checkFailed": "請先完成人機驗證，再試一次。"
     }
   },
   "Announcements": {

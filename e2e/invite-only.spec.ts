@@ -23,6 +23,11 @@ import { clientAddress, expect, test, type APIRequestContext, type Browser, type
 //
 // M6 ticket 09: on an invite-only event with personal letters on, an invitee let in by a pass sees
 // the host's letter to her.
+//
+// M6 final review: a guest the host invited by email who replied through the event link instead is
+// one invite after the switch, and her code on a new device finds her reply; a guest who replied
+// stays in after opening someone else's forwarded link; a host's correction of a replied guest's
+// email on the guest list reaches her invite, and a code to the new address lets her in.
 
 const INVITE_ONLY = "Invite-only: only people on the invite list can open the invitation";
 const SENT = "If that email is on the invite list, a code is on its way.";
@@ -147,7 +152,8 @@ test("an invitee proves their email on each device to open an invite-only event;
   // She is in: the invitation, with her name and email filled in, and her reply needs no second
   // code, though the event checks emails.
   await expect(mei.getByRole("heading", { name: SECRET.title })).toBeVisible({ timeout: 15_000 });
-  await expect(mei).toHaveTitle(SECRET.title);
+  // The page's title stays "You’re invited", even for those in: only the hosts see the event's.
+  await expect(mei).toHaveTitle("You’re invited");
   await mei.getByRole("button", { name: "Going", exact: true }).click();
   await expect(mei.getByLabel("Your name")).toHaveValue("Mei Lin");
   await expect(mei.getByLabel("Email")).toHaveValue(meiEmail);
@@ -322,6 +328,7 @@ test("turning invite-only on invites everyone who replied, says whom the link al
   const editor = host.page.url();
   const anaEmail = newHost("invite-only-ana").email;
   const boEmail = newHost("invite-only-bo").email;
+  const aliceEmail = newHost("invite-only-alice").email;
 
   // The host's other event is invite-only, with Bo on its list by his email.
   const otherLink = await createDraft(host.page, { title: "Ada’s other supper", start: SECRET.start, plusOnes: "0" });
@@ -330,18 +337,29 @@ test("turning invite-only on invites everyone who replied, says whom the link al
   await makeInvite(host.page, "Bo Chen", { email: boEmail });
   expect(otherLink).not.toBe(host.link);
 
+  // Before it is invite-only, the host invites Alice by her email; she replies through the event
+  // link instead, with that email, as she typed it.
+  await host.page.goto(`${editor}/invites`);
+  const aliceLink = await makeInvite(host.page, "Alice Wong", { email: aliceEmail });
+  const alice = await newGuest(browser);
+  await reply(alice, host.link, { name: "Alice Wong", email: aliceEmail.replace(/^./, (first) => first.toUpperCase()) });
+  await alice.context().close();
+
   // Ana replies with her email, Dev with his phone alone, before the event is invite-only.
   const ana = await newGuest(browser);
   const anaLink = await reply(ana, host.link, { name: "Ana Silva", email: anaEmail });
   const dev = await newGuest(browser);
   const devLink = await reply(dev, host.link, { name: "Dev Patel", phone: "+65 9123 4567" });
 
-  // The host turns invite-only on: both are on the invite list, as replied, and only Dev's row says
-  // that his link alone lets anyone in.
+  // The host turns invite-only on: Ana and Dev are on the invite list, as replied, and only Dev's
+  // row says that his link alone lets anyone in. Alice's reply is tied to the invite the host made
+  // for her: one row, replied.
   await host.page.goto(editor);
   await turnInviteOnlyOn(host.page);
   await expect(host.page.getByText(BANNER, { exact: true })).toBeVisible();
-  await expect(host.page.getByRole("button", { name: /^Delete the invite for / })).toHaveCount(2);
+  await expect(host.page.getByRole("button", { name: /^Delete the invite for / })).toHaveCount(3);
+  await expect(host.page.getByRole("button", { name: "Delete the invite for Alice Wong" })).toHaveCount(1);
+  await expect(inviteRow(host.page, "Alice Wong").getByText("Replied · Going", { exact: true })).toBeVisible();
   await expect(inviteRow(host.page, "Ana Silva").getByText("Replied · Going", { exact: true })).toBeVisible();
   await expect(inviteRow(host.page, "Ana Silva").getByText(anaEmail, { exact: true })).toBeVisible();
   await expect(inviteRow(host.page, "Ana Silva").getByText(LINK_LETS_IN)).toHaveCount(0);
@@ -356,8 +374,23 @@ test("turning invite-only on invites everyone who replied, says whom the link al
   await expectLocked(page, host.name);
   await askForCode(page, boEmail);
 
+  // Alice, on a new device, proves her email once, and her reply is hers.
+  const aliceLaptop = await newGuest(browser);
+  await aliceLaptop.goto(host.link);
+  await expectLocked(aliceLaptop, host.name);
+  const aliceMail = await mailCountTo(request, aliceEmail);
+  await askForCode(aliceLaptop, aliceEmail);
+  await enterCode(aliceLaptop, await codeSentTo(request, aliceEmail, aliceMail));
+  await expectInWithReply(aliceLaptop, SECRET.title);
+  await aliceLaptop.context().close();
+
   // Dev stays in by his cookie, and by his edit link on a new device.
   await dev.reload();
+  await expectInWithReply(dev, SECRET.title);
+  // Alice's personal link, forwarded to him, is an invite with an email, which a link alone never
+  // lets in; his device now holds it, but his reply is the stronger claim, and he stays in.
+  await dev.goto(aliceLink);
+  await expect(dev).toHaveURL(host.link);
   await expectInWithReply(dev, SECRET.title);
   const devLaptop = await newGuest(browser);
   await devLaptop.goto(devLink);
@@ -421,7 +454,7 @@ test("turning invite-only on invites everyone who replied, says whom the link al
   await expect(host.page.getByRole("heading", { level: 1 })).toHaveText("Invites");
   await expect(host.page.getByText(BANNER)).toHaveCount(0);
   await expect(host.page.getByText(LINK_LETS_IN)).toHaveCount(0);
-  await expect(host.page.getByRole("button", { name: /^Delete the invite for / })).toHaveCount(2);
+  await expect(host.page.getByRole("button", { name: /^Delete the invite for / })).toHaveCount(3);
   await expect(inviteRow(host.page, "Ana Silva").getByText("Replied · Going", { exact: true })).toBeVisible();
   await ana.reload();
   await expectInWithReply(ana, SECRET.title);
@@ -431,7 +464,7 @@ test("turning invite-only on invites everyone who replied, says whom the link al
   const samLink = await reply(page, host.link, { name: "Sam Tan" });
   await host.page.goto(editor);
   await turnInviteOnlyOn(host.page);
-  await expect(host.page.getByRole("button", { name: /^Delete the invite for / })).toHaveCount(3);
+  await expect(host.page.getByRole("button", { name: /^Delete the invite for / })).toHaveCount(4);
   await expect(inviteRow(host.page, "Sam Tan").getByText("Replied · Going", { exact: true })).toBeVisible();
   await expect(inviteRow(host.page, "Sam Tan").getByText(LINK_LETS_IN, { exact: true })).toBeVisible();
   await page.goto(samLink);
@@ -440,6 +473,41 @@ test("turning invite-only on invites everyone who replied, says whom the link al
   // The address on the other event's list was never sent anything.
   expect(await mailCountTo(request, boEmail)).toBe(0);
   await Promise.all([host.context.close(), ana.context().close()]);
+});
+
+test("a host's correction of a replied guest's email on the guest list reaches her invite, and a code to the new address lets her in", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "invite-only-correct", { title: SECRET.title, start: SECRET.start, plusOnes: "0", email: "optional" });
+  const editor = host.page.url();
+  const typo = newHost("invite-only-kim-typo").email;
+  const kimEmail = newHost("invite-only-kim").email;
+
+  // Kim replies with a mistyped email before the event is invite-only; the switch invites her by it.
+  const kim = await newGuest(browser);
+  await reply(kim, host.link, { name: "Kim Ho", email: typo });
+  await kim.context().close();
+  await turnInviteOnlyOn(host.page);
+  await expect(inviteRow(host.page, "Kim Ho").getByText(typo, { exact: true })).toBeVisible();
+
+  // The host corrects it on the guest list; her invite's row shows the address she can prove.
+  await host.page.goto(`${editor}/guests`);
+  await host.page.getByRole("button", { name: "Edit" }).click();
+  await expect(host.page.getByLabel("Email")).toHaveValue(typo);
+  await host.page.getByLabel("Email").fill(kimEmail);
+  await host.page.getByRole("button", { name: "Save" }).click();
+  await expect(host.page.getByText("Saved.")).toBeVisible({ timeout: 15_000 });
+  await host.page.goto(`${editor}/invites`);
+  await expect(inviteRow(host.page, "Kim Ho").getByText(kimEmail, { exact: true })).toBeVisible();
+  await expect(inviteRow(host.page, "Kim Ho").getByText(typo, { exact: true })).toHaveCount(0);
+
+  // On a new device, a code sent to the corrected address lets her in, to her reply.
+  const kimLaptop = await newGuest(browser);
+  await kimLaptop.goto(host.link);
+  await expectLocked(kimLaptop, host.name);
+  await askForCode(kimLaptop, kimEmail);
+  await enterCode(kimLaptop, await codeSentTo(request, kimEmail));
+  await expectInWithReply(kimLaptop, SECRET.title);
+  await Promise.all([host.context.close(), kimLaptop.context().close()]);
 });
 
 test("turning invite-only on invites the guests who replied even when the invite list is full", async ({ page, browser, request }) => {
