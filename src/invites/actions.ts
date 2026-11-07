@@ -2,13 +2,18 @@
 
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
-import { requireHost } from "@/auth/session";
-import { findHostEvent, setLettersEnabled } from "@/events/repository";
+import { headers } from "next/headers";
+import { requireHost, type Host } from "@/auth/session";
+import { findHostEvent, setLettersEnabled, type HostEvent } from "@/events/repository";
 import { can } from "@/hosts/role";
 import type { FormState } from "@/lib/form-state";
 import { isUuid } from "@/lib/uuid";
+import { isMailConfigured } from "@/mail/config";
+import { queueGuestMail } from "@/mail/queue-guest-mail";
+import { consume } from "@/rate-limit/rate-limit";
+import { invitationMail } from "./invitation-mail";
 import { MAX_INVITES, parseInvite, parseInviteLines, parseLetter } from "./invite";
-import { createInvite, createInvites, deleteInvite, updateInviteLetter } from "./repository";
+import { createInvite, createInvites, deleteInvite, listUnsentInvites, markInvitesSent, updateInviteLetter, type SentInvite } from "./repository";
 
 // A host's personal invites are part of who is coming, so whoever may manage the guest list may
 // make and delete them (hosts/role.ts). Both pages that show them are drawn again: the invites
@@ -84,6 +89,62 @@ export async function setLettersEnabledAction(eventId: string, on: boolean): Pro
   if (!event || !can(event.role, "guests")) return;
   await setLettersEnabled(event.id, on === true);
   revalidateInvites(event.id);
+}
+
+// The invitations just marked as sent, queued in the event's language, which the host writes the
+// letters in, each ending with the invitation's footer and its stop link (M6 spec, "The invitation
+// email"). The host who sends them is the one who invited the guest.
+async function mailInvitations(event: HostEvent, host: Host, sent: SentInvite[]): Promise<void> {
+  await queueGuestMail(
+    event,
+    sent.map((invite) => ({ ...invite, locale: event.locale })),
+    (invite, t) => invitationMail(event, invite, host.name, t),
+    "the invitations to",
+    "Mail.invitationFooter",
+  );
+}
+
+// The invitation emailed to one guest, from the Send on their row, or again from Send again
+// (M6 spec, "The invitation email"): only when the site has mail, while the event is published
+// (a draft's link does not open yet), and to an invite with an email whose guest has not stopped
+// mail. It counts once against the mail limit, before anything is written.
+export async function sendInviteAction(eventId: string, id: string): Promise<FormState> {
+  const [host, t] = await Promise.all([requireHost(), getTranslations("Invites")]);
+  const event = await findHostEvent(host.id, eventId);
+  if (!event || !can(event.role, "guests") || !isUuid(id)) return { error: t("errors.notFound") };
+  if (!isMailConfigured()) return { error: t("errors.noMail") };
+  if (event.state !== "published") return { error: t("sendWhenPublished") };
+
+  if (!(await consume("mail", await headers())).allowed) return { error: t("errors.tooFast") };
+  const [sent] = await markInvitesSent(event.id, [id], new Date());
+  if (!sent) return { error: t("errors.noMail") };
+  await mailInvitations(event, host, [sent]);
+  revalidateInvites(event.id);
+  return { success: t("sent", { name: sent.name }) };
+}
+
+// "Send to everyone not yet sent": the invitation emailed to every invite with an email that has
+// never had one and whose guest has not stopped mail, counted once against the mail limit however
+// many it reaches; when there is nobody, nothing is sent and nothing counted.
+export async function sendUnsentInvitesAction(eventId: string): Promise<FormState> {
+  const [host, t] = await Promise.all([requireHost(), getTranslations("Invites")]);
+  const event = await findHostEvent(host.id, eventId);
+  if (!event || !can(event.role, "guests")) return { error: t("errors.notFound") };
+  if (!isMailConfigured()) return { error: t("errors.noMail") };
+  if (event.state !== "published") return { error: t("sendWhenPublished") };
+
+  const unsent = await listUnsentInvites(event.id);
+  if (unsent.length === 0) return { success: t("sentCount", { count: 0 }) };
+  if (!(await consume("mail", await headers())).allowed) return { error: t("errors.tooFast") };
+  const sent = await markInvitesSent(
+    event.id,
+    unsent.map((each) => each.id),
+    new Date(),
+    { unsentOnly: true },
+  );
+  await mailInvitations(event, host, sent);
+  revalidateInvites(event.id);
+  return { success: t("sentCount", { count: sent.length }) };
 }
 
 // The link stops working; a reply made with it stays on the guest list (repository.ts).

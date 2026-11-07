@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SLUG_ALPHABET } from "@/events/slug";
-import { generateInviteToken, inviteState, MAX_INVITES, MAX_LETTER, parseInvite, parseInviteLines, parseLetter, roomForInvite, type InviteFields } from "./invite";
+import { awaitsInvitation, canMailInvite, generateInviteToken, inviteState, MAX_INVITES, MAX_LETTER, parseInvite, parseInviteLines, parseLetter, roomForInvite, type InviteFields } from "./invite";
 
 // What the host's form posts, its fields left blank unless a test fills them.
 function posted(fields: Partial<InviteFields>): InviteFields {
@@ -153,6 +153,25 @@ describe("inviteState", () => {
   it("is replied once the guest has replied through it, whatever else", () => {
     expect(inviteState({ openedAt: opened, rsvpId: "0199d0a4-0000-7000-8000-000000000001" })).toBe("replied");
     expect(inviteState({ openedAt: null, rsvpId: "0199d0a4-0000-7000-8000-000000000001" })).toBe("replied");
+  });
+});
+
+describe("canMailInvite and awaitsInvitation", () => {
+  const SENT = new Date("2026-11-07T10:00:00Z");
+  const invite = (fields: { email?: string; sentAt?: Date; mailStoppedAt?: Date }) => ({ email: null, sentAt: null, mailStoppedAt: null, ...fields });
+
+  it("emails an invite with an email whose guest has not stopped mail, sent before or not", () => {
+    expect(canMailInvite(invite({ email: "mei@example.test" }))).toBe(true);
+    expect(canMailInvite(invite({ email: "mei@example.test", sentAt: SENT }))).toBe(true);
+    expect(canMailInvite(invite({}))).toBe(false);
+    expect(canMailInvite(invite({ email: "mei@example.test", sentAt: SENT, mailStoppedAt: SENT }))).toBe(false);
+  });
+
+  it("counts among those not yet sent only an invite that can be emailed and never was", () => {
+    expect(awaitsInvitation(invite({ email: "mei@example.test" }))).toBe(true);
+    expect(awaitsInvitation(invite({ email: "mei@example.test", sentAt: SENT }))).toBe(false);
+    expect(awaitsInvitation(invite({}))).toBe(false);
+    expect(awaitsInvitation(invite({ email: "mei@example.test", mailStoppedAt: SENT }))).toBe(false);
   });
 });
 

@@ -451,6 +451,7 @@
       "body": "主办人批准了你对“{title}”的回复，不过活动已满员，你在候补名单上排第 {position} 位。一有空位，我们会发邮件告诉你。\n\n你的回复是：参加{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n活动页面：\n{url}"
     },
     "guestFooter": "你收到这封邮件，是因为你对“{title}”的回复上留有这个邮箱。如果不想再收到关于这个活动的邮件，请打开这个链接：{url}",
+    "invitationFooter": "你收到这封邮件，是因为“{title}”的主办人用这个邮箱邀请了你。如果不想再收到关于这个活动的邮件，请打开这个链接：{url}",
     "magicLink": {
       "subject": "你的 {instance} 登录链接",
       "body": "{name}，你好：\n\n请打开下面的链接登录。链接 15 分钟内有效，且只能使用一次。\n\n{url}\n\n如果这不是你本人的操作，可以忽略这封邮件，不会有人因此登录。"
@@ -471,6 +472,10 @@
     "dateSet": {
       "subject": "日期已确定：{title}",
       "body": "{name}，你好：\n\n主办人已为「{title}」选定日期：{when}。\n\n告诉主办人你能否参加：\n{url}"
+    },
+    "invitation": {
+      "subject": "{host} 邀请你参加“{title}”",
+      "body": "{name}，你好：\n\n{host} 邀请你参加“{title}”。{lettered, select, yes {\n\n{letter}} other {}}{dated, select, yes {\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}} other {{located, select, yes {\n\n地点：{location}} other {}}}}\n\n打开你的邀请：{url}{inviteOnly, select, yes {\n\n打开邀请时需要输入验证码，验证码会发送到这个邮箱。} other {}}"
     }
   },
   "Events": {
@@ -1255,6 +1260,16 @@
     "copy": "复制链接",
     "copyLabel": "复制给 {name} 的链接",
     "copied": "已复制",
+    "share": "分享",
+    "shareLabel": "分享给 {name} 的链接",
+    "send": "{again, select, yes {再次发送} other {发送}}",
+    "sendLabel": "{again, select, yes {再次把邀请发送给 {name}} other {把邀请发送给 {name}}}",
+    "sent": "已把邀请发送给 {name}。",
+    "sentAt": "已于 {date} 发送",
+    "sendAll": "发送给所有还没发送过的人（{count}）",
+    "sentCount": "{count, plural, =0 {有邮箱的宾客都已经收到邀请了。} other {已发送 # 份邀请。}}",
+    "sendWhenPublished": "活动发布后才能用邮件发送邀请。",
+    "stopped": "已停止接收邮件",
     "delete": "删除",
     "deleteLabel": "删除给 {name} 的专属邀请",
     "deleteTitle": "要删除给 {name} 的专属邀请吗？",
@@ -1269,7 +1284,9 @@
       "phoneInvalid": "请输入 5 到 20 位的电话号码。",
       "letterTooLong": "信件最多 1000 个字。",
       "line": "第 {line} 行：{error}",
-      "tooManyAtOnce": "这份名单会让活动超过 {max} 个专属邀请的上限。没有生成任何链接。"
+      "tooManyAtOnce": "这份名单会让活动超过 {max} 个专属邀请的上限。没有生成任何链接。",
+      "tooFast": "操作太频繁了，请稍后再试。",
+      "noMail": "没有发送：本站无法发送邮件，或者这位宾客没有邮箱，或已停止接收这个活动的邮件。"
     }
   },
   "Announcements": {

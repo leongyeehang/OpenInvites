@@ -1,6 +1,6 @@
-import { chooseLayout, createPublished, type DraftFields, editSettings, openMore } from "./events";
-import { latestMailTo, mailCountTo, newHost } from "./hosts";
-import { clientAddress, expect, expectNotFoundAsSent, test, type Browser, type Page } from "./test";
+import { chooseLayout, createDraft, createPublished, type DraftFields, editSettings, openMore, publishInEditor } from "./events";
+import { latestMailTo, mailCountTo, MAILPIT, newHost, signUpVerified } from "./hosts";
+import { clientAddress, expect, expectNotFoundAsSent, test, type APIRequestContext, type Browser, type Page } from "./test";
 import { openMyReply } from "./reply";
 
 // Ticket 08 (M3): personal invite links. A host makes a link for a named guest; opening it fills in
@@ -14,6 +14,12 @@ import { openMyReply } from "./reply";
 // Ticket 05 (M6): the invite list. An invite takes a phone and, with personal letters on, a letter;
 // "Add several" makes one invite per pasted line, or none when a line is wrong; a guest opening
 // their link has the phone filled in where the form asks for one.
+//
+// Ticket 06 (M6): the invitation email. With mail, on a published event, the host emails an invite
+// with an email its invitation (the letter and the personal invite link), one at a time or everyone
+// not yet sent; the stop link at its foot stops more and keeps the email. A Share button hands the
+// link to the device's share sheet. That an instance without mail offers no Send is in
+// registration-without-mail.spec.ts, whose project owns `app-no-mail`.
 
 const INVITE_LINK = /^https?:\/\/\S+\/i\/[A-Za-z0-9]{24}$/;
 
@@ -577,4 +583,136 @@ test("an event with 500 invites offers no form and says why, the server refuses 
   await expect(host.page.getByText("Guest 501", { exact: true })).toBeVisible();
 
   await closeAll(host.page);
+});
+
+// The newest email to this address, its subject and its text, once there are `count` of them. Line
+// breaks are made plain, as the mail went over SMTP.
+async function invitationTo(request: APIRequestContext, email: string, count: number) {
+  await expect.poll(() => mailCountTo(request, email), { timeout: 30_000, message: `${count} emails to ${email}` }).toBe(count);
+  const text = (await latestMailTo(request, email)).replace(/\r\n/g, "\n").trimEnd();
+  const search = await request.get(`${MAILPIT}/api/v1/search`, { params: { query: `to:${email}` } });
+  const { messages } = (await search.json()) as { messages: { Subject: string }[] };
+  return { subject: messages[0].Subject, text };
+}
+
+const STOP_LINK = /https?:\/\/\S+\/m\/[A-Za-z0-9]{24}/;
+
+test("the host emails an invitation with its letter and link, again with the same stop link, then everyone not yet sent; the stop link keeps the email and ends the sending", async ({
+  browser,
+  request,
+}) => {
+  test.slow();
+  const host = await createPublished(browser, request, "invites-mail", SUPPER);
+  const manage = host.page.url();
+  await host.page.goto(`${manage}/invites`);
+  const meiEmail = newHost("invites-mail-mei").email;
+  const devEmail = newHost("invites-mail-dev").email;
+
+  // Letters on; Mei's invite has one, in Chinese, over three lines. Dev's has an email and no
+  // letter, Asha's no email.
+  await host.page.getByRole("checkbox", { name: "Personal letters" }).click();
+  await expect(host.page.getByRole("textbox", { name: "Letter", exact: true })).toBeVisible({ timeout: 15_000 });
+  const letter = "亲爱的美玲：\n记得带上你的吉他。\n周六见！";
+  await host.page.getByRole("textbox", { name: "Letter", exact: true }).fill(letter);
+  const meiLink = await makeInvite(host.page, "Mei Lin", meiEmail);
+  await makeInvite(host.page, "Dev Patel", devEmail);
+  await makeInvite(host.page, "Asha Menon");
+
+  // Two can be emailed; Asha, with no email, cannot.
+  await expect(host.page.getByRole("button", { name: "Send to everyone not yet sent (2)" })).toBeEnabled();
+  await expect(inviteRow(host.page, "Asha Menon").getByRole("button", { name: /^Send/ })).toHaveCount(0);
+  await expect(inviteRow(host.page, "Mei Lin").getByText(/^Sent /)).toHaveCount(0);
+
+  // Mei's Send: she has the invitation, in the event's language, with the letter as written and her
+  // own link, and the row says when it went.
+  await host.page.getByRole("button", { name: "Send the invitation to Mei Lin", exact: true }).click();
+  await expect(inviteRow(host.page, "Mei Lin").getByRole("status")).toHaveText("Invitation sent to Mei Lin.", { timeout: 15_000 });
+  const first = await invitationTo(request, meiEmail, 1);
+  expect(first.subject).toBe(`${host.name} invited you to Ada’s supper club`);
+  expect(first.text).toContain("Hi Mei Lin,");
+  expect(first.text).toContain(`\n\n${letter}\n\n`);
+  expect(first.text).toContain("When: Saturday, March 6, 2027");
+  expect(first.text).toContain(`Open your invitation: ${meiLink}`);
+  expect(first.text).not.toContain("code");
+  expect(first.text).toMatch(/You’re getting this because the host of Ada’s supper club invited you at this address\. To stop emails about this event: https?:\/\/\S+\/m\/[A-Za-z0-9]{24}$/);
+  const stopLink = first.text.match(STOP_LINK)![0];
+  await expect(inviteRow(host.page, "Mei Lin").getByText(/^Sent /)).toBeVisible();
+  await expect(host.page.getByRole("button", { name: "Send to everyone not yet sent (1)" })).toBeVisible();
+
+  // Send again: a second invitation, whose stop link is the first's.
+  await host.page.getByRole("button", { name: "Send the invitation to Mei Lin again" }).click();
+  const second = await invitationTo(request, meiEmail, 2);
+  expect(second.text.match(STOP_LINK)![0]).toBe(stopLink);
+
+  // Everyone not yet sent is Dev alone; Mei has nothing more, and Asha nothing at all.
+  await host.page.getByRole("button", { name: "Send to everyone not yet sent (1)" }).click();
+  await expect(host.page.getByRole("status").filter({ hasText: /^Sent \d/ })).toHaveText("Sent 1 invitation.", { timeout: 15_000 });
+  const dev = await invitationTo(request, devEmail, 1);
+  expect(dev.subject).toBe(`${host.name} invited you to Ada’s supper club`);
+  expect(dev.text).toContain("Hi Dev Patel,");
+  expect(dev.text).not.toContain("亲爱的");
+  await expect(host.page.getByRole("button", { name: "Send to everyone not yet sent (0)" })).toBeDisabled();
+  await expect(inviteRow(host.page, "Dev Patel").getByText(/^Sent /)).toBeVisible();
+  expect(await mailCountTo(request, meiEmail)).toBe(2);
+
+  // Mei opens the stop link: it shows her email, and Stop says it is done.
+  const mei = await newGuest(browser);
+  await mei.goto(stopLink);
+  await expect(mei.getByRole("heading", { level: 1 })).toHaveText("Ada’s supper club");
+  await expect(mei.getByText(`The email on file for this event is ${meiEmail}.`)).toBeVisible();
+  await mei.getByRole("button", { name: "Stop emails about this event" }).click();
+  await expect(mei.getByRole("status")).toHaveText("Done. You will get no more email about Ada’s supper club.", { timeout: 15_000 });
+
+  // Her row keeps the email, says she stopped, and offers no Send; Dev's still does.
+  await host.page.reload();
+  const meiRow = inviteRow(host.page, "Mei Lin");
+  await expect(meiRow.getByText(meiEmail, { exact: true })).toBeVisible();
+  await expect(meiRow.getByText("Stopped email", { exact: true })).toBeVisible();
+  await expect(meiRow.getByRole("button", { name: /^Send/ })).toHaveCount(0);
+  await expect(host.page.getByRole("button", { name: "Send the invitation to Dev Patel again" })).toBeVisible();
+  expect(await mailCountTo(request, meiEmail)).toBe(2);
+  // Her invite link still opens the event, the email still filled in.
+  await mei.goto(meiLink);
+  await mei.getByRole("button", { name: "Going", exact: true }).click();
+  await expect(mei.getByLabel("Email")).toHaveValue(meiEmail);
+
+  await closeAll(host.page, mei);
+});
+
+test("a draft's invitations wait for it to be published; Share hands the link and the invitation's words to the device's share sheet", async ({ browser, request }) => {
+  test.slow();
+  const page = await (await browser.newContext()).newPage();
+  const { name } = await signUpVerified(page, request, "invites-draft");
+  await createDraft(page, SUPPER);
+  const manage = page.url();
+  // A share sheet that keeps what it was given, as a phone's would show it.
+  await page.context().addInitScript(() => {
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async (data: ShareData) => {
+        (window as unknown as { shared: ShareData }).shared = data;
+      },
+    });
+  });
+  await page.goto(`${manage}/invites`);
+  const meiLink = await makeInvite(page, "Mei Lin", newHost("invites-draft-mei").email);
+  await expect(page.getByText("Invitations can be emailed while the event is published.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Send/ })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Share link for Mei Lin" }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { shared?: ShareData }).shared)).toEqual({
+    title: "Ada’s supper club",
+    text: `${name} invited you to Ada’s supper club`,
+    url: meiLink,
+  });
+
+  // Published, Send is there.
+  await page.goto(manage);
+  await publishInEditor(page);
+  await page.goto(`${manage}/invites`);
+  await expect(page.getByRole("button", { name: "Send the invitation to Mei Lin", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send to everyone not yet sent (1)" })).toBeVisible();
+  await expect(page.getByText("Invitations can be emailed while the event is published.")).toHaveCount(0);
+
+  await closeAll(page);
 });

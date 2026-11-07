@@ -87,6 +87,19 @@ export function inviteState(invite: { openedAt: Date | null; rsvpId: string | nu
   return invite.openedAt ? "opened" : "notOpened";
 }
 
+// Whether the invitation can be emailed to this invite's guest (M6 spec, "The invitation email"):
+// the host gave an email, and the guest has not stopped mail about the event with the link at the
+// foot of an earlier one. Whether the site has mail is the caller's to ask.
+export function canMailInvite(invite: { email: string | null; mailStoppedAt: Date | null }): boolean {
+  return invite.email !== null && invite.mailStoppedAt === null;
+}
+
+// Whether "Send to everyone not yet sent" sends this invite its invitation: it can be emailed, and
+// never has been.
+export function awaitsInvitation(invite: { email: string | null; mailStoppedAt: Date | null; sentAt: Date | null }): boolean {
+  return canMailInvite(invite) && invite.sentAt === null;
+}
+
 // The link's secret, of the mail token's shape (rsvps/token.ts): 24 characters of the event link's
 // alphabet, about 143 bits, from a cryptographic source. It is stored as it is, since the host may
 // see the link again whenever they ask: it is the guest's key, not a secret from the host. It is

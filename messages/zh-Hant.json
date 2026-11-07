@@ -451,6 +451,7 @@
       "body": "主辦人核准了你對「{title}」的回覆，不過活動已額滿，你在候補名單上排第 {position} 位。一有空位，我們會寄電子郵件通知你。\n\n你的回覆是：參加{plusOnes, plural, =0 {} other {，另外帶 # 位同伴}}。\n\n活動頁面：\n{url}"
     },
     "guestFooter": "你收到這封郵件，是因為你對「{title}」的回覆上留有這個電子郵件。如果不想再收到關於這個活動的郵件，請開啟這個連結：{url}",
+    "invitationFooter": "你收到這封郵件，是因為「{title}」的主辦人用這個電子郵件邀請了你。如果不想再收到關於這個活動的郵件，請開啟這個連結：{url}",
     "magicLink": {
       "subject": "你的 {instance} 登入連結",
       "body": "{name}，你好：\n\n請開啟下方連結登入。連結 15 分鐘內有效，且只能使用一次。\n\n{url}\n\n如果這不是你本人的操作，可以忽略這封郵件，不會有人因此登入。"
@@ -471,6 +472,10 @@
     "dateSet": {
       "subject": "日期已確定：{title}",
       "body": "{name}，你好：\n\n主辦人已為「{title}」選定日期：{when}。\n\n告訴主辦人你能否參加：\n{url}"
+    },
+    "invitation": {
+      "subject": "{host} 邀請你參加「{title}」",
+      "body": "{name}，你好：\n\n{host} 邀請你參加「{title}」。{lettered, select, yes {\n\n{letter}} other {}}{dated, select, yes {\n\n時間：{when}{located, select, yes {\n地點：{location}} other {}}} other {{located, select, yes {\n\n地點：{location}} other {}}}}\n\n開啟你的邀請：{url}{inviteOnly, select, yes {\n\n開啟邀請時需要輸入驗證碼，驗證碼會寄到這個電子郵件。} other {}}"
     }
   },
   "Events": {
@@ -1255,6 +1260,16 @@
     "copy": "複製連結",
     "copyLabel": "複製給 {name} 的連結",
     "copied": "已複製",
+    "share": "分享",
+    "shareLabel": "分享給 {name} 的連結",
+    "send": "{again, select, yes {再次寄送} other {寄送}}",
+    "sendLabel": "{again, select, yes {再次把邀請寄給 {name}} other {把邀請寄給 {name}}}",
+    "sent": "已把邀請寄給 {name}。",
+    "sentAt": "已於 {date} 寄出",
+    "sendAll": "寄給所有還沒寄過的人（{count}）",
+    "sentCount": "{count, plural, =0 {有電子郵件的賓客都已經收到邀請了。} other {已寄出 # 份邀請。}}",
+    "sendWhenPublished": "活動發布後才能用郵件寄送邀請。",
+    "stopped": "已停止接收郵件",
     "delete": "刪除",
     "deleteLabel": "刪除給 {name} 的專屬邀請",
     "deleteTitle": "要刪除給 {name} 的專屬邀請嗎？",
@@ -1269,7 +1284,9 @@
       "phoneInvalid": "請輸入 5 到 20 位的電話號碼。",
       "letterTooLong": "信件最多 1000 個字。",
       "line": "第 {line} 行：{error}",
-      "tooManyAtOnce": "這份名單會讓活動超過 {max} 個專屬邀請的上限。沒有產生任何連結。"
+      "tooManyAtOnce": "這份名單會讓活動超過 {max} 個專屬邀請的上限。沒有產生任何連結。",
+      "tooFast": "操作太頻繁了，請稍後再試。",
+      "noMail": "沒有寄出：本站無法寄送電子郵件，或者這位賓客沒有電子郵件，或已停止接收這個活動的郵件。"
     }
   },
   "Announcements": {

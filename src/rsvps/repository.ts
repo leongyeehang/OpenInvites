@@ -19,6 +19,7 @@ import { promotionMail } from "./promotion-mail";
 import { generateEditToken, generateMailToken, hashEditToken } from "./token";
 import { codeVerdict, MAX_ATTEMPTS, RESEND_SECONDS, type CodeVerdict } from "./verification";
 import { promotable } from "./waitlist";
+import { findInviteByMailToken, stopInviteMail } from "@/invites/repository";
 import { blankVoterEmail, findVoterByMailToken } from "@/polls/repository";
 
 export type Rsvp = typeof rsvp.$inferSelect;
@@ -513,8 +514,9 @@ export async function findByMailToken(mailToken: string): Promise<{ title: strin
     .innerJoin(event, eq(event.id, rsvp.eventId))
     .where(eq(rsvp.mailToken, mailToken))
     .limit(1);
-  // A date poll's voter gets guest mail too (M4 ticket 09), with a stop link of their own.
-  return row ?? findVoterByMailToken(mailToken);
+  // A date poll's voter gets guest mail too (M4 ticket 09), with a stop link of their own, and so
+  // does an invite, at the foot of its invitation (M6 spec, "The invitation email").
+  return row ?? (await findVoterByMailToken(mailToken)) ?? findInviteByMailToken(mailToken);
 }
 
 // The stop link's one power: blanking the email, so no more mail about the event reaches the
@@ -528,7 +530,8 @@ export async function blankEmailByMailToken(mailToken: string): Promise<{ title:
     .from(event)
     .where(and(eq(rsvp.mailToken, mailToken), eq(event.id, rsvp.eventId)))
     .returning({ title: event.title });
-  return stopped ?? blankVoterEmail(mailToken);
+  // A voter's email is blanked as an RSVP's is; an invite's is kept, and marked as stopped.
+  return stopped ?? (await blankVoterEmail(mailToken)) ?? stopInviteMail(mailToken);
 }
 
 // The RSVPs of several events at once, for the host's dashboard. Postgres groups them; the
