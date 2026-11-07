@@ -57,6 +57,7 @@ import { photoUrl } from "@/album/files";
 import { countPhotos, listPhotos } from "@/album/repository";
 import { maxUploadBytes } from "@/instance/env";
 import { AlbumSection, type AlbumShown } from "@/themes/sections/album-section";
+import { scheduleInstants } from "@/schedule/clock";
 import { listSchedule } from "@/schedule/repository";
 import { ScheduleSection, type ScheduleShown } from "@/themes/sections/schedule-section";
 
@@ -149,15 +150,28 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
 }
 
 // The schedule (M6 ticket 02), or nothing when the host has listed none or the event has no date
-// to follow. A client component is sent all it is handed, so only plain fields: the items, how
-// guests' pages keep fresh, the event's time alone, and the time the page is drawn at, which the
-// browser's first drawing must agree with.
-async function scheduleFor(event: EventWithHost, now: Date): Promise<ScheduleShown | undefined> {
+// to follow. A client component is sent all it is handed, so only plain fields: the items, each
+// with its time written in the event's zone, the day headings, how guests' pages keep fresh, the
+// event's time alone, and the time the page is drawn at, which the browser's first drawing must
+// agree with. The times and days are written here, once, so the browser shows the server's words.
+async function scheduleFor(event: EventWithHost, now: Date, locale: string): Promise<ScheduleShown | undefined> {
   if (!isDated(event)) return undefined;
   const items = await listSchedule(event.id);
   if (items.length === 0) return undefined;
   const { startsAt, endsAt, allDay, timeZone } = event;
-  return { items, refresh: event.scheduleRefresh, time: { startsAt, endsAt, allDay, timeZone }, now };
+  const instants = scheduleInstants(items, timeZone);
+  const clock = new Intl.DateTimeFormat(locale, { timeZone, hour: "numeric", minute: "2-digit" });
+  const days = new Intl.DateTimeFormat(locale, { timeZone, weekday: "long", day: "numeric", month: "long" });
+  return {
+    items: items.map((item, index) => {
+      const { start, end } = instants[index];
+      return { ...item, when: end ? clock.formatRange(start, end) : clock.format(start) };
+    }),
+    headings: Object.fromEntries(items.map((item, index) => [item.day, days.format(instants[index].start)])),
+    refresh: event.scheduleRefresh,
+    time: { startsAt, endsAt, allDay, timeZone },
+    now,
+  };
 }
 
 // The vote's sheet around the page, only while guests vote on the date.
@@ -269,7 +283,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     commentsFor(event, viewer, isHost ? { hostId: (await getSession())!.user.id } : mine ? { rsvpId: mine.rsvp.id } : undefined),
     event.capacity === null ? Promise.resolve(0) : countHeadcount(event.id),
     mine ? findWaitlistPosition(mine.rsvp) : Promise.resolve(null),
-    scheduleFor(event, now),
+    scheduleFor(event, now, locale),
   ]);
 
   // Guests are sent the host's picture only while it is the poster: one the host put aside stays

@@ -28,7 +28,7 @@
 
 How it landed:
 - `useClock(serverNow)` keeps milliseconds in its store: the server snapshot is the server's time as it is, the client's `Date.now()` floored to the half minute. The countdowns call it without one and keep their null first drawing.
-- Days and times are formatted in the browser component, as the ticket says, but Node and Chrome space a range differently ("8:21 – 9:21 AM": Node puts U+2009 and U+202F where Chrome puts plain spaces), which broke hydration (React #418) on every layout. The `<time>` and the day `<h3>` carry `suppressHydrationWarning`, so the server's text is kept; the live test fails on any hydration error in the console.
+- Days and times were first formatted in the browser component, but Node and Chrome space a range differently ("8:21 – 9:21 AM": Node puts U+2009 and U+202F where Chrome puts plain spaces), which broke hydration (React #418) on every layout; see the fix below. The live test fails on any hydration error in the console.
 - Past items are `text-theme-text-muted` with no opacity laid over it: the muted token is never fainter than 75% of the text (legibility.ts) and is solved for AA, and an opacity on top would take it under. So the change of state is `motion-safe:transition-colors` (the background and colour), not `transition-opacity`, which would have nothing to fade. No pulse.
 - The refresh loop starts under `minute` whenever the window has not closed: before the window opens its minute passes idly (`shouldRefresh` says no), so a page opened before the event starts refreshing once it is on; it clears itself once the window has closed. On returning to the tab it refreshes when the last refresh (or the page's opening) is over a minute old.
 - `scheduleFor` returns nothing for an undated draft as well as for an empty schedule.
@@ -36,7 +36,13 @@ How it landed:
 - Browser tests: `e2e/events.ts` gains `DraftFields.timeZone`, `HOUR`, `utcFromNow` and `itemFromNow` (an end that would fall past UTC midnight is left out, so the spec runs at any hour). `schedule.spec.ts` runs its guests in `Asia/Singapore`, so the zone note appears once the browser has taken the page over: the sign that the refresh loop is running before `page.clock.runFor(61_000)`. A refresh is a request with `rsc: 1` and no `next-router-prefetch`; "without a reload" is a mark set on `window` that is still there.
 
 Things to know:
-- An event with a start and no end ends at its start (`eventEnd`), so its schedule is all past, and the live window closed, from the moment it starts. That is the rule as written (spec, "The schedule"); it is worth a decision before release.
+- An event with a start and no end ended its schedule at its start; see the fix below.
 - Across days, the last item of a day without an end stays now until the next day's first item starts, as the rule says.
 
 Left for later tickets: the accessibility and keyboard specs' tours do not open a page with a schedule; `schedule.spec.ts` runs axe on each layout (ticket 10's pass). `albumFor` takes `now` for ticket 03 to reuse.
+
+**2026-11-07, implementing agent (review fix).** Two of the concerns above were settled by the controller:
+- An event with no end, a controller ruling, because `eventEnd` returns the start for an event with no end, so its schedule was all past, and its refresh over, the moment it began. `scheduleFinish(instants, event)` in `clock.ts`: an event that is not all-day and has no end finishes, for the schedule, at the next midnight in its zone after its last item's day, or at its start if that is later; an event with an end, or an all-day event, keeps `eventEnd`. `scheduleStates` and `liveWindow` use it. The spec's sentence says so. Five unit tests: a 7 pm event with no end stays now on its last item until midnight, then all past; an event with an end finishes at its end; an all-day event at the next midnight; an item on the next day moves the finish to the midnight after it; items all before the start finish at the start.
+- Hydration: the times (`formatRange` in the event zone) and the day headings are written on the server in `scheduleFor` and passed as strings (`when` per item, `headings` by day), since they do not change with the clock; only the states do. `suppressHydrationWarning` is gone; `<time dateTime>` still carries the instant.
+
+Evidence: the new tests failed first (`scheduleFinish is not a function`, and the 7 pm event's last item past at 23:59), then `pnpm exec vitest run src/schedule`: 30 passed. `pnpm lint`, `pnpm typecheck` and `pnpm test` (85 files, 903 tests) pass. Against the Docker test profile rebuilt with the fix, `CI=1 pnpm exec playwright test e2e/schedule.spec.ts --workers=2`: 11 passed, the live row with no hydration error.

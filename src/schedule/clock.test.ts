@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EventTime } from "@/events/time";
-import { liveWindow, scheduleDays, scheduleInstants, scheduleStates, shouldRefresh } from "./clock";
+import { liveWindow, scheduleDays, scheduleFinish, scheduleInstants, scheduleStates, shouldRefresh } from "./clock";
 
 // A wedding evening in Singapore (UTC+8): 18:00 to 23:00 on 8 May 2027, which is 10:00 to 15:00 UTC.
 const ZONE = "Asia/Singapore";
@@ -62,6 +62,39 @@ describe("scheduleStates", () => {
     const items = [item("19:00"), item("19:00"), item("20:00")];
     expect(statesAt(items, "2027-05-08T19:30")).toEqual(["now", "now", "upcoming"]);
     expect(statesAt(items, "2027-05-08T20:00")).toEqual(["past", "past", "now"]);
+  });
+});
+
+describe("scheduleFinish", () => {
+  // A 7 pm party in Singapore with no end: 11:00 UTC on 8 May.
+  const party: EventTime = { startsAt: new Date("2027-05-08T11:00:00Z"), endsAt: null, allDay: false, timeZone: ZONE };
+
+  it("keeps the last item of an event with no end now until midnight in the event's zone, then every item is past", () => {
+    const items = [item("20:00"), item("22:00")];
+    expect(statesAt(items, "2027-05-08T23:59", party)).toEqual(["past", "now"]);
+    expect(statesAt(items, "2027-05-09T00:00", party)).toEqual(["past", "past"]);
+    expect(scheduleFinish(scheduleInstants(items, ZONE), party)).toEqual(new Date("2027-05-08T16:00:00Z"));
+    expect(liveWindow(scheduleInstants(items, ZONE), party).to).toEqual(new Date("2027-05-08T16:00:00Z"));
+  });
+
+  it("finishes an event with an end at its end", () => {
+    expect(scheduleFinish(scheduleInstants([item("20:00"), item("22:00")], ZONE), evening)).toEqual(evening.endsAt);
+  });
+
+  it("runs an all-day event to the next midnight", () => {
+    const fair: EventTime = { startsAt: new Date("2027-05-07T16:00:00Z"), endsAt: null, allDay: true, timeZone: ZONE };
+    expect(scheduleFinish(scheduleInstants([item("20:00")], ZONE), fair)).toEqual(new Date("2027-05-08T16:00:00Z"));
+  });
+
+  it("moves an event with no end to the midnight after its last item's day", () => {
+    const items = [item("20:00"), item("10:00", null, "2027-05-09")];
+    expect(scheduleFinish(scheduleInstants(items, ZONE), party)).toEqual(new Date("2027-05-09T16:00:00Z"));
+    expect(statesAt(items, "2027-05-09T23:59", party)).toEqual(["past", "now"]);
+  });
+
+  it("finishes an event with no end at its start when every item is before it", () => {
+    const late: EventTime = { ...party, startsAt: new Date("2027-05-10T11:00:00Z") };
+    expect(scheduleFinish(scheduleInstants([item("20:00")], ZONE), late)).toEqual(late.startsAt);
   });
 });
 

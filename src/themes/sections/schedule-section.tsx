@@ -1,6 +1,6 @@
 "use client";
 
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
 import { useClock } from "@/events/use-clock";
@@ -9,9 +9,13 @@ import { cn } from "@/lib/utils";
 import { liveWindow, scheduleDays, scheduleInstants, scheduleStates, shouldRefresh } from "@/schedule/clock";
 import type { ScheduleItem, ScheduleRefresh } from "@/schedule/schedule";
 
-// What the event page hands the schedule (app/e/[slug]/page.tsx): the items in order, how the page
-// keeps fresh, the event's time alone, and the server's time, which the page is first drawn by.
-export type ScheduleShown = { items: ScheduleItem[]; refresh: ScheduleRefresh; time: EventTime; now: Date };
+// What the event page hands the schedule (app/e/[slug]/page.tsx): the items in order, each with
+// its time as written, the day headings by day, how the page keeps fresh, the event's time alone,
+// and the server's time, which the page is first drawn by. The times and days are written on the
+// server, since they never change with the clock and the browser's Intl may space them otherwise
+// (Chrome puts plain spaces in "7:00 – 9:00 PM" where Node puts thin and narrow no-break ones).
+export type ShownScheduleItem = ScheduleItem & { when: string };
+export type ScheduleShown = { items: ShownScheduleItem[]; headings: Record<string, string>; refresh: ScheduleRefresh; time: EventTime; now: Date };
 
 const MINUTE = 60_000;
 
@@ -61,9 +65,8 @@ function useRefreshWhileLive(refresh: ScheduleRefresh, from: number, to: number)
 // they span more than one, each past, now or upcoming by the guest's clock. The page is drawn by
 // the server's time, then follows the device's every half minute. The layout frames it and gives
 // it its heading.
-export function ScheduleSection({ items, refresh, time, now: serverNow }: ScheduleShown) {
+export function ScheduleSection({ items, headings, refresh, time, now: serverNow }: ScheduleShown) {
   const t = useTranslations("EventPage.schedule");
-  const locale = useLocale();
   const now = useClock(serverNow);
   const zone = useDeviceZone();
 
@@ -72,12 +75,7 @@ export function ScheduleSection({ items, refresh, time, now: serverNow }: Schedu
   const live = liveWindow(instants, time);
   useRefreshWhileLive(refresh, live.from.getTime(), live.to.getTime());
 
-  // Days and times are written by the server's Intl first and the browser's after, which may space
-  // the same time differently (Node puts thin and narrow no-break spaces in "7:00 – 9:00 PM" where
-  // Chrome puts plain ones): the same words to read, so the server's are kept, unwarned.
   const days = scheduleDays(items.map((item, index) => ({ ...item, ...instants[index], state: states[index] })));
-  const dayFormat = new Intl.DateTimeFormat(locale, { timeZone: time.timeZone, weekday: "long", day: "numeric", month: "long" });
-  const clock = new Intl.DateTimeFormat(locale, { timeZone: time.timeZone, hour: "numeric", minute: "2-digit" });
 
   return (
     <>
@@ -85,11 +83,7 @@ export function ScheduleSection({ items, refresh, time, now: serverNow }: Schedu
       <div className="flex flex-col gap-5">
         {days.map((day) => (
           <div key={day.day}>
-            {days.length > 1 && (
-              <h3 suppressHydrationWarning className="mb-2 font-medium">
-                {dayFormat.format(day.items[0].start)}
-              </h3>
-            )}
+            {days.length > 1 && <h3 className="mb-2 font-medium">{headings[day.day]}</h3>}
             <ol className="flex flex-col gap-1">
               {day.items.map((item) => (
                 <li
@@ -106,8 +100,8 @@ export function ScheduleSection({ items, refresh, time, now: serverNow }: Schedu
                   )}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <time suppressHydrationWarning dateTime={item.start.toISOString()} className="text-sm tabular-nums">
-                      {item.end ? clock.formatRange(item.start, item.end) : clock.format(item.start)}
+                    <time dateTime={item.start.toISOString()} className="text-sm tabular-nums">
+                      {item.when}
                     </time>
                     {item.state === "now" && (
                       <span className="shrink-0 rounded-full bg-theme-accent px-2.5 py-0.5 text-xs font-medium text-theme-on-accent">{t("now")}</span>

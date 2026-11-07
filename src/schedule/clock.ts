@@ -16,12 +16,23 @@ export function scheduleInstants(items: Pick<ScheduleItem, "day" | "startTime" |
   }));
 }
 
+// When the schedule is over: the event's end (time.ts), except for an event with a start and no
+// end, which time.ts ends at its start: for the schedule, that one finishes at the next midnight
+// in the event's zone after its last item's day, or at its start if that is later (M6 ticket 02,
+// a controller's ruling). That midnight is the end time.ts gives an all-day event on that day.
+export function scheduleFinish(instants: ScheduleInstant[], event: EventTime): Date {
+  if (event.endsAt || event.allDay || instants.length === 0) return eventEnd(event);
+  const lastStart = new Date(Math.max(...instants.map(({ start }) => start.getTime())));
+  const midnight = eventEnd({ startsAt: lastStart, endsAt: null, allDay: true, timeZone: event.timeZone });
+  return midnight > event.startsAt ? midnight : event.startsAt;
+}
+
 // An item is now from its start until its end, or until the next item starts, or, with neither,
-// until the event's end; past after that, and upcoming before. The next item is the first that
-// starts strictly later, so two items at one time are both now. Once the event is over, every
-// item is past.
+// until the schedule is over (scheduleFinish); past after that, and upcoming before. The next item
+// is the first that starts strictly later, so two items at one time are both now. Once the
+// schedule is over, every item is past.
 export function scheduleStates(instants: ScheduleInstant[], event: EventTime, now: Date): ScheduleState[] {
-  const finish = eventEnd(event);
+  const finish = scheduleFinish(instants, event);
   if (now >= finish) return instants.map(() => "past");
   return instants.map(({ start, end }) => {
     if (now < start) return "upcoming";
@@ -45,12 +56,12 @@ export function scheduleDays<T extends { day: string }>(items: T[]): { day: stri
 }
 
 // While the schedule is live, and so worth re-reading: from the earlier of the event's start and
-// the first item's, until the event's end.
+// the first item's, until the schedule is over.
 export type LiveWindow = { from: Date; to: Date };
 
 export function liveWindow(instants: ScheduleInstant[], event: EventTime): LiveWindow {
   const from = Math.min(event.startsAt.getTime(), ...instants.map(({ start }) => start.getTime()));
-  return { from: new Date(from), to: eventEnd(event) };
+  return { from: new Date(from), to: scheduleFinish(instants, event) };
 }
 
 // Whether an open page re-reads itself now: under `minute`, inside the live window, and only while
