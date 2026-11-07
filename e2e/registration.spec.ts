@@ -87,7 +87,8 @@ test("the email OPERATOR_EMAIL names signs up anyway, and takes over as the oper
   browser,
   request,
 }) => {
-  test.slow();
+  // It restarts app-fresh, which on CI's runners takes a good part of the usual 90 seconds.
+  test.setTimeout(180_000);
   operator = await (await browser.newContext()).newPage();
   const mails = await mailCountTo(request, OPERATOR.email);
   await signUp(operator, OPERATOR);
@@ -184,7 +185,8 @@ test("a revoked host invitation lets nobody in", async ({ browser }) => {
   await expect(row.getByText("Pending")).toBeVisible();
   await expect(row.getByText("Expires in 14 days")).toBeVisible();
   await row.getByRole("button", { name: "Revoke" }).click();
-  await expect(row.getByText("Revoked")).toBeVisible();
+  // Exactly: the address itself has "revoked" in it.
+  await expect(row.getByText("Revoked", { exact: true })).toBeVisible();
 
   const page = await onPhone(browser);
   await page.goto(link);

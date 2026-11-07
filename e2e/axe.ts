@@ -16,14 +16,14 @@ import { expect, test, type Page } from "@playwright/test";
 // offers.
 export async function expectNoSeriousViolations(page: Page, where: string) {
   await settled(page);
-  const { violations, incomplete, contrastMeasured } = await readPage(page);
+  const { violations, incomplete, contrastMeasured, scene } = await readPage(page);
   const found = Object.fromEntries(IMPACTS.map((impact) => [impact, violations.filter((violation) => violation.impact === impact).length]));
   const unsure = Object.fromEntries([...incomplete].map(([id, targets]) => [id, targets.size]));
   test.info().annotations.push({ type: "axe", description: `${where}: ${JSON.stringify({ ...found, incomplete: unsure, contrastMeasured })}` });
   const serious = violations.filter(({ impact }) => impact === "serious" || impact === "critical");
   expect
     .soft(
-      serious.map(({ impact, id, help, targets }) => `${impact} ${id} (${help}): ${targets.join(", ")}`),
+      serious.map(({ impact, id, help, targets }) => `${impact} ${id} (${help}): ${targets.join(", ")}${id === CONTRAST && scene ? ` | ${scene}` : ""}`),
       `serious or critical accessibility violations on ${where}`,
     )
     .toEqual([]);
@@ -49,6 +49,8 @@ async function readPage(page: Page) {
   const contrast = new Map<string, Violation>();
   const incomplete = new Map<string, Set<string>>();
   const measured = new Set<string>();
+  // The page as it stood when contrast first failed on text in sight, for a failure seen only on CI.
+  let scene = "";
   const fixedBackdrop = await page.evaluate(() =>
     [...document.querySelectorAll("body *")].some((element) => {
       const rect = element.getBoundingClientRect();
@@ -100,6 +102,8 @@ async function readPage(page: Page) {
         if (!violation.targets.some((each) => each === target || each.startsWith(`${target} [`))) violation.targets.push(target + measuredAs(node, scrolled));
         contrast.set(rule.id, violation);
       });
+      const failed = verdicts.find(({ kind }, at) => kind === "violation" && inSight[at]);
+      if (failed && !scene) scene = await page.evaluate(SCENE, failed.target);
     };
     await page.evaluate(WHOLLY_IN_SIGHT);
 
@@ -156,7 +160,7 @@ async function readPage(page: Page) {
   await page.evaluate((y) => window.scrollTo(0, y), from);
   // Text measured from one view is not also counted as undecided from another.
   for (const target of measured) incomplete.get(CONTRAST)?.delete(target);
-  return { violations: [...violations, ...contrast.values()], incomplete, contrastMeasured: measured.size };
+  return { violations: [...violations, ...contrast.values()], incomplete, contrastMeasured: measured.size, scene };
 }
 
 // Puts whollyInSight on the page: whether an element is wholly on the screen and inside everything
@@ -198,4 +202,26 @@ function measuredAs(node: { any: { data?: unknown }[] }, scrolled: number) {
     | undefined;
   if (!data) return "";
   return ` [${data.fgColor} on ${data.bgColor}, ${data.contrastRatio}:1 of ${data.expectedContrastRatio}, at y ${Math.round(scrolled)}]`;
+}
+
+// Where things stood for a piece of text that failed on contrast: the screen and the scroll, the
+// backdrop (fixed behind the event page) and where it was, what was under the text's middle, and
+// what had the focus.
+function SCENE(target: string) {
+  const text = document.querySelector(target);
+  const describe = (element: Element | null) =>
+    element ? `${element.tagName.toLowerCase()}${element.getAttribute("data-slot") ? `[${element.getAttribute("data-slot")}]` : ""}.${String(element.className).split(" ").slice(0, 3).join(".")}` : "none";
+  const box = text?.getBoundingClientRect();
+  const backdrop = document.querySelector('[data-slot="backdrop"]');
+  const backdropBox = backdrop?.getBoundingClientRect();
+  const style = backdrop ? getComputedStyle(backdrop) : null;
+  const under = box ? document.elementsFromPoint(box.x + box.width / 2, box.y + box.height / 2).slice(0, 8).map(describe).join(" > ") : "";
+  const round = (value: number | undefined) => Math.round(value ?? NaN);
+  return [
+    `screen ${window.innerWidth}x${window.innerHeight} at y ${round(window.scrollY)}`,
+    `text at ${round(box?.x)},${round(box?.y)} ${round(box?.width)}x${round(box?.height)}`,
+    backdrop ? `backdrop at ${round(backdropBox?.x)},${round(backdropBox?.y)} ${round(backdropBox?.width)}x${round(backdropBox?.height)} ${style?.display} ${style?.visibility} opacity ${style?.opacity}` : "no backdrop",
+    `under it: ${under}`,
+    `focus on ${describe(document.activeElement)}`,
+  ].join("; ");
 }
