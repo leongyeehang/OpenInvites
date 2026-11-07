@@ -264,6 +264,12 @@ export const event = pgTable(
     albumVisibility: albumVisibility("album_visibility").notNull().default("replied"),
     albumApprovalRequired: boolean("album_approval_required").notNull().default(false),
     notifyOnPhoto: boolean("notify_on_photo").notNull().default(true),
+    // Whether the host writes each invited guest a letter (M6 spec, "Personal letters"). Set only
+    // from the Invites page, never by the Settings sheet, whose every save posts every setting.
+    lettersEnabled: boolean("letters_enabled").notNull().default(false),
+    // Whether the event page opens only to the people on its invite list (M6 spec, "Invite-only
+    // events"). Off for every event until a host turns it on.
+    inviteOnly: boolean("invite_only").notNull().default(false),
     ...timestamps,
   },
   (table) => [
@@ -459,11 +465,22 @@ export const invite = pgTable(
       .references(() => event.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     email: text("email"),
+    // As the host typed it, trimmed, of the RSVP form's shape (M6 spec, "The invite list").
+    phone: text("phone"),
+    // The host's letter to this guest, plain text with its line breaks; empty when there is none
+    // (M6 spec, "Personal letters").
+    letter: text("letter").notNull().default(""),
     token: text("token").notNull().unique(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     // The first time the link was opened.
     openedAt: timestamp("opened_at", { withTimezone: true }),
     rsvpId: uuid("rsvp_id").references(() => rsvp.id, { onDelete: "set null" }),
+    // For the invitation email (M6 spec, "The invitation email"): the secret in its stop link, in
+    // clear as an RSVP's is; when the guest stopped mail with it; and when the invitation was last
+    // sent.
+    mailToken: text("mail_token").unique(),
+    mailStoppedAt: timestamp("mail_stopped_at", { withTimezone: true }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
   },
   (table) => [index("invite_event_id_idx").on(table.eventId)],
 );

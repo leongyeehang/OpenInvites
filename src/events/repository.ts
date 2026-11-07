@@ -42,9 +42,13 @@ function isSlugCollision(error: unknown): boolean {
 // What saving the event form writes: the form, and the language it was saved in.
 export type EventChanges = EventInput & { locale: Locale };
 
+// What a new event is made from: the form, and, for a duplicate, the two settings the form does not
+// carry, personal letters and invite-only (M6 spec), which the copy keeps.
+export type NewEvent = MaybeDated<EventChanges> & Partial<Pick<Event, "lettersEnabled" | "inviteOnly">>;
+
 // A new event starts with the Birthday template's theme (ticket 06), unless it is given one: a
 // duplicate starts with the theme of the event it copies.
-export async function createEvent(hostId: string, input: MaybeDated<EventChanges> & { theme?: Theme }): Promise<Event> {
+export async function createEvent(hostId: string, input: NewEvent & { theme?: Theme }): Promise<Event> {
   return withFreshSlug(async (slug) => {
     try {
       const [created] = await getDb().insert(event).values({ hostId, slug, theme: DEFAULT_THEME, ...input }).returning();
@@ -138,6 +142,13 @@ export async function changeEventTheme(hostId: string, id: string, change: (them
     await tx.update(event).set({ theme: changed, updatedAt: new Date() }).where(eq(event.id, id));
     return changed;
   });
+}
+
+// Personal letters on or off (M6 spec, "Personal letters"), from the Invites page alone: the
+// Settings sheet posts every setting on each save, and would turn them back. The caller has found
+// the event as one of its hosts. Letters already written are kept either way.
+export async function setLettersEnabled(eventId: string, on: boolean): Promise<void> {
+  await getDb().update(event).set({ lettersEnabled: on, updatedAt: new Date() }).where(eq(event.id, eventId));
 }
 
 // Publishing records when, the first time a draft is published: a reminder whose time came before

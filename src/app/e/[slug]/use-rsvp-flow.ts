@@ -60,10 +60,11 @@ const BLANK: Draft = { status: "going", name: "", plusOnes: 0, plusOneNames: [],
 // Coming back to change an answer starts from the answer that is already there, a waitlisted one
 // as the Going it asked for, except that a host who has since lowered the plus-ones allowance
 // wins: otherwise the guest would carry an impossible number into every attempt to save, and never
-// be able to change their RSVP again. A first answer through a personal invite starts from the name
-// and the email the host gave, which the guest may change (spec, "Personal invite links").
+// be able to change their RSVP again. A first answer through a personal invite starts from the name,
+// the email and the phone the host gave, which the guest may change (spec, "Personal invite links";
+// M6 spec, "The invite list").
 function draftFrom(mine: GuestRsvp | undefined, settings: RsvpSettings, answers: AnswerFields, invite: Invited | undefined): Draft {
-  if (!mine) return { ...BLANK, answers, ...(invite && { name: invite.name, email: invite.email ?? "" }) };
+  if (!mine) return { ...BLANK, answers, ...(invite && { name: invite.name, email: invite.email ?? "", phone: invite.phone ?? "" }) };
   const { name, plusOneNames, email, phone } = mine;
   const plusOnes = Math.min(mine.plusOnes, settings.plusOnesAllowed);
   return { status: chosenStatus(mine.status), name, plusOnes, plusOneNames: plusOneNames.slice(0, plusOnes), email: email ?? "", phone: phone ?? "", answers, code: "" };
@@ -84,8 +85,8 @@ export function offersCalendar(answer: GuestRsvp): boolean {
 }
 
 // Whom the personal invite this device opened was made for, when the guest has not replied yet
-// (invites/device.ts): the name, and the email the host gave, if any.
-export type Invited = { name: string; email: string | null };
+// (invites/device.ts): the name, and the email and the phone the host gave, if any.
+export type Invited = { name: string; email: string | null; phone: string | null };
 
 // What the event page hands whichever presentation of the flow its layout uses.
 export type RsvpFlowProps = {

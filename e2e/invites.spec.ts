@@ -10,6 +10,10 @@ import { openMyReply } from "./reply";
 // replied under Invited on the guest list; a deleted invite's link is not found, and its reply
 // stays. Every guest is on a device of their own, reaching the instance from an address of their
 // own. Each test runs at 390 pixels in the mobile project and at desktop width in the other.
+//
+// Ticket 05 (M6): the invite list. An invite takes a phone and, with personal letters on, a letter;
+// "Add several" makes one invite per pasted line, or none when a line is wrong; a guest opening
+// their link has the phone filled in where the form asks for one.
 
 const INVITE_LINK = /^https?:\/\/\S+\/i\/[A-Za-z0-9]{24}$/;
 
@@ -31,7 +35,7 @@ async function makeInvite(hostPage: Page, name: string, email?: string): Promise
   await hostPage.getByLabel("Name", { exact: true }).fill(name);
   if (email) await hostPage.getByLabel("Email", { exact: true }).fill(email);
   await hostPage.getByRole("button", { name: "Make link" }).click();
-  await expect(hostPage.getByRole("status")).toHaveText(`Made a link for ${name}.`, { timeout: 15_000 });
+  await expect(hostPage.getByRole("status").filter({ hasText: /^Made a link for / })).toHaveText(`Made a link for ${name}.`, { timeout: 15_000 });
   await expect(hostPage.getByLabel("Name", { exact: true })).toHaveValue("");
   return (await inviteRow(hostPage, name).getByText(INVITE_LINK).textContent())!.trim();
 }
@@ -381,6 +385,137 @@ test("the Broadsheet and the Thread fill in the invite's name and email too, and
   await closeAll(host.page, mei);
 });
 
+// A letter of exactly the most a letter may be, 1000 characters, in Chinese, across three lines.
+const LONGEST_LETTER = `亲爱的 Dev：\n${"好".repeat(1000 - "亲爱的 Dev：\n".length - "\n周六见！".length)}\n周六见！`;
+
+test("an invite made with a phone and a letter shows both on its row; letters turned on show the fields, a saved letter survives a reload, and off they hide and are kept", async ({
+  browser,
+  request,
+}) => {
+  test.slow();
+  expect(LONGEST_LETTER).toHaveLength(1000);
+  const host = await createPublished(browser, request, "invites-letters", SUPPER);
+  await host.page.goto(`${host.page.url()}/invites`);
+  const letters = host.page.getByRole("checkbox", { name: "Personal letters" });
+  await expect(letters).not.toBeChecked();
+  await expect(host.page.getByText("Write a note to each guest, shown on their invitation.")).toBeVisible();
+  await expect(host.page.getByRole("textbox", { name: "Letter", exact: true })).toHaveCount(0);
+
+  // Letters on: the form offers one.
+  await letters.click();
+  await expect(letters).toBeChecked();
+  await expect(host.page.getByRole("textbox", { name: "Letter", exact: true })).toBeVisible({ timeout: 15_000 });
+
+  // Mei's invite, with a phone and a letter of two lines.
+  const meiLetter = "Dear Mei,\nBring your guitar.";
+  await host.page.getByLabel("Name", { exact: true }).fill("Mei Lin");
+  await host.page.getByLabel("Email", { exact: true }).fill("mei@example.test");
+  await host.page.getByLabel("Phone number", { exact: true }).fill("+65 9123 4567");
+  await host.page.getByRole("textbox", { name: "Letter", exact: true }).fill(meiLetter);
+  await host.page.getByRole("button", { name: "Make link" }).click();
+  await expect(host.page.getByRole("status")).toHaveText("Made a link for Mei Lin.", { timeout: 15_000 });
+  await expect(host.page.getByLabel("Phone number", { exact: true })).toHaveValue("");
+  await expect(host.page.getByRole("textbox", { name: "Letter", exact: true })).toHaveValue("");
+  const mei = inviteRow(host.page, "Mei Lin");
+  await expect(mei.getByText("mei@example.test", { exact: true })).toBeVisible();
+  await expect(mei.getByText("+65 9123 4567", { exact: true })).toBeVisible();
+  await expect(host.page.getByRole("textbox", { name: "Letter Mei Lin" })).toHaveValue(meiLetter);
+
+  // A phone of another shape is refused, and the form keeps what was typed.
+  await host.page.getByLabel("Name", { exact: true }).fill("Dev Patel");
+  await host.page.getByLabel("Phone number", { exact: true }).fill("ring me");
+  await host.page.getByRole("button", { name: "Make link" }).click();
+  await expect(host.page.getByText("Enter a phone number of 5 to 20 digits.")).toBeVisible({ timeout: 15_000 });
+  await expect(host.page.getByLabel("Name", { exact: true })).toHaveValue("Dev Patel");
+  await host.page.getByLabel("Phone number", { exact: true }).fill("");
+  await makeInvite(host.page, "Dev Patel");
+
+  // Dev's letter, written on his row: the longest there may be, its line breaks kept.
+  const devLetter = host.page.getByRole("textbox", { name: "Letter Dev Patel" });
+  await expect(devLetter).toHaveValue("");
+  await devLetter.fill(LONGEST_LETTER);
+  await host.page.getByRole("button", { name: "Save letter Dev Patel" }).click();
+  await expect(inviteRow(host.page, "Dev Patel").getByRole("status")).toHaveText("Letter saved.", { timeout: 15_000 });
+  await host.page.reload();
+  await expect(host.page.getByRole("textbox", { name: "Letter Dev Patel" })).toHaveValue(LONGEST_LETTER);
+  await expect(host.page.getByRole("textbox", { name: "Letter Mei Lin" })).toHaveValue(meiLetter);
+
+  // Letters off: the fields go, the phone stays on the row; on again, the letters are as they were.
+  await host.page.getByRole("checkbox", { name: "Personal letters" }).click();
+  await expect(host.page.getByRole("textbox", { name: /^Letter/ })).toHaveCount(0, { timeout: 15_000 });
+  await host.page.reload();
+  await expect(host.page.getByRole("checkbox", { name: "Personal letters" })).not.toBeChecked();
+  await expect(host.page.getByRole("textbox", { name: /^Letter/ })).toHaveCount(0);
+  await expect(inviteRow(host.page, "Mei Lin").getByText("+65 9123 4567", { exact: true })).toBeVisible();
+  await host.page.getByRole("checkbox", { name: "Personal letters" }).click();
+  await expect(host.page.getByRole("textbox", { name: "Letter Dev Patel" })).toHaveValue(LONGEST_LETTER, { timeout: 15_000 });
+
+  await closeAll(host.page);
+});
+
+test("pasting three lines makes three invites; a bad second line makes none and says which", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "invites-paste", SUPPER);
+  await host.page.goto(`${host.page.url()}/invites`);
+  const people = host.page.getByLabel("Add several", { exact: true });
+  await expect(host.page.getByText("One person per line, as Name, email, phone.", { exact: false })).toBeVisible();
+
+  // The second line's email is not one: nobody is made, the line is named, the text stays.
+  const wrong = "Ravi Kumar, ravi@example.test\nSun Li, sun@example\nTan Wei";
+  await people.fill(wrong);
+  await host.page.getByRole("button", { name: "Make these links" }).click();
+  await expect(host.page.getByText("Line 2: That does not look like an email address.")).toBeVisible({ timeout: 15_000 });
+  await expect(people).toHaveValue(wrong);
+  await host.page.reload();
+  await expect(host.page.getByText("No invites yet.")).toBeVisible();
+  await expect(host.page.getByText("Ravi Kumar", { exact: true })).toHaveCount(0);
+
+  // Three lines, one with everything, one with no email, one with the name alone.
+  await host.page.getByLabel("Add several", { exact: true }).fill("Mei Lin, mei@example.test, +65 9123 4567\nDev Patel, , 8123 4567\n\nAsha Menon");
+  await host.page.getByRole("button", { name: "Make these links" }).click();
+  await expect(host.page.getByRole("status")).toHaveText("Made 3 links.", { timeout: 15_000 });
+  await expect(host.page.getByLabel("Add several", { exact: true })).toHaveValue("");
+  await expect(host.page.getByRole("button", { name: /^Delete the invite for / })).toHaveCount(3);
+  await expect(inviteRow(host.page, "Mei Lin").getByText("mei@example.test", { exact: true })).toBeVisible();
+  await expect(inviteRow(host.page, "Mei Lin").getByText("+65 9123 4567", { exact: true })).toBeVisible();
+  await expect(inviteRow(host.page, "Dev Patel").getByText("8123 4567", { exact: true })).toBeVisible();
+  await expect(inviteRow(host.page, "Asha Menon").getByText("Not opened", { exact: true })).toBeVisible();
+  await expect(inviteRow(host.page, "Asha Menon").getByText(INVITE_LINK)).toBeVisible();
+
+  await closeAll(host.page);
+});
+
+test("a guest opening their link has the phone the host gave filled in when the form asks for one, and not sent otherwise", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "invites-phone", SUPPER);
+  const manage = host.page.url();
+  await host.page.goto(`${manage}/invites`);
+  await host.page.getByLabel("Phone number", { exact: true }).fill("+65 9123 4567");
+  const meiLink = await makeInvite(host.page, "Mei Lin", "mei@example.test");
+
+  // The event asks for an email and no phone: the page fills in the email and never has the phone.
+  const mei = await newGuest(browser);
+  await mei.goto(meiLink);
+  await mei.getByRole("button", { name: "Going", exact: true }).click();
+  await expect(mei.getByLabel("Email")).toHaveValue("mei@example.test");
+  await expect(mei.getByLabel("Phone number")).toHaveCount(0);
+  expect(await (await mei.request.get(mei.url())).text()).not.toContain("9123 4567");
+
+  // Once it asks for a phone, her form has hers.
+  await host.page.goto(manage);
+  await editSettings(host.page, async (sheet) => {
+    await sheet.getByRole("group", { name: "Contact details" }).getByLabel("Phone number", { exact: true }).selectOption("optional");
+  });
+  await mei.reload();
+  await mei.getByRole("button", { name: "Going", exact: true }).click();
+  await expect(mei.getByLabel("Your name")).toHaveValue("Mei Lin");
+  await expect(mei.getByLabel("Phone number")).toHaveValue("+65 9123 4567");
+  await mei.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(mei.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+
+  await closeAll(host.page, mei);
+});
+
 test("an event with 500 invites offers no form and says why, the server refuses one more, and deleting one brings the form back", async ({
   browser,
   request,
@@ -430,6 +565,16 @@ test("an event with 500 invites offers no form and says why, the server refuses 
   await expect(host.page.getByText("Guest 250", { exact: true })).toHaveCount(0, { timeout: 15_000 });
   await expect(host.page.getByRole("button", { name: "Make link" })).toBeVisible();
   await expect(host.page.getByText(full)).toHaveCount(0);
+
+  // At 499, a pasted list of two would pass 500 and makes nobody; a list of one fills the place.
+  await host.page.getByLabel("Add several", { exact: true }).fill("Guest 501\nGuest 502");
+  await host.page.getByRole("button", { name: "Make these links" }).click();
+  await expect(host.page.getByText("That list would take this event past 500 invites, the most it can have. No links were made.")).toBeVisible({ timeout: 15_000 });
+  await expect(host.page.getByText("Guest 501", { exact: true })).toHaveCount(0);
+  await host.page.getByLabel("Add several", { exact: true }).fill("Guest 501");
+  await host.page.getByRole("button", { name: "Make these links" }).click();
+  await expect(host.page.getByText(full)).toBeVisible({ timeout: 15_000 });
+  await expect(host.page.getByText("Guest 501", { exact: true })).toBeVisible();
 
   await closeAll(host.page);
 });

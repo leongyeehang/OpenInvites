@@ -1222,13 +1222,25 @@
     "title": "Invites",
     "backToEvent": "Back to the event",
     "explainer": "A personal invite link is for one guest. When they open it, their name is filled in, and their email if you give one, and their reply is tied to the link, which then works as their edit link. Copy each link and send it to its guest yourself.",
+    "lettersEnabled": "Personal letters",
+    "lettersEnabledHint": "Write a note to each guest, shown on their invitation.",
     "name": "Name",
     "email": "Email",
     "emailHint": "Optional. It is filled in for them and counts as checked.",
+    "phone": "Phone number",
+    "phoneHint": "Optional. It is filled in for them where the event asks for a phone number.",
+    "letter": "Letter",
+    "letterHint": "For this guest alone, shown on their invitation. Up to 1000 characters.",
     "make": "Make link",
     "made": "Made a link for {name}.",
+    "paste": "Add several",
+    "pasteHint": "One person per line, as Name, email, phone. Leave out what you don’t have: “Mei Lin, mei@example.com” or just “Dev Patel”.",
+    "pasteMake": "Make these links",
+    "madeMany": "Made {count, plural, one {# link} other {# links}}.",
     "full": "This event has {max} invites, the most it can have. Delete one to make another.",
     "empty": "No invites yet.",
+    "saveLetter": "Save letter",
+    "letterSaved": "Letter saved.",
     "state": {
       "notOpened": "Not opened",
       "opened": "Opened",
@@ -1253,7 +1265,11 @@
       "notFound": "This event no longer exists.",
       "nameRequired": "An invite needs the guest’s name.",
       "nameTooLong": "That name is too long.",
-      "emailInvalid": "That does not look like an email address."
+      "emailInvalid": "That does not look like an email address.",
+      "phoneInvalid": "Enter a phone number of 5 to 20 digits.",
+      "letterTooLong": "A letter can be up to 1000 characters.",
+      "line": "Line {line}: {error}",
+      "tooManyAtOnce": "That list would take this event past {max} invites, the most it can have. No links were made."
     }
   },
   "Announcements": {

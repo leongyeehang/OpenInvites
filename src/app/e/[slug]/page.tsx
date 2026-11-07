@@ -334,8 +334,13 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
       phoneField: event.phoneField,
     },
     mine: mine && guestRsvp(mine, waitlistPosition),
-    // The invite's email only where the form asks for one: nothing would show it otherwise.
-    invite: (invite ?? voter) && { name: (invite ?? voter)!.name, email: event.emailField === "none" ? null : (invite ?? voter)!.email },
+    // The invite's email and phone only where the form asks for them: nothing would show them
+    // otherwise. A voter gave no phone.
+    invite: (invite ?? voter) && {
+      name: (invite ?? voter)!.name,
+      email: event.emailField === "none" ? null : (invite ?? voter)!.email,
+      phone: event.phoneField === "none" ? null : (invite?.phone ?? null),
+    },
     open: acceptsRsvps(event.state),
     full: isFull(event.capacity, headcount),
     needsApproval: event.approvalRequired && (mine ? mine.rsvp.approval !== "approved" : !invite),

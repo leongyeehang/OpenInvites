@@ -1222,13 +1222,25 @@
     "title": "专属邀请",
     "backToEvent": "返回活动",
     "explainer": "专属邀请链接只给一位宾客使用。对方打开后，名字会自动填好；如果你留了邮箱，邮箱也会填好。对方的回复会和这个链接绑定，之后这个链接就是对方的修改链接。请复制每个链接，自己发给对应的宾客。",
+    "lettersEnabled": "专属信件",
+    "lettersEnabledHint": "给每位宾客写几句话，显示在对方的邀请上。",
     "name": "名字",
     "email": "邮箱",
     "emailHint": "选填。会替对方填好，并视为已验证。",
+    "phone": "电话号码",
+    "phoneHint": "选填。活动需要电话号码时，会替对方填好。",
+    "letter": "信件",
+    "letterHint": "只写给这位宾客，显示在对方的邀请上。最多 1000 个字。",
     "make": "生成链接",
     "made": "已为 {name} 生成链接。",
+    "paste": "批量添加",
+    "pasteHint": "每行一人，用英文逗号分隔：名字, 邮箱, 电话。没有的可以不写，例如“王小明, wang@example.com”或只写“李华”。",
+    "pasteMake": "生成这些链接",
+    "madeMany": "已生成 {count, plural, other {# 个链接}}。",
     "full": "这个活动已有 {max} 个专属邀请，已达上限。要生成新的，请先删除一个。",
     "empty": "还没有专属邀请。",
+    "saveLetter": "保存信件",
+    "letterSaved": "信件已保存。",
     "state": {
       "notOpened": "未打开",
       "opened": "已打开",
@@ -1253,7 +1265,11 @@
       "notFound": "这个活动已经不存在了。",
       "nameRequired": "请填写宾客的名字。",
       "nameTooLong": "名字太长了。",
-      "emailInvalid": "这看起来不像邮箱地址。"
+      "emailInvalid": "这看起来不像邮箱地址。",
+      "phoneInvalid": "请输入 5 到 20 位的电话号码。",
+      "letterTooLong": "信件最多 1000 个字。",
+      "line": "第 {line} 行：{error}",
+      "tooManyAtOnce": "这份名单会让活动超过 {max} 个专属邀请的上限。没有生成任何链接。"
     }
   },
   "Announcements": {

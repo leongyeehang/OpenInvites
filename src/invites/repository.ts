@@ -21,14 +21,42 @@ export async function createInvite(eventId: string, input: InviteInput): Promise
   });
 }
 
+// Makes every invite of a pasted list, each with a fresh token, or none of them: when the event
+// cannot carry them all, nothing is written and the answer is null. Under the event's lock, as one
+// is made.
+export async function createInvites(eventId: string, inputs: InviteInput[]): Promise<Invite[] | null> {
+  return getDb().transaction(async (tx) => {
+    await tx.select({ id: event.id }).from(event).where(eq(event.id, eventId)).for("no key update");
+    if (!roomForInvite(await countInvites(eventId, tx), inputs.length)) return null;
+    return tx
+      .insert(invite)
+      .values(inputs.map((input) => ({ eventId, ...input, token: generateInviteToken() })))
+      .returning();
+  });
+}
+
+// The host's letter to one guest, scoped to the event, so another host's page cannot reach an
+// invite. Whether there was such an invite to write it to.
+export async function updateInviteLetter(eventId: string, id: string, letter: string): Promise<boolean> {
+  const updated = await getDb()
+    .update(invite)
+    .set({ letter })
+    .where(and(eq(invite.id, id), eq(invite.eventId, eventId)))
+    .returning({ id: invite.id });
+  return updated.length > 0;
+}
+
 export async function countInvites(eventId: string, db: Db = getDb()): Promise<number> {
   const [{ made }] = await db.select({ made: count() }).from(invite).where(eq(invite.eventId, eventId));
   return made;
 }
 
-// An invite as the host's pages list it: whom it is for, its link's token, when it was opened, and
-// the status of the RSVP saved through it, when there is one.
-export type ListedInvite = Pick<Invite, "id" | "name" | "email" | "token" | "openedAt" | "rsvpId"> & { status: SavedStatus | null };
+// An invite as the host's pages list it: whom it is for, how to reach them, the host's letter to
+// them, its link's token, when it was opened, when its invitation was sent and whether its guest
+// stopped mail, and the status of the RSVP saved through it, when there is one.
+export type ListedInvite = Pick<Invite, "id" | "name" | "email" | "phone" | "letter" | "token" | "openedAt" | "rsvpId" | "sentAt" | "mailStoppedAt"> & {
+  status: SavedStatus | null;
+};
 
 // Every invite of the event, newest first.
 export async function listInvites(eventId: string): Promise<ListedInvite[]> {
@@ -37,9 +65,13 @@ export async function listInvites(eventId: string): Promise<ListedInvite[]> {
       id: invite.id,
       name: invite.name,
       email: invite.email,
+      phone: invite.phone,
+      letter: invite.letter,
       token: invite.token,
       openedAt: invite.openedAt,
       rsvpId: invite.rsvpId,
+      sentAt: invite.sentAt,
+      mailStoppedAt: invite.mailStoppedAt,
       status: rsvp.status,
     })
     .from(invite)

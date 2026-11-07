@@ -43,6 +43,8 @@ const source: Event = {
   albumVisibility: "hosts",
   albumApprovalRequired: true,
   notifyOnPhoto: false,
+  lettersEnabled: true,
+  inviteOnly: true,
   createdAt: new Date("2026-12-01T00:00:00Z"),
   updatedAt: new Date("2026-12-02T00:00:00Z"),
 };
@@ -88,6 +90,10 @@ describe("duplicateInput", () => {
       albumApprovalRequired: true,
       notifyOnPhoto: false,
     });
+  });
+
+  it("keeps personal letters and invite-only, though not the invites themselves", () => {
+    expect(copy.event).toMatchObject({ lettersEnabled: true, inviteOnly: true });
   });
 
   it("keeps the whole look, its poster naming the copy's own picture", () => {
