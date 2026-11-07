@@ -9,9 +9,12 @@ Pushing a tag of the form `v1.2.3` runs, in order:
 
 1. **Checks**: the whole of `ci.yml` (lint, types, unit tests, the S3 smoke test, and the browser
    suite against the production image). If any of it fails, nothing is published.
-2. **Build and push**: the image for `linux/amd64` and `linux/arm64` (the arm64 one built under
-   QEMU emulation), pushed to GitHub Container Registry, and to Docker Hub once its secrets are
-   set (below), with the release's own tag, `1.2.3`, and no other yet.
+2. **Build and push**: the image for `linux/amd64` and the one for `linux/arm64`, each built on a
+   machine of its own architecture (`ubuntu-latest` and `ubuntu-24.04-arm`) at the same time,
+   then joined into one image that hands each machine its own, pushed to GitHub Container
+   Registry, and to Docker Hub once its secrets are set (below), with the release's own tag,
+   `1.2.3`, and no other yet. (Until 0.5.0 the arm64 image was built under emulation on the amd64
+   machine, which outgrew the job's two hours.)
 3. **Smoke test**: `deploy/smoke-test.sh` starts `deploy/compose.yaml` from the image just
    pushed, by digest, on an amd64 runner and on an arm64 one (`ubuntu-24.04-arm`, GitHub's
    arm64 hardware, free for public repositories), and checks both health checks,

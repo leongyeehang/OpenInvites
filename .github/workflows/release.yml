@@ -23,18 +23,25 @@ jobs:
     name: Checks
     uses: ./.github/workflows/ci.yml
 
-  publish:
-    name: Build and push the image
+  # Each architecture is built on a machine of its own, in parallel: emulating arm64 on an amd64
+  # machine took over two hours for 0.5.0 and ran out of time. Each build pushes its image by
+  # digest alone, untagged, and publish joins the two under the release's tag.
+  build:
+    name: Build the ${{ matrix.arch }} image
     needs: checks
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          # Arm64 hardware: GitHub's arm64 runners are free for public repositories.
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
     permissions:
       contents: read
       packages: write
-    # Only the digest: GitHub drops a job output that contains a secret's value, and the image's
-    # name holds the owner's name, which may well be the Docker Hub username too.
-    outputs:
-      digest: ${{ steps.build.outputs.digest }}
     # Docker Hub is used only once both of its secrets are set.
     env:
       DOCKERHUB: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
@@ -56,9 +63,95 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      # The arm64 image is built under emulation, so pnpm installs the arm64 builds of sharp and
-      # the other native packages, as it would on an arm64 machine.
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Sign in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sign in to Docker Hub
+        if: env.DOCKERHUB == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.names.outputs.images }}
+          labels: |
+            org.opencontainers.image.title=OpenInvites
+            org.opencontainers.image.description=Self-hostable event pages that guests RSVP to without an account
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+
+      # Pushed to every registry by its digest, with no tag yet.
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.names.outputs.images }}
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,scope=${{ matrix.arch }},mode=max
+
+      - name: Keep the digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # The two images joined into one, under the release's own tag only: the tags that move wait for
+  # the smoke test (promote, below).
+  publish:
+    name: Join the images under the release's tag
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    # Only the digest: GitHub drops a job output that contains a secret's value, and the image's
+    # name holds the owner's name, which may well be the Docker Hub username too.
+    outputs:
+      digest: ${{ steps.join.outputs.digest }}
+    env:
+      DOCKERHUB: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      # As in build.
+      - name: Image names
+        id: names
+        env:
+          IMAGE_NAME: ${{ vars.IMAGE_NAME || 'openinvites' }}
+          DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE || github.repository_owner }}
+        run: |
+          {
+            echo "images<<EOF"
+            echo "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${IMAGE_NAME}"
+            if [ "$DOCKERHUB" = true ]; then echo "docker.io/${DOCKERHUB_NAMESPACE,,}/${IMAGE_NAME}"; fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -76,8 +169,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # The release's own tag only: the ones that move wait for the smoke test (promote, below).
-      - name: Tags and labels
+      - name: Tags
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -85,22 +177,29 @@ jobs:
           flavor: latest=false
           tags: |
             type=semver,pattern={{version}}
-          labels: |
-            org.opencontainers.image.title=OpenInvites
-            org.opencontainers.image.description=Self-hostable event pages that guests RSVP to without an account
-            org.opencontainers.image.licenses=AGPL-3.0-or-later
 
-      - name: Build and push
-        id: build
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      # In each registry, the release's tag on a list of the two images, which hands each machine
+      # its own. The list is the same in every registry, so it has one digest, which the smoke test
+      # and promote use; a registry where it differs stops the release.
+      - name: Join
+        id: join
+        working-directory: ${{ runner.temp }}/digests
+        env:
+          IMAGES: ${{ steps.names.outputs.images }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          digest=""
+          while read -r image; do
+            [ -n "$image" ] || continue
+            sources=()
+            for file in *; do sources+=("$image@sha256:$file"); done
+            docker buildx imagetools create --tag "$image:$VERSION" "${sources[@]}"
+            joined=$(docker buildx imagetools inspect "$image:$VERSION" --format '{{json .Manifest}}' | jq -r .digest)
+            echo "$image:$VERSION -> $joined"
+            if [ -n "$digest" ] && [ "$joined" != "$digest" ]; then echo "::error::$image has $joined, not $digest"; exit 1; fi
+            digest=$joined
+          done <<< "$IMAGES"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
   smoke-test:
     name: Smoke test on ${{ matrix.arch }}
