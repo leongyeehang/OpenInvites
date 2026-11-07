@@ -52,9 +52,11 @@ import { mayVote, pollState, tally } from "@/polls/poll";
 import { loadPoll } from "@/polls/repository";
 import { findVoterOnThisDevice } from "@/polls/voter";
 import { PollBar, PollFlow, PollWhen, type PollCandidate } from "./poll-flow";
-import { albumState, mayDeletePhoto, mayUseAlbum, type AlbumViewer } from "@/album/album";
+import { albumState, mayApprovePhoto, mayDeletePhoto, type AlbumViewer } from "@/album/album";
 import { photoUrl } from "@/album/files";
 import { countPhotos, listPhotos } from "@/album/repository";
+import { albumViewer } from "@/album/viewer";
+import { albumView, photoScope } from "@/album/visibility";
 import { maxUploadBytes } from "@/instance/env";
 import { AlbumSection, type AlbumShown } from "@/themes/sections/album-section";
 import { scheduleInstants } from "@/schedule/clock";
@@ -127,26 +129,33 @@ async function pollCandidates(eventId: string, locale: string): Promise<PollCand
   return options.map((option, index) => ({ id: option.id, label: formatOption(option, locale), yes: tallies[index].yes.length }));
 }
 
-// What the album shows this viewer (album/album.ts), or nothing where there is no album.
+// What the album shows this viewer (album/album.ts, album/visibility.ts), or nothing where there is
+// no album. Locked, it says how many photos it shows, which counts approved photos only; otherwise
+// the photos this viewer may see, each marked when it waits for approval, and approvable by a host.
 async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: string, now: Date): Promise<AlbumShown | undefined> {
   const state = albumState(event, now);
   if (state === "none" || !event.startsAt) return undefined;
   if (state === "notYet") return { view: "notYet", opensOn: formatDay(event.startsAt, event.timeZone, locale) };
-  if (!mayUseAlbum(viewer)) return { view: "locked", count: await countPhotos(event.id) };
-  const photos = await listPhotos(event.id);
-  return {
-    view: "open",
-    maxMegabytes: Math.floor(maxUploadBytes() / (1024 * 1024)),
-    photos: photos.map((each) => ({
-      id: each.id,
-      name: each.name,
-      thumb: photoUrl(each.id, "thumb"),
-      large: photoUrl(each.id, "large"),
-      width: each.width,
-      height: each.height,
-      deletable: mayDeletePhoto(viewer, each),
-    })),
-  };
+  const view = albumView(event, viewer);
+  if (view === "locked" || viewer.kind === "visitor") {
+    return { view: "locked", count: await countPhotos(event.id, "approved"), visibility: event.albumVisibility };
+  }
+  const photos = (await listPhotos(event.id, photoScope(view, viewer))).map((each) => ({
+    id: each.id,
+    name: each.name,
+    thumb: photoUrl(each.id, "thumb"),
+    large: photoUrl(each.id, "large"),
+    width: each.width,
+    height: each.height,
+    deletable: mayDeletePhoto(viewer, each),
+    pending: each.status === "pending",
+    approvable: each.status === "pending" && mayApprovePhoto(viewer),
+  }));
+  const maxMegabytes = Math.floor(maxUploadBytes() / (1024 * 1024));
+  // A guest who may add but not see is shown their own, and why: the album is for those Going, or
+  // the hosts keep it.
+  if (view === "own") return { view: "own", why: event.albumVisibility === "going" ? "going" : "hosts", photos, maxMegabytes };
+  return { view: "open", photos, maxMegabytes };
 }
 
 // The schedule (M6 ticket 02), or nothing when the host has listed none or the event has no date
@@ -301,8 +310,9 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const polling = pollState(event) === "open";
   const voter = await findVoterOnThisDevice(event.id);
   const candidates = polling ? await pollCandidates(event.id, locale) : [];
-  // The photo album (M4 ticket 11): from the start, to the hosts and approved guests.
-  const album = await albumFor(event, isHost ? { kind: "host", hostId: (await getSession())!.user.id } : mine ? { kind: "guest", rsvpId: mine.rsvp.id, approval: mine.rsvp.approval } : { kind: "visitor" }, locale, now);
+  // The photo album (M4 ticket 11): from the start, to the hosts and to the guests the host chose
+  // (M6 ticket 03).
+  const album = await albumFor(event, await albumViewer(event.id), locale, now);
   const albumNode = album && <AlbumSection album={album} slug={event.slug} />;
   const scheduleNode = schedule && <ScheduleSection {...schedule} />;
   // The same rule the file itself follows: there is nothing to put in a calendar until an event

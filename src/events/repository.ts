@@ -9,6 +9,7 @@ import type { Locale } from "@/locale/resolve-locale";
 import { DEFAULT_THEME, parseTheme, type Theme } from "@/themes/theme";
 import { approvePending, promoteWaitlist } from "@/rsvps/repository";
 import { removePhotoFiles } from "@/album/files";
+import { approvePendingPhotos } from "@/album/repository";
 import { removeRenditions } from "@/uploads/files";
 import type { EventInput } from "./form";
 import { SLUG_TAKEN, withFreshSlug } from "./slug";
@@ -82,7 +83,9 @@ export async function recordView(id: string): Promise<void> {
 // editor"): its title, its date, its place, its description, or its settings. The row is locked as a reply's write locks it (rsvps/repository.ts), so
 // that a capacity raised or removed promotes from the waitlist in the same transaction, against
 // the headcount as it stands, and approval turned off approves every reply still waiting for it,
-// those already waiting for a place first (spec, "Approval"); turning it on changes no reply.
+// those already waiting for a place first (spec, "Approval"); turning it on changes no reply. In
+// the same way, the album's approval turned off approves every photo still waiting for it, and
+// tells nobody (M6 spec, "The album: who sees it, and approval").
 // Dates that move the event's end take off its retention mark (spec, "Retention"): the next sweep
 // marks it again, and warns its hosts afresh, if it is still old enough. `mailed` says whether a
 // promoted or approved guest was queued an email.
@@ -93,6 +96,7 @@ export async function updateEvent(hostId: string, id: string, input: Partial<Eve
       .select({
         capacity: event.capacity,
         approvalRequired: event.approvalRequired,
+        albumApprovalRequired: event.albumApprovalRequired,
         startsAt: event.startsAt,
         endsAt: event.endsAt,
         allDay: event.allDay,
@@ -111,6 +115,7 @@ export async function updateEvent(hostId: string, id: string, input: Partial<Eve
       .returning();
     const promotionMailed = updated.capacity === before.capacity ? false : (await promoteWaitlist(updated, tx, now)).mailed;
     const approvalMailed = before.approvalRequired && !updated.approvalRequired ? await approvePending(updated, tx, now) : false;
+    if (before.albumApprovalRequired && !updated.albumApprovalRequired) await approvePendingPhotos(updated.id, tx);
     return { updated: withTheme(updated), mailed: promotionMailed || approvalMailed };
   });
 }

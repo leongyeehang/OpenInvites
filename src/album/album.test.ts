@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { albumState, mayDeletePhoto, mayUseAlbum, photosRoom } from "./album";
+import { albumState, mayAddPhotos, mayApprovePhoto, mayDeletePhoto, photosRoom } from "./album";
 
 const START = new Date("2027-05-08T11:00:00Z");
 
@@ -17,20 +17,27 @@ describe("albumState", () => {
   });
 });
 
-describe("who uses the album", () => {
-  it("is the hosts and a guest whose reply is approved", () => {
-    expect(mayUseAlbum({ kind: "host", hostId: "h1" })).toBe(true);
-    expect(mayUseAlbum({ kind: "guest", rsvpId: "r1", approval: "approved" })).toBe(true);
-    expect(mayUseAlbum({ kind: "guest", rsvpId: "r1", approval: "pending" })).toBe(false);
-    expect(mayUseAlbum({ kind: "guest", rsvpId: "r1", approval: "declined" })).toBe(false);
-    expect(mayUseAlbum({ kind: "visitor" })).toBe(false);
+describe("who adds to the album", () => {
+  it("is the hosts and a guest whose reply is approved, whatever they said", () => {
+    expect(mayAddPhotos({ kind: "host", hostId: "h1" })).toBe(true);
+    expect(mayAddPhotos({ kind: "guest", rsvpId: "r1", approval: "approved", status: "going" })).toBe(true);
+    expect(mayAddPhotos({ kind: "guest", rsvpId: "r1", approval: "approved", status: "cant" })).toBe(true);
+    expect(mayAddPhotos({ kind: "guest", rsvpId: "r1", approval: "pending", status: "going" })).toBe(false);
+    expect(mayAddPhotos({ kind: "guest", rsvpId: "r1", approval: "declined", status: "going" })).toBe(false);
+    expect(mayAddPhotos({ kind: "visitor" })).toBe(false);
+  });
+
+  it("lets only a host approve a photo", () => {
+    expect(mayApprovePhoto({ kind: "host", hostId: "h1" })).toBe(true);
+    expect(mayApprovePhoto({ kind: "guest", rsvpId: "r1", approval: "approved", status: "going" })).toBe(false);
+    expect(mayApprovePhoto({ kind: "visitor" })).toBe(false);
   });
 
   it("lets a host delete any photo and a guest their own", () => {
     expect(mayDeletePhoto({ kind: "host", hostId: "h1" }, { rsvpId: "r2" })).toBe(true);
-    expect(mayDeletePhoto({ kind: "guest", rsvpId: "r1", approval: "approved" }, { rsvpId: "r1" })).toBe(true);
-    expect(mayDeletePhoto({ kind: "guest", rsvpId: "r1", approval: "approved" }, { rsvpId: "r2" })).toBe(false);
-    expect(mayDeletePhoto({ kind: "guest", rsvpId: "r1", approval: "approved" }, { rsvpId: null })).toBe(false);
+    expect(mayDeletePhoto({ kind: "guest", rsvpId: "r1", approval: "approved", status: "going" }, { rsvpId: "r1" })).toBe(true);
+    expect(mayDeletePhoto({ kind: "guest", rsvpId: "r1", approval: "approved", status: "going" }, { rsvpId: "r2" })).toBe(false);
+    expect(mayDeletePhoto({ kind: "guest", rsvpId: "r1", approval: "approved", status: "going" }, { rsvpId: null })).toBe(false);
     expect(mayDeletePhoto({ kind: "visitor" }, { rsvpId: "r1" })).toBe(false);
   });
 });

@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { findEventBySlug } from "@/events/repository";
 import { eventPaths } from "@/events/slug";
 import { isUuid } from "@/lib/uuid";
-import { mayDeletePhoto } from "./album";
-import { deletePhoto, findPhoto } from "./repository";
+import { mayApprovePhoto, mayDeletePhoto } from "./album";
+import { approvePhoto, deletePhoto, findPhoto } from "./repository";
 import { albumViewer } from "./viewer";
 
 // Deleting a photo from the album (M4 ticket 11): a host any, a guest their own. Not counted against
@@ -17,5 +17,16 @@ export async function deletePhotoAction(slug: string, id: string): Promise<void>
   const [viewer, found] = await Promise.all([albumViewer(event.id), findPhoto(event.id, id)]);
   if (!found || !mayDeletePhoto(viewer, found)) return;
   await deletePhoto(event.id, found.id);
+  for (const path of eventPaths(event)) revalidatePath(path);
+}
+
+// Approving a photo that waits for it (M6 ticket 03): a host's alone, co-hosts included. One this
+// viewer may not approve, or that does not wait, is left as it is, as one that does not exist is.
+export async function approvePhotoAction(slug: string, id: string): Promise<void> {
+  const event = await findEventBySlug(slug);
+  if (!event || !isUuid(id)) return;
+  const [viewer, found] = await Promise.all([albumViewer(event.id), findPhoto(event.id, id)]);
+  if (!found || !mayApprovePhoto(viewer)) return;
+  if (!(await approvePhoto(event.id, found.id))) return;
   for (const path of eventPaths(event)) revalidatePath(path);
 }

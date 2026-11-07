@@ -65,6 +65,9 @@ export async function newEventAction(_: FormState, formData: FormData): Promise<
     remindersEnabled: true,
     commentsEnabled: true,
     notifyOnComment: true,
+    albumVisibility: "replied",
+    albumApprovalRequired: false,
+    notifyOnPhoto: true,
     locale: await getLocale(),
   });
   redirect(`/events/${created.id}`);
@@ -225,6 +228,9 @@ export async function saveSettingsAction(id: string, formData: FormData): Promis
     remindersEnabled: formData.get("remindersEnabled") === "on",
     commentsEnabled: formData.get("commentsEnabled") === "on",
     notifyOnComment: formData.get("notifyOnComment") === "on",
+    albumVisibility: text("albumVisibility"),
+    albumApprovalRequired: formData.get("albumApprovalRequired") === "on",
+    notifyOnPhoto: formData.get("notifyOnPhoto") === "on",
   });
   if (!settings.ok) return { saved: false, error: t(`errors.${settings.error}`), field: settings.error === "capacityInvalid" ? "capacity" : undefined };
   let posted: unknown = [];

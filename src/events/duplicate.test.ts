@@ -40,6 +40,9 @@ const source: Event = {
   pollOpenedAt: null,
   pollClosedAt: null,
   scheduleRefresh: "reload",
+  albumVisibility: "hosts",
+  albumApprovalRequired: true,
+  notifyOnPhoto: false,
   createdAt: new Date("2026-12-01T00:00:00Z"),
   updatedAt: new Date("2026-12-02T00:00:00Z"),
 };
@@ -81,6 +84,9 @@ describe("duplicateInput", () => {
       remindersEnabled: false,
       commentsEnabled: false,
       notifyOnComment: false,
+      albumVisibility: "hosts",
+      albumApprovalRequired: true,
+      notifyOnPhoto: false,
     });
   });
 

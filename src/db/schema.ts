@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { boolean, check, date, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, time, timestamp, unique, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { ALBUM_VISIBILITIES, PHOTO_STATUSES } from "../album/visibility";
 import { DEFAULT_REGISTRATION_MODE, REGISTRATION_MODES } from "../instance/registration";
 import { HOME_POSTER_MODES } from "../instance/home";
 import { DEFAULT_LIMITS } from "../instance/limits";
@@ -172,6 +173,8 @@ export const contactField = pgEnum("contact_field", CONTACT_FIELDS);
 
 export const scheduleRefresh = pgEnum("schedule_refresh", SCHEDULE_REFRESH);
 
+export const albumVisibility = pgEnum("album_visibility", ALBUM_VISIBILITIES);
+
 // An event belongs to one host. Its time is an instant plus the event's own IANA zone; all-day
 // events store midnight in that zone with the flag set. A draft may have no date yet (M4 spec, "A
 // draft with no date"): it is made blank and dated in the editor, and cannot be published until
@@ -254,6 +257,13 @@ export const event = pgTable(
     // How guests' open pages pick up a changed schedule (M6 spec, "The schedule"): by re-reading
     // themselves every minute while the event is on, or only when opened. Saved with the schedule.
     scheduleRefresh: scheduleRefresh("schedule_refresh").notNull().default("minute"),
+    // Who sees the album, and whether a guest's photos wait for a host's approval before anyone
+    // else sees them (M6 spec, "The album: who sees it, and approval"). Turning approval off
+    // approves every photo still waiting (events/repository.ts, updateEvent). Whether the hosts
+    // are emailed when photos wait for them; nothing waits until approval is on, so it starts on.
+    albumVisibility: albumVisibility("album_visibility").notNull().default("replied"),
+    albumApprovalRequired: boolean("album_approval_required").notNull().default(false),
+    notifyOnPhoto: boolean("notify_on_photo").notNull().default(true),
     ...timestamps,
   },
   (table) => [
@@ -646,10 +656,13 @@ export const comment = pgTable(
   ],
 );
 
+export const photoStatus = pgEnum("photo_status", PHOTO_STATUSES);
+
 // A photo in an event's album (M4 ticket 11): added from the event's start by a guest whose reply
 // is approved, through their RSVP, or by a host, and kept as two renditions under its own id
 // (album/files.ts). It goes with the event, the RSVP and the host's account, and its files with it
-// (album/repository.ts).
+// (album/repository.ts). A guest's photo waits, pending, while the host approves photos (M6
+// ticket 03); every photo from before that is approved.
 export const photo = pgTable(
   "photo",
   {
@@ -661,6 +674,7 @@ export const photo = pgTable(
     hostId: uuid("host_id").references(() => user.id, { onDelete: "cascade" }),
     width: integer("width").notNull(),
     height: integer("height").notNull(),
+    status: photoStatus("status").notNull().default("approved"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

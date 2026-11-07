@@ -60,8 +60,9 @@ interface says "site" where these docs say "instance".)
   create or duplicate an event until they delete one. **Replies per event** (500 by default)
   counts every reply to an event, whatever its answer; a guest who has not yet replied is told
   the event can't take more replies, while guests who have replied can still change or withdraw
-  theirs. **Photos per event** (300 by default) counts the photos in an event's album; guests and
-  hosts adding more are told how many places are left, and those already there stay. Each is a
+  theirs. **Photos per event** (300 by default) counts the photos in an event's album, those
+  awaiting a host's approval included; guests and hosts adding more are told how many places are
+  left, and those already there stay. Each is a
   whole number from 1 to 100,000. Lowering a limit below what exists leaves the existing events,
   replies and photos alone and refuses only new ones. The same card sets how long
   events are kept ([Retention](#retention)).

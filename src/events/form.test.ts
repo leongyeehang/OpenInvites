@@ -21,6 +21,9 @@ const valid = {
   remindersEnabled: true,
   commentsEnabled: true,
   notifyOnComment: true,
+  albumVisibility: "going",
+  albumApprovalRequired: true,
+  notifyOnPhoto: false,
 };
 
 describe("parseEventForm", () => {
@@ -49,6 +52,9 @@ describe("parseEventForm", () => {
         remindersEnabled: true,
         commentsEnabled: true,
         notifyOnComment: true,
+        albumVisibility: "going",
+        albumApprovalRequired: true,
+        notifyOnPhoto: false,
       },
     });
   });
@@ -86,6 +92,14 @@ describe("parseEventForm", () => {
       ok: false,
       error: "guestListVisibilityInvalid",
     });
+  });
+
+  it("only takes an album visibility it knows", () => {
+    for (const albumVisibility of ["replied", "going", "hosts"]) {
+      const parsed = parseEventForm({ ...valid, albumVisibility });
+      expect(parsed.ok && parsed.input.albumVisibility).toBe(albumVisibility);
+    }
+    expect(parseEventForm({ ...valid, albumVisibility: "everyone" })).toEqual({ ok: false, error: "albumVisibilityInvalid" });
   });
 
   it("asks for an email and a phone number only in the three ways it knows", () => {

@@ -1,7 +1,8 @@
-import { albumState, MAX_PHOTOS_AT_ONCE, mayUseAlbum, photosRoom } from "@/album/album";
+import { albumState, MAX_PHOTOS_AT_ONCE, mayAddPhotos, photosRoom } from "@/album/album";
 import { processPhoto, removePhotoFiles, storePhoto } from "@/album/files";
 import { addPhotos, countPhotos } from "@/album/repository";
 import { albumViewer } from "@/album/viewer";
+import { photoStatusFor } from "@/album/visibility";
 import { findEventBySlug } from "@/events/repository";
 import { eventPaths } from "@/events/slug";
 import { baseUrl, maxUploadBytes } from "@/instance/env";
@@ -11,9 +12,10 @@ import { newUploadId } from "@/uploads/repository";
 import type { UploadProblem } from "@/uploads/validate";
 import { revalidatePath } from "next/cache";
 
-// What became of each photo sent, in the order sent, or why none was taken.
+// What became of each photo sent, in the order sent, and whether one taken waits for a host's
+// approval (M6 ticket 03), or why none was taken.
 export type AlbumRefusal = "tooFast" | "closed" | "notAllowed" | "tooMany" | "albumFull" | "tooLarge";
-export type AlbumUploadResult = { results?: ({ ok: true } | { ok: false; problem: UploadProblem })[]; error?: AlbumRefusal; left?: number };
+export type AlbumUploadResult = { results?: ({ ok: true; pending: boolean } | { ok: false; problem: UploadProblem })[]; error?: AlbumRefusal; left?: number };
 
 // Adding photos to an event's album (M4 ticket 11): up to ten in one post, as multipart "photos",
 // each through the photo pipeline (album/files.ts) under the operator's MAX_UPLOAD_MB. One post
@@ -28,7 +30,9 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
   const event = await findEventBySlug(slug);
   if (!event || albumState(event, new Date()) !== "open") return refused("closed", 409);
   const viewer = await albumViewer(event.id);
-  if (!mayUseAlbum(viewer) || viewer.kind === "visitor") return refused("notAllowed", 403);
+  if (!mayAddPhotos(viewer) || viewer.kind === "visitor") return refused("notAllowed", 403);
+  // A guest's photos wait for a host while the host approves them; a host's never do.
+  const status = photoStatusFor(event, viewer);
 
   const maxBytes = maxUploadBytes();
   // Ten photos at the most, each at the most the operator allows, and room for the form's framing.
@@ -41,6 +45,7 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
   } catch {
     return refused("tooLarge", 400);
   }
+  // Photos waiting for approval take their places too.
   const { maxPhotosPerEvent } = await instanceLimits();
   const room = photosRoom(await countPhotos(event.id), files.length, maxPhotosPerEvent);
   if (!room.ok) return Response.json({ error: room.error, left: room.left } satisfies AlbumUploadResult, { status: 409 });
@@ -57,11 +62,11 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
     const id = await newUploadId();
     await storePhoto(id, processed.photo.files);
     stored.push({ id, width: processed.photo.width, height: processed.photo.height });
-    results.push({ ok: true });
+    results.push({ ok: true, pending: status === "pending" });
   }
   if (stored.length > 0) {
     const owner = viewer.kind === "host" ? { hostId: viewer.hostId } : { rsvpId: viewer.rsvpId };
-    const added = await addPhotos(event.id, owner, stored, maxPhotosPerEvent);
+    const added = await addPhotos(event.id, owner, stored, maxPhotosPerEvent, status);
     if (added !== "added") {
       await removePhotoFiles(stored.map((each) => each.id));
       return Response.json({ error: "albumFull", left: added.full } satisfies AlbumUploadResult, { status: 409 });

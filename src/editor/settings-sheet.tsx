@@ -4,6 +4,7 @@ import { ImageIcon, Palette, SlidersHorizontal, Sparkles, Type } from "lucide-re
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { QuestionsEditor } from "@/app/(host)/events/questions-editor";
+import { ALBUM_VISIBILITIES } from "@/album/visibility";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -246,6 +247,37 @@ export function SettingsSheet({
             </NativeSelect>
             <FieldDescription>{t("guestListVisibilityHint")}</FieldDescription>
           </Field>
+
+          <FieldSet className="gap-3">
+            <FieldLegend variant="label">{t("album.title")}</FieldLegend>
+            <Field>
+              <FieldLabel htmlFor={`${id}-album`}>{t("album.visibility")}</FieldLabel>
+              <NativeSelect id={`${id}-album`} name="albumVisibility" defaultValue={settings.albumVisibility} aria-describedby={`${id}-album-hint`}>
+                {ALBUM_VISIBILITIES.map((visibility) => (
+                  <NativeSelectOption key={visibility} value={visibility}>
+                    {t(`album.${visibility}`)}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+              <FieldDescription id={`${id}-album-hint`}>{t("album.visibilityHint")}</FieldDescription>
+            </Field>
+            <Field orientation="horizontal">
+              <Checkbox
+                id={`${id}-album-approval`}
+                name="albumApprovalRequired"
+                defaultChecked={settings.albumApprovalRequired}
+                aria-describedby={`${id}-album-approval-hint`}
+              />
+              <FieldContent>
+                <FieldLabel htmlFor={`${id}-album-approval`}>{t("album.approval")}</FieldLabel>
+                <FieldDescription id={`${id}-album-approval-hint`}>{t("album.approvalHint")}</FieldDescription>
+              </FieldContent>
+            </Field>
+            <Field orientation="horizontal">
+              <Checkbox id={`${id}-photo-mail`} name="notifyOnPhoto" defaultChecked={settings.notifyOnPhoto} />
+              <FieldLabel htmlFor={`${id}-photo-mail`}>{t("album.notify")}</FieldLabel>
+            </Field>
+          </FieldSet>
 
           <FieldSet className="gap-3">
             <FieldLegend variant="label">{editor("emailsAndComments")}</FieldLegend>

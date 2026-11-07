@@ -1,16 +1,23 @@
 import { Lock } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import type { AlbumVisibility } from "@/album/visibility";
 import { Album, type ShownPhoto } from "./album";
 
 export { ALBUM_HEADING } from "./album";
 
-// What the album shows this viewer (M4 ticket 11, album/album.ts): before the start, the day it
-// opens; to someone who may not use it, how many photos there are and that replying opens them; to
-// the hosts and an approved guest, the photos, and the way to add theirs.
+// What the album shows this viewer (M4 ticket 11, album/album.ts; M6 ticket 03,
+// album/visibility.ts): before the start, the day it opens; to someone the album is locked to, how
+// many photos it shows and what opens it, which depends on who the host lets see it; to a guest who
+// may add but not see, their own photos and why; to the hosts and the guests who see it, the
+// photos, and the way to add theirs.
 export type AlbumShown =
   | { view: "notYet"; opensOn: string }
-  | { view: "locked"; count: number }
+  | { view: "locked"; count: number; visibility: AlbumVisibility }
+  | { view: "own"; why: "going" | "hosts"; photos: ShownPhoto[]; maxMegabytes: number }
   | { view: "open"; photos: ShownPhoto[]; maxMegabytes: number };
+
+const LOCKED = { replied: "locked", going: "lockedGoing", hosts: "lockedHosts" } as const;
+const YOURS = { going: "yoursGoing", hosts: "yoursHosts" } as const;
 
 export async function AlbumSection({ album, slug }: { album: AlbumShown; slug: string }) {
   const t = await getTranslations("EventPage.album");
@@ -20,9 +27,20 @@ export async function AlbumSection({ album, slug }: { album: AlbumShown; slug: s
       <>
         <p className="text-lg font-medium">{t("lockedCount", { count: album.count })}</p>
         <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-theme-text-faint">
-          <Lock className="size-3.5" aria-hidden /> {t("locked")}
+          <Lock className="size-3.5" aria-hidden /> {t(LOCKED[album.visibility])}
         </p>
       </>
+    );
+  }
+  if (album.view === "own") {
+    return (
+      <div className="flex flex-col gap-3">
+        <div>
+          <h3 className="font-medium">{t("yours")}</h3>
+          <p className="mt-0.5 text-sm text-theme-text-muted">{t(YOURS[album.why])}</p>
+        </div>
+        <Album slug={slug} photos={album.photos} maxMegabytes={album.maxMegabytes} />
+      </div>
     );
   }
   return <Album slug={slug} photos={album.photos} maxMegabytes={album.maxMegabytes} />;
