@@ -3,9 +3,10 @@ import { expectSignedInAs, latestMailTo, mailCountTo, MAILPIT, newHost, OPERATOR
 import { clientAddress, expect, scriptsNotFromTheApp, test, type APIRequestContext, type Page, type Route } from "./test";
 
 // Ticket 09 (M3): Cloudflare Turnstile guards the email sign-up form, the RSVP form in every
-// layout, and the report form; since M6, the locked page of an invite-only event too. `app-social` (port 3001) runs with Cloudflare's published
-// always-pass test keys: the widget is there and passes for anyone, and the server's check of each
-// token is a real call to Cloudflare. `app` (port 3000) has no keys, and nothing changes there. A
+// layout, and the report form; since M6, the locked page of an invite-only event too. `app-social`
+// (port 3001) runs with Cloudflare's published always-pass test keys: the widget is there and
+// passes for anyone, and the server's check of each token is a real call to Cloudflare. `app`
+// (port 3000) has no keys, and nothing changes there. A
 // form's submit waits for the widget to pass, and Playwright's click waits for it to be enabled.
 // A post with a token waits on Cloudflare's answer (five seconds at most, and slowest just after
 // the container starts), so what follows one is given longer than Playwright's default.
