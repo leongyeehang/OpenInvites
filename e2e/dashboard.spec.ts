@@ -126,6 +126,11 @@ test("on a phone, many past events scroll inside their row, every one reachable 
   for (let tab = 0; tab < 9; tab++) await page.keyboard.press("Tab");
   await expect(last).toBeFocused();
   await expect(last).toBeInViewport();
+  // The row scrolls, so it clips what is outside it: there is room above and below a tile for its
+  // 3px ring (dashboard leftovers).
+  const [rowBox, tileBox] = await Promise.all([row.boundingBox(), last.boundingBox()]);
+  expect(tileBox!.y - 3).toBeGreaterThanOrEqual(rowBox!.y);
+  expect(tileBox!.y + tileBox!.height + 3).toBeLessThanOrEqual(rowBox!.y + rowBox!.height);
   // Another year's tile names its year (dashboard, final review).
   await expect(last.getByText(/Sep 9, 2010/)).toBeVisible();
 
@@ -133,6 +138,26 @@ test("on a phone, many past events scroll inside their row, every one reachable 
   const tile = region(page, "Drafts").getByRole("link", { name: new RegExp(long) });
   const [tileWidth, titleWidth] = await tile.evaluate((link) => [link.getBoundingClientRect().width, link.querySelector("p")!.scrollWidth]);
   expect(titleWidth).toBeLessThanOrEqual(tileWidth);
+});
+
+// A title of any length leaves a tile its shape (dashboard leftovers): on a tile it stops at three
+// lines, and on Next up a long one takes the smaller size, as the event page's poster does. The
+// link still carries all of it.
+test("a very long title stops at three lines on its tile, and takes the smaller size on Next up", async ({ page, request }) => {
+  test.slow();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signUpVerified(page, request, "long-titles");
+  const long = "The first annual neighbourhood lantern walk, potluck supper and open-air film night down by the old river mill";
+  await createDraft(page, { title: long, start: "2027-03-06T19:00" });
+  await publishInEditor(page);
+  await createDraft(page, { title: `${long}, again`, start: "2027-04-06T19:00" });
+
+  await page.goto("/dashboard");
+  const tile = region(page, "Drafts").getByRole("link", { name: new RegExp(`${long}, again`) });
+  const lines = await tile.locator("p").first().evaluate((title) => title.getBoundingClientRect().height / parseFloat(getComputedStyle(title).lineHeight));
+  expect(lines).toBeLessThanOrEqual(3.05);
+  const nextUpSize = await region(page, "Next up").getByText(long, { exact: true }).evaluate((title) => parseFloat(getComputedStyle(title).fontSize));
+  expect(nextUpSize).toBeLessThanOrEqual(30);
 });
 
 // The final review measured these by hand (dashboard, final review): the shelf labels over the glow

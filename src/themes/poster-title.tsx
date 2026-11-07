@@ -3,9 +3,7 @@
 import { cn } from "@/lib/utils";
 import { useTheme } from "./themed-page";
 import { fittedTitleSize } from "./title-fit";
-
-// Past this many characters a title takes the smaller size (see TitleFont.sizes).
-const LONG_TITLE = 28;
+import { LONG_TITLE } from "./title-fonts";
 
 // The event's title on the poster card, in the theme's font. It follows the theme as the host
 // changes it, so it reads the font from the page rather than from the server. Beside the host's

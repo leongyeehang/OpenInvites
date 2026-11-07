@@ -10,8 +10,8 @@ import { TITLE_FONT_CLASSES } from "./title-fonts";
 // gradient. However the event page places the title, here it always sits on the poster, white on a
 // dark shade at its foot, so every tile on the shelf reads the same way. The shade holds most of its
 // strength over the whole title, two or three lines of it on a light poster too, and fades only
-// above it. The picture is decoration:
-// the link around the tile carries the title.
+// above it. A title stops at three lines, so any length leaves the tile its shape. The picture is
+// decoration: the link around the tile carries the title, all of it.
 export function PosterTile({
   theme,
   upload,
@@ -60,7 +60,7 @@ export function PosterTile({
         <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 via-black/65 via-60% to-transparent px-3 pt-14 pb-3">
           <p
             className={cn(
-              "font-title text-xl leading-none text-balance break-words text-white drop-shadow-title",
+              "font-title line-clamp-3 text-xl leading-[1.1] text-balance break-words text-white drop-shadow-title",
               TITLE_FONT_CLASSES[theme.font],
               font.className,
               titleClassName,

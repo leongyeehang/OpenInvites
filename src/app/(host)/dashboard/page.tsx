@@ -17,6 +17,7 @@ import { deletionDate } from "@/retention/plan";
 import { NO_RSVPS } from "@/rsvps/counts";
 import { countRsvpsByEvent } from "@/rsvps/repository";
 import { PosterTile } from "@/themes/poster-tile";
+import { LONG_TITLE } from "@/themes/title-fonts";
 import { findGalleryPoster } from "@/themes/posters";
 import { resolveTheme, type ThemeUpload } from "@/themes/resolve";
 import type { Theme } from "@/themes/theme";
@@ -176,7 +177,7 @@ function NextUp({ event, upload, t, locale }: { event: ShelfEvent; upload: Theme
             title={event.title || t("untitled")}
             sizes="(min-width: 48rem) 18rem, calc(100vw - 3rem)"
             priority
-            titleClassName="text-4xl md:text-5xl"
+            titleClassName={cn("line-clamp-4", (event.title || t("untitled")).length > LONG_TITLE ? "text-3xl md:text-4xl" : "text-4xl md:text-5xl")}
           />
         </Link>
         <div className="flex min-w-0 flex-col gap-4 px-2 pb-2 md:py-3 md:pr-3">
@@ -247,7 +248,7 @@ function Shelf({
       <ul
         className={cn(
           "grid grid-cols-2 gap-x-3 gap-y-5 md:grid-cols-4 md:gap-x-4",
-          past && "max-md:-mx-4 max-md:flex max-md:snap-x max-md:snap-mandatory max-md:overflow-x-auto max-md:scroll-px-4 max-md:px-4 max-md:pb-2",
+          past && "max-md:-mx-4 max-md:flex max-md:snap-x max-md:snap-mandatory max-md:overflow-x-auto max-md:scroll-px-4 max-md:-mt-1 max-md:px-4 max-md:pt-1 max-md:pb-2",
         )}
       >
         {events.map((event) => (

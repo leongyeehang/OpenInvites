@@ -5,10 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { saveTitleAction } from "@/events/editor-actions";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/themes/themed-page";
+import { LONG_TITLE } from "@/themes/title-fonts";
 import { useEditor } from "./status";
 
-// Past this many characters a title takes the smaller size, as the guest's page sizes it.
-const LONG_TITLE = 28;
 // Typing is saved this long after the host stops (M4 spec, "The editor").
 const DEBOUNCE = 600;
 

@@ -1,5 +1,9 @@
 import type { FontKey } from "./theme";
 
+// Past this many characters a title takes the smaller size (see TitleFont.sizes): on the poster,
+// in the editor, and on the dashboard's Next up.
+export const LONG_TITLE = 28;
+
 // The self-hosted title fonts (see fonts.ts for the data), served as they are from public/fonts
 // and kept by browsers for a year, so each file is named after its content (public-files.test.ts).
 // Each face's @font-face is in globals.css ("Title fonts"), with font-display: swap, so the title
