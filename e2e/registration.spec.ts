@@ -17,6 +17,7 @@ const REFUSED = "You need a host invitation from whoever runs it to create an ac
 const UNUSABLE = "This host invitation can no longer be used. Ask whoever runs this site for a new one.";
 
 let firstHost: Page;
+const FIRST = newHost("first");
 let operator: Page;
 
 // Recreating the database container as well gives an instance nobody has used.
@@ -40,7 +41,7 @@ test("the first account on an empty instance is its operator, is welcomed once, 
   browser,
 }) => {
   firstHost = await (await browser.newContext()).newPage();
-  await signUp(firstHost, newHost("first"));
+  await signUp(firstHost, FIRST);
   const welcome = firstHost.getByRole("dialog", { name: "This site is yours" });
   await expect(welcome).toBeVisible();
   await expect(welcome.getByRole("heading", { name: "This site is yours" })).toBeFocused();
@@ -98,7 +99,7 @@ test("the email OPERATOR_EMAIL names signs up anyway, and takes over as the oper
   // Nor does a restart make an account the operator before its email is verified.
   recreate("app-fresh");
   await operator.goto("/dashboard");
-  await expect(operator.getByRole("banner").getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expectSignedInAs(operator, OPERATOR.name);
   expect(await offersSiteSettings(operator)).toBe(false);
   await firstHost.goto("/dashboard");
   expect(await offersSiteSettings(firstHost)).toBe(true);
@@ -112,7 +113,7 @@ test("the email OPERATOR_EMAIL names signs up anyway, and takes over as the oper
   await expect(operator.getByRole("dialog")).toHaveCount(0);
 
   await firstHost.goto("/dashboard");
-  await expect(firstHost.getByRole("banner").getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expectSignedInAs(firstHost, FIRST.name);
   expect(await offersSiteSettings(firstHost)).toBe(false);
   await firstHost.goto("/instance");
   await expect(firstHost.getByRole("heading", { name: "Page not found" })).toBeVisible();

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
+import { signOut } from "@/auth/actions";
 import { passkeysAvailable } from "@/auth/passkeys";
 import { listPasskeys } from "@/auth/passkey-store";
 import { requireHost } from "@/auth/session";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { baseUrl } from "@/instance/env";
 import { ClientMessages } from "@/locale/client-messages";
@@ -15,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function AccountPage() {
-  const [host, t, locale] = await Promise.all([requireHost(), getTranslations("Account"), getLocale()]);
+  const [host, t, header, locale] = await Promise.all([requireHost(), getTranslations("Account"), getTranslations("Host.header"), getLocale()]);
   // Passkeys only where a browser offers them (auth/passkeys.ts); elsewhere the card says why.
   const withPasskeys = passkeysAvailable(baseUrl());
   const day = new Intl.DateTimeFormat(locale, { dateStyle: "medium" });
@@ -29,7 +31,16 @@ export default async function AccountPage() {
     : [];
   return (
     <ClientMessages namespaces={["Account.displayName", "Account.email", "Account.password", "Account.passkeys", "Account.delete"]}>
-      <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+      {/* Sign out is here as well as in the account menu, so a browser that has not run the menu's
+          script (the initials are then a link to this page) can still sign out. */}
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        <form action={signOut}>
+          <Button type="submit" variant="outline">
+            {header("signOut")}
+          </Button>
+        </form>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>

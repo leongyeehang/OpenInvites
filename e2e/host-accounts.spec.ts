@@ -30,6 +30,19 @@ test("a person signs up, verifies their email through the fake mail server, and 
   await expect(page.getByText("Verify your email")).toHaveCount(0);
 });
 
+// The banner is part of the frame, as wide as the header above it (dashboard leftovers).
+test("the verification banner lines up with the header", async ({ page }) => {
+  await signUp(page, newHost("banner-width"));
+  const banner = page.getByRole("alert").filter({ hasText: "Verify your email" });
+  const [bannerBox, nameBox, menuBox] = await Promise.all([
+    banner.boundingBox(),
+    page.getByRole("banner").getByRole("link").first().boundingBox(),
+    page.getByRole("banner").getByRole("button", { name: "Account menu" }).boundingBox(),
+  ]);
+  expect(Math.abs(bannerBox!.x - nameBox!.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(bannerBox!.x + bannerBox!.width - (menuBox!.x + menuBox!.width))).toBeLessThanOrEqual(1);
+});
+
 test("the banner resends the verification email", async ({ page, request }) => {
   const host = newHost("resend");
   await signUp(page, host);
@@ -188,6 +201,32 @@ test("a host deletes their account after confirming with their password", async 
 
   await signIn(page, host.email, PASSWORD);
   await expect(page.getByText("That email and password do not match.")).toBeVisible();
+});
+
+// The account menu is named for who is signed in, so a screen reader says whose it is as it opens
+// (dashboard leftovers).
+test("the account menu is named for the host it belongs to", async ({ page }) => {
+  const host = newHost("menu-name");
+  await signUp(page, host);
+  await openAccountMenu(page);
+  await expect(page.getByRole("menu", { name: `${host.name} ${host.email}` })).toBeVisible();
+});
+
+// Before the page's script has run, or where it never does, the initials are a link to the Account
+// page, and the Account page signs the host out (dashboard leftovers).
+test("without JavaScript the initials open the Account page, which signs the host out", async ({ page, browser }) => {
+  const host = newHost("no-script");
+  await signUp(page, host);
+  const plain = await browser.newContext({ javaScriptEnabled: false, storageState: await page.context().storageState() });
+  const noScript = await plain.newPage();
+  await noScript.goto("/dashboard");
+  await noScript.getByRole("banner").getByRole("button", { name: "Account menu" }).click();
+  await expect(noScript).toHaveURL(/\/account$/);
+  await noScript.getByRole("button", { name: "Sign out" }).click();
+  await expect(noScript).toHaveURL(/\/$/);
+  await noScript.goto("/dashboard");
+  await expect(noScript).toHaveURL(/\/sign-in$/);
+  await plain.close();
 });
 
 test("a visitor who is not signed in is sent to sign in", async ({ page }) => {
