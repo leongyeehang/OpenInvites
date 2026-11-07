@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { closeDesign, createDraft, createPublished, type DesignSheet, openDesign, openMore, openSettings, publishInEditor, savedAfter } from "./events";
+import { closeDesign, createDraft, createPublished, type DesignSheet, HOUR, itemFromNow, openDesign, openMore, openSettings, publishInEditor, savedAfter, setSchedule, utcFromNow } from "./events";
 import { openHome } from "./home";
 import { latestMailTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { expectStill } from "./still";
@@ -433,6 +433,20 @@ test("under reduced motion the reactions, the album, the desktop editor and the 
   await page.locator('[data-slot="rsvp-bar"]').getByRole("button", { name: "Vote on a date" }).click();
   await expect(page.getByRole("dialog", { name: "Which dates work for you?" })).toBeVisible();
   await expectStill(page, "the vote's sheet");
+  await host.context.close();
+});
+
+// A live schedule (M6 ticket 02), by the real clock: an item past, one now with its ring and chip,
+// one to come. Nothing about the one on now pulses, and nothing fades between states.
+test("under reduced motion a live schedule is still", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "still-schedule", { title: "Ada’s open house", start: utcFromNow(-3 * HOUR), end: utcFromNow(6 * HOUR), timeZone: "UTC" });
+  await setSchedule(host.page, [itemFromNow("Welcome drinks", -2 * HOUR, -HOUR), itemFromNow("Lunch", -HOUR / 2), itemFromNow("Garden games", 2 * HOUR)], "reload");
+  const page = await stillGuest(browser);
+  await page.goto(host.link);
+  await expect(page.locator('[data-slot="schedule"] [aria-current="true"]')).toContainText("Lunch");
+  await expectStill(page, "a live schedule");
+  await page.context().close();
   await host.context.close();
 });
 

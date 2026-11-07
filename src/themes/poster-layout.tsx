@@ -1,4 +1,4 @@
-import { AlignLeft, Clock, Images, MapPin, MessageCircle } from "lucide-react";
+import { AlignLeft, Clock, Images, ListOrdered, MapPin, MessageCircle } from "lucide-react";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import type { ComponentType, ReactNode } from "react";
 import type { CommentsShown } from "@/comments/visibility";
@@ -14,10 +14,10 @@ import { ALBUM_HEADING } from "./sections/album-section";
 import { COMMENTS_HEADING, CommentsSection } from "./sections/comments-section";
 
 // The Poster layout, poster first (M4 spec, "The guest page"): the poster as wide as the page's
-// column, the title on it or under it with its date, who is hosting, then one frosted list of
-// When, Where and About, and Who's coming, the host's announcements and the comments as panels of
-// their own. The reply buttons are a bar fixed to the foot of the screen (rsvp-flow.tsx), so a
-// guest can answer wherever they are on the page. On a wider screen the page stays a phone's
+// column, the title on it or under it with its date, who is hosting, then one frosted list of When,
+// Where and About, then the schedule, Who's coming, the host's announcements and the comments as
+// panels of their own. The reply buttons are a bar fixed to the foot of the screen (rsvp-flow.tsx),
+// so a guest can answer wherever they are on the page. On a wider screen the page stays a phone's
 // width, in the middle. It renders inside a ThemedPage, which carries the theme.
 export async function PosterLayout({
   event,
@@ -33,6 +33,7 @@ export async function PosterLayout({
   calendar,
   poll,
   album,
+  schedule,
   edit,
 }: {
   // A draft may have no date yet, which only its hosts see: then there is no When.
@@ -57,6 +58,8 @@ export async function PosterLayout({
   poll?: { label: string; when: ReactNode };
   // The photo album (M4 ticket 11), as this viewer may see it.
   album?: ReactNode;
+  // The host's schedule (M6 ticket 02), following the guest's clock.
+  schedule?: ReactNode;
   // The editor (M4 spec, "The editor"): the title typed on the poster, at either size, and the
   // details list it edits, in place of the guest's; nothing else of the guest's page is shown.
   edit?: { title: { full: ReactNode; compact: ReactNode }; details: ReactNode; foot?: ReactNode };
@@ -117,6 +120,13 @@ export async function PosterLayout({
               </DetailRow>
             )}
           </Glass>
+
+          {schedule && (
+            <Glass data-slot="schedule" className={cn("rounded-[1.75rem] p-5", entrance, "motion-safe:delay-300")}>
+              <SectionLabel icon={ListOrdered}>{t("schedule.title")}</SectionLabel>
+              {schedule}
+            </Glass>
+          )}
 
           {guestList && <Glass className={cn("rounded-[1.75rem] p-5", entrance, "motion-safe:delay-300")}>{guestList}</Glass>}
 

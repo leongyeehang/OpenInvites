@@ -864,6 +864,12 @@
       "deleteText": "It goes for everyone, and can’t be brought back.",
       "deleteConfirm": "Delete it",
       "keep": "Keep it"
+    },
+    "schedule": {
+      "title": "Schedule",
+      "now": "Now",
+      "ended": "Ended",
+      "inZone": "Times are in {zone}."
     }
   },
   "Design": {

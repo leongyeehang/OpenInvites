@@ -12,6 +12,8 @@ export type DraftFields = {
   title: string;
   start: string;
   end?: string;
+  // The When sheet's zone; Asia/Singapore when left out.
+  timeZone?: string;
   location?: string;
   description?: string;
   plusOnes?: string;
@@ -124,6 +126,20 @@ export async function setSchedule(page: Page, items: ScheduleFields[], refresh?:
   });
 }
 
+// Times by the real clock (M6 ticket 02), so the server, which draws the schedule's first states,
+// and the browser agree: a moment `offset` milliseconds from now as a wall-clock time in UTC, as
+// the editor's fields take it ("2026-11-07T14:05"), for an event whose zone is UTC.
+export const HOUR = 3_600_000;
+export const utcFromNow = (offset: number) => new Date(Date.now() + offset).toISOString().slice(0, 16);
+
+// An item of the schedule starting `start` milliseconds from now, in UTC, and ending `end` from now
+// when given. An item ends on its own day, so an end that would fall past midnight is left out.
+export function itemFromNow(title: string, start: number, end?: number): ScheduleFields {
+  const [day, startTime] = utcFromNow(start).split("T");
+  const [endDay, endTime] = end === undefined ? [] : utcFromNow(end).split("T");
+  return { day, start: startTime, end: endDay === day ? endTime : undefined, title };
+}
+
 // The Settings sheet, changed and closed, which saves what was changed.
 export async function editSettings(page: Page, change: (sheet: Locator) => Promise<void>) {
   await page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Settings" }).click();
@@ -183,7 +199,7 @@ export async function createDraft(page: Page, fields: DraftFields) {
   await expect(page).toHaveURL(/\/events\/[0-9a-f-]{36}$/, { timeout: 20_000 });
   editors.set(page, page.url());
   await typeTitle(page, fields.title);
-  await setWhen(page, { start: fields.start, end: fields.end });
+  await setWhen(page, { start: fields.start, end: fields.end, timeZone: fields.timeZone });
   if (fields.location) await setWhere(page, fields.location);
   if (fields.description) await setAbout(page, fields.description);
   const email = fields.email ?? (fields.askEmail ? "optional" : undefined);

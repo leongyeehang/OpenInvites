@@ -1,4 +1,4 @@
-import { ChevronDown, Clock, Images, Lock, MapPin, Megaphone, MessageCircle, Users } from "lucide-react";
+import { ChevronDown, Clock, Images, ListOrdered, Lock, MapPin, Megaphone, MessageCircle, Users } from "lucide-react";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { Fragment, type ReactNode } from "react";
 import type { CommentsShown } from "@/comments/visibility";
@@ -24,11 +24,11 @@ export type ThreadGuests = { view: "open" | "locked"; guests: PublicGuest[]; cou
 
 // The Thread layout (spec, "Thread", from the prototype's layout-thread.tsx): the invitation as a
 // chat with the host, in one column at most 28rem wide at every width. A header names the hosts.
-// Then the host's bubbles, in order: the invitation as a card, the description, when, where,
-// who's coming, each announcement, the comments; then `rsvp`, the conversation the guest has
-// with the host (the RSVP flow as Thread presents it) and the composer they answer in, which stays
-// at the foot of the screen. It renders inside a ThemedPage, which carries the theme and paints
-// the backdrop; the layout paints none of its own, so the effects show between the bubbles.
+// Then the host's bubbles, in order: the invitation as a card, the description, when, where, the
+// schedule, who's coming, each announcement, the comments; then `rsvp`, the conversation the guest
+// has with the host (the RSVP flow as Thread presents it) and the composer they answer in, which
+// stays at the foot of the screen. It renders inside a ThemedPage, which carries the theme and
+// paints the backdrop; the layout paints none of its own, so the effects show between the bubbles.
 //
 // Every word sits on a surface legibility.ts solves: the header and the composer are glass, the
 // host's bubbles strong glass (thread-bubble.tsx), the line that says when the invitation was sent
@@ -41,6 +41,7 @@ export async function ThreadLayout({
   comments,
   commentForm,
   album,
+  schedule,
   notice,
   rsvp,
   guests,
@@ -59,6 +60,9 @@ export async function ThreadLayout({
   commentForm?: ReactNode;
   // The photo album (M4 ticket 11), as this viewer may see it: a glass bubble of its own.
   album?: ReactNode;
+  // The host's schedule (M6 ticket 02), following the guest's clock: a bubble of its own, as wide
+  // as the album's.
+  schedule?: ReactNode;
   notice?: ReactNode;
   // The conversation and the composer: the RSVP flow as the Thread presents it.
   rsvp?: ReactNode;
@@ -98,6 +102,14 @@ export async function ThreadLayout({
         <p className="font-medium">{event.location}</p>
         {underWhere}
       </HostBubble>
+    ));
+  }
+  if (schedule) {
+    bubbles.push((className) => (
+      <section data-slot="schedule" className={cn(HOST_BUBBLE, "w-[85%]", className)}>
+        <BubbleLabel icon={ListOrdered}>{t("schedule.title")}</BubbleLabel>
+        {schedule}
+      </section>
     ));
   }
   if (guests) bubbles.push((className) => <WhoIsComing {...guests} className={className} />);

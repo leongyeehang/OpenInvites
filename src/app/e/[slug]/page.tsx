@@ -57,6 +57,8 @@ import { photoUrl } from "@/album/files";
 import { countPhotos, listPhotos } from "@/album/repository";
 import { maxUploadBytes } from "@/instance/env";
 import { AlbumSection, type AlbumShown } from "@/themes/sections/album-section";
+import { listSchedule } from "@/schedule/repository";
+import { ScheduleSection, type ScheduleShown } from "@/themes/sections/schedule-section";
 
 // Event pages are never indexed (ADR-0004). The header carries the same signal (next.config.ts).
 const noindex: Metadata["robots"] = { index: false, follow: false };
@@ -125,8 +127,8 @@ async function pollCandidates(eventId: string, locale: string): Promise<PollCand
 }
 
 // What the album shows this viewer (album/album.ts), or nothing where there is no album.
-async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: string): Promise<AlbumShown | undefined> {
-  const state = albumState(event, new Date());
+async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: string, now: Date): Promise<AlbumShown | undefined> {
+  const state = albumState(event, now);
   if (state === "none" || !event.startsAt) return undefined;
   if (state === "notYet") return { view: "notYet", opensOn: formatDay(event.startsAt, event.timeZone, locale) };
   if (!mayUseAlbum(viewer)) return { view: "locked", count: await countPhotos(event.id) };
@@ -144,6 +146,18 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
       deletable: mayDeletePhoto(viewer, each),
     })),
   };
+}
+
+// The schedule (M6 ticket 02), or nothing when the host has listed none or the event has no date
+// to follow. A client component is sent all it is handed, so only plain fields: the items, how
+// guests' pages keep fresh, the event's time alone, and the time the page is drawn at, which the
+// browser's first drawing must agree with.
+async function scheduleFor(event: EventWithHost, now: Date): Promise<ScheduleShown | undefined> {
+  if (!isDated(event)) return undefined;
+  const items = await listSchedule(event.id);
+  if (items.length === 0) return undefined;
+  const { startsAt, endsAt, allDay, timeZone } = event;
+  return { items, refresh: event.scheduleRefresh, time: { startsAt, endsAt, allDay, timeZone }, now };
 }
 
 // The vote's sheet around the page, only while guests vote on the date.
@@ -222,6 +236,8 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
 
   const locale = await getLocale();
   const link = eventUrl(event);
+  // The one moment this page is drawn at, for everything on it that depends on the time.
+  const now = new Date();
   // The cookie tells us whether the guest in front of us has already replied on this device; if
   // not, whether they opened a personal invite to the event, whose name and email their answer
   // starts from (invites/device.ts).
@@ -242,8 +258,9 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // own picture if there is one, what the host has announced, which every viewer reads, and the
   // comments as this viewer may see them.
   // Whether the event is full is said beside the reply controls whatever the guest list shows, so
-  // the headcount is counted apart from it; and a guest on the waitlist is told their place.
-  const [questions, answers, upload, announcements, hosts, comments, headcount, waitlistPosition] = await Promise.all([
+  // the headcount is counted apart from it; and a guest on the waitlist is told their place. The
+  // host's schedule, which every viewer reads.
+  const [questions, answers, upload, announcements, hosts, comments, headcount, waitlistPosition, schedule] = await Promise.all([
     listQuestions(event.id),
     mine ? findAnswers(mine.rsvp.id) : Promise.resolve({}),
     findEventUpload(event.id),
@@ -252,6 +269,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     commentsFor(event, viewer, isHost ? { hostId: (await getSession())!.user.id } : mine ? { rsvpId: mine.rsvp.id } : undefined),
     event.capacity === null ? Promise.resolve(0) : countHeadcount(event.id),
     mine ? findWaitlistPosition(mine.rsvp) : Promise.resolve(null),
+    scheduleFor(event, now),
   ]);
 
   // Guests are sent the host's picture only while it is the poster: one the host put aside stays
@@ -270,8 +288,9 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const voter = await findVoterOnThisDevice(event.id);
   const candidates = polling ? await pollCandidates(event.id, locale) : [];
   // The photo album (M4 ticket 11): from the start, to the hosts and approved guests.
-  const album = await albumFor(event, isHost ? { kind: "host", hostId: (await getSession())!.user.id } : mine ? { kind: "guest", rsvpId: mine.rsvp.id, approval: mine.rsvp.approval } : { kind: "visitor" }, locale);
+  const album = await albumFor(event, isHost ? { kind: "host", hostId: (await getSession())!.user.id } : mine ? { kind: "guest", rsvpId: mine.rsvp.id, approval: mine.rsvp.approval } : { kind: "visitor" }, locale, now);
   const albumNode = album && <AlbumSection album={album} slug={event.slug} />;
+  const scheduleNode = schedule && <ScheduleSection {...schedule} />;
   // The same rule the file itself follows: there is nothing to put in a calendar until an event
   // is published, and nothing worth keeping there once it is called off.
   const calendar =
@@ -321,6 +340,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             comments={comments}
             commentForm={<CommentForm slug={event.slug} />}
             album={albumNode}
+            schedule={scheduleNode}
             notice={notice}
             rsvp={<ThreadComposer {...flow} closedAs={isDraft ? "draft" : event.state === "cancelled" ? "cancelled" : undefined} />}
             guests={guestList && { ...guestList, you: mine?.rsvp.id }}
@@ -340,6 +360,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             comments={comments}
             commentForm={<CommentForm slug={event.slug} />}
             album={albumNode}
+            schedule={scheduleNode}
             notice={notice}
             rsvp={<BroadsheetBallot {...flow} />}
             guests={guestList && { ...guestList, you: mine?.rsvp.id }}
@@ -363,6 +384,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
               comments={comments}
               commentForm={<CommentForm slug={event.slug} />}
               album={albumNode}
+              schedule={scheduleNode}
               notice={notice}
               rsvp={polling ? <PollBar /> : <RsvpFlow {...flow} />}
               poll={polling ? { label: (await getTranslations("EventPage"))("poll.toBeDecided"), when: <PollWhen candidates={candidates} /> } : undefined}

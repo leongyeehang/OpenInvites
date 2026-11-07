@@ -864,6 +864,12 @@
       "deleteText": "所有人都將看不到它，且無法復原。",
       "deleteConfirm": "刪除",
       "keep": "保留"
+    },
+    "schedule": {
+      "title": "日程",
+      "now": "進行中",
+      "ended": "已結束",
+      "inZone": "時間均為 {zone} 時間。"
     }
   },
   "Design": {

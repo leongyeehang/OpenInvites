@@ -13,11 +13,11 @@ import { ALBUM_HEADING } from "./sections/album-section";
 import { COMMENTS_HEADING, CommentsSection } from "./sections/comments-section";
 
 // The Broadsheet layout (spec, "Broadsheet", from the prototype's layout-broadsheet.tsx): an
-// editorial page at most 64rem wide. A masthead rule, one very large title (or the host's
-// poster), a facts grid, the description in columns, the host's announcements, the guest list
-// typeset, and the comments, beside one ballot that stays in view on a wide screen. On a phone
-// the ballot comes straight after the facts. It renders inside a ThemedPage, which carries the
-// theme and paints the backdrop; the layout paints none of its own.
+// editorial page at most 64rem wide. A masthead rule, one very large title (or the host's poster),
+// a facts grid, the description in columns, the host's schedule, the host's announcements, the
+// guest list typeset, and the comments, beside one ballot that stays in view on a wide screen. On a
+// phone the ballot comes straight after the facts. It renders inside a ThemedPage, which carries
+// the theme and paints the backdrop; the layout paints none of its own.
 //
 // Its text is set on the page rather than on glass, so it sits on the veil, the tint that keeps
 // bare text readable on the backdrop at its most extreme (legibility.ts, SURFACES.page), behind
@@ -32,6 +32,7 @@ export async function BroadsheetLayout({
   comments,
   commentForm,
   album,
+  schedule,
   notice,
   rsvp,
   guests,
@@ -51,6 +52,8 @@ export async function BroadsheetLayout({
   commentForm?: ReactNode;
   // The photo album (M4 ticket 11), as this viewer may see it.
   album?: ReactNode;
+  // The host's schedule (M6 ticket 02), following the guest's clock.
+  schedule?: ReactNode;
   notice?: ReactNode;
   // The ballot: the RSVP flow as the Broadsheet presents it.
   rsvp?: ReactNode;
@@ -104,6 +107,12 @@ export async function BroadsheetLayout({
           {event.descriptionRich.blocks.length > 0 && (
             <Section label={t("broadsheet.details")} slot="description">
               <RichTextView doc={event.descriptionRich} className="text-[17px] leading-relaxed sm:columns-2 sm:gap-8 [&>*]:break-inside-avoid" />
+            </Section>
+          )}
+
+          {schedule && (
+            <Section label={t("schedule.title")} slot="schedule">
+              {schedule}
             </Section>
           )}
 
