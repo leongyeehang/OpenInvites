@@ -475,7 +475,7 @@
     },
     "invitation": {
       "subject": "{host} 邀請你參加「{title}」",
-      "body": "{name}，你好：\n\n{host} 邀請你參加「{title}」。{lettered, select, yes {\n\n{letter}} other {}}{dated, select, yes {\n\n時間：{when}{located, select, yes {\n地點：{location}} other {}}} other {{located, select, yes {\n\n地點：{location}} other {}}}}\n\n開啟你的邀請：{url}{inviteOnly, select, yes {\n\n開啟邀請時需要輸入驗證碼，驗證碼會寄到這個電子郵件。} other {}}"
+      "body": "{name}，你好：\n\n{host} 邀請你參加「{title}」。{lettered, select, yes {\n\n{letter}} other {}}{dated, select, yes {\n\n時間：{when}{located, select, yes {\n地點：{location}} other {}}} other {{located, select, yes {\n\n地點：{location}} other {}}}}\n\n查看邀請：{url}{inviteOnly, select, yes {\n\n開啟邀請時需要輸入驗證碼，驗證碼會寄到這個電子郵件。} other {}}"
     },
     "pass": {
       "subject": "「{title}」的驗證碼",
@@ -546,7 +546,7 @@
         "title": "相簿",
         "visibility": "誰可以看到相簿",
         "replied": "已回覆的賓客",
-        "going": "參加的賓客",
+        "going": "回覆參加的賓客",
         "hosts": "只有主辦人",
         "visibilityHint": "已回覆的賓客永遠都能新增照片；主辦人看得到所有照片。",
         "approval": "照片須經核准才會顯示",
@@ -616,9 +616,9 @@
       "pollHasVotes": "已經有賓客投票了，請從他們投票的日期中選一個。",
       "pollNotNow": "現在不能讓賓客投票決定日期。",
       "scheduleTooMany": "日程最多 50 項。",
-      "scheduleDayInvalid": "第 {n} 項需要一個有效的日期。",
+      "scheduleDayInvalid": "第 {n} 項需要有效的日期。",
       "scheduleTimeRequired": "第 {n} 項需要開始時間。",
-      "scheduleTimeInvalid": "第 {n} 項有一個時間無效。",
+      "scheduleTimeInvalid": "第 {n} 項的時間無效。",
       "scheduleEndBeforeStart": "第 {n} 項的結束時間要晚於開始時間。",
       "scheduleTitleRequired": "第 {n} 項需要標題。",
       "scheduleTitleTooLong": "第 {n} 項的標題超過 80 個字元。",
@@ -800,7 +800,7 @@
     "edit": "編輯活動",
     "notReadyTitle": "這份邀請還沒準備好",
     "notReady": "主辦人還在準備中，請稍後再開啟這個連結。",
-    "lockedTitle": "你受到了邀請",
+    "lockedTitle": "你收到一份邀請",
     "guests": "賓客",
     "headcount": "{count, plural, =0 {還沒有人} other {預計 # 人}}",
     "alsoMaybe": "{count, plural, other {# 人待定}}",
@@ -862,10 +862,11 @@
       "locked": "回覆後即可查看相簿並新增你的照片。",
       "lockedCount": "{count, plural, =0 {還沒有照片} other {# 張照片}}",
       "lockedGoing": "回覆「參加」後即可查看相簿並新增你的照片。",
-      "lockedHosts": "這個相簿由主辦人保管。回覆後即可新增你的照片。",
+      "lockedHosts": "這個相簿僅主辦人可見。回覆後即可新增你的照片。",
+      "lockedPending": "{visibility, select, going {主辦人核准你的回覆後，你就能新增照片；相簿只對回覆參加的賓客開放。} hosts {這個相簿僅主辦人可見。主辦人核准你的回覆後，你就能新增照片。} other {主辦人核准你的回覆後，你就能查看相簿並新增照片。}}",
       "yours": "你的照片",
-      "yoursGoing": "相簿只對參加的賓客開放；主辦人看得到你新增的照片。",
-      "yoursHosts": "這個相簿由主辦人保管；他們看得到你新增的照片。",
+      "yoursGoing": "相簿只對回覆參加的賓客開放；你新增的照片主辦人都看得到。",
+      "yoursHosts": "這個相簿僅主辦人可見；你新增的照片主辦人都看得到。",
       "empty": "還沒有照片，來新增第一張吧。",
       "add": "新增照片",
       "hint": "每次最多十張，每張不超過 {max, number} MB。",
@@ -912,7 +913,7 @@
       "title": "日程",
       "now": "進行中",
       "ended": "已結束",
-      "inZone": "時間均為 {zone} 時間。"
+      "inZone": "時間均依 {zone} 時區顯示。"
     }
   },
   "Design": {
@@ -1131,8 +1132,8 @@
       "removeItem": "移除第 {n} 項",
       "freshLegend": "讓賓客的頁面保持最新",
       "freshMinute": "活動進行期間每分鐘重新整理一次",
-      "freshReload": "僅在開啟頁面時",
-      "freshReloadHint": "沒有背景請求：節省賓客的流量和電量，也讓本站保持安靜。如果當天日程不會變動，或來的人很多，就選這一項。"
+      "freshReload": "僅在開啟頁面時重新整理",
+      "freshReloadHint": "不在背景發送請求：節省賓客的流量和電量，也減輕本站的負擔。如果當天日程不會變動，或來的人很多，就選這一項。"
     },
     "done": "完成",
     "guestsAlsoSee": "賓客還會看到誰會來、主辦人的公告和留言。",
@@ -1239,9 +1240,9 @@
   "Invites": {
     "title": "專屬邀請",
     "backToEvent": "返回活動",
-    "explainer": "每位賓客都有一個專屬邀請連結：開啟後會自動填好名字，如果你留了電子郵件，電子郵件也會填好；對方的回覆會和這個連結綁定，之後這個連結就是對方的修改連結。你可以複製或分享每個連結；如果本站能寄送電子郵件，也可以把連結連同邀請一起用郵件寄給對方。",
-    "inviteOnlyBanner": "已開啟僅限受邀者：只有這些人才能開啟邀請。",
-    "inviteOnlyNoMail": "本站無法寄送電子郵件，所以只有這裡沒留電子郵件的人才能進入。",
+    "explainer": "每位賓客都有一個專屬邀請連結：開啟後會自動填好名字；你留了電子郵件或電話號碼的，活動需要填寫時也會一併填好。對方的回覆會和這個連結綁定，之後這個連結就是對方的修改連結。你可以複製或分享每個連結；如果本站能寄送電子郵件，也可以把連結連同邀請一起用郵件寄給對方。",
+    "inviteOnlyBanner": "已開啟「僅限受邀者」：只有名單上的人才能開啟邀請。",
+    "inviteOnlyNoMail": "本站無法寄送電子郵件，所以只有名單上沒留電子郵件的人才能開啟邀請。",
     "inviteOnlySettings": "在活動設定中變更",
     "linkLetsIn": "任何拿到這個連結的人都能開啟邀請",
     "lettersEnabled": "專屬信件",
@@ -1256,7 +1257,7 @@
     "make": "產生連結",
     "made": "已為 {name} 產生連結。",
     "paste": "批次新增",
-    "pasteHint": "每行一人，用英文逗號分隔：名字, 電子郵件, 電話。沒有的可以不寫，例如「王小明, wang@example.com」或只寫「李華」。",
+    "pasteHint": "每行一人，格式為：名字, 電子郵件, 電話（中英文逗號都可以）。沒有的可以不寫，例如「王小明, wang@example.com」或只寫「李華」。",
     "pasteMake": "產生這些連結",
     "madeMany": "已產生 {count, plural, other {# 個連結}}。",
     "full": "這個活動已有 {max} 個專屬邀請，已達上限。要產生新的，請先刪除一個。",
@@ -1311,9 +1312,9 @@
     "title": "一份私人邀請",
     "from": "來自 {host}",
     "email": "你的電子郵件",
-    "emailHint": "就是你受邀時用的電子郵件。我們會把驗證碼寄到這個電子郵件。",
+    "emailHint": "填寫你受邀時使用的電子郵件，我們會把驗證碼寄到這個電子郵件。",
     "send": "寄送驗證碼",
-    "sent": "如果這個電子郵件在邀請名單上，驗證碼已在路上。",
+    "sent": "如果這個電子郵件在邀請名單上，驗證碼已經寄出，請查收。",
     "code": "驗證碼",
     "open": "開啟邀請",
     "resend": "重新寄送",

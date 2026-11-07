@@ -11,7 +11,7 @@ import { clientAddress, expect, test, type APIRequestContext, type Browser, type
 // The calendar file, the preview card and the report form are closed to anyone not in, a cancelled
 // invite-only event shows its notice only to those in, and a vote from outside is refused. The host
 // turns invite-only on with the Settings sheet's switch. Every guest is on a device of their own,
-// reaching the instance from an address of their own, so each keeps within the test profile's five
+// reaching the site from an address of their own, so each keeps within the test profile's five
 // replies and five emails a minute. Each test runs at 390 pixels in the mobile project and at
 // desktop width in the other.
 //
@@ -428,7 +428,6 @@ test("turning invite-only on invites everyone who replied, says whom the link al
 
   // The stranger, in again, replies with their name alone; turned on again, invite-only invites
   // only them, and the others keep the one invite each.
-  await page.reload();
   const samLink = await reply(page, host.link, { name: "Sam Tan" });
   await host.page.goto(editor);
   await turnInviteOnlyOn(host.page);

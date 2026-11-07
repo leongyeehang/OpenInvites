@@ -475,7 +475,7 @@
     },
     "invitation": {
       "subject": "{host} 邀请你参加“{title}”",
-      "body": "{name}，你好：\n\n{host} 邀请你参加“{title}”。{lettered, select, yes {\n\n{letter}} other {}}{dated, select, yes {\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}} other {{located, select, yes {\n\n地点：{location}} other {}}}}\n\n打开你的邀请：{url}{inviteOnly, select, yes {\n\n打开邀请时需要输入验证码，验证码会发送到这个邮箱。} other {}}"
+      "body": "{name}，你好：\n\n{host} 邀请你参加“{title}”。{lettered, select, yes {\n\n{letter}} other {}}{dated, select, yes {\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}} other {{located, select, yes {\n\n地点：{location}} other {}}}}\n\n查看邀请：{url}{inviteOnly, select, yes {\n\n打开邀请时需要输入验证码，验证码会发送到这个邮箱。} other {}}"
     },
     "pass": {
       "subject": "“{title}”的验证码",
@@ -546,7 +546,7 @@
         "title": "相册",
         "visibility": "谁可以看到相册",
         "replied": "已回复的宾客",
-        "going": "参加的宾客",
+        "going": "回复参加的宾客",
         "hosts": "只有主办人",
         "visibilityHint": "已回复的宾客始终可以添加照片；主办人能看到所有照片。",
         "approval": "照片须经批准才会显示",
@@ -616,9 +616,9 @@
       "pollHasVotes": "已经有宾客投票了，请从他们投票的日期中选一个。",
       "pollNotNow": "现在不能让宾客投票决定日期。",
       "scheduleTooMany": "日程最多 50 项。",
-      "scheduleDayInvalid": "第 {n} 项需要一个有效的日期。",
+      "scheduleDayInvalid": "第 {n} 项需要有效的日期。",
       "scheduleTimeRequired": "第 {n} 项需要开始时间。",
-      "scheduleTimeInvalid": "第 {n} 项有一个时间无效。",
+      "scheduleTimeInvalid": "第 {n} 项的时间无效。",
       "scheduleEndBeforeStart": "第 {n} 项的结束时间要晚于开始时间。",
       "scheduleTitleRequired": "第 {n} 项需要标题。",
       "scheduleTitleTooLong": "第 {n} 项的标题超过 80 个字符。",
@@ -800,7 +800,7 @@
     "edit": "编辑活动",
     "notReadyTitle": "这份邀请还没准备好",
     "notReady": "主办人还在准备中，请稍后再打开这个链接。",
-    "lockedTitle": "你受到了邀请",
+    "lockedTitle": "你收到一份邀请",
     "guests": "宾客",
     "headcount": "{count, plural, =0 {还没有人} other {预计 # 人}}",
     "alsoMaybe": "{count, plural, other {# 人待定}}",
@@ -862,10 +862,11 @@
       "locked": "回复后即可查看相册并添加你的照片。",
       "lockedCount": "{count, plural, =0 {还没有照片} other {# 张照片}}",
       "lockedGoing": "回复“参加”后即可查看相册并添加你的照片。",
-      "lockedHosts": "这个相册由主办人保管。回复后即可添加你的照片。",
+      "lockedHosts": "这个相册仅主办人可见。回复后即可添加你的照片。",
+      "lockedPending": "{visibility, select, going {主办人批准你的回复后，你就能添加照片；相册只对回复参加的宾客开放。} hosts {这个相册仅主办人可见。主办人批准你的回复后，你就能添加照片。} other {主办人批准你的回复后，你就能查看相册并添加照片。}}",
       "yours": "你的照片",
-      "yoursGoing": "相册只对参加的宾客开放；主办人能看到你添加的照片。",
-      "yoursHosts": "这个相册由主办人保管；他们能看到你添加的照片。",
+      "yoursGoing": "相册只对回复参加的宾客开放；你添加的照片主办人都能看到。",
+      "yoursHosts": "这个相册仅主办人可见；你添加的照片主办人都能看到。",
       "empty": "还没有照片，来添加第一张吧。",
       "add": "添加照片",
       "hint": "每次最多十张，每张不超过 {max, number} MB。",
@@ -912,7 +913,7 @@
       "title": "日程",
       "now": "进行中",
       "ended": "已结束",
-      "inZone": "时间均为 {zone} 时间。"
+      "inZone": "时间均按 {zone} 时区显示。"
     }
   },
   "Design": {
@@ -1131,8 +1132,8 @@
       "removeItem": "移除第 {n} 项",
       "freshLegend": "让宾客的页面保持最新",
       "freshMinute": "活动进行期间每分钟刷新一次",
-      "freshReload": "仅在打开页面时",
-      "freshReloadHint": "没有后台请求：节省宾客的流量和电量，也让本站保持安静。如果当天日程不会变动，或来的人很多，就选这一项。"
+      "freshReload": "仅在打开页面时刷新",
+      "freshReloadHint": "不在后台发送请求：节省宾客的流量和电量，也减轻本站的负担。如果当天日程不会变动，或来的人很多，就选这一项。"
     },
     "done": "完成",
     "guestsAlsoSee": "宾客还会看到谁会来、主办人的公告和评论。",
@@ -1239,9 +1240,9 @@
   "Invites": {
     "title": "专属邀请",
     "backToEvent": "返回活动",
-    "explainer": "每位宾客都有一个专属邀请链接：打开后会自动填好名字，如果你留了邮箱，邮箱也会填好；对方的回复会和这个链接绑定，之后这个链接就是对方的修改链接。你可以复制或分享每个链接；如果本站能发送邮件，也可以把链接连同邀请一起用邮件发给对方。",
-    "inviteOnlyBanner": "已开启仅限受邀者：只有这些人才能打开邀请。",
-    "inviteOnlyNoMail": "本站无法发送邮件，所以只有这里没留邮箱的人才能进入。",
+    "explainer": "每位宾客都有一个专属邀请链接：打开后会自动填好名字；你留了邮箱或电话号码的，活动需要填写时也会一并填好。对方的回复会和这个链接绑定，之后这个链接就是对方的修改链接。你可以复制或分享每个链接；如果本站能发送邮件，也可以把链接连同邀请一起用邮件发给对方。",
+    "inviteOnlyBanner": "已开启“仅限受邀者”：只有名单上的人才能打开邀请。",
+    "inviteOnlyNoMail": "本站无法发送邮件，所以只有名单上没留邮箱的人才能打开邀请。",
     "inviteOnlySettings": "在活动设置中更改",
     "linkLetsIn": "任何拿到这个链接的人都能打开邀请",
     "lettersEnabled": "专属信件",
@@ -1256,7 +1257,7 @@
     "make": "生成链接",
     "made": "已为 {name} 生成链接。",
     "paste": "批量添加",
-    "pasteHint": "每行一人，用英文逗号分隔：名字, 邮箱, 电话。没有的可以不写，例如“王小明, wang@example.com”或只写“李华”。",
+    "pasteHint": "每行一人，格式为：名字, 邮箱, 电话（中英文逗号都可以）。没有的可以不写，例如“王小明, wang@example.com”或只写“李华”。",
     "pasteMake": "生成这些链接",
     "madeMany": "已生成 {count, plural, other {# 个链接}}。",
     "full": "这个活动已有 {max} 个专属邀请，已达上限。要生成新的，请先删除一个。",
@@ -1311,9 +1312,9 @@
     "title": "一份私人邀请",
     "from": "来自 {host}",
     "email": "你的邮箱",
-    "emailHint": "就是你受邀时用的邮箱。我们会把验证码发送到这个邮箱。",
+    "emailHint": "填写你受邀时使用的邮箱，我们会把验证码发送到这个邮箱。",
     "send": "发送验证码",
-    "sent": "如果这个邮箱在邀请名单上，验证码已在路上。",
+    "sent": "如果这个邮箱在邀请名单上，验证码已经发出，请查收。",
     "code": "验证码",
     "open": "打开邀请",
     "resend": "重新发送",

@@ -3,6 +3,7 @@
 import { Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
+import { flushSync } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,9 @@ import { EditorSheet } from "./sheet";
 // The schedule's sheet (M6 ticket 01), opened from the details list's Schedule row: the day's items
 // as rows the host adds, fills and removes, saved as a whole with Done, in day-and-time order, and
 // at its foot how guests' open pages pick up a change. A refusal names the row and keeps the sheet
-// open.
+// open. On the keyboard, a new row takes the focus at its first field, and removing the last row
+// gives it to "Add an item" rather than losing it (M6 ticket 10); removing another leaves it on the
+// same button, which then removes the row that took its place.
 export function ScheduleSheet({ open, onOpenChange, details }: { open: boolean; onOpenChange: (open: boolean) => void; details: EditableDetails }) {
   const t = useTranslations("Editor");
   return (
@@ -68,7 +71,11 @@ function ScheduleForm({ details, onOpenChange }: { details: EditableDetails; onO
                       variant="ghost"
                       size="icon"
                       aria-label={t("removeItem", { n })}
-                      onClick={() => setRows((all) => all.filter((_, at) => at !== index))}
+                      onClick={(event) => {
+                        const removing = event.currentTarget;
+                        flushSync(() => setRows((all) => all.filter((_, at) => at !== index)));
+                        if (!removing.isConnected) document.getElementById(`${id}-add`)?.focus();
+                      }}
                     >
                       <X aria-hidden />
                     </Button>
@@ -112,10 +119,14 @@ function ScheduleForm({ details, onOpenChange }: { details: EditableDetails; onO
         )}
         {rows.length < MAX_ITEMS && (
           <Button
+            id={`${id}-add`}
             type="button"
             variant="outline"
             className="self-start"
-            onClick={() => setRows((all) => [...all, { day: eventDay, startTime: "", endTime: "", title: "", place: "", note: "" }])}
+            onClick={() => {
+              flushSync(() => setRows((all) => [...all, { day: eventDay, startTime: "", endTime: "", title: "", place: "", note: "" }]));
+              document.getElementById(`${id}-${rows.length}-day`)?.focus();
+            }}
           >
             <Plus aria-hidden />
             {t("addItem")}
@@ -133,7 +144,7 @@ function ScheduleForm({ details, onOpenChange }: { details: EditableDetails; onO
                 checked={refresh === each}
                 onChange={() => setRefresh(each)}
                 aria-describedby={each === "reload" ? `${id}-fresh-hint` : undefined}
-                className="mt-0.5 size-4 shrink-0 accent-primary"
+                className="mt-0.5 size-4 shrink-0 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               />
               <FieldContent>
                 <FieldLabel htmlFor={`${id}-fresh-${each}`}>{t(each === "minute" ? "freshMinute" : "freshReload")}</FieldLabel>

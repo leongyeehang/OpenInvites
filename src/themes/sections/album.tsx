@@ -126,17 +126,21 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
               {photo.pending && <p className="text-xs text-theme-text-muted">{t("pending")}</p>}
               {photo.approvable && (
                 // Two round buttons in one row, which fit the narrowest column (the Thread's, about
-                // 80px at a phone's width): Approve, in the accent, and Delete.
+                // 80px at a phone's width): Approve, in the accent, and Delete. Approve has no word
+                // of its own, so its name is its tooltip too, and while it approves it is dimmed and
+                // busy (M6 ticket 10).
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
                     aria-label={t("approvePhoto", { n: index + 1, name: photo.name })}
+                    title={t("approvePhoto", { n: index + 1, name: photo.name })}
                     disabled={approving.has(photo.id)}
+                    aria-busy={approving.has(photo.id)}
                     onClick={() =>
                       // The controls go once it is approved; the focus stays with its photo.
                       approve(photo.id, () => thumbnails.current[index]?.focus())
                     }
-                    className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-theme-accent text-theme-on-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text disabled:cursor-wait"
+                    className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-theme-accent text-theme-on-accent hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text disabled:cursor-wait disabled:opacity-50"
                   >
                     <Check className="size-4" aria-hidden />
                   </button>

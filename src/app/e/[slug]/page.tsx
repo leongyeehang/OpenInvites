@@ -133,7 +133,8 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
   if (state === "notYet") return { view: "notYet", opensOn: formatDay(event.startsAt, event.timeZone, locale) };
   const view = albumView(event, viewer);
   if (view === "locked" || viewer.kind === "visitor") {
-    return { view: "locked", count: await countPhotos(event.id, "approved"), visibility: event.albumVisibility };
+    const awaitingApproval = viewer.kind === "guest" && viewer.approval === "pending";
+    return { view: "locked", count: await countPhotos(event.id, "approved"), visibility: event.albumVisibility, awaitingApproval };
   }
   const photos = (await listPhotos(event.id, photoScope(view, viewer))).map((each) => ({
     id: each.id,

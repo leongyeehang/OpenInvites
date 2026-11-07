@@ -249,8 +249,11 @@ With mail configured:
 - the operator is emailed each report about an event page, at their account's address (Reports,
   above);
 - every email to a guest ends with a link to a page where one tap stops email about that event,
-  except the code, which is sent before their RSVP is kept; an invitation's link stops any more
-  invitations to that person, and keeps the email the host gave.
+  except the codes a guest asks for: the RSVP form's, which is sent before their RSVP is kept, and
+  an invite-only event's, which goes even to an invited guest who has stopped email about the
+  event, since without it they could not open the invitation. An invitation's link stops any more
+  invitations to that person, and keeps the email the host gave, which is what the code is sent
+  to.
 
 A guest gives an email only when the host asks for one on the RSVP form, so only those guests get
 mail; an invitation goes only to an email the host typed into the invite list.
@@ -264,8 +267,8 @@ bound how many addresses one host can gather. With registration Invitation only,
 hosts are people you admitted. If you open registration on an instance with mail, anyone who signs
 up can do this.
 
-The app sends event mail (everything above about an event but a guest's code, which goes at once
-because the guest is waiting for it) from a queue inside the app container, so there is nothing
+The app sends event mail (everything above about an event but the codes guests ask for, which go
+at once because the guest is waiting for them) from a queue inside the app container, so there is nothing
 else to run. It sends what someone has just queued at once, and checks the queue once a minute,
 which is also when it queues the reminders that have fallen due. A message that fails is retried
 a few times over about an hour and a half; if it still fails, it is dropped and the log says why.
@@ -282,9 +285,10 @@ change, a sign-in link, a host invitation) counts against `RATE_LIMIT_MAIL`, and
 announcement that emails guests, once however many it reaches, a host's sending of invitations, once
 for one or for everyone not yet sent, and each code sent to a guest to prove their email, as well as
 each ask for a code on an invite-only event's locked page, whether or not the address is on its
-invite list. The hosts'
-reply emails come from guests' RSVPs, so `RATE_LIMIT_RSVP` bounds them, and their comment emails
-come from comments, which `RATE_LIMIT_COMMENT` bounds.
+invite list. The hosts' reply emails come from guests' RSVPs, so `RATE_LIMIT_RSVP` bounds them;
+their comment emails come from comments, which `RATE_LIMIT_COMMENT` bounds; and their emails about
+photos awaiting approval come from guests' uploads, one email to each host an upload, which
+`RATE_LIMIT_UPLOAD` bounds.
 
 ## Sign in with Google and GitHub
 
@@ -413,7 +417,7 @@ runs.
 | `TRUSTED_PROXY_HOPS` | `1` | Not a limit: how many reverse proxies stand in front of the app (below). |
 | `RATE_LIMIT_EVENT_PAGE` | `120/1m` | Every request under an event link: the page, its preview card, its calendar file, whether the link exists or not, so links cannot be found by trying them. Opening a personal invite link counts too, whether it exists or not. The host's own changes in the editor do not count, as the editor is not under the event link; their visits to the page do, and so does the refresh that shows a picture they have just uploaded. |
 | `RATE_LIMIT_RSVP` | `60/10m` | Sending an RSVP, and removing one. Asking for a code to prove a guest's email, and entering it, each count as sending, on the RSVP form and on an invite-only event's locked page alike. This also bounds the emails that tell hosts about replies. |
-| `RATE_LIMIT_UPLOAD` | `20/10m` | Uploading a picture. |
+| `RATE_LIMIT_UPLOAD` | `20/10m` | Uploading a picture. This also bounds the emails that tell hosts about photos awaiting their approval. |
 | `RATE_LIMIT_SIGN_UP` | `10/1h` | Signing up, and opening a host invitation link. |
 | `RATE_LIMIT_SIGN_IN` | `10/15m` | Signing in, and everything else that checks a password (changing it, deleting an account), starting a Google or GitHub sign-in, signing in with a passkey, and opening a co-host link. |
 | `RATE_LIMIT_PASSWORD_RESET` | `10/1h` | Asking for a password reset link, and setting the new password. |

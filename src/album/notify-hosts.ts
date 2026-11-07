@@ -8,7 +8,7 @@ import { kickMailWorker } from "@/mail/worker";
 import { eventUrl } from "@/events/slug";
 
 // Emails every host of the event once about one upload whose photos wait for their approval, when
-// the event has it on and the instance has mail (spec, "The album: who sees it, and approval"):
+// the event has it on and the site has mail (spec, "The album: who sees it, and approval"):
 // who added them, how many, and the event link, where the hosts approve them. Only a guest's photos
 // wait, so no host is told of their own. The mail is in the event's language, as the hosts' other
 // emails are. It never throws: the photos are already added, and a failure here must not tell the

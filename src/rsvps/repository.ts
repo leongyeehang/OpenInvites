@@ -558,8 +558,11 @@ export async function findByMailToken(mailToken: string): Promise<{ title: strin
 
 // The stop link's one power: blanking the email, so no more mail about the event reaches the
 // guest, and its proof with it, and marking when, so a host cannot give them an email again
-// (planHostEdit). The token stays, so the link keeps landing on its page. Returns the event's title, or nothing when no
-// RSVP has the token.
+// (planHostEdit). The token stays, so the link keeps landing on its page. A voter's link does the
+// same to the voter's email; an invite's keeps its email, which is the proof a pass is asked for,
+// and marks the invite and the reply made through it as stopped (invites/repository.ts,
+// stopInviteMail). Returns the event's title, or nothing when no RSVP, voter or invite has the
+// token.
 export async function blankEmailByMailToken(mailToken: string): Promise<{ title: string } | undefined> {
   const [stopped] = await getDb()
     .update(rsvp)

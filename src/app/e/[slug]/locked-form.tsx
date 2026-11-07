@@ -109,7 +109,7 @@ export function LockedForm({ slug, email: given }: { slug: string; email: string
               aria-disabled={sending || resendIn > 0}
               aria-label={t("resend")}
               aria-describedby={resendIn > 0 ? `${id}-resend-in` : undefined}
-              className="cursor-pointer self-start text-sm underline underline-offset-2 hover:opacity-80 aria-disabled:cursor-default aria-disabled:no-underline aria-disabled:opacity-70"
+              className="cursor-pointer self-start rounded-sm text-sm underline underline-offset-2 hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-disabled:cursor-default aria-disabled:no-underline aria-disabled:opacity-70"
             >
               <span id={`${id}-resend-in`}>{resendIn > 0 ? t("resendIn", { seconds: resendIn }) : t("resend")}</span>
             </button>

@@ -22,7 +22,9 @@ export type PassRefusal = "codeWrong" | "codeExpired" | "tooFast" | "emailInvali
 // can be sent), or why not. A right code sets the pass and draws the page again, as the invitation.
 export type PassState = { error?: PassRefusal; sent?: { email: string; resendIn: number } } | undefined;
 
-// The code's email to an invitee on the locked page, in the language they asked in.
+// The code's email to an invitee on the locked page, in the language they asked in. Like the RSVP
+// form's code, it has no stop link and goes even to an invite whose guest has stopped mail: they
+// asked for it this minute, and refusing it would lock them out of the invitation (M6 ticket 10).
 function passMail(event: { title: string }): CodeMail {
   return (t, code) => ({ subject: t("pass.subject", { title: event.title }), text: t("pass.body", { title: event.title, code }) });
 }
@@ -46,7 +48,7 @@ export async function passAction(slug: string, _: PassState, formData: FormData)
   if (!isEmail(email)) return { error: "emailInvalid" };
 
   // Only a published or cancelled invite-only event has a locked page to ask from, and only an
-  // instance with mail can send the code. Anything else is drawn again as it now is.
+  // site with mail can send the code. Anything else is drawn again as it now is.
   const event = await findEventBySlug(slug);
   if (!event) return undefined;
   if (!event.inviteOnly || event.state === "draft" || !isMailConfigured()) {

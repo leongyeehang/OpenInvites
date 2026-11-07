@@ -863,6 +863,7 @@
       "lockedCount": "{count, plural, =0 {No photos yet} one {# photo} other {# photos}}",
       "lockedGoing": "Reply Going to see the album and add your photos.",
       "lockedHosts": "The hosts keep this album. Reply to add your photos.",
+      "lockedPending": "{visibility, select, going {Once the host approves your reply you can add your photos; the album is for guests who are going.} hosts {The hosts keep this album. Once the host approves your reply you can add your photos.} other {Once the host approves your reply you’ll see the album and can add your photos.}}",
       "yours": "Your photos",
       "yoursGoing": "The album is for guests who are going; the hosts see what you add.",
       "yoursHosts": "The hosts keep this album; they see what you add.",
@@ -1239,7 +1240,7 @@
   "Invites": {
     "title": "Invites",
     "backToEvent": "Back to the event",
-    "explainer": "Each guest gets a personal invite link: opening it fills in their name, and their email if you give one, and ties their reply to the link, which then works as their edit link. Copy or share each link, or, where this site has mail, email it to them with the invitation.",
+    "explainer": "Each guest gets a personal invite link: opening it fills in their name, and the email and phone number you give where the event asks for them, and ties their reply to the link, which then works as their edit link. Copy or share each link, or, where this site has mail, email it to them with the invitation.",
     "inviteOnlyBanner": "Invite-only is on: only these people can open the invitation.",
     "inviteOnlyNoMail": "This site cannot send email, so only the people here without an email can get in.",
     "inviteOnlySettings": "Change it in the event’s settings",

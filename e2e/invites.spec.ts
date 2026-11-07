@@ -433,6 +433,17 @@ test("an invite made with a phone and a letter shows both on its row; letters tu
   await expect(mei.getByText("+65 9123 4567", { exact: true })).toBeVisible();
   await expect(host.page.getByRole("textbox", { name: "Letter Mei Lin" })).toHaveValue(meiLetter);
 
+  // Saved on her row with blank lines around it, the field shows the letter as kept, trimmed, and
+  // "Letter saved." goes once it is changed again (M6 ticket 10).
+  const meiField = host.page.getByRole("textbox", { name: "Letter Mei Lin" });
+  await meiField.fill(`  ${meiLetter}\n\n`);
+  await host.page.getByRole("button", { name: "Save letter Mei Lin" }).click();
+  await expect(mei.getByRole("status")).toHaveText("Letter saved.", { timeout: 15_000 });
+  await expect(meiField).toHaveValue(meiLetter);
+  await meiField.press("ControlOrMeta+End");
+  await meiField.pressSequentially("!");
+  await expect(mei.getByRole("status")).toHaveCount(0);
+
   // A phone of another shape is refused, and the form keeps what was typed.
   await host.page.getByLabel("Name", { exact: true }).fill("Dev Patel");
   await host.page.getByLabel("Phone number", { exact: true }).fill("ring me");
@@ -599,7 +610,10 @@ test("a guest opening their link has the phone the host gave filled in when the 
   await mei.getByRole("button", { name: "Going", exact: true }).click();
   await expect(mei.getByLabel("Email")).toHaveValue("mei@example.test");
   await expect(mei.getByLabel("Phone number")).toHaveCount(0);
-  expect(await (await mei.request.get(mei.url())).text()).not.toContain("9123 4567");
+  // The same page's HTML has her email, so the phone's absence is not a page that has nothing.
+  const html = await (await mei.request.get(mei.url())).text();
+  expect(html).toContain("mei@example.test");
+  expect(html).not.toContain("9123 4567");
 
   // Once it asks for a phone, her form has hers.
   await host.page.goto(manage);

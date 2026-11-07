@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { closeDesign, createDraft, createPublished, type DesignSheet, HOUR, itemFromNow, openDesign, openMore, openSettings, publishInEditor, savedAfter, setSchedule, utcFromNow } from "./events";
+import { chooseLayout, closeDesign, createDraft, createPublished, type DesignSheet, HOUR, itemFromNow, openDesign, openMore, openSettings, publishInEditor, savedAfter, setSchedule, utcFromNow } from "./events";
 import { openHome } from "./home";
 import { latestMailTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { expectStill } from "./still";
@@ -446,6 +446,39 @@ test("under reduced motion a live schedule is still", async ({ browser, request 
   await page.goto(host.link);
   await expect(page.locator('[data-slot="schedule"] [aria-current="true"]')).toContainText("Lunch");
   await expectStill(page, "a live schedule");
+  await page.context().close();
+  await host.context.close();
+});
+
+// The host's letter to one guest (M6 ticket 09), on her invitation in each layout: it comes in with
+// the layout's own entrance, which reduced motion leaves out (M6 ticket 10). The live schedule's
+// "Now" item is the row above.
+test("under reduced motion a guest's letter is still, in the Poster, the Broadsheet and the Thread", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "still-letter", { title: "Ada’s supper club", start: "2027-03-06T19:00", plusOnes: "0" });
+  const editor = host.page.url();
+  await host.page.goto(`${editor}/invites`);
+  await host.page.getByRole("checkbox", { name: "Personal letters" }).click();
+  await expect(host.page.getByRole("textbox", { name: "Letter", exact: true })).toBeVisible({ timeout: 15_000 });
+  await host.page.getByRole("textbox", { name: "Letter", exact: true }).fill("Dear Mei,\nBring your guitar.");
+  await host.page.getByLabel("Name", { exact: true }).fill("Mei");
+  await host.page.getByRole("button", { name: "Make link" }).click();
+  await expect(host.page.getByRole("status").filter({ hasText: /^Made a link for / })).toHaveText("Made a link for Mei.", { timeout: 15_000 });
+  const link = (await host.page.getByText(/\/i\/[A-Za-z0-9]{24}$/).textContent())!.trim();
+  await host.page.goto(editor);
+
+  const page = await stillGuest(browser);
+  await page.goto(link);
+  for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
+    if (layout !== "Poster") {
+      await chooseLayout(host.page, host.link, layout);
+      await expect.poll(() => request.get(host.link).then((response) => response.text()), { timeout: 15_000 }).toContain(`data-layout="${layout.toLowerCase()}"`);
+      await page.reload();
+    }
+    await expect(page.locator("[data-layout]")).toHaveAttribute("data-layout", layout.toLowerCase());
+    await expect(page.locator('[data-slot="letter"]').getByRole("heading", { name: "For Mei", exact: true })).toBeVisible();
+    await expectStill(page, `a letter on the ${layout}`);
+  }
   await page.context().close();
   await host.context.close();
 });

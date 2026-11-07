@@ -122,6 +122,34 @@ test("only the hosts: a guest sees only their own, a visitor how many and why, a
   await Promise.all([host.context.close(), priya.context().close(), mei.context().close(), visitor.context().close()]);
 });
 
+// M6 ticket 10: a guest whose reply waits for the host's approval has replied, so the album does not
+// ask them to; it says that the host's approval opens it, under each choice of who sees it.
+test("a guest whose reply awaits the host's approval is told the album opens once the host approves it", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-pending-reply", { ...PAST, approval: true });
+  const priya = await (await browser.newContext()).newPage();
+  await priya.goto(host.link);
+  await priya.getByRole("button", { name: "Going" }).click();
+  await priya.getByLabel("Your name").fill("Priya Nair");
+  await priya.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(priya.getByRole("heading", { name: "Your reply is waiting for the host’s approval." })).toBeVisible({ timeout: 15_000 });
+  await closeReply(priya);
+  await expect(album(priya)).toContainText("Once the host approves your reply you’ll see the album and can add your photos.");
+  await expect(album(priya).getByLabel("Add photos")).toHaveCount(0);
+
+  await editSettings(host.page, async (sheet) => {
+    await albumGroup(sheet).getByLabel(VISIBILITY).selectOption({ label: "Only the hosts" });
+  });
+  await priya.reload();
+  await expect(album(priya)).toContainText("The hosts keep this album. Once the host approves your reply you can add your photos.");
+
+  // A visitor who has not replied is still asked to.
+  const visitor = await (await browser.newContext()).newPage();
+  await visitor.goto(host.link);
+  await expect(album(visitor)).toContainText("The hosts keep this album. Reply to add your photos.");
+  await Promise.all([host.context.close(), priya.context().close(), visitor.context().close()]);
+});
+
 test("with approval on, a guest's photos wait for the host, who approves one in the viewer and removes another; turning approval off shows the rest", async ({
   browser,
   request,
@@ -293,6 +321,6 @@ test("the album's own view in Traditional Chinese", async ({ browser, request })
   await priya.getByRole("contentinfo").getByRole("form", { name: "Language" }).getByRole("button", { name: "繁體中文" }).click();
   await expect(priya.locator("html")).toHaveAttribute("lang", "zh-Hant");
   await expect(album(priya).getByRole("heading", { name: "你的照片" })).toBeVisible();
-  await expect(album(priya)).toContainText("這個相簿由主辦人保管；他們看得到你新增的照片。");
+  await expect(album(priya)).toContainText("這個相簿僅主辦人可見；你新增的照片主辦人都看得到。");
   await Promise.all([host.context.close(), priya.context().close()]);
 });

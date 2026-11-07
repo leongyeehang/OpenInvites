@@ -80,8 +80,9 @@ export default async function InvitesPage({ params }: PageProps<"/events/[id]/in
         <Alert role="note" className="rounded-2xl border-0 bg-attention-soft px-4 py-3 *:data-[slot=alert-title]:text-attention">
           <AlertTitle>{t("inviteOnlyBanner")}</AlertTitle>
           <AlertDescription>
+            {/* Each on a line of its own, so no language's sentences are joined with a space. */}
+            {!mail && <p>{t("inviteOnlyNoMail")}</p>}
             <p>
-              {!mail && `${t("inviteOnlyNoMail")} `}
               <Link href={`/events/${event.id}?sheet=settings`}>{t("inviteOnlySettings")}</Link>
             </p>
           </AlertDescription>

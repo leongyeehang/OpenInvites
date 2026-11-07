@@ -128,7 +128,8 @@ export type SentInvite = Pick<Invite, "id" | "name" | "letter" | "token"> & { em
 // guest has stopped mail meanwhile, through an invitation or through the reply they made with it
 // (invite.ts, canMailInvite), is not sent to; with `unsentOnly`, only one never sent before
 // and not replied through (invite.ts, awaitsInvitation), so two "Send to everyone not yet sent" at
-// once mail nobody twice, the second finding the rows the first has marked. One statement, so every row is marked or none, and those marked are returned.
+// once mail nobody twice, the second finding the rows the first has marked. One statement, so
+// every row is marked or none, and those marked are returned.
 export async function markInvitesSent(eventId: string, ids: string[], now: Date, { unsentOnly = false } = {}, db: Db = getDb()): Promise<SentInvite[]> {
   if (ids.length === 0) return [];
   // A fresh token for each row, which keeps it only when it has none.

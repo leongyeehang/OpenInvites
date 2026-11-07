@@ -7,12 +7,13 @@ export { ALBUM_HEADING } from "./album";
 
 // What the album shows this viewer (M4 ticket 11, album/album.ts; M6 ticket 03,
 // album/visibility.ts): before the start, the day it opens; to someone the album is locked to, how
-// many photos it shows and what opens it, which depends on who the host lets see it; to a guest who
+// many photos it shows and what opens it, which depends on who the host lets see it and, for a
+// guest whose reply awaits the host's approval, on that approval (M6 ticket 10); to a guest who
 // may add but not see, their own photos and why; to the hosts and the guests who see it, the
 // photos, and the way to add theirs.
 export type AlbumShown =
   | { view: "notYet"; opensOn: string }
-  | { view: "locked"; count: number; visibility: AlbumVisibility }
+  | { view: "locked"; count: number; visibility: AlbumVisibility; awaitingApproval: boolean }
   | { view: "own"; why: "going" | "hosts"; photos: ShownPhoto[]; maxMegabytes: number }
   | { view: "open"; photos: ShownPhoto[]; maxMegabytes: number };
 
@@ -27,7 +28,8 @@ export async function AlbumSection({ album, slug }: { album: AlbumShown; slug: s
       <>
         <p className="text-lg font-medium">{t("lockedCount", { count: album.count })}</p>
         <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-theme-text-faint">
-          <Lock className="size-3.5" aria-hidden /> {t(LOCKED[album.visibility])}
+          <Lock className="size-3.5" aria-hidden />{" "}
+          {album.awaitingApproval ? t("lockedPending", { visibility: album.visibility }) : t(LOCKED[album.visibility])}
         </p>
       </>
     );
