@@ -3,6 +3,7 @@ import { expect, test, type Browser, type Page } from "./test";
 import { APPROVAL, editSettings, eventLinkIn, openMore, publishInEditor, setWhen, typeTitle } from "./events";
 import { dismissOperatorWelcome, mailCountTo, newHost, signUp, toSiteSettings, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
+import { closeReply } from "./reply";
 
 // Ticket 01: the operator's two limits. Runs against `app-fresh` after the fresh-instance specs
 // (the `limits-instance` project), and recreates it first, so the first account here is the
@@ -171,4 +172,38 @@ test("an album at the operator's photos limit refuses more, saying how many it h
   await expect(album.getByRole("img")).toHaveCount(1);
   await add.setInputFiles([await photo("two.png")]);
   await expect(album.getByRole("alert")).toHaveText("The album is full.", { timeout: 15_000 });
+});
+
+// M6 ticket 03: a photo waiting for the host's approval takes its place under the limit, still 1.
+test("with approval on, a guest's photo waiting for it takes the album's last place", async ({ browser }) => {
+  test.slow();
+  await operator.goto("/dashboard");
+  await operator.getByRole("link", { name: /Second party/ }).click();
+  await editSettings(operator, (sheet) => sheet.getByRole("group", { name: "Album", exact: true }).getByLabel("Approve photos before they’re shown").check());
+  const link = await eventLinkIn(operator);
+
+  // The host's own photo goes, so the album has its one place again.
+  await operator.goto(link);
+  const album = operator.locator('[data-slot="album"]');
+  await album.getByRole("button", { name: /^Photo 1 by / }).click();
+  await operator.getByRole("dialog", { name: "Photo 1 of 1" }).getByRole("button", { name: "Delete" }).click();
+  await operator.getByRole("alertdialog").getByRole("button", { name: "Delete it" }).click();
+  await expect(album).toContainText("No photos yet. Add the first.", { timeout: 15_000 });
+
+  const guest = await reply(browser, link, "Priya Nair");
+  await expect(guest.getByText("You’re going!")).toBeVisible();
+  await closeReply(guest);
+  const guestAlbum = guest.locator('[data-slot="album"]');
+  const photo = async (name: string) => ({ name, mimeType: "image/png", buffer: await sharp({ create: { width: 40, height: 30, channels: 3, background: "#806040" } }).png().toBuffer() });
+  await guestAlbum.getByLabel("Add photos").setInputFiles([await photo("one.png")]);
+  await expect(guestAlbum.getByRole("status")).toHaveText("one.png: added, awaiting approval", { timeout: 15_000 });
+  await guestAlbum.getByLabel("Add photos").setInputFiles([await photo("two.png")]);
+  await expect(guestAlbum.getByRole("alert")).toHaveText("The album is full.", { timeout: 15_000 });
+
+  // The host, whose photos need no approval, is refused the same.
+  await operator.reload();
+  await expect(album.getByText("Awaiting approval", { exact: true })).toBeVisible();
+  await album.getByLabel("Add photos").setInputFiles([await photo("three.png")]);
+  await expect(album.getByRole("alert")).toHaveText("The album is full.", { timeout: 15_000 });
+  await guest.context().close();
 });

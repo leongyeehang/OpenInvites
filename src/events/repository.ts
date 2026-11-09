@@ -9,6 +9,8 @@ import type { Locale } from "@/locale/resolve-locale";
 import { DEFAULT_THEME, parseTheme, type Theme } from "@/themes/theme";
 import { approvePending, promoteWaitlist } from "@/rsvps/repository";
 import { removePhotoFiles } from "@/album/files";
+import { approvePendingPhotos } from "@/album/repository";
+import { inviteRepliedGuests } from "@/invites/repository";
 import { removeRenditions } from "@/uploads/files";
 import type { EventInput } from "./form";
 import { SLUG_TAKEN, withFreshSlug } from "./slug";
@@ -41,9 +43,13 @@ function isSlugCollision(error: unknown): boolean {
 // What saving the event form writes: the form, and the language it was saved in.
 export type EventChanges = EventInput & { locale: Locale };
 
+// What a new event is made from: the form, and, for a duplicate, personal letters, which the form
+// does not carry and the copy keeps (M6 spec).
+export type NewEvent = MaybeDated<EventChanges> & Partial<Pick<Event, "lettersEnabled">>;
+
 // A new event starts with the Birthday template's theme (ticket 06), unless it is given one: a
 // duplicate starts with the theme of the event it copies.
-export async function createEvent(hostId: string, input: MaybeDated<EventChanges> & { theme?: Theme }): Promise<Event> {
+export async function createEvent(hostId: string, input: NewEvent & { theme?: Theme }): Promise<Event> {
   return withFreshSlug(async (slug) => {
     try {
       const [created] = await getDb().insert(event).values({ hostId, slug, theme: DEFAULT_THEME, ...input }).returning();
@@ -82,7 +88,10 @@ export async function recordView(id: string): Promise<void> {
 // editor"): its title, its date, its place, its description, or its settings. The row is locked as a reply's write locks it (rsvps/repository.ts), so
 // that a capacity raised or removed promotes from the waitlist in the same transaction, against
 // the headcount as it stands, and approval turned off approves every reply still waiting for it,
-// those already waiting for a place first (spec, "Approval"); turning it on changes no reply.
+// those already waiting for a place first (spec, "Approval"); turning it on changes no reply. In
+// the same way, the album's approval turned off approves every photo still waiting for it, and
+// tells nobody (M6 spec, "The album: who sees it, and approval"); invite-only turned on gives every
+// reply without an invite one, and turning it off deletes none (M6 spec, "Turning it on and off").
 // Dates that move the event's end take off its retention mark (spec, "Retention"): the next sweep
 // marks it again, and warns its hosts afresh, if it is still old enough. `mailed` says whether a
 // promoted or approved guest was queued an email.
@@ -93,6 +102,8 @@ export async function updateEvent(hostId: string, id: string, input: Partial<Eve
       .select({
         capacity: event.capacity,
         approvalRequired: event.approvalRequired,
+        albumApprovalRequired: event.albumApprovalRequired,
+        inviteOnly: event.inviteOnly,
         startsAt: event.startsAt,
         endsAt: event.endsAt,
         allDay: event.allDay,
@@ -111,6 +122,10 @@ export async function updateEvent(hostId: string, id: string, input: Partial<Eve
       .returning();
     const promotionMailed = updated.capacity === before.capacity ? false : (await promoteWaitlist(updated, tx, now)).mailed;
     const approvalMailed = before.approvalRequired && !updated.approvalRequired ? await approvePending(updated, tx, now) : false;
+    if (before.albumApprovalRequired && !updated.albumApprovalRequired) await approvePendingPhotos(updated.id, tx);
+    // Turning invite-only on invites everyone who already replied, so nobody is locked out; turning
+    // it off deletes nothing (M6 ticket 08).
+    if (!before.inviteOnly && updated.inviteOnly) await inviteRepliedGuests(updated.id, tx, now);
     return { updated: withTheme(updated), mailed: promotionMailed || approvalMailed };
   });
 }
@@ -133,6 +148,13 @@ export async function changeEventTheme(hostId: string, id: string, change: (them
     await tx.update(event).set({ theme: changed, updatedAt: new Date() }).where(eq(event.id, id));
     return changed;
   });
+}
+
+// Personal letters on or off (M6 spec, "Personal letters"), from the Invites page alone: the
+// Settings sheet posts every setting on each save, and would turn them back. The caller has found
+// the event as one of its hosts. Letters already written are kept either way.
+export async function setLettersEnabled(eventId: string, on: boolean): Promise<void> {
+  await getDb().update(event).set({ lettersEnabled: on, updatedAt: new Date() }).where(eq(event.id, eventId));
 }
 
 // Publishing records when, the first time a draft is published: a reminder whose time came before

@@ -3,8 +3,10 @@ import type { RsvpInput } from "./form";
 // When the reply's email was proven by a code (verification.ts), or nothing to change about it.
 type Proof = { emailVerifiedAt?: Date | null };
 
-export type RsvpPlan =
-  | { replaces: { id: string; token: string }; changes: RsvpInput & Proof & { updatedAt: Date; mailStoppedAt?: null } }
+// `Held` is how the guest holds the RSVP they change: its edit token, or its invite's, or both
+// (repository.ts, MyRsvp), which the replacement keeps as they are.
+export type RsvpPlan<Held> =
+  | { replaces: { id: string; held: Held }; changes: RsvpInput & Proof & { updatedAt: Date; mailStoppedAt?: null } }
   | { replaces: null; rsvp: RsvpInput & Proof & { eventId: string; repliedAt: Date; updatedAt: Date } };
 
 // Where one answer goes. A guest who comes back — from the device they answered on, or through
@@ -18,16 +20,16 @@ export type RsvpPlan =
 // An email is proven when the guest has just entered the code sent to it (`proven`); it keeps
 // that mark while it stays the same, and loses it once the guest changes or blanks it without a
 // code (spec, "Contact details").
-export function planRsvp(
+export function planRsvp<Held>(
   eventId: string,
   input: RsvpInput,
-  mine: { id: string; token: string; email: string | null } | undefined,
+  mine: { id: string; email: string | null; held: Held } | undefined,
   now: Date,
   proven = false,
-): RsvpPlan {
+): RsvpPlan<Held> {
   if (mine) {
     const proof: Proof = proven ? { emailVerifiedAt: now } : input.email !== undefined && input.email !== mine.email ? { emailVerifiedAt: null } : {};
-    const replaces = { id: mine.id, token: mine.token };
+    const replaces = { id: mine.id, held: mine.held };
     return { replaces, changes: { ...input, ...proof, ...(input.email ? { mailStoppedAt: null } : {}), updatedAt: now } };
   }
   return { replaces: null, rsvp: { ...input, ...(proven ? { emailVerifiedAt: now } : {}), eventId, repliedAt: now, updatedAt: now } };
@@ -40,4 +42,18 @@ export function planRsvp(
 export function planHostEdit(edit: RsvpInput, current: { mailStoppedAt: Date | null; email: string | null }): RsvpInput & Proof {
   if (current.mailStoppedAt) return { ...edit, email: undefined };
   return edit.email !== undefined && edit.email !== current.email ? { ...edit, emailVerifiedAt: null } : edit;
+}
+
+// What a host's change of a reply's email writes to the invite the reply is tied to (M6 final
+// review): the same email, so a corrected typo reaches the invite, whose email is what its guest
+// proves on an invite-only event. A blank one blanks the invite's too, which then lets its guest in
+// by the link alone; an email given to a reply whose invite had none makes that invite prove it,
+// so its guest is asked for a code on each device before the link admits again: both the host's
+// choice. Nothing when the email is unchanged or there is no invite.
+export function inviteEmailAfterHostEdit(
+  previous: { email: string | null },
+  current: { inviteId: string | null; email: string | null },
+): { inviteId: string; email: string | null } | undefined {
+  if (current.inviteId === null || current.email === previous.email) return undefined;
+  return { inviteId: current.inviteId, email: current.email };
 }

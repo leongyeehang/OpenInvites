@@ -1,8 +1,11 @@
-import { albumState, MAX_PHOTOS_AT_ONCE, mayUseAlbum, photosRoom } from "@/album/album";
+import { albumState, MAX_PHOTOS_AT_ONCE, mayAddPhotos, photosRoom } from "@/album/album";
 import { processPhoto, removePhotoFiles, storePhoto } from "@/album/files";
+import { notifyHostsOfPhotos } from "@/album/notify-hosts";
 import { addPhotos, countPhotos } from "@/album/repository";
 import { albumViewer } from "@/album/viewer";
+import { photoStatusFor } from "@/album/visibility";
 import { findEventBySlug } from "@/events/repository";
+import { gateFor } from "@/invites/gate";
 import { eventPaths } from "@/events/slug";
 import { baseUrl, maxUploadBytes } from "@/instance/env";
 import { instanceLimits } from "@/instance/repository";
@@ -11,9 +14,10 @@ import { newUploadId } from "@/uploads/repository";
 import type { UploadProblem } from "@/uploads/validate";
 import { revalidatePath } from "next/cache";
 
-// What became of each photo sent, in the order sent, or why none was taken.
+// What became of each photo sent, in the order sent, and whether one taken waits for a host's
+// approval (M6 ticket 03), or why none was taken.
 export type AlbumRefusal = "tooFast" | "closed" | "notAllowed" | "tooMany" | "albumFull" | "tooLarge";
-export type AlbumUploadResult = { results?: ({ ok: true } | { ok: false; problem: UploadProblem })[]; error?: AlbumRefusal; left?: number };
+export type AlbumUploadResult = { results?: ({ ok: true; pending: boolean } | { ok: false; problem: UploadProblem })[]; error?: AlbumRefusal; left?: number };
 
 // Adding photos to an event's album (M4 ticket 11): up to ten in one post, as multipart "photos",
 // each through the photo pipeline (album/files.ts) under the operator's MAX_UPLOAD_MB. One post
@@ -27,8 +31,10 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
   const { slug } = await context.params;
   const event = await findEventBySlug(slug);
   if (!event || albumState(event, new Date()) !== "open") return refused("closed", 409);
+  // An invite-only event's album takes photos only from a device that is in (invites/gate.ts).
+  if ((await gateFor(event)).page !== "invitation") return refused("closed", 409);
   const viewer = await albumViewer(event.id);
-  if (!mayUseAlbum(viewer) || viewer.kind === "visitor") return refused("notAllowed", 403);
+  if (!mayAddPhotos(viewer) || viewer.kind === "visitor") return refused("notAllowed", 403);
 
   const maxBytes = maxUploadBytes();
   // Ten photos at the most, each at the most the operator allows, and room for the form's framing.
@@ -41,33 +47,41 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
   } catch {
     return refused("tooLarge", 400);
   }
+  // Photos waiting for approval take their places too.
   const { maxPhotosPerEvent } = await instanceLimits();
   const room = photosRoom(await countPhotos(event.id), files.length, maxPhotosPerEvent);
   if (!room.ok) return Response.json({ error: room.error, left: room.left } satisfies AlbumUploadResult, { status: 409 });
 
   // Each is processed and stored before the rows that name them, so no page asks for a file not there.
-  const results: NonNullable<AlbumUploadResult["results"]> = [];
+  const outcomes: ({ ok: true } | { ok: false; problem: UploadProblem })[] = [];
   const stored: { id: string; width: number; height: number }[] = [];
   for (const file of files) {
     const processed = await processPhoto(new Uint8Array(await file.arrayBuffer()), maxBytes);
     if (!processed.ok) {
-      results.push({ ok: false, problem: processed.problem });
+      outcomes.push({ ok: false, problem: processed.problem });
       continue;
     }
     const id = await newUploadId();
     await storePhoto(id, processed.photo.files);
     stored.push({ id, width: processed.photo.width, height: processed.photo.height });
-    results.push({ ok: true });
+    outcomes.push({ ok: true });
   }
+  // A guest's photos wait for a host while the host approves them, as the event stands once it is
+  // locked for the adding; a host's never do.
+  let pending = false;
   if (stored.length > 0) {
     const owner = viewer.kind === "host" ? { hostId: viewer.hostId } : { rsvpId: viewer.rsvpId };
-    const added = await addPhotos(event.id, owner, stored, maxPhotosPerEvent);
-    if (added !== "added") {
+    const added = await addPhotos(event.id, owner, stored, maxPhotosPerEvent, (locked) => photoStatusFor(locked, viewer));
+    if ("full" in added) {
       await removePhotoFiles(stored.map((each) => each.id));
       return Response.json({ error: "albumFull", left: added.full } satisfies AlbumUploadResult, { status: 409 });
     }
+    pending = added.status === "pending";
     for (const path of eventPaths(event)) revalidatePath(path);
+    // The hosts are told once of the post, when what it added waits for them (M6 ticket 04).
+    if (pending && viewer.kind === "guest") await notifyHostsOfPhotos(event, { name: viewer.name, count: stored.length });
   }
+  const results = outcomes.map((outcome) => (outcome.ok ? { ok: true as const, pending } : outcome));
   return Response.json({ results } satisfies AlbumUploadResult);
 }
 

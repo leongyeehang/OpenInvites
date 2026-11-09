@@ -426,6 +426,10 @@
       "subject": "{name} 在“{title}”留言了",
       "body": "{name} 在“{title}”留言：\n\n{comment}\n\n活动页面：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客留言时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
     },
+    "photos": {
+      "subject": "{name} 在“{title}”添加了 {count, plural, other {# 张照片}}，正在等待你的批准",
+      "body": "{name} 在“{title}”添加了 {count, plural, other {# 张照片}}，正在等待你的批准。\n\n活动页面：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有照片等待批准时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
+    },
     "reminderWeek": {
       "subject": "“{title}”还有一周就到了",
       "body": "“{title}”还有一周就到了。\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}\n\n你的回复是：待定{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n活动页面：\n{url}"
@@ -447,6 +451,7 @@
       "body": "主办人批准了你对“{title}”的回复，不过活动已满员，你在候补名单上排第 {position} 位。一有空位，我们会发邮件告诉你。\n\n你的回复是：参加{plusOnes, plural, =0 {} other {，另带 # 位同伴}}。\n\n活动页面：\n{url}"
     },
     "guestFooter": "你收到这封邮件，是因为你对“{title}”的回复上留有这个邮箱。如果不想再收到关于这个活动的邮件，请打开这个链接：{url}",
+    "invitationFooter": "你收到这封邮件，是因为“{title}”的主办人用这个邮箱邀请了你。如果不想再收到关于这个活动的邮件，请打开这个链接：{url}",
     "magicLink": {
       "subject": "你的 {instance} 登录链接",
       "body": "{name}，你好：\n\n请打开下面的链接登录。链接 15 分钟内有效，且只能使用一次。\n\n{url}\n\n如果这不是你本人的操作，可以忽略这封邮件，不会有人因此登录。"
@@ -467,6 +472,14 @@
     "dateSet": {
       "subject": "日期已确定：{title}",
       "body": "{name}，你好：\n\n主办人已为「{title}」选定日期：{when}。\n\n告诉主办人你能否参加：\n{url}"
+    },
+    "invitation": {
+      "subject": "{host} 邀请你参加“{title}”",
+      "body": "{name}，你好：\n\n{host} 邀请你参加“{title}”。{lettered, select, yes {\n\n{letter}} other {}}{dated, select, yes {\n\n时间：{when}{located, select, yes {\n地点：{location}} other {}}} other {{located, select, yes {\n\n地点：{location}} other {}}}}\n\n查看邀请：{url}{inviteOnly, select, yes {\n\n打开邀请时需要输入验证码，验证码会发送到这个邮箱。} other {}}"
+    },
+    "pass": {
+      "subject": "“{title}”的验证码",
+      "body": "打开“{title}”邀请的验证码是：\n\n{code}\n\n验证码十分钟内有效。\n\n你收到这封邮件，是因为有人填写了这个邮箱来打开“{title}”的邀请，而主办人正是用这个邮箱邀请了你。如果不是你本人填写的，请忽略这封邮件：没有验证码，邀请就打不开。"
     }
   },
   "Events": {
@@ -509,7 +522,10 @@
         "capacity": "人数上限",
         "capacityHint": "和预计人数的算法一样：回复“参加”的宾客及其同伴都算在内，待定的不算。留空则接纳所有人。本站每场活动最多接受 {max, number} 条回复。",
         "approval": "每位宾客须经你批准，才会列入宾客名单",
-        "approvalHint": "等待期间，宾客可以看到邀请，但看不到留言；只有当所有打开链接的人都能看到宾客名单时，他们才能看到。"
+        "approvalHint": "等待期间，宾客可以看到邀请，但看不到留言；只有当所有打开链接的人都能看到宾客名单时，他们才能看到。",
+        "inviteOnly": "仅限受邀者：只有邀请名单上的人才能打开邀请",
+        "inviteOnlyHint": "受邀者在每台设备上都要用验证码确认邮箱；只留了电话号码的人凭自己的链接即可打开。已经回复的宾客会被加进名单；留了邮箱的人只需确认一次。",
+        "manageInvites": "管理邀请名单"
       },
       "contact": {
         "title": "联系方式",
@@ -526,6 +542,17 @@
       "guestListAfterReply": "已回复的宾客",
       "guestListHidden": "只有主办人",
       "guestListVisibilityHint": "主办人始终能看到完整名单。",
+      "album": {
+        "title": "相册",
+        "visibility": "谁可以看到相册",
+        "replied": "已回复的宾客",
+        "going": "回复参加的宾客",
+        "hosts": "只有主办人",
+        "visibilityHint": "已回复的宾客始终可以添加照片；主办人能看到所有照片。",
+        "approval": "照片须经批准才会显示",
+        "approvalHint": "新照片会等待主办人批准。关闭此项，所有等待中的照片都会显示。",
+        "notify": "有照片等待批准时给主办人发邮件"
+      },
       "notifyOnRsvp": "有宾客回复时给主办人发邮件",
       "remindersEnabled": "发邮件提醒宾客（提前一周提醒待定的宾客，提前一天提醒参加的宾客）",
       "askEmailHint": "只有你在回复表单中请宾客留下邮箱，宾客才会收到邮件。",
@@ -569,6 +596,7 @@
       "capacityInvalid": "请为人数上限填写 1 到 5,000 之间的整数，或留空表示不设上限。",
       "contactFieldInvalid": "请选择如何询问邮箱和电话号码。",
       "guestListVisibilityInvalid": "请选择谁可以看到宾客名单。",
+      "albumVisibilityInvalid": "请选择谁可以看到相册。",
       "questionsInvalid": "无法读取这些问题，请重试。",
       "questionTypeInvalid": "请为每个问题选择类型。",
       "questionPromptRequired": "每个问题都需要填写内容。",
@@ -586,7 +614,17 @@
       "pollEndBeforeStart": "填写结束时间前，请先填写开始时间，且结束要晚于开始。",
       "pollDuplicate": "同一个日期和时间提供了两次。",
       "pollHasVotes": "已经有宾客投票了，请从他们投票的日期中选一个。",
-      "pollNotNow": "现在不能让宾客投票决定日期。"
+      "pollNotNow": "现在不能让宾客投票决定日期。",
+      "scheduleTooMany": "日程最多 50 项。",
+      "scheduleDayInvalid": "第 {n} 项需要有效的日期。",
+      "scheduleTimeRequired": "第 {n} 项需要开始时间。",
+      "scheduleTimeInvalid": "第 {n} 项的时间无效。",
+      "scheduleEndBeforeStart": "第 {n} 项的结束时间要晚于开始时间。",
+      "scheduleTitleRequired": "第 {n} 项需要标题。",
+      "scheduleTitleTooLong": "第 {n} 项的标题超过 80 个字符。",
+      "schedulePlaceTooLong": "第 {n} 项的地点超过 120 个字符。",
+      "scheduleNoteTooLong": "第 {n} 项的备注超过 500 个字符。",
+      "scheduleInvalid": "无法读取日程，请重试。"
     },
     "manage": {
       "link": "活动链接",
@@ -762,6 +800,7 @@
     "edit": "编辑活动",
     "notReadyTitle": "这份邀请还没准备好",
     "notReady": "主办人还在准备中，请稍后再打开这个链接。",
+    "lockedTitle": "你收到一份邀请",
     "guests": "宾客",
     "headcount": "{count, plural, =0 {还没有人} other {预计 # 人}}",
     "alsoMaybe": "{count, plural, other {# 人待定}}",
@@ -822,11 +861,18 @@
       "opensOn": "相册将于 {date} 开放，届时再来添加你的照片。",
       "locked": "回复后即可查看相册并添加你的照片。",
       "lockedCount": "{count, plural, =0 {还没有照片} other {# 张照片}}",
+      "lockedGoing": "回复“参加”后即可查看相册并添加你的照片。",
+      "lockedHosts": "这个相册仅主办人可见。回复后即可添加你的照片。",
+      "lockedPending": "{visibility, select, going {主办人批准你的回复后，你就能添加照片；相册只对回复参加的宾客开放。} hosts {这个相册仅主办人可见。主办人批准你的回复后，你就能添加照片。} other {主办人批准你的回复后，你就能查看相册并添加照片。}}",
+      "yours": "你的照片",
+      "yoursGoing": "相册只对回复参加的宾客开放；你添加的照片主办人都能看到。",
+      "yoursHosts": "这个相册仅主办人可见；你添加的照片主办人都能看到。",
       "empty": "还没有照片，来添加第一张吧。",
       "add": "添加照片",
       "hint": "每次最多十张，每张不超过 {max, number} MB。",
       "adding": "正在添加 {count, plural, other {# 张照片}}…",
       "added": "{name}：已添加",
+      "addedPending": "{name}：已添加，等待批准",
       "refusedFile": "{name}：{reason}",
       "problems": {
         "tooLarge": "超过 {max, number} MB",
@@ -843,17 +889,31 @@
         "failed": "照片未能上传，请再试一次。"
       },
       "open": "{name} 的第 {n} 张照片",
+      "openPending": "{name} 的第 {n} 张照片，等待批准",
+      "pending": "等待批准",
       "viewer": "第 {n} 张，共 {count} 张",
       "by": "由 {name} 添加",
+      "approve": "批准",
+      "approvePhoto": "批准 {name} 的第 {n} 张照片",
       "previous": "上一张",
       "next": "下一张",
       "close": "关闭",
       "download": "下载",
       "delete": "删除",
+      "deletePhoto": "删除 {name} 的第 {n} 张照片",
       "deleteTitle": "要删除这张照片吗？",
       "deleteText": "所有人都将看不到它，且无法恢复。",
       "deleteConfirm": "删除",
       "keep": "保留"
+    },
+    "letter": {
+      "for": "致 {name}"
+    },
+    "schedule": {
+      "title": "日程",
+      "now": "进行中",
+      "ended": "已结束",
+      "inZone": "时间均按 {zone} 时区显示。"
     }
   },
   "Design": {
@@ -1057,6 +1117,24 @@
     "setDate": "设置日期和时间",
     "addPlace": "添加地点",
     "sayWhat": "介绍一下活动",
+    "schedule": "日程",
+    "addSchedule": "添加日程",
+    "scheduleCount": "{count, plural, other {# 项}}",
+    "scheduleSheet": {
+      "intro": "各项按日期和时间排序，使用活动所在的时区。宾客会看到正在进行的那一项；活动结束之后的项目不会被标为正在进行。",
+      "day": "日期 {n}",
+      "start": "开始时间 {n}",
+      "end": "结束时间 {n}（可选）",
+      "title": "标题 {n}",
+      "place": "地点 {n}（可选）",
+      "note": "备注 {n}（可选）",
+      "addItem": "添加一项",
+      "removeItem": "移除第 {n} 项",
+      "freshLegend": "让宾客的页面保持最新",
+      "freshMinute": "活动进行期间每分钟刷新一次",
+      "freshReload": "仅在打开页面时刷新",
+      "freshReloadHint": "不在后台发送请求：节省宾客的流量和电量，也减轻本站的负担。如果当天日程不会变动，或来的人很多，就选这一项。"
+    },
     "done": "完成",
     "guestsAlsoSee": "宾客还会看到谁会来、主办人的公告和评论。",
     "seeAsGuest": "以宾客身份查看",
@@ -1162,14 +1240,30 @@
   "Invites": {
     "title": "专属邀请",
     "backToEvent": "返回活动",
-    "explainer": "专属邀请链接只给一位宾客使用。对方打开后，名字会自动填好；如果你留了邮箱，邮箱也会填好。对方的回复会和这个链接绑定，之后这个链接就是对方的修改链接。请复制每个链接，自己发给对应的宾客。",
+    "explainer": "每位宾客都有一个专属邀请链接：打开后会自动填好名字；你留了邮箱或电话号码的，活动需要填写时也会一并填好。对方的回复会和这个链接绑定，之后这个链接就是对方的修改链接。你可以复制或分享每个链接；如果本站能发送邮件，也可以把链接连同邀请一起用邮件发给对方。",
+    "inviteOnlyBanner": "已开启“仅限受邀者”：只有名单上的人才能打开邀请。",
+    "inviteOnlyNoMail": "本站无法发送邮件，所以只有名单上没留邮箱的人才能打开邀请。",
+    "inviteOnlySettings": "在活动设置中更改",
+    "linkLetsIn": "任何拿到这个链接的人都能打开邀请",
+    "lettersEnabled": "专属信件",
+    "lettersEnabledHint": "给每位宾客写几句话，显示在对方的邀请上。",
     "name": "名字",
     "email": "邮箱",
     "emailHint": "选填。会替对方填好，并视为已验证。",
+    "phone": "电话号码",
+    "phoneHint": "选填。活动需要电话号码时，会替对方填好。",
+    "letter": "信件",
+    "letterHint": "只写给这位宾客，显示在对方的邀请上。最多 1000 个字。",
     "make": "生成链接",
     "made": "已为 {name} 生成链接。",
+    "paste": "批量添加",
+    "pasteHint": "每行一人，格式为：名字, 邮箱, 电话（中英文逗号都可以）。没有的可以不写，例如“王小明, wang@example.com”或只写“李华”。",
+    "pasteMake": "生成这些链接",
+    "madeMany": "已生成 {count, plural, other {# 个链接}}。",
     "full": "这个活动已有 {max} 个专属邀请，已达上限。要生成新的，请先删除一个。",
     "empty": "还没有专属邀请。",
+    "saveLetter": "保存信件",
+    "letterSaved": "信件已保存。",
     "state": {
       "notOpened": "未打开",
       "opened": "已打开",
@@ -1184,6 +1278,16 @@
     "copy": "复制链接",
     "copyLabel": "复制给 {name} 的链接",
     "copied": "已复制",
+    "share": "分享",
+    "shareLabel": "分享给 {name} 的链接",
+    "send": "{again, select, yes {再次发送} other {发送}}",
+    "sendLabel": "{again, select, yes {再次把邀请发送给 {name}} other {把邀请发送给 {name}}}",
+    "sent": "已把邀请发送给 {name}。",
+    "sentAt": "已于 {date} 发送",
+    "sendAll": "发送给所有还没发送过的人（{count}）",
+    "sentCount": "{count, plural, =0 {有邮箱的宾客都已经收到邀请了。} other {已发送 # 份邀请。}}",
+    "sendWhenPublished": "活动发布后才能用邮件发送邀请。",
+    "stopped": "已停止接收邮件",
     "delete": "删除",
     "deleteLabel": "删除给 {name} 的专属邀请",
     "deleteTitle": "要删除给 {name} 的专属邀请吗？",
@@ -1192,9 +1296,36 @@
     "deleteConfirm": "删除专属邀请",
     "errors": {
       "notFound": "这个活动已经不存在了。",
+      "inviteGone": "这份专属邀请已经不存在了。",
       "nameRequired": "请填写宾客的名字。",
       "nameTooLong": "名字太长了。",
-      "emailInvalid": "这看起来不像邮箱地址。"
+      "emailInvalid": "这看起来不像邮箱地址。",
+      "phoneInvalid": "请输入 5 到 20 位的电话号码。",
+      "letterTooLong": "信件最多 1000 个字。",
+      "line": "第 {line} 行：{error}",
+      "tooManyAtOnce": "这份名单会让活动超过 {max} 个专属邀请的上限。没有生成任何链接。",
+      "tooFast": "操作太频繁了，请稍后再试。",
+      "noMail": "没有发送：本站无法发送邮件，或者这位宾客没有邮箱，或已停止接收这个活动的邮件。"
+    }
+  },
+  "InviteOnly": {
+    "title": "一份私人邀请",
+    "from": "来自 {host}",
+    "email": "你的邮箱",
+    "emailHint": "填写你受邀时使用的邮箱，我们会把验证码发送到这个邮箱。",
+    "send": "发送验证码",
+    "sent": "如果这个邮箱在邀请名单上，验证码已经发出，请查收。",
+    "code": "验证码",
+    "open": "打开邀请",
+    "resend": "重新发送",
+    "resendIn": "{seconds} 秒后可重新发送",
+    "lost": "找不到你的链接？请联系主办人。",
+    "errors": {
+      "codeWrong": "验证码不正确。",
+      "codeExpired": "这个验证码已失效。请重新发送，获取新的验证码。",
+      "tooFast": "操作太频繁了，请稍后再试。",
+      "emailInvalid": "这看起来不像邮箱地址。",
+      "checkFailed": "请先完成人机验证，再试一次。"
     }
   },
   "Announcements": {
@@ -1391,6 +1522,7 @@
     "title": "关于这个活动的邮件",
     "onFile": "你为这个活动留下的邮箱是 {email}。",
     "noEmail": "这个活动目前没有你的邮箱。",
+    "stopped": "这个活动的邮件已经停止发送。",
     "stop": "不再接收这个活动的邮件",
     "done": "好了，你不会再收到关于“{title}”的邮件。"
   },

@@ -2,7 +2,6 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { notFound } from "next/navigation";
 import sharp from "sharp";
-import { eventPageFor } from "@/events/access";
 import { findEventBySlug } from "@/events/repository";
 import { isSlug } from "@/events/slug";
 import { formatWhen, isDated } from "@/events/time";
@@ -19,8 +18,9 @@ export async function GET(_request: Request, context: RouteContext<"/e/[slug]/pr
   const { slug } = await context.params;
   if (!isSlug(slug)) notFound();
   const event = await findEventBySlug(slug);
-  // A draft's card is as private as its page.
-  if (!event || eventPageFor(event.state, { isHost: false }) === "notReady" || !isDated(event)) notFound();
+  // A draft's card is as private as its page. An invite-only event has none for anyone, its hosts
+  // included: a card is cached publicly, for a year (M6 spec, "What the lock covers").
+  if (!event || event.state === "draft" || event.inviteOnly || !isDated(event)) notFound();
 
   const url = new URL(_request.url);
   // Every card the page links to carries the event's version, so that one never changes. A

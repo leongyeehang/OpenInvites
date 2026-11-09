@@ -1,9 +1,11 @@
 import type { EventState } from "@/events/repository";
 import type { Approval } from "@/rsvps/admission";
+import type { SavedStatus } from "@/rsvps/form";
 
 // The photo album (M4 ticket 11): from the event's start, its guests whose replies the host has
-// approved, and its hosts, add photos, which they all see; hosts delete any, guests their own; the
-// operator limits how many one event holds.
+// approved, and its hosts, add photos; who sees them is the host's choice (M6 ticket 03,
+// album/visibility.ts); hosts delete any, guests their own; the operator limits how many one event
+// holds.
 
 // The most one person adds at once.
 export const MAX_PHOTOS_AT_ONCE = 10;
@@ -19,13 +21,20 @@ export function albumState(event: { state: EventState; startsAt: Date | null }, 
 }
 
 // Who is in front of the album: a host of the event, a guest whose RSVP is on this device with the
-// host's word on it, or someone else.
-export type AlbumViewer = { kind: "host"; hostId: string } | { kind: "guest"; rsvpId: string; approval: Approval } | { kind: "visitor" };
+// host's word on it, what it says and its name (for the hosts' email about photos waiting, M6
+// ticket 04), or someone else.
+export type AlbumViewer = { kind: "host"; hostId: string } | { kind: "guest"; rsvpId: string; approval: Approval; status: SavedStatus; name: string } | { kind: "visitor" };
 
-// Who sees the album and adds to it: the hosts, and a guest whose reply the host has approved
-// (which a reply needing no approval always is). With the guest list hidden, they still do.
-export function mayUseAlbum(viewer: AlbumViewer): boolean {
+// Who adds to the album: the hosts, and a guest whose reply the host has approved (which a reply
+// needing no approval always is), whatever it says and whoever the host lets see the album. With
+// the guest list hidden, they still do.
+export function mayAddPhotos(viewer: AlbumViewer): boolean {
   return viewer.kind === "host" || (viewer.kind === "guest" && viewer.approval === "approved");
+}
+
+// Only a host approves a photo that waits for it (M6 ticket 03).
+export function mayApprovePhoto(viewer: AlbumViewer): boolean {
+  return viewer.kind === "host";
 }
 
 // A host deletes any photo; a guest the ones their RSVP added.

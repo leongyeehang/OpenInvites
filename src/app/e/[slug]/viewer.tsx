@@ -4,14 +4,15 @@ import { ArrowUpRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useSyncExternalStore } from "react";
 import { countdownFor } from "@/events/countdown";
+import { useClock } from "@/events/use-clock";
 import { mapHref } from "@/events/map";
 import type { EventTime } from "@/events/time";
 import { cn } from "@/lib/utils";
 import { BUBBLE_CHIP } from "@/themes/thread-bubble";
 
-// Three things only the guest's own device knows: what time it is, what zone they are in, and
-// which maps app they have. Each reads as nothing on the server and in the first client render,
-// so the two agree, and fills in once the browser has answered.
+// Three things only the guest's own device knows: what time it is (events/use-clock.ts), what
+// zone they are in, and which maps app they have. Each reads as nothing on the server and in the
+// first client render, so the two agree, and fills in once the browser has answered.
 
 const NOTHING_TO_SUBSCRIBE_TO = () => () => {};
 
@@ -21,24 +22,6 @@ function useOnTheDevice(): boolean {
     () => true,
     () => false,
   );
-}
-
-// The clock, in half-minute steps so the snapshot holds still between ticks and a countdown in
-// minutes stays honest.
-const TICK_MS = 30_000;
-
-function subscribeToClock(onChange: () => void) {
-  const tick = setInterval(onChange, TICK_MS);
-  return () => clearInterval(tick);
-}
-
-function useClock(): Date | null {
-  const tick = useSyncExternalStore(
-    subscribeToClock,
-    () => Math.floor(Date.now() / TICK_MS),
-    () => null,
-  );
-  return tick === null ? null : new Date(tick * TICK_MS);
 }
 
 export function Countdown({ event }: { event: EventTime }) {

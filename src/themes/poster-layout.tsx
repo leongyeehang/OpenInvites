@@ -1,9 +1,10 @@
-import { AlignLeft, Clock, Images, MapPin, MessageCircle } from "lucide-react";
+import { AlignLeft, Clock, Images, ListOrdered, MailOpen, MapPin, MessageCircle } from "lucide-react";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import type { ComponentType, ReactNode } from "react";
 import type { CommentsShown } from "@/comments/visibility";
 import type { EventWithHost } from "@/events/repository";
 import { formatWhen, formatWhenBrief, isDated } from "@/events/time";
+import type { Letter } from "@/invites/invite";
 import { cn } from "@/lib/utils";
 import { RichTextView } from "@/rich-text/rich-text-view";
 import { Glass } from "./glass";
@@ -12,13 +13,15 @@ import { CAPS, entrance, HostLine, IconTile, invitationEntrance, SectionLabel } 
 import { AnnouncementsSection, type ShownAnnouncement } from "./sections/announcements-section";
 import { ALBUM_HEADING } from "./sections/album-section";
 import { COMMENTS_HEADING, CommentsSection } from "./sections/comments-section";
+import { LetterSection } from "./sections/letter-section";
 
 // The Poster layout, poster first (M4 spec, "The guest page"): the poster as wide as the page's
-// column, the title on it or under it with its date, who is hosting, then one frosted list of
-// When, Where and About, and Who's coming, the host's announcements and the comments as panels of
-// their own. The reply buttons are a bar fixed to the foot of the screen (rsvp-flow.tsx), so a
-// guest can answer wherever they are on the page. On a wider screen the page stays a phone's
-// width, in the middle. It renders inside a ThemedPage, which carries the theme.
+// column, the title on it or under it with its date, who is hosting, then the host's letter to the
+// guest, one frosted list of When, Where and About, then the schedule, Who's coming, the host's
+// announcements and the comments as panels of their own. The reply buttons are a bar fixed to the
+// foot of the screen (rsvp-flow.tsx), so a guest can answer wherever they are on the page. On a
+// wider screen the page stays a phone's width, in the middle. It renders inside a ThemedPage, which
+// carries the theme.
 export async function PosterLayout({
   event,
   hosts,
@@ -33,6 +36,8 @@ export async function PosterLayout({
   calendar,
   poll,
   album,
+  schedule,
+  letter,
   edit,
 }: {
   // A draft may have no date yet, which only its hosts see: then there is no When.
@@ -57,6 +62,10 @@ export async function PosterLayout({
   poll?: { label: string; when: ReactNode };
   // The photo album (M4 ticket 11), as this viewer may see it.
   album?: ReactNode;
+  // The host's schedule (M6 ticket 02), following the guest's clock.
+  schedule?: ReactNode;
+  // The host's letter to the guest the page is open for (M6 ticket 09), above the details.
+  letter?: Letter;
   // The editor (M4 spec, "The editor"): the title typed on the poster, at either size, and the
   // details list it edits, in place of the guest's; nothing else of the guest's page is shown.
   edit?: { title: { full: ReactNode; compact: ReactNode }; details: ReactNode; foot?: ReactNode };
@@ -91,6 +100,13 @@ export async function PosterLayout({
         </div>
       ) : (
         <div className="flex flex-col gap-3 px-4 pt-5">
+          {letter && (
+            <Glass data-slot="letter" className={cn("rounded-[1.75rem] p-5", entrance, "motion-safe:delay-200")}>
+              <SectionLabel icon={MailOpen}>{t("letter.for", { name: letter.name })}</SectionLabel>
+              <LetterSection body={letter.body} className="text-base leading-relaxed" />
+            </Glass>
+          )}
+
           <Glass data-slot="details" className={cn("divide-y divide-theme-glass-border overflow-hidden rounded-[1.75rem]", entrance, "motion-safe:delay-200")}>
             {isDated(event) ? (
               <DetailRow icon={Clock} label={t("when")}>
@@ -117,6 +133,13 @@ export async function PosterLayout({
               </DetailRow>
             )}
           </Glass>
+
+          {schedule && (
+            <Glass data-slot="schedule" className={cn("rounded-[1.75rem] p-5", entrance, "motion-safe:delay-300")}>
+              <SectionLabel icon={ListOrdered}>{t("schedule.title")}</SectionLabel>
+              {schedule}
+            </Glass>
+          )}
 
           {guestList && <Glass className={cn("rounded-[1.75rem] p-5", entrance, "motion-safe:delay-300")}>{guestList}</Glass>}
 

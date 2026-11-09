@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { closeDesign, createDraft, createPublished, type DraftFields, openDesign, saveStatus, toEditor } from "./events";
+import { closeDesign, createDraft, createPublished, type DraftFields, openDesign, openSettings, savedAfter, saveStatus, toEditor } from "./events";
 import { hostWithShelves, SHELVES } from "./dashboard";
 import { expectVisibleFocus, tabTo } from "./focus";
 import { homeByKeyboard, openHome } from "./home";
@@ -530,5 +530,298 @@ test("a host walks the dashboard by keyboard, from the header through Next up to
   }
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/events\/[0-9a-f-]{36}$/);
+  await host.context.close();
+});
+
+// M6 ticket 10: the Schedule sheet by keyboard alone, from the details list's Schedule row: Add an
+// item, by Enter and by Space, puts the focus on the new row's day; its start time and title are
+// typed; a middle row removed leaves the focus on the same Remove, which then removes the row that
+// took its place; the last row removed gives the focus to Add an item; the arrow keys pick "Only
+// when the page is opened"; Done saves it and gives the focus back to the row, which counts the
+// items.
+test("a host lists a schedule in its sheet by keyboard alone: adds items, fills them, removes one, picks how pages keep fresh, and Done", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-schedule", EVENT);
+  const page = host.page;
+  await toEditor(page);
+  const row = page.getByRole("button", { name: /^Schedule:/ });
+  await tabTo(page, row);
+  await page.keyboard.press("Enter");
+  const sheet = page.getByRole("dialog", { name: "Schedule" });
+  await expect(sheet.getByRole("heading", { name: "Schedule" })).toBeFocused();
+
+  const add = sheet.getByRole("button", { name: "Add an item" });
+  for (const [n, key, time, title] of [
+    [1, "Enter", "0700P", "Dinner"],
+    [2, "Space", "0900P", "Cake"],
+    [3, "Enter", "1000P", "Nightcap"],
+  ] as const) {
+    await tabTo(page, add);
+    await page.keyboard.press(key);
+    // The new row has the focus at its first field, the day, which starts on the event's.
+    const day = sheet.getByLabel(`Day ${n}`, { exact: true });
+    await expect(day).toBeFocused();
+    await expectVisibleFocus(page);
+    await expect(day).toHaveValue("2027-03-06");
+    await tabThroughFields(page, sheet.getByLabel(`Start time ${n}`, { exact: true }));
+    await page.keyboard.type(time);
+    await tabThroughFields(page, sheet.getByLabel(`Title ${n}`, { exact: true }));
+    await page.keyboard.type(title);
+  }
+  await expect(sheet.getByLabel("Start time 1", { exact: true })).toHaveValue("19:00");
+  await expect(sheet.getByLabel("Start time 2", { exact: true })).toHaveValue("21:00");
+  await expect(sheet.getByLabel("Start time 3", { exact: true })).toHaveValue("22:00");
+
+  // The second row, removed from its own Remove, back from the third's title: the focus stays on
+  // Remove item 2, which now removes what was the third row.
+  await tabThroughFields(page, sheet.getByRole("button", { name: "Remove item 2" }), "Shift+Tab");
+  await page.keyboard.press("Enter");
+  await expect(sheet.locator("ol > li")).toHaveCount(2);
+  await expect(sheet.getByRole("button", { name: "Remove item 2" })).toBeFocused();
+  await expectVisibleFocus(page);
+  await expect(sheet.getByLabel("Title 2", { exact: true })).toHaveValue("Nightcap");
+  await expect(sheet.getByLabel("Start time 2", { exact: true })).toHaveValue("22:00");
+
+  // A third row, removed from its own Remove: the focus goes to Add an item, not out of the sheet.
+  // From Remove item 2 the way there crosses the row's time fields.
+  await tabThroughFields(page, add);
+  await page.keyboard.press("Enter");
+  await expect(sheet.getByLabel("Day 3", { exact: true })).toBeFocused();
+  await tabThroughFields(page, sheet.getByRole("button", { name: "Remove item 3" }));
+  await page.keyboard.press("Enter");
+  await expect(sheet.locator("ol > li")).toHaveCount(2);
+  await expect(add).toBeFocused();
+  await expectVisibleFocus(page);
+
+  // The freshness is a radio group: Tab stops on the one chosen, the arrow keys choose the other.
+  await tabThroughFields(page, sheet.getByRole("radio", { name: "Refresh every minute while the event is on" }));
+  await page.keyboard.press("ArrowDown");
+  const reload = sheet.getByRole("radio", { name: "Only when the page is opened" });
+  await expect(reload).toBeChecked();
+  await expect(reload).toBeFocused();
+  await expectVisibleFocus(page);
+
+  await tabTo(page, sheet.getByRole("button", { name: "Done" }));
+  await page.keyboard.press("Enter");
+  await expect(sheet).toBeHidden({ timeout: 15_000 });
+  await expect(row).toHaveAccessibleName("Schedule: 2 items");
+  await expect(row).toBeFocused();
+  await expectVisibleFocus(page);
+  await host.context.close();
+});
+
+// Tab until `target` has the focus, through date and time fields, each of which Chrome steps through
+// a part at a time (month, day, year; hour, minute, AM or PM). Every other stop shows its focus;
+// those fields are read where they are first reached, as reading a ring takes the focus away and
+// gives it back at the field's first part. Shift+Tab goes back the same way.
+async function tabThroughFields(page: Page, target: Locator, key: "Tab" | "Shift+Tab" = "Tab") {
+  for (let presses = 0; presses < 40; presses++) {
+    await page.keyboard.press(key);
+    const inParts = await page.evaluate(() => ["date", "time"].includes((document.activeElement as HTMLInputElement | null)?.type ?? ""));
+    if (!inParts) await expectVisibleFocus(page, `Tab ${presses + 1} towards ${target}`);
+    if (await target.evaluate((element) => element === document.activeElement)) return;
+  }
+  throw new Error(`never reached ${target}`);
+}
+
+// M6 ticket 10: an invitee opens an invite-only event's locked page by keyboard alone: the email,
+// Send me a code, the code field, which takes the focus once the code is sent, Open the
+// invitation, and Send it again, within reach while it waits and doing nothing then.
+test("an invitee opens an invite-only event by keyboard alone, with Send it again within reach", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-locked", { title: "Ada’s secret supper", start: "2027-03-06T19:00", plusOnes: "0" });
+  const meiEmail = newHost("keyboard-locked-mei").email;
+  const sheet = await openSettings(host.page);
+  await savedAfter(host.page, () =>
+    sheet.getByRole("group", { name: "Guests", exact: true }).getByLabel("Invite-only: only people on the invite list can open the invitation", { exact: true }).check(),
+  );
+  await sheet.getByRole("link", { name: "Manage the invite list" }).click();
+  await host.page.getByLabel("Name", { exact: true }).fill("Mei Lin");
+  await host.page.getByLabel("Email", { exact: true }).fill(meiEmail);
+  await host.page.getByRole("button", { name: "Make link" }).click();
+  await expect(host.page.getByRole("status").filter({ hasText: /^Made a link for / })).toHaveText("Made a link for Mei Lin.", { timeout: 15_000 });
+
+  const guest = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
+  const page = await guest.newPage();
+  await page.goto(host.link);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("A private invitation");
+  await tabTo(page, page.getByLabel("Your email"));
+  await page.keyboard.type(meiEmail);
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Send me a code" })).toBeFocused();
+  await expectVisibleFocus(page);
+  await page.keyboard.press("Enter");
+
+  const code = page.getByLabel("Code", { exact: true });
+  await expect(code).toBeFocused({ timeout: 15_000 });
+  await expectVisibleFocus(page);
+  await expect(page.getByText("If that email is on the invite list, a code is on its way.")).toBeVisible();
+  await page.keyboard.type((await latestMailTo(request, meiEmail)).match(/^([0-9]{6})\r?$/m)![1]);
+  const open = page.getByRole("button", { name: "Open the invitation" });
+  await page.keyboard.press("Tab");
+  await expect(open).toBeFocused();
+  await expectVisibleFocus(page);
+
+  // Send it again is the next stop, waiting, and pressing it sends nothing.
+  const again = page.getByRole("button", { name: "Send it again", exact: true });
+  await page.keyboard.press("Tab");
+  await expect(again).toBeFocused();
+  await expectVisibleFocus(page);
+  await expect(again).toHaveAttribute("aria-disabled", "true");
+  await expect(again).toHaveAccessibleDescription(/^Send it again in \d+s$/);
+  // Enter on it sends nothing: it still waits, with its seconds, and keeps the focus. This rests on
+  // the thirty seconds after the code went: since then the code was read from Mailpit, typed, and
+  // the focus moved two stops, a few seconds at most, so the margin is twenty seconds and more.
+  await page.keyboard.press("Enter");
+  await expect(again).toBeFocused();
+  await expect(again).toHaveAttribute("aria-disabled", "true");
+  await expect(again).toHaveAccessibleDescription(/^Send it again in \d+s$/);
+
+  await page.keyboard.press("Shift+Tab");
+  await expect(open).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Ada’s secret supper" })).toBeVisible({ timeout: 15_000 });
+  // That round trip to the server comes after any post the Enter could have made, which would have
+  // sent its code before answering: still the one code.
+  expect(await mailCountTo(request, meiEmail)).toBe(1);
+  await guest.close();
+  await host.context.close();
+});
+
+// M6 ticket 10: in the album's viewer, a host approves a photo waiting for approval, and deletes
+// another, by keyboard alone. Approve keeps the viewer on the photo and gives the focus to Download;
+// Delete asks first, and once the photo is gone the focus is on the album's heading.
+test("a host approves one waiting photo and deletes another in the album's viewer by keyboard alone", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-album", { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" });
+  const settings = await openSettings(host.page);
+  await savedAfter(host.page, () => settings.getByRole("group", { name: "Album", exact: true }).getByLabel("Approve photos before they’re shown").check());
+  await host.page.keyboard.press("Escape");
+
+  // A guest replies and adds two photos, which wait.
+  const guest = await (await browser.newContext()).newPage();
+  await guest.goto(host.link);
+  await guest.getByRole("button", { name: "Going" }).click();
+  await guest.getByLabel("Your name").fill("Priya Nair");
+  await guest.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(guest.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+  await guest.getByRole("dialog", { name: "Your RSVP" }).getByRole("button", { name: "Close" }).click();
+  const picture = async (name: string, background: string) => ({
+    name,
+    mimeType: "image/jpeg",
+    buffer: await sharp({ create: { width: 1600, height: 1200, channels: 3, background } }).jpeg().toBuffer(),
+  });
+  const album = (on: Page) => on.locator('[data-slot="album"]');
+  await album(guest).getByLabel("Add photos").setInputFiles([await picture("garden.jpg", "#2f6b3a"), await picture("cake.jpg", "#c0506a")]);
+  await expect(album(guest).getByRole("status")).toContainText("cake.jpg: added, awaiting approval", { timeout: 20_000 });
+
+  const page = host.page;
+  await page.goto(host.link);
+  await tabTo(page, album(page).getByRole("button", { name: "Photo 1 by Priya Nair, awaiting approval" }));
+  await page.keyboard.press("Enter");
+  const viewer = page.getByRole("dialog", { name: "Photo 1 of 2" });
+  await expect(viewer).toContainText("Added by Priya Nair · Awaiting approval");
+  // The viewer opens with the focus on its first control, Approve.
+  const approve = viewer.getByRole("button", { name: "Approve" });
+  await expect(approve).toBeFocused();
+  await expectVisibleFocus(page);
+  await page.keyboard.press("Enter");
+  await expect(approve).toHaveCount(0, { timeout: 15_000 });
+  await expect(viewer).not.toContainText("Awaiting approval");
+  await expect(viewer.getByRole("link", { name: "Download" })).toBeFocused();
+  await expectVisibleFocus(page);
+
+  // The next photo, by the arrow key, still waits; Delete, then Delete it, with Space.
+  await page.keyboard.press("ArrowRight");
+  const next = page.getByRole("dialog", { name: "Photo 2 of 2" });
+  await expect(next).toContainText("Added by Priya Nair · Awaiting approval");
+  await tabTo(page, next.getByRole("button", { name: "Delete", exact: true }));
+  await page.keyboard.press("Space");
+  const confirm = page.getByRole("alertdialog", { name: "Delete this photo?" });
+  await expect(confirm).toBeVisible();
+  await tabTo(page, confirm.getByRole("button", { name: "Delete it" }));
+  await page.keyboard.press("Space");
+  await expect(confirm).toBeHidden({ timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: "Photos" })).toBeFocused();
+  await expect(album(page).getByRole("img")).toHaveCount(1);
+  await expect(album(page).getByRole("button", { name: "Photo 1 by Priya Nair" })).toBeVisible();
+  await guest.context().close();
+  await host.context.close();
+});
+
+// M6 ticket 10: on the Invites page, with personal letters on, a host shares an invite's link,
+// sends its invitation and sends it again, and writes and saves its letter, by keyboard alone; then
+// sends everyone not yet sent theirs, and the button keeps the focus (M6 final review).
+test("a host shares, sends, sends again and writes the letter of an invite, and sends to everyone not yet sent, by keyboard alone", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-invites", { title: "Ada’s supper club", start: "2027-03-06T19:00", plusOnes: "0" });
+  const page = host.page;
+  const meiEmail = newHost("keyboard-invites-mei").email;
+  const kaiEmail = newHost("keyboard-invites-kai").email;
+  // A share sheet that keeps what it was given, as a phone's would show it.
+  await page.context().addInitScript(() => {
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async (data: ShareData) => {
+        (window as unknown as { shared: ShareData }).shared = data;
+      },
+    });
+  });
+  await page.goto(`${page.url()}/invites`);
+  await page.getByRole("checkbox", { name: "Personal letters" }).click();
+  await expect(page.getByRole("textbox", { name: "Letter", exact: true })).toBeVisible({ timeout: 15_000 });
+  await page.getByLabel("Name", { exact: true }).fill("Mei Lin");
+  await page.getByLabel("Email", { exact: true }).fill(meiEmail);
+  await page.getByRole("button", { name: "Make link" }).click();
+  await expect(page.getByRole("status").filter({ hasText: /^Made a link for / })).toHaveText("Made a link for Mei Lin.", { timeout: 15_000 });
+  const row = page.getByRole("listitem").filter({ has: page.getByText("Mei Lin", { exact: true }) });
+
+  // Share, with Enter.
+  await tabTo(page, row.getByRole("button", { name: "Share link for Mei Lin" }));
+  await page.keyboard.press("Enter");
+  await expect.poll(() => page.evaluate(() => (window as unknown as { shared?: ShareData }).shared?.url)).toMatch(/\/i\/[A-Za-z0-9]{24}$/);
+
+  // Send, with Enter: the button keeps the focus, now as Send again, which Space sends again.
+  await page.keyboard.press("Tab");
+  const send = row.getByRole("button", { name: "Send the invitation to Mei Lin", exact: true });
+  await expect(send).toBeFocused();
+  await expectVisibleFocus(page);
+  await page.keyboard.press("Enter");
+  await expect(row.getByRole("status")).toHaveText("Invitation sent to Mei Lin.", { timeout: 15_000 });
+  const again = row.getByRole("button", { name: "Send the invitation to Mei Lin again" });
+  await expect(again).toBeFocused();
+  await expectVisibleFocus(page);
+  await page.keyboard.press("Space");
+  await expect.poll(() => mailCountTo(request, meiEmail), { timeout: 30_000 }).toBe(2);
+
+  // The letter, typed in its field and saved with Enter on its button.
+  const letter = row.getByRole("textbox", { name: "Letter Mei Lin" });
+  await tabTo(page, letter);
+  await page.keyboard.type("Dear Mei,");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Bring your guitar.");
+  await page.keyboard.press("Tab");
+  const save = row.getByRole("button", { name: "Save letter Mei Lin" });
+  await expect(save).toBeFocused();
+  await expectVisibleFocus(page);
+  await page.keyboard.press("Enter");
+  await expect(row.getByRole("status").filter({ hasText: "Letter saved." })).toBeVisible({ timeout: 15_000 });
+  await page.reload();
+  await expect(letter).toHaveValue("Dear Mei,\nBring your guitar.");
+
+  // Send to everyone not yet sent, with Enter, sends Kai's, the one left, and keeps the focus: with
+  // nobody left to send to, it reads as disabled where it stands.
+  await page.getByLabel("Name", { exact: true }).fill("Kai Tan");
+  await page.getByLabel("Email", { exact: true }).fill(kaiEmail);
+  await page.getByRole("button", { name: "Make link" }).click();
+  await expect(page.getByRole("status").filter({ hasText: /^Made a link for / })).toHaveText("Made a link for Kai Tan.", { timeout: 15_000 });
+  await tabTo(page, page.getByRole("button", { name: "Send to everyone not yet sent (1)" }));
+  await page.keyboard.press("Enter");
+  await expect(page.getByText("Sent 1 invitation.", { exact: true })).toBeVisible({ timeout: 15_000 });
+  const sendAll = page.getByRole("button", { name: "Send to everyone not yet sent (0)" });
+  await expect(sendAll).toBeFocused();
+  await expect(sendAll).toHaveAttribute("aria-disabled", "true");
+  await expectVisibleFocus(page);
+  await expect.poll(() => mailCountTo(request, kaiEmail), { timeout: 30_000 }).toBe(1);
   await host.context.close();
 });

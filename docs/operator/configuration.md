@@ -39,7 +39,7 @@ These are read by `compose.yaml` itself rather than by the app.
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `BASE_URL` | Required | The instance's public address, exactly as a browser shows it, such as `https://invites.example.org`, with no trailing slash and no path. Event links and the links in emails start with it; uploads from any other origin are refused; the bundled Caddy gets its certificate for this name. |
-| `AUTH_SECRET` | Required | Signs sessions and the links in emails. At least 32 characters; `openssl rand -hex 32` makes one. Changing it signs every host out. |
+| `AUTH_SECRET` | Required | Signs sessions and the links in emails. At least 32 characters; `openssl rand -hex 32` makes one. Changing it signs every host out, and voids every guest's pass to an invite-only event: they prove their email again. |
 | `OPERATOR_CONTACT_EMAIL` | None | Shown on the privacy policy and terms pages, and to hosts who need a password reset on an instance without mail. |
 | `OPERATOR_EMAIL` | None | Your own account, to take the instance back (next section). |
 
@@ -60,8 +60,9 @@ interface says "site" where these docs say "instance".)
   create or duplicate an event until they delete one. **Replies per event** (500 by default)
   counts every reply to an event, whatever its answer; a guest who has not yet replied is told
   the event can't take more replies, while guests who have replied can still change or withdraw
-  theirs. **Photos per event** (300 by default) counts the photos in an event's album; guests and
-  hosts adding more are told how many places are left, and those already there stay. Each is a
+  theirs. **Photos per event** (300 by default) counts the photos in an event's album, those
+  awaiting a host's approval included; guests and hosts adding more are told how many places are
+  left, and those already there stay. Each is a
   whole number from 1 to 100,000. Lowering a limit below what exists leaves the existing events,
   replies and photos alone and refuses only new ones. The same card sets how long
   events are kept ([Retention](#retention)).
@@ -224,53 +225,70 @@ With mail configured:
   event;
 - the hosts are emailed when someone comments on the event page, unless they turn it off for the
   event;
+- the hosts are emailed once for each upload of a guest's photos that wait for their approval,
+  when they approve photos before they're shown, unless they turn it off for the event;
 - guests who gave an email are told when the host cancels the event, if they said Going or Maybe
   or are on the waitlist, whether or not the host had approved their reply yet; guests the host
   declined are not written to;
 - the hosts can email an announcement to the guests who gave an email, chosen by their answer or
   their place on the waitlist; on an event where the hosts approve each reply, only to the guests
   they approved;
+- the hosts can email the invitation, with their letter and the guest's personal invite link, to
+  each person on an event's invite list they gave an email for, one at a time or everyone not yet
+  sent at once, while the event is published;
 - a guest on an event's waitlist who gave an email is told when a place opens up for them;
 - a guest who gave an email is told when the host approves their reply, and whether that put
   them on the waitlist, unless they said Can't go; a declined guest is not emailed;
 - guests who gave an email are reminded of an event a week before if they said Maybe, and the day
   before if they said Going, unless the host turns reminders off for the event or has not
   approved their reply;
-- a guest proving their email is sent a code to it, when the host asks for it;
+- a guest proving their email is sent a code to it, when the host asks for it, and so is an
+  invited guest opening an invite-only event on a device, when the address is on its invite list;
 - an event's hosts are warned 30 days before the instance deletes it for its age
   ([Retention](#retention));
 - the operator is emailed each report about an event page, at their account's address (Reports,
   above);
 - every email to a guest ends with a link to a page where one tap stops email about that event,
-  except the code, which is sent before their RSVP is kept.
+  except the codes a guest asks for: the RSVP form's, which is sent before their RSVP is kept, and
+  an invite-only event's, which goes even to an invited guest who has stopped email about the
+  event, since without it they could not open the invitation. An invitation's link stops any more
+  invitations to that person, and keeps the email the host gave, which is what the code is sent
+  to.
 
 A guest gives an email only when the host asks for one on the RSVP form, so only those guests get
-mail.
+mail; an invitation goes only to an email the host typed into the invite list.
 
 Mail also lets a host have the instance email anyone. A host can reply to their own event as many
-times as they like, typing any addresses into its RSVP form, and then post announcements to them;
-nothing checks that an address belongs to someone who asked. Only `RATE_LIMIT_RSVP` and
-`RATE_LIMIT_MAIL` bound how fast, and they count per client address; the operator's limits on
-replies per event and events per host (Limits, above) bound how many addresses one host can gather.
-With registration Invitation only, the default, the hosts are people you admitted. If you open
-registration on an instance with mail, anyone who signs up can do this.
+times as they like, typing any addresses into its RSVP form, and then post announcements to them, or
+type them into its invite list and send them the invitation; nothing checks that an address belongs
+to someone who asked. Only `RATE_LIMIT_RSVP` and `RATE_LIMIT_MAIL` bound how fast, and they count
+per client address; the operator's limits on replies per event and events per host (Limits, above)
+bound how many addresses one host can gather. With registration Invitation only, the default, the
+hosts are people you admitted. If you open registration on an instance with mail, anyone who signs
+up can do this.
 
-The app sends event mail (everything above about an event but a guest's code, which goes at once
-because the guest is waiting for it) from a queue inside the app container, so there is nothing
+The app sends event mail (everything above about an event but the codes guests ask for, which go
+at once because the guest is waiting for them) from a queue inside the app container, so there is nothing
 else to run. It sends what someone has just queued at once, and checks the queue once a minute,
 which is also when it queues the reminders that have fallen due. A message that fails is retried
 a few times over about an hour and a half; if it still fails, it is dropped and the log says why.
 
 Without mail, none of those emails exist: hosts are not asked to verify, and you reset a
 forgotten password with the command in [upgrade-backup.md](upgrade-backup.md#resetting-a-hosts-password).
+An invite-only event then opens only to its hosts and to the guests invited without an email, by
+their personal invite links, as no code can reach the others.
 
-To check mail works after setting it up, sign up a host with an address you can read, or ask for
-a password reset for one. If nothing arrives, `docker compose logs app` shows the SMTP server's
+To check mail works after setting it up, sign up a host with an address you can read, or ask for a
+password reset for one. If nothing arrives, `docker compose logs app` shows the SMTP server's
 answer. Every request that sends one of the account emails (verification, password reset, an email
 change, a sign-in link, a host invitation) counts against `RATE_LIMIT_MAIL`, and so does a host's
-announcement that emails guests, once however many it reaches, and each code sent to a guest to
-prove their email. The hosts' reply emails come from guests' RSVPs, so `RATE_LIMIT_RSVP` bounds
-them, and their comment emails come from comments, which `RATE_LIMIT_COMMENT` bounds.
+announcement that emails guests, once however many it reaches, a host's sending of invitations, once
+for one or for everyone not yet sent, and each code sent to a guest to prove their email, as well as
+each ask for a code on an invite-only event's locked page, whether or not the address is on its
+invite list. The hosts' reply emails come from guests' RSVPs, so `RATE_LIMIT_RSVP` bounds them;
+their comment emails come from comments, which `RATE_LIMIT_COMMENT` bounds; and their emails about
+photos awaiting approval come from guests' uploads, one email to each host an upload, which
+`RATE_LIMIT_UPLOAD` bounds.
 
 ## Sign in with Google and GitHub
 
@@ -398,12 +416,12 @@ runs.
 | --- | --- | --- |
 | `TRUSTED_PROXY_HOPS` | `1` | Not a limit: how many reverse proxies stand in front of the app (below). |
 | `RATE_LIMIT_EVENT_PAGE` | `120/1m` | Every request under an event link: the page, its preview card, its calendar file, whether the link exists or not, so links cannot be found by trying them. Opening a personal invite link counts too, whether it exists or not. The host's own changes in the editor do not count, as the editor is not under the event link; their visits to the page do, and so does the refresh that shows a picture they have just uploaded. |
-| `RATE_LIMIT_RSVP` | `60/10m` | Sending an RSVP, and removing one. Asking for a code to prove a guest's email, and entering it, each count as sending. This also bounds the emails that tell hosts about replies. |
-| `RATE_LIMIT_UPLOAD` | `20/10m` | Uploading a picture. |
+| `RATE_LIMIT_RSVP` | `60/10m` | Sending an RSVP, and removing one. Asking for a code to prove a guest's email, and entering it, each count as sending, on the RSVP form and on an invite-only event's locked page alike. This also bounds the emails that tell hosts about replies. |
+| `RATE_LIMIT_UPLOAD` | `20/10m` | Uploading a picture. This also bounds the emails that tell hosts about photos awaiting their approval. |
 | `RATE_LIMIT_SIGN_UP` | `10/1h` | Signing up, and opening a host invitation link. |
 | `RATE_LIMIT_SIGN_IN` | `10/15m` | Signing in, and everything else that checks a password (changing it, deleting an account), starting a Google or GitHub sign-in, signing in with a passkey, and opening a co-host link. |
 | `RATE_LIMIT_PASSWORD_RESET` | `10/1h` | Asking for a password reset link, and setting the new password. |
-| `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an account email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, asking for a sign-in link, and the operator's emailed host invitations. Also each announcement a host emails to guests, counted once however many guests it reaches, and each code sent to a guest to prove their email. |
+| `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an account email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, asking for a sign-in link, and the operator's emailed host invitations. Also each announcement a host emails to guests, counted once however many guests it reaches; each Send of an invitation from an invite list, and each "Send to everyone not yet sent", counted once however many it reaches; and each code sent to a guest to prove their email, and each ask for a code on an invite-only event's locked page, whether or not the address is on its invite list (so the answer never tells). |
 | `RATE_LIMIT_COMMENT` | `30/10m` | Posting a comment on an event page, and deleting one, by a guest or a host. This also bounds the emails that tell hosts about comments. |
 | `RATE_LIMIT_REPORT` | `5/1h` | Sending a report about an event page. This also bounds the emails that tell you about reports. |
 
@@ -442,8 +460,8 @@ request. `compose.yaml` publishes it on `127.0.0.1` only; keep it that way.
 | `TURNSTILE_SECRET_KEY` | None | That widget's secret key. |
 
 Set both to put [Cloudflare Turnstile](https://www.cloudflare.com/application-services/products/turnstile/)'s
-check on three forms: signing up with an email and password, a guest's RSVP in every layout, and
-reporting an event page. Each form's submit waits until the check has passed, which for most
+check on these forms: signing up with an email and password, a guest's RSVP in every layout,
+reporting an event page, and the code that opens an invite-only event's locked page. Each form's submit waits until the check has passed, which for most
 visitors happens by itself in a second or two. Every time a form is sent, a guest's code to prove
 their email included, the app asks Cloudflare whether the check really passed before it does
 anything with the form beyond counting it against the rate limits. A form that fails it says

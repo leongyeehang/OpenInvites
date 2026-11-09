@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { boolean, check, date, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, time, timestamp, unique, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { ALBUM_VISIBILITIES, PHOTO_STATUSES } from "../album/visibility";
 import { DEFAULT_REGISTRATION_MODE, REGISTRATION_MODES } from "../instance/registration";
 import { HOME_POSTER_MODES } from "../instance/home";
 import { DEFAULT_LIMITS } from "../instance/limits";
@@ -10,6 +11,7 @@ import { VOTE_ANSWERS } from "../polls/poll";
 import { APPROVALS } from "../rsvps/admission";
 import { CONTACT_FIELDS, SAVED_STATUSES } from "../rsvps/form";
 import { DEFAULT_GUEST_LIST_VISIBILITY, GUEST_LIST_VISIBILITIES } from "../rsvps/visibility";
+import { SCHEDULE_REFRESH } from "../schedule/schedule";
 import type { Theme } from "../themes/theme";
 import { UPLOAD_ORIGINS } from "../uploads/origin";
 
@@ -169,6 +171,10 @@ export const guestListVisibility = pgEnum("guest_list_visibility", GUEST_LIST_VI
 
 export const contactField = pgEnum("contact_field", CONTACT_FIELDS);
 
+export const scheduleRefresh = pgEnum("schedule_refresh", SCHEDULE_REFRESH);
+
+export const albumVisibility = pgEnum("album_visibility", ALBUM_VISIBILITIES);
+
 // An event belongs to one host. Its time is an instant plus the event's own IANA zone; all-day
 // events store midnight in that zone with the flag set. A draft may have no date yet (M4 spec, "A
 // draft with no date"): it is made blank and dated in the editor, and cannot be published until
@@ -248,6 +254,22 @@ export const event = pgTable(
     // the event has no date and may still be published.
     pollOpenedAt: timestamp("poll_opened_at", { withTimezone: true }),
     pollClosedAt: timestamp("poll_closed_at", { withTimezone: true }),
+    // How guests' open pages pick up a changed schedule (M6 spec, "The schedule"): by re-reading
+    // themselves every minute while the event is on, or only when opened. Saved with the schedule.
+    scheduleRefresh: scheduleRefresh("schedule_refresh").notNull().default("minute"),
+    // Who sees the album, and whether a guest's photos wait for a host's approval before anyone
+    // else sees them (M6 spec, "The album: who sees it, and approval"). Turning approval off
+    // approves every photo still waiting (events/repository.ts, updateEvent). Whether the hosts
+    // are emailed when photos wait for them; nothing waits until approval is on, so it starts on.
+    albumVisibility: albumVisibility("album_visibility").notNull().default("replied"),
+    albumApprovalRequired: boolean("album_approval_required").notNull().default(false),
+    notifyOnPhoto: boolean("notify_on_photo").notNull().default(true),
+    // Whether the host writes each invited guest a letter (M6 spec, "Personal letters"). Set only
+    // from the Invites page, never by the Settings sheet, whose every save posts every setting.
+    lettersEnabled: boolean("letters_enabled").notNull().default(false),
+    // Whether the event page opens only to the people on its invite list (M6 spec, "Invite-only
+    // events"). Off for every event until a host turns it on.
+    inviteOnly: boolean("invite_only").notNull().default(false),
     ...timestamps,
   },
   (table) => [
@@ -274,6 +296,27 @@ export const dateOption = pgTable(
     position: integer("position").notNull(),
   },
   (table) => [index("date_option_event_id_idx").on(table.eventId)],
+);
+
+// One item of an event's schedule (M6 spec, "The schedule"): a day and a start time in the event's
+// zone, kept as wall-clock time as a date option's are, an optional end time on that day, a title,
+// a place and a note. Up to fifty per event, in day-and-time order, which is their position.
+export const scheduleItem = pgTable(
+  "schedule_item",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    day: date("day", { mode: "string" }).notNull(),
+    startTime: time("start_time").notNull(),
+    endTime: time("end_time"),
+    title: text("title").notNull(),
+    place: text("place").notNull().default(""),
+    note: text("note").notNull().default(""),
+  },
+  (table) => [index("schedule_item_event_id_idx").on(table.eventId)],
 );
 
 export const voteAnswer = pgEnum("vote_answer", VOTE_ANSWERS);
@@ -422,11 +465,22 @@ export const invite = pgTable(
       .references(() => event.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     email: text("email"),
+    // As the host typed it, trimmed, of the RSVP form's shape (M6 spec, "The invite list").
+    phone: text("phone"),
+    // The host's letter to this guest, plain text with its line breaks; empty when there is none
+    // (M6 spec, "Personal letters").
+    letter: text("letter").notNull().default(""),
     token: text("token").notNull().unique(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     // The first time the link was opened.
     openedAt: timestamp("opened_at", { withTimezone: true }),
     rsvpId: uuid("rsvp_id").references(() => rsvp.id, { onDelete: "set null" }),
+    // For the invitation email (M6 spec, "The invitation email"): the secret in its stop link, in
+    // clear as an RSVP's is; when the guest stopped mail with it; and when the invitation was last
+    // sent.
+    mailToken: text("mail_token").unique(),
+    mailStoppedAt: timestamp("mail_stopped_at", { withTimezone: true }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
   },
   (table) => [index("invite_event_id_idx").on(table.eventId)],
 );
@@ -619,10 +673,13 @@ export const comment = pgTable(
   ],
 );
 
+export const photoStatus = pgEnum("photo_status", PHOTO_STATUSES);
+
 // A photo in an event's album (M4 ticket 11): added from the event's start by a guest whose reply
 // is approved, through their RSVP, or by a host, and kept as two renditions under its own id
 // (album/files.ts). It goes with the event, the RSVP and the host's account, and its files with it
-// (album/repository.ts).
+// (album/repository.ts). A guest's photo waits, pending, while the host approves photos (M6
+// ticket 03); every photo from before that is approved.
 export const photo = pgTable(
   "photo",
   {
@@ -634,6 +691,7 @@ export const photo = pgTable(
     hostId: uuid("host_id").references(() => user.id, { onDelete: "cascade" }),
     width: integer("width").notNull(),
     height: integer("height").notNull(),
+    status: photoStatus("status").notNull().default("approved"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

@@ -1,11 +1,11 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Download, ImagePlus, Trash2, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Download, ImagePlus, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
-import { useRef, useState, useTransition } from "react";
-import { deletePhotoAction } from "@/album/actions";
+import { useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
+import { approvePhotoAction, deletePhotoAction } from "@/album/actions";
 import { MAX_PHOTOS_AT_ONCE } from "@/album/album";
 import type { AlbumUploadResult } from "@/app/api/albums/[slug]/route";
 import {
@@ -20,8 +20,19 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 
-// One photo as the album shows it: its two sizes, who added it, and whether this viewer may delete it.
-export type ShownPhoto = { id: string; name: string; thumb: string; large: string; width: number; height: number; deletable: boolean };
+// One photo as the album shows it: its two sizes, who added it, whether this viewer may delete it,
+// whether it waits for a host's approval (M6 ticket 03), and whether this viewer may approve it.
+export type ShownPhoto = {
+  id: string;
+  name: string;
+  thumb: string;
+  large: string;
+  width: number;
+  height: number;
+  deletable: boolean;
+  pending: boolean;
+  approvable: boolean;
+};
 
 type Line = { name: string; text: string; ok: boolean };
 
@@ -29,8 +40,11 @@ type Line = { name: string; text: string; ok: boolean };
 // deleted, since the thumbnail that opened it goes with it.
 export const ALBUM_HEADING = "album-heading";
 
+const NONE_APPROVING: ReadonlySet<string> = new Set();
+
 // The album (M4 ticket 11): a grid of the photos, oldest first, each opening the viewer; and Add
-// photos, which sends up to ten at once and says what became of each.
+// photos, which sends up to ten at once and says what became of each. A photo waiting for approval
+// is marked under its thumbnail, and to a host has Approve and Delete there (M6 ticket 03).
 export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: ShownPhoto[]; maxMegabytes: number }) {
   const t = useTranslations("EventPage.album");
   const router = useRouter();
@@ -38,6 +52,17 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
   const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState<string>();
   const [, startRefresh] = useTransition();
+  // The photos being approved, from under their thumbnails or in the viewer: only their own Approve
+  // waits, and every photo is back to none once the approvals and the page's redrawing are done.
+  const [approving, markApproving] = useOptimistic(NONE_APPROVING, (ids, id: string) => new Set(ids).add(id));
+  const [, startApproving] = useTransition();
+  const approve = (id: string, then: () => void) =>
+    startApproving(async () => {
+      markApproving(id);
+      await approvePhotoAction(slug, id);
+      then();
+      router.refresh();
+    });
   const [shown, setShown] = useState<number>();
   // The photo last shown, whose thumbnail has the focus back once the viewer closes.
   const last = useRef<number | undefined>(undefined);
@@ -62,7 +87,7 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
             name: files[index].name,
             ok: result.ok,
             text: result.ok
-              ? t("added", { name: files[index].name })
+              ? t(result.pending ? "addedPending" : "added", { name: files[index].name })
               : t("refusedFile", { name: files[index].name, reason: t(`problems.${result.problem}`, { max: maxMegabytes }) }),
           })),
         );
@@ -83,7 +108,7 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
       ) : (
         <ul className="grid grid-cols-3 gap-1.5">
           {photos.map((photo, index) => (
-            <li key={photo.id}>
+            <li key={photo.id} className="flex flex-col gap-1">
               <button
                 ref={(button) => {
                   thumbnails.current[index] = button;
@@ -96,8 +121,45 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
                 className="block aspect-square w-full cursor-pointer overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized */}
-                <img src={photo.thumb} alt={t("open", { n: index + 1, name: photo.name })} loading="lazy" className="size-full object-cover" />
+                <img src={photo.thumb} alt={t(photo.pending ? "openPending" : "open", { n: index + 1, name: photo.name })} loading="lazy" className="size-full object-cover" />
               </button>
+              {photo.pending && <p className="text-xs text-theme-text-muted">{t("pending")}</p>}
+              {photo.approvable && (
+                // Two round buttons in one row, which fit the narrowest column (the Thread's, about
+                // 80px at a phone's width): Approve, in the accent, and Delete. Approve has no word
+                // of its own, so its name is its tooltip too, and while it approves it is dimmed and
+                // busy (M6 ticket 10).
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    aria-label={t("approvePhoto", { n: index + 1, name: photo.name })}
+                    title={t("approvePhoto", { n: index + 1, name: photo.name })}
+                    disabled={approving.has(photo.id)}
+                    aria-busy={approving.has(photo.id)}
+                    onClick={() =>
+                      // The controls go once it is approved; the focus stays with its photo.
+                      approve(photo.id, () => thumbnails.current[index]?.focus())
+                    }
+                    className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-theme-accent text-theme-on-accent hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text disabled:cursor-wait disabled:opacity-50"
+                  >
+                    <Check className="size-4" aria-hidden />
+                  </button>
+                  <DeletePhoto
+                    slug={slug}
+                    id={photo.id}
+                    // The thumbnail goes with it.
+                    focusOnceDeleted={() => document.getElementById(ALBUM_HEADING)?.focus()}
+                  >
+                    <button
+                      type="button"
+                      aria-label={t("deletePhoto", { n: index + 1, name: photo.name })}
+                      className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-theme-glass-strong hover:bg-theme-glass focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
+                    >
+                      <Trash2 className="size-4" aria-hidden />
+                    </button>
+                  </DeletePhoto>
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -147,6 +209,8 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
           setShown(index);
         }}
         slug={slug}
+        approving={approving}
+        approve={approve}
         onClosed={(deleted) => {
           if (deleted) document.getElementById(ALBUM_HEADING)?.focus();
           else if (last.current !== undefined) thumbnails.current[last.current]?.focus();
@@ -157,25 +221,30 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
 }
 
 // The viewer: the photo full screen, the previous and next by the buttons, the arrow keys or a
-// swipe, who added it, Download (the large rendition), Delete where this viewer may, and Escape.
-// Closed, the focus is back on the photo's thumbnail, or on the album's heading once it is deleted.
+// swipe, who added it, Download (the large rendition), Approve where this viewer may (M6 ticket
+// 03), which stays on the photo and waits, as the one under its thumbnail does, while that photo
+// is being approved, Delete where this viewer may, and Escape. Closed, the focus is back on the
+// photo's thumbnail, or on the album's heading once it is deleted.
 function Viewer({
   photos,
   index,
   onIndex,
   slug,
+  approving,
+  approve,
   onClosed,
 }: {
   photos: ShownPhoto[];
   index: number | undefined;
   onIndex: (index: number | undefined) => void;
   slug: string;
+  approving: ReadonlySet<string>;
+  approve: (id: string, then: () => void) => void;
   onClosed: (deleted: boolean) => void;
 }) {
   const t = useTranslations("EventPage.album");
-  const router = useRouter();
-  const [deleting, startDeleting] = useTransition();
   const deleted = useRef(false);
+  const download = useRef<HTMLAnchorElement>(null);
   const swipe = useRef<number | undefined>(undefined);
   const photo = index === undefined ? undefined : photos[index];
   const go = (step: number) => index !== undefined && photos.length > 0 && onIndex((index + step + photos.length) % photos.length);
@@ -213,9 +282,27 @@ function Viewer({
               <header className="flex items-center gap-3 px-4 pt-[max(env(safe-area-inset-top),0.75rem)] pb-2">
                 <div className="min-w-0 flex-1">
                   <Dialog.Title className="text-sm font-medium">{t("viewer", { n: index + 1, count: photos.length })}</Dialog.Title>
-                  <Dialog.Description className="text-xs text-white/70">{t("by", { name: photo.name })}</Dialog.Description>
+                  <Dialog.Description className="text-xs text-white/70">
+                    {t("by", { name: photo.name })}
+                    {photo.pending && ` · ${t("pending")}`}
+                  </Dialog.Description>
                 </div>
+                {photo.approvable && (
+                  <button
+                    type="button"
+                    disabled={approving.has(photo.id)}
+                    onClick={() =>
+                      // Approve goes once it is approved; the viewer stays on the photo.
+                      approve(photo.id, () => download.current?.focus())
+                    }
+                    className="inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-full bg-white/15 px-4 text-sm font-medium hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-white disabled:cursor-wait"
+                  >
+                    <Check className="size-4" aria-hidden />
+                    {t("approve")}
+                  </button>
+                )}
                 <a
+                  ref={download}
                   href={photo.large}
                   download
                   className="inline-flex size-10 items-center justify-center rounded-full hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white"
@@ -224,41 +311,23 @@ function Viewer({
                   <Download className="size-5" aria-hidden />
                 </a>
                 {photo.deletable && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label={t("delete")}
-                        className="inline-flex size-10 cursor-pointer items-center justify-center rounded-full hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white"
-                      >
-                        <Trash2 className="size-5" aria-hidden />
-                      </button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="z-80">
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
-                        <AlertDialogDescription>{t("deleteText")}</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel type="button">{t("keep")}</AlertDialogCancel>
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          disabled={deleting}
-                          onClick={() =>
-                            startDeleting(async () => {
-                              await deletePhotoAction(slug, photo.id);
-                              deleted.current = true;
-                              onIndex(undefined);
-                              router.refresh();
-                            })
-                          }
-                        >
-                          {t("deleteConfirm")}
-                        </Button>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <DeletePhoto
+                    slug={slug}
+                    id={photo.id}
+                    className="z-80"
+                    onDeleted={() => {
+                      deleted.current = true;
+                      onIndex(undefined);
+                    }}
+                  >
+                    <button
+                      type="button"
+                      aria-label={t("delete")}
+                      className="inline-flex size-10 cursor-pointer items-center justify-center rounded-full hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white"
+                    >
+                      <Trash2 className="size-5" aria-hidden />
+                    </button>
+                  </DeletePhoto>
                 )}
                 <Dialog.Close
                   aria-label={t("close")}
@@ -269,7 +338,7 @@ function Viewer({
               </header>
               <div className="relative flex min-h-0 flex-1 items-center justify-center px-2 pb-[max(env(safe-area-inset-bottom),1rem)]">
                 {/* eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized */}
-                <img src={photo.large} alt={t("open", { n: index + 1, name: photo.name })} width={photo.width} height={photo.height} className="max-h-full max-w-full object-contain select-none" draggable={false} />
+                <img src={photo.large} alt={t(photo.pending ? "openPending" : "open", { n: index + 1, name: photo.name })} width={photo.width} height={photo.height} className="max-h-full max-w-full object-contain select-none" draggable={false} />
                 {photos.length > 1 && (
                   <>
                     <button
@@ -296,5 +365,71 @@ function Viewer({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+// Delete, confirmed, for the photo `id`, opened by the button it is given: in the viewer's header,
+// and under a thumbnail waiting for approval (M6 ticket 03). `onDeleted` is told once the photo
+// is gone; `focusOnceDeleted` puts the focus somewhere that stays, as the confirmation closes on a
+// photo deleted. Kept, the focus goes back to the button.
+function DeletePhoto({
+  slug,
+  id,
+  className,
+  onDeleted,
+  focusOnceDeleted,
+  children,
+}: {
+  slug: string;
+  id: string;
+  className?: string;
+  onDeleted?: () => void;
+  focusOnceDeleted?: () => void;
+  children: ReactNode;
+}) {
+  const t = useTranslations("EventPage.album");
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [deleting, startDeleting] = useTransition();
+  const deleted = useRef(false);
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
+      <AlertDialogContent
+        className={className}
+        onOpenAutoFocus={() => {
+          deleted.current = false;
+        }}
+        onCloseAutoFocus={(event) => {
+          if (!deleted.current || !focusOnceDeleted) return;
+          event.preventDefault();
+          focusOnceDeleted();
+        }}
+      >
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
+          <AlertDialogDescription>{t("deleteText")}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel type="button">{t("keep")}</AlertDialogCancel>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={deleting}
+            onClick={() =>
+              startDeleting(async () => {
+                await deletePhotoAction(slug, id);
+                deleted.current = true;
+                setOpen(false);
+                onDeleted?.();
+                router.refresh();
+              })
+            }
+          >
+            {t("deleteConfirm")}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

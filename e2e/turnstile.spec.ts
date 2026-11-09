@@ -1,11 +1,12 @@
-import { createPublished, openMore } from "./events";
+import { createPublished, openMore, openSettings, savedAfter } from "./events";
 import { expectSignedInAs, latestMailTo, mailCountTo, MAILPIT, newHost, OPERATOR, PASSWORD, signIn, submitSignUp } from "./hosts";
 import { clientAddress, expect, scriptsNotFromTheApp, test, type APIRequestContext, type Page, type Route } from "./test";
 
 // Ticket 09 (M3): Cloudflare Turnstile guards the email sign-up form, the RSVP form in every
-// layout, and the report form. `app-social` (port 3001) runs with Cloudflare's published
-// always-pass test keys: the widget is there and passes for anyone, and the server's check of each
-// token is a real call to Cloudflare. `app` (port 3000) has no keys, and nothing changes there. A
+// layout, and the report form; since M6, the locked page of an invite-only event too. `app-social`
+// (port 3001) runs with Cloudflare's published always-pass test keys: the widget is there and
+// passes for anyone, and the server's check of each token is a real call to Cloudflare. `app`
+// (port 3000) has no keys, and nothing changes there. A
 // form's submit waits for the widget to pass, and Playwright's click waits for it to be enabled.
 // A post with a token waits on Cloudflare's answer (five seconds at most, and slowest just after
 // the container starts), so what follows one is given longer than Playwright's default.
@@ -356,6 +357,52 @@ test.describe("on an instance whose operator has set Turnstile's keys", () => {
     await expect(sheet.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
 
     await host.context.close();
+  });
+
+  // M6 final review: the locked page of an invite-only event asks for a code by email, so it carries
+  // the check as the RSVP form does, for asking and for the code alike.
+  test("an invite-only event's locked page carries the check: a code asked for without its token is refused, and goes once the check has passed", async ({
+    browser,
+    request,
+  }) => {
+    test.slow();
+    const host = await createPublished(browser, request, "turnstile-locked", { title: "Ada’s secret supper", start: "2027-03-06T19:00", plusOnes: "0" });
+    const meiEmail = newHost("turnstile-locked-mei").email;
+    const settings = await openSettings(host.page);
+    await savedAfter(host.page, () =>
+      settings.getByRole("group", { name: "Guests", exact: true }).getByLabel("Invite-only: only people on the invite list can open the invitation", { exact: true }).check(),
+    );
+    await settings.getByRole("link", { name: "Manage the invite list" }).click();
+    await host.page.getByLabel("Name", { exact: true }).fill("Mei Lin");
+    await host.page.getByLabel("Email", { exact: true }).fill(meiEmail);
+    await host.page.getByRole("button", { name: "Make link" }).click();
+    await expect(host.page.getByRole("status").filter({ hasText: /^Made a link for / })).toHaveText("Made a link for Mei Lin.", { timeout: 15_000 });
+
+    const guest = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
+    const page = await guest.newPage();
+    await page.goto(host.link);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("A private invitation");
+    await expect(botCheck(page)).toBeVisible();
+    await page.getByLabel("Your email").fill(meiEmail);
+    const ask = page.getByRole("button", { name: "Send me a code" });
+    await expect(ask).toBeEnabled();
+    expect(await blankTheToken(page)).toBe(1);
+    await ask.click();
+    await expect(page.getByText(CHECK_FAILED)).toBeVisible({ timeout: 15_000 });
+
+    // The widget starts again, and the code goes once it has passed; the code waits for it too.
+    await passedAgain(page);
+    await ask.click();
+    await expect(page.getByText("If that email is on the invite list, a code is on its way.")).toBeVisible({ timeout: 15_000 });
+    await expect(botCheck(page)).toBeVisible();
+    const code = (await latestMailTo(request, meiEmail)).match(/^([0-9]{6})\r?$/m)?.[1];
+    await page.getByLabel("Code", { exact: true }).fill(code!);
+    await passedAgain(page);
+    await page.getByRole("button", { name: "Open the invitation" }).click();
+    await expect(page.getByRole("heading", { name: "Ada’s secret supper" })).toBeVisible({ timeout: 15_000 });
+    // The refused post sent nothing: the one code.
+    expect(await mailCountTo(request, meiEmail)).toBe(1);
+    await Promise.all([guest.close(), host.context.close()]);
   });
 });
 

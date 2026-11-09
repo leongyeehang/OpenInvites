@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "./test";
+import { createDraft, openSettings, publishInEditor, savedAfter } from "./events";
 import { dismissOperatorWelcome, newHost, offersSiteSettings, signUp, toSiteSettings } from "./hosts";
 import { recreate } from "./instances";
 
@@ -115,4 +116,29 @@ test("the sign-in page of an instance without mail has no sign-in link form", as
   await expect(page.getByLabel("Password")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Email me a sign-in link" })).toHaveCount(0);
   await expect(page.getByLabel("Email for the sign-in link")).toHaveCount(0);
+});
+
+// From invites.spec.ts (M6 ticket 06), here as this project owns this instance: without mail, an
+// invite with an email on a published event has its link to copy and no Send, and the page offers
+// no "Send to everyone not yet sent". Once invite-only is on, the page says that only the people
+// without an email can get in (M6 ticket 08).
+test("an invite list without mail has links to copy and no way to email the invitation", async () => {
+  await createDraft(firstHost, { title: "Ada’s supper club", start: "2027-03-06T19:00" });
+  await publishInEditor(firstHost);
+  await firstHost.goto(`${firstHost.url()}/invites`);
+  await firstHost.getByLabel("Name", { exact: true }).fill("Mei Lin");
+  await firstHost.getByLabel("Email", { exact: true }).fill("mei@example.test");
+  await firstHost.getByRole("button", { name: "Make link" }).click();
+  await expect(firstHost.getByRole("status")).toHaveText("Made a link for Mei Lin.", { timeout: 15_000 });
+  await expect(firstHost.getByRole("button", { name: "Copy link for Mei Lin" })).toBeVisible();
+  await expect(firstHost.getByRole("button", { name: /^Send/ })).toHaveCount(0);
+  await expect(firstHost.getByText("Invitations can be emailed while the event is published.")).toHaveCount(0);
+
+  await firstHost.goto(firstHost.url().replace(/\/invites$/, ""));
+  const sheet = await openSettings(firstHost);
+  await savedAfter(firstHost, () =>
+    sheet.getByRole("group", { name: "Guests", exact: true }).getByLabel("Invite-only: only people on the invite list can open the invitation", { exact: true }).check(),
+  );
+  await sheet.getByRole("link", { name: "Manage the invite list" }).click();
+  await expect(firstHost.getByText("This site cannot send email, so only the people here without an email can get in.")).toBeVisible();
 });

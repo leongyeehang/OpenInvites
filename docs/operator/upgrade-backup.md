@@ -35,6 +35,35 @@ a newer copy may move it to a later one: that needs nothing more than `docker co
 Going back to an older release after a newer one has migrated the database is not supported.
 Restore the backup you took instead.
 
+### Upgrading to 0.6
+
+0.6 adds invite-only events, personal letters and invitations emailed from the invite list, a
+choice of who sees an event's album with photos approved before they show, and a schedule on the
+event page that follows the clock. Upgrading needs nothing of you: three migrations, `0043` to
+`0045`, run as the app starts. They add tables and columns only, so nothing is back-filled and no
+existing event changes until its host chooses:
+
+- **Every new setting starts as events behaved before.** Invite-only is off and so are personal
+  letters. The album is seen by every guest who replied, as before, and photos show without
+  approval; every photo already in an album counts as approved. "Email the hosts when photos need
+  approval" is on, but sends nothing until a host turns approval on. A schedule is refreshed on
+  guests' open pages every minute while the event is on, and an event has none until its host
+  lists one.
+- **Three new emails, all with mail configured** ([configuration.md](configuration.md#mail)): the
+  invitation a host sends from the invite list, with their letter and the guest's personal invite
+  link and a stop link; the code an invited guest asks for on an invite-only event's locked page;
+  and the hosts' email when a guest's photos wait for their approval. The first two count against
+  `RATE_LIMIT_MAIL`, as the other emails a request sends do; the third comes from an upload, which
+  `RATE_LIMIT_UPLOAD` bounds. Personal invite links, which the 0.4 note says the app never emails,
+  can now be emailed by the host.
+- **Photos per event counts the photos awaiting approval** too, so a host approving photos cannot
+  take an album past your limit.
+- **Without mail, an invite-only event opens only to its hosts and to the guests invited without
+  an email**, by their personal invite links: nobody else can be sent the code. The Invites page
+  tells hosts so.
+
+There are no new environment variables and `compose.yaml` gains no service.
+
 ### Upgrading to 0.5
 
 0.5 redesigns how events are made and shown, and adds reactions, date polls, a photo album and

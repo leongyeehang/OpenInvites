@@ -84,7 +84,7 @@ async function notFoundHere(pathname: string, headers: Headers): Promise<boolean
   // A personal invite link no invite has, never made or deleted (i/[token]).
   const inviteLink = pathname.match(/^\/i\/([^/]+)$/);
   if (inviteLink) return !(await findInviteByToken(decoded(inviteLink[1])));
-  // A stop link, at the foot of an email to a guest, that no RSVP or voter has (m/[token]).
+  // A stop link, at the foot of an email to a guest, that no RSVP, voter or invite has (m/[token]).
   const stopLink = pathname.match(/^\/m\/([^/]+)$/);
   if (stopLink) return !(await findByMailToken(decoded(stopLink[1])));
   // A host invitation link that was never made (host-invitation/[token]); one that is used, revoked,

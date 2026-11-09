@@ -19,10 +19,20 @@ export type PollOption = { id: string; day: string; startTime: string | null; en
 
 export type PollError = "pollTooFew" | "pollTooMany" | "pollDayInvalid" | "pollTimeInvalid" | "pollEndBeforeStart" | "pollDuplicate";
 
+// A day and a time of day as a date and a time field give them; the schedule reads them too.
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
-const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+export const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const FIELD_TIME = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d{1,3})?)?$/;
 
-function isDay(value: string): boolean {
+// A time as a time field posts it, trimmed, kept to its minutes: a field asked for seconds gives
+// "19:00:00" or "19:00:00.000", which is "19:00". Anything else is left whole, so TIME refuses it,
+// and "19:00junk" is never taken for 19:00.
+export function fieldTime(typed: string): string {
+  const time = typed.trim();
+  return FIELD_TIME.test(time) ? time.slice(0, 5) : time;
+}
+
+export function isDay(value: string): boolean {
   if (!DAY.test(value)) return false;
   const [year, month, day] = value.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
@@ -33,7 +43,7 @@ function isDay(value: string): boolean {
 // time "HH:MM", an end only after a start and later than it, and no candidate twice.
 export function parseOptions(posted: OptionInput[]): { ok: true; options: Omit<PollOption, "id">[] } | { ok: false; error: PollError } {
   const rows = posted
-    .map((row) => ({ day: row.day.trim(), startTime: row.startTime.trim().slice(0, 5), endTime: row.endTime.trim().slice(0, 5) }))
+    .map((row) => ({ day: row.day.trim(), startTime: fieldTime(row.startTime), endTime: fieldTime(row.endTime) }))
     .filter((row) => row.day || row.startTime || row.endTime);
   if (rows.length < MIN_OPTIONS) return { ok: false, error: "pollTooFew" };
   if (rows.length > MAX_OPTIONS) return { ok: false, error: "pollTooMany" };

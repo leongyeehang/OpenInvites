@@ -39,6 +39,12 @@ const source: Event = {
   retentionWarnedAt: new Date("2028-02-05T00:00:00Z"),
   pollOpenedAt: null,
   pollClosedAt: null,
+  scheduleRefresh: "reload",
+  albumVisibility: "hosts",
+  albumApprovalRequired: true,
+  notifyOnPhoto: false,
+  lettersEnabled: true,
+  inviteOnly: true,
   createdAt: new Date("2026-12-01T00:00:00Z"),
   updatedAt: new Date("2026-12-02T00:00:00Z"),
 };
@@ -80,7 +86,14 @@ describe("duplicateInput", () => {
       remindersEnabled: false,
       commentsEnabled: false,
       notifyOnComment: false,
+      albumVisibility: "hosts",
+      albumApprovalRequired: true,
+      notifyOnPhoto: false,
     });
+  });
+
+  it("keeps personal letters and invite-only, though not the invites themselves", () => {
+    expect(copy.event).toMatchObject({ lettersEnabled: true, inviteOnly: true });
   });
 
   it("keeps the whole look, its poster naming the copy's own picture", () => {
@@ -96,7 +109,7 @@ describe("duplicateInput", () => {
   });
 
   it("copies nothing that belongs to the source alone", () => {
-    for (const own of ["id", "hostId", "slug", "state", "publishedAt", "weekReminderSentAt", "dayReminderSentAt", "retentionWarnedAt", "pollOpenedAt", "pollClosedAt", "createdAt", "updatedAt"]) {
+    for (const own of ["id", "hostId", "slug", "state", "publishedAt", "weekReminderSentAt", "dayReminderSentAt", "retentionWarnedAt", "pollOpenedAt", "pollClosedAt", "scheduleRefresh", "createdAt", "updatedAt"]) {
       expect(copy.event).not.toHaveProperty(own);
     }
   });

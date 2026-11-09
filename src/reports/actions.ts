@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { requireOperator } from "@/auth/session";
 import { findEventBySlug } from "@/events/repository";
 import { isSlug } from "@/events/slug";
+import { gateFor } from "@/invites/gate";
 import { isUuid } from "@/lib/uuid";
 import { consume } from "@/rate-limit/rate-limit";
 import { checkTurnstile } from "@/turnstile/verify";
@@ -34,6 +35,8 @@ export async function sendReportAction(slug: string, _: ReportState, formData: F
   if ((await checkTurnstile(formData, requestHeaders)) === "failed") return { error: "checkFailed", ...typed };
   const event = isSlug(slug) ? await findEventBySlug(slug) : undefined;
   if (!event || event.state === "draft") return { error: "closed", ...typed };
+  // Of an invite-only event, only those in may report it, as only they see its report form.
+  if ((await gateFor(event)).page !== "invitation") return { error: "closed", ...typed };
 
   const parsed = parseReport(typed);
   if (!parsed.ok) return { error: parsed.error, ...typed };

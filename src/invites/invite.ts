@@ -1,40 +1,94 @@
 import { baseUrl } from "@/instance/env";
-import { isEmail, MAX_NAME } from "@/rsvps/form";
+import { isEmail, isPhone, MAX_NAME } from "@/rsvps/form";
 import { generateMailToken } from "@/rsvps/token";
 
 // A personal invite: the personal invite link (CONTEXT.md) a host makes for one named guest, so
 // their RSVP is tied to them without asking who they are (spec, "Personal invite links"). Opening
-// it fills in the guest's name, and the email the host gave, which counts as proven; the RSVP saved
-// from it is tied to the invite, and the link then works as that guest's edit link.
+// it fills in the guest's name, and the email the host gave, which counts as proven, and the phone;
+// the RSVP saved from it is tied to the invite, and the link then works as that guest's edit link.
 
 // The most an event can have (spec, "Operator limits").
 export const MAX_INVITES = 500;
 
-// Whether an event that already has this many invites may have one more.
-export function roomForInvite(made: number): boolean {
-  return made < MAX_INVITES;
+// Whether an event that already has this many invites may have one more, or several more at once:
+// a pasted list is made whole or not at all.
+export function roomForInvite(made: number, adding = 1): boolean {
+  return made + adding <= MAX_INVITES;
 }
 
-// What the host's form posts, before any of it is trusted.
-export type InviteFields = { name: string; email: string };
+// The longest letter a host may write to one guest (M6 spec, "Personal letters").
+export const MAX_LETTER = 1000;
 
-// One invite, once trusted: the guest's name, and their email when the host gave one.
-export type InviteInput = { name: string; email: string | null };
+// What the host's form posts, before any of it is trusted. The letter is blank unless the event
+// has personal letters on, when the form offers it.
+export type InviteFields = { name: string; email: string; phone: string; letter: string };
 
-export type InviteError = "nameRequired" | "nameTooLong" | "emailInvalid";
+// One invite, once trusted: the guest's name, their email and phone when the host gave them, and
+// the host's letter to them, empty when there is none (M6 spec, "The invite list").
+export type InviteInput = { name: string; email: string | null; phone: string | null; letter: string };
+
+export type InviteError = "nameRequired" | "nameTooLong" | "emailInvalid" | "phoneInvalid" | "letterTooLong";
 
 export type ParsedInvite = { ok: true; invite: InviteInput } | { ok: false; error: InviteError };
 
-// The rules of the host's invite form. The name and the email become the guest's own when they
-// reply, so they are held to the RSVP form's rules: a name of up to 80 characters, trimmed, and an
-// email that is optional, trimmed, and shaped like one (rsvps/form.ts).
+// The rules of the host's invite form. The name, the email and the phone become the guest's own
+// when they reply, so they are held to the RSVP form's rules: a name of up to 80 characters,
+// trimmed, and an email and a phone that are optional, trimmed, and shaped like one
+// (rsvps/form.ts).
 export function parseInvite(fields: InviteFields): ParsedInvite {
   const name = fields.name.trim();
   if (!name) return { ok: false, error: "nameRequired" };
   if (name.length > MAX_NAME) return { ok: false, error: "nameTooLong" };
   const email = fields.email.trim();
   if (email && !isEmail(email)) return { ok: false, error: "emailInvalid" };
-  return { ok: true, invite: { name, email: email || null } };
+  const phone = fields.phone.trim();
+  if (phone && !isPhone(phone)) return { ok: false, error: "phoneInvalid" };
+  const letter = parseLetter(fields.letter);
+  if (!letter.ok) return letter;
+  return { ok: true, invite: { name, email: email || null, phone: phone || null, letter: letter.letter } };
+}
+
+// A letter (M6 spec, "Personal letters"): plain text, trimmed, its line breaks kept, of up to
+// 1000 characters. A browser posts each line break as two characters, where the field counted one,
+// so they are made one again before the letter is measured.
+export function parseLetter(typed: string): { ok: true; letter: string } | { ok: false; error: "letterTooLong" } {
+  const letter = typed.replace(/\r\n?/g, "\n").trim();
+  if (letter.length > MAX_LETTER) return { ok: false, error: "letterTooLong" };
+  return { ok: true, letter };
+}
+
+// The host's letter to one guest, as the invitation shows it, and whom it is for.
+export type Letter = { name: string; body: string };
+
+// The letter the invitation shows, and whom it is for (M6 ticket 09): the invite's letter, while
+// the event has personal letters on and the letter is not blank. Its text is as the host saved it,
+// already trimmed, with its line breaks. Nothing otherwise: a letter kept while letters are off
+// stays with the host.
+export function letterFor(event: { lettersEnabled: boolean }, invite: { name: string; letter: string } | undefined): Letter | undefined {
+  if (!event.lettersEnabled || !invite || !invite.letter.trim()) return undefined;
+  return { name: invite.name, body: invite.letter };
+}
+
+export type ParsedInviteLines = { ok: true; invites: InviteInput[] } | { ok: false; line: number; error: InviteError };
+
+// The host's pasted list, "Add several" (M6 spec, "The invite list"): one person per line, as
+// `Name, email, phone`, the email and the phone left blank or left out, each line held to the
+// form's rules and none with a letter. A comma is either the ASCII one or the full-width "，" a
+// Chinese keyboard types. Blank lines are skipped; anything after the second comma is the phone,
+// and is refused as one. The first line that breaks a rule is named, numbered as the
+// host sees it, and nobody is made; a list with nobody on it is refused at its first line.
+export function parseInviteLines(text: string): ParsedInviteLines {
+  const invites: InviteInput[] = [];
+  const lines = text.split(/\r\n?|\n/);
+  for (const [at, line] of lines.entries()) {
+    if (!line.trim()) continue;
+    const [name, email = "", ...phone] = line.split(/[,，]/);
+    const parsed = parseInvite({ name, email, phone: phone.join(","), letter: "" });
+    if (!parsed.ok) return { ok: false, line: at + 1, error: parsed.error };
+    invites.push(parsed.invite);
+  }
+  if (invites.length === 0) return { ok: false, line: 1, error: "nameRequired" };
+  return { ok: true, invites };
 }
 
 // How an invite stands, as the host's list shows it: replied once an RSVP was saved through it,
@@ -44,6 +98,81 @@ export type InviteState = "notOpened" | "opened" | "replied";
 export function inviteState(invite: { openedAt: Date | null; rsvpId: string | null }): InviteState {
   if (invite.rsvpId) return "replied";
   return invite.openedAt ? "opened" : "notOpened";
+}
+
+// Whether the invitation can be emailed to this invite's guest (M6 spec, "The invitation email"):
+// the host gave an email, and the guest has not stopped mail about the event, with the link at the
+// foot of an earlier invitation or with the one at the foot of mail about the reply they made
+// through the invite: a stop is for the whole event. Whether the site has mail is the caller's to
+// ask.
+export function canMailInvite(invite: { email: string | null; mailStoppedAt: Date | null; replyMailStoppedAt: Date | null }): boolean {
+  return invite.email !== null && !mailStopped(invite);
+}
+
+// Whether the guest has stopped mail about the event through either link (canMailInvite).
+export function mailStopped(invite: { mailStoppedAt: Date | null; replyMailStoppedAt: Date | null }): boolean {
+  return invite.mailStoppedAt !== null || invite.replyMailStoppedAt !== null;
+}
+
+// Whether "Send to everyone not yet sent" sends this invite its invitation: it can be emailed, never
+// has been, and nobody has replied through it yet. A guest who has replied, through a link the
+// host copied, is past the invitation; their row's Send still reaches them if the host wants.
+export function awaitsInvitation(invite: {
+  email: string | null;
+  mailStoppedAt: Date | null;
+  replyMailStoppedAt: Date | null;
+  sentAt: Date | null;
+  rsvpId: string | null;
+}): boolean {
+  return canMailInvite(invite) && invite.sentAt === null && invite.rsvpId === null;
+}
+
+// The invite made for a guest who replied before the event was invite-only, as it is turned on
+// (M6 ticket 08), so nobody who replied is locked out: their name, email and phone as they replied
+// with them, no letter, tied to their reply, so it stands as replied, and opened when it was made.
+// Its token is drawn by the caller (invites/repository.ts, inviteRepliedGuests).
+export function inviteFromRsvp(
+  reply: { id: string; name: string; email: string | null; phone: string | null },
+  now: Date,
+): InviteInput & { rsvpId: string; openedAt: Date } {
+  return { name: reply.name, email: reply.email, phone: reply.phone, letter: "", rsvpId: reply.id, openedAt: now };
+}
+
+// As invite-only is turned on, which replies are the guests of invites the host already made (M6
+// final review): a reply whose email, in any case, is that of an invite nobody has answered is that
+// invite's guest, so the reply is tied to it rather than given a second invite, and the code its
+// guest asks for on a new device proves into the invite that holds their reply. Both lists come
+// oldest first: a reply takes the oldest such invite, and an invite takes one reply, the oldest. A
+// reply without an email, or with one no unanswered invite has, is left for an invite of its own
+// (inviteFromRsvp), in the order it came.
+export function tieRepliesToInvites<Reply extends { id: string; email: string | null }>(
+  replies: Reply[],
+  unanswered: { id: string; email: string | null }[],
+): { tied: { replyId: string; inviteId: string }[]; untied: Reply[] } {
+  const key = (email: string | null) => email?.trim().toLowerCase() || undefined;
+  const waiting = new Map<string, string[]>();
+  for (const invite of unanswered) {
+    const email = key(invite.email);
+    if (email) waiting.set(email, [...(waiting.get(email) ?? []), invite.id]);
+  }
+  const tied: { replyId: string; inviteId: string }[] = [];
+  const untied: Reply[] = [];
+  for (const reply of replies) {
+    const inviteId = waiting.get(key(reply.email) ?? "")?.shift();
+    if (inviteId) tied.push({ replyId: reply.id, inviteId });
+    else untied.push(reply);
+  }
+  return { tied, untied };
+}
+
+// Whether a new reply being written needs an invite made for it, as it is written under the event's
+// lock (rsvps/repository.ts, saveRsvp): one through no invite on an invite-only event. The
+// action lets in only a device that is in (invites/gate.ts), so such a reply is one whose guest
+// passed the gate just before the host turned invite-only on, or the host's own; either is
+// invited as a guest who replied before the switch is (inviteFromRsvp), so nobody who replied is
+// locked out.
+export function invitesNewReply(event: { inviteOnly: boolean }, reply: { throughInvite: boolean }): boolean {
+  return event.inviteOnly && !reply.throughInvite;
 }
 
 // The link's secret, of the mail token's shape (rsvps/token.ts): 24 characters of the event link's

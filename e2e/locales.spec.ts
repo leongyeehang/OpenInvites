@@ -1,8 +1,9 @@
-import { expect, test, type Browser, type Page } from "./test";
-import { createPublished } from "./events";
+import sharp from "sharp";
+import { clientAddress, expect, test, type Browser, type Page } from "./test";
+import { createPublished, editSettings, HOUR, itemFromNow, savedAfter, setSchedule, utcFromNow } from "./events";
 import { hostWithShelves } from "./dashboard";
 import { expectHomeIn, openHome } from "./home";
-import { latestMailTo, linkIn, newHost, OPERATOR, PASSWORD, signIn } from "./hosts";
+import { latestMailTo, linkIn, mailCountTo, newHost, OPERATOR, PASSWORD, signIn } from "./hosts";
 import { replyBar } from "./reply";
 
 // Ticket 20: the core guest flow (open the invitation, answer Going with a plus-one, see the
@@ -337,3 +338,127 @@ for (const [acceptLanguage, copy] of [
     await host.context.close();
   });
 }
+
+// M6 ticket 10: what M6 added for the host, read in Simplified Chinese by a host whose browser asks
+// for it: the Schedule sheet, the Settings sheet's Album group and Invite-only switch, the Invites
+// page with invite-only on and personal letters, and the stop page of an invitation once stopped.
+test("a host whose browser asks for zh-CN lists a schedule, sets the album and invite-only, and keeps an invite list in Simplified Chinese", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "locale-m6-host", EVENT);
+  const editor = host.page.url();
+  const context = await browser.newContext({ locale: "zh-CN", storageState: await host.context.storageState() });
+  const page = await context.newPage();
+  await page.goto(editor);
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hans");
+
+  // The Schedule sheet, from its row.
+  await page.getByRole("button", { name: "日程: 添加日程" }).click();
+  const schedule = page.getByRole("dialog", { name: "日程" });
+  await schedule.getByRole("button", { name: "添加一项" }).click();
+  await expect(schedule.getByLabel("开始时间 1", { exact: true })).toBeVisible();
+  await expect(schedule.getByRole("radio", { name: "仅在打开页面时刷新" })).toBeVisible();
+  await expect(schedule.getByText("不在后台发送请求：节省宾客的流量和电量，也减轻本站的负担。", { exact: false })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(schedule).toBeHidden();
+
+  // The Settings sheet: the Album group, and Invite-only in the Guests group, turned on.
+  await page.getByRole("navigation", { name: "设计邀请" }).getByRole("button", { name: "设置" }).click();
+  const settings = page.getByRole("dialog", { name: "设置" });
+  const album = settings.getByRole("group", { name: "相册", exact: true });
+  await expect(album.getByLabel("谁可以看到相册")).toContainText("回复参加的宾客");
+  await expect(album.getByLabel("照片须经批准才会显示")).toBeVisible();
+  await savedAfter(page, () => settings.getByRole("group", { name: "宾客", exact: true }).getByLabel("仅限受邀者：只有邀请名单上的人才能打开邀请", { exact: true }).check());
+  await settings.getByRole("link", { name: "管理邀请名单" }).click();
+
+  // The Invites page: the banner, personal letters, and a row its link alone opens.
+  await expect(page.getByRole("heading", { level: 1, name: "专属邀请" })).toBeVisible();
+  await expect(page.getByText("已开启“仅限受邀者”：只有名单上的人才能打开邀请。")).toBeVisible();
+  await page.getByRole("checkbox", { name: "专属信件" }).click();
+  await expect(page.getByRole("textbox", { name: "信件", exact: true })).toBeVisible({ timeout: 15_000 });
+  await page.getByLabel("名字", { exact: true }).fill("林美");
+  await page.getByRole("button", { name: "生成链接" }).click();
+  const lin = page.getByRole("listitem").filter({ hasText: "林美" });
+  await expect(lin.getByText("任何拿到这个链接的人都能打开邀请", { exact: true })).toBeVisible({ timeout: 15_000 });
+
+  // An invitation sent and stopped: its stop link then says so.
+  const meiEmail = newHost("locale-m6-mei").email;
+  await page.getByLabel("名字", { exact: true }).fill("王美");
+  await page.getByLabel("邮箱", { exact: true }).fill(meiEmail);
+  await page.getByRole("button", { name: "生成链接" }).click();
+  const mei = page.getByRole("listitem").filter({ hasText: "王美" });
+  await mei.getByRole("button", { name: "把邀请发送给 王美" }).click();
+  await expect(mei.getByRole("status")).toHaveText("已把邀请发送给 王美。", { timeout: 15_000 });
+  await expect.poll(() => mailCountTo(request, meiEmail), { timeout: 30_000 }).toBe(1);
+  const stop = (await latestMailTo(request, meiEmail)).match(/https?:\/\/\S+\/m\/[A-Za-z0-9]{24}/)![0];
+  await page.goto(stop);
+  await page.getByRole("button", { name: "不再接收这个活动的邮件" }).click();
+  await expect(page.getByText("好了，你不会再收到关于“Ada’s birthday”的邮件。")).toBeVisible({ timeout: 15_000 });
+  await page.reload();
+  await expect(page.getByText("这个活动的邮件已经停止发送。", { exact: true })).toBeVisible();
+  await context.close();
+  await host.context.close();
+});
+
+// M6 ticket 10: what M6 added for a guest, read in Traditional Chinese by an invitee whose browser
+// asks for it, on a live invite-only event: the locked page and its code, the code's email, the
+// host's letter, the schedule with an item on now, and a photo awaiting the host's approval.
+test("an invitee whose browser asks for zh-TW opens an invite-only event, reads her letter and the schedule, and adds a photo that waits, in Traditional Chinese", async ({
+  browser,
+  request,
+}) => {
+  test.slow();
+  const host = await createPublished(browser, request, "locale-m6-guest", { title: "Ada’s open house", start: utcFromNow(-3 * HOUR), end: utcFromNow(6 * HOUR), timeZone: "UTC", plusOnes: "0" });
+  const editor = host.page.url();
+  const meiEmail = newHost("locale-m6-guest-mei").email;
+  await setSchedule(host.page, [itemFromNow("Welcome drinks", -2 * HOUR, -HOUR), itemFromNow("Lunch", -HOUR / 2), itemFromNow("Garden games", 2 * HOUR)]);
+  await editSettings(host.page, async (sheet) => {
+    await sheet.getByRole("group", { name: "Album", exact: true }).getByLabel("Approve photos before they’re shown").check();
+    await sheet.getByRole("group", { name: "Guests", exact: true }).getByLabel("Invite-only: only people on the invite list can open the invitation", { exact: true }).check();
+  });
+  await host.page.goto(`${editor}/invites`);
+  await host.page.getByRole("checkbox", { name: "Personal letters" }).click();
+  await expect(host.page.getByRole("textbox", { name: "Letter", exact: true })).toBeVisible({ timeout: 15_000 });
+  await host.page.getByLabel("Name", { exact: true }).fill("Mei");
+  await host.page.getByLabel("Email", { exact: true }).fill(meiEmail);
+  await host.page.getByRole("textbox", { name: "Letter", exact: true }).fill("期待與你相見。");
+  await host.page.getByRole("button", { name: "Make link" }).click();
+  await expect(host.page.getByRole("status").filter({ hasText: /^Made a link for / })).toHaveText("Made a link for Mei.", { timeout: 15_000 });
+
+  // The locked page, and the code's email in the language she asked in.
+  const context = await browser.newContext({ locale: "zh-TW", timezoneId: "Asia/Singapore", extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
+  const page = await context.newPage();
+  await page.goto(host.link);
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("一份私人邀請");
+  await expect(page.getByText(`來自 ${host.name}`, { exact: true })).toBeVisible();
+  await page.getByLabel("你的電子郵件").fill(meiEmail);
+  await page.getByRole("button", { name: "寄送驗證碼" }).click();
+  await expect(page.getByText("如果這個電子郵件在邀請名單上，驗證碼已經寄出，請查收。", { exact: true })).toBeVisible({ timeout: 15_000 });
+  const mail = await latestMailTo(request, meiEmail);
+  expect(mail).toContain("開啟「Ada’s open house」邀請的驗證碼是：");
+  await page.getByLabel("驗證碼", { exact: true }).fill(mail.match(/^([0-9]{6})\r?$/m)![1]);
+  await page.getByRole("button", { name: "開啟邀請" }).click();
+
+  // Her letter, and the schedule, with the item on now marked.
+  const letter = page.locator('[data-slot="letter"]');
+  await expect(letter.getByRole("heading", { name: "致 Mei", exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(letter).toContainText("期待與你相見。");
+  const schedule = page.locator('[data-slot="schedule"]');
+  await expect(schedule.getByText("時間均依 UTC 時區顯示。", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(schedule.locator('[aria-current="true"]')).toContainText("進行中");
+  await expect(schedule.locator('[data-state="past"] .sr-only')).toHaveText("已結束");
+
+  // She replies Going, and her photo waits for the host.
+  await page.getByRole("button", { name: "參加", exact: true }).click();
+  await expect(page.getByLabel("你的名字")).toHaveValue("Mei");
+  await page.getByRole("button", { name: "送出回覆" }).click();
+  await expect(page.getByText("期待你的到來！")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("dialog", { name: "你的回覆" }).getByRole("button", { name: "關閉" }).click();
+  const photo = { name: "garden.jpg", mimeType: "image/jpeg", buffer: await sharp({ create: { width: 800, height: 600, channels: 3, background: "#2f6b3a" } }).jpeg().toBuffer() };
+  const album = page.locator('[data-slot="album"]');
+  await album.getByLabel("新增照片").setInputFiles([photo]);
+  await expect(album.getByRole("status")).toHaveText("garden.jpg：已新增，等候核准", { timeout: 20_000 });
+  await expect(album.getByText("等候核准", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await context.close();
+  await host.context.close();
+});

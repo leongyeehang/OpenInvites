@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RsvpInput } from "./form";
-import { planHostEdit, planRsvp } from "./plan";
+import { inviteEmailAfterHostEdit, planHostEdit, planRsvp } from "./plan";
 
 const input: RsvpInput = { status: "going", name: "Priya Nair", plusOnes: 1, plusOneNames: ["Arjun"], email: null, phone: null };
 const replied = new Date("2027-03-01T10:00:00Z");
@@ -16,15 +16,15 @@ describe("planRsvp", () => {
 
   it("replaces the RSVP the guest already owns, keeping its edit token and the time they first replied", () => {
     const changed: RsvpInput = { ...input, status: "cant", plusOnes: 0, plusOneNames: [] };
-    const mine = { id: "rsvp-1", token: "the-token-they-were-given", email: null };
+    const mine = { id: "rsvp-1", held: { token: "the-token-they-were-given", inviteToken: null }, email: null };
     expect(planRsvp("event-1", changed, mine, later)).toStrictEqual({
-      replaces: { id: "rsvp-1", token: "the-token-they-were-given" },
+      replaces: { id: "rsvp-1", held: { token: "the-token-they-were-given", inviteToken: null } },
       changes: { ...changed, updatedAt: later },
     });
   });
 
   it("takes back a stop on email once the guest gives an email again themselves", () => {
-    const mine = { id: "rsvp-1", token: "the-token-they-were-given", email: null };
+    const mine = { id: "rsvp-1", held: { token: "the-token-they-were-given", inviteToken: null }, email: null };
     const plan = planRsvp("event-1", { ...input, email: "priya@example.com" }, mine, later);
     expect(plan.replaces && plan.changes).toMatchObject({ email: "priya@example.com", mailStoppedAt: null });
     // A blank email, or one the host does not ask for, leaves the stop where it is.
@@ -38,13 +38,13 @@ describe("planRsvp", () => {
     const withEmail: RsvpInput = { ...input, email: "priya@example.com" };
     const fresh = planRsvp("event-1", withEmail, undefined, replied, true);
     expect(fresh.replaces === null && fresh.rsvp).toMatchObject({ email: "priya@example.com", emailVerifiedAt: replied });
-    const mine = { id: "rsvp-1", token: "the-token-they-were-given", email: "priya@example.org" };
+    const mine = { id: "rsvp-1", held: { token: "the-token-they-were-given", inviteToken: null }, email: "priya@example.org" };
     const changed = planRsvp("event-1", withEmail, mine, later, true);
     expect(changed.replaces && changed.changes).toMatchObject({ email: "priya@example.com", emailVerifiedAt: later });
   });
 
   it("keeps the mark while the email stays the same, and drops it with an email changed or blanked without a code", () => {
-    const mine = { id: "rsvp-1", token: "the-token-they-were-given", email: "priya@example.com" };
+    const mine = { id: "rsvp-1", held: { token: "the-token-they-were-given", inviteToken: null }, email: "priya@example.com" };
     const kept = planRsvp("event-1", { ...input, status: "maybe", email: "priya@example.com" }, mine, later);
     expect(kept.replaces && kept.changes).not.toHaveProperty("emailVerifiedAt");
     // A form that asks for no email leaves the stored one, and its mark, alone.
@@ -79,5 +79,24 @@ describe("planHostEdit", () => {
       email: null,
       emailVerifiedAt: null,
     });
+  });
+});
+
+// A host's correction of a reply's email reaches the invite the reply is tied to (M6 final review,
+// B2): under invite-only the invite's email is the key a guest proves.
+describe("inviteEmailAfterHostEdit", () => {
+  const tied = { inviteId: "invite-1", email: "mei@exmaple.test" };
+
+  it("is the reply's new email, for the invite the reply is tied to", () => {
+    expect(inviteEmailAfterHostEdit({ email: "mei@exmaple.test" }, { ...tied, email: "mei@example.test" })).toEqual({ inviteId: "invite-1", email: "mei@example.test" });
+  });
+
+  it("blanks the invite's email when the host blanks the reply's", () => {
+    expect(inviteEmailAfterHostEdit({ email: "mei@exmaple.test" }, { ...tied, email: null })).toEqual({ inviteId: "invite-1", email: null });
+  });
+
+  it("is nothing when the email did not change, or the reply is tied to no invite", () => {
+    expect(inviteEmailAfterHostEdit({ email: "mei@exmaple.test" }, tied)).toBeUndefined();
+    expect(inviteEmailAfterHostEdit({ email: "mei@exmaple.test" }, { inviteId: null, email: "mei@example.test" })).toBeUndefined();
   });
 });

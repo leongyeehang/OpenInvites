@@ -838,7 +838,8 @@ for (const layout of LAYOUTS) {
 }
 
 // Personal invite links (ticket 08): the invites page with none made, an invite refused, one made
-// with its link to copy, and its delete dialog; and the guest list's Invited section.
+// with its link to copy, its invitation sent, and its delete dialog; and the guest list's Invited
+// section.
 test("the invites page: none made, one refused, one made, its delete dialog, and the guest list's Invited section", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "a11y-invites", { ...SIMPLE, askEmail: true });
@@ -858,6 +859,11 @@ test("the invites page: none made, one refused, one made, its delete dialog, and
   await page.getByRole("button", { name: "Make link" }).click();
   await expect(page.getByRole("status")).toHaveText("Made a link for Mei Lin.", { timeout: 15_000 });
   await expectNoSeriousViolations(page, "the invites page, one made, with its link to copy");
+  // Its invitation emailed (M6 ticket 06): Sent, Send again, and what happened said on its row.
+  await page.getByRole("button", { name: "Send the invitation to Mei Lin", exact: true }).click();
+  await expect(page.getByText("Invitation sent to Mei Lin.")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: "Send the invitation to Mei Lin again" })).toBeVisible();
+  await expectNoSeriousViolations(page, "the invites page, an invitation sent");
 
   await page.getByRole("button", { name: "Delete the invite for Mei Lin" }).click();
   await expect(page.getByRole("alertdialog")).toBeVisible();

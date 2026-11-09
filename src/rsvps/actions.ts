@@ -10,6 +10,7 @@ import { acceptsRsvps } from "@/events/access";
 import { findEventBySlug, findHostEvent } from "@/events/repository";
 import { can } from "@/hosts/role";
 import { findInviteOnThisDevice } from "@/invites/device";
+import { gateFor } from "@/invites/gate";
 import { parseAnswers, type AnswerFields } from "@/questions/answers";
 import { listQuestions, saveAnswers } from "@/questions/repository";
 import type { FormState } from "@/lib/form-state";
@@ -72,6 +73,8 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
   if ((await checkTurnstile(formData, requestHeaders)) === "failed") return { error: "checkFailed" };
   const event = await findEventBySlug(slug);
   if (!event || !acceptsRsvps(event.state)) return { error: "closed" };
+  // An invite-only event takes a reply only from a device that is in (invites/gate.ts).
+  if ((await gateFor(event)).page !== "invitation") return { error: "closed" };
 
   const parsed = parseRsvpForm(fields(formData), event);
   if (!parsed.ok) return { error: parsed.error };
@@ -128,10 +131,12 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
   // its previous answers, which the guest can put right by answering again.
   await saveAnswers(saved.rsvp.id, answers.answers);
   const jar = await cookies();
-  if (jar.get(rsvpCookieName(event.id))?.value !== saved.token) {
+  if (saved.token && jar.get(rsvpCookieName(event.id))?.value !== saved.token) {
     // A new RSVP, or one this device held only by the personal invite it opened: this device now
     // remembers the guest, so the link finds their answer next time. One saved through a personal
-    // invite is remembered by the invite's token, its edit token.
+    // invite is remembered by the invite's token, its edit token. A reply made before its invite,
+    // held here only through the invite, has no edit token on this device (MyRsvp), and the device
+    // keeps finding it through the invite (M6 ticket 08).
     jar.set(rsvpCookieName(event.id), saved.token, rsvpCookieOptions());
   }
   // Once the RSVP is saved and remembered, so that nothing about the hosts' email can undo either.
@@ -148,7 +153,7 @@ export async function saveRsvpAction(slug: string, formData: FormData): Promise<
 export async function removeRsvpAction(slug: string): Promise<{ error?: "tooFast" }> {
   if (!(await consume("rsvp", await headers())).allowed) return { error: "tooFast" };
   const event = await findEventBySlug(slug);
-  if (!event) return {};
+  if (!event || (await gateFor(event)).page !== "invitation") return {};
   const mine = await findRsvpOnThisDevice(event.id);
   const { removed, mailed } = mine ? await deleteRsvp(event.id, mine.rsvp.id, "guest") : { removed: undefined, mailed: false };
   sendQueuedMail(mailed);
@@ -178,6 +183,8 @@ export async function editGuestAction(
   if (changed) {
     sendQueuedMail(changed.mailed);
     await notifyHostsOfRsvp(event, changed.previous, changed.current);
+    // A changed email reaches the invite the reply is tied to (repository.ts, editRsvpAsHost).
+    if (changed.current.inviteId) revalidatePath(`/events/${eventId}/invites`);
   }
   revalidatePath(`/events/${eventId}/guests`);
   return { success: t("saved") };

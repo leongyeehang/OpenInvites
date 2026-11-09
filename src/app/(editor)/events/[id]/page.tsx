@@ -31,6 +31,7 @@ import type { EditablePoll } from "@/editor/poll-sheet";
 import { formatOption } from "@/polls/format";
 import { leading, pollState, tally } from "@/polls/poll";
 import { loadPoll } from "@/polls/repository";
+import { listSchedule } from "@/schedule/repository";
 
 // The poll as the When sheet shows it: each candidate as typed and as read, with its votes by name.
 async function editablePoll(eventId: string, open: boolean, canStart: boolean, locale: string): Promise<EditablePoll> {
@@ -65,12 +66,12 @@ export async function generateMetadata({ params }: PageProps<"/events/[id]">): P
 // or Share, and More, where the 0.4 manage page's links went; below it, the toolbar, with Poster,
 // Title, Theme, Effect and Settings. Its co-hosts get the same, less what is the owner's alone (hosts/role.ts).
 export default async function EditorPage({ params, searchParams }: PageProps<"/events/[id]">) {
-  const [host, { id }, { from }, locale, t] = await Promise.all([requireHost(), params, searchParams, getLocale(), getTranslations("Events.manage")]);
+  const [host, { id }, { from, sheet }, locale, t] = await Promise.all([requireHost(), params, searchParams, getLocale(), getTranslations("Events.manage")]);
   const event = await findHostEvent(host.id, id);
   if (!event) notFound();
   // Where a duplicate came from, said only when the host can see that event themselves.
   const source = typeof from === "string" ? await findHostEvent(host.id, from) : undefined;
-  const [questions, answerCounts, counts, limits, upload, hosts, editor] = await Promise.all([
+  const [questions, answerCounts, counts, limits, upload, hosts, editor, schedule] = await Promise.all([
     listQuestions(event.id),
     countAnswersByQuestion(event.id),
     countRsvpsByEvent([event.id]),
@@ -78,6 +79,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
     findEventUpload(event.id),
     eventHosts(event.id),
     getTranslations("Editor"),
+    listSchedule(event.id),
   ]);
   const picture = upload ? themeUpload(upload) : null;
   const replies = counts.get(event.id);
@@ -102,6 +104,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
     retentionDays: limits.retentionDays,
     description: event.description,
     descriptionRich: event.descriptionRich,
+    schedule: { items: schedule, refresh: event.scheduleRefresh },
   };
   const link = eventUrl(event);
   const facts = [t("opened", { count: event.views }), ...(event.capacity !== null ? [t("headcountOf", { count: replies?.headcount ?? 0, capacity: event.capacity })] : [])];
@@ -117,7 +120,8 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
   // EventPage.comments and EventPage.album, though the editor shows neither.
   return (
     <ClientMessages namespaces={["Editor", "Design", "Posters", "Events.form", "Events.manage", "EventPage.comments", "EventPage.album"]}>
-      <EditorProvider>
+      {/* The invite list's link to the settings opens the editor with them open (M6 ticket 08). */}
+      <EditorProvider sheet={sheet === "settings" ? "settings" : null}>
         <ThemedPage
           theme={event.theme}
           upload={picture}

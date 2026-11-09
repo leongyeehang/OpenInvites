@@ -1,3 +1,4 @@
+import { ALBUM_VISIBILITIES, type AlbumVisibility } from "@/album/visibility";
 import { richTextToPlain, type RichText } from "@/rich-text/rich-text";
 import { CONTACT_FIELDS, type ContactField } from "@/rsvps/form";
 import { GUEST_LIST_VISIBILITIES, type GuestListVisibility } from "@/rsvps/visibility";
@@ -26,6 +27,11 @@ export type EventInput = {
   remindersEnabled: boolean;
   commentsEnabled: boolean;
   notifyOnComment: boolean;
+  albumVisibility: AlbumVisibility;
+  albumApprovalRequired: boolean;
+  notifyOnPhoto: boolean;
+  // Only the people on the invite list open the invitation (M6 spec, "Invite-only events").
+  inviteOnly: boolean;
 };
 
 // What the event form posts, as strings, before any of it is trusted.
@@ -49,6 +55,10 @@ export type EventFormFields = {
   remindersEnabled: boolean;
   commentsEnabled: boolean;
   notifyOnComment: boolean;
+  albumVisibility: string;
+  albumApprovalRequired: boolean;
+  notifyOnPhoto: boolean;
+  inviteOnly: boolean;
 };
 
 // How many people one guest may bring at most (spec, "Per-event settings").
@@ -68,7 +78,8 @@ export type EventFormError =
   | "plusOnesAllowedInvalid"
   | "capacityInvalid"
   | "contactFieldInvalid"
-  | "guestListVisibilityInvalid";
+  | "guestListVisibilityInvalid"
+  | "albumVisibilityInvalid";
 
 export type ParsedEventForm = { ok: true; input: EventInput } | { ok: false; error: EventFormError };
 
@@ -130,7 +141,7 @@ export function parseWhen(fields: WhenFields): { ok: true; when: EventWhen } | {
 }
 
 // Everything a guest does not see (M4 spec, "Settings sheet"): who may come and bring whom, what
-// they are asked, who sees the list, and what is emailed.
+// they are asked, who sees the list and the album, and what is emailed.
 export type EventSettings = Omit<EventInput, "title" | "startsAt" | "endsAt" | "allDay" | "timeZone" | "location" | "description" | "descriptionRich">;
 export type SettingsFields = Omit<EventFormFields, "title" | "allDay" | "start" | "end" | "timeZone" | "location" | "description">;
 
@@ -150,6 +161,9 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
   const guestListVisibility = GUEST_LIST_VISIBILITIES.find((each) => each === fields.guestListVisibility);
   if (!guestListVisibility) return { ok: false, error: "guestListVisibilityInvalid" };
 
+  const albumVisibility = ALBUM_VISIBILITIES.find((each) => each === fields.albumVisibility);
+  if (!albumVisibility) return { ok: false, error: "albumVisibilityInvalid" };
+
   return {
     ok: true,
     settings: {
@@ -165,6 +179,10 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
       remindersEnabled: fields.remindersEnabled,
       commentsEnabled: fields.commentsEnabled,
       notifyOnComment: fields.notifyOnComment,
+      albumVisibility,
+      albumApprovalRequired: fields.albumApprovalRequired,
+      notifyOnPhoto: fields.notifyOnPhoto,
+      inviteOnly: fields.inviteOnly,
     },
   };
 }

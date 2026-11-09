@@ -23,9 +23,15 @@ describe("parseOptions", () => {
   it("refuses a day that is not one, a malformed time, an end without a start or before it, and a repeat", () => {
     expect(parseOptions([row("2027-02-30"), row("2027-05-09")])).toEqual({ ok: false, error: "pollDayInvalid" });
     expect(parseOptions([row("2027-05-08", "25:00"), row("2027-05-09")])).toEqual({ ok: false, error: "pollTimeInvalid" });
+    expect(parseOptions([row("2027-05-08", "19:00junk"), row("2027-05-09")])).toEqual({ ok: false, error: "pollTimeInvalid" });
+    expect(parseOptions([row("2027-05-08", "19:00", "22:00junk"), row("2027-05-09")])).toEqual({ ok: false, error: "pollTimeInvalid" });
     expect(parseOptions([row("2027-05-08", "", "22:00"), row("2027-05-09")])).toEqual({ ok: false, error: "pollEndBeforeStart" });
     expect(parseOptions([row("2027-05-08", "19:00", "18:00"), row("2027-05-09")])).toEqual({ ok: false, error: "pollEndBeforeStart" });
     expect(parseOptions([row("2027-05-08", "19:00"), row("2027-05-08", "19:00")])).toEqual({ ok: false, error: "pollDuplicate" });
+  });
+
+  it("keeps the minutes of a time a field gives with its seconds", () => {
+    expect(parseOptions([row("2027-05-08", "19:00:00", "22:30:00.000"), row("2027-05-09")])).toMatchObject({ ok: true, options: [{ startTime: "19:00", endTime: "22:30" }, {}] });
   });
 
   it("lets one day be offered at two times", () => {

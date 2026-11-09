@@ -302,6 +302,27 @@
       "when": 1793862751691,
       "tag": "0042_operator_welcome",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1794045296635,
+      "tag": "0043_schedule",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1794048530173,
+      "tag": "0044_album_visibility_approval",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1794054411246,
+      "tag": "0045_invite_list",
+      "breakpoints": true
     }
   ]
 }

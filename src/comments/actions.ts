@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { getSession } from "@/auth/session";
-import { findEventBySlug, findHostEvent } from "@/events/repository";
+import { findEventBySlug, findHostEvent, type EventState } from "@/events/repository";
 import { can } from "@/hosts/role";
+import { gateFor } from "@/invites/gate";
 import { isUuid } from "@/lib/uuid";
 import { consume } from "@/rate-limit/rate-limit";
 import { findRsvpOnThisDevice } from "@/rsvps/guest";
@@ -24,6 +25,13 @@ export type CommentRefusal = CommentError | "closed" | "tooMany" | "tooFast";
 export type CommentState = { error?: CommentRefusal; posted?: true } | undefined;
 
 type Commenter = { viewer: CommentViewer; author?: CommentAuthor; name?: string };
+
+// Whether the event is open to the one in front of it, as its page is: a draft to its hosts, an
+// invite-only event to its hosts and the devices that are in (invites/gate.ts). Each action asks
+// before it looks up anything else.
+async function opens(event: { id: string; state: EventState; inviteOnly: boolean }): Promise<boolean> {
+  return (await gateFor(event)).page === "invitation";
+}
 
 // Who is in front of the event page, as the page itself decides it: a host of the event, found
 // through the one gate and let comment by their role, before anything else; then the guest whose
@@ -49,7 +57,7 @@ async function commenter(eventId: string): Promise<Commenter> {
 export async function postCommentAction(slug: string, _: CommentState, formData: FormData): Promise<CommentState> {
   if (!(await consume("comment", await headers())).allowed) return { error: "tooFast" };
   const event = await findEventBySlug(slug);
-  if (!event) return { error: "closed" };
+  if (!event || !(await opens(event))) return { error: "closed" };
   const { viewer, author, name } = await commenter(event.id);
   if (!author || !name || !takesComments(event, viewer)) return { error: "closed" };
 
@@ -71,7 +79,7 @@ export async function postCommentAction(slug: string, _: CommentState, formData:
 export async function deleteCommentAction(slug: string, id: string): Promise<{ error?: "tooFast" }> {
   if (!(await consume("comment", await headers())).allowed) return { error: "tooFast" };
   const event = await findEventBySlug(slug);
-  if (!event || !isUuid(id)) return {};
+  if (!event || !isUuid(id) || !(await opens(event))) return {};
   const [{ viewer }, found] = await Promise.all([commenter(event.id), findComment(event.id, id)]);
   if (!found || !mayDelete(viewer, found)) return {};
   await deleteComment(event.id, found.id);
@@ -85,7 +93,7 @@ export async function deleteCommentAction(slug: string, id: string): Promise<{ e
 export async function toggleReactionAction(slug: string, commentId: string, emoji: string): Promise<{ error?: "tooFast" | "closed" }> {
   if (!(await consume("comment", await headers())).allowed) return { error: "tooFast" };
   const event = await findEventBySlug(slug);
-  if (!event || !isUuid(commentId) || !isReaction(emoji)) return { error: "closed" };
+  if (!event || !isUuid(commentId) || !isReaction(emoji) || !(await opens(event))) return { error: "closed" };
   const [{ viewer, author }, found] = await Promise.all([commenter(event.id), findComment(event.id, commentId)]);
   if (!found || !author || !takesComments(event, viewer)) return { error: "closed" };
   await toggleReaction(found.id, author, emoji);

@@ -4,10 +4,11 @@ import { findRsvpOnThisDevice } from "@/rsvps/guest";
 import type { AlbumViewer } from "./album";
 
 // Who is in front of an event's album, as the page and its actions decide it: a host of the event
-// first, then the guest whose RSVP is on this device, with the host's word on it.
+// first, then the guest whose RSVP is on this device, with the host's word on it, what it says and
+// its name. Both lookups are cached per request, so the page asking again costs nothing.
 export async function albumViewer(eventId: string): Promise<AlbumViewer> {
   const session = await getSession();
   if (session && (await findHostEvent(session.user.id, eventId))) return { kind: "host", hostId: session.user.id };
   const mine = await findRsvpOnThisDevice(eventId);
-  return mine ? { kind: "guest", rsvpId: mine.rsvp.id, approval: mine.rsvp.approval } : { kind: "visitor" };
+  return mine ? { kind: "guest", rsvpId: mine.rsvp.id, approval: mine.rsvp.approval, status: mine.rsvp.status, name: mine.rsvp.name } : { kind: "visitor" };
 }

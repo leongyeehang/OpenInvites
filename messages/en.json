@@ -426,6 +426,10 @@
       "subject": "{name} commented on {title}",
       "body": "{name} commented on {title}:\n\n{comment}\n\nThe event page:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest comments” in the event’s settings. That stops them for every host of the event."
     },
+    "photos": {
+      "subject": "{name} added {count, plural, one {a photo} other {# photos}} to {title} for your approval",
+      "body": "{name} added {count, plural, one {a photo} other {# photos}} to {title} for your approval.\n\nThe event page:\n{url}\n\nTo stop these emails, untick “Email the hosts when photos need approval” in the event’s settings. That stops them for every host of the event."
+    },
     "reminderWeek": {
       "subject": "{title} is in a week",
       "body": "{title} is in a week.\n\nWhen: {when}{located, select, yes {\nWhere: {location}} other {}}\n\nYou said Maybe{plusOnes, plural, =0 {} one {, with # plus-one} other {, with # plus-ones}}.\n\nThe event page:\n{url}"
@@ -447,6 +451,7 @@
       "body": "The host approved your reply to {title}, but the event is full, so you’re number {position} on the waitlist. If a place opens up, you’ll get an email.\n\nYou said Going{plusOnes, plural, =0 {} one {, with # plus-one} other {, with # plus-ones}}.\n\nThe event page:\n{url}"
     },
     "guestFooter": "You’re getting this because your email is on your reply to {title}. To stop emails about this event: {url}",
+    "invitationFooter": "You’re getting this because the host of {title} invited you at this address. To stop emails about this event: {url}",
     "magicLink": {
       "subject": "Your sign-in link for {instance}",
       "body": "Hi {name},\n\nOpen the link below to sign in. It is valid for 15 minutes and works once.\n\n{url}\n\nIf you did not ask for this, you can ignore this message and nobody is signed in."
@@ -467,6 +472,14 @@
     "dateSet": {
       "subject": "The date is set: {title}",
       "body": "Hi {name},\n\nThe host has picked the date for {title}: {when}.\n\nLet them know if you can come:\n{url}"
+    },
+    "invitation": {
+      "subject": "{host} invited you to {title}",
+      "body": "Hi {name},\n\n{host} invited you to {title}.{lettered, select, yes {\n\n{letter}} other {}}{dated, select, yes {\n\nWhen: {when}{located, select, yes {\nWhere: {location}} other {}}} other {{located, select, yes {\n\nWhere: {location}} other {}}}}\n\nOpen your invitation: {url}{inviteOnly, select, yes {\n\nWhen you open it, you’ll be asked for a code, which is sent to this address.} other {}}"
+    },
+    "pass": {
+      "subject": "Your code for {title}",
+      "body": "Your code to open your invitation to {title}:\n\n{code}\n\nIt lasts ten minutes.\n\nYou’re getting this because someone entered this address to open the invitation to {title}, and the host invited you at it. If it wasn’t you, ignore this email: the invitation stays closed without the code."
     }
   },
   "Events": {
@@ -509,7 +522,10 @@
         "capacity": "Capacity",
         "capacityHint": "Counts guests who say Going and their plus-ones, as the headcount does. Maybe doesn’t count. Leave empty to take everyone. This site takes up to {max, number} replies per event.",
         "approval": "Approve each guest before they’re on the list",
-        "approvalHint": "Guests see the invitation while they wait, but not the comments, and the guest list only if everyone who opens the link can."
+        "approvalHint": "Guests see the invitation while they wait, but not the comments, and the guest list only if everyone who opens the link can.",
+        "inviteOnly": "Invite-only: only people on the invite list can open the invitation",
+        "inviteOnlyHint": "They prove their email on each device they use; someone with only a phone number gets in by their link. Guests who already replied are added to the list; those with an email prove it once.",
+        "manageInvites": "Manage the invite list"
       },
       "contact": {
         "title": "Contact details",
@@ -526,6 +542,17 @@
       "guestListAfterReply": "Guests who have replied",
       "guestListHidden": "Only the hosts",
       "guestListVisibilityHint": "The hosts always see the whole list.",
+      "album": {
+        "title": "Album",
+        "visibility": "Who can see the album",
+        "replied": "Guests who have replied",
+        "going": "Guests who are going",
+        "hosts": "Only the hosts",
+        "visibilityHint": "Guests who have replied can always add photos; the hosts see them all.",
+        "approval": "Approve photos before they’re shown",
+        "approvalHint": "New photos wait for a host. Turning this off shows every photo that is waiting.",
+        "notify": "Email the hosts when photos need approval"
+      },
       "notifyOnRsvp": "Email the hosts when a guest replies",
       "remindersEnabled": "Remind guests by email (a week before to Maybe, the day before to Going)",
       "askEmailHint": "Guests get email only if you ask for their email on the RSVP form.",
@@ -569,6 +596,7 @@
       "capacityInvalid": "Enter a whole number from 1 to 5,000 for the capacity, or leave it empty to take everyone.",
       "contactFieldInvalid": "Choose how to ask for an email and a phone number.",
       "guestListVisibilityInvalid": "Choose who can see the guest list.",
+      "albumVisibilityInvalid": "Choose who can see the album.",
       "questionsInvalid": "Those questions could not be read. Try again.",
       "questionTypeInvalid": "Choose a kind for every question.",
       "questionPromptRequired": "Give every question something to ask.",
@@ -586,7 +614,17 @@
       "pollEndBeforeStart": "An end time needs a start time before it.",
       "pollDuplicate": "The same date and time is offered twice.",
       "pollHasVotes": "Guests have voted already. Pick one of their dates instead.",
-      "pollNotNow": "The date can’t be put to a vote now."
+      "pollNotNow": "The date can’t be put to a vote now.",
+      "scheduleTooMany": "A schedule has 50 items at most.",
+      "scheduleDayInvalid": "Item {n} needs a real day.",
+      "scheduleTimeRequired": "Item {n} needs a start time.",
+      "scheduleTimeInvalid": "Item {n} has a time that isn’t a time of day.",
+      "scheduleEndBeforeStart": "Item {n} needs its end time to be later than its start.",
+      "scheduleTitleRequired": "Item {n} needs a title.",
+      "scheduleTitleTooLong": "Item {n}’s title is longer than 80 characters.",
+      "schedulePlaceTooLong": "Item {n}’s place is longer than 120 characters.",
+      "scheduleNoteTooLong": "Item {n}’s note is longer than 500 characters.",
+      "scheduleInvalid": "The schedule couldn’t be read. Try again."
     },
     "manage": {
       "link": "Event link",
@@ -762,6 +800,7 @@
     "edit": "Edit event",
     "notReadyTitle": "This invitation isn’t ready yet",
     "notReady": "The host is still preparing it. Try the link again later.",
+    "lockedTitle": "You’re invited",
     "guests": "Guests",
     "headcount": "{count, plural, =0 {No one yet} =1 {1 person expected} other {# people expected}}",
     "alsoMaybe": "{count, plural, =1 {1 maybe} other {# maybes}}",
@@ -822,11 +861,18 @@
       "opensOn": "The album opens on {date}. Come back then to add your photos.",
       "locked": "Reply to see the album and add your photos.",
       "lockedCount": "{count, plural, =0 {No photos yet} one {# photo} other {# photos}}",
+      "lockedGoing": "Reply Going to see the album and add your photos.",
+      "lockedHosts": "The hosts keep this album. Reply to add your photos.",
+      "lockedPending": "{visibility, select, going {Once the host approves your reply you can add your photos; the album is for guests who are going.} hosts {The hosts keep this album. Once the host approves your reply you can add your photos.} other {Once the host approves your reply you’ll see the album and can add your photos.}}",
+      "yours": "Your photos",
+      "yoursGoing": "The album is for guests who are going; the hosts see what you add.",
+      "yoursHosts": "The hosts keep this album; they see what you add.",
       "empty": "No photos yet. Add the first.",
       "add": "Add photos",
       "hint": "Up to ten at a time, each up to {max, number} MB.",
       "adding": "Adding {count, plural, one {# photo} other {# photos}}…",
       "added": "{name}: added",
+      "addedPending": "{name}: added, awaiting approval",
       "refusedFile": "{name}: {reason}",
       "problems": {
         "tooLarge": "larger than {max, number} MB",
@@ -843,17 +889,31 @@
         "failed": "The photos didn’t upload. Try again."
       },
       "open": "Photo {n} by {name}",
+      "openPending": "Photo {n} by {name}, awaiting approval",
+      "pending": "Awaiting approval",
       "viewer": "Photo {n} of {count}",
       "by": "Added by {name}",
+      "approve": "Approve",
+      "approvePhoto": "Approve photo {n} by {name}",
       "previous": "Previous photo",
       "next": "Next photo",
       "close": "Close",
       "download": "Download",
       "delete": "Delete",
+      "deletePhoto": "Delete photo {n} by {name}",
       "deleteTitle": "Delete this photo?",
       "deleteText": "It goes for everyone, and can’t be brought back.",
       "deleteConfirm": "Delete it",
       "keep": "Keep it"
+    },
+    "letter": {
+      "for": "For {name}"
+    },
+    "schedule": {
+      "title": "Schedule",
+      "now": "Now",
+      "ended": "Ended",
+      "inZone": "Times are in {zone}."
     }
   },
   "Design": {
@@ -1057,6 +1117,24 @@
     "setDate": "Set a date and time",
     "addPlace": "Add a place",
     "sayWhat": "Say what to expect",
+    "schedule": "Schedule",
+    "addSchedule": "Add a schedule",
+    "scheduleCount": "{count, plural, one {# item} other {# items}}",
+    "scheduleSheet": {
+      "intro": "Items are put in order of day and time, in the event’s time zone. Guests see which one is on now; an item after the event’s end never is.",
+      "day": "Day {n}",
+      "start": "Start time {n}",
+      "end": "End time {n} (optional)",
+      "title": "Title {n}",
+      "place": "Place {n} (optional)",
+      "note": "Note {n} (optional)",
+      "addItem": "Add an item",
+      "removeItem": "Remove item {n}",
+      "freshLegend": "Keep guests’ pages fresh",
+      "freshMinute": "Refresh every minute while the event is on",
+      "freshReload": "Only when the page is opened",
+      "freshReloadHint": "No background requests: saves guests’ data and battery and keeps the site quiet. Pick it when the schedule won’t change on the day or the crowd is large."
+    },
     "done": "Done",
     "guestsAlsoSee": "Guests also see who’s coming, the host’s announcements and the comments.",
     "seeAsGuest": "See it as a guest",
@@ -1162,14 +1240,30 @@
   "Invites": {
     "title": "Invites",
     "backToEvent": "Back to the event",
-    "explainer": "A personal invite link is for one guest. When they open it, their name is filled in, and their email if you give one, and their reply is tied to the link, which then works as their edit link. Copy each link and send it to its guest yourself.",
+    "explainer": "Each guest gets a personal invite link: opening it fills in their name, and the email and phone number you give where the event asks for them, and ties their reply to the link, which then works as their edit link. Copy or share each link, or, where this site has mail, email it to them with the invitation.",
+    "inviteOnlyBanner": "Invite-only is on: only these people can open the invitation.",
+    "inviteOnlyNoMail": "This site cannot send email, so only the people here without an email can get in.",
+    "inviteOnlySettings": "Change it in the event’s settings",
+    "linkLetsIn": "Anyone with this link can open the invitation",
+    "lettersEnabled": "Personal letters",
+    "lettersEnabledHint": "Write a note to each guest, shown on their invitation.",
     "name": "Name",
     "email": "Email",
     "emailHint": "Optional. It is filled in for them and counts as checked.",
+    "phone": "Phone number",
+    "phoneHint": "Optional. It is filled in for them where the event asks for a phone number.",
+    "letter": "Letter",
+    "letterHint": "For this guest alone, shown on their invitation. Up to 1000 characters.",
     "make": "Make link",
     "made": "Made a link for {name}.",
+    "paste": "Add several",
+    "pasteHint": "One person per line, as Name, email, phone. Leave out what you don’t have: “Mei Lin, mei@example.com” or just “Dev Patel”.",
+    "pasteMake": "Make these links",
+    "madeMany": "Made {count, plural, one {# link} other {# links}}.",
     "full": "This event has {max} invites, the most it can have. Delete one to make another.",
     "empty": "No invites yet.",
+    "saveLetter": "Save letter",
+    "letterSaved": "Letter saved.",
     "state": {
       "notOpened": "Not opened",
       "opened": "Opened",
@@ -1184,6 +1278,16 @@
     "copy": "Copy link",
     "copyLabel": "Copy link for {name}",
     "copied": "Copied",
+    "share": "Share",
+    "shareLabel": "Share link for {name}",
+    "send": "{again, select, yes {Send again} other {Send}}",
+    "sendLabel": "{again, select, yes {Send the invitation to {name} again} other {Send the invitation to {name}}}",
+    "sent": "Invitation sent to {name}.",
+    "sentAt": "Sent {date}",
+    "sendAll": "Send to everyone not yet sent ({count})",
+    "sentCount": "{count, plural, =0 {Everyone with an email has been sent their invitation.} one {Sent # invitation.} other {Sent # invitations.}}",
+    "sendWhenPublished": "Invitations can be emailed while the event is published.",
+    "stopped": "Stopped email",
     "delete": "Delete",
     "deleteLabel": "Delete the invite for {name}",
     "deleteTitle": "Delete the invite for {name}?",
@@ -1192,9 +1296,36 @@
     "deleteConfirm": "Delete invite",
     "errors": {
       "notFound": "This event no longer exists.",
+      "inviteGone": "This invite no longer exists.",
       "nameRequired": "An invite needs the guest’s name.",
       "nameTooLong": "That name is too long.",
-      "emailInvalid": "That does not look like an email address."
+      "emailInvalid": "That does not look like an email address.",
+      "phoneInvalid": "Enter a phone number of 5 to 20 digits.",
+      "letterTooLong": "A letter can be up to 1000 characters.",
+      "line": "Line {line}: {error}",
+      "tooManyAtOnce": "That list would take this event past {max} invites, the most it can have. No links were made.",
+      "tooFast": "You’re going too fast. Try again shortly.",
+      "noMail": "Not sent: this site cannot send email, or the guest has no email or has stopped emails about this event."
+    }
+  },
+  "InviteOnly": {
+    "title": "A private invitation",
+    "from": "from {host}",
+    "email": "Your email",
+    "emailHint": "The one you were invited with. We’ll send a code to it.",
+    "send": "Send me a code",
+    "sent": "If that email is on the invite list, a code is on its way.",
+    "code": "Code",
+    "open": "Open the invitation",
+    "resend": "Send it again",
+    "resendIn": "Send it again in {seconds}s",
+    "lost": "Lost your link? Ask the host.",
+    "errors": {
+      "codeWrong": "That code isn’t right.",
+      "codeExpired": "That code no longer works. Send it again for a new one.",
+      "tooFast": "You’re going too fast. Try again shortly.",
+      "emailInvalid": "That does not look like an email address.",
+      "checkFailed": "Please complete the check and try again."
     }
   },
   "Announcements": {
@@ -1391,6 +1522,7 @@
     "title": "Emails about this event",
     "onFile": "The email on file for this event is {email}.",
     "noEmail": "No email is on file for this event.",
+    "stopped": "Emails about this event are stopped.",
     "stop": "Stop emails about this event",
     "done": "Done. You will get no more email about {title}."
   },

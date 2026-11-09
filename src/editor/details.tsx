@@ -1,6 +1,6 @@
 "use client";
 
-import { AlignLeft, ChevronRight, Clock, MapPin, Plus } from "lucide-react";
+import { AlignLeft, ChevronRight, Clock, ListOrdered, MapPin, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState, type ComponentType } from "react";
 import { DescriptionEditor } from "@/app/(host)/events/description-editor";
@@ -12,10 +12,12 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { saveDescriptionAction, saveLocationAction, saveWhenAction } from "@/events/editor-actions";
 import { cn } from "@/lib/utils";
 import type { RichText } from "@/rich-text/rich-text";
+import type { ScheduleItem, ScheduleRefresh } from "@/schedule/schedule";
 import { Glass } from "@/themes/glass";
 import { EditorSheet } from "./sheet";
 import { PollCandidates, PollVotes, type EditablePoll } from "./poll-sheet";
 import { Footer, useSaving } from "./saving";
+import { ScheduleSheet } from "./schedule-sheet";
 import { useEditor } from "./status";
 
 // What the details list shows and what its sheets start from, worked out on the server: the date
@@ -38,11 +40,13 @@ export type EditableDetails = {
   descriptionRich: RichText;
   // The date poll, when the event may have one or has one (M4 ticket 09).
   poll?: EditablePoll;
+  // The schedule as saved, and how guests' open pages pick up a change to it (M6 ticket 01).
+  schedule: { items: ScheduleItem[]; refresh: ScheduleRefresh };
 };
 
 // The details list of the invitation in the editor (M4 spec, "The editor"): When, Where and About,
-// each a button showing what is set, or what to add, that opens a small sheet to set it. Each sheet
-// saves as it closes with Done.
+// and the Schedule under them (M6 ticket 01), each a button showing what is set, or what to add,
+// that opens a sheet to set it. Each sheet saves as it closes with Done.
 export function EditorDetails({ details, timeZones }: { details: EditableDetails; timeZones: string[] }) {
   const t = useTranslations("Editor");
   const { sheet, openSheet } = useEditor();
@@ -52,10 +56,18 @@ export function EditorDetails({ details, timeZones }: { details: EditableDetails
         <Row icon={Clock} label={t("when")} value={details.when} placeholder={t("setDate")} onOpen={() => openSheet("when")} />
         <Row icon={MapPin} label={t("where")} value={details.location || null} placeholder={t("addPlace")} onOpen={() => openSheet("where")} />
         <Row icon={AlignLeft} label={t("about")} value={details.description || null} placeholder={t("sayWhat")} onOpen={() => openSheet("about")} clamp />
+        <Row
+          icon={ListOrdered}
+          label={t("schedule")}
+          value={details.schedule.items.length > 0 ? t("scheduleCount", { count: details.schedule.items.length }) : null}
+          placeholder={t("addSchedule")}
+          onOpen={() => openSheet("schedule")}
+        />
       </Glass>
       <WhenSheet open={sheet === "when"} onOpenChange={(open) => openSheet(open ? "when" : null)} details={details} timeZones={timeZones} />
       <WhereSheet open={sheet === "where"} onOpenChange={(open) => openSheet(open ? "where" : null)} details={details} />
       <AboutSheet open={sheet === "about"} onOpenChange={(open) => openSheet(open ? "about" : null)} details={details} />
+      <ScheduleSheet open={sheet === "schedule"} onOpenChange={(open) => openSheet(open ? "schedule" : null)} details={details} />
     </>
   );
 }

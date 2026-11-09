@@ -12,6 +12,8 @@ export type DraftFields = {
   title: string;
   start: string;
   end?: string;
+  // The When sheet's zone; Asia/Singapore when left out.
+  timeZone?: string;
   location?: string;
   description?: string;
   plusOnes?: string;
@@ -73,7 +75,7 @@ export async function typeTitle(page: Page, title: string) {
 }
 
 // One of the details' sheets, opened from its row, filled, and done.
-async function detailSheet(page: Page, row: "When" | "Where" | "About", fill: (sheet: Locator) => Promise<void>) {
+async function detailSheet(page: Page, row: "When" | "Where" | "About" | "Schedule", fill: (sheet: Locator) => Promise<void>) {
   await page.getByRole("button", { name: new RegExp(`^${row}:`) }).click();
   const sheet = page.getByRole("dialog", { name: row });
   await savedAfter(page, async () => {
@@ -98,6 +100,44 @@ export async function setWhere(page: Page, location: string) {
 
 export async function setAbout(page: Page, description: string) {
   await detailSheet(page, "About", (sheet) => sheet.getByLabel("Description").fill(description));
+}
+
+// One item of the schedule as the host types it; its day is the event's when left out, which is
+// where a new row starts.
+export type ScheduleFields = { day?: string; start: string; end?: string; title: string; place?: string; note?: string };
+
+// The Schedule sheet (M6 ticket 01): each item added after those already there, and how guests'
+// pages keep fresh when given, then Done.
+export async function setSchedule(page: Page, items: ScheduleFields[], refresh?: "minute" | "reload") {
+  await detailSheet(page, "Schedule", async (sheet) => {
+    await expect(sheet.getByRole("button", { name: "Add an item" })).toBeVisible();
+    const before = await sheet.locator("ol > li").count();
+    for (const [index, item] of items.entries()) {
+      const n = before + index + 1;
+      await sheet.getByRole("button", { name: "Add an item" }).click();
+      if (item.day) await sheet.getByLabel(`Day ${n}`, { exact: true }).fill(item.day);
+      await sheet.getByLabel(`Start time ${n}`, { exact: true }).fill(item.start);
+      if (item.end) await sheet.getByLabel(`End time ${n} (optional)`).fill(item.end);
+      await sheet.getByLabel(`Title ${n}`, { exact: true }).fill(item.title);
+      if (item.place) await sheet.getByLabel(`Place ${n} (optional)`).fill(item.place);
+      if (item.note) await sheet.getByLabel(`Note ${n} (optional)`).fill(item.note);
+    }
+    if (refresh) await sheet.getByRole("radio", { name: refresh === "minute" ? "Refresh every minute while the event is on" : "Only when the page is opened" }).check();
+  });
+}
+
+// Times by the real clock (M6 ticket 02), so the server, which draws the schedule's first states,
+// and the browser agree: a moment `offset` milliseconds from now as a wall-clock time in UTC, as
+// the editor's fields take it ("2026-11-07T14:05"), for an event whose zone is UTC.
+export const HOUR = 3_600_000;
+export const utcFromNow = (offset: number) => new Date(Date.now() + offset).toISOString().slice(0, 16);
+
+// An item of the schedule starting `start` milliseconds from now, in UTC, and ending `end` from now
+// when given. An item ends on its own day, so an end that would fall past midnight is left out.
+export function itemFromNow(title: string, start: number, end?: number): ScheduleFields {
+  const [day, startTime] = utcFromNow(start).split("T");
+  const [endDay, endTime] = end === undefined ? [] : utcFromNow(end).split("T");
+  return { day, start: startTime, end: endDay === day ? endTime : undefined, title };
 }
 
 // The Settings sheet, changed and closed, which saves what was changed.
@@ -159,7 +199,7 @@ export async function createDraft(page: Page, fields: DraftFields) {
   await expect(page).toHaveURL(/\/events\/[0-9a-f-]{36}$/, { timeout: 20_000 });
   editors.set(page, page.url());
   await typeTitle(page, fields.title);
-  await setWhen(page, { start: fields.start, end: fields.end });
+  await setWhen(page, { start: fields.start, end: fields.end, timeZone: fields.timeZone });
   if (fields.location) await setWhere(page, fields.location);
   if (fields.description) await setAbout(page, fields.description);
   const email = fields.email ?? (fields.askEmail ? "optional" : undefined);
