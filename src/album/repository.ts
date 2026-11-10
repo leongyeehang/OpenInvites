@@ -1,9 +1,9 @@
-import { and, asc, count, eq, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, eq, ne, or, sql, type SQL } from "drizzle-orm";
 import { getDb, type Db } from "@/db/client";
 import { event, photo, rsvp, user } from "@/db/schema";
 import { eventAlbumBytes, siteBytes } from "@/storage/usage";
 import { albumRoom, type Room } from "./album";
-import { removePhotoFiles } from "./files";
+import { removeItemFiles } from "./files";
 import type { PhotoScope, PhotoStatus } from "./visibility";
 
 export type Photo = typeof photo.$inferSelect;
@@ -33,14 +33,14 @@ function inScope(scope: PhotoScope): SQL | undefined {
   return "approved" in scope ? or(eq(photo.status, "approved"), own) : own;
 }
 
-// How many photos an album holds, or how many of them have one status. The count shown to someone
+// How many items an album holds, failed videos aside (M7 ticket 05), or how many of them have one status. The count shown to someone
 // the album is locked to counts approved photos only; the operator's limit counts them all, since
 // a photo waiting for approval takes its place.
 export async function countPhotos(eventId: string, status?: PhotoStatus): Promise<number> {
   const [{ held }] = await getDb()
     .select({ held: count() })
     .from(photo)
-    .where(and(eq(photo.eventId, eventId), status ? eq(photo.status, status) : undefined));
+    .where(and(eq(photo.eventId, eventId), status ? eq(photo.status, status) : ne(photo.status, "failed")));
   return held;
 }
 
@@ -69,7 +69,7 @@ export async function addPhotos(
       .from(event)
       .where(eq(event.id, eventId))
       .for("no key update");
-    const [{ held }] = await tx.select({ held: count() }).from(photo).where(eq(photo.eventId, eventId));
+    const [{ held }] = await tx.select({ held: count() }).from(photo).where(and(eq(photo.eventId, eventId), ne(photo.status, "failed")));
     const bytes = await eventAlbumBytes(eventId, tx);
     const site = await siteBytes(tx);
     const room = albumRoom(
@@ -114,12 +114,12 @@ export async function deletePhoto(eventId: string, id: string): Promise<void> {
     .delete(photo)
     .where(and(eq(photo.id, id), eq(photo.eventId, eventId)))
     .returning({ id: photo.id });
-  await removePhotoFiles(removed.map((each) => each.id));
+  await removeItemFiles(removed.map((each) => each.id));
 }
 
 // The photos a host added to events they do not own, when their account goes (auth.ts): the rows
 // would go with the account, and the files would be left behind.
 export async function deleteHostPhotos(hostId: string): Promise<void> {
   const removed = await getDb().delete(photo).where(eq(photo.hostId, hostId)).returning({ id: photo.id });
-  await removePhotoFiles(removed.map((each) => each.id));
+  await removeItemFiles(removed.map((each) => each.id));
 }

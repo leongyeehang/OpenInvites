@@ -52,6 +52,8 @@ describe("the uploads route", () => {
     expect(past.headers.get("content-range")).toBe("bytes */5000");
     expect((await get("photo-thumb.webp")).status).toBe(404);
     expect((await get("video-sent")).status).toBe(404);
+    // A video's files are served by name once stored (ticket 05); the clip as sent never is.
+    expect((await get("video.mp4")).status).toBe(404);
     expect((await get("photo.webp", {}, "not-a-uuid")).status).toBe(404);
   });
 

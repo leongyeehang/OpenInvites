@@ -363,7 +363,10 @@
       "processVideos": "Process videos for playback",
       "processVideosHint": "On, a lighter copy is made of every video that needs one, so it plays on slow connections and in every browser. Off, videos are kept as sent and play where the browser can.",
       "submit": "Save",
-      "saved": "Saved."
+      "saved": "Saved.",
+      "videosAvailable": "Videos: available (ffmpeg {version}).",
+      "videosOld": "Videos need ffmpeg 6 or later; this server has {version}.",
+      "videosMissing": "Videos need ffmpeg, which this server does not have."
     },
     "invitations": {
       "title": "Host invitations",
@@ -588,7 +591,17 @@
         "visibilityHint": "Guests who have replied can always add photos; the hosts see them all.",
         "approval": "Approve photos before they’re shown",
         "approvalHint": "New photos wait for a host. Turning this off shows every photo that is waiting.",
-        "notify": "Email the hosts when photos need approval"
+        "notify": "Email the hosts when photos need approval",
+        "videos": "Allow videos",
+        "videosHint": "Guests add videos as they add photos. Every video is kept at original quality with the phone’s location and device details dropped.",
+        "maxVideoMinutes": "Longest video (min)",
+        "maxVideoMb": "Largest video (MB)",
+        "videoCapsHint": "Blank means the site’s caps: up to {minutes} min and {mb} MB. A cap above the site’s counts as the site’s.",
+        "quality": "Lighter copy",
+        "quality1080": "1080p",
+        "quality720": "720p (saves space)",
+        "qualityHint": "A lighter copy plays on slow connections; guests can still choose the original.",
+        "videosUnavailable": "Videos need ffmpeg on this site, which it does not have yet; ask the site’s operator."
       },
       "notifyOnRsvp": "Email the hosts when a guest replies",
       "remindersEnabled": "Remind guests by email (a week before to Maybe, the day before to Going)",
@@ -661,7 +674,10 @@
       "scheduleTitleTooLong": "Item {n}’s title is longer than 80 characters.",
       "schedulePlaceTooLong": "Item {n}’s place is longer than 120 characters.",
       "scheduleNoteTooLong": "Item {n}’s note is longer than 500 characters.",
-      "scheduleInvalid": "The schedule couldn’t be read. Try again."
+      "scheduleInvalid": "The schedule couldn’t be read. Try again.",
+      "albumMaxVideoMinutesInvalid": "Enter a whole number of minutes from 1 to 180 for the longest video, or leave it blank.",
+      "albumMaxVideoMbInvalid": "Enter a whole number from 1 to 10,000 MB for the largest video, or leave it blank.",
+      "albumQualityInvalid": "Choose 1080p or 720p for the lighter copy."
     },
     "manage": {
       "link": "Event link",

@@ -1,4 +1,5 @@
 import { PHOTO_FILES, photoFileNamed, photoKey } from "@/album/files";
+import { VIDEO_FILES, videoFileNamed, videoKey } from "@/album/video";
 import { isUuid } from "@/lib/uuid";
 import { parseRange } from "@/storage/range";
 import { getStorage } from "@/storage/storage";
@@ -13,12 +14,15 @@ import { RENDITIONS, renditionKey, renditionNamed } from "@/uploads/renditions";
 
 type Served = { key: string; type: string; size: number };
 
-// What a file name under an id is, and where it is kept; ticket 05 adds a video's files.
+// What a file name under an id is, and where it is kept: a rendition, a photo's file, or a
+// video's (album/video.ts; the clip as sent is not among them, and is never served).
 function fileNamed(id: string, file: string): { key: string; type: string } | undefined {
   const rendition = renditionNamed(file);
   if (rendition) return { key: renditionKey(id, rendition), type: RENDITIONS[rendition].type };
   const photo = photoFileNamed(file);
   if (photo) return { key: photoKey(id, photo), type: PHOTO_FILES[photo].type };
+  const video = videoFileNamed(file);
+  if (video) return { key: videoKey(id, video), type: VIDEO_FILES[video].type };
   return undefined;
 }
 

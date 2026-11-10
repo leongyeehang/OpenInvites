@@ -363,7 +363,10 @@
       "processVideos": "為播放處理影片",
       "processVideosHint": "開啟後，需要的影片都會產生一個較小的副本，以便在網速慢的情況下和各種瀏覽器中播放。關閉後，影片按原樣保存，能否播放取決於瀏覽器。",
       "submit": "儲存",
-      "saved": "已儲存。"
+      "saved": "已儲存。",
+      "videosAvailable": "影片：可用（ffmpeg {version}）。",
+      "videosOld": "影片功能需要 ffmpeg 6 或更高版本；本伺服器的版本是 {version}。",
+      "videosMissing": "影片功能需要 ffmpeg，本伺服器尚未安裝。"
     },
     "invitations": {
       "title": "主辦人邀請",
@@ -588,7 +591,17 @@
         "visibilityHint": "已回覆的賓客永遠都能新增照片；主辦人看得到所有照片。",
         "approval": "照片須經核准才會顯示",
         "approvalHint": "新照片會等候主辦人核准。關閉此項，所有等候中的照片都會顯示。",
-        "notify": "有照片等候核准時寄電子郵件給主辦人"
+        "notify": "有照片等候核准時寄電子郵件給主辦人",
+        "videos": "允許影片",
+        "videosHint": "賓客可以像新增照片一樣新增影片。每段影片都以原始畫質保存，並移除手機記錄的位置和裝置資訊。",
+        "maxVideoMinutes": "最長影片（分鐘）",
+        "maxVideoMb": "最大影片（MB）",
+        "videoCapsHint": "留空即採用本站的上限：最長 {minutes} 分鐘、最大 {mb} MB。高於本站上限的值按本站上限計。",
+        "quality": "輕量副本",
+        "quality1080": "1080p",
+        "quality720": "720p（更省空間）",
+        "qualityHint": "輕量副本便於在網速慢時播放；賓客仍可選擇原始畫質。",
+        "videosUnavailable": "影片功能需要本站安裝 ffmpeg，目前尚未安裝；請聯絡本站營運者。"
       },
       "notifyOnRsvp": "有賓客回覆時寄電子郵件給主辦人",
       "remindersEnabled": "寄電子郵件提醒賓客（提前一週提醒待定的賓客，提前一天提醒參加的賓客）",
@@ -661,7 +674,10 @@
       "scheduleTitleTooLong": "第 {n} 項的標題超過 80 個字元。",
       "schedulePlaceTooLong": "第 {n} 項的地點超過 120 個字元。",
       "scheduleNoteTooLong": "第 {n} 項的備註超過 500 個字元。",
-      "scheduleInvalid": "無法讀取日程，請再試一次。"
+      "scheduleInvalid": "無法讀取日程，請再試一次。",
+      "albumMaxVideoMinutesInvalid": "請為最長影片填寫 1 到 180 之間的整數分鐘數，或留空。",
+      "albumMaxVideoMbInvalid": "請為最大影片填寫 1 到 10,000 之間的整數（MB），或留空。",
+      "albumQualityInvalid": "請為輕量副本選擇 1080p 或 720p。"
     },
     "manage": {
       "link": "活動連結",

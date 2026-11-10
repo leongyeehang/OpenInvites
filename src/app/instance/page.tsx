@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
+import { ffmpegStatus, type FfmpegStatus } from "@/album/ffmpeg";
 import { requireOperator } from "@/auth/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -119,6 +120,7 @@ export default async function InstancePage() {
               )}
             </dl>
             {storage.bucket && <p className="text-sm text-muted-foreground">{t("storage.bucketNote")}</p>}
+            <VideosLine status={storage.ffmpeg} />
             {storage.unmeasured > 0 && (
               <p role="status" className="text-sm text-muted-foreground">
                 {t("storage.measuring", { count: storage.unmeasured })}
@@ -180,7 +182,14 @@ export default async function InstancePage() {
 // before the upgrade, the albums that take the most, and the processing switch.
 async function storageFacts() {
   const [use, disk, free, unmeasured, biggest, processing] = await Promise.all([siteBytes(), diskUse(), freeDiskBytes(), unmeasuredCount(), biggestAlbums(5), videoProcessing()]);
-  return { use, disk, free, unmeasured, biggest, processing, bucket: storageConfig().backend === "s3" };
+  return { use, disk, free, unmeasured, biggest, processing, bucket: storageConfig().backend === "s3", ffmpeg: ffmpegStatus() };
+}
+
+// Whether this server can process videos (ADR-0007, ticket 05).
+async function VideosLine({ status }: { status: FfmpegStatus }) {
+  const t = await getTranslations("Instance.storage");
+  const text = status.available ? t("videosAvailable", { version: status.version }) : status.reason === "old" ? t("videosOld", { version: status.version ?? "?" }) : t("videosMissing");
+  return <p className="text-sm">{text}</p>;
 }
 
 // One of the biggest albums: the event, linked to its page (the operator cannot open another

@@ -37,6 +37,9 @@ COPY --from=build --chown=node:node /app/scripts ./scripts
 # external). Link it where Node resolves bare imports, so the operator commands in scripts/ run.
 RUN cd node_modules && ln -s "$(find .pnpm -maxdepth 3 -type d -path '*/node_modules/postgres')" postgres \
   && test -f postgres/package.json
+# ffmpeg processes the album's videos (ADR-0007): the one binary the image carries beyond Node.
+# The app checks its version at start and refuses videos without a usable one.
+RUN apk add --no-cache ffmpeg
 # Hosts' uploaded pictures, on local disk unless the operator configures S3 (ADR-0003). Owned by
 # the app's user, so a named volume mounted here starts out writable.
 RUN mkdir uploads && chown node:node uploads

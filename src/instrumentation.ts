@@ -20,6 +20,9 @@ export async function register(): Promise<void> {
   authSecret();
   mailConfig();
   storageConfig();
+  // Whether ffmpeg can process videos (ADR-0007); without it the site refuses videos, no more.
+  const { checkFfmpegAtStart } = await import("./album/ffmpeg");
+  checkFfmpegAtStart();
   checkRateLimitsAtStart();
   checkLegalPagesAtStart();
   turnstileConfig();

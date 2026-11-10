@@ -16,6 +16,8 @@ test("the operator reaches the instance settings from the host area", async ({ p
   const storage = page.locator("#storage");
   await expect(storage.getByText("In use", { exact: true })).toBeVisible();
   expect(await storage.getByRole("listitem").count()).toBeLessThanOrEqual(5);
+  // The image carries ffmpeg (ADR-0007), so the Docker app can process videos (M7 ticket 05).
+  await expect(storage.getByText(/^Videos: available \(ffmpeg \S+\)\.$/)).toBeVisible();
 });
 
 // The account menu under the operator's initials, by keyboard alone (dashboard, ticket 02).

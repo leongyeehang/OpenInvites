@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import { cache } from "react";
 import { getDb, type Db } from "@/db/client";
 import { emailCode, event, invite, photo, rsvp } from "@/db/schema";
-import { removePhotoFiles } from "@/album/files";
+import { removeItemFiles } from "@/album/files";
 import { acceptsRsvps } from "@/events/access";
 import type { Locale } from "@/locale/resolve-locale";
 import { isMailConfigured } from "@/mail/config";
@@ -528,7 +528,7 @@ export async function deleteRsvp(eventId: string, id: string, by: "guest" | "hos
     const { mailed } = await promoteWaitlist(locked, tx, now);
     return { removed, mailed, photos: photos.map((each) => each.id) };
   });
-  await removePhotoFiles(outcome.photos);
+  await removeItemFiles(outcome.photos);
   return { removed: outcome.removed, mailed: outcome.mailed };
 }
 

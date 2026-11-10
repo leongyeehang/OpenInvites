@@ -1,4 +1,4 @@
-import { asc, count, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ne, sql } from "drizzle-orm";
 import { resolve } from "node:path";
 import { getDb, type Db } from "@/db/client";
 import { event, photo, upload } from "@/db/schema";
@@ -6,7 +6,8 @@ import { eventHosts, type EventHost } from "@/events/hosts";
 import { storageConfig } from "./config";
 import { diskUseOf, freeBytesOf } from "./disk-space";
 
-// What the site's uploads take (M7 ticket 02), as the limits count them: every album item and
+// What the site's uploads take (M7 ticket 02), as the limits count them: every album item (a failed
+// video aside, ticket 05) and
 // every host's picture records its size as uploaded, and these are sums over that column. A sum
 // over a bigint comes back from postgres-js as a string, hence mapWith(Number). Each takes a `db`
 // so a check inside a locked transaction reads through it (as rsvps/limit.ts does) rather than
@@ -15,13 +16,13 @@ import { diskUseOf, freeBytesOf } from "./disk-space";
 const bytesOf = (column: typeof photo.bytes | typeof upload.bytes) => sql<number>`coalesce(sum(${column}), 0)`.mapWith(Number);
 
 export async function eventAlbumBytes(eventId: string, db: Db = getDb()): Promise<number> {
-  const [{ bytes }] = await db.select({ bytes: bytesOf(photo.bytes) }).from(photo).where(eq(photo.eventId, eventId));
+  const [{ bytes }] = await db.select({ bytes: bytesOf(photo.bytes) }).from(photo).where(and(eq(photo.eventId, eventId), ne(photo.status, "failed")));
   return bytes;
 }
 
 // One query after the other: `db` may be a transaction on one connection.
 export async function siteBytes(db: Db = getDb()): Promise<{ albums: number; pictures: number }> {
-  const [{ albums }] = await db.select({ albums: bytesOf(photo.bytes) }).from(photo);
+  const [{ albums }] = await db.select({ albums: bytesOf(photo.bytes) }).from(photo).where(ne(photo.status, "failed"));
   const [{ pictures }] = await db.select({ pictures: bytesOf(upload.bytes) }).from(upload);
   return { albums, pictures };
 }
@@ -36,6 +37,7 @@ export async function biggestAlbums(limit = 5): Promise<BiggestAlbum[]> {
     .select({ id: event.id, title: event.title, slug: event.slug, customSlug: event.customSlug, bytes: bytesOf(photo.bytes), items: count() })
     .from(photo)
     .innerJoin(event, eq(event.id, photo.eventId))
+    .where(ne(photo.status, "failed"))
     .groupBy(event.id, event.title, event.slug, event.customSlug)
     .orderBy(desc(sql`coalesce(sum(${photo.bytes}), 0)`), asc(event.id))
     .limit(limit);

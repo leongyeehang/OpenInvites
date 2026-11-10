@@ -68,6 +68,10 @@ export async function newEventAction(_: FormState, formData: FormData): Promise<
     albumVisibility: "replied",
     albumApprovalRequired: false,
     notifyOnPhoto: true,
+    albumVideosAllowed: true,
+    albumMaxVideoMinutes: null,
+    albumMaxVideoMb: null,
+    albumCopyQuality: "1080p",
     inviteOnly: false,
     locale: await getLocale(),
   });
@@ -238,6 +242,10 @@ export async function saveSettingsAction(id: string, formData: FormData): Promis
     albumVisibility: text("albumVisibility"),
     albumApprovalRequired: formData.get("albumApprovalRequired") === "on",
     notifyOnPhoto: formData.get("notifyOnPhoto") === "on",
+    albumVideosAllowed: formData.get("albumVideosAllowed") === "on",
+    albumMaxVideoMinutes: text("albumMaxVideoMinutes"),
+    albumMaxVideoMb: text("albumMaxVideoMb"),
+    albumCopyQuality: text("albumCopyQuality"),
     inviteOnly: formData.get("inviteOnly") === "on",
   });
   if (!settings.ok) return { saved: false, error: t(`errors.${settings.error}`), field: settings.error === "capacityInvalid" ? "capacity" : undefined };

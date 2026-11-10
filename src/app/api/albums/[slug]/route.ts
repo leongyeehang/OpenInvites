@@ -1,5 +1,5 @@
 import { albumRoom, albumState, MAX_PHOTOS_AT_ONCE, mayAddPhotos } from "@/album/album";
-import { processPhoto, removePhotoFiles, storePhoto } from "@/album/files";
+import { processPhoto, removeItemFiles, storePhoto } from "@/album/files";
 import { notifyHostsOfPhotos } from "@/album/notify-hosts";
 import { addPhotos, countPhotos } from "@/album/repository";
 import { albumViewer } from "@/album/viewer";
@@ -87,7 +87,7 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
     const owner = viewer.kind === "host" ? { hostId: viewer.hostId } : { rsvpId: viewer.rsvpId };
     const added = await addPhotos(event.id, owner, stored, caps, freeBytes, (locked) => photoStatusFor(locked, viewer));
     if ("refused" in added) {
-      await removePhotoFiles(stored.map((each) => each.id));
+      await removeItemFiles(stored.map((each) => each.id));
       return Response.json({ error: added.refused.error, left: added.refused.left, limit: added.refused.limit } satisfies AlbumUploadResult, { status: 409 });
     }
     pending = added.status === "pending";

@@ -8,8 +8,10 @@ export const ALBUM_VISIBILITIES = ["replied", "going", "hosts"] as const;
 export type AlbumVisibility = (typeof ALBUM_VISIBILITIES)[number];
 
 // A photo waits for a host while the host approves photos before they show; every other is
-// approved. The database enum is built from this list too.
-export const PHOTO_STATUSES = ["pending", "approved"] as const;
+// approved. A video (M7 ticket 05) is processing from its upload until ffmpeg is done with it, and
+// failed when ffmpeg could not read it or it was over the length cap; a failed item counts for
+// nothing. The database enum is built from this list too.
+export const PHOTO_STATUSES = ["pending", "approved", "processing", "failed"] as const;
 
 export type PhotoStatus = (typeof PHOTO_STATUSES)[number];
 

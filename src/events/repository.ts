@@ -8,7 +8,7 @@ import { isUuid } from "@/lib/uuid";
 import type { Locale } from "@/locale/resolve-locale";
 import { DEFAULT_THEME, parseTheme, type Theme } from "@/themes/theme";
 import { approvePending, promoteWaitlist } from "@/rsvps/repository";
-import { removePhotoFiles } from "@/album/files";
+import { removeItemFiles } from "@/album/files";
 import { approvePendingPhotos } from "@/album/repository";
 import { inviteRepliedGuests } from "@/invites/repository";
 import { removeRenditions } from "@/uploads/files";
@@ -296,7 +296,7 @@ export async function removeEvents(which: SQL | undefined): Promise<void> {
     await tx.delete(event).where(inArray(event.id, doomed));
     return { uploads: removed.map(({ id }) => id), photos: photos.map(({ id }) => id) };
   });
-  await Promise.all([removeRenditions(uploads), removePhotoFiles(photos)]);
+  await Promise.all([removeRenditions(uploads), removeItemFiles(photos)]);
 }
 
 // The dashboard: the events a host owns and those they co-host, each with their role.

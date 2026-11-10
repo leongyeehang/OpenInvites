@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { QuestionsEditor } from "@/app/(host)/events/questions-editor";
+import { VIDEO_QUALITIES } from "@/album/video";
 import { ALBUM_VISIBILITIES } from "@/album/visibility";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
@@ -12,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { saveSettingsAction } from "@/events/editor-actions";
 import { CAPACITY_MAX, CAPACITY_MIN, MAX_PLUS_ONES, type EventSettings } from "@/events/form";
+import { VIDEO_MB, VIDEO_MINUTES } from "@/instance/limits";
 import { cn } from "@/lib/utils";
 import type { QuestionDraft } from "@/questions/question";
 import { CONTACT_FIELDS, type ContactField } from "@/rsvps/form";
@@ -74,6 +76,7 @@ export function SettingsSheet({
   settings,
   mail,
   maxReplies,
+  siteVideo,
   questions,
   answerCounts,
 }: {
@@ -83,6 +86,9 @@ export function SettingsSheet({
   mail: boolean;
   // How many replies the operator lets an event take, which the capacity's hint names.
   maxReplies: number;
+  // The site's video caps, which the event's caps hint names, and whether the site can process
+  // videos at all (M7 ticket 05).
+  siteVideo: { maxMinutes: number; maxMb: number; available: boolean };
   questions: QuestionDraft[];
   answerCounts: Record<string, number>;
 }) {
@@ -288,6 +294,57 @@ export function SettingsSheet({
             <Field orientation="horizontal">
               <Checkbox id={`${id}-photo-mail`} name="notifyOnPhoto" defaultChecked={settings.notifyOnPhoto} />
               <FieldLabel htmlFor={`${id}-photo-mail`}>{t("album.notify")}</FieldLabel>
+            </Field>
+            {/* Videos (M7 ticket 05). The controls stay enabled without ffmpeg: this form posts every
+                field on every change, and a disabled box would be saved as off. */}
+            <Field orientation="horizontal">
+              <Checkbox id={`${id}-videos`} name="albumVideosAllowed" defaultChecked={settings.albumVideosAllowed} aria-describedby={`${id}-videos-hint`} />
+              <FieldContent>
+                <FieldLabel htmlFor={`${id}-videos`}>{t("album.videos")}</FieldLabel>
+                <FieldDescription id={`${id}-videos-hint`}>{siteVideo.available ? t("album.videosHint") : t("album.videosUnavailable")}</FieldDescription>
+              </FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={`${id}-video-minutes`}>{t("album.maxVideoMinutes")}</FieldLabel>
+              <Input
+                id={`${id}-video-minutes`}
+                name="albumMaxVideoMinutes"
+                type="number"
+                inputMode="numeric"
+                min={VIDEO_MINUTES.min}
+                max={VIDEO_MINUTES.max}
+                step={1}
+                defaultValue={settings.albumMaxVideoMinutes ?? ""}
+                placeholder={String(siteVideo.maxMinutes)}
+                aria-describedby={`${id}-video-caps-hint`}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={`${id}-video-mb`}>{t("album.maxVideoMb")}</FieldLabel>
+              <Input
+                id={`${id}-video-mb`}
+                name="albumMaxVideoMb"
+                type="number"
+                inputMode="numeric"
+                min={VIDEO_MB.min}
+                max={VIDEO_MB.max}
+                step={1}
+                defaultValue={settings.albumMaxVideoMb ?? ""}
+                placeholder={String(siteVideo.maxMb)}
+                aria-describedby={`${id}-video-caps-hint`}
+              />
+              <FieldDescription id={`${id}-video-caps-hint`}>{t("album.videoCapsHint", { minutes: siteVideo.maxMinutes, mb: siteVideo.maxMb })}</FieldDescription>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={`${id}-video-quality`}>{t("album.quality")}</FieldLabel>
+              <NativeSelect id={`${id}-video-quality`} name="albumCopyQuality" defaultValue={settings.albumCopyQuality} aria-describedby={`${id}-video-quality-hint`}>
+                {VIDEO_QUALITIES.map((quality) => (
+                  <NativeSelectOption key={quality} value={quality}>
+                    {t(quality === "1080p" ? "album.quality1080" : "album.quality720")}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+              <FieldDescription id={`${id}-video-quality-hint`}>{t("album.qualityHint")}</FieldDescription>
             </Field>
           </FieldSet>
 

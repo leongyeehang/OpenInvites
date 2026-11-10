@@ -43,6 +43,10 @@ const source: Event = {
   albumVisibility: "hosts",
   albumApprovalRequired: true,
   notifyOnPhoto: false,
+  albumVideosAllowed: false,
+  albumMaxVideoMinutes: 3,
+  albumMaxVideoMb: 200,
+  albumCopyQuality: "720p",
   lettersEnabled: true,
   inviteOnly: true,
   createdAt: new Date("2026-12-01T00:00:00Z"),
@@ -106,6 +110,11 @@ describe("duplicateInput", () => {
       { type: "multiple", prompt: "Which drinks?", options: ["Tea", "Coffee", "Water"], required: false, position: 1 },
       { type: "text", prompt: "Dietary needs?", options: [], required: false, position: 2 },
     ]);
+  });
+
+  // M7 ticket 05: the video settings travel with the album's.
+  it("copies whether videos are allowed, their caps, and the lighter copy's quality", () => {
+    expect(copy.event).toMatchObject({ albumVideosAllowed: false, albumMaxVideoMinutes: 3, albumMaxVideoMb: 200, albumCopyQuality: "720p" });
   });
 
   it("copies nothing that belongs to the source alone", () => {

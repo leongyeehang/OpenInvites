@@ -136,13 +136,16 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
     const awaitingApproval = viewer.kind === "guest" && viewer.approval === "pending";
     return { view: "locked", count: await countPhotos(event.id, "approved"), visibility: event.albumVisibility, awaitingApproval };
   }
-  const photos = (await listPhotos(event.id, photoScope(view, viewer))).map((each) => ({
+  // Videos (M7) reach the page in ticket 07; until then an item of another kind is left out, so
+  // nothing that expects a photo is handed one.
+  const items = (await listPhotos(event.id, photoScope(view, viewer))).filter((each) => each.kind === "photo");
+  const photos = items.map((each) => ({
     id: each.id,
     name: each.name,
     thumb: photoUrl(each.id, "thumb"),
     large: photoUrl(each.id, "large"),
-    width: each.width,
-    height: each.height,
+    width: each.width ?? 0,
+    height: each.height ?? 0,
     deletable: mayDeletePhoto(viewer, each),
     pending: each.status === "pending",
     approvable: each.status === "pending" && mayApprovePhoto(viewer),

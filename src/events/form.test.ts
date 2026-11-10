@@ -24,6 +24,10 @@ const valid = {
   albumVisibility: "going",
   albumApprovalRequired: true,
   notifyOnPhoto: false,
+  albumVideosAllowed: true,
+  albumMaxVideoMinutes: "",
+  albumMaxVideoMb: "",
+  albumCopyQuality: "1080p",
   inviteOnly: true,
 };
 
@@ -56,6 +60,10 @@ describe("parseEventForm", () => {
         albumVisibility: "going",
         albumApprovalRequired: true,
         notifyOnPhoto: false,
+        albumVideosAllowed: true,
+        albumMaxVideoMinutes: null,
+        albumMaxVideoMb: null,
+        albumCopyQuality: "1080p",
         inviteOnly: true,
       },
     });
@@ -102,6 +110,25 @@ describe("parseEventForm", () => {
       expect(parsed.ok && parsed.input.albumVisibility).toBe(albumVisibility);
     }
     expect(parseEventForm({ ...valid, albumVisibility: "everyone" })).toEqual({ ok: false, error: "albumVisibilityInvalid" });
+  });
+
+  // M7 ticket 05: the video settings. Blank caps mean the site's; a cap above the site's is kept
+  // as typed, since the effective cap is decided when a clip is checked (album/video.ts).
+  it("reads the video caps as whole numbers, blank for none, and the lighter copy's quality", () => {
+    const parsed = parseEventForm({ ...valid, albumVideosAllowed: false, albumMaxVideoMinutes: "2", albumMaxVideoMb: "9000", albumCopyQuality: "720p" });
+    expect(parsed.ok && parsed.input).toMatchObject({ albumVideosAllowed: false, albumMaxVideoMinutes: 2, albumMaxVideoMb: 9000, albumCopyQuality: "720p" });
+    const blank = parseEventForm({ ...valid, albumMaxVideoMinutes: " ", albumMaxVideoMb: "" });
+    expect(blank.ok && blank.input).toMatchObject({ albumMaxVideoMinutes: null, albumMaxVideoMb: null });
+  });
+
+  it("refuses a video cap outside its range or not a whole number, and an unknown quality, naming each", () => {
+    for (const minutes of ["0", "181", "1.5", "two"]) {
+      expect(parseEventForm({ ...valid, albumMaxVideoMinutes: minutes })).toEqual({ ok: false, error: "albumMaxVideoMinutesInvalid" });
+    }
+    for (const mb of ["0", "10001", "-5"]) {
+      expect(parseEventForm({ ...valid, albumMaxVideoMb: mb })).toEqual({ ok: false, error: "albumMaxVideoMbInvalid" });
+    }
+    expect(parseEventForm({ ...valid, albumCopyQuality: "4k" })).toEqual({ ok: false, error: "albumQualityInvalid" });
   });
 
   it("asks for an email and a phone number only in the three ways it knows", () => {

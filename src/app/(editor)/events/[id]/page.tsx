@@ -15,6 +15,7 @@ import { findHostEvent } from "@/events/repository";
 import { eventUrl } from "@/events/slug";
 import { formatDay, formatWhen, isDated, timeZones, toWallTime } from "@/events/time";
 import { can } from "@/hosts/role";
+import { ffmpegStatus } from "@/album/ffmpeg";
 import { instanceLimits } from "@/instance/repository";
 import { MEGABYTE } from "@/lib/sizes";
 import { ClientMessages } from "@/locale/client-messages";
@@ -160,6 +161,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
                       settings={event}
                       mail={isMailConfigured()}
                       maxReplies={limits.maxRsvpsPerEvent}
+                      siteVideo={{ maxMinutes: limits.maxVideoMinutes, maxMb: limits.maxVideoMb, available: ffmpegStatus().available }}
                       questions={questions}
                       answerCounts={answerCounts}
                     />
