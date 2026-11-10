@@ -142,6 +142,8 @@ export const instanceSettings = pgTable(
     albumReminderDefaultDays: integer("album_reminder_default_days").default(60),
     // Whether a lighter copy is made of videos that need one (M7 ticket 03, the Storage card).
     videoProcessing: boolean("video_processing").notNull().default(true),
+    // When the worker container, if the processing was moved to one, last reported (ticket 08).
+    videoWorkerSeenAt: timestamp("video_worker_seen_at", { withTimezone: true }),
     // Whether MAX_UPLOAD_MB has been read once into Largest photo (instance/upload-limit.ts).
     uploadEnvAdopted: boolean("upload_env_adopted").notNull().default(false),
     // The home page (instance/home.ts): the name and the welcome line, null while the operator has

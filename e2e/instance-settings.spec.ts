@@ -18,6 +18,8 @@ test("the operator reaches the instance settings from the host area", async ({ p
   expect(await storage.getByRole("listitem").count()).toBeLessThanOrEqual(5);
   // The image carries ffmpeg (ADR-0007), so the Docker app can process videos (M7 ticket 05).
   await expect(storage.getByText(/^Videos: available \(ffmpeg \S+\)\.$/)).toBeVisible();
+  // The shared app processes its own videos (ticket 08); app-fresh's worker has its own spec.
+  await expect(storage.getByText("Videos are processed by this site’s app.")).toBeVisible();
 });
 
 // The account menu under the operator's initials, by keyboard alone (dashboard, ticket 02).

@@ -35,6 +35,26 @@ services:
       db:
         condition: service_healthy
 
+  # The album's videos are processed in the app's container unless VIDEO_PROCESSING=worker in .env
+  # moves the work here: the same image in the worker role, on the same database and the same
+  # uploads volume, with no published port. Uncomment this service with that setting; with S3 the
+  # volume line can stay, it is simply unused.
+  # worker:
+  #   image: ${OPENINVITES_IMAGE:-ghcr.io/leongyeehang/openinvites:latest}
+  #   restart: unless-stopped
+  #   env_file: .env
+  #   environment:
+  #     DATABASE_URL: postgres://openinvites:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/openinvites
+  #     BASE_URL: ${BASE_URL:?Set BASE_URL in .env}
+  #     AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env}
+  #     VIDEO_ROLE: worker
+  #   command: ["node", "scripts/video-worker.mjs"]
+  #   volumes:
+  #     - uploads:/app/uploads
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+
   # Postgres 18 or newer is required (ADR-0004). A minor version is pinned; a newer release of
   # this file may move it, which needs nothing more than `docker compose up -d`.
   db:

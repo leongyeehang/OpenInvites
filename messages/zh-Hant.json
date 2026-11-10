@@ -366,7 +366,10 @@
       "saved": "已儲存。",
       "videosAvailable": "影片：可用（ffmpeg {version}）。",
       "videosOld": "影片功能需要 ffmpeg 6 或更高版本；本伺服器的版本是 {version}。",
-      "videosMissing": "影片功能需要 ffmpeg，本伺服器尚未安裝。"
+      "videosMissing": "影片功能需要 ffmpeg，本伺服器尚未安裝。",
+      "processedByApp": "影片由本站的應用程式自行處理。",
+      "processedByWorker": "影片由工作容器處理，最近一次回報於{time}。",
+      "processedByWorkerMissing": "影片由工作容器處理，但它尚未回報：請檢查它是否正在執行。"
     },
     "invitations": {
       "title": "主辦人邀請",

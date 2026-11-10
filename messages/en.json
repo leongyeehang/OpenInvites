@@ -366,7 +366,10 @@
       "saved": "Saved.",
       "videosAvailable": "Videos: available (ffmpeg {version}).",
       "videosOld": "Videos need ffmpeg 6 or later; this server has {version}.",
-      "videosMissing": "Videos need ffmpeg, which this server does not have."
+      "videosMissing": "Videos need ffmpeg, which this server does not have.",
+      "processedByApp": "Videos are processed by this site’s app.",
+      "processedByWorker": "Videos are processed by the worker container, last seen {time}.",
+      "processedByWorkerMissing": "Videos are processed by a worker container, which has not reported yet: check it is running."
     },
     "invitations": {
       "title": "Host invitations",

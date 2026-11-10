@@ -109,3 +109,12 @@ export function chooseQuality(stored: PlayQuality | undefined, originalPlayable:
 export function playable(codecString: string, canPlayType: (type: string) => string): boolean {
   return canPlayType(`video/mp4; codecs="${codecString}"`) !== "";
 }
+
+// Who processes videos, for the Storage card (ticket 08): the app itself, or the worker container,
+// which reports every minute; a worker not heard from for five minutes is missing.
+export const WORKER_STALE_MS = 5 * 60_000;
+
+export function videoProcessor(mode: "app" | "worker", seenAt: Date | undefined, now: Date): "app" | "worker" | "missing" {
+  if (mode === "app") return "app";
+  return seenAt && now.getTime() - seenAt.getTime() < WORKER_STALE_MS ? "worker" : "missing";
+}

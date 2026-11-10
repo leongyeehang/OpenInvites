@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MEGABYTE } from "@/lib/sizes";
-import { chooseQuality, copyName, effectiveVideoCaps, needsCopy, playable, SENT_FILE, shortSide, TARGET_BITRATE, VIDEO_FILES, videoFileNamed, videoKey, videoProblem, videoUrl } from "./video";
+import { chooseQuality, copyName, effectiveVideoCaps, needsCopy, playable, SENT_FILE, shortSide, TARGET_BITRATE, VIDEO_FILES, videoFileNamed, videoKey, videoProblem, videoProcessor, videoUrl, WORKER_STALE_MS } from "./video";
 
 // Videos in the album (M7 ticket 05): the files a video is kept as, and the caps a clip is held to.
 
@@ -121,5 +121,22 @@ describe("playable", () => {
     expect(asked).toEqual(['video/mp4; codecs="avc1.64001F"']);
     expect(playable("hvc1.1.6.L93.B0", () => "")).toBe(false);
     expect(playable("avc1.42E01E", () => "maybe")).toBe(true);
+  });
+});
+
+describe("who processes videos", () => {
+  const now = new Date("2026-11-09T12:00:00Z");
+
+  it("is the app in app mode, whatever a worker once reported", () => {
+    expect(videoProcessor("app", undefined, now)).toBe("app");
+    expect(videoProcessor("app", now, now)).toBe("app");
+  });
+
+  it("is the worker while its heartbeat is under five minutes old, and missing otherwise", () => {
+    expect(WORKER_STALE_MS).toBe(5 * 60_000);
+    expect(videoProcessor("worker", new Date(now.getTime() - 60_000), now)).toBe("worker");
+    expect(videoProcessor("worker", new Date(now.getTime() - WORKER_STALE_MS + 1), now)).toBe("worker");
+    expect(videoProcessor("worker", new Date(now.getTime() - WORKER_STALE_MS), now)).toBe("missing");
+    expect(videoProcessor("worker", undefined, now)).toBe("missing");
   });
 });

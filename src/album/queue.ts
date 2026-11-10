@@ -1,5 +1,7 @@
 import { PHASE_PRODUCTION_BUILD } from "next/constants";
 import { hostname } from "node:os";
+import { processesVideosHere, videoRole } from "@/instance/env";
+import { markVideoWorkerSeen } from "@/instance/repository";
 import { claimJob, failJob } from "./jobs";
 import { processVideo } from "./processing";
 
@@ -22,15 +24,28 @@ function queue(): Queue {
 const EVERY_MINUTE = 60_000;
 
 // Started from register() in instrumentation.ts beside the mail worker; not under `next build`.
-// Every minute it takes whatever waits, which also picks up a job whose lease a crash left.
+// Every minute it takes whatever waits, which also picks up a job whose lease a crash left. With
+// the processing moved to a worker container (VIDEO_PROCESSING, ticket 08) the app starts nothing
+// and a kick does nothing: the worker's minute goes round from its start, and it reports itself
+// each time, which the Storage card shows.
 export function startVideoQueue(): void {
-  if (process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD) return;
-  queue().timer ??= setInterval(() => void kickVideoQueue(), EVERY_MINUTE);
+  if (process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD || !processesVideosHere()) return;
+  const state = queue();
+  if (state.timer) return;
+  const worker = videoRole() === "worker";
+  state.timer = setInterval(() => void tick(worker), EVERY_MINUTE);
+  if (worker) void tick(worker);
+}
+
+async function tick(worker: boolean): Promise<void> {
+  if (worker) await markVideoWorkerSeen(new Date()).catch((error) => console.error("Videos: the worker could not report itself:", error));
+  await kickVideoQueue();
 }
 
 const me = () => `${hostname()}:${process.pid}`;
 
 export async function kickVideoQueue(): Promise<void> {
+  if (!processesVideosHere()) return;
   const state = queue();
   if (state.running) {
     state.again = true;

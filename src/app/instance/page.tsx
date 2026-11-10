@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { ffmpegStatus, type FfmpegStatus } from "@/album/ffmpeg";
+import { videoProcessor } from "@/album/video";
 import { requireOperator } from "@/auth/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { eventPath } from "@/events/slug";
 import { revokeHostInvitationAction } from "@/instance/actions";
+import { videoProcessingMode, type VideoProcessingMode } from "@/instance/env";
 import { HOST_INVITATION_DAYS, hostInvitationDaysLeft, hostInvitationState, type HostInvitationState } from "@/instance/host-invitation";
-import { homePage, instanceLimits, listHostInvitations, registrationMode, videoProcessing, type HostInvitation } from "@/instance/repository";
+import { homePage, instanceLimits, listHostInvitations, registrationMode, videoProcessing, videoWorkerSeenAt, type HostInvitation } from "@/instance/repository";
 import { formatSize } from "@/lib/sizes";
 import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
@@ -121,6 +123,7 @@ export default async function InstancePage() {
             </dl>
             {storage.bucket && <p className="text-sm text-muted-foreground">{t("storage.bucketNote")}</p>}
             <VideosLine status={storage.ffmpeg} />
+            {storage.ffmpeg.available && <ProcessedByLine mode={storage.mode} seenAt={storage.workerSeenAt} now={now} />}
             {storage.unmeasured > 0 && (
               <p role="status" className="text-sm text-muted-foreground">
                 {t("storage.measuring", { count: storage.unmeasured })}
@@ -181,14 +184,23 @@ export default async function InstancePage() {
 // has free (nothing on S3, where the site cannot see a disk), what is still being measured from
 // before the upgrade, the albums that take the most, and the processing switch.
 async function storageFacts() {
-  const [use, disk, free, unmeasured, biggest, processing] = await Promise.all([siteBytes(), diskUse(), freeDiskBytes(), unmeasuredCount(), biggestAlbums(5), videoProcessing()]);
-  return { use, disk, free, unmeasured, biggest, processing, bucket: storageConfig().backend === "s3", ffmpeg: ffmpegStatus() };
+  const [use, disk, free, unmeasured, biggest, processing, workerSeenAt] = await Promise.all([siteBytes(), diskUse(), freeDiskBytes(), unmeasuredCount(), biggestAlbums(5), videoProcessing(), videoWorkerSeenAt()]);
+  return { use, disk, free, unmeasured, biggest, processing, workerSeenAt, mode: videoProcessingMode(), bucket: storageConfig().backend === "s3", ffmpeg: ffmpegStatus() };
 }
 
 // Whether this server can process videos (ADR-0007, ticket 05).
 async function VideosLine({ status }: { status: FfmpegStatus }) {
   const t = await getTranslations("Instance.storage");
   const text = status.available ? t("videosAvailable", { version: status.version }) : status.reason === "old" ? t("videosOld", { version: status.version ?? "?" }) : t("videosMissing");
+  return <p className="text-sm">{text}</p>;
+}
+
+// Who processes videos (ticket 08): this app, or the worker container and when it last reported;
+// a worker not heard from for five minutes is called out.
+async function ProcessedByLine({ mode, seenAt, now }: { mode: VideoProcessingMode; seenAt: Date | undefined; now: Date }) {
+  const [t, format] = await Promise.all([getTranslations("Instance.storage"), getFormatter()]);
+  const who = videoProcessor(mode, seenAt, now);
+  const text = who === "app" ? t("processedByApp") : who === "worker" && seenAt ? t("processedByWorker", { time: format.relativeTime(seenAt, now) }) : t("processedByWorkerMissing");
   return <p className="text-sm">{text}</p>;
 }
 

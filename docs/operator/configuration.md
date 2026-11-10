@@ -168,6 +168,13 @@ how much of it is free; the five albums that take the most, each with its hosts;
 needs one. On S3 the card shows the counted use only. After upgrading to 0.7 the card says how
 many files from before the upgrade are still being measured, until that is done.
 
+Videos are processed in the app's own container unless `VIDEO_PROCESSING=worker` moves the work
+to a **worker** container: the same image started as `node scripts/video-worker.mjs`, on the same
+database and the same `uploads` volume or bucket, with no published port. `deploy/compose.yaml`
+holds the service, commented out. The app then only queues each clip; the worker takes it within
+a minute and reports itself every minute, and the Storage card says when it was last seen. A
+worker not heard from for five minutes is called out on the card, so a stopped one is noticed.
+
 ### Retention
 
 Events are deleted a set time after they end: **Keep events for**, on the Limits card of
@@ -364,6 +371,7 @@ removes their last passkey, is never locked out.
 | `S3_REGION` | `us-east-1` | The bucket's region. |
 | `S3_BUCKET` | Required for `s3` | The bucket's name. |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Required for `s3` | The access key the app signs its requests with. |
+| `VIDEO_PROCESSING` | `app` | Where the album's videos are processed: `app`, in the app's container; `worker`, in a second container from the same image started as `node scripts/video-worker.mjs` (see Storage above). Anything else keeps the app from starting. |
 
 A host's picture is never kept as sent. The app re-encodes it without its metadata (a photo's
 location never reaches a guest) and stores six files named after the upload's id, in the sizes

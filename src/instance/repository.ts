@@ -58,6 +58,17 @@ export async function setVideoProcessing(on: boolean): Promise<void> {
   await getDb().update(instanceSettings).set({ videoProcessing: on });
 }
 
+// The worker container's heartbeat (ticket 08): written every minute by the worker, read by the
+// Storage card.
+export async function videoWorkerSeenAt(): Promise<Date | undefined> {
+  const [row] = await getDb().select({ seenAt: instanceSettings.videoWorkerSeenAt }).from(instanceSettings);
+  return row.seenAt ?? undefined;
+}
+
+export async function markVideoWorkerSeen(now: Date): Promise<void> {
+  await getDb().update(instanceSettings).set({ videoWorkerSeenAt: now });
+}
+
 // Cached per request: the header, the page and the settings card may all ask. Posters that have
 // left the gallery since they were chosen are dropped as they are read.
 export const homePage = cache(async (): Promise<HomePage> => {
