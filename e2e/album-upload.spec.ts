@@ -1,0 +1,161 @@
+import { readFileSync } from "node:fs";
+import sharp from "sharp";
+import { createPublished, editSettings } from "./events";
+import { closeReply } from "./reply";
+import { clientAddress, expect, test, type APIRequestContext, type Browser, type Page } from "./test";
+
+// M7 ticket 06: the upload protocol and the processing queue, driven at the API from a guest's
+// page (its cookies ride along, and the origin header is sent as a browser sends it). The tiles
+// and the player are ticket 07's; here the files a video becomes are what is looked at.
+
+const PAST = { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" };
+const H264 = readFileSync("e2e/fixtures/clip-h264.mp4");
+const HEVC = readFileSync("e2e/fixtures/clip-hevc.mov");
+const LONG = readFileSync("e2e/fixtures/clip-long.mp4");
+const TEST_PART = 65536;
+
+// A guest of their own, on an address of their own (the upload limit counts per address).
+async function guestGoing(browser: Browser, link: string, name: string): Promise<Page> {
+  const page = await (await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
+  await page.goto(link);
+  await page.getByRole("button", { name: "Going" }).click();
+  await page.getByLabel("Your name").fill(name);
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+  await closeReply(page);
+  return page;
+}
+
+type Api = { base: string; origin: string; request: APIRequestContext };
+
+function apiOf(page: Page, link: string): Api {
+  const url = new URL(link);
+  return { base: `${url.origin}/api/albums/${url.pathname.split("/").pop()}/uploads`, origin: url.origin, request: page.request };
+}
+
+type AskFile = { name: string; size: number; type: string; durationMs?: number };
+
+async function ask(api: Api, files: AskFile[]) {
+  const response = await api.request.post(api.base, { headers: { origin: api.origin }, data: { files } });
+  return { status: response.status(), body: (await response.json().catch(() => ({}))) as { uploads?: { ok: boolean; id?: string; partSize?: number; problem?: string }[]; error?: string } };
+}
+
+async function sendParts(api: Api, id: string, partSize: number, bytes: Buffer, upTo = Infinity): Promise<number> {
+  const parts = Math.max(1, Math.ceil(bytes.length / partSize));
+  for (let part = 0; part < Math.min(parts, upTo); part += 1) {
+    const response = await api.request.put(`${api.base}/${id}?part=${part}`, { headers: { origin: api.origin, "content-type": "application/octet-stream" }, data: bytes.subarray(part * partSize, (part + 1) * partSize) });
+    expect(response.status()).toBe(200);
+  }
+  return parts;
+}
+
+async function finish(api: Api, id: string) {
+  const response = await api.request.post(`${api.base}/${id}/finish`, { headers: { origin: api.origin } });
+  return { status: response.status(), body: (await response.json().catch(() => ({}))) as { ok?: boolean; item?: { id: string; kind: string; state: string }; problem?: string } };
+}
+
+// A file the route serves once processing stored it; processing waits for the queue's turn.
+async function servedWithin(request: APIRequestContext, url: string, ms: number): Promise<Buffer> {
+  await expect.poll(async () => (await request.get(url)).status(), { timeout: ms, intervals: [2000], message: `${url} served` }).toBe(200);
+  return (await request.get(url)).body();
+}
+
+async function uploadWhole(api: Api, name: string, type: string, bytes: Buffer, durationMs?: number) {
+  const asked = await ask(api, [{ name, size: bytes.length, type, durationMs }]);
+  expect(asked.status).toBe(200);
+  const [planned] = asked.body.uploads!;
+  expect(planned.ok).toBe(true);
+  expect(planned.partSize).toBe(TEST_PART);
+  const parts = await sendParts(api, planned.id!, planned.partSize!, bytes);
+  const done = await finish(api, planned.id!);
+  expect(done.status).toBe(200);
+  return { parts, item: done.body.item! };
+}
+
+test("an H.264 clip goes up in parts, is finished, processed, and served at original quality with no copy", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "video-api", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  const api = apiOf(priya, host.link);
+  const { parts, item } = await uploadWhole(api, "clip-h264.mp4", "video/mp4", H264, 4000);
+  expect(parts).toBeGreaterThan(3);
+  expect(item).toMatchObject({ kind: "video", state: "processing" });
+  const files = `${api.origin}/uploads/${item.id}`;
+  const original = await servedWithin(request, `${files}/video.mp4`, 90_000);
+  expect(original.length).toBeGreaterThan(100_000);
+  expect((await request.get(`${files}/video-poster.webp`)).status()).toBe(200);
+  expect((await request.get(`${files}/video-thumb.webp`)).status()).toBe(200);
+  // The clip as sent is never served, and an H.264 clip at 640x480 needs no lighter copy.
+  expect((await request.get(`${files}/video-sent`)).status()).toBe(404);
+  expect((await request.get(`${files}/video-1080p.mp4`)).status()).toBe(404);
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+test("an HEVC clip held portrait gets a lighter copy, an upright poster, and loses its location", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "video-hevc", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  const api = apiOf(priya, host.link);
+  expect(HEVC.includes("+35.6895+139.6917")).toBe(true);
+  const { item } = await uploadWhole(api, "clip-hevc.mov", "video/quicktime", HEVC);
+  const files = `${api.origin}/uploads/${item.id}`;
+  const copy = await servedWithin(request, `${files}/video-1080p.mp4`, 120_000);
+  expect(copy.length).toBeGreaterThan(10_000);
+  const original = await servedWithin(request, `${files}/video.mp4`, 30_000);
+  expect(original.includes("+35.6895+139.6917")).toBe(false);
+  expect(original.includes("6895")).toBe(false);
+  const poster = await sharp(await (await request.get(`${files}/video-poster.webp`)).body()).metadata();
+  expect(poster.height!).toBeGreaterThan(poster.width!);
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+test("a finish before every part is refused, a clip over the length cap and a video on an event that takes none are refused at the ask, and a cap lowered after an ask refuses only the next", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "video-caps", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  const api = apiOf(priya, host.link);
+
+  // Half the parts, then the finish: refused, and the upload stays to be resumed.
+  const asked = await ask(api, [{ name: "clip-h264.mp4", size: H264.length, type: "video/mp4", durationMs: 4000 }]);
+  const [planned] = asked.body.uploads!;
+  await sendParts(api, planned.id!, planned.partSize!, H264, 2);
+  const early = await finish(api, planned.id!);
+  expect(early).toMatchObject({ status: 400, body: { ok: false, problem: "incomplete" } });
+
+  // Review Focus 1: the host lowers Largest video below the clip while its upload is reserved; the
+  // rest of the parts and the finish still go through, and the next ask for the same clip is refused.
+  expect(H264.length).toBeGreaterThan(1024 * 1024);
+  await editSettings(host.page, (sheet) => sheet.getByRole("group", { name: "Album", exact: true }).getByLabel("Largest video (MB)").fill("1"));
+  await sendParts(api, planned.id!, planned.partSize!, H264);
+  const late = await finish(api, planned.id!);
+  expect(late.status).toBe(200);
+  const refused = await ask(api, [{ name: "clip-h264.mp4", size: H264.length, type: "video/mp4", durationMs: 4000 }]);
+  expect(refused.body.uploads![0]).toMatchObject({ ok: false, problem: "tooLarge" });
+
+  // Over the length cap, judged from the length the browser read. Every ask counts against the
+  // upload limit, refused files or not, so a second guest, on an address of their own, asks.
+  const mei = await guestGoing(browser, host.link, "Mei Tan");
+  const second = apiOf(mei, host.link);
+  await editSettings(host.page, (sheet) => sheet.getByRole("group", { name: "Album", exact: true }).getByLabel("Longest video (min)").fill("1"));
+  const long = await ask(second, [{ name: "clip-long.mp4", size: LONG.length, type: "video/mp4", durationMs: 61_000 }]);
+  expect(long.body.uploads![0]).toMatchObject({ ok: false, problem: "tooLong" });
+
+  // An event that takes no videos.
+  await editSettings(host.page, (sheet) => sheet.getByRole("group", { name: "Album", exact: true }).getByLabel("Allow videos").uncheck());
+  const none = await ask(second, [{ name: "clip-h264.mp4", size: 1000, type: "video/mp4", durationMs: 4000 }]);
+  expect(none.body.uploads![0]).toMatchObject({ ok: false, problem: "videosNotAllowed" });
+  await Promise.all([host.context.close(), priya.context().close(), mei.context().close()]);
+});
+
+test("the ask counts once against the upload limit, whatever the parts", async ({ browser, request }) => {
+  const host = await createPublished(browser, request, "video-limit", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  const api = apiOf(priya, host.link);
+  // The test profile allows three uploads a minute per address: three asks, then "too fast".
+  for (let round = 0; round < 3; round += 1) {
+    expect((await ask(api, [{ name: `${round}.jpg`, size: 1000, type: "image/jpeg" }])).status).toBe(200);
+  }
+  const fourth = await ask(api, [{ name: "4.jpg", size: 1000, type: "image/jpeg" }]);
+  expect(fourth).toMatchObject({ status: 429, body: { error: "tooFast" } });
+  await Promise.all([host.context.close(), priya.context().close()]);
+});

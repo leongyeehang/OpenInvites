@@ -467,8 +467,8 @@
       "body": "{name} 在「{title}」留言：\n\n{comment}\n\n活動頁面：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有賓客留言時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。"
     },
     "photos": {
-      "subject": "{name} 在「{title}」新增了 {count, plural, other {# 張照片}}，正在等候你的核准",
-      "body": "{name} 在「{title}」新增了 {count, plural, other {# 張照片}}，正在等候你的核准。\n\n活動頁面：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有照片等候核准時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。"
+      "subject": "{name} 在「{title}」新增了{photos, plural, =0 {} other {# 張照片}}{photos, plural, =0 {} other {{videos, plural, =0 {} other {和}}}}{videos, plural, =0 {} other {# 段影片}}，正在等候你的核准",
+      "body": "{name} 在「{title}」新增了{photos, plural, =0 {} other {# 張照片}}{photos, plural, =0 {} other {{videos, plural, =0 {} other {和}}}}{videos, plural, =0 {} other {# 段影片}}，正在等候你的核准。\n\n活動頁面：\n{url}\n\n如果不想再收到這類郵件，請在活動設定中取消勾選「有照片等候核准時寄電子郵件給主辦人」。取消後，這個活動的所有主辦人都不會再收到這類郵件。"
     },
     "reminderWeek": {
       "subject": "「{title}」還有一週就到了",
@@ -932,7 +932,10 @@
         "unsupported": "不是 JPEG、PNG、WebP 或 AVIF 圖片",
         "tooManyPixels": "像素過多",
         "siteFull": "本站空間已滿",
-        "diskFull": "本站磁碟空間即將用盡"
+        "diskFull": "本站磁碟空間即將用盡",
+        "tooLong": "超過了這個相簿允許的長度",
+        "videosNotAllowed": "是影片，而這個活動不接受影片",
+        "incomplete": "沒有完整上傳"
       },
       "errors": {
         "tooFast": "操作太頻繁了，請稍後再試。",
@@ -985,7 +988,10 @@
       "failed": "圖片沒有上傳成功，請再試一次。",
       "tooFast": "操作太頻繁了，請稍後再試。",
       "siteFull": "本站空間已滿：請清理相簿，或請本站營運者增加空間。",
-      "diskFull": "本站磁碟空間即將用盡。請稍後再試，或聯絡本站營運者。"
+      "diskFull": "本站磁碟空間即將用盡。請稍後再試，或聯絡本站營運者。",
+      "tooLong": "上傳沒有完成，請再試一次。",
+      "videosNotAllowed": "上傳沒有完成，請再試一次。",
+      "incomplete": "上傳沒有完成，請再試一次。"
     },
     "replace": "更換",
     "yourPicture": "你的圖片",

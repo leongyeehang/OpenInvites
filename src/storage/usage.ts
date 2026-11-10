@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, ne, sql } from "drizzle-orm";
 import { resolve } from "node:path";
 import { getDb, type Db } from "@/db/client";
-import { event, photo, upload } from "@/db/schema";
+import { albumUpload, event, photo, upload } from "@/db/schema";
 import { eventHosts, type EventHost } from "@/events/hosts";
 import { storageConfig } from "./config";
 import { diskUseOf, freeBytesOf } from "./disk-space";
@@ -13,18 +13,29 @@ import { diskUseOf, freeBytesOf } from "./disk-space";
 // so a check inside a locked transaction reads through it (as rsvps/limit.ts does) rather than
 // waiting on a second connection.
 
-const bytesOf = (column: typeof photo.bytes | typeof upload.bytes) => sql<number>`coalesce(sum(${column}), 0)`.mapWith(Number);
+const bytesOf = (column: typeof photo.bytes | typeof upload.bytes | typeof albumUpload.size) => sql<number>`coalesce(sum(${column}), 0)`.mapWith(Number);
+
+// An upload in progress counts from the moment it is asked for (ticket 06), so ten guests
+// uploading at once cannot overshoot a limit together: its declared size, until it is finished
+// into an item or dropped.
+export async function reservedUploads(eventId: string | undefined, db: Db = getDb()): Promise<{ items: number; bytes: number }> {
+  const [row] = await db
+    .select({ items: count(), bytes: bytesOf(albumUpload.size) })
+    .from(albumUpload)
+    .where(eventId ? eq(albumUpload.eventId, eventId) : undefined);
+  return row;
+}
 
 export async function eventAlbumBytes(eventId: string, db: Db = getDb()): Promise<number> {
   const [{ bytes }] = await db.select({ bytes: bytesOf(photo.bytes) }).from(photo).where(and(eq(photo.eventId, eventId), ne(photo.status, "failed")));
-  return bytes;
+  return bytes + (await reservedUploads(eventId, db)).bytes;
 }
 
 // One query after the other: `db` may be a transaction on one connection.
 export async function siteBytes(db: Db = getDb()): Promise<{ albums: number; pictures: number }> {
   const [{ albums }] = await db.select({ albums: bytesOf(photo.bytes) }).from(photo).where(ne(photo.status, "failed"));
   const [{ pictures }] = await db.select({ pictures: bytesOf(upload.bytes) }).from(upload);
-  return { albums, pictures };
+  return { albums: albums + (await reservedUploads(undefined, db)).bytes, pictures };
 }
 
 // The albums that take the most, for the Storage card (ticket 03): the event, what its album

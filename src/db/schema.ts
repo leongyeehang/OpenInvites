@@ -762,6 +762,9 @@ export const albumUpload = pgTable(
   "album_upload",
   {
     id: text("id").primaryKey(),
+    // The ask that made it, so the last finish of a batch knows it is the last (one email to the
+    // hosts per batch, as one post sent before).
+    batch: text("batch").notNull(),
     eventId: uuid("event_id")
       .notNull()
       .references(() => event.id, { onDelete: "cascade" }),

@@ -7,7 +7,6 @@ import { Dialog } from "radix-ui";
 import { useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
 import { approvePhotoAction, deletePhotoAction } from "@/album/actions";
 import { MAX_PHOTOS_AT_ONCE } from "@/album/album";
-import type { AlbumUploadResult } from "@/app/api/albums/[slug]/route";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -19,6 +18,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { uploadFiles } from "./album-upload";
 import { formatSize } from "@/lib/sizes";
 
 // One photo as the album shows it: its two sizes, who added it, whether this viewer may delete it,
@@ -71,27 +71,26 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
   const thumbnails = useRef<(HTMLButtonElement | null)[]>([]);
   const input = useRef<HTMLInputElement>(null);
 
+  // Through the upload protocol (M7 ticket 06; album-upload.ts): the ask, each file's parts, each
+  // file's finish; the lines say what became of each, as they did for the one post.
   const add = async (files: File[]) => {
     setLines([]);
     setError(undefined);
     if (files.length === 0) return;
     if (files.length > MAX_PHOTOS_AT_ONCE) return setError(t("errors.tooMany"));
     setAdding(files.length);
-    const form = new FormData();
-    for (const file of files) form.append("photos", file);
     try {
-      const response = await fetch(`/api/albums/${encodeURIComponent(slug)}`, { method: "POST", body: form });
-      const answer = (await response.json().catch(() => ({}))) as AlbumUploadResult;
+      const answer = await uploadFiles(slug, files);
       // A storage refusal names its limit in plain units (M7 ticket 02); the others use what they use.
       if (answer.error) setError(t(`errors.${answer.error}`, { left: answer.left ?? 0, limit: formatSize(answer.limit ?? 0, locale) }));
       else if (answer.results) {
         setLines(
-          answer.results.map((result, index) => ({
-            name: files[index].name,
+          answer.results.map((result) => ({
+            name: result.name,
             ok: result.ok,
             text: result.ok
-              ? t(result.pending ? "addedPending" : "added", { name: files[index].name })
-              : t("refusedFile", { name: files[index].name, reason: t(`problems.${result.problem}`, { max: maxMegabytes }) }),
+              ? t(result.pending ? "addedPending" : "added", { name: result.name })
+              : t("refusedFile", { name: result.name, reason: t(`problems.${result.problem}`, { max: maxMegabytes }) }),
           })),
         );
         startRefresh(() => router.refresh());

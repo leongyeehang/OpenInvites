@@ -1,4 +1,5 @@
 import { PHASE_PRODUCTION_BUILD } from "next/constants";
+import { sweepAbandonedUploads } from "@/album/abandoned";
 import { queueDueReminders } from "@/reminders/queue";
 import { sweepRetention } from "@/retention/sweep";
 import { deleteStaleEmailCodes } from "@/rsvps/repository";
@@ -25,10 +26,11 @@ function worker(): Worker {
 
 // The instance's one clock (spec, "Architecture"), started from register() in instrumentation.ts
 // once the start checks have passed, with or without mail; not under `next build`. Every minute it
-// sweeps for retention when this container has not swept in the last hour, or not since it
-// started, so the first minute after a start sweeps; then, with mail, it queues the reminders that
-// are due and sends the outbox, the warnings the sweep has just queued among them. Without mail
-// nothing is ever queued, so there are no reminders and no outbox to send.
+// runs the hour's sweep (retention, and the uploads never finished) when this container has not
+// swept in the last hour, or not since it started, so the first minute after a start sweeps;
+// then, with mail, it queues the reminders that are due and sends the outbox, the warnings the
+// sweep has just queued among them. Without mail nothing is ever queued, so there are no
+// reminders and no outbox to send.
 export function startMailWorker(): void {
   if (process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD) return;
   worker().timer ??= setInterval(() => void tick(), EVERY_MINUTE);
@@ -45,10 +47,22 @@ async function sweepWhenDue(now: Date): Promise<void> {
   const state = worker();
   if (state.sweptAt !== undefined && now.getTime() - state.sweptAt < EVERY_HOUR) return;
   state.sweptAt = now.getTime();
-  try {
-    await sweepRetention(now);
-  } catch (error) {
-    console.error("Retention: the sweep failed:", error);
+  await sweepHourly(now);
+}
+
+// The hour's steps, each in its own try/catch so one that fails does not skip the others (M7
+// ticket 06): retention, then the uploads never finished.
+async function sweepHourly(now: Date): Promise<void> {
+  const steps: [string, () => Promise<void>][] = [
+    ["Retention: the sweep failed:", () => sweepRetention(now)],
+    ["Uploads: the sweep failed:", () => sweepAbandonedUploads(now)],
+  ];
+  for (const [label, step] of steps) {
+    try {
+      await step();
+    } catch (error) {
+      console.error(label, error);
+    }
   }
 }
 

@@ -1,9 +1,10 @@
-import { and, asc, count, eq, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, eq, gte, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import { getDb, type Db } from "@/db/client";
-import { event, photo, rsvp, user } from "@/db/schema";
-import { eventAlbumBytes, siteBytes } from "@/storage/usage";
+import { albumUpload, event, photo, rsvp, user, videoJob } from "@/db/schema";
+import { eventAlbumBytes, reservedUploads, siteBytes } from "@/storage/usage";
 import { albumRoom, type Room } from "./album";
 import { removeItemFiles } from "./files";
+import type { PhotoKind } from "./video";
 import type { PhotoScope, PhotoStatus } from "./visibility";
 
 export type Photo = typeof photo.$inferSelect;
@@ -122,4 +123,133 @@ export async function deletePhoto(eventId: string, id: string): Promise<void> {
 export async function deleteHostPhotos(hostId: string): Promise<void> {
   const removed = await getDb().delete(photo).where(eq(photo.hostId, hostId)).returning({ id: photo.id });
   await removeItemFiles(removed.map((each) => each.id));
+}
+
+// The upload protocol (M7 ticket 06; album/upload-protocol.ts): an ask reserves the album's places
+// and bytes for a batch, each file is finished into an item, and what is never finished is dropped.
+
+export type AlbumUpload = typeof albumUpload.$inferSelect;
+
+export type AskedFile = { id: string; name: string; size: number; type: string; kind: PhotoKind; durationMs: number | undefined; partSize: number };
+
+// Reserves the album's room for a batch, all or none, under the event's lock as addPhotos counts:
+// the items and bytes held, uploads in progress among them, against the caps (album/album.ts,
+// albumRoom). From here on the batch counts, so a second batch asked for meanwhile sees it.
+export async function reserveUploads(
+  eventId: string,
+  owner: PhotoOwner,
+  batch: string,
+  files: AskedFile[],
+  caps: { maxItems: number; maxEventBytes: number; maxSiteBytes: number },
+  freeBytes: number | undefined,
+): Promise<{ ok: true } | { refused: Extract<Room, { ok: false }> }> {
+  return getDb().transaction(async (tx) => {
+    await tx.select({ id: event.id }).from(event).where(eq(event.id, eventId)).for("no key update");
+    const [{ held }] = await tx.select({ held: count() }).from(photo).where(and(eq(photo.eventId, eventId), ne(photo.status, "failed")));
+    const reserved = await reservedUploads(eventId, tx);
+    const bytes = await eventAlbumBytes(eventId, tx);
+    const site = await siteBytes(tx);
+    const room = albumRoom(
+      { items: held + reserved.items, bytes, siteBytes: site.albums + site.pictures, freeBytes },
+      { items: files.length, bytes: files.reduce((total, file) => total + file.size, 0) },
+      caps,
+    );
+    if (!room.ok) return { refused: room };
+    await tx.insert(albumUpload).values(
+      files.map((file) => ({
+        id: file.id,
+        batch,
+        eventId,
+        rsvpId: owner.rsvpId ?? null,
+        hostId: owner.hostId ?? null,
+        kind: file.kind,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        durationMs: file.durationMs ?? null,
+        partSize: file.partSize,
+      })),
+    );
+    return { ok: true };
+  });
+}
+
+export async function findUpload(eventId: string, id: string): Promise<AlbumUpload | undefined> {
+  return getDb().query.albumUpload.findFirst({ where: and(eq(albumUpload.id, id), eq(albumUpload.eventId, eventId)) });
+}
+
+// Records that a part arrived; a part sent twice is counted once. Answers every part received.
+export async function markPartReceived(id: string, part: number): Promise<number[]> {
+  const [row] = await getDb()
+    .update(albumUpload)
+    .set({ received: sql`(select array_agg(distinct x order by x) from unnest(${albumUpload.received} || array[${part}::int]) as x)` })
+    .where(eq(albumUpload.id, id))
+    .returning({ received: albumUpload.received });
+  return row?.received ?? [];
+}
+
+export async function deleteUpload(id: string): Promise<void> {
+  await getDb().delete(albumUpload).where(eq(albumUpload.id, id));
+}
+
+// A photo's upload becomes an item: the upload row goes and the item takes its place, in one
+// transaction under the event's lock, which also orders the finishes of a batch so that the last
+// one knows it is the last and the hosts are emailed once (as one post was, M6 ticket 04). Its
+// status is decided as addPhotos decided it. Nothing when the upload is gone: an emptied album.
+export async function finishPhotoUpload(
+  upload: AlbumUpload,
+  item: { id: string; width: number; height: number },
+  statusFor: (locked: { albumApprovalRequired: boolean }) => PhotoStatus,
+): Promise<{ status: PhotoStatus; lastOfBatch: boolean } | undefined> {
+  return getDb().transaction(async (tx) => {
+    const [locked] = await tx.select({ albumApprovalRequired: event.albumApprovalRequired }).from(event).where(eq(event.id, upload.eventId)).for("no key update");
+    const gone = await tx.delete(albumUpload).where(eq(albumUpload.id, upload.id)).returning({ id: albumUpload.id });
+    if (gone.length === 0) return undefined;
+    const status = statusFor(locked);
+    await tx.insert(photo).values({ id: item.id, eventId: upload.eventId, rsvpId: upload.rsvpId, hostId: upload.hostId, kind: "photo", width: item.width, height: item.height, bytes: upload.size, status });
+    const [{ remaining }] = await tx.select({ remaining: count() }).from(albumUpload).where(eq(albumUpload.batch, upload.batch));
+    return { status, lastOfBatch: remaining === 0 };
+  });
+}
+
+// A video's upload becomes an item in processing with a job in the queue, once the clip as sent
+// is stored. False when the upload is gone, and the caller removes what it stored.
+export async function finishVideoUpload(upload: AlbumUpload, itemId: string): Promise<boolean> {
+  return getDb().transaction(async (tx) => {
+    await tx.select({ id: event.id }).from(event).where(eq(event.id, upload.eventId)).for("no key update");
+    const gone = await tx.delete(albumUpload).where(eq(albumUpload.id, upload.id)).returning({ id: albumUpload.id });
+    if (gone.length === 0) return false;
+    await tx.insert(photo).values({ id: itemId, eventId: upload.eventId, rsvpId: upload.rsvpId, hostId: upload.hostId, kind: "video", bytes: upload.size, durationMs: upload.durationMs, status: "processing" });
+    await tx.insert(videoJob).values({ photoId: itemId });
+    return true;
+  });
+}
+
+// The pending photos this uploader added since the batch began, for the hosts' one email.
+export async function pendingPhotosSince(upload: AlbumUpload): Promise<number> {
+  const [{ pending }] = await getDb()
+    .select({ pending: count() })
+    .from(photo)
+    .where(
+      and(
+        eq(photo.eventId, upload.eventId),
+        upload.hostId ? eq(photo.hostId, upload.hostId) : eq(photo.rsvpId, upload.rsvpId!),
+        eq(photo.kind, "photo"),
+        eq(photo.status, "pending"),
+        gte(photo.createdAt, upload.createdAt),
+      ),
+    );
+  return pending;
+}
+
+const DAY = 24 * 60 * 60 * 1000;
+
+// Uploads asked for a day ago and never finished (the hourly sweep): their rows go, which
+// releases their places and bytes; the caller removes their parts.
+export async function removeAbandonedUploads(now: Date): Promise<string[]> {
+  const removed = await getDb()
+    .delete(albumUpload)
+    .where(lt(albumUpload.createdAt, new Date(now.getTime() - DAY)))
+    .returning({ id: albumUpload.id });
+  return removed.map(({ id }) => id);
 }

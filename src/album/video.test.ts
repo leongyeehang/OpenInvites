@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MEGABYTE } from "@/lib/sizes";
-import { copyName, effectiveVideoCaps, SENT_FILE, VIDEO_FILES, videoFileNamed, videoKey, videoProblem, videoUrl } from "./video";
+import { copyName, effectiveVideoCaps, needsCopy, SENT_FILE, shortSide, TARGET_BITRATE, VIDEO_FILES, videoFileNamed, videoKey, videoProblem, videoUrl } from "./video";
 
 // Videos in the album (M7 ticket 05): the files a video is kept as, and the caps a clip is held to.
 
@@ -57,5 +57,37 @@ describe("videoProblem", () => {
     expect(videoProblem({ size: 1000, durationMs: 120_001 }, caps)).toBe("tooLong");
     // The size is looked at first.
     expect(videoProblem({ size: 200 * MEGABYTE, durationMs: 200_000 }, caps)).toBe("tooLarge");
+  });
+});
+
+// Whether a clip needs a lighter copy (M7 ticket 06): judged by the short side, so a portrait
+// 1080x1920 clip is 1080p, not "taller than 1080p" (plan ruling 13).
+describe("needsCopy", () => {
+  const probe = { codec: "h264", width: 1920, height: 1080, rotation: 0, bitRate: 5_000_000 };
+
+  it("needs none for an H.264 clip at the quality or below, at a sane bit rate, portrait or not", () => {
+    expect(needsCopy(probe, "1080p")).toBe(false);
+    expect(needsCopy({ ...probe, width: 1080, height: 1920 }, "1080p")).toBe(false);
+    expect(needsCopy({ ...probe, width: 1280, height: 720 }, "1080p")).toBe(false);
+  });
+
+  it("needs one for another codec, a larger short side, or a bit rate over one and a half times the target", () => {
+    expect(needsCopy({ ...probe, codec: "hevc" }, "1080p")).toBe(true);
+    expect(needsCopy({ ...probe, width: 3840, height: 2160 }, "1080p")).toBe(true);
+    expect(needsCopy({ ...probe, bitRate: 20_000_000 }, "1080p")).toBe(true);
+    expect(needsCopy({ ...probe, bitRate: 9_000_000 }, "1080p")).toBe(false);
+    expect(needsCopy({ ...probe, bitRate: 9_000_001 }, "1080p")).toBe(true);
+  });
+
+  it("holds the short side and the bit rate to 720p when the host chose it", () => {
+    expect(needsCopy(probe, "720p")).toBe(true);
+    expect(needsCopy({ ...probe, width: 1280, height: 720, bitRate: 2_500_000 }, "720p")).toBe(false);
+    expect(needsCopy({ ...probe, width: 1280, height: 720, bitRate: 4_500_001 }, "720p")).toBe(true);
+    expect(TARGET_BITRATE["720p"]).toBe(3_000_000);
+  });
+
+  it("reads the short side after a rotation", () => {
+    expect(shortSide({ width: 1920, height: 1080, rotation: 90 })).toBe(1080);
+    expect(shortSide({ width: 640, height: 480, rotation: 0 })).toBe(480);
   });
 });

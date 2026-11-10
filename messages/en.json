@@ -467,8 +467,8 @@
       "body": "{name} commented on {title}:\n\n{comment}\n\nThe event page:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest comments” in the event’s settings. That stops them for every host of the event."
     },
     "photos": {
-      "subject": "{name} added {count, plural, one {a photo} other {# photos}} to {title} for your approval",
-      "body": "{name} added {count, plural, one {a photo} other {# photos}} to {title} for your approval.\n\nThe event page:\n{url}\n\nTo stop these emails, untick “Email the hosts when photos need approval” in the event’s settings. That stops them for every host of the event."
+      "subject": "{name} added {photos, plural, =0 {{videos, plural, one {a video} other {# videos}}} one {a photo{videos, plural, =0 {} one { and a video} other { and # videos}}} other {# photos{videos, plural, =0 {} one { and a video} other { and # videos}}}} to {title} for your approval",
+      "body": "{name} added {photos, plural, =0 {{videos, plural, one {a video} other {# videos}}} one {a photo{videos, plural, =0 {} one { and a video} other { and # videos}}} other {# photos{videos, plural, =0 {} one { and a video} other { and # videos}}}} to {title} for your approval.\n\nThe event page:\n{url}\n\nTo stop these emails, untick “Email the hosts when photos need approval” in the event’s settings. That stops them for every host of the event."
     },
     "reminderWeek": {
       "subject": "{title} is in a week",
@@ -932,7 +932,10 @@
         "unsupported": "not a JPEG, PNG, WebP or AVIF picture",
         "tooManyPixels": "too many pixels",
         "siteFull": "the site is full",
-        "diskFull": "the site’s disk is nearly full"
+        "diskFull": "the site’s disk is nearly full",
+        "tooLong": "longer than this album takes",
+        "videosNotAllowed": "a video, which this event does not take",
+        "incomplete": "not fully uploaded"
       },
       "errors": {
         "tooFast": "You’re going too fast. Try again shortly.",
@@ -985,7 +988,10 @@
       "failed": "The picture didn’t upload. Try it again.",
       "tooFast": "You’re going too fast. Try again shortly.",
       "siteFull": "The site is full: clear an album, or ask the site’s operator for more room.",
-      "diskFull": "The site’s disk is nearly full. Try again later, or ask the site’s operator."
+      "diskFull": "The site’s disk is nearly full. Try again later, or ask the site’s operator.",
+      "tooLong": "The upload didn’t complete. Try it again.",
+      "videosNotAllowed": "The upload didn’t complete. Try it again.",
+      "incomplete": "The upload didn’t complete. Try it again."
     },
     "replace": "Replace",
     "yourPicture": "Your picture",

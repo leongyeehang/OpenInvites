@@ -33,6 +33,9 @@ export async function register(): Promise<void> {
   // The instance's clock: the retention sweep every hour, and with mail the outbox every minute.
   const { startMailWorker } = await import("./mail/worker");
   startMailWorker();
+  // The album's processing queue (M7 ticket 06): one clip at a time, every minute and when kicked.
+  const { startVideoQueue } = await import("./album/queue");
+  startVideoQueue();
   // Items and pictures from before 0.7 have no recorded size: measured once, in the background,
   // while the site answers requests (M7 ticket 02).
   const { measureAtStart } = await import("./storage/measure");

@@ -55,7 +55,8 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
   return outcome.ok ? Response.json({ id: outcome.id }) : refused(outcome.problem);
 }
 
-const STATUS = { tooLarge: 413, unsupported: 415, tooManyPixels: 422, notFound: 404, siteFull: 507, diskFull: 507 } as const;
+// The last three are the album's (M7 ticket 06) and never a picture's.
+const STATUS = { tooLarge: 413, unsupported: 415, tooManyPixels: 422, notFound: 404, siteFull: 507, diskFull: 507, tooLong: 400, videosNotAllowed: 400, incomplete: 400 } as const;
 
 function refused(problem: Extract<UploadOutcome, { ok: false }>["problem"]) {
   return Response.json({ problem }, { status: STATUS[problem] });

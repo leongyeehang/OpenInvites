@@ -432,7 +432,7 @@ runs.
 | `TRUSTED_PROXY_HOPS` | `1` | Not a limit: how many reverse proxies stand in front of the app (below). |
 | `RATE_LIMIT_EVENT_PAGE` | `120/1m` | Every request under an event link: the page, its preview card, its calendar file, whether the link exists or not, so links cannot be found by trying them. Opening a personal invite link counts too, whether it exists or not. The host's own changes in the editor do not count, as the editor is not under the event link; their visits to the page do, and so does the refresh that shows a picture they have just uploaded. |
 | `RATE_LIMIT_RSVP` | `60/10m` | Sending an RSVP, and removing one. Asking for a code to prove a guest's email, and entering it, each count as sending, on the RSVP form and on an invite-only event's locked page alike. This also bounds the emails that tell hosts about replies. |
-| `RATE_LIMIT_UPLOAD` | `20/10m` | Uploading a picture. This also bounds the emails that tell hosts about photos awaiting their approval. |
+| `RATE_LIMIT_UPLOAD` | `20/10m` | Uploading a picture, or asking to add a batch of photos and videos to an album: the ask counts once, however many files, and the parts and finishes that follow count nothing. This also bounds the emails that tell hosts about items awaiting their approval. |
 | `RATE_LIMIT_SIGN_UP` | `10/1h` | Signing up, and opening a host invitation link. |
 | `RATE_LIMIT_SIGN_IN` | `10/15m` | Signing in, and everything else that checks a password (changing it, deleting an account), starting a Google or GitHub sign-in, signing in with a passkey, and opening a co-host link. |
 | `RATE_LIMIT_PASSWORD_RESET` | `10/1h` | Asking for a password reset link, and setting the new password. |

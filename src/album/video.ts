@@ -72,3 +72,23 @@ export function videoProblem(file: { size: number; durationMs: number | undefine
   if (file.durationMs !== undefined && file.durationMs > caps.maxMs) return "tooLong";
   return undefined;
 }
+
+// The lighter copy's targets (ticket 06): the short side and about the bit rate the copy is made
+// at, 6 Mbit/s at 1080p and 3 at 720p.
+export const TARGET_BITRATE: Record<VideoQuality, number> = { "1080p": 6_000_000, "720p": 3_000_000 };
+const TARGET_SHORT_SIDE: Record<VideoQuality, number> = { "1080p": 1080, "720p": 720 };
+
+// What ffprobe says of a clip's video stream.
+export type Probe = { codec: string; width: number; height: number; rotation: number; bitRate: number };
+
+// The short side is what a quality names, whichever way the phone was held (plan ruling 13).
+export function shortSide(probe: { width: number; height: number; rotation: number }): number {
+  return Math.min(probe.width, probe.height);
+}
+
+// Whether a clip needs a lighter copy: when it is not H.264, which every browser plays; when its
+// short side is over the quality's; or when its bit rate is over one and a half times the copy's.
+// Otherwise the original serves both qualities and no CPU is spent.
+export function needsCopy(probe: Probe, quality: VideoQuality): boolean {
+  return probe.codec !== "h264" || shortSide(probe) > TARGET_SHORT_SIDE[quality] || probe.bitRate > 1.5 * TARGET_BITRATE[quality];
+}

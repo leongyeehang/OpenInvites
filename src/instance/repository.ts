@@ -48,6 +48,12 @@ export async function videoProcessing(db: Db = getDb()): Promise<boolean> {
   return settings.on;
 }
 
+// The site's video caps, read by the queue outside any request (ticket 06).
+export async function videoLimits(db: Db = getDb()): Promise<{ maxVideoMb: number; maxVideoMinutes: number }> {
+  const [row] = await db.select({ maxVideoMb: instanceSettings.maxVideoMb, maxVideoMinutes: instanceSettings.maxVideoMinutes }).from(instanceSettings);
+  return row;
+}
+
 export async function setVideoProcessing(on: boolean): Promise<void> {
   await getDb().update(instanceSettings).set({ videoProcessing: on });
 }
