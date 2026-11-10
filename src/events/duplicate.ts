@@ -9,7 +9,8 @@ import type { Event, NewEvent } from "./repository";
 // date. Nor its schedule (M6 spec, "The schedule"): the copy has none, and its pages refresh as a
 // new event's do, every minute (schedule_refresh's default). Nor its invites: the copy keeps
 // personal letters and invite-only as they were, with an invite list of its own to make (M6 spec,
-// "Invite-only events"). The theme is copied whole: its poster names the event's own picture, not
+// "Invite-only events"). When to be reminded about the album travels with the settings, though
+// not that the source's hosts were (M7 ticket 09). The theme is copied whole: its poster names the event's own picture, not
 // the source's, and the copy gets a picture of its own (uploads/copy.ts). The title says it is a
 // copy, in the words of the host who duplicates it.
 export function duplicateInput(
@@ -50,6 +51,7 @@ export function duplicateInput(
       albumCopyQuality: source.albumCopyQuality,
       lettersEnabled: source.lettersEnabled,
       inviteOnly: source.inviteOnly,
+      albumReminderDays: source.albumReminderDays,
       locale,
     },
     questions: questions.map(({ type, prompt, options, required }, position) => ({ type, prompt, options, required, position })),

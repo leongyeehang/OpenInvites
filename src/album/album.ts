@@ -11,6 +11,14 @@ import type { SavedStatus } from "@/rsvps/form";
 // The most one person adds at once.
 export const MAX_PHOTOS_AT_ONCE = 10;
 
+// What an album holds (M7 ticket 09): its photos and videos, failed ones aside, and what they take
+// as uploaded; said in the Settings sheet, the reminders and the confirmation before emptying.
+export type AlbumTotals = { photos: number; videos: number; bytes: number };
+export const NO_ITEMS: AlbumTotals = { photos: 0, videos: 0, bytes: 0 };
+
+// How long after the event the hosts may ask to be reminded about the album, in days; or never.
+export const ALBUM_REMINDER_CHOICES = [30, 90, 180, 365] as const;
+
 export type AlbumState = "none" | "notYet" | "open";
 
 // The album opens at the event's start, which for an all-day event is its day's first moment in

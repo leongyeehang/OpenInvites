@@ -295,6 +295,11 @@ export const event = pgTable(
     // Whether the event page opens only to the people on its invite list (M6 spec, "Invite-only
     // events"). Off for every event until a host turns it on.
     inviteOnly: boolean("invite_only").notNull().default(false),
+    // When the hosts are reminded to empty the album or keep it (M7 ticket 09; album/reminders.ts):
+    // so many days after the event ends, null never; and when they were, so it happens once. Neither
+    // is on the Settings sheet's form, which posts every field on every change (plan ruling 9).
+    albumReminderDays: integer("album_reminder_days"),
+    albumRemindedAt: timestamp("album_reminded_at", { withTimezone: true }),
     ...timestamps,
   },
   (table) => [

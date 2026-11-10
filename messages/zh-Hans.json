@@ -175,7 +175,10 @@
       "draft": "草稿",
       "firstTitle": "制作你的第一张邀请函",
       "firstText": "选一张海报，定个日期，再分享一个链接。宾客无需账号就能回复。",
-      "firstButton": "开始制作邀请函"
+      "firstButton": "开始制作邀请函",
+      "albumReminders": {
+        "title": "待处理的相册"
+      }
     }
   },
   "Dashboard": {
@@ -512,6 +515,10 @@
       "subject": "“{title}”将于 {date} 删除",
       "body": "“{title}”将于 {date} 删除，宾客名单和其他所有相关内容也会一并删除。\n\n本站的活动会在结束 {days, plural, other {# 天}}后删除，这是本站对所有活动的规定。\n\n如果想保留活动详情以后再用，请在删除前打开活动，选择“复制活动”。副本会保留详情、外观、问题和设置，但不包括宾客。记得给副本设定新的日期。\n\n你的活动：\n{url}"
     },
+    "albumReminder": {
+      "subject": "“{title}”的相册：清空还是保留？",
+      "body": "你曾要求在“{title}”结束 {days, plural, other {# 天}}后提醒你处理相册。相册里有 {photos, plural, other {# 张照片}}和 {videos, plural, other {# 个视频}}（{size}）。\n\n系统不会自行删除任何内容：打开活动，选择“清空相册”释放空间，或选择“保留”。\n\n你的活动：\n{url}\n\n要停止这类提醒，请在活动设置的“提醒我处理相册”下选择“从不”。"
+    },
     "dateSet": {
       "subject": "日期已确定：{title}",
       "body": "{name}，你好：\n\n主办人已为「{title}」选定日期：{when}。\n\n告诉主办人你能否参加：\n{url}"
@@ -714,6 +721,19 @@
       "hosts": "主办人",
       "coHost": "共同主办人",
       "leave": "退出这个活动"
+    },
+    "album": {
+      "remind": "提醒我处理相册",
+      "remindHint": "到那天，这里和邮件都会提醒你清空相册或保留它。系统不会自行删除任何内容。",
+      "days": "活动结束 {count, plural, other {# 天}}后",
+      "never": "从不",
+      "empty": "清空相册",
+      "emptyTitle": "删除 {photos, plural, other {# 张照片}}和 {videos, plural, other {# 个视频}}（{size}）？",
+      "emptyText": "所有照片和视频都会删除，空间随之释放。此操作无法撤销。",
+      "emptyConfirm": "删除",
+      "cancel": "算了",
+      "noticeText": "相册里有 {photos, plural, other {# 张照片}}和 {videos, plural, other {# 个视频}}（{size}）。清空相册，或保留它。",
+      "keep": "保留"
     },
     "verify": {
       "title": "请先验证邮箱",

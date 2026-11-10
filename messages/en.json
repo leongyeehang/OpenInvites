@@ -175,7 +175,10 @@
       "draft": "Draft",
       "firstTitle": "Make your first invitation",
       "firstText": "Pick a poster, add a date, and share one link. Guests reply without an account.",
-      "firstButton": "Start an invitation"
+      "firstButton": "Start an invitation",
+      "albumReminders": {
+        "title": "Albums to empty or keep"
+      }
     }
   },
   "Dashboard": {
@@ -512,6 +515,10 @@
       "subject": "{title} will be deleted on {date}",
       "body": "{title} will be deleted on {date}, with its guest list and everything else about it.\n\nEvents on this site are kept {days, plural, one {# day} other {# days}} after they end; that is the site’s rule for every event.\n\nTo keep the details for another time, open the event before then and choose Duplicate. The copy keeps the details, look, questions and settings, but not the guests. Give it its new date.\n\nYour event:\n{url}"
     },
+    "albumReminder": {
+      "subject": "Empty or keep the album of {title}?",
+      "body": "You asked to be reminded about the album {days, plural, one {# day} other {# days}} after {title}. It holds {photos, plural, =0 {no photos} one {# photo} other {# photos}} and {videos, plural, =0 {no videos} one {# video} other {# videos}} ({size}).\n\nNothing is deleted on its own: open the event and choose Empty the album to free the space, or Keep it.\n\nYour event:\n{url}\n\nTo stop these reminders, choose Never under “Remind me about the album” in the event’s settings."
+    },
     "dateSet": {
       "subject": "The date is set: {title}",
       "body": "Hi {name},\n\nThe host has picked the date for {title}: {when}.\n\nLet them know if you can come:\n{url}"
@@ -714,6 +721,19 @@
       "hosts": "Hosts",
       "coHost": "Co-host",
       "leave": "Leave this event"
+    },
+    "album": {
+      "remind": "Remind me about the album",
+      "remindHint": "On that day you’re reminded here and by email to empty the album or keep it. Nothing is deleted on its own.",
+      "days": "{count, plural, one {# day} other {# days}} after the event",
+      "never": "Never",
+      "empty": "Empty the album",
+      "emptyTitle": "Delete {photos, plural, one {# photo} other {# photos}} and {videos, plural, one {# video} other {# videos}} ({size})?",
+      "emptyText": "Every photo and video goes, and the space is freed. This cannot be undone.",
+      "emptyConfirm": "Delete them",
+      "cancel": "Never mind",
+      "noticeText": "The album holds {photos, plural, one {# photo} other {# photos}} and {videos, plural, one {# video} other {# videos}} ({size}). Empty it or keep it.",
+      "keep": "Keep it"
     },
     "verify": {
       "title": "Verify your email first",

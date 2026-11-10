@@ -49,6 +49,8 @@ const source: Event = {
   albumCopyQuality: "720p",
   lettersEnabled: true,
   inviteOnly: true,
+  albumReminderDays: 90,
+  albumRemindedAt: new Date("2027-06-05T00:00:00Z"),
   createdAt: new Date("2026-12-01T00:00:00Z"),
   updatedAt: new Date("2026-12-02T00:00:00Z"),
 };
@@ -117,8 +119,13 @@ describe("duplicateInput", () => {
     expect(copy.event).toMatchObject({ albumVideosAllowed: false, albumMaxVideoMinutes: 3, albumMaxVideoMb: 200, albumCopyQuality: "720p" });
   });
 
+  // M7 ticket 09: when to be reminded about the album travels with the settings; the mark does not.
+  it("copies when to be reminded about the album, and not that the source was", () => {
+    expect(copy.event).toMatchObject({ albumReminderDays: 90 });
+  });
+
   it("copies nothing that belongs to the source alone", () => {
-    for (const own of ["id", "hostId", "slug", "state", "publishedAt", "weekReminderSentAt", "dayReminderSentAt", "retentionWarnedAt", "pollOpenedAt", "pollClosedAt", "scheduleRefresh", "createdAt", "updatedAt"]) {
+    for (const own of ["id", "hostId", "slug", "state", "publishedAt", "weekReminderSentAt", "dayReminderSentAt", "retentionWarnedAt", "pollOpenedAt", "pollClosedAt", "scheduleRefresh", "albumRemindedAt", "createdAt", "updatedAt"]) {
       expect(copy.event).not.toHaveProperty(own);
     }
   });

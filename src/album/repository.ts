@@ -1,9 +1,11 @@
-import { and, asc, count, eq, gte, lt, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, eq, gte, inArray, lt, ne, or, sql, type SQL } from "drizzle-orm";
+import { join } from "node:path";
 import { getDb, type Db } from "@/db/client";
 import { albumUpload, event, photo, rsvp, user, videoJob } from "@/db/schema";
 import { eventAlbumBytes, reservedUploads, siteBytes } from "@/storage/usage";
-import { albumRoom, type Room } from "./album";
+import { albumRoom, NO_ITEMS, type AlbumTotals, type Room } from "./album";
 import { removeItemFiles } from "./files";
+import { removeDir, UPLOADS_ROOT } from "./tmp";
 import type { PhotoKind } from "./video";
 import type { PhotoScope, PhotoStatus } from "./visibility";
 
@@ -116,6 +118,49 @@ export async function deletePhoto(eventId: string, id: string): Promise<void> {
     .where(and(eq(photo.id, id), eq(photo.eventId, eventId)))
     .returning({ id: photo.id });
   await removeItemFiles(removed.map((each) => each.id));
+}
+
+// What albums hold (M7 ticket 09; album.ts, AlbumTotals), for the dashboard's reminders in one
+// query; an album with nothing is not in the map.
+export async function albumTotalsByEvent(ids: string[], db: Db = getDb()): Promise<Map<string, AlbumTotals>> {
+  if (ids.length === 0) return new Map();
+  const rows = await db
+    .select({
+      eventId: photo.eventId,
+      photos: sql<number>`count(*) filter (where ${photo.kind} = 'photo')`.mapWith(Number),
+      videos: sql<number>`count(*) filter (where ${photo.kind} = 'video')`.mapWith(Number),
+      bytes: sql<number>`coalesce(sum(${photo.bytes}), 0)`.mapWith(Number),
+    })
+    .from(photo)
+    .where(and(inArray(photo.eventId, ids), ne(photo.status, "failed")))
+    .groupBy(photo.eventId);
+  return new Map(rows.map(({ eventId, ...totals }) => [eventId, totals]));
+}
+
+export async function albumTotals(eventId: string, db: Db = getDb()): Promise<AlbumTotals> {
+  return (await albumTotalsByEvent([eventId], db)).get(eventId) ?? NO_ITEMS;
+}
+
+// Empties the album in one go (ticket 09), after a person confirmed it: under the event's lock, as
+// adding is, so an upload in flight lands wholly before or after; every item's row goes (a video's
+// job with it) and every upload in progress, and once the rows are gone, the files and the parts.
+// What went is returned for the page. A clip the queue is processing meanwhile writes nothing
+// back, since its item is gone; the files it had written are the operator's stray-file check's.
+export async function emptyAlbum(eventId: string): Promise<AlbumTotals> {
+  const { gone, uploads } = await getDb().transaction(async (tx) => {
+    await tx.select({ id: event.id }).from(event).where(eq(event.id, eventId)).for("no key update");
+    const gone = await tx.delete(photo).where(eq(photo.eventId, eventId)).returning({ id: photo.id, kind: photo.kind, bytes: photo.bytes, status: photo.status });
+    const uploads = await tx.delete(albumUpload).where(eq(albumUpload.eventId, eventId)).returning({ id: albumUpload.id });
+    return { gone, uploads };
+  });
+  await removeItemFiles(gone.map(({ id }) => id));
+  await Promise.all(uploads.map(({ id }) => removeDir(join(UPLOADS_ROOT, id))));
+  const counted = gone.filter(({ status }) => status !== "failed");
+  return {
+    photos: counted.filter(({ kind }) => kind === "photo").length,
+    videos: counted.filter(({ kind }) => kind === "video").length,
+    bytes: counted.reduce((total, { bytes }) => total + (bytes ?? 0), 0),
+  };
 }
 
 // The photos a host added to events they do not own, when their account goes (auth.ts): the rows

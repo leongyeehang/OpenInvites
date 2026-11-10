@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { AlbumReminderNotice } from "@/album/album-reminder-notice";
+import type { AlbumTotals } from "@/album/album";
+import { albumTotalsByEvent } from "@/album/repository";
 import { requireHost } from "@/auth/session";
 import { glowEvent, shelve, showsYear, tileChip, tileNumber, whenKind, type ShelfEvent, type TileChip } from "@/dashboard/shelves";
 import { eventsOwnedAtLimit } from "@/events/limit";
@@ -47,10 +50,17 @@ export default async function DashboardPage() {
     eventsOwnedAtLimit(host.id),
   ]);
   const ids = events.map((event) => event.id);
-  const [counts, uploads] = await Promise.all([
+  // The albums the clock reminded the host about, while they hold anything (M7 ticket 09).
+  const reminded = events.filter((event) => event.albumRemindedAt !== null && event.albumReminderDays !== null);
+  const [counts, uploads, albums] = await Promise.all([
     countRsvpsByEvent(ids),
     findEventUploads(events.filter((event) => event.theme.poster.kind === "upload").map((event) => event.id)),
+    albumTotalsByEvent(reminded.map((event) => event.id)),
   ]);
+  const reminders = reminded.flatMap((event) => {
+    const album = albums.get(event.id);
+    return album && album.photos + album.videos > 0 ? [{ id: event.id, title: event.title, album }] : [];
+  });
   const now = new Date();
   const shelves = shelve(
     events.map((event) => ({
@@ -78,12 +88,34 @@ export default async function DashboardPage() {
         </h1>
         {atLimit !== undefined && <p className="text-sm text-muted-foreground">{t("limitReached", { count: atLimit })}</p>}
       </div>
+      {reminders.length > 0 && <AlbumReminders reminders={reminders} t={t} />}
       {first && <FirstInvitation theme={first} t={t} />}
       {shelves.nextUp && <NextUp event={shelves.nextUp} upload={pictureOf(shelves.nextUp)} t={t} locale={locale} />}
       <Shelf id="coming-up" heading={t("comingUp")} events={shelves.comingUp} shelf="comingUp" pictureOf={pictureOf} {...tile} />
       <Shelf id="drafts" heading={t("drafts")} events={shelves.drafts} shelf="drafts" pictureOf={pictureOf} {...tile} />
       <Shelf id="past" heading={t("past")} events={shelves.past} shelf="past" pictureOf={pictureOf} {...tile} />
     </div>
+  );
+}
+
+// One card per album the host was reminded about: the event, what its album holds, Empty the album
+// and Keep it; gone once answered or emptied.
+function AlbumReminders({ reminders, t }: { reminders: { id: string; title: string; album: AlbumTotals }[]; t: Translate }) {
+  return (
+    <ClientMessages namespaces={["Events.album"]}>
+      <section aria-labelledby="album-reminders-heading" className="flex flex-col gap-3">
+        <h2 id="album-reminders-heading" className="text-lg font-semibold tracking-tight">
+          {t("albumReminders.title")}
+        </h2>
+        <ul className="flex flex-col gap-3">
+          {reminders.map(({ id, title, album }) => (
+            <li key={id}>
+              <AlbumReminderNotice eventId={id} album={album} title={title || t("untitled")} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10" />
+            </li>
+          ))}
+        </ul>
+      </section>
+    </ClientMessages>
   );
 }
 

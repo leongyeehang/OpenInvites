@@ -9,6 +9,7 @@ import { hostNeedsVerification } from "@/auth/verification";
 import { can } from "@/hosts/role";
 import type { FormState } from "@/lib/form-state";
 import { queueGuestMail } from "@/mail/queue-guest-mail";
+import { instanceLimits } from "@/instance/repository";
 import { kickMailWorker } from "@/mail/worker";
 import { parseOptions, pollState, whenOf, type OptionInput } from "@/polls/poll";
 import { countVoters, dropUnvotedPoll, findOption, openPoll, pickDate } from "@/polls/repository";
@@ -44,6 +45,7 @@ export async function newEventAction(_: FormState, formData: FormData): Promise<
   const owned = await eventsOwnedAtLimit(host.id);
   if (owned !== undefined) return { error: t("errors.limitReached", { count: owned }) };
   const zone = formData.get("timeZone");
+  const limits = await instanceLimits();
   const created = await createEvent(host.id, {
     title: "",
     startsAt: null,
@@ -73,6 +75,8 @@ export async function newEventAction(_: FormState, formData: FormData): Promise<
     albumMaxVideoMb: null,
     albumCopyQuality: "1080p",
     inviteOnly: false,
+    // When to be reminded about the album, the site's default (M7 ticket 09).
+    albumReminderDays: limits.albumReminderDefaultDays,
     locale: await getLocale(),
   });
   redirect(`/events/${created.id}`);

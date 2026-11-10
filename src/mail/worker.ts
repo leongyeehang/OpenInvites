@@ -1,5 +1,6 @@
 import { PHASE_PRODUCTION_BUILD } from "next/constants";
 import { sweepAbandonedUploads } from "@/album/abandoned";
+import { sendAlbumReminders } from "@/album/reminders";
 import { queueDueReminders } from "@/reminders/queue";
 import { sweepRetention } from "@/retention/sweep";
 import { deleteStaleEmailCodes } from "@/rsvps/repository";
@@ -51,9 +52,10 @@ async function sweepWhenDue(now: Date): Promise<void> {
 }
 
 // The hour's steps, each in its own try/catch so one that fails does not skip the others (M7
-// ticket 06): retention, then the uploads never finished.
+// ticket 06): the album reminders (ticket 09), retention, then the uploads never finished.
 async function sweepHourly(now: Date): Promise<void> {
   const steps: [string, () => Promise<void>][] = [
+    ["Album reminders: the sweep failed:", () => sendAlbumReminders(now)],
     ["Retention: the sweep failed:", () => sweepRetention(now)],
     ["Uploads: the sweep failed:", () => sweepAbandonedUploads(now)],
   ];

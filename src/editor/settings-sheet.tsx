@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { QuestionsEditor } from "@/app/(host)/events/questions-editor";
+import type { AlbumTotals } from "@/album/album";
 import { VIDEO_QUALITIES } from "@/album/video";
 import { ALBUM_VISIBILITIES } from "@/album/visibility";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,6 +19,7 @@ import { cn } from "@/lib/utils";
 import type { QuestionDraft } from "@/questions/question";
 import { CONTACT_FIELDS, type ContactField } from "@/rsvps/form";
 import { GUEST_LIST_VISIBILITIES } from "@/rsvps/visibility";
+import { AlbumBlock } from "./album-block";
 import { EditorSheet } from "./sheet";
 import { useEditor } from "./status";
 
@@ -77,11 +79,17 @@ export function SettingsSheet({
   mail,
   maxReplies,
   siteVideo,
+  album,
+  reminderDays,
   questions,
   answerCounts,
 }: {
   eventId: string;
   settings: EventSettings;
+  // What the album holds, and when the host asked to be reminded about it (M7 ticket 09): the
+  // block after the form, which is not posted with it.
+  album: AlbumTotals;
+  reminderDays: number | null;
   // Whether the instance has mail, without which no code can prove a guest's email.
   mail: boolean;
   // How many replies the operator lets an event take, which the capacity's hint names.
@@ -380,6 +388,7 @@ export function SettingsSheet({
           </FieldSet>
         </FieldGroup>
       </form>
+      <AlbumBlock key={String(reminderDays)} eventId={eventId} album={album} reminderDays={reminderDays} />
     </EditorSheet>
   );
 }
