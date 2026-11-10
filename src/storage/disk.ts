@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Storage } from "./storage";
 
@@ -21,6 +21,15 @@ export function diskStorage(dir: string): Storage {
     async get(key) {
       try {
         return await readFile(path(key));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+        throw error;
+      }
+    },
+    async stat(key) {
+      try {
+        const { size } = await stat(path(key));
+        return { size };
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
         throw error;

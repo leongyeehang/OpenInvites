@@ -1,6 +1,7 @@
+import { randomBytes } from "node:crypto";
 import sharp from "sharp";
 import { expect, test, type Browser, type Page } from "./test";
-import { APPROVAL, editSettings, eventLinkIn, openMore, publishInEditor, setWhen, typeTitle } from "./events";
+import { APPROVAL, editSettings, eventLinkIn, openDesign, openMore, publishInEditor, setWhen, typeTitle } from "./events";
 import { dismissOperatorWelcome, mailCountTo, newHost, signUp, toSiteSettings, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
 import { closeReply } from "./reply";
@@ -257,4 +258,68 @@ test("with approval on, a guest's photo waiting for it takes the album's last pl
   await album.getByLabel("Add photos").setInputFiles([await photo("three.png")]);
   await expect(album.getByRole("alert")).toHaveText("The album is full.", { timeout: 15_000 });
   await guest.context().close();
+});
+
+// M7 ticket 02: albums are bounded in bytes too. Storage per event and Storage for the site were
+// set above to 0.01 and 0.02 GB, that is 10 and 20 MB. A photo of random pixels of about 9 MB does
+// not compress, so two fill an album and three fill the site; a host's picture counts for the site.
+test("an album and the site are bounded in bytes, and a host's picture counts toward the site's", async () => {
+  test.slow();
+  // Room for photos again: the items limit was 1 and the largest photo 1 MB above.
+  await operator.goto("/instance");
+  await operator.getByLabel("Photos and videos per event").fill("300");
+  await operator.getByLabel("Largest photo (MB)").fill("40");
+  const limits = operator.locator("form").filter({ has: operator.getByLabel("Events per host") });
+  await limits.getByRole("button", { name: "Save" }).click();
+  await expect(limits.getByText("Saved.")).toBeVisible();
+
+  const big = async (name: string) => ({
+    name,
+    mimeType: "image/png",
+    buffer: await sharp(randomBytes(2048 * 1536 * 3), { raw: { width: 2048, height: 1536, channels: 3 } }).png({ compressionLevel: 0 }).toBuffer(),
+  });
+  const album = operator.locator('[data-slot="album"]');
+
+  // The second party's album: one 9 MB photo fits in 10 MB, a second does not.
+  await operator.goto("/dashboard");
+  await operator.getByRole("link", { name: /Second party/ }).click();
+  const secondLink = await eventLinkIn(operator);
+  await operator.goto(secondLink);
+  await album.getByLabel("Add photos").setInputFiles([await big("big-one.png")]);
+  await expect(album.getByRole("status")).toHaveText("big-one.png: added", { timeout: 30_000 });
+  await album.getByLabel("Add photos").setInputFiles([await big("big-two.png")]);
+  await expect(album.getByRole("alert")).toHaveText("This album is full: 10 MB.", { timeout: 30_000 });
+
+  // With room per event (30 MB) but not for the site (20 MB): the first party's album takes one
+  // photo (the site at 18 of 20 MB) and refuses the next for the site, and so is a 9 MB picture
+  // for its poster.
+  await operator.goto("/instance");
+  await operator.getByLabel("Storage per event (GB)").fill("0.03");
+  await limits.getByRole("button", { name: "Save" }).click();
+  await expect(limits.getByText("Saved.")).toBeVisible();
+  await operator.goto("/dashboard");
+  await operator.getByRole("link", { name: /First party/ }).click();
+  await setWhen(operator, { start: "2026-01-10T19:00" });
+  // Published already by the events-limit row above, unless that row changes.
+  if ((await operator.getByRole("button", { name: "Publish" }).count()) > 0) await publishInEditor(operator);
+  const firstLink = await eventLinkIn(operator);
+  await operator.goto(firstLink);
+  await album.getByLabel("Add photos").setInputFiles([await big("big-three.png")]);
+  await expect(album.getByRole("status")).toHaveText("big-three.png: added", { timeout: 30_000 });
+  await album.getByLabel("Add photos").setInputFiles([await big("big-four.png")]);
+  await expect(album.getByRole("alert")).toHaveText("The site is full: ask the hosts to clear an album.", { timeout: 30_000 });
+  await operator.goto("/dashboard");
+  await operator.getByRole("link", { name: /First party/ }).click();
+  const drawer = await openDesign(operator, "Poster", "Upload");
+  await drawer.getByLabel("Upload your photo or poster").setInputFiles(await big("big-poster.png"));
+  await expect(drawer.getByRole("alert")).toHaveText("The site is full: clear an album, or ask the site’s operator for more room.", { timeout: 30_000 });
+
+  // A photo deleted frees its bytes: the second party's album takes one again.
+  await operator.goto(secondLink);
+  await album.getByRole("button", { name: /^Photo \d by / }).last().click();
+  await operator.getByRole("dialog", { name: /^Photo \d of \d$/ }).getByRole("button", { name: "Delete" }).click();
+  await operator.getByRole("alertdialog").getByRole("button", { name: "Delete it" }).click();
+  await expect(album.getByRole("button", { name: /^Photo \d by / })).toHaveCount(1, { timeout: 15_000 });
+  await album.getByLabel("Add photos").setInputFiles([await big("big-five.png")]);
+  await expect(album.getByRole("status")).toHaveText("big-five.png: added", { timeout: 30_000 });
 });

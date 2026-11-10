@@ -896,7 +896,9 @@
       "problems": {
         "tooLarge": "larger than {max, number} MB",
         "unsupported": "not a JPEG, PNG, WebP or AVIF picture",
-        "tooManyPixels": "too many pixels"
+        "tooManyPixels": "too many pixels",
+        "siteFull": "the site is full",
+        "diskFull": "the site’s disk is nearly full"
       },
       "errors": {
         "tooFast": "You’re going too fast. Try again shortly.",
@@ -905,7 +907,10 @@
         "tooMany": "Add up to ten photos at a time.",
         "albumFull": "{left, plural, =0 {The album is full.} one {The album has room for # more photo.} other {The album has room for # more photos.}}",
         "tooLarge": "Those photos are too large together. Add fewer at a time.",
-        "failed": "The photos didn’t upload. Try again."
+        "failed": "The photos didn’t upload. Try again.",
+        "albumStorageFull": "This album is full: {limit}.",
+        "siteFull": "The site is full: ask the hosts to clear an album.",
+        "diskFull": "The site’s disk is nearly full. Try again later."
       },
       "open": "Photo {n} by {name}",
       "openPending": "Photo {n} by {name}, awaiting approval",
@@ -944,7 +949,9 @@
       "unsupported": "That file isn’t a picture that can be used here. Choose a JPEG, PNG, WebP or AVIF picture.",
       "tooManyPixels": "That picture has too many pixels to work with. Choose one under 50 megapixels.",
       "failed": "The picture didn’t upload. Try it again.",
-      "tooFast": "You’re going too fast. Try again shortly."
+      "tooFast": "You’re going too fast. Try again shortly.",
+      "siteFull": "The site is full: clear an album, or ask the site’s operator for more room.",
+      "diskFull": "The site’s disk is nearly full. Try again later, or ask the site’s operator."
     },
     "replace": "Replace",
     "yourPicture": "Your picture",

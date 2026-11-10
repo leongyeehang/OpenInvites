@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronLeft, ChevronRight, Download, ImagePlus, Trash2, X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
 import { useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
@@ -19,6 +19,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { formatSize } from "@/lib/sizes";
 
 // One photo as the album shows it: its two sizes, who added it, whether this viewer may delete it,
 // whether it waits for a host's approval (M6 ticket 03), and whether this viewer may approve it.
@@ -47,6 +48,7 @@ const NONE_APPROVING: ReadonlySet<string> = new Set();
 // is marked under its thumbnail, and to a host has Approve and Delete there (M6 ticket 03).
 export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: ShownPhoto[]; maxMegabytes: number }) {
   const t = useTranslations("EventPage.album");
+  const locale = useLocale();
   const router = useRouter();
   const [adding, setAdding] = useState<number>();
   const [lines, setLines] = useState<Line[]>([]);
@@ -80,7 +82,8 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
     try {
       const response = await fetch(`/api/albums/${encodeURIComponent(slug)}`, { method: "POST", body: form });
       const answer = (await response.json().catch(() => ({}))) as AlbumUploadResult;
-      if (answer.error) setError(t(`errors.${answer.error}`, { left: answer.left ?? 0 }));
+      // A storage refusal names its limit in plain units (M7 ticket 02); the others use what they use.
+      if (answer.error) setError(t(`errors.${answer.error}`, { left: answer.left ?? 0, limit: formatSize(answer.limit ?? 0, locale) }));
       else if (answer.results) {
         setLines(
           answer.results.map((result, index) => ({

@@ -1,4 +1,4 @@
-import { albumState, MAX_PHOTOS_AT_ONCE, mayAddPhotos, photosRoom } from "@/album/album";
+import { albumRoom, albumState, MAX_PHOTOS_AT_ONCE, mayAddPhotos } from "@/album/album";
 import { processPhoto, removePhotoFiles, storePhoto } from "@/album/files";
 import { notifyHostsOfPhotos } from "@/album/notify-hosts";
 import { addPhotos, countPhotos } from "@/album/repository";
@@ -11,14 +11,17 @@ import { baseUrl } from "@/instance/env";
 import { instanceLimits } from "@/instance/repository";
 import { MEGABYTE } from "@/lib/sizes";
 import { consume, retryAfter } from "@/rate-limit/rate-limit";
+import { eventAlbumBytes, freeDiskBytes, siteBytes } from "@/storage/usage";
 import { newUploadId } from "@/uploads/repository";
 import type { UploadProblem } from "@/uploads/validate";
 import { revalidatePath } from "next/cache";
 
 // What became of each photo sent, in the order sent, and whether one taken waits for a host's
 // approval (M6 ticket 03), or why none was taken.
-export type AlbumRefusal = "tooFast" | "closed" | "notAllowed" | "tooMany" | "albumFull" | "tooLarge";
-export type AlbumUploadResult = { results?: ({ ok: true; pending: boolean } | { ok: false; problem: UploadProblem })[]; error?: AlbumRefusal; left?: number };
+// Why a post is refused as a whole; `left` is how many places the album has, `limit` the bytes a
+// storage refusal names (album/album.ts, Room).
+export type AlbumRefusal = "tooFast" | "closed" | "notAllowed" | "tooMany" | "albumFull" | "albumStorageFull" | "siteFull" | "diskFull" | "tooLarge";
+export type AlbumUploadResult = { results?: ({ ok: true; pending: boolean } | { ok: false; problem: UploadProblem })[]; error?: AlbumRefusal; left?: number; limit?: number };
 
 // Adding photos to an event's album (M4 ticket 11): up to ten in one post, as multipart "photos",
 // each through the photo pipeline (album/files.ts) under the operator's MAX_UPLOAD_MB. One post
@@ -39,8 +42,9 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
 
   // Ten photos at the most, each at the most Largest photo allows (M7 ticket 01), and room for the
   // form's framing. The limits are read once here and used for the room check below too.
-  const { maxPhotosPerEvent, maxPhotoMb } = await instanceLimits();
+  const { maxPhotosPerEvent, maxPhotoMb, maxEventStorageMb, maxSiteStorageMb } = await instanceLimits();
   const maxBytes = maxPhotoMb * MEGABYTE;
+  const caps = { maxItems: maxPhotosPerEvent, maxEventBytes: maxEventStorageMb * MEGABYTE, maxSiteBytes: maxSiteStorageMb * MEGABYTE };
   const body = await readUpTo(request, MAX_PHOTOS_AT_ONCE * maxBytes + 1024 * 1024);
   if (!body) return refused("tooLarge", 413);
   let files: File[];
@@ -50,13 +54,21 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
   } catch {
     return refused("tooLarge", 400);
   }
-  // Photos waiting for approval take their places too.
-  const room = photosRoom(await countPhotos(event.id), files.length, maxPhotosPerEvent);
-  if (!room.ok) return Response.json({ error: room.error, left: room.left } satisfies AlbumUploadResult, { status: 409 });
+  // Photos waiting for approval take their places and their bytes too. This first look saves the
+  // work of processing files the album cannot take; the check that counts is addPhotos', under the
+  // event's lock (M7 ticket 02). The free space is read here, outside any transaction.
+  const site = await siteBytes();
+  const freeBytes = await freeDiskBytes();
+  const room = albumRoom(
+    { items: await countPhotos(event.id), bytes: await eventAlbumBytes(event.id), siteBytes: site.albums + site.pictures, freeBytes },
+    { items: files.length, bytes: files.reduce((total, file) => total + file.size, 0) },
+    caps,
+  );
+  if (!room.ok) return Response.json({ error: room.error, left: room.left, limit: room.limit } satisfies AlbumUploadResult, { status: 409 });
 
   // Each is processed and stored before the rows that name them, so no page asks for a file not there.
   const outcomes: ({ ok: true } | { ok: false; problem: UploadProblem })[] = [];
-  const stored: { id: string; width: number; height: number }[] = [];
+  const stored: { id: string; width: number; height: number; bytes: number }[] = [];
   for (const file of files) {
     const processed = await processPhoto(new Uint8Array(await file.arrayBuffer()), maxBytes);
     if (!processed.ok) {
@@ -65,7 +77,7 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
     }
     const id = await newUploadId();
     await storePhoto(id, processed.photo.files);
-    stored.push({ id, width: processed.photo.width, height: processed.photo.height });
+    stored.push({ id, width: processed.photo.width, height: processed.photo.height, bytes: file.size });
     outcomes.push({ ok: true });
   }
   // A guest's photos wait for a host while the host approves them, as the event stands once it is
@@ -73,10 +85,10 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
   let pending = false;
   if (stored.length > 0) {
     const owner = viewer.kind === "host" ? { hostId: viewer.hostId } : { rsvpId: viewer.rsvpId };
-    const added = await addPhotos(event.id, owner, stored, maxPhotosPerEvent, (locked) => photoStatusFor(locked, viewer));
-    if ("full" in added) {
+    const added = await addPhotos(event.id, owner, stored, caps, freeBytes, (locked) => photoStatusFor(locked, viewer));
+    if ("refused" in added) {
       await removePhotoFiles(stored.map((each) => each.id));
-      return Response.json({ error: "albumFull", left: added.full } satisfies AlbumUploadResult, { status: 409 });
+      return Response.json({ error: added.refused.error, left: added.refused.left, limit: added.refused.limit } satisfies AlbumUploadResult, { status: 409 });
     }
     pending = added.status === "pending";
     for (const path of eventPaths(event)) revalidatePath(path);

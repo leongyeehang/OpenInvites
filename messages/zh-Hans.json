@@ -896,7 +896,9 @@
       "problems": {
         "tooLarge": "超过 {max, number} MB",
         "unsupported": "不是 JPEG、PNG、WebP 或 AVIF 图片",
-        "tooManyPixels": "像素过多"
+        "tooManyPixels": "像素过多",
+        "siteFull": "本站空间已满",
+        "diskFull": "本站磁盘空间即将用尽"
       },
       "errors": {
         "tooFast": "操作太频繁了，请稍后再试。",
@@ -905,7 +907,10 @@
         "tooMany": "每次最多添加十张照片。",
         "albumFull": "{left, plural, =0 {相册已满。} other {相册还能再放 # 张照片。}}",
         "tooLarge": "这些照片加起来太大了，请分几次添加。",
-        "failed": "照片未能上传，请再试一次。"
+        "failed": "照片未能上传，请再试一次。",
+        "albumStorageFull": "相册已满：{limit}。",
+        "siteFull": "本站空间已满，请联系主办人清理相册。",
+        "diskFull": "本站磁盘空间即将用尽，请稍后再试。"
       },
       "open": "{name} 的第 {n} 张照片",
       "openPending": "{name} 的第 {n} 张照片，等待批准",
@@ -944,7 +949,9 @@
       "unsupported": "这个文件不是这里能用的图片。请选择 JPEG、PNG、WebP 或 AVIF 图片。",
       "tooManyPixels": "这张图片像素太多，处理不了。请选择 5000 万像素以下的图片。",
       "failed": "图片没有上传成功，请再试一次。",
-      "tooFast": "操作太频繁了，请稍后再试。"
+      "tooFast": "操作太频繁了，请稍后再试。",
+      "siteFull": "本站空间已满：请清理相册，或请本站运营者增加空间。",
+      "diskFull": "本站磁盘空间即将用尽。请稍后再试，或联系本站运营者。"
     },
     "replace": "更换",
     "yourPicture": "你的图片",

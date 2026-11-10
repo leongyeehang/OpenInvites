@@ -30,4 +30,8 @@ export async function register(): Promise<void> {
   // The instance's clock: the retention sweep every hour, and with mail the outbox every minute.
   const { startMailWorker } = await import("./mail/worker");
   startMailWorker();
+  // Items and pictures from before 0.7 have no recorded size: measured once, in the background,
+  // while the site answers requests (M7 ticket 02).
+  const { measureAtStart } = await import("./storage/measure");
+  measureAtStart();
 }

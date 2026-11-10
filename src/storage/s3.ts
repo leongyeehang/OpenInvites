@@ -20,6 +20,15 @@ export function s3Storage({ endpoint, region, bucket, accessKey, secretKey }: Ex
         throw error;
       }
     },
+    async stat(key) {
+      try {
+        const { size } = await client.statObject(key);
+        return { size };
+      } catch (error) {
+        if (error instanceof S3Errors.ServerError && error.statusCode === 404) return undefined;
+        throw error;
+      }
+    },
     async delete(key) {
       // Deleting a key that is not there succeeds, as S3 defines it.
       await client.deleteObject(key);

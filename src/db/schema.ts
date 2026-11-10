@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, date, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, time, timestamp, unique, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { bigint, boolean, check, date, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, time, timestamp, unique, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { ALBUM_VISIBILITIES, PHOTO_STATUSES } from "../album/visibility";
 import { DEFAULT_REGISTRATION_MODE, REGISTRATION_MODES } from "../instance/registration";
 import { HOME_POSTER_MODES } from "../instance/home";
@@ -578,6 +578,9 @@ export const upload = pgTable("upload", {
   posterDarkest: text("poster_darkest").notNull(),
   posterWidth: integer("poster_width").notNull(),
   posterHeight: integer("poster_height").notNull(),
+  // The size as uploaded (M7 ticket 02), counted toward Storage for the site; null for a picture
+  // from before 0.7 until the one-time measuring (storage/measure.ts).
+  bytes: bigint("bytes", { mode: "number" }),
   // A photo or flyer the host uploaded, or an emoji pattern they made. For a pattern, the emoji it
   // repeats (one to three) and the colour it is drawn on (#rrggbb), so the Poster sheet can show
   // the choice again; null for a photo.
@@ -704,6 +707,9 @@ export const photo = pgTable(
     hostId: uuid("host_id").references(() => user.id, { onDelete: "cascade" }),
     width: integer("width").notNull(),
     height: integer("height").notNull(),
+    // The size as uploaded (M7 ticket 02), what the storage limits count; null for an item from
+    // before 0.7 until the one-time measuring records what is stored (storage/measure.ts).
+    bytes: bigint("bytes", { mode: "number" }),
     status: photoStatus("status").notNull().default("approved"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -9,6 +9,8 @@ export type Storage = {
   put(key: string, body: Uint8Array): Promise<void>;
   // Nothing stored under the key is not an error.
   get(key: string): Promise<Uint8Array | undefined>;
+  // The size of what is stored under the key, for the storage accounting (M7 ticket 02).
+  stat(key: string): Promise<{ size: number } | undefined>;
   delete(key: string): Promise<void>;
   // The bytes under one key, also under another, without passing through the application on S3.
   // The key copied from must exist.

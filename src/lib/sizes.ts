@@ -3,6 +3,9 @@
 
 export const MEGABYTE = 1024 * 1024;
 export const GIGABYTE = 1024 * MEGABYTE;
+// On local disk an upload is refused when the volume would have less than this free afterwards,
+// whatever the limits say: a full disk stops the whole site (M7 ticket 02).
+export const MIN_FREE_BYTES = GIGABYTE;
 
 // Megabytes below a gigabyte, gigabytes from one on, with at most one decimal. A size that is not
 // nothing never reads as nothing: under a tenth of a megabyte is written as one tenth.

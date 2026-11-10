@@ -1,10 +1,12 @@
 import { getSession } from "@/auth/session";
 import { findHostEvent } from "@/events/repository";
 import { can } from "@/hosts/role";
+import { storageRoom } from "@/album/album";
 import { baseUrl } from "@/instance/env";
 import { instanceLimits } from "@/instance/repository";
 import { MEGABYTE } from "@/lib/sizes";
 import { isUuid } from "@/lib/uuid";
+import { freeDiskBytes, siteBytes } from "@/storage/usage";
 import { consume, retryAfter } from "@/rate-limit/rate-limit";
 import { parseEmojiChoice } from "@/uploads/emoji";
 import { uploadPicture, type UploadOutcome } from "@/uploads/uploads";
@@ -41,14 +43,19 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
   }
 
   // Largest photo on Site settings (M7 ticket 01), read at the moment it is checked.
-  const maxBytes = (await instanceLimits()).maxPhotoMb * MEGABYTE;
+  const { maxPhotoMb, maxSiteStorageMb } = await instanceLimits();
+  const maxBytes = maxPhotoMb * MEGABYTE;
   const bytes = await readUpTo(request, maxBytes);
   if (!bytes) return refused("tooLarge");
+  // Storage for the site and the free-disk rule hold for a host's picture too (M7 ticket 02).
+  const site = await siteBytes();
+  const room = storageRoom({ siteBytes: site.albums + site.pictures, freeBytes: await freeDiskBytes() }, bytes.byteLength, maxSiteStorageMb * MEGABYTE);
+  if (!room.ok) return refused(room.error);
   const outcome = await uploadPicture(session.user.id, id, bytes, maxBytes, emoji);
   return outcome.ok ? Response.json({ id: outcome.id }) : refused(outcome.problem);
 }
 
-const STATUS = { tooLarge: 413, unsupported: 415, tooManyPixels: 422, notFound: 404 } as const;
+const STATUS = { tooLarge: 413, unsupported: 415, tooManyPixels: 422, notFound: 404, siteFull: 507, diskFull: 507 } as const;
 
 function refused(problem: Extract<UploadOutcome, { ok: false }>["problem"]) {
   return Response.json({ problem }, { status: STATUS[problem] });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { albumState, mayAddPhotos, mayApprovePhoto, mayDeletePhoto, photosRoom } from "./album";
+import { MIN_FREE_BYTES } from "@/lib/sizes";
+import { albumRoom, albumState, mayAddPhotos, mayApprovePhoto, mayDeletePhoto, storageRoom } from "./album";
 
 const START = new Date("2027-05-08T11:00:00Z");
 
@@ -42,15 +43,50 @@ describe("who adds to the album", () => {
   });
 });
 
-describe("photosRoom", () => {
-  it("takes up to ten at once while the album has room", () => {
-    expect(photosRoom(0, 10, 300)).toEqual({ ok: true });
-    expect(photosRoom(290, 10, 300)).toEqual({ ok: true });
+// M7 ticket 02: the site's storage and the disk, checked for every upload, posters included.
+describe("storageRoom", () => {
+  const GB = 1024 * 1024 * 1024;
+
+  it("takes an upload that keeps the site within its storage, exactly full included", () => {
+    expect(storageRoom({ siteBytes: 10 * GB, freeBytes: 50 * GB }, 5 * GB, 50 * GB)).toEqual({ ok: true });
+    expect(storageRoom({ siteBytes: 45 * GB, freeBytes: 50 * GB }, 5 * GB, 50 * GB)).toEqual({ ok: true });
   });
 
-  it("refuses more than ten at once, and more than the album's room, saying how many are left", () => {
-    expect(photosRoom(0, 11, 300)).toEqual({ ok: false, error: "tooMany", left: 300 });
-    expect(photosRoom(295, 6, 300)).toEqual({ ok: false, error: "albumFull", left: 5 });
-    expect(photosRoom(300, 1, 300)).toEqual({ ok: false, error: "albumFull", left: 0 });
+  it("refuses what would take the site past its storage, naming the limit", () => {
+    expect(storageRoom({ siteBytes: 46 * GB, freeBytes: undefined }, 5 * GB, 50 * GB)).toEqual({ ok: false, error: "siteFull", limit: 50 * GB });
+  });
+
+  it("refuses what would leave the disk under a gigabyte free, and never refuses for a disk it cannot see", () => {
+    expect(storageRoom({ siteBytes: 0, freeBytes: 1.5 * GB }, 0.6 * GB, 50 * GB)).toEqual({ ok: false, error: "diskFull", limit: MIN_FREE_BYTES });
+    expect(storageRoom({ siteBytes: 0, freeBytes: 1.5 * GB }, 0.5 * GB, 50 * GB)).toEqual({ ok: true });
+    expect(storageRoom({ siteBytes: 0, freeBytes: undefined }, 100 * GB, 500 * GB)).toEqual({ ok: true });
+  });
+});
+
+// The album's room: in items (M4 ticket 11), then in bytes (M7 ticket 02).
+describe("albumRoom", () => {
+  const MB = 1024 * 1024;
+  const held = { items: 0, bytes: 0, siteBytes: 0, freeBytes: undefined };
+  const caps = { maxItems: 300, maxEventBytes: 100 * MB, maxSiteBytes: 1000 * MB };
+
+  it("takes up to ten at once while the album has room in items and in bytes", () => {
+    expect(albumRoom(held, { items: 10, bytes: 50 * MB }, caps)).toEqual({ ok: true });
+    expect(albumRoom({ ...held, items: 290, bytes: 90 * MB }, { items: 10, bytes: 10 * MB }, caps)).toEqual({ ok: true });
+  });
+
+  it("refuses more than ten at once, and more than the album's places, saying how many are left", () => {
+    expect(albumRoom(held, { items: 11, bytes: 0 }, caps)).toEqual({ ok: false, error: "tooMany", left: 300, limit: 300 });
+    expect(albumRoom({ ...held, items: 295 }, { items: 6, bytes: 0 }, caps)).toEqual({ ok: false, error: "albumFull", left: 5, limit: 300 });
+    expect(albumRoom({ ...held, items: 300 }, { items: 1, bytes: 0 }, caps)).toEqual({ ok: false, error: "albumFull", left: 0, limit: 300 });
+  });
+
+  it("refuses what would take the album past its storage, naming the limit", () => {
+    expect(albumRoom({ ...held, bytes: 95 * MB }, { items: 1, bytes: 6 * MB }, caps)).toEqual({ ok: false, error: "albumStorageFull", left: 300, limit: 100 * MB });
+    expect(albumRoom({ ...held, bytes: 95 * MB }, { items: 1, bytes: 5 * MB }, caps)).toEqual({ ok: true });
+  });
+
+  it("then checks the site's storage and the disk", () => {
+    expect(albumRoom({ ...held, siteBytes: 995 * MB }, { items: 1, bytes: 6 * MB }, caps)).toEqual({ ok: false, error: "siteFull", left: 300, limit: 1000 * MB });
+    expect(albumRoom({ ...held, freeBytes: MIN_FREE_BYTES }, { items: 1, bytes: 1 }, caps)).toEqual({ ok: false, error: "diskFull", left: 300, limit: MIN_FREE_BYTES });
   });
 });

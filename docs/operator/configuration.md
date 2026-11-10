@@ -67,7 +67,8 @@ interface says "site" where these docs say "instance".)
   which covers album photos and hosts' pictures; **Largest video** (750 MB, 1 to 10,000) and
   **Longest video** (15 minutes, 1 to 180), which a host may lower for their event; **Storage
   per event** and **Storage for the site** (50 GB each, 0.01 to 100,000 GB), counted as
-  uploaded; and **Remind hosts about albums after** (60 days by default, or Never), the default
+  uploaded (two albums uploading at the same moment can each overshoot the site's by one post,
+  and on local disk every upload stops while the volume has under 1 GB free); and **Remind hosts about albums after** (60 days by default, or Never), the default
   new events start with. Lowering a limit below what exists leaves the existing events,
   replies and uploads alone and refuses only new ones. The same card sets how long
   events are kept ([Retention](#retention)).

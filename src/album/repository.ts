@@ -1,6 +1,8 @@
 import { and, asc, count, eq, or, sql, type SQL } from "drizzle-orm";
 import { getDb, type Db } from "@/db/client";
 import { event, photo, rsvp, user } from "@/db/schema";
+import { eventAlbumBytes, siteBytes } from "@/storage/usage";
+import { albumRoom, type Room } from "./album";
 import { removePhotoFiles } from "./files";
 import type { PhotoScope, PhotoStatus } from "./visibility";
 
@@ -43,18 +45,24 @@ export async function countPhotos(eventId: string, status?: PhotoStatus): Promis
 }
 
 // Adds photos whose files are already stored, unless the album would then hold more than the
-// operator allows; then nothing is added, and the caller removes the files. The event's row is
-// locked while its photos, pending or not, are counted, so two people adding at once cannot both
-// take the last places. The status the photos start with is decided from the locked row
-// (`statusFor`, album/visibility.ts, photoStatusFor), as a reply's approval is: a host turning
-// approval off meanwhile approves what waits under the same lock, so nothing added after waits.
+// operator allows, in places or in bytes (album/album.ts, albumRoom; M7 ticket 02); then nothing
+// is added, and the caller removes the files. The event's row is locked while its photos, pending
+// or not, are counted and summed, so two people adding at once cannot both take the last places;
+// the sums read through the transaction, as rsvps/limit.ts does, never through a second connection.
+// The site's sum is not serialised by that lock, so two albums uploading at once can overshoot
+// Storage for the site by one post each, which the operator docs say. The free space is read by
+// the caller before the transaction: it is not database state. The status the photos start with is
+// decided from the locked row (`statusFor`, album/visibility.ts, photoStatusFor), as a reply's
+// approval is: a host turning approval off meanwhile approves what waits under the same lock, so
+// nothing added after waits.
 export async function addPhotos(
   eventId: string,
   owner: PhotoOwner,
-  added: { id: string; width: number; height: number }[],
-  limit: number,
+  added: { id: string; width: number; height: number; bytes: number }[],
+  caps: { maxItems: number; maxEventBytes: number; maxSiteBytes: number },
+  freeBytes: number | undefined,
   statusFor: (locked: { albumApprovalRequired: boolean }) => PhotoStatus,
-): Promise<{ status: PhotoStatus } | { full: number }> {
+): Promise<{ status: PhotoStatus } | { refused: Extract<Room, { ok: false }> }> {
   return getDb().transaction(async (tx) => {
     const [locked] = await tx
       .select({ albumApprovalRequired: event.albumApprovalRequired })
@@ -62,7 +70,14 @@ export async function addPhotos(
       .where(eq(event.id, eventId))
       .for("no key update");
     const [{ held }] = await tx.select({ held: count() }).from(photo).where(eq(photo.eventId, eventId));
-    if (held + added.length > limit) return { full: Math.max(0, limit - held) };
+    const bytes = await eventAlbumBytes(eventId, tx);
+    const site = await siteBytes(tx);
+    const room = albumRoom(
+      { items: held, bytes, siteBytes: site.albums + site.pictures, freeBytes },
+      { items: added.length, bytes: added.reduce((total, each) => total + each.bytes, 0) },
+      caps,
+    );
+    if (!room.ok) return { refused: room };
     const status = statusFor(locked);
     await tx.insert(photo).values(added.map((each) => ({ ...each, eventId, rsvpId: owner.rsvpId ?? null, hostId: owner.hostId ?? null, status })));
     return { status };

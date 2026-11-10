@@ -15,6 +15,9 @@ describe("S3-compatible storage", () => {
 
     await storage.put(key, picture);
     expect(await storage.get(key)).toEqual(picture);
+    // Its size, for the storage accounting (M7 ticket 02); nothing for a key that is not there.
+    expect(await storage.stat(key)).toEqual({ size: picture.length });
+    expect(await storage.stat(`smoke-${crypto.randomUUID()}-missing.webp`)).toBeUndefined();
     // A copy under another key reads back the same, and the original stays.
     const copied = `smoke-${crypto.randomUUID()}-poster.webp`;
     await storage.copy(key, copied);

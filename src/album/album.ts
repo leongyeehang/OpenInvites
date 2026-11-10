@@ -1,4 +1,5 @@
 import type { EventState } from "@/events/repository";
+import { MIN_FREE_BYTES } from "@/lib/sizes";
 import type { Approval } from "@/rsvps/admission";
 import type { SavedStatus } from "@/rsvps/form";
 
@@ -43,10 +44,36 @@ export function mayDeletePhoto(viewer: AlbumViewer, photo: { rsvpId: string | nu
   return viewer.kind === "guest" && photo.rsvpId === viewer.rsvpId;
 }
 
-// How many of `adding` photos an album holding `held` takes under the operator's limit: all of
-// them, or none when they would take it past the limit, which is said as the refusal.
-export function photosRoom(held: number, adding: number, limit: number): { ok: true } | { ok: false; error: "tooMany" | "albumFull"; left: number } {
-  if (adding > MAX_PHOTOS_AT_ONCE) return { ok: false, error: "tooMany", left: Math.max(0, limit - held) };
-  if (held + adding > limit) return { ok: false, error: "albumFull", left: Math.max(0, limit - held) };
+// Why an upload is refused, with what the message names: how many places are left in the album,
+// and the limit that was hit (places, or bytes).
+export type Room = { ok: true } | { ok: false; error: "tooMany" | "albumFull" | "albumStorageFull" | "siteFull" | "diskFull"; left: number; limit: number };
+
+// The site's room for one more upload of `adding` bytes (M7 ticket 02), checked for every upload,
+// a host's picture included: within Storage for the site, and, on local disk, with a gigabyte
+// still free afterwards (MIN_FREE_BYTES), since a full disk stops the whole site. A disk the app
+// cannot see (S3) never refuses. Exactly full is allowed.
+export function storageRoom(
+  held: { siteBytes: number; freeBytes: number | undefined },
+  adding: number,
+  maxSiteBytes: number,
+): { ok: true } | { ok: false; error: "siteFull" | "diskFull"; limit: number } {
+  if (held.siteBytes + adding > maxSiteBytes) return { ok: false, error: "siteFull", limit: maxSiteBytes };
+  if (held.freeBytes !== undefined && held.freeBytes - adding < MIN_FREE_BYTES) return { ok: false, error: "diskFull", limit: MIN_FREE_BYTES };
   return { ok: true };
+}
+
+// How many of `adding` items an album holding `held` takes: all of them, or none when they would
+// take it past a limit, which is said as the refusal, in this order: too many at once, the
+// album's places (M4 ticket 11), its storage (Storage per event), then the site's (storageRoom).
+export function albumRoom(
+  held: { items: number; bytes: number; siteBytes: number; freeBytes: number | undefined },
+  adding: { items: number; bytes: number },
+  caps: { maxItems: number; maxEventBytes: number; maxSiteBytes: number },
+): Room {
+  const left = Math.max(0, caps.maxItems - held.items);
+  if (adding.items > MAX_PHOTOS_AT_ONCE) return { ok: false, error: "tooMany", left, limit: caps.maxItems };
+  if (held.items + adding.items > caps.maxItems) return { ok: false, error: "albumFull", left, limit: caps.maxItems };
+  if (held.bytes + adding.bytes > caps.maxEventBytes) return { ok: false, error: "albumStorageFull", left, limit: caps.maxEventBytes };
+  const site = storageRoom(held, adding.bytes, caps.maxSiteBytes);
+  return site.ok ? site : { ...site, left };
 }
