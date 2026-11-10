@@ -35,6 +35,35 @@ a newer copy may move it to a later one: that needs nothing more than `docker co
 Going back to an older release after a newer one has migrated the database is not supported.
 Restore the backup you took instead.
 
+### Upgrading to 0.7
+
+0.7 brings videos to the album, every upload and storage limit onto Site settings, a Storage card
+that says how full the site is, and ways to clear albums: hosts empty their own and are reminded
+to, and the operator can clear any. Upgrading needs nothing of you: seven migrations, `0046` to
+`0052`, run as the app starts. They add columns, tables and enum values only, so nothing is
+back-filled and no existing event changes until its host chooses:
+
+- **The image is about 130 MB larger** (368 MB against 235 MB), because it carries ffmpeg, which
+  processes videos ([ADR-0007](../adr/0007-ffmpeg-in-the-image.md)). Processing a clip takes
+  about 300 MB of memory while it runs, one clip at a time.
+- **Sizes are measured once, in the background,** after the first start: photos and pictures from
+  before 0.7 have no recorded size, so the app reads each file's size while it answers requests,
+  and the Storage card says how many are still to be measured until it is done. A photo from
+  before counts the size of the file the site stored, since the file as sent was never kept.
+- **`MAX_UPLOAD_MB` is retired.** At the first start its value is read once into **Largest
+  photo** on Site settings, and the variable is ignored from then on; a site that never set it
+  starts at 40 MB, where it had 10. Every other new limit starts at its default: Largest video
+  750 MB, Longest video 15 minutes, Storage per event and for the site 50 GB each, and hosts
+  reminded about albums after 60 days.
+- **Existing events have no album reminder,** and take videos as new events do, at the site's
+  caps and with the lighter copy at 1080p; every other setting stays as events behaved before.
+- **Two new emails, with mail configured** ([configuration.md](configuration.md#mail)): the album
+  reminder to an event's hosts on the day they chose, and the hosts' email when the operator
+  clears their album. The hosts' email about items awaiting approval now names videos too.
+
+No new environment variable is required. `VIDEO_PROCESSING` is optional, and `compose.yaml` gains
+no service unless you add the worker it describes in a comment.
+
 ### Upgrading to 0.6
 
 0.6 adds invite-only events, personal letters and invitations emailed from the invite list, a

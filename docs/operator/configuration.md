@@ -162,11 +162,16 @@ an earlier version does not greet the operator it already has.
 ### Storage
 
 Site settings' **Storage** card (0.7) answers how full the site is: what albums and hosts'
-pictures take, counted as uploaded; on local disk, what the `uploads` volume really holds and
-how much of it is free; the five albums that take the most, each with its hosts; and the switch
-**Process videos for playback**, on by default, which makes a lighter copy of every video that
-needs one. On S3 the card shows the counted use only. After upgrading to 0.7 the card says how
-many files from before the upgrade are still being measured, until that is done.
+pictures take, counted as uploaded (a video's lighter copy, poster and thumbnail never count);
+on local disk, what the `uploads` volume really holds and how much of it is free; the five albums
+that take the most, each with its hosts; whether the server can process videos (its ffmpeg
+version, or that it has none); and the switch **Process videos for playback**, on by default,
+which makes a lighter copy of every video that needs one. On S3 the card shows the counted use
+only. After upgrading to 0.7 the card says how many files from before the upgrade are still being
+measured, until that is done; a photo from before counts the size of the file the site stored,
+since the file as sent was never kept. Two albums uploading at the same moment can each overshoot
+Storage for the site by one batch, and on local disk every upload stops while the volume has
+under 1 GB free.
 
 Videos are processed in the app's own container unless `VIDEO_PROCESSING=worker` moves the work
 to a **worker** container: the same image started as `node scripts/video-worker.mjs`, on the same
@@ -252,8 +257,12 @@ With mail configured:
   event;
 - the hosts are emailed when someone comments on the event page, unless they turn it off for the
   event;
-- the hosts are emailed once for each upload of a guest's photos that wait for their approval,
-  when they approve photos before they're shown, unless they turn it off for the event;
+- the hosts are emailed once for each upload of a guest's photos and videos that wait for their
+  approval, when they approve photos before they're shown, unless they turn it off for the event;
+- the hosts are emailed once, so many days after an event as its host chose (60 by default, set
+  on Site settings and changed per event), that its album holds photos and videos to empty or
+  keep; nothing is deleted on its own;
+- the hosts are emailed when the site's operator clears their event's album from Site settings;
 - guests who gave an email are told when the host cancels the event, if they said Going or Maybe
   or are on the waitlist, whether or not the host had approved their reply yet; guests the host
   declined are not written to;
@@ -365,7 +374,7 @@ screen lock in place of the password). Nothing needs configuring, with two condi
 Email and password always keep working beside passkeys, so a host who loses their device, or
 removes their last passkey, is never locked out.
 
-## Uploaded pictures
+## Uploaded pictures and videos
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
@@ -390,6 +399,25 @@ A photo added to an event's album is re-encoded the same way and kept as two fil
 the photo's id: `<id>-photo.webp` (up to 2048 pixels, for the viewer and Download) and
 `<id>-photo-thumb.webp` (the album's square thumbnail). They are removed with the photo: when
 whoever may deletes it, or the event, the guest's reply or the host's account goes.
+
+A video added to an album (0.7) is kept as sent only until it is processed, which the queue does
+one clip at a time per container, within a minute of the upload. Its files are named after the
+item's id: `<id>-video.mp4` (the clip at original quality, rewrapped as MP4 with its metadata
+dropped, so a phone's location and device details never reach a guest, and its index moved to the
+front, so playing starts at once); `<id>-video-1080p.mp4` or `<id>-video-720p.mp4` (the lighter
+H.264 copy at the quality the host chose, made only when the original is not H.264, larger than
+that quality or far above its bit rate, and only while **Process videos for playback** is on);
+`<id>-video-poster.webp` (the frame the player shows first) and `<id>-video-thumb.webp` (the
+album's square thumbnail). Only the original counts toward storage. They go with the item, as a
+photo's files do.
+
+Processing needs ffmpeg 6 or later, which the image carries
+([ADR-0007](../adr/0007-ffmpeg-in-the-image.md)); without a usable one the app starts, refuses
+videos, and the Storage card and the event's Album settings say so. A clip being processed takes
+about 300 MB of memory on top of the app's. The parts of an upload in progress and ffmpeg's
+scratch files live under `/tmp` in the container, which needs about three times the largest
+video free; the parts live on the container that took them, so the site runs one app container
+(the worker is a second container, but takes no uploads).
 
 ### Configuring S3
 

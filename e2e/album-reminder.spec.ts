@@ -1,7 +1,9 @@
 import sharp from "sharp";
-import { createDraft, editSettings, openSettings, publishInEditor } from "./events";
+import { expectNoSeriousViolations } from "./axe";
+import { createDraft, editSettings, openSettings, publishInEditor, savedAfter } from "./events";
 import { dismissOperatorWelcome, MAILPIT, newHost, signUp, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
+import { tabUntil } from "./keys";
 import { expect, test, type APIRequestContext, type Page } from "./test";
 
 // M7 ticket 09: the album's reminder and Empty the album. Runs against `app-fresh` (with mail) and
@@ -105,7 +107,7 @@ test("the first host of each instance makes old events with a photo in the album
   ({ manage: noMailParty } = await oldEventWithPhoto(noMailHost, PARTY));
 });
 
-test("the first sweep after a restart reminds the hosts on the dashboard, the manage page and by email, and deletes nothing", async ({ request }) => {
+test("the first sweep after a restart reminds the hosts on the dashboard, the manage page and by email, and deletes nothing", async ({ browser, request }) => {
   test.setTimeout(300_000);
   recreate("app-fresh", "app-no-mail");
 
@@ -118,6 +120,7 @@ test("the first sweep after a restart reminds the hosts on the dashboard, the ma
   await expect(reminders.locator('[data-slot="album-reminder"]')).toHaveCount(2);
   await expect(reminders.getByText(PARTY)).toBeVisible();
   await expect(reminders.getByText(NOTICE).first()).toBeVisible();
+  await expectNoSeriousViolations(host, "the dashboard, albums to empty or keep");
 
   const text = await reminderTo(request, hostEmail, PARTY);
   expect(text).toContain("You asked to be reminded about the album 90 days after Ada’s garden party. It holds 1 photo and no videos (");
@@ -128,16 +131,35 @@ test("the first sweep after a restart reminds the hosts on the dashboard, the ma
   // The manage page carries the notice; the photo is still there.
   await host.goto(party);
   await expect(notice(host).getByText(NOTICE)).toBeVisible();
+  await expectNoSeriousViolations(host, "the manage page, the album reminder");
+
+  // In Traditional Chinese, as the host's browser asks for it.
+  const zh = await (await browser.newContext({ locale: "zh-TW", storageState: await host.context().storageState() })).newPage();
+  await zh.goto("/dashboard");
+  await expect(zh.getByRole("heading", { name: "待處理的相簿" })).toBeVisible();
+  await zh.goto(party);
+  await expect(notice(zh)).toContainText("相簿裡有 1 張照片和 0 部影片");
+  await expect(notice(zh).getByRole("button", { name: "清空相簿" })).toBeVisible();
+  await expect(notice(zh).getByRole("button", { name: "保留" })).toBeVisible();
+  await zh.context().close();
 });
 
-test("Keep it takes the reminder down and sets it to Never, which another change to the settings leaves alone", async () => {
+test("Keep it, by keyboard, takes the reminder down and sets it to Never, which the keyboard moves and another change to the settings leaves alone", async () => {
   await host.goto(party);
-  await notice(host).getByRole("button", { name: "Keep it" }).click();
+  await tabUntil(host, notice(host).getByRole("button", { name: "Keep it" }));
+  await host.keyboard.press("Enter");
   await expect(notice(host)).toBeHidden();
   await host.reload();
   await expect(notice(host)).toBeHidden();
   const sheet = await openSettings(host);
-  await expect(sheet.getByLabel(REMIND)).toHaveValue("never");
+  const select = sheet.getByLabel(REMIND);
+  await expect(select).toHaveValue("never");
+  // The select answers the arrow keys, each choice saved through the editor's save status.
+  await select.focus();
+  await host.keyboard.press("ArrowUp");
+  await expect(select).toHaveValue("365");
+  await savedAfter(host, () => host.keyboard.press("ArrowDown"));
+  await expect(select).toHaveValue("never");
   await host.keyboard.press("Escape");
   // Review Focus 8: the sheet's form posts every field on every change, and not this one.
   await editSettings(host, async (sheet) => {
@@ -150,12 +172,14 @@ test("Keep it takes the reminder down and sets it to Never, which another change
   await expect(host.getByRole("region", { name: HEADING }).locator('[data-slot="album-reminder"]')).toHaveCount(1);
 });
 
-test("Empty the album from the reminder names what goes, and the album is empty afterwards", async () => {
+test("Empty the album from the reminder, by keyboard, names what goes, and the album is empty afterwards", async () => {
   await host.goto(picnic);
-  await notice(host).getByRole("button", { name: "Empty the album" }).click();
+  await tabUntil(host, notice(host).getByRole("button", { name: "Empty the album" }));
+  await host.keyboard.press("Enter");
   const dialog = host.getByRole("alertdialog");
   await expect(dialog.getByRole("heading", { name: /^Delete 1 photo and 0 videos \(.+\)\?$/ })).toBeVisible();
-  await dialog.getByRole("button", { name: "Delete them" }).click();
+  await tabUntil(host, dialog.getByRole("button", { name: "Delete them" }));
+  await host.keyboard.press("Enter");
   await expect(notice(host)).toBeHidden();
   await host.goto(picnicLink);
   await expect(album(host)).toBeVisible();

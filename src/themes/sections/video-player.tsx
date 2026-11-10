@@ -67,6 +67,20 @@ export function VideoPlayer({ video, label }: { video: PlayableVideo; label: str
     setChosen(next);
   };
 
+  // The radio group's keys (ticket 11): Tab reaches the chosen quality, and an arrow moves to the
+  // other and chooses it, as a radio group's arrows do; a quality that cannot play is passed over.
+  const move = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+    const radios = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]:not(:disabled)')];
+    const at = radios.findIndex((radio) => radio === document.activeElement);
+    const next = radios[(at + (event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1) + radios.length) % radios.length];
+    if (!next) return;
+    next.focus();
+    const choice = next.dataset.choice;
+    if (choice === "original" || choice === "copy") choose(choice);
+  };
+
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-2">
       {!hasCopy && !originalPlayable && <p className="text-sm text-white/80">{t("unplayable")}</p>}
@@ -92,12 +106,14 @@ export function VideoPlayer({ video, label }: { video: PlayableVideo; label: str
       />
       {hasCopy && (
         <>
-          <div role="radiogroup" aria-label={t("quality")} className="flex gap-1 rounded-full bg-white/10 p-1 text-xs">
+          <div role="radiogroup" aria-label={t("quality")} onKeyDown={move} className="flex gap-1 rounded-full bg-white/10 p-1 text-xs">
             {(["copy", "original"] as const).map((choice) => (
               <button
                 key={choice}
                 type="button"
                 role="radio"
+                data-choice={choice}
+                tabIndex={quality === choice ? 0 : -1}
                 aria-checked={quality === choice}
                 aria-describedby={choice === "original" && !originalPlayable ? `${id}-unplayable` : undefined}
                 disabled={choice === "original" && !originalPlayable}

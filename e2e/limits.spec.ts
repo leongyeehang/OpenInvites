@@ -1,5 +1,7 @@
 import { randomBytes } from "node:crypto";
 import sharp from "sharp";
+import { expectNoSeriousViolations } from "./axe";
+import { tabUntil } from "./keys";
 import { expect, test, type Browser, type Page } from "./test";
 import { APPROVAL, createDraft, editSettings, eventLinkIn, openDesign, openMore, publishInEditor, setWhen, typeTitle } from "./events";
 import { dismissOperatorWelcome, latestMailTo, mailCountTo, newHost, signUp, toSiteSettings, verifyEmail } from "./hosts";
@@ -412,13 +414,23 @@ test("the operator finds a stray file and removes it after confirming", async ()
   const stamp = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString().replace(/\D/g, "").slice(0, 12);
   exec("app-fresh", "sh", "-c", `printf stray > /app/uploads/${stray} && touch -t ${stamp} /app/uploads/${stray}`);
   await operator.goto("/instance");
+  // The check is the page's first press: once the page has hydrated, so the form posts through
+  // its action rather than as a plain form.
+  await operator.waitForLoadState("networkidle");
   const card = operator.locator("#storage");
   await card.getByRole("button", { name: "Check for stray files" }).click();
   await expect(card.getByText(/^1 stray file \(.+\)$/)).toBeVisible();
   await expect(card.getByRole("listitem").filter({ hasText: stray })).toHaveCount(1);
   await expect(card.getByRole("listitem").filter({ hasText: /-photo(-thumb)?\.webp/ })).toHaveCount(1);
-  await card.getByRole("button", { name: /^Remove 1 file / }).click();
-  await operator.getByRole("alertdialog").getByRole("button", { name: "Remove them" }).click();
+  await expectNoSeriousViolations(operator, "Site settings, the stray list");
+  // Removed by keyboard: Enter on Remove opens the confirmation, Tab reaches Remove them.
+  await card.getByRole("button", { name: /^Remove 1 file / }).focus();
+  await operator.keyboard.press("Enter");
+  const dialog = operator.getByRole("alertdialog");
+  await expect(dialog).toBeVisible();
+  await expectNoSeriousViolations(operator, "Site settings, the stray list, the confirmation open");
+  await tabUntil(operator, dialog.getByRole("button", { name: "Remove them" }));
+  await operator.keyboard.press("Enter");
   await expect(card.getByText("1 file removed.")).toBeVisible();
   expect(() => exec("app-fresh", "test", "!", "-e", `/app/uploads/${stray}`)).not.toThrow();
   await card.getByRole("button", { name: "Check for stray files" }).click();
