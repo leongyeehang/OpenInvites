@@ -347,6 +347,24 @@
       "retentionDaysInvalid": "请为活动保留天数填写 30 到 3,650 之间的整数，或勾选“永久保留”。",
       "albumReminderDefaultDaysInvalid": "请填写 1 到 3,650 之间的整数天数，或勾选“从不”。"
     },
+    "storage": {
+      "title": "存储空间",
+      "description": "本站的上传内容占用的空间，按上传时的大小计算：相册中的照片和视频，以及主办人的图片。上限在“上限”卡片中设置。",
+      "albums": "相册",
+      "pictures": "主办人的图片",
+      "total": "已使用",
+      "onDisk": "磁盘上实际占用",
+      "free": "磁盘剩余",
+      "bucketNote": "使用 S3 时，本站只知道自己计算的数字；存储桶的实际用量以服务商为准。",
+      "measuring": "升级前的 {count, plural, other {# 个文件}}仍在测量中；完成后数字才会准确。",
+      "biggest": "占用最多的相册",
+      "none": "还没有相册存有内容。",
+      "use": "{size}，{count, plural, other {# 项}}",
+      "processVideos": "为播放处理视频",
+      "processVideosHint": "开启后，需要的视频都会生成一个较小的副本，以便在网速慢的情况下和各种浏览器中播放。关闭后，视频按原样保存，能否播放取决于浏览器。",
+      "submit": "保存",
+      "saved": "已保存。"
+    },
     "invitations": {
       "title": "主办人邀请",
       "description": "即使注册仅限受邀，主办人邀请也能让一个人创建主办人账号。邀请链接只能使用一次，{days} 天后过期。",

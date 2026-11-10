@@ -10,6 +10,12 @@ test("the operator reaches the instance settings from the host area", async ({ p
   await expect(page.getByRole("heading", { name: "Site settings" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Registration" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Host invitations", exact: true })).toBeVisible();
+  // The Storage card (M7 ticket 03): its figures are not predictable on the shared app, but it is
+  // there, with at most five albums listed.
+  await expect(page.getByRole("heading", { name: "Storage", exact: true })).toBeVisible();
+  const storage = page.locator("#storage");
+  await expect(storage.getByText("In use", { exact: true })).toBeVisible();
+  expect(await storage.getByRole("listitem").count()).toBeLessThanOrEqual(5);
 });
 
 // The account menu under the operator's initials, by keyboard alone (dashboard, ticket 02).

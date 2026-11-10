@@ -323,3 +323,32 @@ test("an album and the site are bounded in bytes, and a host's picture counts to
   await album.getByLabel("Add photos").setInputFiles([await big("big-five.png")]);
   await expect(album.getByRole("status")).toHaveText("big-five.png: added", { timeout: 30_000 });
 });
+
+// M7 ticket 03: the Storage card answers "how full is my site?", from what the rows above left:
+// two 9 MB photos and a tiny one in two albums, and no host's picture.
+test("the Storage card shows the site's use, the biggest albums, and the processing switch", async () => {
+  await operator.goto("/instance");
+  const card = operator.locator("#storage");
+  await expect(card.getByRole("heading", { name: "Storage" })).toBeVisible();
+  const albums = await card.locator('dt:text-is("Albums") + dd').textContent();
+  expect(Number(albums!.replace(/[^\d.]/g, ""))).toBeGreaterThan(17.5);
+  expect(Number(albums!.replace(/[^\d.]/g, ""))).toBeLessThan(19);
+  await expect(card.locator('dt:text-is("Hosts’ pictures") + dd')).toContainText("MB");
+  await expect(card.locator('dt:text-is("Free on the disk") + dd')).toContainText(/MB|GB/);
+  const rows = card.getByRole("listitem");
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first()).toContainText(/Second party|First party/);
+  await expect(rows.first()).toContainText(/Ada /);
+
+  // The switch is on by default, stays off once saved so, and comes back on.
+  const form = card.locator("form");
+  await expect(card.getByLabel("Process videos for playback")).toBeChecked();
+  await card.getByLabel("Process videos for playback").uncheck();
+  await form.getByRole("button", { name: "Save" }).click();
+  await expect(form.getByText("Saved.")).toBeVisible();
+  await operator.reload();
+  await expect(card.getByLabel("Process videos for playback")).not.toBeChecked();
+  await card.getByLabel("Process videos for playback").check();
+  await card.locator("form").getByRole("button", { name: "Save" }).click();
+  await expect(card.locator("form").getByText("Saved.")).toBeVisible();
+});

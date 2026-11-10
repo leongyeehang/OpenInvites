@@ -1,6 +1,6 @@
 import { and, desc, eq, gt, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import { cache } from "react";
-import { getDb } from "@/db/client";
+import { getDb, type Db } from "@/db/client";
 import { event, hostInvitation, instanceSettings, user } from "@/db/schema";
 import { chunks } from "@/lib/chunks";
 import { staleMarks } from "@/retention/plan";
@@ -40,6 +40,17 @@ export const instanceLimits = cache(async (): Promise<Limits> => {
     .from(instanceSettings);
   return settings;
 });
+
+// The Storage card's switch (M7 ticket 03): whether a lighter copy is made of videos that need
+// one. Read when a video is processed (ticket 06), through the caller's `db` where it has one.
+export async function videoProcessing(db: Db = getDb()): Promise<boolean> {
+  const [settings] = await db.select({ on: instanceSettings.videoProcessing }).from(instanceSettings);
+  return settings.on;
+}
+
+export async function setVideoProcessing(on: boolean): Promise<void> {
+  await getDb().update(instanceSettings).set({ videoProcessing: on });
+}
 
 // Cached per request: the header, the page and the settings card may all ask. Posters that have
 // left the gallery since they were chosen are dropped as they are read.

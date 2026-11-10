@@ -1,18 +1,23 @@
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { requireOperator } from "@/auth/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { eventPath } from "@/events/slug";
 import { revokeHostInvitationAction } from "@/instance/actions";
 import { HOST_INVITATION_DAYS, hostInvitationDaysLeft, hostInvitationState, type HostInvitationState } from "@/instance/host-invitation";
-import { homePage, instanceLimits, listHostInvitations, registrationMode, type HostInvitation } from "@/instance/repository";
+import { homePage, instanceLimits, listHostInvitations, registrationMode, videoProcessing, type HostInvitation } from "@/instance/repository";
+import { formatSize } from "@/lib/sizes";
 import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
 import { countUnhandledReports } from "@/reports/repository";
+import { storageConfig } from "@/storage/config";
+import { unmeasuredCount } from "@/storage/measure";
+import { biggestAlbums, diskUse, freeDiskBytes, siteBytes, type BiggestAlbum } from "@/storage/usage";
 import { HostHeader } from "../(host)/host-header";
-import { HomePageForm, HostInvitationForm, LimitsForm, RegistrationForm } from "./instance-forms";
+import { HomePageForm, HostInvitationForm, LimitsForm, RegistrationForm, StorageForm } from "./instance-forms";
 
 // Outside the host area's layout, which sends a signed-out visitor to sign in: this page does
 // not exist for anyone but the operator, so everyone else gets the not-found page, title and all.
@@ -24,13 +29,15 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function InstancePage() {
   const host = await requireOperator();
-  const [t, home, mode, limits, invitations, unhandledReports] = await Promise.all([
+  const [t, locale, home, mode, limits, invitations, unhandledReports, storage] = await Promise.all([
     getTranslations("Instance"),
+    getLocale(),
     homePage(),
     registrationMode(),
     instanceLimits(),
     listHostInvitations(),
     countUnhandledReports(),
+    storageFacts(),
   ]);
   const now = new Date();
 
@@ -83,6 +90,59 @@ export default async function InstancePage() {
             </ClientMessages>
           </CardContent>
         </Card>
+        <Card id="storage">
+          <CardHeader>
+            <CardTitle>
+              <h2>{t("storage.title")}</h2>
+            </CardTitle>
+            <CardDescription>{t("storage.description")}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-6">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
+              <dt>{t("storage.albums")}</dt>
+              <dd>{formatSize(storage.use.albums, locale)}</dd>
+              <dt>{t("storage.pictures")}</dt>
+              <dd>{formatSize(storage.use.pictures, locale)}</dd>
+              <dt className="font-medium">{t("storage.total")}</dt>
+              <dd className="font-medium">{formatSize(storage.use.albums + storage.use.pictures, locale)}</dd>
+              {storage.disk !== undefined && (
+                <>
+                  <dt>{t("storage.onDisk")}</dt>
+                  <dd>{formatSize(storage.disk, locale)}</dd>
+                </>
+              )}
+              {storage.free !== undefined && (
+                <>
+                  <dt>{t("storage.free")}</dt>
+                  <dd>{formatSize(storage.free, locale)}</dd>
+                </>
+              )}
+            </dl>
+            {storage.bucket && <p className="text-sm text-muted-foreground">{t("storage.bucketNote")}</p>}
+            {storage.unmeasured > 0 && (
+              <p role="status" className="text-sm text-muted-foreground">
+                {t("storage.measuring", { count: storage.unmeasured })}
+              </p>
+            )}
+            <section aria-labelledby="storage-biggest-heading" className="flex flex-col gap-3">
+              <h3 id="storage-biggest-heading" className="font-medium">
+                {t("storage.biggest")}
+              </h3>
+              {storage.biggest.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t("storage.none")}</p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {storage.biggest.map((album) => (
+                    <BiggestAlbumRow key={album.id} album={album} locale={locale} />
+                  ))}
+                </ul>
+              )}
+            </section>
+            <ClientMessages namespaces={["Instance.storage"]}>
+              <StorageForm processing={storage.processing} />
+            </ClientMessages>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <CardTitle>
@@ -112,6 +172,31 @@ export default async function InstancePage() {
         </Card>
       </main>
     </>
+  );
+}
+
+// What the Storage card shows (M7 ticket 03): the counted use, what local disk really holds and
+// has free (nothing on S3, where the site cannot see a disk), what is still being measured from
+// before the upgrade, the albums that take the most, and the processing switch.
+async function storageFacts() {
+  const [use, disk, free, unmeasured, biggest, processing] = await Promise.all([siteBytes(), diskUse(), freeDiskBytes(), unmeasuredCount(), biggestAlbums(5), videoProcessing()]);
+  return { use, disk, free, unmeasured, biggest, processing, bucket: storageConfig().backend === "s3" };
+}
+
+// One of the biggest albums: the event, linked to its page (the operator cannot open another
+// host's editor), its hosts with their emails, and what it holds.
+async function BiggestAlbumRow({ album, locale }: { album: BiggestAlbum; locale: string }) {
+  const t = await getTranslations("Instance.storage");
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-3 rounded-xl p-3 ring-1 ring-foreground/10">
+      <div className="flex min-w-0 flex-col gap-1">
+        <Link href={eventPath(album)} className="font-medium underline-offset-4 hover:underline">
+          {album.title}
+        </Link>
+        <span className="break-all text-sm text-muted-foreground">{album.hosts.map((host) => `${host.name} (${host.email})`).join(", ")}</span>
+      </div>
+      <span className="text-sm">{t("use", { size: formatSize(album.bytes, locale), count: album.items })}</span>
+    </li>
   );
 }
 

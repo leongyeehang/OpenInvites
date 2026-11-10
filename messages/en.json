@@ -347,6 +347,24 @@
       "retentionDaysInvalid": "Enter a whole number of days from 30 to 3,650 to keep events for, or tick Keep forever.",
       "albumReminderDefaultDaysInvalid": "Enter a whole number of days from 1 to 3,650 to remind hosts after, or tick Never."
     },
+    "storage": {
+      "title": "Storage",
+      "description": "What the site’s uploads take, counted as uploaded: the photos and videos in albums, and hosts’ pictures. The limits are on the Limits card.",
+      "albums": "Albums",
+      "pictures": "Hosts’ pictures",
+      "total": "In use",
+      "onDisk": "On the disk",
+      "free": "Free on the disk",
+      "bucketNote": "On S3 the site knows only what it counted; the bucket’s own figures are the provider’s.",
+      "measuring": "{count, plural, one {# file} other {# files}} from before the upgrade still being measured; the figures settle once that is done.",
+      "biggest": "Biggest albums",
+      "none": "No album holds anything yet.",
+      "use": "{size}, {count, plural, one {# item} other {# items}}",
+      "processVideos": "Process videos for playback",
+      "processVideosHint": "On, a lighter copy is made of every video that needs one, so it plays on slow connections and in every browser. Off, videos are kept as sent and play where the browser can.",
+      "submit": "Save",
+      "saved": "Saved."
+    },
     "invitations": {
       "title": "Host invitations",
       "description": "A host invitation lets one person create a host account, even while registration is invitation only. Its link works once and expires after {days} days.",

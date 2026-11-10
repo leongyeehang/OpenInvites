@@ -159,6 +159,15 @@ dashboard, a welcome points to the name, registration and limits; it shows once 
 operator, so one who takes over with `OPERATOR_EMAIL` sees it once too. An instance upgraded from
 an earlier version does not greet the operator it already has.
 
+### Storage
+
+Site settings' **Storage** card (0.7) answers how full the site is: what albums and hosts'
+pictures take, counted as uploaded; on local disk, what the `uploads` volume really holds and
+how much of it is free; the five albums that take the most, each with its hosts; and the switch
+**Process videos for playback**, on by default, which makes a lighter copy of every video that
+needs one. On S3 the card shows the counted use only. After upgrading to 0.7 the card says how
+many files from before the upgrade are still being measured, until that is done.
+
 ### Retention
 
 Events are deleted a set time after they end: **Keep events for**, on the Limits card of

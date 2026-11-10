@@ -1,7 +1,8 @@
-import { eq, sql } from "drizzle-orm";
+import { asc, count, desc, eq, sql } from "drizzle-orm";
 import { resolve } from "node:path";
 import { getDb, type Db } from "@/db/client";
-import { photo, upload } from "@/db/schema";
+import { event, photo, upload } from "@/db/schema";
+import { eventHosts, type EventHost } from "@/events/hosts";
 import { storageConfig } from "./config";
 import { diskUseOf, freeBytesOf } from "./disk-space";
 
@@ -23,6 +24,22 @@ export async function siteBytes(db: Db = getDb()): Promise<{ albums: number; pic
   const [{ albums }] = await db.select({ albums: bytesOf(photo.bytes) }).from(photo);
   const [{ pictures }] = await db.select({ pictures: bytesOf(upload.bytes) }).from(upload);
   return { albums, pictures };
+}
+
+// The albums that take the most, for the Storage card (ticket 03): the event, what its album
+// holds, and its hosts, owner first, whom the operator may write to and who are emailed when the
+// operator clears it (ticket 10).
+export type BiggestAlbum = { id: string; title: string; slug: string; customSlug: string | null; bytes: number; items: number; hosts: EventHost[] };
+
+export async function biggestAlbums(limit = 5): Promise<BiggestAlbum[]> {
+  const rows = await getDb()
+    .select({ id: event.id, title: event.title, slug: event.slug, customSlug: event.customSlug, bytes: bytesOf(photo.bytes), items: count() })
+    .from(photo)
+    .innerJoin(event, eq(event.id, photo.eventId))
+    .groupBy(event.id, event.title, event.slug, event.customSlug)
+    .orderBy(desc(sql`coalesce(sum(${photo.bytes}), 0)`), asc(event.id))
+    .limit(limit);
+  return Promise.all(rows.map(async (row) => ({ ...row, hosts: await eventHosts(row.id) })));
 }
 
 // The free space of the volume the uploads are on, for the free-disk rule (album/album.ts,

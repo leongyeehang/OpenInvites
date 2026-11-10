@@ -347,6 +347,24 @@
       "retentionDaysInvalid": "請為活動保留天數填寫 30 到 3,650 之間的整數，或勾選「永久保留」。",
       "albumReminderDefaultDaysInvalid": "請填寫 1 到 3,650 之間的整數天數，或勾選「從不」。"
     },
+    "storage": {
+      "title": "儲存空間",
+      "description": "本站的上傳內容佔用的空間，按上傳時的大小計算：相簿中的照片和影片，以及主辦人的圖片。上限在「上限」卡片中設定。",
+      "albums": "相簿",
+      "pictures": "主辦人的圖片",
+      "total": "已使用",
+      "onDisk": "磁碟上實際佔用",
+      "free": "磁碟剩餘",
+      "bucketNote": "使用 S3 時，本站只知道自己計算的數字；儲存桶的實際用量以服務商為準。",
+      "measuring": "升級前的 {count, plural, other {# 個檔案}}仍在測量中；完成後數字才會準確。",
+      "biggest": "佔用最多的相簿",
+      "none": "還沒有相簿存有內容。",
+      "use": "{size}，{count, plural, other {# 項}}",
+      "processVideos": "為播放處理影片",
+      "processVideosHint": "開啟後，需要的影片都會產生一個較小的副本，以便在網速慢的情況下和各種瀏覽器中播放。關閉後，影片按原樣保存，能否播放取決於瀏覽器。",
+      "submit": "儲存",
+      "saved": "已儲存。"
+    },
     "invitations": {
       "title": "主辦人邀請",
       "description": "即使註冊僅限受邀，主辦人邀請也能讓一個人建立主辦人帳號。邀請連結只能使用一次，{days} 天後失效。",

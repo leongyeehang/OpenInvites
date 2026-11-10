@@ -13,7 +13,7 @@ import { generateHostInvitationToken, hashHostInvitationToken, hostInvitationLin
 import { parseHomePage, type HomePageField } from "./home";
 import { parseLimits } from "./limits";
 import { isRegistrationMode } from "./registration";
-import { createHostInvitation, markOperatorWelcomed, revokeHostInvitation, setHomePage, setInstanceLimits, setRegistrationMode } from "./repository";
+import { createHostInvitation, markOperatorWelcomed, revokeHostInvitation, setHomePage, setInstanceLimits, setRegistrationMode, setVideoProcessing } from "./repository";
 
 // Every action here is the operator's alone; anyone else is told the page does not exist.
 
@@ -87,6 +87,16 @@ export async function setInstanceLimitsAction(_: FormState, formData: FormData):
   });
   if (!parsed.ok) return { error: t(`${parsed.field}Invalid`) };
   await setInstanceLimits(parsed.limits);
+  revalidatePath("/instance");
+  return { success: t("saved") };
+}
+
+// The Storage card's switch (M7 ticket 03), read when a video is processed, so a change counts for
+// the next clip.
+export async function setVideoProcessingAction(_: FormState, formData: FormData): Promise<FormState> {
+  await requireOperator();
+  const t = await getTranslations("Instance.storage");
+  await setVideoProcessing(formData.get("videoProcessing") === "on");
   revalidatePath("/instance");
   return { success: t("saved") };
 }
