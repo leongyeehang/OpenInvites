@@ -21,7 +21,8 @@ export function photoFileNamed(file: string): PhotoFile | undefined {
   return NAMES.find((name) => PHOTO_FILES[name].file === file);
 }
 
-function key(id: string, name: PhotoFile): string {
+// Where a photo's file is kept: one flat name per file (storage/disk.ts).
+export function photoKey(id: string, name: PhotoFile): string {
   return `${id}-${PHOTO_FILES[name].file}`;
 }
 
@@ -55,17 +56,13 @@ export async function processPhoto(bytes: Uint8Array, maxBytes: number): Promise
 }
 
 export async function storePhoto(id: string, files: Record<PhotoFile, Uint8Array>): Promise<void> {
-  await Promise.all(NAMES.map((name) => getStorage().put(key(id, name), files[name])));
-}
-
-export function readPhotoFile(id: string, name: PhotoFile): Promise<Uint8Array | undefined> {
-  return getStorage().get(key(id, name));
+  await Promise.all(NAMES.map((name) => getStorage().put(photoKey(id, name), files[name])));
 }
 
 // Removes photos' files once their rows are gone. A file that will not go is left where no page
 // reaches it, and logged for the operator.
 export async function removePhotoFiles(ids: string[]): Promise<void> {
-  const removals = ids.flatMap((id) => NAMES.map((name) => getStorage().delete(key(id, name))));
+  const removals = ids.flatMap((id) => NAMES.map((name) => getStorage().delete(photoKey(id, name))));
   for (const removal of await Promise.allSettled(removals)) {
     if (removal.status === "rejected") console.error("A photo's file could not be removed:", removal.reason);
   }

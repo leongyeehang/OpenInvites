@@ -86,6 +86,21 @@ test("a light photo turns the text dark by itself, and guests get the picture wi
   expect(metadata.exif).toBeUndefined();
   expect(metadata.xmp).toBeUndefined();
 
+  // The file is served by streaming, with byte ranges for players and an answered HEAD (M7 ticket 04).
+  expect(file.headers()["accept-ranges"]).toBe("bytes");
+  expect(Number(file.headers()["content-length"])).toBe(bytes.length);
+  const part = await request.get(src, { headers: { Range: "bytes=0-99" } });
+  expect(part.status()).toBe(206);
+  expect(part.headers()["content-range"]).toBe(`bytes 0-99/${bytes.length}`);
+  expect((await part.body()).equals(bytes.subarray(0, 100))).toBe(true);
+  const past = await request.get(src, { headers: { Range: `bytes=${bytes.length}-` } });
+  expect(past.status()).toBe(416);
+  expect(past.headers()["content-range"]).toBe(`bytes */${bytes.length}`);
+  const head = await request.head(src);
+  expect(head.status()).toBe(200);
+  expect(Number(head.headers()["content-length"])).toBe(bytes.length);
+  expect((await head.body()).length).toBe(0);
+
   // The link unfurls as the picture itself: its top corner is the pale garden, not Golden hour.
   const card = await request.get((await page.locator('meta[property="og:image"]').getAttribute("content"))!);
   expect(card.headers()["content-type"]).toBe("image/png");

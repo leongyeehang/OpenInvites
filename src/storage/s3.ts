@@ -12,9 +12,25 @@ export function s3Storage({ endpoint, region, bucket, accessKey, secretKey }: Ex
       // The client takes bytes over a plain ArrayBuffer only.
       await client.putObject(key, new Uint8Array(body));
     },
+    // The client plans parts of 64 MiB with four in flight, about 256 MiB of heap per upload;
+    // 8 MiB keeps that near 32 MiB and still reaches 80 GB, far past any limit (M7 ticket 04).
+    async putStream(key, body, size) {
+      await client.putObject(key, body, { size, partSize: 8 * 1024 * 1024 });
+    },
     async get(key) {
       try {
         return new Uint8Array(await (await client.getObject(key)).arrayBuffer());
+      } catch (error) {
+        if (error instanceof S3Errors.ServerError && error.statusCode === 404) return undefined;
+        throw error;
+      }
+    },
+    // A range is one request with a Range header, which the client sends for an offset or a
+    // length; the whole file is asked for plainly (the client expects 200 then, 206 otherwise).
+    async stream(key, range) {
+      try {
+        const response = await client.getPartialObject(key, range ? { offset: range.start, length: range.end - range.start + 1 } : { offset: 0, length: 0 });
+        return response.body ?? undefined;
       } catch (error) {
         if (error instanceof S3Errors.ServerError && error.statusCode === 404) return undefined;
         throw error;

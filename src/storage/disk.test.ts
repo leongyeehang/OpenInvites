@@ -4,6 +4,23 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { diskStorage } from "./disk";
 
+// The DOM typings know neither ReadableStream.from nor async iteration of a stream.
+function fromPieces(pieces: Uint8Array[]): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const piece of pieces) controller.enqueue(piece);
+      controller.close();
+    },
+  });
+}
+
+async function collect(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> {
+  const chunks: Uint8Array[] = [];
+  const reader = stream.getReader();
+  for (let read = await reader.read(); !read.done; read = await reader.read()) chunks.push(read.value);
+  return Buffer.concat(chunks);
+}
+
 // The local-disk implementation at the storage interface (M7 ticket 02; the S3 one has
 // s3.smoke.ts), on a directory of its own that goes afterwards.
 describe("local-disk storage", () => {
@@ -26,6 +43,20 @@ describe("local-disk storage", () => {
     expect(await storage.stat("abc-photo.webp")).toBeUndefined();
     // Deleting what is already gone is not an error.
     await storage.delete("abc-photo.webp");
+  });
+
+  // M7 ticket 04: a stream in, and ranges out.
+  it("stores what a stream carries, in pieces, and reads it back whole or by range", async () => {
+    const storage = diskStorage(dir);
+    const bytes = Uint8Array.from({ length: 70_000 }, (_, at) => (at * 7) % 256);
+    const pieces = [bytes.subarray(0, 30_000), bytes.subarray(30_000, 60_000), bytes.subarray(60_000)];
+    await storage.putStream("v1-video.mp4", fromPieces(pieces), bytes.length);
+    expect(await storage.stat("v1-video.mp4")).toEqual({ size: 70_000 });
+    expect(Array.from(await collect((await storage.stream("v1-video.mp4"))!))).toEqual(Array.from(bytes));
+    expect(Array.from(await collect((await storage.stream("v1-video.mp4", { start: 29_998, end: 30_002 }))!))).toEqual(Array.from(bytes.subarray(29_998, 30_003)));
+    expect(await storage.stream("v1-missing.mp4")).toBeUndefined();
+    // Nothing half-written is ever stored under the key itself.
+    expect(await storage.stat("v1-video.mp4.partial")).toBeUndefined();
   });
 
   it("refuses a key that could reach outside the directory", async () => {
