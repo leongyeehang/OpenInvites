@@ -22,7 +22,12 @@ export type Storage = {
   // The bytes under one key, also under another, without passing through the application on S3.
   // The key copied from must exist.
   copy(fromKey: string, toKey: string): Promise<void>;
+  // Every key stored, with its size and when it was written, for the stray-file check (M7 ticket
+  // 10), which reads the whole listing once; a bucket of tens of thousands of files takes seconds.
+  list(): AsyncIterable<StoredFile>;
 };
+
+export type StoredFile = { key: string; size: number; modifiedAt: Date };
 
 function create(config: StorageConfig): Storage {
   return config.backend === "s3" ? s3Storage(config) : diskStorage(config.dir);

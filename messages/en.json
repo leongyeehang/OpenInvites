@@ -372,7 +372,22 @@
       "videosMissing": "Videos need ffmpeg, which this server does not have.",
       "processedByApp": "Videos are processed by this site’s app.",
       "processedByWorker": "Videos are processed by the worker container, last seen {time}.",
-      "processedByWorkerMissing": "Videos are processed by a worker container, which has not reported yet: check it is running."
+      "processedByWorkerMissing": "Videos are processed by a worker container, which has not reported yet: check it is running.",
+      "clearAlbum": "Clear the album",
+      "clearAlbumTitle": "Delete {photos, plural, one {# photo} other {# photos}} and {videos, plural, one {# video} other {# videos}} ({size}) from {title}?",
+      "clearAlbumText": "The hosts are emailed that you cleared it. This cannot be undone.",
+      "clearAlbumConfirm": "Delete them",
+      "neverMind": "Never mind",
+      "straysTitle": "Stray files",
+      "checkStrays": "Check for stray files",
+      "checkStraysHint": "Files no photo, video or picture names, older than an hour. A deleted file cannot be brought back.",
+      "straysNone": "No stray files.",
+      "straysFound": "{count, plural, one {# stray file} other {# stray files}} ({size})",
+      "removeStrays": "Remove {count, plural, one {# file} other {# files}} ({size})",
+      "removeStraysTitle": "Remove {count, plural, one {# file} other {# files}} ({size})?",
+      "removeStraysText": "They cannot be brought back.",
+      "removeStraysConfirm": "Remove them",
+      "straysRemoved": "{count, plural, one {# file} other {# files}} removed."
     },
     "invitations": {
       "title": "Host invitations",
@@ -518,6 +533,10 @@
     "albumReminder": {
       "subject": "Empty or keep the album of {title}?",
       "body": "You asked to be reminded about the album {days, plural, one {# day} other {# days}} after {title}. It holds {photos, plural, =0 {no photos} one {# photo} other {# photos}} and {videos, plural, =0 {no videos} one {# video} other {# videos}} ({size}).\n\nNothing is deleted on its own: open the event and choose Empty the album to free the space, or Keep it.\n\nYour event:\n{url}\n\nTo stop these reminders, choose Never under “Remind me about the album” in the event’s settings."
+    },
+    "albumCleared": {
+      "subject": "The site’s operator cleared the album of {title}",
+      "body": "The site’s operator cleared the album of {title}: {photos, plural, =0 {no photos} one {# photo} other {# photos}} and {videos, plural, =0 {no videos} one {# video} other {# videos}} ({size}) were deleted.\n\nYour event:\n{url}"
     },
     "dateSet": {
       "subject": "The date is set: {title}",

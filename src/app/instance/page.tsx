@@ -2,13 +2,17 @@ import type { Metadata } from "next";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { ffmpegStatus, type FfmpegStatus } from "@/album/ffmpeg";
+import { albumTotalsByEvent } from "@/album/repository";
+import { NO_ITEMS, type AlbumTotals } from "@/album/album";
 import { videoProcessor } from "@/album/video";
 import { requireOperator } from "@/auth/session";
+import { AlertDialog, AlertDialogCancel, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { DeleteDialogContent } from "@/components/delete-dialog-content";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { eventPath } from "@/events/slug";
-import { revokeHostInvitationAction } from "@/instance/actions";
+import { clearAlbumAsOperatorAction, revokeHostInvitationAction } from "@/instance/actions";
 import { videoProcessingMode, type VideoProcessingMode } from "@/instance/env";
 import { HOST_INVITATION_DAYS, hostInvitationDaysLeft, hostInvitationState, type HostInvitationState } from "@/instance/host-invitation";
 import { homePage, instanceLimits, listHostInvitations, registrationMode, videoProcessing, videoWorkerSeenAt, type HostInvitation } from "@/instance/repository";
@@ -21,6 +25,7 @@ import { unmeasuredCount } from "@/storage/measure";
 import { biggestAlbums, diskUse, freeDiskBytes, siteBytes, type BiggestAlbum } from "@/storage/usage";
 import { HostHeader } from "../(host)/host-header";
 import { HomePageForm, HostInvitationForm, LimitsForm, RegistrationForm, StorageForm } from "./instance-forms";
+import { StrayFiles } from "./stray-files";
 
 // Outside the host area's layout, which sends a signed-out visitor to sign in: this page does
 // not exist for anyone but the operator, so everyone else gets the not-found page, title and all.
@@ -130,7 +135,7 @@ export default async function InstancePage() {
               </p>
             )}
             <section aria-labelledby="storage-biggest-heading" className="flex flex-col gap-3">
-              <h3 id="storage-biggest-heading" className="font-medium">
+              <h3 id="storage-biggest-heading" tabIndex={-1} className="font-medium outline-none">
                 {t("storage.biggest")}
               </h3>
               {storage.biggest.length === 0 ? (
@@ -138,13 +143,14 @@ export default async function InstancePage() {
               ) : (
                 <ul className="flex flex-col gap-2">
                   {storage.biggest.map((album) => (
-                    <BiggestAlbumRow key={album.id} album={album} locale={locale} />
+                    <BiggestAlbumRow key={album.id} album={album} totals={storage.totals.get(album.id) ?? NO_ITEMS} locale={locale} />
                   ))}
                 </ul>
               )}
             </section>
             <ClientMessages namespaces={["Instance.storage"]}>
               <StorageForm processing={storage.processing} />
+              <StrayFiles />
             </ClientMessages>
           </CardContent>
         </Card>
@@ -185,7 +191,9 @@ export default async function InstancePage() {
 // before the upgrade, the albums that take the most, and the processing switch.
 async function storageFacts() {
   const [use, disk, free, unmeasured, biggest, processing, workerSeenAt] = await Promise.all([siteBytes(), diskUse(), freeDiskBytes(), unmeasuredCount(), biggestAlbums(5), videoProcessing(), videoWorkerSeenAt()]);
-  return { use, disk, free, unmeasured, biggest, processing, workerSeenAt, mode: videoProcessingMode(), bucket: storageConfig().backend === "s3", ffmpeg: ffmpegStatus() };
+  // What each of the biggest albums holds, for the confirmation before clearing one (ticket 10).
+  const totals = await albumTotalsByEvent(biggest.map(({ id }) => id));
+  return { use, disk, free, unmeasured, biggest, totals, processing, workerSeenAt, mode: videoProcessingMode(), bucket: storageConfig().backend === "s3", ffmpeg: ffmpegStatus() };
 }
 
 // Whether this server can process videos (ADR-0007, ticket 05).
@@ -205,8 +213,10 @@ async function ProcessedByLine({ mode, seenAt, now }: { mode: VideoProcessingMod
 }
 
 // One of the biggest albums: the event, linked to its page (the operator cannot open another
-// host's editor), its hosts with their emails, and what it holds.
-async function BiggestAlbumRow({ album, locale }: { album: BiggestAlbum; locale: string }) {
+// host's editor), its hosts with their emails, what it holds, and Clear the album (ticket 10),
+// confirmed with what goes; the hosts are emailed. The focus goes to the list's heading once the
+// row is gone.
+async function BiggestAlbumRow({ album, totals, locale }: { album: BiggestAlbum; totals: AlbumTotals; locale: string }) {
   const t = await getTranslations("Instance.storage");
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-xl p-3 ring-1 ring-foreground/10">
@@ -216,7 +226,30 @@ async function BiggestAlbumRow({ album, locale }: { album: BiggestAlbum; locale:
         </Link>
         <span className="break-all text-sm text-muted-foreground">{album.hosts.map((host) => `${host.name} (${host.email})`).join(", ")}</span>
       </div>
-      <span className="text-sm">{t("use", { size: formatSize(album.bytes, locale), count: album.items })}</span>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm">{t("use", { size: formatSize(album.bytes, locale), count: album.items })}</span>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" size="sm">
+              {t("clearAlbum")}
+            </Button>
+          </AlertDialogTrigger>
+          <DeleteDialogContent focusAfter="storage-biggest-heading">
+            <form action={clearAlbumAsOperatorAction.bind(null, album.id)}>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t("clearAlbumTitle", { photos: totals.photos, videos: totals.videos, size: formatSize(album.bytes, locale), title: album.title })}</AlertDialogTitle>
+                <AlertDialogDescription>{t("clearAlbumText")}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="pt-4">
+                <AlertDialogCancel type="button">{t("neverMind")}</AlertDialogCancel>
+                <Button type="submit" variant="destructive">
+                  {t("clearAlbumConfirm")}
+                </Button>
+              </AlertDialogFooter>
+            </form>
+          </DeleteDialogContent>
+        </AlertDialog>
+      </div>
     </li>
   );
 }

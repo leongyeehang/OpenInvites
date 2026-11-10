@@ -3,11 +3,16 @@
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { notifyHostsOfClearedAlbum } from "@/album/notify-hosts";
+import { emptyAlbum } from "@/album/repository";
 import { requireOperator } from "@/auth/session";
+import { findEventById } from "@/events/repository";
+import { eventPaths } from "@/events/slug";
 import type { FormState } from "@/lib/form-state";
 import { isUuid } from "@/lib/uuid";
 import { isMailConfigured } from "@/mail/config";
 import { consume } from "@/rate-limit/rate-limit";
+import { findStrayFiles, removeStrayFiles } from "@/storage/strays";
 import { sendHostInvitationEmail } from "./emails";
 import { generateHostInvitationToken, hashHostInvitationToken, hostInvitationLink } from "./host-invitation-token";
 import { parseHomePage, type HomePageField } from "./home";
@@ -136,3 +141,39 @@ export async function revokeHostInvitationAction(id: string): Promise<void> {
   await revokeHostInvitation(id, new Date());
   revalidatePath("/instance");
 }
+
+// Clearing one of the biggest albums from the Storage card (M7 ticket 10), after a confirmation
+// that names what goes: the album's hosts are emailed, and the pages that showed it are refreshed.
+export async function clearAlbumAsOperatorAction(eventId: string): Promise<void> {
+  await requireOperator();
+  if (!isUuid(eventId)) return;
+  const found = await findEventById(eventId);
+  if (!found) return;
+  const went = await emptyAlbum(found.id);
+  await notifyHostsOfClearedAlbum(found, went);
+  for (const path of ["/instance", `/events/${found.id}`, "/dashboard", ...eventPaths(found)]) revalidatePath(path);
+}
+
+// The stray-file check (storage/strays.ts): what the check found, or what a removal did.
+export type StrayFilesState = { files: { key: string; size: number }[]; total: number; removed?: number } | undefined;
+
+export async function findStrayFilesAction(): Promise<StrayFilesState> {
+  await requireOperator();
+  return findStrayFiles();
+}
+
+// Removes the keys the check listed, as the form carries them back; nothing the check did not
+// name is removed, since only a storage key's shape is accepted and the keys came from the listing.
+export async function removeStrayFilesAction(_: StrayFilesState, formData: FormData): Promise<StrayFilesState> {
+  await requireOperator();
+  let keys: unknown;
+  try {
+    keys = JSON.parse(String(formData.get("keys") ?? "[]"));
+  } catch {
+    keys = [];
+  }
+  const removed = await removeStrayFiles(Array.isArray(keys) ? keys.filter((key): key is string => typeof key === "string") : []);
+  revalidatePath("/instance");
+  return { files: [], total: 0, removed };
+}
+

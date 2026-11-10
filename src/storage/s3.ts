@@ -53,5 +53,9 @@ export function s3Storage({ endpoint, region, bucket, accessKey, secretKey }: Ex
       // Done by the server: the bytes never come to the application.
       await client.copyObject({ sourceKey: fromKey }, toKey);
     },
+    // The bucket's objects, page by page as the client fetches them.
+    async *list() {
+      for await (const object of client.listObjects()) yield { key: object.key, size: object.size, modifiedAt: object.lastModified };
+    },
   };
 }

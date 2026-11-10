@@ -6,10 +6,13 @@ import { event, photo, rsvp, user } from "@/db/schema";
 import { eventHosts } from "@/events/hosts";
 import type { Event } from "@/events/repository";
 import { eventUrl } from "@/events/slug";
+import { baseUrl } from "@/instance/env";
+import { formatSize } from "@/lib/sizes";
 import { translatorFor } from "@/locale/messages";
 import { isMailConfigured } from "@/mail/config";
 import { queueMail } from "@/mail/outbox";
 import { kickMailWorker } from "@/mail/worker";
+import type { AlbumTotals } from "./album";
 
 // Emails every host of the event once about items that wait for their approval, when the event
 // has it on and the site has mail (spec, "The album: who sees it, and approval"): who added them,
@@ -71,3 +74,22 @@ export async function notifyHostsOfVideo(photoId: string): Promise<void> {
     console.error(`Mail: could not queue the hosts' email about video ${photoId}:`, error);
   }
 }
+
+// The site's operator cleared the album (M7 ticket 10): every host is told what went, with the
+// manage page, in the event's language. From a request; never throws, since the album is already
+// empty and the operator's page must say so.
+export async function notifyHostsOfClearedAlbum(found: Pick<Event, "id" | "title" | "locale">, went: AlbumTotals): Promise<void> {
+  if (!isMailConfigured()) return;
+  try {
+    const t = await getTranslations({ locale: found.locale, namespace: "Mail.albumCleared" });
+    const values = { title: found.title, photos: went.photos, videos: went.videos, size: formatSize(went.bytes, found.locale), url: `${baseUrl()}/events/${found.id}` };
+    const subject = t("subject", values);
+    const text = t("body", values);
+    const hosts = await eventHosts(found.id);
+    await queueMail(hosts.map((host) => ({ eventId: found.id, to: host.email, subject, text })));
+    after(kickMailWorker);
+  } catch (error) {
+    console.error(`Mail: could not queue the hosts' email about the cleared album of event ${found.id}:`, error);
+  }
+}
+

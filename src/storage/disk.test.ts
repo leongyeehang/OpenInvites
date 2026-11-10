@@ -28,6 +28,22 @@ describe("local-disk storage", () => {
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), "openinvites-disk-"));
   });
+
+  // M7 ticket 10: the stray-file check lists what the directory holds, with each file's size and
+  // when it was written; a directory among the files is not a file.
+  it("lists every file with its size and when it was written", async () => {
+    const storage = diskStorage(dir);
+    await storage.put("a-photo.webp", new Uint8Array(10));
+    await storage.put("b-video.mp4", new Uint8Array(20));
+    const listed: { key: string; size: number; modifiedAt: Date }[] = [];
+    for await (const file of storage.list()) listed.push(file);
+    listed.sort((one, two) => one.key.localeCompare(two.key));
+    expect(listed.map(({ key, size }) => ({ key, size }))).toEqual([
+      { key: "a-photo.webp", size: 10 },
+      { key: "b-video.mp4", size: 20 },
+    ]);
+    for (const { modifiedAt } of listed) expect(Math.abs(Date.now() - modifiedAt.getTime())).toBeLessThan(60_000);
+  });
   afterEach(async () => {
     await rm(dir, { recursive: true, force: true });
   });

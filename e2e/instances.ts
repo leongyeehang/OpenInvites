@@ -7,3 +7,10 @@ export function recreate(...services: string[]) {
     stdio: "pipe",
   });
 }
+
+// Runs a command in one of the profile's containers, as the container's own user, and gives its
+// output; a command that fails throws (M7 ticket 10 plants and checks files in the uploads volume).
+export function exec(service: string, ...command: string[]): string {
+  return execFileSync("docker", ["compose", "--profile", "test", "exec", "-T", service, ...command], { stdio: "pipe" }).toString();
+}
+

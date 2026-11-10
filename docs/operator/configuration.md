@@ -175,6 +175,11 @@ holds the service, commented out. The app then only queues each clip; the worker
 a minute and reports itself every minute, and the Storage card says when it was last seen. A
 worker not heard from for five minutes is called out on the card, so a stopped one is noticed.
 
+From the card the operator can **Clear the album** of one of the biggest albums, confirming what
+goes; its hosts are emailed. **Check for stray files** lists what storage holds that no photo,
+video or host's picture names, older than an hour, and removes it on a second confirmation.
+Nothing is removed by the clock.
+
 ### Retention
 
 Events are deleted a set time after they end: **Keep events for**, on the Limits card of

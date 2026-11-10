@@ -32,6 +32,12 @@ describe("S3-compatible storage", () => {
 
     await storage.put(key, picture);
     expect(await storage.get(key)).toEqual(picture);
+    // The listing names it, with its size and when it was written (M7 ticket 10).
+    const listed: { key: string; size: number; modifiedAt: Date }[] = [];
+    for await (const file of storage.list()) if (file.key === key) listed.push(file);
+    expect(listed).toHaveLength(1);
+    expect(listed[0].size).toBe(picture.length);
+    expect(Math.abs(Date.now() - listed[0].modifiedAt.getTime())).toBeLessThan(10 * 60_000);
     // Its size, for the storage accounting (M7 ticket 02); nothing for a key that is not there.
     expect(await storage.stat(key)).toEqual({ size: picture.length });
     expect(await storage.stat(`smoke-${crypto.randomUUID()}-missing.webp`)).toBeUndefined();

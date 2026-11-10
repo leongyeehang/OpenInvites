@@ -321,6 +321,12 @@ export async function countOwnedEvents(hostId: string): Promise<number> {
 export type EventWithHost = Event & { hostName: string };
 
 // The event page: an event by its link, with its owner's display name, which the preview card shows.
+// An event by its id, scoped to no host: the operator's (M7 ticket 10, clearing an album).
+export async function findEventById(id: string): Promise<Event | undefined> {
+  const found = await getDb().query.event.findFirst({ where: eq(event.id, id) });
+  return found ? withTheme(found) : undefined;
+}
+
 export const findEventBySlug = cache(async (slug: string): Promise<EventWithHost | undefined> => {
   const [row] = await getDb()
     .select({ event, hostName: user.name })

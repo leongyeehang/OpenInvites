@@ -372,7 +372,22 @@
       "videosMissing": "视频功能需要 ffmpeg，本服务器尚未安装。",
       "processedByApp": "视频由本站的应用自行处理。",
       "processedByWorker": "视频由工作容器处理，最近一次报告于{time}。",
-      "processedByWorkerMissing": "视频由工作容器处理，但它尚未报告：请检查它是否在运行。"
+      "processedByWorkerMissing": "视频由工作容器处理，但它尚未报告：请检查它是否在运行。",
+      "clearAlbum": "清空相册",
+      "clearAlbumTitle": "从“{title}”删除 {photos, plural, other {# 张照片}}和 {videos, plural, other {# 个视频}}（{size}）？",
+      "clearAlbumText": "主办人会收到邮件，得知你清空了相册。此操作无法撤销。",
+      "clearAlbumConfirm": "删除",
+      "neverMind": "算了",
+      "straysTitle": "多余文件",
+      "checkStrays": "检查多余文件",
+      "checkStraysHint": "没有任何照片、视频或图片使用、且已存在一小时以上的文件。删除后无法找回。",
+      "straysNone": "没有多余文件。",
+      "straysFound": "{count, plural, other {# 个多余文件}}（{size}）",
+      "removeStrays": "删除 {count, plural, other {# 个文件}}（{size}）",
+      "removeStraysTitle": "删除 {count, plural, other {# 个文件}}（{size}）？",
+      "removeStraysText": "删除后无法找回。",
+      "removeStraysConfirm": "删除",
+      "straysRemoved": "已删除 {count, plural, other {# 个文件}}。"
     },
     "invitations": {
       "title": "主办人邀请",
@@ -518,6 +533,10 @@
     "albumReminder": {
       "subject": "“{title}”的相册：清空还是保留？",
       "body": "你曾要求在“{title}”结束 {days, plural, other {# 天}}后提醒你处理相册。相册里有 {photos, plural, other {# 张照片}}和 {videos, plural, other {# 个视频}}（{size}）。\n\n系统不会自行删除任何内容：打开活动，选择“清空相册”释放空间，或选择“保留”。\n\n你的活动：\n{url}\n\n要停止这类提醒，请在活动设置的“提醒我处理相册”下选择“从不”。"
+    },
+    "albumCleared": {
+      "subject": "本站运营者清空了“{title}”的相册",
+      "body": "本站运营者清空了“{title}”的相册：{photos, plural, other {# 张照片}}和 {videos, plural, other {# 个视频}}（{size}）已删除。\n\n你的活动：\n{url}"
     },
     "dateSet": {
       "subject": "日期已确定：{title}",

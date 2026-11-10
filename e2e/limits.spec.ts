@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
 import sharp from "sharp";
 import { expect, test, type Browser, type Page } from "./test";
-import { APPROVAL, editSettings, eventLinkIn, openDesign, openMore, publishInEditor, setWhen, typeTitle } from "./events";
-import { dismissOperatorWelcome, mailCountTo, newHost, signUp, toSiteSettings, verifyEmail } from "./hosts";
-import { recreate } from "./instances";
+import { APPROVAL, createDraft, editSettings, eventLinkIn, openDesign, openMore, publishInEditor, setWhen, typeTitle } from "./events";
+import { dismissOperatorWelcome, latestMailTo, mailCountTo, newHost, signUp, toSiteSettings, verifyEmail } from "./hosts";
+import { exec, recreate } from "./instances";
 import { closeReply } from "./reply";
 
 // Ticket 01: the operator's two limits. Runs against `app-fresh` after the fresh-instance specs
@@ -352,3 +352,76 @@ test("the Storage card shows the site's use, the biggest albums, and the process
   await card.locator("form").getByRole("button", { name: "Save" }).click();
   await expect(card.locator("form").getByText("Saved.")).toBeVisible();
 });
+
+// A small photo, well inside every limit the rows above left.
+async function small(name: string) {
+  return { name, mimeType: "image/jpeg", buffer: await sharp({ create: { width: 800, height: 600, channels: 3, background: "#2f6b3a" } }).jpeg().toBuffer() };
+}
+
+// The operator opens registration, so that a host of their own can sign up.
+async function openRegistration(page: Page) {
+  await page.goto("/instance");
+  await page.getByLabel("Open", { exact: true }).check();
+  await page.locator("form").filter({ has: page.getByLabel("Open", { exact: true }) }).getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Saved.")).toBeVisible();
+}
+
+// A UUIDv7 made two hours ago, as an item from then would have.
+function oldUuidv7(): string {
+  const hex = (Date.now() - 2 * 60 * 60 * 1000).toString(16).padStart(12, "0");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-7abc-8def-0123456789ab`;
+}
+
+// M7 ticket 10: the operator clears an album from the Storage card, and its hosts are told.
+test("the operator clears a host's album from the Storage card, confirming what goes, and the host is emailed", async ({ browser, request }) => {
+  test.slow();
+  await openRegistration(operator);
+  const page = await (await browser.newContext()).newPage();
+  const host = newHost("limits-host");
+  await signUp(page, host);
+  await verifyEmail(page, request, host.email);
+  const link = await createDraft(page, { title: "Ada’s picnic", start: "2026-01-10T19:00" });
+  await publishInEditor(page);
+  await page.goto(link);
+  const album = page.locator('[data-slot="album"]');
+  await album.getByLabel(/^Add photos/).setInputFiles([await small("one.jpg"), await small("two.jpg")]);
+  await expect(album.getByRole("button", { name: /^Photo \d by / })).toHaveCount(2, { timeout: 30_000 });
+  const mails = await mailCountTo(request, host.email);
+
+  await operator.goto("/instance");
+  const card = operator.locator("#storage");
+  const row = card.getByRole("listitem").filter({ hasText: "Ada’s picnic" });
+  await expect(row).toBeVisible();
+  await row.getByRole("button", { name: "Clear the album" }).click();
+  const dialog = operator.getByRole("alertdialog");
+  await expect(dialog.getByRole("heading", { name: /^Delete 2 photos and 0 videos \(.+\) from Ada’s picnic\?$/ })).toBeVisible();
+  await dialog.getByRole("button", { name: "Delete them" }).click();
+  await expect(row).toHaveCount(0);
+  await page.goto(link);
+  await expect(album.getByRole("button", { name: /^Photo \d by / })).toHaveCount(0);
+  const text = await latestMailTo(request, host.email, mails);
+  expect(text).toContain("The site’s operator cleared the album of Ada’s picnic: 2 photos and no videos (");
+  expect(text).toContain("/events/");
+  await page.context().close();
+});
+
+// A file planted in the uploads volume under an id from two hours ago, written two hours ago, is
+// what the check finds; the photos' own files are not.
+test("the operator finds a stray file and removes it after confirming", async () => {
+  const stray = `${oldUuidv7()}-photo.webp`;
+  const stamp = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString().replace(/\D/g, "").slice(0, 12);
+  exec("app-fresh", "sh", "-c", `printf stray > /app/uploads/${stray} && touch -t ${stamp} /app/uploads/${stray}`);
+  await operator.goto("/instance");
+  const card = operator.locator("#storage");
+  await card.getByRole("button", { name: "Check for stray files" }).click();
+  await expect(card.getByText(/^1 stray file \(.+\)$/)).toBeVisible();
+  await expect(card.getByRole("listitem").filter({ hasText: stray })).toHaveCount(1);
+  await expect(card.getByRole("listitem").filter({ hasText: /-photo(-thumb)?\.webp/ })).toHaveCount(1);
+  await card.getByRole("button", { name: /^Remove 1 file / }).click();
+  await operator.getByRole("alertdialog").getByRole("button", { name: "Remove them" }).click();
+  await expect(card.getByText("1 file removed.")).toBeVisible();
+  expect(() => exec("app-fresh", "test", "!", "-e", `/app/uploads/${stray}`)).not.toThrow();
+  await card.getByRole("button", { name: "Check for stray files" }).click();
+  await expect(card.getByText("No stray files.")).toBeVisible();
+});
+
