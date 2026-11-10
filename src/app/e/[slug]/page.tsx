@@ -61,7 +61,7 @@ import { photoUrl } from "@/album/files";
 import { countPhotos, listPhotos } from "@/album/repository";
 import { albumViewer } from "@/album/viewer";
 import { albumView, photoScope } from "@/album/visibility";
-import { maxUploadBytes } from "@/instance/env";
+import { instanceLimits } from "@/instance/repository";
 import { AlbumSection, type AlbumShown } from "@/themes/sections/album-section";
 import { scheduleInstants } from "@/schedule/clock";
 import { listSchedule } from "@/schedule/repository";
@@ -147,7 +147,8 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
     pending: each.status === "pending",
     approvable: each.status === "pending" && mayApprovePhoto(viewer),
   }));
-  const maxMegabytes = Math.floor(maxUploadBytes() / (1024 * 1024));
+  // Largest photo on Site settings (M7 ticket 01), for the album's hint and its refusals.
+  const { maxPhotoMb: maxMegabytes } = await instanceLimits();
   // A guest who may add but not see is shown their own, and why: the album is for those Going, or
   // the hosts keep it.
   if (view === "own") return { view: "own", why: event.albumVisibility === "going" ? "going" : "hosts", photos, maxMegabytes };

@@ -130,6 +130,19 @@ export const instanceSettings = pgTable(
     // How many days after it ends an event is deleted (spec, "Retention"; retention/plan.ts), or
     // null to keep events for ever. The migration that added it set the one row to a year.
     retentionDays: integer("retention_days"),
+    // The M7 limits (ticket 01; instance/limits.ts for the ranges): the largest photo and video
+    // and the longest video, the storage per event and for the site in whole binary megabytes,
+    // and how many days after an event its hosts are reminded about its album (null: never).
+    maxPhotoMb: integer("max_photo_mb").notNull().default(DEFAULT_LIMITS.maxPhotoMb),
+    maxVideoMb: integer("max_video_mb").notNull().default(DEFAULT_LIMITS.maxVideoMb),
+    maxVideoMinutes: integer("max_video_minutes").notNull().default(DEFAULT_LIMITS.maxVideoMinutes),
+    maxEventStorageMb: integer("max_event_storage_mb").notNull().default(DEFAULT_LIMITS.maxEventStorageMb),
+    maxSiteStorageMb: integer("max_site_storage_mb").notNull().default(DEFAULT_LIMITS.maxSiteStorageMb),
+    albumReminderDefaultDays: integer("album_reminder_default_days").default(60),
+    // Whether a lighter copy is made of videos that need one (M7 ticket 03, the Storage card).
+    videoProcessing: boolean("video_processing").notNull().default(true),
+    // Whether MAX_UPLOAD_MB has been read once into Largest photo (instance/upload-limit.ts).
+    uploadEnvAdopted: boolean("upload_env_adopted").notNull().default(false),
     // The home page (instance/home.ts): the name and the welcome line, null while the operator has
     // set none; which gallery posters it shows and which ones are picked; and whether it says who
     // runs the site.

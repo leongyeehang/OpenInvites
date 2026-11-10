@@ -30,6 +30,12 @@ export const instanceLimits = cache(async (): Promise<Limits> => {
       maxRsvpsPerEvent: instanceSettings.maxRsvpsPerEvent,
       maxPhotosPerEvent: instanceSettings.maxPhotosPerEvent,
       retentionDays: instanceSettings.retentionDays,
+      maxPhotoMb: instanceSettings.maxPhotoMb,
+      maxVideoMb: instanceSettings.maxVideoMb,
+      maxVideoMinutes: instanceSettings.maxVideoMinutes,
+      maxEventStorageMb: instanceSettings.maxEventStorageMb,
+      maxSiteStorageMb: instanceSettings.maxSiteStorageMb,
+      albumReminderDefaultDays: instanceSettings.albumReminderDefaultDays,
     })
     .from(instanceSettings);
   return settings;

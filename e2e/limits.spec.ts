@@ -75,6 +75,57 @@ test("the operator sets the limits to two and sees them saved", async ({ browser
   await expect(operator.getByLabel("Replies per event")).toHaveValue("2");
 });
 
+// M7 ticket 01: the upload and storage limits and the album reminder's default, on the same card,
+// in effect from the moment they are saved. The small values set here stay for the album rows below.
+test("the upload and storage limits and the reminder default save, read back, and refuse what is out of range", async () => {
+  await operator.goto("/instance");
+  await expect(operator.getByLabel("Largest photo (MB)")).toHaveValue("40");
+  await expect(operator.getByLabel("Largest video (MB)")).toHaveValue("750");
+  await expect(operator.getByLabel("Longest video (min)")).toHaveValue("15");
+  await expect(operator.getByLabel("Storage per event (GB)")).toHaveValue("50");
+  await expect(operator.getByLabel("Storage for the site (GB)")).toHaveValue("50");
+  await expect(operator.getByLabel("Remind hosts about albums after")).toHaveValue("60");
+  const limits = operator.locator("form").filter({ has: operator.getByLabel("Events per host") });
+
+  await operator.getByLabel("Largest photo (MB)").fill("1");
+  await operator.getByLabel("Largest video (MB)").fill("2");
+  await operator.getByLabel("Longest video (min)").fill("1");
+  await operator.getByLabel("Storage per event (GB)").fill("0.01");
+  await operator.getByLabel("Storage for the site (GB)").fill("0.02");
+  await operator.getByLabel("Remind hosts about albums after").fill("7");
+  await limits.getByRole("button", { name: "Save" }).click();
+  await expect(limits.getByText("Saved.")).toBeVisible();
+  await operator.reload();
+  await expect(operator.getByLabel("Largest photo (MB)")).toHaveValue("1");
+  await expect(operator.getByLabel("Largest video (MB)")).toHaveValue("2");
+  await expect(operator.getByLabel("Longest video (min)")).toHaveValue("1");
+  await expect(operator.getByLabel("Storage per event (GB)")).toHaveValue("0.01");
+  await expect(operator.getByLabel("Storage for the site (GB)")).toHaveValue("0.02");
+  await expect(operator.getByLabel("Remind hosts about albums after")).toHaveValue("7");
+
+  // Out of range, past the browser's own check: the server names the field, and nothing is saved.
+  await limits.evaluate((form) => form.setAttribute("novalidate", ""));
+  await operator.getByLabel("Largest photo (MB)").fill("2000");
+  await limits.getByRole("button", { name: "Save" }).click();
+  await expect(limits.getByText("Enter a whole number from 1 to 1,000 MB for the largest photo.")).toBeVisible();
+  await operator.getByLabel("Largest photo (MB)").fill("1");
+  await operator.getByLabel("Storage per event (GB)").fill("0.001");
+  await limits.getByRole("button", { name: "Save" }).click();
+  await expect(limits.getByText("Enter a number from 0.01 to 100,000 GB for storage per event.")).toBeVisible();
+  await operator.reload();
+  await expect(operator.getByLabel("Largest photo (MB)")).toHaveValue("1");
+  await expect(operator.getByLabel("Storage per event (GB)")).toHaveValue("0.01");
+
+  // Never turns the reminder off, and the choice survives a reload.
+  await operator.getByLabel("Never", { exact: true }).check();
+  await expect(operator.getByLabel("Remind hosts about albums after")).toBeDisabled();
+  await limits.getByRole("button", { name: "Save" }).click();
+  await expect(limits.getByText("Saved.")).toBeVisible();
+  await operator.reload();
+  await expect(operator.getByLabel("Never", { exact: true })).toBeChecked();
+  await expect(operator.getByLabel("Remind hosts about albums after")).toBeDisabled();
+});
+
 test("a limit outside the range is refused", async () => {
   await operator.goto("/instance");
   const limits = operator.locator("form").filter({ has: operator.getByLabel("Events per host") });
@@ -149,8 +200,8 @@ test("a third guest is refused at the replies limit, a reply waiting for approva
 test("an album at the operator's photos limit refuses more, saying how many it has room for", async () => {
   test.slow();
   await operator.goto("/instance");
-  await expect(operator.getByLabel("Photos per event")).toHaveValue("300");
-  await operator.getByLabel("Photos per event").fill("1");
+  await expect(operator.getByLabel("Photos and videos per event")).toHaveValue("300");
+  await operator.getByLabel("Photos and videos per event").fill("1");
   const limits = operator.locator("form").filter({ has: operator.getByLabel("Events per host") });
   await limits.getByRole("button", { name: "Save" }).click();
   await expect(limits.getByText("Saved.")).toBeVisible();

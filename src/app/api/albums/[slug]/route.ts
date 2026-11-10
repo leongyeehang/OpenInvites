@@ -7,8 +7,9 @@ import { photoStatusFor } from "@/album/visibility";
 import { findEventBySlug } from "@/events/repository";
 import { gateFor } from "@/invites/gate";
 import { eventPaths } from "@/events/slug";
-import { baseUrl, maxUploadBytes } from "@/instance/env";
+import { baseUrl } from "@/instance/env";
 import { instanceLimits } from "@/instance/repository";
+import { MEGABYTE } from "@/lib/sizes";
 import { consume, retryAfter } from "@/rate-limit/rate-limit";
 import { newUploadId } from "@/uploads/repository";
 import type { UploadProblem } from "@/uploads/validate";
@@ -36,8 +37,10 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
   const viewer = await albumViewer(event.id);
   if (!mayAddPhotos(viewer) || viewer.kind === "visitor") return refused("notAllowed", 403);
 
-  const maxBytes = maxUploadBytes();
-  // Ten photos at the most, each at the most the operator allows, and room for the form's framing.
+  // Ten photos at the most, each at the most Largest photo allows (M7 ticket 01), and room for the
+  // form's framing. The limits are read once here and used for the room check below too.
+  const { maxPhotosPerEvent, maxPhotoMb } = await instanceLimits();
+  const maxBytes = maxPhotoMb * MEGABYTE;
   const body = await readUpTo(request, MAX_PHOTOS_AT_ONCE * maxBytes + 1024 * 1024);
   if (!body) return refused("tooLarge", 413);
   let files: File[];
@@ -48,7 +51,6 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
     return refused("tooLarge", 400);
   }
   // Photos waiting for approval take their places too.
-  const { maxPhotosPerEvent } = await instanceLimits();
   const room = photosRoom(await countPhotos(event.id), files.length, maxPhotosPerEvent);
   if (!room.ok) return Response.json({ error: room.error, left: room.left } satisfies AlbumUploadResult, { status: 409 });
 

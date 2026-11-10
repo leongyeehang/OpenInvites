@@ -6,8 +6,11 @@ export async function register(): Promise<void> {
   const { databaseUrl } = await import("./db/client");
   const { runMigrations } = await import("./db/migrate");
   await runMigrations(databaseUrl());
+  // MAX_UPLOAD_MB, retired in 0.7, is read once into Largest photo (instance/upload-limit.ts).
+  const { adoptUploadLimitAtStart } = await import("./instance/upload-limit");
+  await adoptUploadLimitAtStart();
   // Settings the first sign-up, upload, or legal page would otherwise trip over: fail at start instead.
-  const { authSecret, baseUrl, maxUploadBytes } = await import("./instance/env");
+  const { authSecret, baseUrl } = await import("./instance/env");
   const { mailConfig } = await import("./mail/config");
   const { storageConfig } = await import("./storage/config");
   const { checkRateLimitsAtStart } = await import("./rate-limit/rate-limit");
@@ -17,7 +20,6 @@ export async function register(): Promise<void> {
   authSecret();
   mailConfig();
   storageConfig();
-  maxUploadBytes();
   checkRateLimitsAtStart();
   checkLegalPagesAtStart();
   turnstileConfig();

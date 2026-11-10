@@ -54,17 +54,22 @@ interface says "site" where these docs say "instance".)
   invitation can create an account, by email, Google, or GitHub alike. Open lets anyone sign up.
   A change takes effect at once. With mail configured, Open also lets anyone who signs up have the
   instance email addresses of their choosing ([Mail](#mail)).
-- **Limits** are three caps, set on the same page and read each time they are checked, so a change
-  takes effect at once. **Events per host** (50 by default) counts every event a host owns,
+- **Limits** are set on the same page and read each time they are checked, so a change takes
+  effect at once. **Events per host** (50 by default) counts every event a host owns,
   drafts and past events included but not events they only co-host; a host at the limit cannot
   create or duplicate an event until they delete one. **Replies per event** (500 by default)
   counts every reply to an event, whatever its answer; a guest who has not yet replied is told
   the event can't take more replies, while guests who have replied can still change or withdraw
-  theirs. **Photos per event** (300 by default) counts the photos in an event's album, those
-  awaiting a host's approval included; guests and hosts adding more are told how many places are
-  left, and those already there stay. Each is a
-  whole number from 1 to 100,000. Lowering a limit below what exists leaves the existing events,
-  replies and photos alone and refuses only new ones. The same card sets how long
+  theirs. **Photos and videos per event** (300 by default) counts the items in an event's album,
+  those awaiting a host's approval included; guests and hosts adding more are told how many
+  places are left, and those already there stay. Those three are whole numbers from 1 to
+  100,000. Since 0.7 the card also sets **Largest photo** (40 MB by default, 1 to 1,000),
+  which covers album photos and hosts' pictures; **Largest video** (750 MB, 1 to 10,000) and
+  **Longest video** (15 minutes, 1 to 180), which a host may lower for their event; **Storage
+  per event** and **Storage for the site** (50 GB each, 0.01 to 100,000 GB), counted as
+  uploaded; and **Remind hosts about albums after** (60 days by default, or Never), the default
+  new events start with. Lowering a limit below what exists leaves the existing events,
+  replies and uploads alone and refuses only new ones. The same card sets how long
   events are kept ([Retention](#retention)).
 - **Host invitations** are single-use links the operator makes on the same page, optionally
   addressed to an email, which then fills in the sign-up form (anyone with the link can still
@@ -342,7 +347,7 @@ removes their last passkey, is never locked out.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `MAX_UPLOAD_MB` | `10` | The largest picture a host may upload, and the largest photo anyone may add to an album (up to ten at once), in megabytes. Decimals are allowed. |
+| `MAX_UPLOAD_MB` | retired in 0.7 | Was the largest picture and photo in megabytes. At the first start after upgrading, its value is read once into **Largest photo** on Site settings, and the variable is ignored from then on. |
 | `STORAGE_BACKEND` | `local` | `local` keeps pictures in the `uploads` volume; `s3` in an S3-compatible bucket. |
 | `UPLOADS_DIR` | `uploads` | Local storage's directory, relative to `/app` in the container. `compose.yaml` mounts the `uploads` volume at `/app/uploads`: leave it. |
 | `S3_ENDPOINT` | Required for `s3` | The provider's S3 endpoint, such as `https://s3.eu-central-1.amazonaws.com`. |

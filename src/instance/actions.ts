@@ -77,6 +77,13 @@ export async function setInstanceLimitsAction(_: FormState, formData: FormData):
     maxPhotosPerEvent: text("maxPhotosPerEvent"),
     retentionDays: text("retentionDays"),
     keepForever: formData.get("keepForever") === "on",
+    maxPhotoMb: text("maxPhotoMb"),
+    maxVideoMb: text("maxVideoMb"),
+    maxVideoMinutes: text("maxVideoMinutes"),
+    maxEventStorageGb: text("maxEventStorageGb"),
+    maxSiteStorageGb: text("maxSiteStorageGb"),
+    albumReminderDefaultDays: text("albumReminderDefaultDays"),
+    remindNever: formData.get("remindNever") === "on",
   });
   if (!parsed.ok) return { error: t(`${parsed.field}Invalid`) };
   await setInstanceLimits(parsed.limits);

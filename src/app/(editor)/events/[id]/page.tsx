@@ -15,8 +15,8 @@ import { findHostEvent } from "@/events/repository";
 import { eventUrl } from "@/events/slug";
 import { formatDay, formatWhen, isDated, timeZones, toWallTime } from "@/events/time";
 import { can } from "@/hosts/role";
-import { maxUploadBytes } from "@/instance/env";
 import { instanceLimits } from "@/instance/repository";
+import { MEGABYTE } from "@/lib/sizes";
 import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
 import { countAnswersByQuestion, listQuestions } from "@/questions/repository";
@@ -154,7 +154,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
               <EditorToolbar
                 sheets={
                   <>
-                    <DesignSheets eventId={event.id} title={event.title} maxUploadBytes={maxUploadBytes()} />
+                    <DesignSheets eventId={event.id} title={event.title} maxUploadBytes={limits.maxPhotoMb * MEGABYTE} />
                     <SettingsSheet
                       eventId={event.id}
                       settings={event}

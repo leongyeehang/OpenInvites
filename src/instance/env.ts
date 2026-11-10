@@ -35,13 +35,5 @@ export function analyticsSnippet(): string | undefined {
   return process.env.ANALYTICS_SNIPPET?.trim() || undefined;
 }
 
-const MEGABYTE = 1024 * 1024;
-
-// The largest picture a host may upload, in megabytes (MAX_UPLOAD_MB, default 10).
-export function maxUploadBytes(): number {
-  const setting = process.env.MAX_UPLOAD_MB?.trim();
-  if (!setting) return 10 * MEGABYTE;
-  const megabytes = Number(setting);
-  if (!Number.isFinite(megabytes) || megabytes <= 0) throw new Error(`MAX_UPLOAD_MB must be a number of megabytes, not "${setting}"`);
-  return Math.floor(megabytes * MEGABYTE);
-}
+// MAX_UPLOAD_MB, the largest picture, retired in 0.7: Largest photo on Site settings took its
+// place, and instance/upload-limit.ts reads the old setting once at the first start after.

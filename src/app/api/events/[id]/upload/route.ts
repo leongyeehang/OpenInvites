@@ -1,7 +1,9 @@
 import { getSession } from "@/auth/session";
 import { findHostEvent } from "@/events/repository";
 import { can } from "@/hosts/role";
-import { baseUrl, maxUploadBytes } from "@/instance/env";
+import { baseUrl } from "@/instance/env";
+import { instanceLimits } from "@/instance/repository";
+import { MEGABYTE } from "@/lib/sizes";
 import { isUuid } from "@/lib/uuid";
 import { consume, retryAfter } from "@/rate-limit/rate-limit";
 import { parseEmojiChoice } from "@/uploads/emoji";
@@ -38,7 +40,8 @@ export async function POST(request: Request, context: RouteContext<"/api/events/
     if (!emoji) return refused("unsupported");
   }
 
-  const maxBytes = maxUploadBytes();
+  // Largest photo on Site settings (M7 ticket 01), read at the moment it is checked.
+  const maxBytes = (await instanceLimits()).maxPhotoMb * MEGABYTE;
   const bytes = await readUpTo(request, maxBytes);
   if (!bytes) return refused("tooLarge");
   const outcome = await uploadPicture(session.user.id, id, bytes, maxBytes, emoji);

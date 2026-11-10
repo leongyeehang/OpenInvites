@@ -143,9 +143,10 @@ test("a picture over the size limit, or a file that is not a picture, is refused
   const drawer = await openDrawer(host.page);
   const control = drawer.getByLabel("Upload your photo or poster");
 
-  // The instance takes pictures up to 10 MB unless its operator says otherwise.
-  await control.setInputFiles({ name: "huge.jpg", mimeType: "image/jpeg", buffer: Buffer.alloc(11 * 1024 * 1024) });
-  await expect(drawer.getByRole("alert")).toHaveText("That picture is larger than 10 MB, the largest that can be uploaded here. Choose a smaller one.");
+  // The site takes pictures up to Largest photo on Site settings, 40 MB unless its operator says
+  // otherwise (M7 ticket 01). The sheet refuses the file by its size before anything is sent.
+  await control.setInputFiles({ name: "huge.jpg", mimeType: "image/jpeg", buffer: Buffer.alloc(41 * 1024 * 1024) });
+  await expect(drawer.getByRole("alert")).toHaveText("That picture is larger than 40 MB, the largest that can be uploaded here. Choose a smaller one.");
 
   // Named and typed as a JPEG, but it is not one: the server reads the file itself.
   await control.setInputFiles({ name: "photo.jpg", mimeType: "image/jpeg", buffer: Buffer.from("These are the directions to the garden, not a photo.") });
