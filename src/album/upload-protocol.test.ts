@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { kindOf, parseAskRequest, PART_BYTES, partBytes, partPlan, uploadComplete } from "./upload-protocol";
+import { kindOf, missingParts, parseAskRequest, PART_BYTES, partBytes, partPlan, uploadComplete } from "./upload-protocol";
 
 // One way to add anything to an album (M7 ticket 06): ask, send the parts, finish.
 describe("partPlan", () => {
@@ -66,5 +66,14 @@ describe("parseAskRequest", () => {
     const parsed = parseAskRequest({ files: [{ name: "x".repeat(300), size: 1, type: "video/mp4", durationMs: "4" }] });
     expect(parsed?.files[0].name).toHaveLength(255);
     expect(parsed?.files[0].durationMs).toBeUndefined();
+  });
+});
+
+// A resume after a dropped connection (M7 ticket 07): the parts still to send, in order.
+describe("missingParts", () => {
+  it("lists the parts not yet received, in order, and none once all are", () => {
+    expect(missingParts([0, 2], 4)).toEqual([1, 3]);
+    expect(missingParts([], 2)).toEqual([0, 1]);
+    expect(missingParts([1, 0], 2)).toEqual([]);
   });
 });

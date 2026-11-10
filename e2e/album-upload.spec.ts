@@ -115,12 +115,16 @@ test("a finish before every part is refused, a clip over the length cap and a vi
   const priya = await guestGoing(browser, host.link, "Priya Nair");
   const api = apiOf(priya, host.link);
 
-  // Half the parts, then the finish: refused, and the upload stays to be resumed.
+  // Half the parts, then the finish: refused, and the upload stays to be resumed. Which parts
+  // arrived is asked with a plain GET, as a browser sends one, with no origin header.
   const asked = await ask(api, [{ name: "clip-h264.mp4", size: H264.length, type: "video/mp4", durationMs: 4000 }]);
   const [planned] = asked.body.uploads!;
   await sendParts(api, planned.id!, planned.partSize!, H264, 2);
   const early = await finish(api, planned.id!);
   expect(early).toMatchObject({ status: 400, body: { ok: false, problem: "incomplete" } });
+  const received = await api.request.get(`${api.base}/${planned.id}`);
+  expect(received.status()).toBe(200);
+  expect(await received.json()).toEqual({ received: [0, 1] });
 
   // Review Focus 1: the host lowers Largest video below the clip while its upload is reserved; the
   // rest of the parts and the finish still go through, and the next ask for the same clip is refused.

@@ -66,3 +66,9 @@ export type AskResponse =
 export type PartResponse = { received: number[] };
 
 export type FinishResponse = { ok: true; item: { id: string; kind: PhotoKind; state: "ready" | "pending" | "processing" } } | { ok: false; problem: UploadProblem };
+
+// The parts still to send on a resume (ticket 07), in order.
+export function missingParts(received: number[], parts: number): number[] {
+  const have = new Set(received);
+  return Array.from({ length: parts }, (_, part) => part).filter((part) => !have.has(part));
+}

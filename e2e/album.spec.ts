@@ -33,7 +33,7 @@ test("before the start the album says when it opens, and takes nothing", async (
   const host = await createPublished(browser, request, "album-ahead", AHEAD);
   const priya = await guestGoing(browser, host.link, "Priya Nair");
   await expect(album(priya)).toContainText("The album opens on");
-  await expect(album(priya).getByLabel("Add photos")).toHaveCount(0);
+  await expect(album(priya).getByLabel(/^Add photos/)).toHaveCount(0);
   await Promise.all([host.context.close(), priya.context().close()]);
 });
 
@@ -45,7 +45,7 @@ test("a guest adds photos after the start, another sees them in the viewer, each
   // Priya adds two photos; each says it was added.
   const priya = await guestGoing(browser, host.link, "Priya Nair");
   await expect(album(priya)).toContainText("No photos yet. Add the first.");
-  await album(priya).getByLabel("Add photos").setInputFiles([await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a")]);
+  await album(priya).getByLabel(/^Add photos/).setInputFiles([await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a")]);
   await expect(album(priya).getByRole("status")).toContainText("garden.jpg: added", { timeout: 20_000 });
   await expect(album(priya).getByRole("status")).toContainText("cake.jpg: added");
   const thumbnails = album(priya).getByRole("button", { name: /^Photo \d by Priya Nair$/ });
@@ -95,7 +95,7 @@ test("a guest adds photos after the start, another sees them in the viewer, each
   expect((await request.get(remaining!)).status()).toBe(404);
 
   // A photo the host adds goes with the event.
-  await album(host.page).getByLabel("Add photos").setInputFiles([await photo("toast.jpg", "#e0b040")]);
+  await album(host.page).getByLabel(/^Add photos/).setInputFiles([await photo("toast.jpg", "#e0b040")]);
   await expect(album(host.page).getByRole("button", { name: /^Photo 1 by / })).toBeVisible({ timeout: 20_000 });
   const toast = await album(host.page).getByRole("img").first().getAttribute("src");
   expect((await request.get(toast!)).status()).toBe(200);

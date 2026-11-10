@@ -935,7 +935,9 @@
         "diskFull": "本站磁盘空间即将用尽",
         "tooLong": "超过了这个相册允许的时长",
         "videosNotAllowed": "是视频，而这个活动不接受视频",
-        "incomplete": "没有完整上传"
+        "incomplete": "没有完整上传",
+        "tooLongKnown": "超过 {max} 的时长：这段有 {length}",
+        "videoTooLargeKnown": "超过 {max}：这段有 {size}"
       },
       "errors": {
         "tooFast": "操作太频繁了，请稍后再试。",
@@ -965,7 +967,22 @@
       "deleteTitle": "要删除这张照片吗？",
       "deleteText": "所有人都将看不到它，且无法恢复。",
       "deleteConfirm": "删除",
-      "keep": "保留"
+      "keep": "保留",
+      "addVideos": "添加照片和视频",
+      "openVideo": "{name} 的视频 {n}",
+      "openVideoPending": "{name} 的视频 {n}，等待批准",
+      "viewerVideo": "第 {n} 段视频，共 {count} 项",
+      "processing": "处理中",
+      "failed": "无法处理",
+      "remove": "移除",
+      "removeVideo": "移除 {name} 的视频",
+      "uploading": "{name}：上传中",
+      "uploaded": "{name}：已上传，处理中",
+      "quality": "画质",
+      "original": "原始画质",
+      "copy": "轻量副本",
+      "originalUnplayable": "原始画质：此浏览器无法播放。",
+      "unplayable": "此浏览器无法播放这段视频，请下载后观看。"
     },
     "letter": {
       "for": "致 {name}"

@@ -935,7 +935,9 @@
         "diskFull": "the site’s disk is nearly full",
         "tooLong": "longer than this album takes",
         "videosNotAllowed": "a video, which this event does not take",
-        "incomplete": "not fully uploaded"
+        "incomplete": "not fully uploaded",
+        "tooLongKnown": "longer than {max}: it is {length}",
+        "videoTooLargeKnown": "larger than {max}: it is {size}"
       },
       "errors": {
         "tooFast": "You’re going too fast. Try again shortly.",
@@ -965,7 +967,22 @@
       "deleteTitle": "Delete this photo?",
       "deleteText": "It goes for everyone, and can’t be brought back.",
       "deleteConfirm": "Delete it",
-      "keep": "Keep it"
+      "keep": "Keep it",
+      "addVideos": "Add photos and videos",
+      "openVideo": "Video {n} by {name}",
+      "openVideoPending": "Video {n} by {name}, awaiting approval",
+      "viewerVideo": "Video {n} of {count}",
+      "processing": "Processing",
+      "failed": "Couldn’t be processed",
+      "remove": "Remove",
+      "removeVideo": "Remove the video from {name}",
+      "uploading": "{name}: uploading",
+      "uploaded": "{name}: uploaded, processing",
+      "quality": "Quality",
+      "original": "Original quality",
+      "copy": "Lighter copy",
+      "originalUnplayable": "Original quality: not playable in this browser.",
+      "unplayable": "This browser cannot play this video. Download it to watch."
     },
     "letter": {
       "for": "For {name}"

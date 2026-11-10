@@ -400,7 +400,7 @@ test("under reduced motion the reactions, the album, the desktop editor and the 
 
   const album = page.locator('[data-slot="album"]');
   const picture = await sharp({ create: { width: 800, height: 600, channels: 3, background: "#3a6b4f" } }).jpeg().toBuffer();
-  await album.getByLabel("Add photos").setInputFiles([{ name: "lawn.jpg", mimeType: "image/jpeg", buffer: picture }]);
+  await album.getByLabel(/^Add photos/).setInputFiles([{ name: "lawn.jpg", mimeType: "image/jpeg", buffer: picture }]);
   await album.getByRole("button", { name: /^Photo 1 by / }).click({ timeout: 20_000 });
   await expect(page.getByRole("dialog", { name: "Photo 1 of 1" })).toBeVisible();
   await expectStill(page, "the photo viewer");

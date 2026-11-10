@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MEGABYTE } from "@/lib/sizes";
-import { copyName, effectiveVideoCaps, needsCopy, SENT_FILE, shortSide, TARGET_BITRATE, VIDEO_FILES, videoFileNamed, videoKey, videoProblem, videoUrl } from "./video";
+import { chooseQuality, copyName, effectiveVideoCaps, needsCopy, playable, SENT_FILE, shortSide, TARGET_BITRATE, VIDEO_FILES, videoFileNamed, videoKey, videoProblem, videoUrl } from "./video";
 
 // Videos in the album (M7 ticket 05): the files a video is kept as, and the caps a clip is held to.
 
@@ -89,5 +89,37 @@ describe("needsCopy", () => {
   it("reads the short side after a rotation", () => {
     expect(shortSide({ width: 1920, height: 1080, rotation: 90 })).toBe(1080);
     expect(shortSide({ width: 640, height: 480, rotation: 0 })).toBe(480);
+  });
+});
+
+// The player's choice of quality (M7 ticket 07): the viewer's own choice rules, kept on the
+// device; a device that never chose gets the lighter copy; the original only where it plays.
+describe("chooseQuality", () => {
+  it("plays the original when there is no copy, whatever was chosen", () => {
+    expect(chooseQuality(undefined, true, false)).toBe("original");
+    expect(chooseQuality("copy", true, false)).toBe("original");
+  });
+
+  it("plays the lighter copy by default, and the stored choice when there is one", () => {
+    expect(chooseQuality(undefined, true, true)).toBe("copy");
+    expect(chooseQuality("original", true, true)).toBe("original");
+    expect(chooseQuality("copy", true, true)).toBe("copy");
+  });
+
+  it("plays the copy when the original cannot be played here, whatever was chosen", () => {
+    expect(chooseQuality("original", false, true)).toBe("copy");
+    expect(chooseQuality(undefined, false, true)).toBe("copy");
+    // With no copy either, the original is all there is; the player says it cannot play it.
+    expect(chooseQuality("original", false, false)).toBe("original");
+  });
+});
+
+describe("playable", () => {
+  it("asks the browser for the codec in an MP4, and takes any answer but an empty one", () => {
+    const asked: string[] = [];
+    expect(playable("avc1.64001F", (type) => (asked.push(type), "probably"))).toBe(true);
+    expect(asked).toEqual(['video/mp4; codecs="avc1.64001F"']);
+    expect(playable("hvc1.1.6.L93.B0", () => "")).toBe(false);
+    expect(playable("avc1.42E01E", () => "maybe")).toBe(true);
   });
 });

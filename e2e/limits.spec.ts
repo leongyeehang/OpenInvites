@@ -214,7 +214,7 @@ test("an album at the operator's photos limit refuses more, saying how many it h
   await publishInEditor(operator);
   await operator.goto(await eventLinkIn(operator));
   const album = operator.locator('[data-slot="album"]');
-  const add = album.getByLabel("Add photos");
+  const add = album.getByLabel(/^Add photos/);
   const photo = async (name: string) => ({ name, mimeType: "image/png", buffer: await sharp({ create: { width: 40, height: 30, channels: 3, background: "#406080" } }).png().toBuffer() });
 
   await add.setInputFiles([await photo("one.png"), await photo("two.png")]);
@@ -247,15 +247,15 @@ test("with approval on, a guest's photo waiting for it takes the album's last pl
   await closeReply(guest);
   const guestAlbum = guest.locator('[data-slot="album"]');
   const photo = async (name: string) => ({ name, mimeType: "image/png", buffer: await sharp({ create: { width: 40, height: 30, channels: 3, background: "#806040" } }).png().toBuffer() });
-  await guestAlbum.getByLabel("Add photos").setInputFiles([await photo("one.png")]);
+  await guestAlbum.getByLabel(/^Add photos/).setInputFiles([await photo("one.png")]);
   await expect(guestAlbum.getByRole("status")).toHaveText("one.png: added, awaiting approval", { timeout: 15_000 });
-  await guestAlbum.getByLabel("Add photos").setInputFiles([await photo("two.png")]);
+  await guestAlbum.getByLabel(/^Add photos/).setInputFiles([await photo("two.png")]);
   await expect(guestAlbum.getByRole("alert")).toHaveText("The album is full.", { timeout: 15_000 });
 
   // The host, whose photos need no approval, is refused the same.
   await operator.reload();
   await expect(album.getByText("Awaiting approval", { exact: true })).toBeVisible();
-  await album.getByLabel("Add photos").setInputFiles([await photo("three.png")]);
+  await album.getByLabel(/^Add photos/).setInputFiles([await photo("three.png")]);
   await expect(album.getByRole("alert")).toHaveText("The album is full.", { timeout: 15_000 });
   await guest.context().close();
 });
@@ -285,9 +285,9 @@ test("an album and the site are bounded in bytes, and a host's picture counts to
   await operator.getByRole("link", { name: /Second party/ }).click();
   const secondLink = await eventLinkIn(operator);
   await operator.goto(secondLink);
-  await album.getByLabel("Add photos").setInputFiles([await big("big-one.png")]);
+  await album.getByLabel(/^Add photos/).setInputFiles([await big("big-one.png")]);
   await expect(album.getByRole("status")).toHaveText("big-one.png: added", { timeout: 30_000 });
-  await album.getByLabel("Add photos").setInputFiles([await big("big-two.png")]);
+  await album.getByLabel(/^Add photos/).setInputFiles([await big("big-two.png")]);
   await expect(album.getByRole("alert")).toHaveText("This album is full: 10 MB.", { timeout: 30_000 });
 
   // With room per event (30 MB) but not for the site (20 MB): the first party's album takes one
@@ -304,9 +304,9 @@ test("an album and the site are bounded in bytes, and a host's picture counts to
   if ((await operator.getByRole("button", { name: "Publish" }).count()) > 0) await publishInEditor(operator);
   const firstLink = await eventLinkIn(operator);
   await operator.goto(firstLink);
-  await album.getByLabel("Add photos").setInputFiles([await big("big-three.png")]);
+  await album.getByLabel(/^Add photos/).setInputFiles([await big("big-three.png")]);
   await expect(album.getByRole("status")).toHaveText("big-three.png: added", { timeout: 30_000 });
-  await album.getByLabel("Add photos").setInputFiles([await big("big-four.png")]);
+  await album.getByLabel(/^Add photos/).setInputFiles([await big("big-four.png")]);
   await expect(album.getByRole("alert")).toHaveText("The site is full: ask the hosts to clear an album.", { timeout: 30_000 });
   await operator.goto("/dashboard");
   await operator.getByRole("link", { name: /First party/ }).click();
@@ -320,7 +320,7 @@ test("an album and the site are bounded in bytes, and a host's picture counts to
   await operator.getByRole("dialog", { name: /^Photo \d of \d$/ }).getByRole("button", { name: "Delete" }).click();
   await operator.getByRole("alertdialog").getByRole("button", { name: "Delete it" }).click();
   await expect(album.getByRole("button", { name: /^Photo \d by / })).toHaveCount(1, { timeout: 15_000 });
-  await album.getByLabel("Add photos").setInputFiles([await big("big-five.png")]);
+  await album.getByLabel(/^Add photos/).setInputFiles([await big("big-five.png")]);
   await expect(album.getByRole("status")).toHaveText("big-five.png: added", { timeout: 30_000 });
 });
 

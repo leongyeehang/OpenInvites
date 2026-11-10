@@ -456,7 +456,7 @@ test("an invitee whose browser asks for zh-TW opens an invite-only event, reads 
   await page.getByRole("dialog", { name: "你的回覆" }).getByRole("button", { name: "關閉" }).click();
   const photo = { name: "garden.jpg", mimeType: "image/jpeg", buffer: await sharp({ create: { width: 800, height: 600, channels: 3, background: "#2f6b3a" } }).jpeg().toBuffer() };
   const album = page.locator('[data-slot="album"]');
-  await album.getByLabel("新增照片").setInputFiles([photo]);
+  await album.getByLabel(/^新增照片/).setInputFiles([photo]);
   await expect(album.getByRole("status")).toHaveText("garden.jpg：已新增，等候核准", { timeout: 20_000 });
   await expect(album.getByText("等候核准", { exact: true })).toBeVisible({ timeout: 15_000 });
   await context.close();

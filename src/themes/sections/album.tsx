@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight, Download, ImagePlus, Trash2, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Download, Film, ImagePlus, Trash2, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
@@ -18,22 +18,28 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { uploadFiles } from "./album-upload";
-import { formatSize } from "@/lib/sizes";
+import type { VideoCaps } from "@/album/video";
+import { clockTime, formatMinutes, formatSize, MEGABYTE } from "@/lib/sizes";
+import { prepareFiles, uploadFiles, type Prepared, type UploadOutcome } from "./album-upload";
+import { RefreshWhileProcessing } from "./refresh-while-processing";
+import { VideoPlayer } from "./video-player";
 
-// One photo as the album shows it: its two sizes, who added it, whether this viewer may delete it,
-// whether it waits for a host's approval (M6 ticket 03), and whether this viewer may approve it.
-export type ShownPhoto = {
-  id: string;
-  name: string;
-  thumb: string;
-  large: string;
-  width: number;
-  height: number;
-  deletable: boolean;
-  pending: boolean;
-  approvable: boolean;
-};
+// One item as the album shows it (M4 ticket 11; videos M7 ticket 07): a photo in its two sizes;
+// a ready video with its thumbnail, poster, original and lighter copy, its codec for the player
+// and its length; or a video still processing, or failed, which only its uploader and the hosts
+// see. Each with who added it, whether this viewer may delete it, whether it waits for a host's
+// approval (M6 ticket 03), and whether this viewer may approve it.
+type ShownBase = { id: string; name: string; deletable: boolean; pending: boolean; approvable: boolean };
+export type ShownPhoto = ShownBase &
+  (
+    | { kind: "photo"; thumb: string; large: string; width: number; height: number }
+    | { kind: "video"; state: "ready"; thumb: string; poster: string; original: string; copy: string | null; codec: string; durationMs: number; width: number; height: number }
+    | { kind: "video"; state: "processing" | "failed" }
+  );
+
+// What opens in the viewer.
+export type Openable = Extract<ShownPhoto, { kind: "photo" } | { state: "ready" }>;
+const openable = (photo: ShownPhoto): photo is Openable => photo.kind === "photo" || photo.state === "ready";
 
 type Line = { name: string; text: string; ok: boolean };
 
@@ -46,10 +52,12 @@ const NONE_APPROVING: ReadonlySet<string> = new Set();
 // The album (M4 ticket 11): a grid of the photos, oldest first, each opening the viewer; and Add
 // photos, which sends up to ten at once and says what became of each. A photo waiting for approval
 // is marked under its thumbnail, and to a host has Approve and Delete there (M6 ticket 03).
-export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: ShownPhoto[]; maxMegabytes: number }) {
+export function Album({ slug, photos, maxMegabytes, video }: { slug: string; photos: ShownPhoto[]; maxMegabytes: number; video: VideoCaps }) {
   const t = useTranslations("EventPage.album");
   const locale = useLocale();
   const router = useRouter();
+  const opening = photos.filter(openable);
+  const label = (photo: ShownPhoto, n: number) => t(photo.kind === "video" ? (photo.pending ? "openVideoPending" : "openVideo") : photo.pending ? "openPending" : "open", { n, name: photo.name });
   const [adding, setAdding] = useState<number>();
   const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState<string>();
@@ -71,8 +79,8 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
   const thumbnails = useRef<(HTMLButtonElement | null)[]>([]);
   const input = useRef<HTMLInputElement>(null);
 
-  // Through the upload protocol (M7 ticket 06; album-upload.ts): the ask, each file's parts, each
-  // file's finish; the lines say what became of each, as they did for the one post.
+  // Through the upload protocol (M7 tickets 06 and 07; album-upload.ts): checked before anything is
+  // sent, then the ask, each file's parts, each file's finish; the lines say what became of each.
   const add = async (files: File[]) => {
     setLines([]);
     setError(undefined);
@@ -80,21 +88,31 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
     if (files.length > MAX_PHOTOS_AT_ONCE) return setError(t("errors.tooMany"));
     setAdding(files.length);
     try {
-      const answer = await uploadFiles(slug, files);
+      const prepared = await prepareFiles(files, { maxPhotoBytes: maxMegabytes * MEGABYTE, video });
+      const reason = (each: Prepared) =>
+        each.problem === "tooLong"
+          ? t("problems.tooLongKnown", { max: formatMinutes(video.maxMs / 60_000, locale), length: clockTime(each.durationMs ?? 0) })
+          : each.problem === "tooLarge" && each.kind === "video"
+            ? t("problems.videoTooLargeKnown", { max: formatSize(video.maxBytes, locale), size: formatSize(each.file.size, locale) })
+            : t(`problems.${each.problem ?? "incomplete"}`, { max: maxMegabytes });
+      const lineOf = (each: Prepared, outcome?: UploadOutcome): Line => {
+        if (each.problem) return { name: each.file.name, ok: false, text: t("refusedFile", { name: each.file.name, reason: reason(each) }) };
+        if (!outcome) return { name: each.file.name, ok: true, text: t("uploading", { name: each.file.name }) };
+        if (outcome.ok) return { name: outcome.name, ok: true, text: t(outcome.kind === "video" ? "uploaded" : outcome.pending ? "addedPending" : "added", { name: outcome.name }) };
+        return { name: outcome.name, ok: false, text: t("refusedFile", { name: outcome.name, reason: t(`problems.${outcome.problem}`, { max: maxMegabytes }) }) };
+      };
+      const sending = prepared.filter((each) => !each.problem);
+      const lines = prepared.map((each) => lineOf(each));
+      setLines([...lines]);
+      if (sending.length === 0) return;
+      const answer = await uploadFiles(slug, sending, (index, outcome) => {
+        lines[prepared.indexOf(sending[index])] = lineOf(sending[index], outcome);
+        setLines([...lines]);
+      });
       // A storage refusal names its limit in plain units (M7 ticket 02); the others use what they use.
       if (answer.error) setError(t(`errors.${answer.error}`, { left: answer.left ?? 0, limit: formatSize(answer.limit ?? 0, locale) }));
-      else if (answer.results) {
-        setLines(
-          answer.results.map((result) => ({
-            name: result.name,
-            ok: result.ok,
-            text: result.ok
-              ? t(result.pending ? "addedPending" : "added", { name: result.name })
-              : t("refusedFile", { name: result.name, reason: t(`problems.${result.problem}`, { max: maxMegabytes }) }),
-          })),
-        );
-        startRefresh(() => router.refresh());
-      } else setError(t("errors.failed"));
+      else if (!answer.results) setError(t("errors.failed"));
+      else startRefresh(() => router.refresh());
     } catch {
       setError(t("errors.failed"));
     } finally {
@@ -105,76 +123,112 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
 
   return (
     <div className="flex flex-col gap-4">
+      {photos.some((photo) => photo.kind === "video" && photo.state === "processing") && <RefreshWhileProcessing />}
       {photos.length === 0 ? (
         <p className="text-sm text-theme-text-muted">{t("empty")}</p>
       ) : (
         <ul className="grid grid-cols-3 gap-1.5">
-          {photos.map((photo, index) => (
-            <li key={photo.id} className="flex flex-col gap-1">
-              <button
-                ref={(button) => {
-                  thumbnails.current[index] = button;
-                }}
-                type="button"
-                onClick={() => {
-                  last.current = index;
-                  setShown(index);
-                }}
-                className="block aspect-square w-full cursor-pointer overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized */}
-                <img src={photo.thumb} alt={t(photo.pending ? "openPending" : "open", { n: index + 1, name: photo.name })} loading="lazy" className="size-full object-cover" />
-              </button>
-              {photo.pending && <p className="text-xs text-theme-text-muted">{t("pending")}</p>}
-              {photo.approvable && (
-                // Two round buttons in one row, which fit the narrowest column (the Thread's, about
-                // 80px at a phone's width): Approve, in the accent, and Delete. Approve has no word
-                // of its own, so its name is its tooltip too, and while it approves it is dimmed and
-                // busy (M6 ticket 10).
-                <div className="flex items-center gap-1">
+          {photos.map((photo) => {
+            const at = opening.indexOf(photo as Openable);
+            const n = at + 1;
+            return (
+              <li key={photo.id} data-item={photo.kind} data-state={photo.kind === "video" ? photo.state : "ready"} className="flex flex-col gap-1">
+                {openable(photo) ? (
                   <button
+                    ref={(button) => {
+                      thumbnails.current[at] = button;
+                    }}
                     type="button"
-                    aria-label={t("approvePhoto", { n: index + 1, name: photo.name })}
-                    title={t("approvePhoto", { n: index + 1, name: photo.name })}
-                    disabled={approving.has(photo.id)}
-                    aria-busy={approving.has(photo.id)}
-                    onClick={() =>
-                      // The controls go once it is approved; the focus stays with its photo.
-                      approve(photo.id, () => thumbnails.current[index]?.focus())
-                    }
-                    className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-theme-accent text-theme-on-accent hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text disabled:cursor-wait disabled:opacity-50"
+                    onClick={() => {
+                      last.current = at;
+                      setShown(at);
+                    }}
+                    className="relative block aspect-square w-full cursor-pointer overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
                   >
-                    <Check className="size-4" aria-hidden />
+                    {/* eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized */}
+                    <img src={photo.thumb} alt={label(photo, n)} loading="lazy" className="size-full object-cover" />
+                    {photo.kind === "video" && (
+                      <span className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 text-[11px] font-medium text-white">
+                        <Film className="size-3" aria-hidden />
+                        {clockTime(photo.durationMs)}
+                      </span>
+                    )}
                   </button>
-                  <DeletePhoto
-                    slug={slug}
-                    id={photo.id}
-                    // The thumbnail goes with it.
-                    focusOnceDeleted={() => document.getElementById(ALBUM_HEADING)?.focus()}
+                ) : (
+                  // A video still processing, or one that could not be: its uploader and the hosts
+                  // see it, nobody else (album/visibility.ts). No pulse: nothing here moves.
+                  <div
+                    role={photo.state === "processing" ? "status" : undefined}
+                    className="flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-xl bg-theme-glass-strong px-2 text-center text-xs text-theme-text-muted"
                   >
+                    <Film className="size-6" aria-hidden />
+                    {t(photo.state === "processing" ? "processing" : "failed")}
+                  </div>
+                )}
+                {photo.pending && <p className="text-xs text-theme-text-muted">{t("pending")}</p>}
+                {!openable(photo) && photo.deletable && (
+                  <DeletePhoto slug={slug} id={photo.id} focusOnceDeleted={() => document.getElementById(ALBUM_HEADING)?.focus()}>
                     <button
                       type="button"
-                      aria-label={t("deletePhoto", { n: index + 1, name: photo.name })}
-                      className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-theme-glass-strong hover:bg-theme-glass focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
+                      aria-label={t("removeVideo", { name: photo.name })}
+                      className="inline-flex h-9 cursor-pointer items-center gap-1.5 self-start rounded-full bg-theme-glass-strong px-3 text-xs font-medium hover:bg-theme-glass focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
                     >
                       <Trash2 className="size-4" aria-hidden />
+                      {t("remove")}
                     </button>
                   </DeletePhoto>
-                </div>
-              )}
-            </li>
-          ))}
+                )}
+                {photo.approvable && (
+                  // Two round buttons in one row, which fit the narrowest column (the Thread's, about
+                  // 80px at a phone's width): Approve, in the accent, and Delete. Approve has no word
+                  // of its own, so its name is its tooltip too, and while it approves it is dimmed and
+                  // busy (M6 ticket 10).
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      aria-label={t("approvePhoto", { n, name: photo.name })}
+                      title={t("approvePhoto", { n, name: photo.name })}
+                      disabled={approving.has(photo.id)}
+                      aria-busy={approving.has(photo.id)}
+                      onClick={() =>
+                        // The controls go once it is approved; the focus stays with its item.
+                        approve(photo.id, () => thumbnails.current[at]?.focus())
+                      }
+                      className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-theme-accent text-theme-on-accent hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text disabled:cursor-wait disabled:opacity-50"
+                    >
+                      <Check className="size-4" aria-hidden />
+                    </button>
+                    <DeletePhoto
+                      slug={slug}
+                      id={photo.id}
+                      // The thumbnail goes with it.
+                      focusOnceDeleted={() => document.getElementById(ALBUM_HEADING)?.focus()}
+                    >
+                      <button
+                        type="button"
+                        aria-label={t("deletePhoto", { n, name: photo.name })}
+                        className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-theme-glass-strong hover:bg-theme-glass focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
+                      >
+                        <Trash2 className="size-4" aria-hidden />
+                      </button>
+                    </DeletePhoto>
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 
       <div className="flex flex-col gap-1.5">
         <label className="inline-flex h-10 cursor-pointer items-center gap-2 self-start rounded-full bg-theme-glass-strong px-4 text-sm font-medium hover:bg-theme-glass has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-theme-text has-disabled:cursor-wait">
           <ImagePlus className="size-4" aria-hidden />
-          {adding ? t("adding", { count: adding }) : t("add")}
+          {adding ? t("adding", { count: adding }) : t(video.allowed ? "addVideos" : "add")}
           <input
             ref={input}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/avif"
+            // Named types rather than image/*, so an iPhone keeps handing over JPEG (plan ruling 16).
+            accept={video.allowed ? "image/jpeg,image/png,image/webp,image/avif,video/*" : "image/jpeg,image/png,image/webp,image/avif"}
             multiple
             disabled={adding !== undefined}
             onChange={(event) => void add([...(event.target.files ?? [])])}
@@ -204,7 +258,7 @@ export function Album({ slug, photos, maxMegabytes }: { slug: string; photos: Sh
       </div>
 
       <Viewer
-        photos={photos}
+        photos={opening}
         index={shown}
         onIndex={(index) => {
           if (index !== undefined) last.current = index;
@@ -236,7 +290,7 @@ function Viewer({
   approve,
   onClosed,
 }: {
-  photos: ShownPhoto[];
+  photos: Openable[];
   index: number | undefined;
   onIndex: (index: number | undefined) => void;
   slug: string;
@@ -264,12 +318,14 @@ function Viewer({
             event.preventDefault();
             onClosed(deleted.current);
           }}
+          // The player has its own keys and its own seek bar: nothing from inside it turns the page.
           onKeyDown={(event) => {
+            if ((event.target as HTMLElement).closest("video")) return;
             if (event.key === "ArrowRight") go(1);
             if (event.key === "ArrowLeft") go(-1);
           }}
           onPointerDown={(event) => {
-            swipe.current = event.clientX;
+            swipe.current = (event.target as HTMLElement).closest("video") ? undefined : event.clientX;
           }}
           onPointerUp={(event) => {
             if (swipe.current === undefined) return;
@@ -283,7 +339,7 @@ function Viewer({
             <>
               <header className="flex items-center gap-3 px-4 pt-[max(env(safe-area-inset-top),0.75rem)] pb-2">
                 <div className="min-w-0 flex-1">
-                  <Dialog.Title className="text-sm font-medium">{t("viewer", { n: index + 1, count: photos.length })}</Dialog.Title>
+                  <Dialog.Title className="text-sm font-medium">{t(photo.kind === "video" ? "viewerVideo" : "viewer", { n: index + 1, count: photos.length })}</Dialog.Title>
                   <Dialog.Description className="text-xs text-white/70">
                     {t("by", { name: photo.name })}
                     {photo.pending && ` · ${t("pending")}`}
@@ -305,7 +361,7 @@ function Viewer({
                 )}
                 <a
                   ref={download}
-                  href={photo.large}
+                  href={photo.kind === "video" ? photo.original : photo.large}
                   download
                   className="inline-flex size-10 items-center justify-center rounded-full hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white"
                   aria-label={t("download")}
@@ -339,8 +395,12 @@ function Viewer({
                 </Dialog.Close>
               </header>
               <div className="relative flex min-h-0 flex-1 items-center justify-center px-2 pb-[max(env(safe-area-inset-bottom),1rem)]">
-                {/* eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized */}
-                <img src={photo.large} alt={t(photo.pending ? "openPending" : "open", { n: index + 1, name: photo.name })} width={photo.width} height={photo.height} className="max-h-full max-w-full object-contain select-none" draggable={false} />
+                {photo.kind === "video" ? (
+                  <VideoPlayer video={photo} label={t(photo.pending ? "openVideoPending" : "openVideo", { n: index + 1, name: photo.name })} />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized
+                  <img src={photo.large} alt={t(photo.pending ? "openPending" : "open", { n: index + 1, name: photo.name })} width={photo.width} height={photo.height} className="max-h-full max-w-full object-contain select-none" draggable={false} />
+                )}
                 {photos.length > 1 && (
                   <>
                     <button

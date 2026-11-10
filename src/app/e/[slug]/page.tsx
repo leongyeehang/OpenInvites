@@ -57,11 +57,14 @@ import { loadPoll } from "@/polls/repository";
 import { findVoterOnThisDevice } from "@/polls/voter";
 import { PollBar, PollFlow, PollWhen, type PollCandidate } from "./poll-flow";
 import { albumState, mayApprovePhoto, mayDeletePhoto, type AlbumViewer } from "@/album/album";
+import { ffmpegStatus } from "@/album/ffmpeg";
 import { photoUrl } from "@/album/files";
+import { copyName, effectiveVideoCaps, videoUrl } from "@/album/video";
 import { countPhotos, listPhotos } from "@/album/repository";
 import { albumViewer } from "@/album/viewer";
 import { albumView, photoScope } from "@/album/visibility";
 import { instanceLimits } from "@/instance/repository";
+import type { ShownPhoto } from "@/themes/sections/album";
 import { AlbumSection, type AlbumShown } from "@/themes/sections/album-section";
 import { scheduleInstants } from "@/schedule/clock";
 import { listSchedule } from "@/schedule/repository";
@@ -136,26 +139,34 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
     const awaitingApproval = viewer.kind === "guest" && viewer.approval === "pending";
     return { view: "locked", count: await countPhotos(event.id, "approved"), visibility: event.albumVisibility, awaitingApproval };
   }
-  // Videos (M7) reach the page in ticket 07; until then an item of another kind is left out, so
-  // nothing that expects a photo is handed one.
-  const items = (await listPhotos(event.id, photoScope(view, viewer))).filter((each) => each.kind === "photo");
-  const photos = items.map((each) => ({
-    id: each.id,
-    name: each.name,
-    thumb: photoUrl(each.id, "thumb"),
-    large: photoUrl(each.id, "large"),
-    width: each.width ?? 0,
-    height: each.height ?? 0,
-    deletable: mayDeletePhoto(viewer, each),
-    pending: each.status === "pending",
-    approvable: each.status === "pending" && mayApprovePhoto(viewer),
-  }));
-  // Largest photo on Site settings (M7 ticket 01), for the album's hint and its refusals.
-  const { maxPhotoMb: maxMegabytes } = await instanceLimits();
+  const photos: ShownPhoto[] = (await listPhotos(event.id, photoScope(view, viewer))).map((each) => {
+    const base = { id: each.id, name: each.name, deletable: mayDeletePhoto(viewer, each), pending: each.status === "pending", approvable: each.status === "pending" && mayApprovePhoto(viewer) };
+    if (each.kind === "photo") return { ...base, kind: "photo", thumb: photoUrl(each.id, "thumb"), large: photoUrl(each.id, "large"), width: each.width ?? 0, height: each.height ?? 0 };
+    // A video (M7 ticket 07): processing or failed shows as such; ready shows its files.
+    if (each.status === "processing" || each.status === "failed") return { ...base, kind: "video", state: each.status };
+    return {
+      ...base,
+      kind: "video",
+      state: "ready",
+      thumb: videoUrl(each.id, "thumb"),
+      poster: videoUrl(each.id, "poster"),
+      original: videoUrl(each.id, "original"),
+      copy: each.copy ? videoUrl(each.id, copyName(each.copy)) : null,
+      codec: each.codec ?? "",
+      durationMs: each.durationMs ?? 0,
+      width: each.width ?? 0,
+      height: each.height ?? 0,
+    };
+  });
+  // Largest photo on Site settings (M7 ticket 01), for the album's hint and its refusals, and the
+  // video caps the browser checks a clip against before sending it (ticket 07).
+  const limits = await instanceLimits();
+  const maxMegabytes = limits.maxPhotoMb;
+  const video = effectiveVideoCaps(event, { maxVideoMb: limits.maxVideoMb, maxVideoMinutes: limits.maxVideoMinutes, videosAvailable: ffmpegStatus().available });
   // A guest who may add but not see is shown their own, and why: the album is for those Going, or
   // the hosts keep it.
-  if (view === "own") return { view: "own", why: event.albumVisibility === "going" ? "going" : "hosts", photos, maxMegabytes };
-  return { view: "open", photos, maxMegabytes };
+  if (view === "own") return { view: "own", why: event.albumVisibility === "going" ? "going" : "hosts", photos, maxMegabytes, video };
+  return { view: "open", photos, maxMegabytes, video };
 }
 
 // The schedule (M6 ticket 02), or nothing when the host has listed none, the event has no date

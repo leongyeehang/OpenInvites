@@ -92,3 +92,20 @@ export function shortSide(probe: { width: number; height: number; rotation: numb
 export function needsCopy(probe: Probe, quality: VideoQuality): boolean {
   return probe.codec !== "h264" || shortSide(probe) > TARGET_SHORT_SIDE[quality] || probe.bitRate > 1.5 * TARGET_BITRATE[quality];
 }
+
+// The player's quality (ticket 07; the maintainer, 2026-11-09): the viewer's own choice, kept on
+// the device, rules; a device that never chose gets the lighter copy; without a copy the original
+// is all there is; an original the browser cannot play gives way to the copy.
+export type PlayQuality = "original" | "copy";
+
+export function chooseQuality(stored: PlayQuality | undefined, originalPlayable: boolean, hasCopy: boolean): PlayQuality {
+  if (!hasCopy) return "original";
+  if (!originalPlayable) return "copy";
+  return stored ?? "copy";
+}
+
+// Whether this browser plays the original, asked of its own player with the codec string the
+// item recorded; the player answers "probably", "maybe" or nothing.
+export function playable(codecString: string, canPlayType: (type: string) => string): boolean {
+  return canPlayType(`video/mp4; codecs="${codecString}"`) !== "";
+}

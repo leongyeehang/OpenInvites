@@ -935,7 +935,9 @@
         "diskFull": "本站磁碟空間即將用盡",
         "tooLong": "超過了這個相簿允許的長度",
         "videosNotAllowed": "是影片，而這個活動不接受影片",
-        "incomplete": "沒有完整上傳"
+        "incomplete": "沒有完整上傳",
+        "tooLongKnown": "超過 {max} 的長度：這段有 {length}",
+        "videoTooLargeKnown": "超過 {max}：這段有 {size}"
       },
       "errors": {
         "tooFast": "操作太頻繁了，請稍後再試。",
@@ -965,7 +967,22 @@
       "deleteTitle": "要刪除這張照片嗎？",
       "deleteText": "所有人都將看不到它，且無法復原。",
       "deleteConfirm": "刪除",
-      "keep": "保留"
+      "keep": "保留",
+      "addVideos": "新增照片和影片",
+      "openVideo": "{name} 的影片 {n}",
+      "openVideoPending": "{name} 的影片 {n}，等候核准",
+      "viewerVideo": "第 {n} 段影片，共 {count} 項",
+      "processing": "處理中",
+      "failed": "無法處理",
+      "remove": "移除",
+      "removeVideo": "移除 {name} 的影片",
+      "uploading": "{name}：上傳中",
+      "uploaded": "{name}：已上傳，處理中",
+      "quality": "畫質",
+      "original": "原始畫質",
+      "copy": "輕量副本",
+      "originalUnplayable": "原始畫質：此瀏覽器無法播放。",
+      "unplayable": "此瀏覽器無法播放這段影片，請下載後觀看。"
     },
     "letter": {
       "for": "致 {name}"

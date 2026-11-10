@@ -22,7 +22,10 @@ export function refusal(error: AlbumRefusal, status: number, headers?: HeadersIn
 }
 
 export async function albumAccess(request: Request, slug: string): Promise<AlbumAccess> {
-  if (request.headers.get("origin") !== new URL(baseUrl()).origin) return { ok: false, response: new Response(null, { status: 403 }) };
+  // A browser sends Origin with what changes things, not with a same-origin GET, which here only
+  // answers which parts have arrived.
+  const changes = request.method !== "GET" && request.method !== "HEAD";
+  if (changes && request.headers.get("origin") !== new URL(baseUrl()).origin) return { ok: false, response: new Response(null, { status: 403 }) };
   const event = await findEventBySlug(slug);
   if (!event || albumState(event, new Date()) !== "open") return refusal("closed", 409);
   if ((await gateFor(event)).page !== "invitation") return refusal("closed", 409);
