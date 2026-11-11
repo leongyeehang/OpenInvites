@@ -735,6 +735,9 @@ export const photo = pgTable(
     codec: text("codec"),
     copy: videoQuality("copy"),
     status: photoStatus("status").notNull().default("approved"),
+    // Why a video could not be processed (album/jobs.ts, failJob): "tooLong" for one over the
+    // length cap once measured, which its tile names; anything else shows as plain failure.
+    failure: text("failure"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -764,13 +767,15 @@ export const videoJob = pgTable("video_job", {
 // An upload in progress (M7 ticket 06): asked for, then sent in parts, then finished into an
 // item. Its id is a random token the browser holds, not a uuidv7, which is guessable. It counts
 // toward the album's places and bytes from the moment it is asked for; the hourly sweep drops it
-// after a day. Exactly one of a guest's reply and a host owns it, as a photo.
+// after a day, or sooner once its whole batch has received nothing for an hour (`touched_at`,
+// written by every part), so an ask with no bytes behind it cannot hold the site. Exactly one of
+// a guest's reply and a host owns it, as a photo.
 export const albumUpload = pgTable(
   "album_upload",
   {
     id: text("id").primaryKey(),
-    // The ask that made it, so the last finish of a batch knows it is the last (one email to the
-    // hosts per batch, as one post sent before).
+    // The ask that made it, so the finish or refusal of a batch's last photo knows it is the last
+    // (one email to the hosts per batch, as one post sent before).
     batch: text("batch").notNull(),
     eventId: uuid("event_id")
       .notNull()
@@ -786,6 +791,7 @@ export const albumUpload = pgTable(
     received: integer("received").array().notNull().default(sql`'{}'`),
     photoId: uuid("photo_id").references(() => photo.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    touchedAt: timestamp("touched_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("album_upload_event_id_idx").on(table.eventId), check("album_upload_one_owner", sql`(${table.rsvpId} is null) <> (${table.hostId} is null)`)],
 );

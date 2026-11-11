@@ -227,33 +227,47 @@ export async function findUpload(eventId: string, id: string): Promise<AlbumUplo
 export async function markPartReceived(id: string, part: number): Promise<number[]> {
   const [row] = await getDb()
     .update(albumUpload)
-    .set({ received: sql`(select array_agg(distinct x order by x) from unnest(${albumUpload.received} || array[${part}::int]) as x)` })
+    .set({ received: sql`(select array_agg(distinct x order by x) from unnest(${albumUpload.received} || array[${part}::int]) as x)`, touchedAt: sql`now()` })
     .where(eq(albumUpload.id, id))
     .returning({ received: albumUpload.received });
   return row?.received ?? [];
 }
 
-export async function deleteUpload(id: string): Promise<void> {
-  await getDb().delete(albumUpload).where(eq(albumUpload.id, id));
+// A refused upload goes, under the event's lock as a finish is, and the caller learns whether it
+// was the batch's last photo, as a finish does, so the hosts' email about the batch's photos is
+// not lost to a file refused at its end.
+export async function deleteUpload(upload: AlbumUpload): Promise<{ lastPhotoOfBatch: boolean }> {
+  return getDb().transaction(async (tx) => {
+    await tx.select({ id: event.id }).from(event).where(eq(event.id, upload.eventId)).for("no key update");
+    await tx.delete(albumUpload).where(eq(albumUpload.id, upload.id));
+    return { lastPhotoOfBatch: await noPhotoLeftIn(upload.batch, tx) };
+  });
+}
+
+// Whether a batch has no photo left to finish or refuse; its videos are announced on their own,
+// once processed, so they do not hold the photos' email.
+async function noPhotoLeftIn(batch: string, tx: Db): Promise<boolean> {
+  const [{ remaining }] = await tx.select({ remaining: count() }).from(albumUpload).where(and(eq(albumUpload.batch, batch), eq(albumUpload.kind, "photo")));
+  return remaining === 0;
 }
 
 // A photo's upload becomes an item: the upload row goes and the item takes its place, in one
-// transaction under the event's lock, which also orders the finishes of a batch so that the last
-// one knows it is the last and the hosts are emailed once (as one post was, M6 ticket 04). Its
-// status is decided as addPhotos decided it. Nothing when the upload is gone: an emptied album.
+// transaction under the event's lock, which also orders the finishes and refusals of a batch so
+// that the last of its photos knows it is the last and the hosts are emailed once (as one post
+// was, M6 ticket 04). Its status is decided as addPhotos decided it. Nothing when the upload is
+// gone: an emptied album.
 export async function finishPhotoUpload(
   upload: AlbumUpload,
   item: { id: string; width: number; height: number },
   statusFor: (locked: { albumApprovalRequired: boolean }) => PhotoStatus,
-): Promise<{ status: PhotoStatus; lastOfBatch: boolean } | undefined> {
+): Promise<{ status: PhotoStatus; lastPhotoOfBatch: boolean } | undefined> {
   return getDb().transaction(async (tx) => {
     const [locked] = await tx.select({ albumApprovalRequired: event.albumApprovalRequired }).from(event).where(eq(event.id, upload.eventId)).for("no key update");
     const gone = await tx.delete(albumUpload).where(eq(albumUpload.id, upload.id)).returning({ id: albumUpload.id });
     if (gone.length === 0) return undefined;
     const status = statusFor(locked);
     await tx.insert(photo).values({ id: item.id, eventId: upload.eventId, rsvpId: upload.rsvpId, hostId: upload.hostId, kind: "photo", width: item.width, height: item.height, bytes: upload.size, status });
-    const [{ remaining }] = await tx.select({ remaining: count() }).from(albumUpload).where(eq(albumUpload.batch, upload.batch));
-    return { status, lastOfBatch: remaining === 0 };
+    return { status, lastPhotoOfBatch: await noPhotoLeftIn(upload.batch, tx) };
   });
 }
 
@@ -288,13 +302,18 @@ export async function pendingPhotosSince(upload: AlbumUpload): Promise<number> {
 }
 
 const DAY = 24 * 60 * 60 * 1000;
+const HOUR = 60 * 60 * 1000;
 
-// Uploads asked for a day ago and never finished (the hourly sweep): their rows go, which
-// releases their places and bytes; the caller removes their parts.
+// Uploads never finished (the hourly sweep): asked for a day ago, or in a batch that has received
+// no part for an hour, which an ask with no bytes behind it never does, so one cannot hold the
+// site's storage for a day. A batch that is moving keeps every upload of it, so the later files
+// of a large batch on a slow connection wait their turn. Their rows go, which releases their
+// places and bytes; the caller removes their parts.
 export async function removeAbandonedUploads(now: Date): Promise<string[]> {
+  const idle = new Date(now.getTime() - HOUR).toISOString();
   const removed = await getDb()
     .delete(albumUpload)
-    .where(lt(albumUpload.createdAt, new Date(now.getTime() - DAY)))
+    .where(or(lt(albumUpload.createdAt, new Date(now.getTime() - DAY)), sql`${albumUpload.batch} in (select batch from album_upload group by batch having max(touched_at) < ${idle}::timestamptz)`))
     .returning({ id: albumUpload.id });
   return removed.map(({ id }) => id);
 }

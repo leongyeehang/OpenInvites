@@ -226,3 +226,43 @@ test("a guest whose browser asks for zh-TW adds a video and opens it in Traditio
   await Promise.all([host.context.close(), page.context().close()]);
 });
 
+
+// Review fix (I4): a reload mid-upload, then the same file picked again: the upload resumes from
+// the parts the server has, sending only the rest, not every part again.
+test("after a reload, a clip picked again resumes from the parts received", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "video-resume", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  // Every part from the third fails until the page is reloaded; the browser gives up and keeps the upload's id.
+  let blocking = true;
+  await priya.route(/\/api\/albums\/[^/]+\/uploads\/[^/?]+\?part=\d+$/, async (route) => {
+    const part = Number(new URL(route.request().url()).searchParams.get("part"));
+    if (blocking && part >= 2) return route.abort();
+    return route.continue();
+  });
+  await album(priya).getByLabel("Add photos and videos").setInputFiles(H264);
+  await expect(album(priya).getByRole("status").last()).toContainText("clip-h264.mp4: not fully uploaded", { timeout: 30_000 });
+  blocking = false;
+  const sent: number[] = [];
+  priya.on("request", (request) => {
+    const part = new URL(request.url()).searchParams.get("part");
+    if (request.method() === "PUT" && part !== null) sent.push(Number(part));
+  });
+  await priya.reload();
+  await album(priya).getByLabel("Add photos and videos").setInputFiles(H264);
+  await readyTile(priya);
+  expect(Math.min(...sent)).toBe(2);
+  expect(new Set(sent).size).toBe(sent.length);
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+// Review fix (M2): a clip the server refuses for its size, the host having lowered the cap under
+// what the page knew, names the cap the server applied, not the photos'.
+test("a clip refused at the ask for its size names the video cap", async ({ browser, request }) => {
+  const host = await createPublished(browser, request, "video-cap-late", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await editSettings(host.page, (sheet) => albumGroup(sheet).getByLabel("Largest video (MB)").fill("1"));
+  await album(priya).getByLabel("Add photos and videos").setInputFiles(H264);
+  await expect(album(priya).getByRole("status").last()).toContainText("clip-h264.mp4: larger than 1 MB: it is 1.3 MB");
+  await Promise.all([host.context.close(), priya.context().close()]);
+});

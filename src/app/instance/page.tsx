@@ -109,6 +109,12 @@ export default async function InstancePage() {
             <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
               <dt>{t("storage.albums")}</dt>
               <dd>{formatSize(storage.use.albums, locale)}</dd>
+              {storage.use.reserved > 0 && (
+                <>
+                  <dt>{t("storage.reserved")}</dt>
+                  <dd>{formatSize(storage.use.reserved, locale)}</dd>
+                </>
+              )}
               <dt>{t("storage.pictures")}</dt>
               <dd>{formatSize(storage.use.pictures, locale)}</dd>
               <dt className="font-medium">{t("storage.total")}</dt>

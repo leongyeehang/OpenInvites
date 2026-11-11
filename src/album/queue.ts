@@ -2,8 +2,10 @@ import { PHASE_PRODUCTION_BUILD } from "next/constants";
 import { hostname } from "node:os";
 import { processesVideosHere, videoRole } from "@/instance/env";
 import { markVideoWorkerSeen } from "@/instance/repository";
-import { claimJob, failJob } from "./jobs";
+import { getStorage } from "@/storage/storage";
+import { claimJob, crashedOut, failJob } from "./jobs";
 import { processVideo } from "./processing";
+import { sentKey } from "./video";
 
 // The processing queue's loop (M7 ticket 06): one clip at a time per container, taken under a
 // lease (jobs.ts) and processed with ffmpeg (processing.ts). As the mail worker, its state hangs
@@ -56,6 +58,13 @@ export async function kickVideoQueue(): Promise<void> {
     do {
       state.again = false;
       for (let job = await claimJob(me(), new Date()); job; job = await claimJob(me(), new Date())) {
+        // Claimed more times than there are tries: every try so far killed the processor.
+        if (crashedOut(job)) {
+          await failJob(job, "crashed", true);
+          await getStorage().delete(sentKey(job.photoId)).catch((error) => console.error(`Videos: could not delete the clip as sent of failed item ${job.photoId}:`, error));
+          console.error(`Videos: item ${job.photoId} was claimed ${job.attempts} times and never given back; the processor did not survive it, so it is failed.`);
+          continue;
+        }
         try {
           await processVideo(job);
         } catch (error) {

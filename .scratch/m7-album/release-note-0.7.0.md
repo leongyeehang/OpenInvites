@@ -63,7 +63,7 @@ removes it on a second confirmation.
 
 ## Upgrading
 
-Nothing to do: seven migrations, `0046` to `0052`, run as the app starts, and they only add. The
+Nothing to do: eight migrations, `0046` to `0053`, run as the app starts, and they only add. The
 image is about 130 MB larger because it carries ffmpeg. Sizes of photos and pictures from before
 0.7 are measured once, in the background, after the first start; the Storage card says how many
 are still to be measured until it is done. `MAX_UPLOAD_MB` is read once into Largest photo and

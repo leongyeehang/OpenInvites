@@ -279,6 +279,24 @@ test("with approval on, the hosts are emailed once about a guest's photos waitin
   await Promise.all([host.context.close(), priya.context().close(), mei.context().close()]);
 });
 
+// Review fix (I1): the hosts' email about photos waiting goes once the batch's last photo is
+// finished or refused, whichever comes last; a refused file at the end of a batch used to lose it.
+// The junk file spans many parts, so its finish comes after the photo's.
+test("with approval on, a photo whose batch ends with a refused file is still announced to the hosts", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-notify-refused", PAST);
+  await editSettings(host.page, (sheet) => albumGroup(sheet).getByLabel(APPROVE_PHOTOS).check());
+  const priya = await guest(browser, host.link, "Priya Nair");
+  const junk = { name: "notes.jpg", mimeType: "image/jpeg", buffer: Buffer.alloc(6 * 1024 * 1024, 7) };
+  await album(priya).getByLabel(/^Add photos/).setInputFiles([await photo("garden.jpg", "#2f6b3a"), junk]);
+  await expect(album(priya).getByRole("status")).toContainText("notes.jpg: not a JPEG, PNG, WebP or AVIF picture", { timeout: 60_000 });
+  await expect(album(priya).getByRole("status")).toContainText("garden.jpg: added, awaiting approval");
+  await expect
+    .poll(() => subjectOfLatestMailTo(request, host.email), { timeout: 30_000, message: `an email to ${host.email} about Priya’s photo` })
+    .toBe("Priya Nair added a photo to Ada’s garden party for your approval");
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
 // The Thread's column is the narrowest, the Broadsheet's set apart; the Poster's is above. The
 // reply and the photos are added on the Poster, whose reply the guest helper knows; the host then
 // changes the layout, and the album is read in it.

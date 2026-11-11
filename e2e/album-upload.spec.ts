@@ -119,6 +119,10 @@ test("a finish before every part is refused, a clip over the length cap and a vi
   // arrived is asked with a plain GET, as a browser sends one, with no origin header.
   const asked = await ask(api, [{ name: "clip-h264.mp4", size: H264.length, type: "video/mp4", durationMs: 4000 }]);
   const [planned] = asked.body.uploads!;
+  // A part shorter than its share is refused and not counted (review fix M4).
+  const short = await api.request.put(`${api.base}/${planned.id}?part=0`, { headers: { origin: api.origin, "content-type": "application/octet-stream" }, data: H264.subarray(0, TEST_PART / 2) });
+  expect(short.status()).toBe(400);
+  expect(await (await api.request.get(`${api.base}/${planned.id}`)).json()).toEqual({ received: [] });
   await sendParts(api, planned.id!, planned.partSize!, H264, 2);
   const early = await finish(api, planned.id!);
   expect(early).toMatchObject({ status: 400, body: { ok: false, problem: "incomplete" } });
@@ -134,7 +138,8 @@ test("a finish before every part is refused, a clip over the length cap and a vi
   const late = await finish(api, planned.id!);
   expect(late.status).toBe(200);
   const refused = await ask(api, [{ name: "clip-h264.mp4", size: H264.length, type: "video/mp4", durationMs: 4000 }]);
-  expect(refused.body.uploads![0]).toMatchObject({ ok: false, problem: "tooLarge" });
+  // The refusal carries the cap the server applied, in bytes, for the page to name (review fix M2).
+  expect(refused.body.uploads![0]).toMatchObject({ ok: false, problem: "tooLarge", max: 1024 * 1024 });
 
   // Over the length cap, judged from the length the browser read. Every ask counts against the
   // upload limit, refused files or not, so a second guest, on an address of their own, asks.
@@ -161,5 +166,21 @@ test("the ask counts once against the upload limit, whatever the parts", async (
   }
   const fourth = await ask(api, [{ name: "4.jpg", size: 1000, type: "image/jpeg" }]);
   expect(fourth).toMatchObject({ status: 429, body: { error: "tooFast" } });
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+// Review Focus 2: a clip whose length the browser could not read is asked for without one, sent
+// whole, and judged once probed: over the length cap, it is failed at once, and its tile says why.
+test("a clip whose length the browser could not read is failed once probed, and its tile says why", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "video-unread", PAST);
+  await editSettings(host.page, (sheet) => sheet.getByRole("group", { name: "Album", exact: true }).getByLabel("Longest video (min)").fill("1"));
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  const { item } = await uploadWhole(apiOf(priya, host.link), "clip-long.mp4", "video/mp4", LONG);
+  expect(item.state).toBe("processing");
+  await priya.reload();
+  const tile = priya.locator('[data-slot="album"] li[data-item="video"][data-state="failed"]');
+  await expect(tile).toBeVisible({ timeout: 90_000 });
+  await expect(tile).toContainText("Couldn’t be processed: longer than 1 min");
   await Promise.all([host.context.close(), priya.context().close()]);
 });

@@ -20,6 +20,14 @@ export function exhausted(job: { attempts: number }): boolean {
   return job.attempts >= MAX_TRIES;
 }
 
+// A claim counts a try. A job claimed more times than there are tries was never given back by a
+// try that ended (failJob gives it back): the processor died on it each time, as a clip that
+// takes more memory than the container has would see to, and it is failed rather than taken again
+// every hour for ever.
+export function crashedOut(job: { attempts: number }): boolean {
+  return job.attempts > MAX_TRIES;
+}
+
 export type ClaimedJob = { id: string; photoId: string; attempts: number };
 
 // One statement: the oldest claimable job, locked and skipped if another container holds it,
@@ -65,11 +73,11 @@ export async function completeJob(photoId: string, result: Processed): Promise<{
 
 // A try that did not end well: the lease is given up with the reason kept for the operator's
 // logs, or, on the last try or for a failure no retry would mend (`final`), the item is failed
-// and the job goes.
+// with the reason on it, for its tile, and the job goes.
 export async function failJob(job: ClaimedJob, reason: string, final = false): Promise<"retry" | "failed"> {
   if (final || exhausted(job)) {
     await getDb().transaction(async (tx) => {
-      await tx.update(photo).set({ status: "failed" }).where(and(eq(photo.id, job.photoId), eq(photo.status, "processing")));
+      await tx.update(photo).set({ status: "failed", failure: reason.slice(0, 200) }).where(and(eq(photo.id, job.photoId), eq(photo.status, "processing")));
       await tx.delete(videoJob).where(eq(videoJob.id, job.id));
     });
     return "failed";

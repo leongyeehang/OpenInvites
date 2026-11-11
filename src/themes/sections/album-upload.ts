@@ -8,7 +8,7 @@ import type { UploadProblem } from "@/uploads/validate";
 // finish, two files at a time, with a resume after a dropped connection. What each file became is
 // answered in the files' order, as the one post answered it.
 
-export type UploadOutcome = { name: string; ok: true; pending: boolean; kind: "photo" | "video" } | { name: string; ok: false; problem: UploadProblem };
+export type UploadOutcome = { name: string; ok: true; pending: boolean; kind: "photo" | "video" } | { name: string; ok: false; problem: UploadProblem; max?: number };
 export type UploadBatchResult = { error?: AlbumRefusal; left?: number; limit?: number; results?: UploadOutcome[] };
 
 // A file before it is sent: its length, when the browser could read it, and what is wrong with it
@@ -99,11 +99,11 @@ export async function uploadFiles(slug: string, prepared: Prepared[], onDone?: (
       const plan = plans[index];
       let outcome: UploadOutcome;
       if (!plan) outcome = { name: file.name, ok: false, problem: "incomplete" };
-      else if (refused(plan)) outcome = { name: file.name, ok: false, problem: plan.problem };
+      else if (refused(plan)) outcome = { name: file.name, ok: false, problem: plan.problem, ...(plan.max !== undefined && { max: plan.max }) };
       else {
         const upload: Held = accepted(plan) ? { id: plan.id, partSize: plan.partSize } : plan;
         hold(slug, file, upload);
-        outcome = await uploadOne(base, file, kind, upload);
+        outcome = await uploadOne(base, file, kind, upload, resumed[index] !== undefined);
         if (outcome.ok || outcome.problem !== "incomplete") hold(slug, file, undefined);
       }
       results[index] = outcome;
@@ -134,10 +134,11 @@ async function receivedParts(base: string, id: string): Promise<number[] | undef
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Each part in order; a part that fails is tried again after asking which parts arrived, so a
-// connection that dropped mid-way sends only what is missing.
-async function uploadOne(base: string, file: File, kind: "photo" | "video", upload: Held): Promise<UploadOutcome> {
+// connection that dropped mid-way sends only what is missing. An upload resumed from a reload asks
+// first, so what a reload left on the server is not sent again.
+async function uploadOne(base: string, file: File, kind: "photo" | "video", upload: Held, resumed: boolean): Promise<UploadOutcome> {
   const parts = Math.max(1, Math.ceil(file.size / upload.partSize));
-  let todo = missingParts([], parts);
+  let todo = missingParts(resumed ? ((await receivedParts(base, upload.id)) ?? []) : [], parts);
   for (let attempt = 0; todo.length > 0; attempt += 1) {
     const failed = await sendParts(base, file, upload, todo);
     if (!failed) break;

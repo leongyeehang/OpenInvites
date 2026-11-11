@@ -37,13 +37,15 @@ export async function PUT(request: Request, context: RouteContext<"/api/albums/[
   const part = Number(new URL(request.url).searchParams.get("part"));
   const parts = partPlan(upload.size, upload.partSize);
   if (!Number.isInteger(part) || part < 0 || part >= parts) return new Response(null, { status: 400 });
-  // The last part holds what is left; a part may never carry more than its share.
+  // The last part holds what is left; a part carries exactly its share: more is refused as too
+  // large, less (a body that ended early) as a bad request, and neither is counted as received,
+  // so a resume never skips a part that is not whole.
   const share = part === parts - 1 ? upload.size - part * upload.partSize : upload.partSize;
   const path = join(await uploadDir(upload.id), String(part));
   const written = await writeUpTo(request, path, share);
-  if (written === undefined) {
+  if (written !== share) {
     await rm(path, { force: true });
-    return new Response(null, { status: 413 });
+    return new Response(null, { status: written === undefined ? 413 : 400 });
   }
   return Response.json({ received: await markPartReceived(upload.id, part) } satisfies PartResponse);
 }

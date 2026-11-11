@@ -143,7 +143,7 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
     const base = { id: each.id, name: each.name, deletable: mayDeletePhoto(viewer, each), pending: each.status === "pending", approvable: each.status === "pending" && mayApprovePhoto(viewer) };
     if (each.kind === "photo") return { ...base, kind: "photo", thumb: photoUrl(each.id, "thumb"), large: photoUrl(each.id, "large"), width: each.width ?? 0, height: each.height ?? 0 };
     // A video (M7 ticket 07): processing or failed shows as such; ready shows its files.
-    if (each.status === "processing" || each.status === "failed") return { ...base, kind: "video", state: each.status };
+    if (each.status === "processing" || each.status === "failed") return { ...base, kind: "video", state: each.status, failure: each.failure };
     return {
       ...base,
       kind: "video",

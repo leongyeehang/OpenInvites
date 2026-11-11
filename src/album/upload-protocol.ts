@@ -56,11 +56,12 @@ export function parseAskRequest(body: unknown): AskRequest | undefined {
 }
 
 // Why an ask is refused as a whole; `left` is how many places the album has, `limit` the bytes a
-// storage refusal names (album/album.ts, Room).
+// storage refusal names (album/album.ts, Room). A file refused for its size or length carries the
+// cap applied (`max`, bytes or milliseconds), which may be lower than the page knew.
 export type AlbumRefusal = "tooFast" | "closed" | "notAllowed" | "tooMany" | "albumFull" | "albumStorageFull" | "siteFull" | "diskFull" | "failed";
 
 export type AskResponse =
-  | { uploads: ({ ok: true; id: string; name: string; partSize: number; kind: PhotoKind } | { ok: false; name: string; problem: UploadProblem })[] }
+  | { uploads: ({ ok: true; id: string; name: string; partSize: number; kind: PhotoKind } | { ok: false; name: string; problem: UploadProblem; max?: number })[] }
   | { error: AlbumRefusal; left?: number; limit?: number };
 
 export type PartResponse = { received: number[] };

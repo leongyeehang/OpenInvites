@@ -64,7 +64,8 @@ interface says "site" where these docs say "instance".)
   those awaiting a host's approval included; guests and hosts adding more are told how many
   places are left, and those already there stay. Those three are whole numbers from 1 to
   100,000. Since 0.7 the card also sets **Largest photo** (40 MB by default, 1 to 1,000),
-  which covers album photos and hosts' pictures; **Largest video** (750 MB, 1 to 10,000) and
+  which covers album photos and hosts' pictures (a photo is decoded in memory as it is
+  processed, so the largest photo allowed is memory the app may need for each upload); **Largest video** (750 MB, 1 to 10,000) and
   **Longest video** (15 minutes, 1 to 180), which a host may lower for their event; **Storage
   per event** and **Storage for the site** (50 GB each, 0.01 to 100,000 GB), counted as
   uploaded (two albums uploading at the same moment can each overshoot the site's by one post,
@@ -171,7 +172,10 @@ only. After upgrading to 0.7 the card says how many files from before the upgrad
 measured, until that is done; a photo from before counts the size of the file the site stored,
 since the file as sent was never kept. Two albums uploading at the same moment can each overshoot
 Storage for the site by one batch, and on local disk every upload stops while the volume has
-under 1 GB free.
+under 1 GB free. An upload counts from the moment it is asked for, and the card shows what
+uploads in progress hold on a line of its own; a batch that receives nothing for an hour, or any
+upload not finished within a day, is dropped by the hourly sweep and its room released, so an
+upload that never started cannot hold the site.
 
 Videos are processed in the app's own container unless `VIDEO_PROCESSING=worker` moves the work
 to a **worker** container: the same image started as `node scripts/video-worker.mjs`, on the same
@@ -401,7 +405,12 @@ the photo's id: `<id>-photo.webp` (up to 2048 pixels, for the viewer and Downloa
 whoever may deletes it, or the event, the guest's reply or the host's account goes.
 
 A video added to an album (0.7) is kept as sent only until it is processed, which the queue does
-one clip at a time per container, within a minute of the upload. Its files are named after the
+one clip at a time per container, within a minute of the upload. A clip ffmpeg cannot read, or
+one found over the event's length cap once measured (a browser cannot always read a clip's
+length before sending), is failed at once, and its tile tells its uploader and the hosts so, the
+length cap by name; a clip that fails for any other reason is tried three times and then failed,
+and one the processor itself did not survive (out of memory, say) is taken again an hour later
+and failed after its third claim, never retried for ever. Its files are named after the
 item's id: `<id>-video.mp4` (the clip at original quality, rewrapped as MP4 with its metadata
 dropped, so a phone's location and device details never reach a guest, and its index moved to the
 front, so playing starts at once); `<id>-video-1080p.mp4` or `<id>-video-720p.mp4` (the lighter

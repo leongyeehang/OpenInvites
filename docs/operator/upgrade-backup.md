@@ -39,8 +39,8 @@ Restore the backup you took instead.
 
 0.7 brings videos to the album, every upload and storage limit onto Site settings, a Storage card
 that says how full the site is, and ways to clear albums: hosts empty their own and are reminded
-to, and the operator can clear any. Upgrading needs nothing of you: seven migrations, `0046` to
-`0052`, run as the app starts. They add columns, tables and enum values only, so nothing is
+to, and the operator can clear any. Upgrading needs nothing of you: eight migrations, `0046` to
+`0053`, run as the app starts. They add columns, tables and enum values only, so nothing is
 back-filled and no existing event changes until its host chooses:
 
 - **The image is about 130 MB larger** (368 MB against 235 MB), because it carries ffmpeg, which

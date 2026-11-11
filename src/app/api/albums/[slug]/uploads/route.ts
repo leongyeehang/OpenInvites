@@ -36,7 +36,9 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
     const kind = kindOf(file.type);
     const problem: UploadProblem | undefined =
       kind === "video" ? (video.allowed ? videoProblem(file, video) : "videosNotAllowed") : file.size > maxPhotoBytes ? "tooLarge" : undefined;
-    return { file, kind, problem, id: token() };
+    // The cap a refusal applied, for the page to name: bytes for a size, milliseconds for a length.
+    const max = problem === "tooLarge" ? (kind === "video" ? video.maxBytes : maxPhotoBytes) : problem === "tooLong" ? video.maxMs : undefined;
+    return { file, kind, problem, max, id: token() };
   });
   const accepted = judged.filter((each) => each.problem === undefined);
   if (accepted.length > 0) {
@@ -48,6 +50,8 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
     }
   }
   return Response.json({
-    uploads: judged.map(({ file, kind, problem, id }) => (problem ? { ok: false as const, name: file.name, problem } : { ok: true as const, id, name: file.name, partSize, kind })),
+    uploads: judged.map(({ file, kind, problem, max, id }) =>
+      problem ? { ok: false as const, name: file.name, problem, ...(max !== undefined && { max }) } : { ok: true as const, id, name: file.name, partSize, kind },
+    ),
   } satisfies AskResponse);
 }

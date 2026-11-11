@@ -355,6 +355,29 @@ test("the Storage card shows the site's use, the biggest albums, and the process
   await expect(card.locator("form").getByText("Saved.")).toBeVisible();
 });
 
+// Review fix (I3): an upload counts from its ask, which the Storage card shows under "Uploads in
+// progress"; a batch that receives nothing for an hour is dropped by the sweep, which the first
+// minute after a restart runs, so a reservation with no bytes behind it cannot hold the site.
+test("an upload asked for and never sent shows on the Storage card, and an idle hour drops it", async () => {
+  test.setTimeout(240_000);
+  const url = new URL(eventLink);
+  const base = `${url.origin}/api/albums/${url.pathname.split("/").pop()}/uploads`;
+  const asked = await operator.request.post(base, { headers: { origin: url.origin }, data: { files: [{ name: "big.jpg", size: 1024 * 1024, type: "image/jpeg" }] } });
+  expect(asked.status()).toBe(200);
+  const { uploads } = (await asked.json()) as { uploads: { ok: boolean; id: string }[] };
+  expect(uploads[0].ok).toBe(true);
+  await operator.goto("/instance");
+  const card = operator.locator("#storage");
+  await expect(card.locator('dt:text-is("Uploads in progress") + dd')).toHaveText("1 MB");
+  // Two hours pass for the batch, and the app restarts: its first minute sweeps.
+  exec("db-fresh", "psql", "-U", "openinvites", "-d", "openinvites", "-c", "update album_upload set created_at = created_at - interval '2 hours', touched_at = touched_at - interval '2 hours'");
+  recreate("app-fresh");
+  await expect.poll(async () => (await operator.request.get(`${base}/${uploads[0].id}`)).status(), { timeout: 150_000, intervals: [5_000], message: "the upload dropped" }).toBe(404);
+  await operator.goto("/instance");
+  await expect(card.getByRole("heading", { name: "Storage" })).toBeVisible();
+  await expect(card.locator('dt:text-is("Uploads in progress")')).toHaveCount(0);
+});
+
 // A small photo, well inside every limit the rows above left.
 async function small(name: string) {
   return { name, mimeType: "image/jpeg", buffer: await sharp({ create: { width: 800, height: 600, channels: 3, background: "#2f6b3a" } }).jpeg().toBuffer() };

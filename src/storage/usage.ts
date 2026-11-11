@@ -31,11 +31,14 @@ export async function eventAlbumBytes(eventId: string, db: Db = getDb()): Promis
   return bytes + (await reservedUploads(eventId, db)).bytes;
 }
 
-// One query after the other: `db` may be a transaction on one connection.
-export async function siteBytes(db: Db = getDb()): Promise<{ albums: number; pictures: number }> {
+// One query after the other: `db` may be a transaction on one connection. `reserved` is the part
+// of `albums` that uploads in progress hold, which the Storage card names, so an operator who
+// sees the site full can tell what is held from what is stored.
+export async function siteBytes(db: Db = getDb()): Promise<{ albums: number; pictures: number; reserved: number }> {
   const [{ albums }] = await db.select({ albums: bytesOf(photo.bytes) }).from(photo).where(ne(photo.status, "failed"));
   const [{ pictures }] = await db.select({ pictures: bytesOf(upload.bytes) }).from(upload);
-  return { albums: albums + (await reservedUploads(undefined, db)).bytes, pictures };
+  const reserved = (await reservedUploads(undefined, db)).bytes;
+  return { albums: albums + reserved, pictures, reserved };
 }
 
 // The albums that take the most, for the Storage card (ticket 03): the event, what its album

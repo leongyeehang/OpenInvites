@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import type { VideoCaps } from "@/album/video";
 import { clockTime, formatMinutes, formatSize, MEGABYTE } from "@/lib/sizes";
 import { prepareFiles, uploadFiles, type Prepared, type UploadOutcome } from "./album-upload";
+import type { UploadProblem } from "@/uploads/validate";
 import { RefreshWhileProcessing } from "./refresh-while-processing";
 import { VideoPlayer } from "./video-player";
 
@@ -34,7 +35,7 @@ export type ShownPhoto = ShownBase &
   (
     | { kind: "photo"; thumb: string; large: string; width: number; height: number }
     | { kind: "video"; state: "ready"; thumb: string; poster: string; original: string; copy: string | null; codec: string; durationMs: number; width: number; height: number }
-    | { kind: "video"; state: "processing" | "failed" }
+    | { kind: "video"; state: "processing" | "failed"; failure: string | null }
   );
 
 // What opens in the viewer.
@@ -85,21 +86,22 @@ export function Album({ slug, photos, maxMegabytes, video }: { slug: string; pho
     setLines([]);
     setError(undefined);
     if (files.length === 0) return;
-    if (files.length > MAX_PHOTOS_AT_ONCE) return setError(t("errors.tooMany"));
+    if (files.length > MAX_PHOTOS_AT_ONCE) return setError(t(video.allowed ? "errors.tooManyItems" : "errors.tooMany"));
     setAdding(files.length);
     try {
       const prepared = await prepareFiles(files, { maxPhotoBytes: maxMegabytes * MEGABYTE, video });
-      const reason = (each: Prepared) =>
-        each.problem === "tooLong"
-          ? t("problems.tooLongKnown", { max: formatMinutes(video.maxMs / 60_000, locale), length: clockTime(each.durationMs ?? 0) })
-          : each.problem === "tooLarge" && each.kind === "video"
-            ? t("problems.videoTooLargeKnown", { max: formatSize(video.maxBytes, locale), size: formatSize(each.file.size, locale) })
-            : t(`problems.${each.problem ?? "incomplete"}`, { max: maxMegabytes });
+      // Why a file was refused, here before sending or by the server at the ask, which names the
+      // cap it applied (`max`) when the host lowered it under what this page knew.
+      const reason = (each: Prepared, problem: Prepared["problem"] | UploadProblem, max?: number) => {
+        if (problem === "tooLong" && each.durationMs) return t("problems.tooLongKnown", { max: formatMinutes((max ?? video.maxMs) / 60_000, locale), length: clockTime(each.durationMs) });
+        if (problem === "tooLarge" && each.kind === "video") return t("problems.videoTooLargeKnown", { max: formatSize(max ?? video.maxBytes, locale), size: formatSize(each.file.size, locale) });
+        return t(`problems.${problem ?? "incomplete"}`, { max: max !== undefined ? max / MEGABYTE : maxMegabytes });
+      };
       const lineOf = (each: Prepared, outcome?: UploadOutcome): Line => {
-        if (each.problem) return { name: each.file.name, ok: false, text: t("refusedFile", { name: each.file.name, reason: reason(each) }) };
+        if (each.problem) return { name: each.file.name, ok: false, text: t("refusedFile", { name: each.file.name, reason: reason(each, each.problem) }) };
         if (!outcome) return { name: each.file.name, ok: true, text: t("uploading", { name: each.file.name }) };
         if (outcome.ok) return { name: outcome.name, ok: true, text: t(outcome.kind === "video" ? "uploaded" : outcome.pending ? "addedPending" : "added", { name: outcome.name }) };
-        return { name: outcome.name, ok: false, text: t("refusedFile", { name: outcome.name, reason: t(`problems.${outcome.problem}`, { max: maxMegabytes }) }) };
+        return { name: outcome.name, ok: false, text: t("refusedFile", { name: outcome.name, reason: reason(each, outcome.problem, outcome.max) }) };
       };
       const sending = prepared.filter((each) => !each.problem);
       const lines = prepared.map((each) => lineOf(each));
@@ -162,7 +164,7 @@ export function Album({ slug, photos, maxMegabytes, video }: { slug: string; pho
                     className="flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-xl bg-theme-glass-strong px-2 text-center text-xs text-theme-text-muted"
                   >
                     <Film className="size-6" aria-hidden />
-                    {t(photo.state === "processing" ? "processing" : "failed")}
+                    {photo.state === "processing" ? t("processing") : photo.failure === "tooLong" ? t("failedTooLong", { max: formatMinutes(video.maxMs / 60_000, locale) }) : t("failed")}
                   </div>
                 )}
                 {photo.pending && <p className="text-xs text-theme-text-muted">{t("pending")}</p>}
