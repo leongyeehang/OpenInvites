@@ -36,6 +36,7 @@ import { formatOption } from "@/polls/format";
 import { leading, pollState, tally } from "@/polls/poll";
 import { loadPoll } from "@/polls/repository";
 import { listSchedule } from "@/schedule/repository";
+import { VotingSettings } from "@/voting";
 
 // The poll as the When sheet shows it: each candidate as typed and as read, with its votes by name.
 async function editablePoll(eventId: string, open: boolean, canStart: boolean, locale: string): Promise<EditablePoll> {
@@ -131,7 +132,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
   // The Poster layout brings the comments' reactions and the album with it, which read
   // EventPage.comments and EventPage.album, though the editor shows neither.
   return (
-    <ClientMessages namespaces={["Editor", "Design", "Posters", "Events.form", "Events.manage", "Events.album", "EventPage.comments", "EventPage.album"]}>
+    <ClientMessages namespaces={["Editor", "Design", "Posters", "Events.form", "Events.manage", "Events.album", "EventPage.comments", "EventPage.album", "Voting"]}>
       {/* The invite list's link to the settings opens the editor with them open (M6 ticket 08). */}
       <EditorProvider sheet={sheet === "settings" ? "settings" : null}>
         <ThemedPage
@@ -177,6 +178,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
                       features={features}
                       album={album}
                       reminderDays={event.albumReminderDays}
+                      voting={<VotingSettings event={event} />}
                       questions={questions}
                       answerCounts={answerCounts}
                     />

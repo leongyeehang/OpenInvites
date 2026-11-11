@@ -54,6 +54,10 @@ const source: Event = {
   inviteOnly: true,
   albumReminderDays: 90,
   albumRemindedAt: new Date("2027-06-05T00:00:00Z"),
+  albumVoting: "closed",
+  albumVotingClosesAt: new Date("2027-05-09T12:00:00Z"),
+  albumVoters: "invited",
+  albumUploaderNames: "never",
   createdAt: new Date("2026-12-01T00:00:00Z"),
   updatedAt: new Date("2026-12-02T00:00:00Z"),
 };
@@ -133,8 +137,14 @@ describe("duplicateInput", () => {
     expect(copy.event).toMatchObject({ albumReminderDays: 90 });
   });
 
+  // M8 ticket 10: the album vote's settings travel with the album's; the vote itself does not, so
+  // the copy starts with voting off (its awards are copied by duplicateEventAction).
+  it("copies who may vote and whether guests see who added each item", () => {
+    expect(copy.event).toMatchObject({ albumVoters: "invited", albumUploaderNames: "never" });
+  });
+
   it("copies nothing that belongs to the source alone", () => {
-    for (const own of ["id", "hostId", "slug", "state", "publishedAt", "weekReminderSentAt", "dayReminderSentAt", "retentionWarnedAt", "pollOpenedAt", "pollClosedAt", "scheduleRefresh", "albumRemindedAt", "createdAt", "updatedAt"]) {
+    for (const own of ["id", "hostId", "slug", "state", "publishedAt", "weekReminderSentAt", "dayReminderSentAt", "retentionWarnedAt", "pollOpenedAt", "pollClosedAt", "scheduleRefresh", "albumRemindedAt", "albumVoting", "albumVotingClosesAt", "createdAt", "updatedAt"]) {
       expect(copy.event).not.toHaveProperty(own);
     }
   });

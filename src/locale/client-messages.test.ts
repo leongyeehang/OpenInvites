@@ -60,6 +60,10 @@ function walk(entry: string): Found {
     if (seen.has(key)) return;
     seen.add(key);
     const where = relative(SRC, path);
+    // A module of server actions renders nothing: a client component that imports one holds only a
+    // reference to each action, so what the actions import sends the browser no messages (M8
+    // ticket 10). Otherwise every page with a Duplicate button would send the album vote's.
+    if (/^\s*["']use server["']/.test(source)) return;
     if (client) {
       for (const [, argument] of source.matchAll(/\buseTranslations\(([^)]*)\)/g)) {
         const namespace = argument.trim().match(/^["']([^"']+)["']$/)?.[1];
@@ -108,5 +112,12 @@ describe("the messages each page sends to the browser", () => {
     ]);
     // The editor's design sheets read theirs, through the editor page.
     expect(walk(join(APP, "(editor)/events/[id]/page.tsx")).used.get("Design")).toEqual(expect.arrayContaining(["editor/design-sheets.tsx"]));
+  });
+
+  it("stops at a module of server actions", () => {
+    // The share page imports events/actions.ts, whose Duplicate imports the album vote's entry,
+    // which carries the Voting block: none of that reaches the browser through an action.
+    expect(walk(join(APP, "(host)/events/[id]/share/page.tsx")).used.has("Voting.block")).toBe(false);
+    expect(walk(join(APP, "(editor)/events/[id]/page.tsx")).used.get("Voting.block")).toEqual(["voting/voting-block.tsx"]);
   });
 });

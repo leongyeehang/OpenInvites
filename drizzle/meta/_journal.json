@@ -435,6 +435,13 @@
       "when": 1794414405639,
       "tag": "0061_caption",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1794427569881,
+      "tag": "0062_album_voting",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
-import { createDraft, editSettings, openSettings, publishInEditor, toEditor } from "./events";
+import { createDraft, editSettings, openSettings, publishInEditor, savedAfter, toEditor } from "./events";
 import { dismissOperatorWelcome, newHost, signUp, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
 import { closeReply } from "./reply";
@@ -11,7 +11,7 @@ import { clientAddress, expect, test, type APIRequestContext, type Browser, type
 // is off is not shown to hosts or guests and its actions refuse; nothing is deleted, and switching
 // it back on brings back what it held. Runs against `app-fresh`, with `worker-fresh` processing
 // its videos (M7 ticket 08), all recreated first, so the first account here is the operator's,
-// who is also the host. Ticket 10 adds Voting's scenarios.
+// who is also the host. Ticket 10 adds Voting's scenario.
 
 const PAST = { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" };
 const H264 = "e2e/fixtures/clip-h264.mp4";
@@ -73,7 +73,7 @@ async function finish(api: Api, id: string) {
 }
 
 // Site settings' Features card: one switch set, then saved.
-async function switchFeature(page: Page, feature: "Album" | "Videos", on: boolean) {
+async function switchFeature(page: Page, feature: "Album" | "Videos" | "Voting", on: boolean) {
   await page.goto("/instance");
   const card = page.locator("#features");
   await expect(card.getByRole("heading", { name: "Features" })).toBeVisible();
@@ -207,5 +207,35 @@ test("the Album switched off while an upload is half sent: the next part and the
   const again = await ask(api, [{ name: "cake.jpg", size: 1000, type: "image/jpeg" }]);
   expect(again.status).toBe(200);
   expect(again.body.uploads).toEqual([expect.objectContaining({ ok: true })]);
-  await Promise.all([mei.context().close(), operator.context().close()]);
+  await mei.context().close();
+});
+
+// M8 ticket 10: the album vote's block in the editor's Settings follows the Voting switch, and the
+// Album's, which Voting needs; a vote started is still open when they are back on.
+test("with Voting off, no event shows the Voting block; with the Album off, neither; switched back on, the block returns with its vote still open", async () => {
+  const block = (sheet: Locator) => sheet.locator('[data-slot="voting-block"]');
+  await toEditor(operator);
+  let sheet = await openSettings(operator);
+  await savedAfter(operator, () => block(sheet).getByRole("button", { name: "Start voting" }).click());
+  await expect(block(sheet)).toHaveAttribute("data-state", "open");
+
+  await switchFeature(operator, "Voting", false);
+  await toEditor(operator);
+  sheet = await openSettings(operator);
+  await expect(albumGroup(sheet)).toBeVisible();
+  await expect(block(sheet)).toHaveCount(0);
+
+  await switchFeature(operator, "Voting", true);
+  await switchFeature(operator, "Album", false);
+  await toEditor(operator);
+  sheet = await openSettings(operator);
+  await expect(sheet.getByRole("group", { name: "Guests", exact: true })).toBeVisible();
+  await expect(block(sheet)).toHaveCount(0);
+
+  await switchFeature(operator, "Album", true);
+  await toEditor(operator);
+  sheet = await openSettings(operator);
+  await expect(block(sheet)).toHaveAttribute("data-state", "open");
+  await expect(block(sheet)).toContainText("Voting is open");
+  await operator.context().close();
 });

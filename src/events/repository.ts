@@ -46,8 +46,9 @@ export type EventChanges = EventInput & { locale: Locale };
 
 // What a new event is made from: the form, and what the form does not carry: for a duplicate,
 // personal letters, which the copy keeps (M6 spec); and when to be reminded about the album, the
-// site's default for a new event and the source's for a copy (M7 ticket 09).
-export type NewEvent = MaybeDated<EventChanges> & Partial<Pick<Event, "lettersEnabled" | "albumReminderDays">>;
+// site's default for a new event and the source's for a copy (M7 ticket 09); and the album vote's
+// settings, which a copy keeps (M8 ticket 10).
+export type NewEvent = MaybeDated<EventChanges> & Partial<Pick<Event, "lettersEnabled" | "albumReminderDays" | "albumVoters" | "albumUploaderNames">>;
 
 // A new event starts with the Birthday template's theme (ticket 06), unless it is given one: a
 // duplicate starts with the theme of the event it copies.

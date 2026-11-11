@@ -1770,5 +1770,23 @@
     },
     "contact": "有疑問嗎？請寄信至 <link>{email}</link>，聯絡本站營運者。",
     "contactUnknown": "本站營運者沒有提供聯絡地址。"
+  },
+  "Voting": {
+    "favourite": "最愛",
+    "block": {
+      "title": "投票",
+      "intro": "賓客選出最喜歡的照片和影片。每人在每個獎項中各有一票。",
+      "start": "開始投票",
+      "notYet": "活動開始、相簿開放後，才能開始投票。",
+      "open": "投票進行中",
+      "closed": "投票已結束",
+      "close": "結束投票",
+      "reopen": "重新開放投票",
+      "turnOff": "關閉投票",
+      "turnOffTitle": "關閉投票？",
+      "turnOffText": "{count, plural, =0 {還沒有人投票。} other {已投的 # 票都會刪除。}}獎項和設定會保留。",
+      "turnOffConfirm": "關閉",
+      "cancel": "算了"
+    }
   }
 }

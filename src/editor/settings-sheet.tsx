@@ -83,6 +83,7 @@ export function SettingsSheet({
   features,
   album,
   reminderDays,
+  voting,
   questions,
   answerCounts,
 }: {
@@ -103,6 +104,9 @@ export function SettingsSheet({
   // after the form are left out, and with videos off the video controls. Saving then keeps what
   // the event had for them (events/form.ts, keptSettings).
   features: { album: boolean; videos: boolean };
+  // The album vote's block (M8 ticket 10; voting/voting-settings.tsx), drawn below the album's and,
+  // like it, outside the form; the module leaves it empty while Voting is off for the site.
+  voting?: ReactNode;
   questions: QuestionDraft[];
   answerCounts: Record<string, number>;
 }) {
@@ -429,6 +433,7 @@ export function SettingsSheet({
         </FieldGroup>
       </form>
       {features.album && <AlbumBlock key={String(reminderDays)} eventId={eventId} album={album} reminderDays={reminderDays} />}
+      {voting}
     </EditorSheet>
   );
 }

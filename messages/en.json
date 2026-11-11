@@ -1770,5 +1770,23 @@
     },
     "contact": "Questions? Contact whoever runs this site at <link>{email}</link>.",
     "contactUnknown": "Whoever runs this site has not given a contact address."
+  },
+  "Voting": {
+    "favourite": "Favourite",
+    "block": {
+      "title": "Voting",
+      "intro": "Guests pick their favourite photos and videos. Each person has one vote in each award.",
+      "start": "Start voting",
+      "notYet": "Voting can start once the album opens, at the start of the event.",
+      "open": "Voting is open",
+      "closed": "Voting closed",
+      "close": "Close voting",
+      "reopen": "Reopen voting",
+      "turnOff": "Turn off voting",
+      "turnOffTitle": "Turn off voting?",
+      "turnOffText": "{count, plural, =0 {Nobody has voted yet.} one {Its # vote is deleted.} other {Its # votes are deleted.}} The awards and settings stay.",
+      "turnOffConfirm": "Turn it off",
+      "cancel": "Never mind"
+    }
   }
 }

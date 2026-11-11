@@ -65,6 +65,10 @@ test("duplicating makes a new draft with the same details, questions, settings a
   await expect(settings.getByLabel("Remind guests by email (a week before to Maybe, the day before to Going)")).not.toBeChecked();
   await expect(settings.getByLabel("Question 1", { exact: true })).toHaveValue("Starter?");
   await expect(settings.getByLabel("Question 1 choices")).toHaveValue("Soup, Salad");
+  // M8 ticket 10: the copy's album vote starts off.
+  const voting = settings.locator('[data-slot="voting-block"]');
+  await expect(voting).toHaveAttribute("data-state", "off");
+  await expect(voting.getByRole("button", { name: "Start voting" })).toBeVisible();
   await host.page.keyboard.press("Escape");
 
   // The host sees the picture on the copy's page, as a file of its own, and the replies stayed behind.

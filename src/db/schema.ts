@@ -211,6 +211,15 @@ export const videoSize = pgEnum("video_size", VIDEO_QUALITIES);
 // How an album is ordered (M8 ticket 07; album/details.ts): by when items were added, or taken.
 export const albumOrder = pgEnum("album_order", ALBUM_ORDERS);
 
+// The album vote (M8 ticket 10; src/voting): its lists, written out here since the schema does
+// not import the module (ADR-0008), and checked against voting/voting.ts by its tests. The vote's
+// state, who may vote, whether guests see who added each item, and what an award takes votes for.
+// Its tables, album_award and album_vote, are at the end of this file.
+export const albumVotingState = pgEnum("album_voting_state", ["off", "open", "closed"]);
+export const albumVoters = pgEnum("album_voters", ["album", "going", "invited"]);
+export const albumUploaderNames = pgEnum("album_uploader_names", ["always", "afterVoting", "never"]);
+export const albumAwardScope = pgEnum("album_award_scope", ["all", "photos", "videos"]);
+
 // An event belongs to one host. Its time is an instant plus the event's own IANA zone; all-day
 // events store midnight in that zone with the flag set. A draft may have no date yet (M4 spec, "A
 // draft with no date"): it is made blank and dated in the editor, and cannot be published until
@@ -324,6 +333,13 @@ export const event = pgTable(
     // is on the Settings sheet's form, which posts every field on every change (plan ruling 9).
     albumReminderDays: integer("album_reminder_days"),
     albumRemindedAt: timestamp("album_reminded_at", { withTimezone: true }),
+    // The album vote (M8 ticket 10; voting/voting.ts): off until a host starts it, then open or
+    // closed; when it closes by itself, read as closed once passed, since no timer writes it; who
+    // may vote; and whether guests see who added each item.
+    albumVoting: albumVotingState("album_voting").notNull().default("off"),
+    albumVotingClosesAt: timestamp("album_voting_closes_at", { withTimezone: true }),
+    albumVoters: albumVoters("album_voters").notNull().default("album"),
+    albumUploaderNames: albumUploaderNames("album_uploader_names").notNull().default("afterVoting"),
     ...timestamps,
   },
   (table) => [
@@ -864,5 +880,59 @@ export const commentReaction = pgTable(
     unique("comment_reaction_once_by_guest").on(table.commentId, table.rsvpId, table.emoji),
     unique("comment_reaction_once_by_host").on(table.commentId, table.hostId, table.emoji),
     check("comment_reaction_one_reactor", sql`(${table.rsvpId} is null) <> (${table.hostId} is null)`),
+  ],
+);
+
+// The album vote (M8 ticket 10; src/voting), continued: an event's awards, and the votes given in
+// them. An award has a name of at most 40 characters as char_length counts them, null for the
+// translated "Favourite"; what it takes votes for; its place in the list; the round being or last
+// voted in, 1 or a tie-break's, with the items that tie-break is among; whether that tie-break is
+// open; and whether the host settled on a shared first. An event has none until a host starts a
+// vote or changes an award (voting/repository.ts, ensureAwards). It goes with the event.
+export const albumAward = pgTable(
+  "album_award",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    name: text("name"),
+    scope: albumAwardScope("scope").notNull().default("all"),
+    position: integer("position").notNull(),
+    round: integer("round").notNull().default(1),
+    finalists: uuid("finalists").array().notNull().default(sql`'{}'`),
+    tiebreakOpen: boolean("tiebreak_open").notNull().default(false),
+    sharedFirst: boolean("shared_first").notNull().default(false),
+  },
+  (table) => [index("album_award_event_id_idx").on(table.eventId), check("album_award_name_length", sql`char_length(${table.name}) <= 40`)],
+);
+
+// A vote in an award's round for one album item, by a guest through their RSVP or by a host, as a
+// reaction is given: each voter has one vote in each round of each award, which a second tap
+// moves. It goes with the award, the item, the RSVP and the host's account.
+export const albumVote = pgTable(
+  "album_vote",
+  {
+    id: id(),
+    awardId: uuid("award_id")
+      .notNull()
+      .references(() => albumAward.id, { onDelete: "cascade" }),
+    round: integer("round").notNull(),
+    photoId: uuid("photo_id")
+      .notNull()
+      .references(() => photo.id, { onDelete: "cascade" }),
+    rsvpId: uuid("rsvp_id").references(() => rsvp.id, { onDelete: "cascade" }),
+    hostId: uuid("host_id").references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("album_vote_photo_id_idx").on(table.photoId),
+    index("album_vote_rsvp_id_idx").on(table.rsvpId),
+    index("album_vote_host_id_idx").on(table.hostId),
+    // Nulls are distinct, so a guest's votes meet only the first and a host's only the second;
+    // both lead with the award, which is how they are read.
+    unique("album_vote_once_by_guest").on(table.awardId, table.round, table.rsvpId),
+    unique("album_vote_once_by_host").on(table.awardId, table.round, table.hostId),
+    check("album_vote_one_voter", sql`(${table.rsvpId} is null) <> (${table.hostId} is null)`),
   ],
 );
