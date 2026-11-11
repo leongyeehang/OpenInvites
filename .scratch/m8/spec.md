@@ -53,7 +53,7 @@ Numbered on from M7's 271.
 283. As a guest, I want my location never to reach other guests, whatever the host keeps.
 284. As a guest or host, I want to caption what I add, and to change the caption later.
 311. As a guest, I want a live photo I add to stay a photo, keep its motion, wear a Live mark and play when I press it.
-312. As a guest on an iPhone, I want to be told how to share a Live Photo's motion when my phone sends only the still.
+312. As a guest on an iPhone, I want to be told that my Live Photo is added as a photo, and how to add its motion as a video.
 
 ### Voting
 
@@ -115,7 +115,7 @@ Numbered on from M7's 271.
 - **Technical line (maintainer).** Under an open item: size, frame rate, HDR, length and file size for a video; size and file size for a photo.
 - **Order (decided here).** With capture time kept, the host may order the album by when items were taken, falling back to when they were added.
 - **Captions (maintainer).** Up to 140 characters of plain text, written while adding or afterwards by the item's uploader or a host, shown under the item and in its accessible name. Changing one is rate-limited as a comment is.
-- **Live photos (maintainer, 2026-11-11; the sources decided here).** A photo may carry a motion clip and is then a live photo. It is a photo everywhere: in counts, in approval and in awards for photos. Its tile and the viewer wear a Live mark; the motion plays, muted, while the picture is pressed or when the mark is activated, and never by itself under reduced motion. The motion has two sources. An Android motion photo carries its clip inside the JPEG, and the clip is taken out while the photo is processed. An iPhone Live Photo sent as its two files, the still as a JPEG and its `.mov`, as a computer or the Files app hands them over, is joined into one item: the browser pairs a still and a clip of the same name added together, and the server confirms the pair by the content identifier where both carry one. The clip is kept as a small H.264 MP4 beside the photo's files, at most a few seconds, its metadata dropped; it needs ffmpeg, and without it a live photo is its still. **Known limit:** picked from an iPhone's photo library, a Live Photo reaches a web page as its still alone, so it arrives as a plain photo; the add-photos screen says so and suggests Save as Video. The ticket checks this on a real iPhone, and if the phone does hand over the motion, the same joining takes it.
+- **Live photos (maintainer, 2026-11-11; the sources decided here).** A photo may carry a motion clip and is then a live photo. It is a photo everywhere: in counts, in approval and in awards for photos. Its tile and the viewer wear a Live mark; the motion plays, muted, while the picture is pressed or when the mark is activated, and never by itself under reduced motion. The motion comes from an Android motion photo, which carries its clip inside the JPEG; the clip is taken out while the photo is processed and kept as a small H.264 MP4 beside the photo's files, at most a few seconds, its metadata dropped. It needs ffmpeg, and without it a live photo is its still. **iPhone Live Photos are stills, for now (maintainer, 2026-11-11).** Safari hands a web page one file for each picked item, the still, and has no Live Photo handling (WebKit's `WKFileUploadPanel.mm`, read 2026-11-11); only an installed app can ask the photo library for both halves. Nothing joins a still to a separately saved video in M8. The add-photos screen tells an iPhone guest that a Live Photo is added as a photo, and that Save as Video adds its motion as a video.
 - **Storage** still counts uploads as sent only (M7). The configuration doc says a video may now have up to three copies.
 
 ### Voting
@@ -185,7 +185,7 @@ Numbered on from M7's 271.
 ## Testing Decisions
 
 - **Unit**: the size rules (what is made, labels, the pick, Auto, stepping down, reading the old key); the voting rules (state with a closing time, who may vote and for what, places with ties, the tie-break's first place, what is shown to whom, the shuffle being stable per viewer and different between two); the arrangement (defaults equal to today's order in each layout, tolerant parsing, limits, link safety, every change); the site look (stable per area, the fallback without a database); legibility over every backdrop with the new inks.
-- **Browser, per ticket**, on the Docker test profile. New fixtures: a two-second 1920x1080 HEVC clip, a two-second HDR clip, an Android motion photo, and a JPEG with its paired `.mov`, each with a note of how it was made. New specs: `album-voting`, `site-look`, `sections`. A guest's page is read as HTML to prove a hidden name and count are absent.
+- **Browser, per ticket**, on the Docker test profile. New fixtures: a two-second 1920x1080 HEVC clip, a two-second HDR clip, and an Android motion photo, each with a note of how it was made. New specs: `album-voting`, `site-look`, `sections`. A guest's page is read as HTML to prove a hidden name and count are absent.
 - **Existing specs each part must keep green or update** are named in the tickets; the largest are `album-video`, `album-upload`, `album-settings`, `album`, `accessibility`, `keyboard`, `reduced-motion`, `dashboard`, `invites`, `thread`, `broadsheet`, `guest-list`, `comments`.
 - **Each part ends with a pass**: three locales, axe in every new state, keyboard, reduced motion, docs, and for Glass the README screenshots.
 - The Lighthouse budget on event pages is run again after Sections.
@@ -194,7 +194,7 @@ Numbered on from M7's 271.
 
 - Adaptive streaming (HLS or DASH); sizes below 720p; an HDR copy; hardware encoding.
 - Location in any form; editing a detail by hand; details in a downloaded file.
-- HEIC photos; the motion of a Live Photo picked straight from an iPhone's photo library, which the phone does not hand to a web page; sound in a live photo's motion.
+- HEIC photos; the motion of an iPhone Live Photo, by any route (joining a still to its saved video, or an iPhone app that could take both halves in one tap, were both offered and put off); sound in a live photo's motion.
 - Comments or emoji on album items; votes on anything but album items; more than one vote per award; automatic emails about voting.
 - A dark and light switch; drifting or animated backdrops outside event pages; a host's own picture as their backdrop.
 - Drag and drop; two-column arrangements; sections shown only to some guests; embedded maps, players or forms.
@@ -203,6 +203,6 @@ Numbered on from M7's 271.
 ## Further Notes
 
 - The maintainer's answers of 2026-11-10, in order: four parts as one milestone; a menu of sizes, then "just 4K, 1080p and 720p" with Auto following the last pick; Auto as a smart pick after asking for the difference from streaming; a favourites contest; ties sharing a place; names shown after voting closes by default and changeable in settings; every Arrange extra offered "and more customisation"; look B after asking for a demo; the page's own subject's poster with the host able to pick their own; then, on reading the plan, all four voting extras, "one vote each person" in place of several, and a further contest for a tied first place; another round or a shared first if still tied; a 4K copy as an operator switch; HDR converted in the copies with a badge; capture time, camera and exposure kept at the host's choice, a technical line and captions.
-- The maintainer's answers of 2026-11-11, after trying the voting mock-up (https://claude.ai/artifact/KCCLGuyyQHC7mmG1oVCGgp): an award for photos or videos only shows only those items; live photos are photos, with a Live mark and their motion.
+- The maintainer's answers of 2026-11-11, after trying the voting mock-up (https://claude.ai/artifact/KCCLGuyyQHC7mmG1oVCGgp): an award for photos or videos only shows only those items; live photos are photos, with a Live mark and their motion; then, on learning that Safari gives a web page only the still of an iPhone Live Photo, "stills only on iPhone at this moment".
 - The plan at `m8-plan.md` orders the tickets: media 01 to 08 (live photos are 07), voting 09 to 15, glass 16 to 22, sections 23 to 30. Tickets 14 (tie-break) and 29 (styles) are placed so either can follow in a later release.
 - The mock-up the maintainer chose from is at https://claude.ai/artifact/WqS8ugi7GrAxsB9XzfZGrq.
