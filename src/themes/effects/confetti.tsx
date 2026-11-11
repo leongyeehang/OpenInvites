@@ -1,34 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { useTheme } from "../themed-page";
+import { useReducedMotion } from "../use-reduced-motion";
 
 const PIECES = 56;
 
 // The accent, the page's text colour, and the accent lightened halfway to white, as the page
 // wears them now.
 const COLOURS = ["var(--theme-accent)", "var(--theme-text)", "color-mix(in oklab, var(--theme-accent), white 50%)"];
-
-const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
-
-function subscribeToMotion(onChange: () => void) {
-  const query = matchMedia(REDUCED_MOTION);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
-// Whether the guest's device asks for reduced motion. Only the browser knows, and confetti only
-// ever mounts there; the server's answer, never used, is the still one. The Thread's pacing asks
-// it too.
-export function useReducedMotion(): boolean {
-  return useSyncExternalStore(
-    subscribeToMotion,
-    () => matchMedia(REDUCED_MOTION).matches,
-    () => true,
-  );
-}
 
 // The Confetti effect (PROTOTYPE.md, "Effect"): pieces fall once from above the top of the screen,
 // over about three seconds, drifting and turning as they go, over everything on the page, and

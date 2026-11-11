@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { keepsMotion, MOTION_MAX_BYTES, motionRange, seesLivePhotoNote } from "./motion";
+import { keepsMotion, MOTION_MAX_BYTES, motionRange, readXmp, seesLivePhotoNote } from "./motion";
 
 // Live photos (M8 ticket 08): where an Android motion photo keeps its clip, whether the site keeps
 // motion, and who is told what becomes of an iPhone's Live Photo. Every offset and length is the
@@ -90,6 +90,16 @@ describe("motionRange", () => {
     expect(motionRange(bare)).toEqual({ start: still.length + SAMSUNG.length, end: bare.length });
   });
 
+  it("finds Samsung's marker past near misses, and its trailer only in the file's last 64 KB", () => {
+    const still = jpeg();
+    const misses = ascii("MotionPhoto_DatMotionPhotoMotionPhoto_DaMotionPhoto_Dat");
+    const file = join(still, misses, SAMSUNG, CLIP, trailer());
+    expect(motionRange(file)).toEqual({ start: still.length + misses.length + SAMSUNG.length, end: still.length + misses.length + SAMSUNG.length + CLIP.length });
+    // A trailer header further from the end than that is not looked for: the clip runs to the end.
+    const far = join(still, SAMSUNG, CLIP, ascii("SEFH"), new Uint8Array(70_000));
+    expect(motionRange(far)).toEqual({ start: still.length + SAMSUNG.length, end: far.length });
+  });
+
   it("finds a Pixel's Ultra HDR motion photo's clip, the last of three items, by its length from the end", () => {
     const gainMap = join(Uint8Array.of(0xff, 0xd8), new Uint8Array(60).fill(3), Uint8Array.of(0xff, 0xd9));
     const still = jpeg(threeItems(gainMap.length, CLIP.length));
@@ -152,6 +162,78 @@ describe("motionRange", () => {
     expect(motionRange(join(jpeg(many), CLIP))).toBeUndefined();
     const after = `<x:xmpmeta><rdf:Description GCamera:MotionPhoto="1"><Container:Directory><Container:Item Item:Semantic="Primary"/><Container:Item Item:Semantic="MotionPhoto" Item:Length="${CLIP.length}"/><Container:Item Item:Semantic="GainMap"/></Container:Directory></rdf:Description></x:xmpmeta>`;
     expect(motionRange(join(jpeg(after), CLIP))).toBeUndefined();
+  });
+});
+
+// Review fixes: the XMP read is one segment at most, every scan of it is linear, and the cases the
+// first round left out.
+describe("motionRange, bounded", () => {
+  // One APP1 XMP segment, as large as a segment can be (its length is two bytes), filled with `fill`.
+  const fullSegment = (head: string, fill: string) => {
+    const room = 0xffff - 2 - XMP_PREFIX.length - head.length;
+    return segment(0xe1, join(XMP_PREFIX, ascii(head + fill.repeat(Math.ceil(room / fill.length)).slice(0, room))));
+  };
+  const segment = (marker: number, body: Uint8Array) => join(Uint8Array.of(0xff, marker, (body.length + 2) >> 8, (body.length + 2) & 0xff), body);
+  const xmpSegment = (xmp: string) => segment(0xe1, join(XMP_PREFIX, ascii(xmp)));
+  const SOI = Uint8Array.of(0xff, 0xd8);
+  const EOI = Uint8Array.of(0xff, 0xd9);
+
+  it("reads the first XMP packet alone, whatever follows it, so the text scanned is one segment at most", () => {
+    const first = fullSegment('<x:xmpmeta GCamera:Other="1">', "a");
+    const rest = Array.from({ length: 255 }, () => fullSegment(attributes(CLIP.length), " "));
+    const file = join(SOI, first, ...rest, EOI, CLIP);
+    const xmp = readXmp(file);
+    expect(xmp?.length).toBe(0xffff - 2 - XMP_PREFIX.length);
+    expect(xmp?.startsWith("<x:xmpmeta GCamera:Other")).toBe(true);
+    // The later packets declare the clip; only the first is read, so the photo is a still.
+    expect(motionRange(file)).toBeUndefined();
+  });
+
+  it("finds the clip the first packet declares, past many segments after it", () => {
+    const file = join(SOI, xmpSegment(attributes(CLIP.length)), ...Array.from({ length: 200 }, () => fullSegment("", "z")), EOI, CLIP);
+    expect(motionRange(file)).toEqual({ start: file.length - CLIP.length, end: file.length });
+  });
+
+  it("is a still for a packet of opening tags that never close, at the largest size read", () => {
+    const head = '<x:xmpmeta><rdf:Description GCamera:MotionPhoto="1">';
+    for (const fill of ["<Container:Directory", "<Container:Item ", 'Item:Length="', "<Item:Length>", "GCamera:MotionPhoto= "]) {
+      expect(motionRange(join(SOI, fullSegment(head, fill), EOI, CLIP))).toBeUndefined();
+    }
+  });
+
+  it("counts an item's padding after it, the clip's own and that of an item after it", () => {
+    const padded = (clipPadding: number, after?: { length: number; padding: number }) =>
+      `<x:xmpmeta><rdf:Description GCamera:MotionPhoto="1"><Container:Directory><Container:Item Item:Semantic="Primary" Item:Length="0" Item:Padding="7"/><Container:Item Item:Semantic="MotionPhoto" Item:Length="${CLIP.length}" Item:Padding="${clipPadding}"/>${after ? `<Container:Item Item:Semantic="Depth" Item:Length="${after.length}" Item:Padding="${after.padding}"/>` : ""}</Container:Directory></rdf:Description></x:xmpmeta>`;
+    const still = jpeg(padded(5));
+    const own = join(still, CLIP, new Uint8Array(5));
+    expect(motionRange(own)).toEqual({ start: still.length, end: still.length + CLIP.length });
+    const withAfter = jpeg(padded(3, { length: 20, padding: 2 }));
+    const file = join(withAfter, CLIP, new Uint8Array(3), new Uint8Array(20).fill(4), new Uint8Array(2));
+    expect(motionRange(file)).toEqual({ start: withAfter.length, end: withAfter.length + CLIP.length });
+    // A padding that is not a whole number is a still.
+    expect(motionRange(join(jpeg(padded(5).replace('Item:Padding="5"', 'Item:Padding="x"')), CLIP, new Uint8Array(5)))).toBeUndefined();
+  });
+
+  it("never takes a range starting at byte 0 or 1, even where ftyp sits there", () => {
+    // A first segment whose length bytes and body put `ftyp` at bytes 4 to 8 (start 0) or 5 to 9
+    // (start 1), then a MicroVideo offset reaching back to that start.
+    const at = (start: number) => {
+      const lead = start === 0 ? Uint8Array.of(0x66, 0x74, 0x79, 0x70) : Uint8Array.of(0x00, 0x66, 0x74, 0x79, 0x70);
+      const length = (lead[0] << 8) | lead[1];
+      const body = join(lead.subarray(2), new Uint8Array(length - lead.length).fill(0x20));
+      const first = join(Uint8Array.of(0xff, 0xd8, 0xff, 0xe0), lead.subarray(0, 2), body.subarray(0, length - 2));
+      // Eight digits either way, so the offset's own length does not move the end.
+      const digits = (offset: number) => String(offset).padStart(8, "0");
+      const total = join(first, xmpSegment(microVideo(digits(0))), EOI, CLIP).length;
+      const file = join(first, xmpSegment(microVideo(digits(total - start))), EOI, CLIP);
+      expect(file.length).toBe(total);
+      return file;
+    };
+    for (const start of [0, 1]) {
+      const file = at(start);
+      expect(String.fromCharCode(...file.subarray(start + 4, start + 8))).toBe("ftyp");
+      expect(motionRange(file)).toBeUndefined();
+    }
   });
 });
 

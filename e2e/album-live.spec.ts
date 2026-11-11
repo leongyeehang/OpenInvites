@@ -55,6 +55,15 @@ async function openPhoto(page: Page): Promise<Locator> {
   return viewer;
 }
 
+// Whether the page holds back the browser's menu for the picture: a cancelable contextmenu event,
+// as a right-click or a long press sends, comes back default-prevented.
+const menuPrevented = (picture: Locator) =>
+  picture.evaluate((element) => {
+    const menu = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    element.querySelector("img")!.dispatchEvent(menu);
+    return menu.defaultPrevented;
+  });
+
 const paused = (motion: Locator) => motion.evaluate((video: HTMLVideoElement) => video.paused);
 
 test("a motion photo is added as a live photo, wears the Live mark and plays when pressed", async ({ browser, request }) => {
@@ -82,15 +91,38 @@ test("a motion photo is added as a live photo, wears the Live mark and plays whe
   await expect(play).toHaveAttribute("aria-pressed", "false", { timeout: 15_000 });
   await expect(motion).toBeHidden();
 
-  // Held, it plays until let go.
+  // The picture's menu is the browser's, so a right-click can save it.
+  expect(await menuPrevented(pictureOf(viewer))).toBe(false);
+
+  // Held, it plays until let go; during the hold its menu is held back, since Android's long press
+  // would open it and end the hold.
   const box = (await pictureOf(viewer).boundingBox())!;
   await priya.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await priya.mouse.down();
   await expect(motion).toBeVisible();
   expect(await paused(motion)).toBe(false);
+  expect(await menuPrevented(pictureOf(viewer))).toBe(true);
   await priya.mouse.up();
   await expect(motion).toBeHidden();
   expect(await paused(motion)).toBe(true);
+  expect(await menuPrevented(pictureOf(viewer))).toBe(false);
+
+  // A hold whose lifted pointer is never heard ends when the window loses focus, or the page is hidden.
+  await priya.mouse.down();
+  await expect(motion).toBeVisible();
+  await priya.evaluate(() => window.dispatchEvent(new Event("blur")));
+  await expect(motion).toBeHidden();
+  expect(await paused(motion)).toBe(true);
+  await priya.mouse.up();
+  await priya.mouse.down();
+  await expect(motion).toBeVisible();
+  await priya.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(motion).toBeHidden();
+  expect(await paused(motion)).toBe(true);
+  await priya.mouse.up();
   await Promise.all([host.context.close(), priya.context().close()]);
 });
 

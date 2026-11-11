@@ -369,10 +369,13 @@ export async function processSizes(job: ClaimedJob): Promise<void> {
 }
 
 // A live photo's motion given up (M8 ticket 08): its job goes, and the clip as sent with it, so the
-// photo stays a still. The photo itself is never touched.
+// photo stays a still; a motion a failed try had already stored goes too, unless the photo is live
+// (a try that threw after completeMotion). The photo itself is never touched.
 export async function giveUpMotion(job: ClaimedJob): Promise<void> {
   await dropJob(job);
   await getStorage().delete(motionSentKey(job.photoId));
+  const [item] = await getDb().select({ live: photo.live }).from(photo).where(eq(photo.id, job.photoId));
+  if (!item?.live) await getStorage().delete(motionKey(job.photoId));
 }
 
 // One claim of a `motion` job (M8 ticket 08): the clip the photo carried, stored as sent while the

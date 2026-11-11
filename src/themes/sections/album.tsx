@@ -4,7 +4,7 @@ import { Check, ChevronLeft, ChevronRight, CircleDot, Download, Film, ImagePlus,
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
-import { useEffect, useOptimistic, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useOptimistic, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { approvePhotoAction, deletePhotoAction } from "@/album/actions";
 import { MAX_PHOTOS_AT_ONCE } from "@/album/album";
 import type { ShownDetails } from "@/album/details";
@@ -25,7 +25,7 @@ import { clockTime, formatMinutes, formatSize, MEGABYTE } from "@/lib/sizes";
 import { cn } from "@/lib/utils";
 import { prepareFiles, uploadFiles, type Prepared, type UploadOutcome } from "./album-upload";
 import type { UploadProblem } from "@/uploads/validate";
-import { useReducedMotion } from "../effects/confetti";
+import { useReducedMotion } from "../use-reduced-motion";
 import { RefreshWhileProcessing } from "./refresh-while-processing";
 import { VideoPlayer, type ShownSize } from "./video-player";
 
@@ -479,8 +479,10 @@ const HOLD_SLOP_PX = 10;
 // go, cancelled or left, and a swipe still turns the page; its Live mark, in the picture's corner,
 // is a button that plays it once from the start and back to the still at its end, or stops it.
 // Nothing plays by itself, nor when the viewer opens or turns, which mounts this anew; under
-// reduced motion the hold is off and only the button plays it. The picture is sized by the
-// viewer's area (a size container), so the mark sits on the picture, not the letterbox.
+// reduced motion the hold is off and only the button plays it. A hold also ends when the window
+// loses focus or the page is hidden, where the lifted pointer would never be heard. The picture is
+// sized by the viewer's area (a size container), so the mark sits on the picture, not the
+// letterbox.
 function LivePicture({ photo, alt }: { photo: LivePhoto; alt: string }) {
   const t = useTranslations("EventPage.album");
   const reduced = useReducedMotion();
@@ -514,6 +516,17 @@ function LivePicture({ photo, alt }: { photo: LivePhoto; alt: string }) {
     hold.current = undefined;
     if (held.on) stop();
   };
+  const lost = useEffectEvent(() => release());
+  useEffect(() => {
+    const blurred = () => lost();
+    const hidden = () => document.visibilityState === "hidden" && lost();
+    window.addEventListener("blur", blurred);
+    document.addEventListener("visibilitychange", hidden);
+    return () => {
+      window.removeEventListener("blur", blurred);
+      document.removeEventListener("visibilitychange", hidden);
+    };
+  }, []);
 
   return (
     <div
@@ -537,8 +550,11 @@ function LivePicture({ photo, alt }: { photo: LivePhoto; alt: string }) {
       onPointerUp={release}
       onPointerCancel={release}
       onPointerLeave={release}
-      // A long press would otherwise open the browser's menu for the picture, ending the hold.
-      onContextMenu={reduced ? undefined : (event) => event.preventDefault()}
+      // During a hold only: Android's long press would otherwise open the picture's menu and end
+      // it. Any other time the menu is the browser's, so a right-click still saves the picture.
+      onContextMenu={(event) => {
+        if (hold.current) event.preventDefault();
+      }}
       className="relative select-none [-webkit-touch-callout:none]"
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized */}

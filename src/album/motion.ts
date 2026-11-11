@@ -6,11 +6,16 @@
 //
 // Every offset and length here is the uploader's own. Each is checked against the file before it
 // is used, no loop runs longer than the file or a fixed bound, nothing over MOTION_MAX_BYTES is
-// taken, and a file that cannot be read is simply a still.
+// taken, and a file that cannot be read is simply a still. The text read is the first XMP packet
+// alone, one segment of at most 64 KB, and every scan of it is linear: the finish runs this
+// synchronously, so a crafted packet must not hold the server (ticket 08's review).
 
 // At most a few seconds (plan ruling 15): about what a phone records around the shot; anything
 // longer is cut.
 export const MOTION_MAX_SECONDS = 3;
+
+// Characters read for one property's value: a mime type, a semantic or a number fits many times.
+const VALUE_MAX = 64;
 
 // The largest clip taken out of a photo: far more than any phone's few seconds, so a range larger
 // than this is a file that lies, and nothing of it is copied or handed to ffmpeg.
@@ -39,6 +44,10 @@ const FTYP = encode("ftyp");
 const MAX_SEGMENTS = 256;
 const MAX_ITEMS = 16;
 
+// Samsung's trailer is a short index of its blocks at the very end of the file; its header is
+// looked for only this far from the end.
+const TRAILER_MAX_BYTES = 64 * 1024;
+
 type Range = { start: number; end: number };
 
 // Where the motion clip lies in a photo's bytes, or nothing for a still: Google's container or
@@ -48,14 +57,21 @@ type Range = { start: number; end: number };
 export function motionRange(bytes: Uint8Array): Range | undefined {
   const headers = jpegHeaders(bytes);
   if (!headers) return undefined;
-  return fromXmp(bytes, headers.xmp) ?? fromSamsung(bytes, headers.end);
+  return (headers.xmp !== undefined ? fromXmp(bytes, headers.xmp) : undefined) ?? fromSamsung(bytes, headers.end);
 }
 
-// The XMP of a JPEG's APP1 segments before the first SOS, and where the walk stopped; nothing for
-// a file that is not a JPEG.
-function jpegHeaders(bytes: Uint8Array): { xmp: string; end: number } | undefined {
+// The first XMP packet before the picture's data, the one text motionRange reads: one segment, so
+// at most 65,533 bytes less the prefix, however many segments follow.
+export function readXmp(bytes: Uint8Array): string | undefined {
+  return jpegHeaders(bytes)?.xmp;
+}
+
+// The first XMP packet among a JPEG's APP1 segments before the first SOS (Google's container is in
+// the main packet; an extended packet has a prefix of its own and is never read), and where the
+// walk stopped; nothing for a file that is not a JPEG.
+function jpegHeaders(bytes: Uint8Array): { xmp: string | undefined; end: number } | undefined {
   if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return undefined;
-  const packets: string[] = [];
+  let xmp: string | undefined;
   let at = 2;
   for (let segment = 0; segment < MAX_SEGMENTS && at + 4 <= bytes.length && bytes[at] === 0xff; segment++) {
     const marker = bytes[at + 1];
@@ -74,12 +90,12 @@ function jpegHeaders(bytes: Uint8Array): { xmp: string; end: number } | undefine
     const length = (bytes[at + 2] << 8) | bytes[at + 3];
     const end = at + 2 + length;
     if (length < 2 || end > bytes.length) break;
-    if (marker === 0xe1 && startsWith(bytes, at + 4, XMP_PREFIX) && at + 4 + XMP_PREFIX.length <= end) {
-      packets.push(new TextDecoder().decode(bytes.subarray(at + 4 + XMP_PREFIX.length, end)));
+    if (xmp === undefined && marker === 0xe1 && startsWith(bytes, at + 4, XMP_PREFIX) && at + 4 + XMP_PREFIX.length <= end) {
+      xmp = new TextDecoder().decode(bytes.subarray(at + 4 + XMP_PREFIX.length, end));
     }
     at = end;
   }
-  return { xmp: packets.join(""), end: at };
+  return { xmp, end: at };
 }
 
 // Google's container: the clip is the directory's MotionPhoto item, and the items after the
@@ -89,7 +105,9 @@ function jpegHeaders(bytes: Uint8Array): { xmp: string; end: number } | undefine
 function fromXmp(bytes: Uint8Array, xmp: string): Range | undefined {
   if (!xmp) return undefined;
   if (property(xmp, "GCamera:MotionPhoto") === "1") {
-    const directory = /<Container:Directory\b[\s\S]*?<\/Container:Directory>/.exec(xmp)?.[0] ?? xmp;
+    const open = xmp.indexOf("<Container:Directory");
+    const close = open < 0 ? -1 : xmp.indexOf("</Container:Directory>", open);
+    const directory = open < 0 ? xmp : xmp.slice(open, close < 0 ? undefined : close);
     const chunks = directory.split(/<Container:Item\b/).slice(1);
     if (chunks.length > MAX_ITEMS) return undefined;
     const items = chunks.map((chunk) => ({ semantic: property(chunk, "Item:Semantic"), length: whole(property(chunk, "Item:Length")), padding: whole(property(chunk, "Item:Padding") ?? "0") }));
@@ -113,12 +131,12 @@ function fromXmp(bytes: Uint8Array, xmp: string): Range | undefined {
 }
 
 // Samsung's: the clip follows the marker, after the picture, and ends where the trailer's header
-// begins, or at the end of the file when there is none.
+// begins, in the file's last TRAILER_MAX_BYTES, or at the end of the file when there is none.
 function fromSamsung(bytes: Uint8Array, from: number): Range | undefined {
   const marker = indexOf(bytes, SAMSUNG_MARKER, from);
   if (marker < 0) return undefined;
   const start = marker + SAMSUNG_MARKER.length;
-  const trailer = lastIndexOf(bytes, SAMSUNG_TRAILER, start);
+  const trailer = lastIndexOf(bytes, SAMSUNG_TRAILER, Math.max(start, bytes.length - TRAILER_MAX_BYTES));
   return checked(bytes, start, trailer < 0 ? bytes.length : trailer);
 }
 
@@ -131,10 +149,20 @@ function checked(bytes: Uint8Array, start: number, end: number): Range | undefin
 }
 
 // A property's value in either of XMP's forms: an attribute (`GCamera:MotionPhoto="1"`) or an
-// element (`<GCamera:MotionPhoto>1</GCamera:MotionPhoto>`).
+// element (`<GCamera:MotionPhoto>1</GCamera:MotionPhoto>`). Each place the name appears is read
+// through a window of a few dozen characters after it, so the whole read is linear in the text,
+// however its tags are left open; a value longer than VALUE_MAX is not one.
 function property(text: string, name: string): string | undefined {
-  const match = new RegExp(`(?<![\\w:])${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')|<${name}>([^<]*)</${name}>`).exec(text);
-  return (match?.[1] ?? match?.[2] ?? match?.[3])?.trim();
+  const attribute = new RegExp(`^\\s{0,16}=\\s{0,16}(?:"([^"]{0,${VALUE_MAX}})"|'([^']{0,${VALUE_MAX}})')`);
+  const element = new RegExp(`^>([^<]{0,${VALUE_MAX}})</${name}>`);
+  for (let at = text.indexOf(name); at >= 0; at = text.indexOf(name, at + name.length)) {
+    const before = at > 0 ? text[at - 1] : "";
+    const window = text.slice(at + name.length, at + name.length + VALUE_MAX + name.length + 40);
+    const match = before === "<" ? element.exec(window) : /[\w:/]/.test(before) ? null : attribute.exec(window);
+    const value = match?.[1] ?? match?.[2];
+    if (value !== undefined) return value.trim();
+  }
+  return undefined;
 }
 
 // A whole number written as digits, no more than a file's length could be; nothing otherwise.
@@ -148,16 +176,22 @@ function startsWith(bytes: Uint8Array, at: number, pattern: Uint8Array): boolean
   return true;
 }
 
-// The first place `pattern` starts at or after `from`, or -1. The first byte is found natively, so
-// a long file is crossed quickly.
+// The first place `pattern` starts at or after `from`, or -1: Horspool's search, which compares a
+// window from its end and moves it by how far that last byte is from the pattern's end, so a long
+// file, even one crafted of the pattern's own bytes, is crossed in a few steps a byte.
 function indexOf(bytes: Uint8Array, pattern: Uint8Array, from: number): number {
-  for (let at = bytes.indexOf(pattern[0], from); at >= 0; at = bytes.indexOf(pattern[0], at + 1)) {
-    if (startsWith(bytes, at, pattern)) return at;
+  const last = pattern.length - 1;
+  const shift = new Array<number>(256).fill(pattern.length);
+  for (let index = 0; index < last; index++) shift[pattern[index]] = last - index;
+  for (let at = Math.max(0, from); at + last < bytes.length; at += shift[bytes[at + last]]) {
+    let index = last;
+    while (index >= 0 && bytes[at + index] === pattern[index]) index--;
+    if (index < 0) return at;
   }
   return -1;
 }
 
-// The last place `pattern` starts at or after `from`, or -1.
+// The last place `pattern` starts at or after `from`, or -1; the caller bounds how far back that is.
 function lastIndexOf(bytes: Uint8Array, pattern: Uint8Array, from: number): number {
   for (let at = bytes.lastIndexOf(pattern[0]); at >= from; at = at === 0 ? -1 : bytes.lastIndexOf(pattern[0], at - 1)) {
     if (startsWith(bytes, at, pattern)) return at;
