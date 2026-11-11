@@ -24,7 +24,7 @@ Constraints: guests never have accounts; nothing leaves the instance (ADR-0005);
 
 ## Solution
 
-**(maintainer, 2026-11-10)** One milestone, M8, in four parts, built in this order on branch `m8`. Each part ends in a state that could be released.
+**(maintainer, 2026-11-10)** One milestone, M8, in four parts, built in this order on branch `m8`. Each part ends in a state that could be released. **(maintainer, 2026-11-11)** Before the parts, one ticket lays the groundwork for features as modules: the maintainer means to make features modular later, the album included, so M8 gives the operator a switch for each optional feature and builds what is new so that it can be lifted out. The album itself is reorganised in M9.
 
 1. **Album media.** Every video offers Auto, its original under its real size, 1080p and 720p. Auto picks for the viewer's screen and connection and steps down if playback stalls; the player remembers the last pick on the device. The operator may have a 4K copy made that plays in every browser. HDR copies are converted to standard colour and the original wears an HDR badge. The viewer shows a line of technical facts; the host may keep the capture time, the camera and the exposure; whoever adds an item may caption it. A live photo keeps its motion, wears a Live mark and plays when pressed.
 2. **Album voting.** The host starts a vote. Each person has one vote per award; the host names the awards, says who may vote and may set a closing time. Counts and, by default, uploader names stay hidden from guests while voting is open, and each guest sees the album in a different order. Closing shows the winners; a tie for first can go to a tie-break round.
@@ -90,9 +90,18 @@ Numbered on from M7's 271.
 309. As a guest, I want a collapsed section to show what it holds and to open with one tap.
 310. As a host with an event made before 0.8, I want its page to look exactly as it did until I arrange it.
 
+### Features
+
+313. As the operator, I want to switch the album, its videos and voting on or off for my whole site.
+314. As a host on a site where a feature is off, I want not to be shown it at all.
+315. As the maintainer, I want each new feature to live apart from the rest, so that it can later be lifted out.
+
 ## Implementation Decisions
 
 ### Architecture
+
+- **Features are modules inside the app (maintainer, 2026-11-11: the direction; the shape decided here; ADR-0008).** Twenty-four files outside `src/album` import its internals today, and the app builds into one standalone image, so separately installed extensions would be a milestone of their own. M8 does three smaller things. A **feature list** in `src/features/` names each optional feature, what it needs (Voting needs the Album; Videos need the Album and a usable ffmpeg) and whether the site has it on. A **Features card** in Site settings switches Album, Videos and Voting on or off for the whole site. And four **rules** bind every ticket: a new feature lives in its own folder with one public entry file; it touches the rest of the app only through named hooks; the event page takes features through the section registry; and nothing imports another feature's internals, which a lint rule enforces for the new folders, while the album's twenty-four outside dependents must not grow. ADR-0008 records the rules and the path: switches now, the album as a module in M9, extensions decided after that with real modules to look at.
+- **What a switched-off feature means (decided here).** Hosts and guests are not shown it, and its actions refuse. Nothing is deleted: an album's files stay and still count toward storage, votes stay, and switching the feature back on brings them back. With Videos off, events take no new videos and the ones they have still play. The Storage card's "process videos" switch is unchanged.
 
 - **No new runtime dependency for playing, dragging or streaming (decided here).** Sizes are progressive MP4 files chosen by the browser's own player; reordering is by buttons. One small pure-JavaScript EXIF reader may be added for photos' details if `sharp`'s metadata proves insufficient; the ticket that needs it says so.
 - **Migrations from 0054, in ticket order.** New enum types are created in the migration that first uses them; values are never added to an existing enum in the same migration as their first use (M7 plan ruling).
@@ -120,6 +129,7 @@ Numbered on from M7's 271.
 
 ### Voting
 
+- **A module of its own (decided here).** `src/voting/`, with one public entry. It touches the app in three named places: a slot on each album item, in the grid and in the viewer; a block in the editor's Settings; and a draft for Announcements. It knows album items by id only.
 - **Shape (maintainer).** Off, open or closed per event. One vote per person per award; a second tap in an award moves the vote; a tap on the voted item takes it back. Nobody votes for their own upload. Only approved items in the award's scope take votes.
 - **Awards (maintainer).** At least one; a new vote starts with "Favourite" for photos and videos. The host adds, renames, reorders and removes awards, each for photos, videos or both, with suggestions (Best photo, Best video, Funniest, Best group shot). Removing an award deletes its votes after a confirmation. **(maintainer, 2026-11-11)** While an award for photos only or for videos only is chosen, the album shows only those items, for voting and for its results; nothing is dimmed.
 - **Who may vote (maintainer).** Everyone who sees the whole album (the default), only guests who are going, or only guests who replied through a personal invite link. Hosts always may.
@@ -154,6 +164,7 @@ Numbered on from M7's 271.
 ### Sections
 
 - **Storage (decided here).** `event.sections`, one JSON value holding the order and, per section, whether it is collapsed, its heading, its style and, for Notes and Links, its content. Absent means never arranged, which draws today's page exactly in each layout. It is not part of the Theme, which is the look.
+- **A registry (decided here).** Each kind of section registers what it loads, how each layout draws it and its row in the Arrange sheet. The album, the comments and the schedule register their own. This is the door a later module comes through.
 - **One switch, one truth (decided here).** A switch that changes what the server accepts is a column. Comments (`commentsEnabled`) and Who's coming (`guestListVisibility`) move from the Settings sheet to Arrange and keep their columns; the album gains `albumEnabled`. With a section off, posting to it is refused.
 - **Sections.** Letter, Details, Schedule, Who's coming, Announcements, Comments, Album, Countdown, and any number of Notes and Links up to ten. The poster, title, host line and reply bar are fixed. Details is always on. The Letter's switch is the Invites page's.
 - **Per layout (decided here).** Each layout draws the placed list in its own idiom. In Broadsheet, Details is the description, with When and Where staying in the header. In Thread, Details is the description, When and Where bubbles together; the card stays first and the composer last; announcements move as a group.
@@ -184,6 +195,7 @@ Numbered on from M7's 271.
 
 ## Testing Decisions
 
+- **Features**: unit tests for the list and what each feature needs; a browser spec, `features`, that switches Voting off and sees no Voting block and a refused vote, switches the Album off and sees Voting go with it, and switches both back on with nothing lost. Lint fails on an import of `src/voting` internals from outside it.
 - **Unit**: the size rules (what is made, labels, the pick, Auto, stepping down, reading the old key); the voting rules (state with a closing time, who may vote and for what, places with ties, the tie-break's first place, what is shown to whom, the shuffle being stable per viewer and different between two); the arrangement (defaults equal to today's order in each layout, tolerant parsing, limits, link safety, every change); the site look (stable per area, the fallback without a database); legibility over every backdrop with the new inks.
 - **Browser, per ticket**, on the Docker test profile. New fixtures: a two-second 1920x1080 HEVC clip, a two-second HDR clip, and an Android motion photo, each with a note of how it was made. New specs: `album-voting`, `site-look`, `sections`. A guest's page is read as HTML to prove a hidden name and count are absent.
 - **Existing specs each part must keep green or update** are named in the tickets; the largest are `album-video`, `album-upload`, `album-settings`, `album`, `accessibility`, `keyboard`, `reduced-motion`, `dashboard`, `invites`, `thread`, `broadsheet`, `guest-list`, `comments`.
@@ -192,6 +204,7 @@ Numbered on from M7's 271.
 
 ## Out of Scope
 
+- A plugin system; separately installed extensions; reorganising the album into a module (M9); switches for features older than the album (comments, date polls, letters, schedule).
 - Adaptive streaming (HLS or DASH); sizes below 720p; an HDR copy; hardware encoding.
 - Location in any form; editing a detail by hand; details in a downloaded file.
 - HEIC photos; the motion of an iPhone Live Photo, by any route (joining a still to its saved video, or an iPhone app that could take both halves in one tap, were both offered and put off); sound in a live photo's motion.
@@ -204,5 +217,6 @@ Numbered on from M7's 271.
 
 - The maintainer's answers of 2026-11-10, in order: four parts as one milestone; a menu of sizes, then "just 4K, 1080p and 720p" with Auto following the last pick; Auto as a smart pick after asking for the difference from streaming; a favourites contest; ties sharing a place; names shown after voting closes by default and changeable in settings; every Arrange extra offered "and more customisation"; look B after asking for a demo; the page's own subject's poster with the host able to pick their own; then, on reading the plan, all four voting extras, "one vote each person" in place of several, and a further contest for a tied first place; another round or a shared first if still tied; a 4K copy as an operator switch; HDR converted in the copies with a badge; capture time, camera and exposure kept at the host's choice, a technical line and captions.
 - The maintainer's answers of 2026-11-11, after trying the voting mock-up (https://claude.ai/artifact/KCCLGuyyQHC7mmG1oVCGgp): an award for photos or videos only shows only those items; live photos are photos, with a Live mark and their motion; then, on learning that Safari gives a web page only the still of an iPhone Live Photo, "stills only on iPhone at this moment".
-- The plan at `m8-plan.md` orders the tickets: media 01 to 08 (live photos are 07), voting 09 to 15, glass 16 to 22, sections 23 to 30. Tickets 14 (tie-break) and 29 (styles) are placed so either can follow in a later release.
+- The maintainer on modularity, 2026-11-11: "I plan to make things modular in the future, so the albums might be as well"; offered external extensions first, the album as a module first, or groundwork in M8 with the album in M9, they chose the last.
+- The plan at `m8-plan.md` orders 31 tickets: groundwork 01, media 02 to 09 (live photos are 08), voting 10 to 16, glass 17 to 23, sections 24 to 31. Tickets 15 (tie-break) and 30 (styles) are placed so either can follow in a later release.
 - The mock-up the maintainer chose from is at https://claude.ai/artifact/WqS8ugi7GrAxsB9XzfZGrq.
