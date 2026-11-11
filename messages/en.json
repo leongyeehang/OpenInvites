@@ -1796,6 +1796,25 @@
         "never": "Never shown to guests",
         "hint": "Hosts and the person who added an item always see who did."
       }
+    },
+    "album": {
+      "open": "Voting is open",
+      "closed": "Voting closed",
+      "hint": "Counts stay hidden until voting closes.",
+      "tapToVote": "Tap a star to vote in {award}.",
+      "yourVote": "Your vote in {award} is in. Tap another star to move it, or yours to take it back.",
+      "voteFor": "Vote for",
+      "voteThis": "{kind, select, video {Vote for this video} other {Vote for this photo}}",
+      "votes": "{count, plural, one {# vote} other {# votes}}",
+      "place": "{place, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}",
+      "placeLabel": "{place, selectordinal, one {#st} two {#nd} few {#rd} other {#th}} place",
+      "hostsOnly": "Hosts only",
+      "soFar": "{count, plural, one {# vote} other {# votes}} so far in {award}",
+      "errors": {
+        "tooFast": "You’re going too fast. Try again shortly.",
+        "closed": "Voting has closed.",
+        "notAllowed": "You can’t vote for this one."
+      }
     }
   }
 }

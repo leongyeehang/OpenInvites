@@ -458,7 +458,7 @@ processor itself did not survive (out of memory, say) is taken again and failed 
 claim, never retried for ever. A job's lease is ten minutes, renewed every two while it runs (0.8),
 so a long encode keeps its job, a processor that dies is replaced ten minutes later, and when the
 item is deleted meanwhile its encode stops at the next renewal and what was stored for it is
-removed. Its files are named after the item's id: `<id>-video.mp4` (the clip at original quality,
+removed. Its files are named after the item's id: `<id>-video.mp4` (the clip at its original size,
 rewrapped as MP4 with its metadata dropped, so a phone's location and device details never reach a
 guest, and its index moved to the front, so playing starts at once); `<id>-video-1080p.mp4` and
 `<id>-video-720p.mp4` (H.264 copies, made at the sizes the host ticks for the event, each only when
@@ -588,6 +588,7 @@ runs.
 | `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an account email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, asking for a sign-in link, and the operator's emailed host invitations. Also each announcement a host emails to guests, counted once however many guests it reaches; each Send of an invitation from an invite list, and each "Send to everyone not yet sent", counted once however many it reaches; and each code sent to a guest to prove their email, and each ask for a code on an invite-only event's locked page, whether or not the address is on its invite list (so the answer never tells). |
 | `RATE_LIMIT_COMMENT` | `30/10m` | Posting a comment on an event page, and deleting one, by a guest or a host; and writing, changing or removing an album item's caption (0.8). This also bounds the emails that tell hosts about comments. |
 | `RATE_LIMIT_REPORT` | `5/1h` | Sending a report about an event page. This also bounds the emails that tell you about reports. |
+| `RATE_LIMIT_VOTE` | `120/10m` | Giving, moving or taking back a vote in an album. 120 in ten minutes, since a party often shares one address. |
 
 Each limit is written `count/window`, the window in seconds, minutes or hours: `120/1m`,
 `60/10m`, `10/1h`. The defaults are for people, some of whom share an address (an office, a

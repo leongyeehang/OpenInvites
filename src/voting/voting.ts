@@ -223,7 +223,7 @@ export function countsShown(stage: AwardStage, viewer: VotingViewer): boolean {
 // Whether a viewer is shown who added an item: the hosts and the item's own uploader always;
 // anyone else as the host chose, where "after voting" hides names only while the vote is open, so
 // an event that never votes shows them as it always did.
-export function namesShown(event: Pick<VotingEvent, "albumUploaderNames">, state: VotingState, viewer: VotingViewer, item: Pick<VotableItem, "rsvpId">): boolean {
+export function namesShown(event: Pick<VotingEvent, "albumUploaderNames">, state: VotingState, viewer: ViewerWithoutInvite, item: Pick<VotableItem, "rsvpId">): boolean {
   if (viewer.kind === "host" || (viewer.kind === "guest" && item.rsvpId === viewer.rsvpId)) return true;
   if (event.albumUploaderNames === "always") return true;
   if (event.albumUploaderNames === "never") return false;
@@ -234,8 +234,9 @@ export function namesShown(event: Pick<VotingEvent, "albumUploaderNames">, state
 // server before anything is sent. With Voting switched off for the site every name shows, as
 // before 0.8, whatever the event's setting: the setting lives in the Voting block, which is not
 // shown then, and a host could not see why names were missing (M8 plan). Otherwise as namesShown
-// says, with the vote as it stands now.
-export function nameShownTo(votingOn: boolean, event: VotingEvent, viewer: VotingViewer, now: Date): (item: Pick<VotableItem, "rsvpId" | "hostId">) => boolean {
+// says, with the vote as it stands now. Whether a guest came through a personal invite does not
+// matter here, so the album asks without reading it (M8 ticket 12).
+export function nameShownTo(votingOn: boolean, event: VotingEvent, viewer: ViewerWithoutInvite, now: Date): (item: Pick<VotableItem, "rsvpId" | "hostId">) => boolean {
   if (!votingOn) return () => true;
   const state = votingState(event, now);
   return (item) => namesShown(event, state, viewer, item);
@@ -263,4 +264,53 @@ export function shuffledFor(viewerKey: string, ids: string[]): string[] {
 // An event's awards, or Favourite alone while it has none (M8 plan, ruling 19).
 export function awardsOrDefault(awards: AwardRules[]): AwardRules[] {
   return awards.length > 0 ? awards : [DEFAULT_AWARD];
+}
+
+// A vote as the album reads it (repository.ts, listVotes): in which award and round, for which
+// item, and by whom, a guest through their RSVP or a host.
+export type CastVote = GivenVote & { awardId: string; rsvpId: string | null; hostId: string | null };
+
+// What one item shows of one award: whether this viewer may vote for it now, its votes where this
+// viewer is shown them (the first round's, 0 included), and its ribbon once the award's results are
+// in. A key left out is not sent: a guest's page carries no count while voting is open (M8 spec).
+export type ItemStanding = { may: boolean; shownVotes?: number; place?: 1 | 2 | 3 };
+
+// Where one award stands for this viewer (M8 ticket 12): its stage, the items it lists (those in
+// its scope, in the album's order), this viewer's vote in its current round, for a host the votes
+// given in that round so far, and what each item it lists shows.
+export type AwardStanding = { award: AwardRules; stage: AwardStage; ids: string[]; voted: string | null; total?: number; items: Map<string, ItemStanding> };
+
+// Each award as this viewer's album shows it, from the event's votes and the items this viewer
+// sees (`view`, the album's own answer). Only an award's votes for the items it lists count, so a
+// vote for an item it no longer shows is kept but not counted (M8 plan, ruling 23).
+export function albumVotes(event: VotingEvent, view: AlbumViewName, viewer: VotingViewer, now: Date, awards: AwardRules[], votes: CastVote[], items: VotableItem[]): AwardStanding[] {
+  const state = votingState(event, now);
+  const votesHere = mayVote(event, view, viewer, now);
+  const mine = (vote: CastVote) => (viewer.kind === "guest" ? vote.rsvpId === viewer.rsvpId : viewer.kind === "host" && vote.hostId === viewer.hostId);
+  return awards.map((award) => {
+    const stage = awardStage(state, award);
+    const listed = items.filter((item) => inScope(award, item));
+    const ids = listed.map((item) => item.id);
+    const given = votes.filter((vote) => vote.awardId === award.id && ids.includes(vote.photoId));
+    const round = openRound(event, award, now);
+    const counts = tally(given, 1);
+    const shown = countsShown(stage, viewer);
+    const placed = stage === "results" ? awardPlaces(award, given) : undefined;
+    const standings = new Map(
+      listed.map((item): [string, ItemStanding] => {
+        const place = placed && ribbon(placed.get(item.id));
+        return [
+          item.id,
+          {
+            may: votesHere && round !== null && mayVoteFor(award, item, viewer),
+            ...(shown && { shownVotes: counts.get(item.id) ?? 0 }),
+            ...(place && { place }),
+          },
+        ];
+      }),
+    );
+    const voted = given.find((vote) => vote.round === award.round && mine(vote))?.photoId ?? null;
+    const total = viewer.kind === "host" ? given.filter((vote) => vote.round === award.round).length : undefined;
+    return { award, stage, ids, voted, ...(total !== undefined && { total }), items: standings };
+  });
 }

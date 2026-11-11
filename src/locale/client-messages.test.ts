@@ -158,7 +158,9 @@ describe("the messages each page sends to the browser", () => {
 
   it("follows a module's entry only to the files whose exports are imported", () => {
     // The event page imports albumVotingFor from the album vote's entry (M8 ticket 11), which also
-    // carries the Voting block: the page draws only the album's side of the vote.
-    expect(walk(join(APP, "e/[slug]/page.tsx")).used.has("Voting.block")).toBe(false);
+    // carries the Voting block: the page draws only the album's side of the vote, whose head reads
+    // the block's Close voting and Reopen voting too (ticket 12).
+    const used = walk(join(APP, "e/[slug]/page.tsx")).used;
+    expect(used.get("Voting.block")).toEqual(["voting/album-voting-head.tsx"]);
   });
 });

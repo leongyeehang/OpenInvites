@@ -11,7 +11,8 @@ import { clientAddress, expect, test, type APIRequestContext, type Browser, type
 // is off is not shown to hosts or guests and its actions refuse; nothing is deleted, and switching
 // it back on brings back what it held. Runs against `app-fresh`, with `worker-fresh` processing
 // its videos (M7 ticket 08), all recreated first, so the first account here is the operator's,
-// who is also the host. Ticket 10 adds Voting's scenario.
+// who is also the host. Ticket 10 adds Voting's scenario, and ticket 12 votes given while Voting is
+// switched off and on.
 
 const PAST = { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" };
 const H264 = "e2e/fixtures/clip-h264.mp4";
@@ -237,5 +238,50 @@ test("with Voting off, no event shows the Voting block; with the Album off, neit
   sheet = await openSettings(operator);
   await expect(block(sheet)).toHaveAttribute("data-state", "open");
   await expect(block(sheet)).toContainText("Voting is open");
+});
+
+// M8 ticket 12, and Review Focus 6: Voting switched off during an open vote set to Never. The
+// vote is the one the scenario above left open on the videos scenario's event, whose one item is
+// Priya's video.
+test("Voting switched off during an open vote: a page left open has its vote refused, the album shows no star and names as before 0.8; switched on again, the vote is open with its vote, and names are hidden again", async ({ browser }) => {
+  test.slow();
+  const block = (sheet: Locator) => sheet.locator('[data-slot="voting-block"]');
+  await operator.reload();
+  const names = (await openSettings(operator)).getByRole("group", { name: "Who added each item" });
+  await savedAfter(operator, () => names.getByLabel("Never shown to guests").check());
+
+  const ana = await guestGoing(browser, videoEvent, "Ana Ruiz");
+  // A video's thumbnail is named with its length after its label ("Video 1 0:04"), and its star by
+  // the thumbnail.
+  const star = album(ana).getByRole("button", { name: /^Vote for Video 1 / });
+  const unnamed = album(ana).getByRole("button", { name: /^Video 1 \d/ });
+  const answered = () => ana.waitForResponse((response) => response.request().method() === "POST" && response.request().headers()["next-action"] !== undefined);
+  let answer = answered();
+  await star.click();
+  await answer;
+  await expect(star).toHaveAttribute("aria-pressed", "true");
+  await expect(unnamed).toBeVisible();
+
+  await switchFeature(operator, "Voting", false);
+  // The page left open: taking the vote back is refused, and the vote stays as it was.
+  answer = answered();
+  await star.click();
+  await answer;
+  await expect(album(ana).locator('[data-slot="album-voting"]').getByRole("alert")).toHaveText("Voting has closed.");
+  await expect(star).toHaveAttribute("aria-pressed", "true");
+  // Reloaded: no vote at all, and the name shows, as before 0.8.
+  await ana.reload();
+  await expect(album(ana).getByRole("button", { name: /^Video 1 by Priya Nair/ })).toBeVisible();
+  await expect(album(ana).locator('[data-slot="album-voting"]')).toHaveCount(0);
+  await expect(album(ana).locator('[data-slot="vote-star"]')).toHaveCount(0);
+
+  await switchFeature(operator, "Voting", true);
+  await ana.reload();
+  await expect(album(ana).locator('[data-slot="album-voting"]')).toContainText("Voting is open");
+  await expect(star).toHaveAttribute("aria-pressed", "true");
+  await expect(unnamed).toBeVisible();
+  await toEditor(operator);
+  await expect(block(await openSettings(operator))).toHaveAttribute("data-state", "open");
+  await ana.context().close();
   await operator.context().close();
 });

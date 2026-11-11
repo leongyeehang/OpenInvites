@@ -210,6 +210,12 @@ describe("shownDetails", () => {
     });
   });
 
+  it("leaves out the camera, but not the exposure, of an item whose uploader's name this viewer is not shown (M8 ticket 12)", () => {
+    const details = { pixels: { width: 4032, height: 3024 }, camera, exposure: { iso: 80 } };
+    expect(shownDetails(photo(details), { albumKeepCamera: true }, false)).toEqual({ kind: "photo", width: 4032, height: 3024, bytes: 3_250_000, exposure: "ISO 80" });
+    expect(shownDetails(photo(details), { albumKeepCamera: true }, true)).toMatchObject({ camera: "iPhone 15 Pro", exposure: "ISO 80" });
+  });
+
   it("gives a photo from before 0.8 its row's size, and no file size when none is known", () => {
     expect(shownDetails(photo({}, null), { albumKeepCamera: true })).toEqual({ kind: "photo", width: 2048, height: 1536 });
   });

@@ -118,6 +118,12 @@
   --attention: oklch(0.47 0.12 55);
   --attention-soft: oklch(0.95 0.045 75);
   --destructive-soft: oklch(0.95 0.03 15);
+  /* The album vote's ribbons (M8 ticket 12), the same on every theme and in the viewer: gold,
+     silver and bronze, light enough that their dark ink reads at 7:1 or more on each. */
+  --ribbon-first: oklch(0.86 0.15 88);
+  --ribbon-second: oklch(0.88 0.01 260);
+  --ribbon-third: oklch(0.8 0.09 55);
+  --on-ribbon: oklch(0.2 0.02 60);
 }
 
 .dark {
@@ -203,6 +209,10 @@
   --color-attention: var(--attention);
   --color-attention-soft: var(--attention-soft);
   --color-destructive-soft: var(--destructive-soft);
+  --color-ribbon-first: var(--ribbon-first);
+  --color-ribbon-second: var(--ribbon-second);
+  --color-ribbon-third: var(--ribbon-third);
+  --color-on-ribbon: var(--on-ribbon);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);

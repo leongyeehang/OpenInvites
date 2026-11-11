@@ -28,6 +28,8 @@ const SIZES_INSTANCE = /(^|\/)video-sizes\.spec\.ts$/;
 
 export default defineConfig({
   testDir: "./e2e",
+  // Releases what a failed test may have left held in the shared database (e2e/teardown.ts).
+  globalTeardown: "./e2e/teardown.ts",
   fullyParallel: true,
   forbidOnly: isCI,
   // On CI a failed test runs once more, so that its trace is recorded (trace below), and the run

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { albumAwardScope, albumUploaderNames, albumVoters, albumVotingState } from "@/db/schema";
 import {
   albumOpenTo,
+  albumVotes,
   AWARD_SCOPES,
   awardPlaces,
   awardsOrDefault,
@@ -26,6 +27,7 @@ import {
   votingState,
   WHO_MAY_VOTE,
   type AwardRules,
+  type CastVote,
   type GivenVote,
   type Places,
   type Tally,
@@ -385,6 +387,75 @@ describe("nameShownTo", () => {
   it("shows a guest their own item's name under never", () => {
     expect(nameShownTo(true, event({ albumUploaderNames: "never" }), guest(), NOW)(item({ rsvpId: "r1" }))).toBe(true);
     expect(nameShownTo(true, event({ albumUploaderNames: "never" }), guest(), NOW)(theirs)).toBe(false);
+  });
+});
+
+describe("albumVotes", () => {
+  const p1 = item({ id: "p1", rsvpId: "r2" });
+  const p2 = item({ id: "p2", rsvpId: "r1" });
+  const p3 = item({ id: "p3", kind: "video", rsvpId: null, hostId: "h1" });
+  const pending = item({ id: "p4", status: "pending", rsvpId: "r2" });
+  const items = [p1, p2, p3, pending];
+  const favourite = award({ id: "a1" });
+  const cast = (photoId: string, by: { rsvpId: string } | { hostId: string }, round = 1, awardId = "a1"): CastVote => ({
+    awardId,
+    round,
+    photoId,
+    rsvpId: "rsvpId" in by ? by.rsvpId : null,
+    hostId: "hostId" in by ? by.hostId : null,
+  });
+  const given = [cast("p1", { rsvpId: "r1" }), cast("p1", { rsvpId: "r3" }), cast("p3", { rsvpId: "r4" }), cast("p2", { hostId: "h2" })];
+
+  it("lists each award's items in its scope, in the order given", () => {
+    const [all, videos] = albumVotes(event(), "open", guest(), NOW, [favourite, award({ id: "a2", scope: "videos", position: 1 })], [], items);
+    expect(all.ids).toEqual(["p1", "p2", "p3", "p4"]);
+    expect(videos.ids).toEqual(["p3"]);
+    expect(videos.items.has("p1")).toBe(false);
+  });
+
+  it("while voting is open, gives a star to every approved item but one's own, and no count to a guest", () => {
+    const [standing] = albumVotes(event(), "open", guest(), NOW, [favourite], given, items);
+    expect(standing.stage).toBe("voting");
+    expect(standing.voted).toBe("p1");
+    expect(standing.total).toBeUndefined();
+    expect(Object.fromEntries(standing.items)).toEqual({ p1: { may: true }, p2: { may: false }, p3: { may: true }, p4: { may: false } });
+  });
+
+  it("while voting is open, shows a host every count, 0 included, and no ribbon", () => {
+    const [standing] = albumVotes(event(), "open", host, NOW, [favourite], given, items);
+    expect(standing.voted).toBeNull();
+    expect(standing.total).toBe(4);
+    expect(Object.fromEntries(standing.items)).toEqual({
+      p1: { may: true, shownVotes: 2 },
+      p2: { may: true, shownVotes: 1 },
+      p3: { may: false, shownVotes: 1 },
+      p4: { may: false, shownVotes: 0 },
+    });
+  });
+
+  it("once closed, gives nobody a star and everyone the counts, with ribbons on the top three, ties sharing", () => {
+    const [standing] = albumVotes(event({ albumVoting: "closed" }), "open", guest(), NOW, [favourite], given, items);
+    expect(standing.stage).toBe("results");
+    expect(Object.fromEntries(standing.items)).toEqual({
+      p1: { may: false, shownVotes: 2, place: 1 },
+      p2: { may: false, shownVotes: 1, place: 2 },
+      p3: { may: false, shownVotes: 1, place: 2 },
+      p4: { may: false, shownVotes: 0 },
+    });
+  });
+
+  it("gives no star to a viewer who may not vote, nor in an album that is not open to them", () => {
+    const onlyGoing = event({ albumVoters: "going" });
+    expect(albumVotes(onlyGoing, "open", guest("maybe"), NOW, [favourite], [], items)[0].items.get("p1")).toEqual({ may: false });
+    expect(albumVotes(event(), "own", guest(), NOW, [favourite], [], items)[0].items.get("p1")).toEqual({ may: false });
+  });
+
+  it("counts only the votes of this award, for the items it lists, and this viewer's vote in its current round", () => {
+    const others = [cast("p1", { rsvpId: "r1" }, 1, "a2"), cast("p9", { rsvpId: "r3" }), cast("p3", { rsvpId: "r1" }, 2)];
+    const [standing] = albumVotes(event(), "open", host, NOW, [favourite], others, items);
+    expect(standing.total).toBe(0);
+    expect(standing.items.get("p1")).toEqual({ may: true, shownVotes: 0 });
+    expect(albumVotes(event(), "open", guest(), NOW, [favourite], others, items)[0].voted).toBeNull();
   });
 });
 

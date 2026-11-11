@@ -2,7 +2,7 @@ import { Lock } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import type { VideoCaps } from "@/album/video";
 import type { AlbumVisibility } from "@/album/visibility";
-import { Album, type Keeps, type ShownPhoto } from "./album";
+import { Album, type AlbumSlot, type Keeps, type ShownPhoto } from "./album";
 
 export { ALBUM_HEADING } from "./album";
 
@@ -11,14 +11,15 @@ export { ALBUM_HEADING } from "./album";
 // many photos it shows and what opens it, which depends on who the host lets see it and, for a
 // guest whose reply awaits the host's approval, on that approval (M6 ticket 10); to a guest who
 // may add but not see, their own photos and why; to the hosts and the guests who see it, the
-// photos, and the way to add theirs, with what the host keeps of each (media part review).
+// photos, and the way to add theirs, with what the host keeps of each (media part review); and to
+// those who see every item, what the album vote draws in it while there is one (M8 ticket 12).
 type AlbumProps = { photos: ShownPhoto[]; maxMegabytes: number; video: VideoCaps; keeps: Keeps };
 
 export type AlbumShown =
   | { view: "notYet"; opensOn: string }
   | { view: "locked"; count: number; visibility: AlbumVisibility; awaitingApproval: boolean }
   | ({ view: "own"; why: "going" | "hosts" } & AlbumProps)
-  | ({ view: "open" } & AlbumProps);
+  | ({ view: "open"; slot?: AlbumSlot } & AlbumProps);
 
 const LOCKED = { replied: "locked", going: "lockedGoing", hosts: "lockedHosts" } as const;
 const YOURS = { going: "yoursGoing", hosts: "yoursHosts" } as const;
@@ -48,5 +49,5 @@ export async function AlbumSection({ album, slug }: { album: AlbumShown; slug: s
       </div>
     );
   }
-  return <Album slug={slug} photos={album.photos} maxMegabytes={album.maxMegabytes} video={album.video} keeps={album.keeps} />;
+  return <Album slug={slug} photos={album.photos} maxMegabytes={album.maxMegabytes} video={album.video} keeps={album.keeps} slot={album.slot} />;
 }

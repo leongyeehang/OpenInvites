@@ -78,6 +78,11 @@ export function Caption({ photo, editing, onEditing, save, max }: { photo: Opena
   );
 }
 
+// A field's maxLength counts UTF-16 units, two to an emoji: twice the limit lets a caption of
+// emoji reach it, and the count beside the field and the server keep the limit itself (media part
+// re-review).
+const UNITS_PER_CHARACTER = 2;
+
 // The viewer's field, mounted only while writing, so it starts from the caption as it is whenever
 // it opens. Its count is in code points, as the server counts.
 function CaptionField({ id, initial, save, max, onSaved, onCancel }: { id: string; initial: string; save: SaveCaption; max: number; onSaved: (caption: string | null) => void; onCancel: () => void }) {
@@ -107,7 +112,7 @@ function CaptionField({ id, initial, save, max, onSaved, onCancel }: { id: strin
         id="caption-field"
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
-        maxLength={max}
+        maxLength={max * UNITS_PER_CHARACTER}
         autoComplete="off"
         autoFocus
         aria-describedby={error ? "caption-count caption-error" : "caption-count"}
@@ -168,7 +173,7 @@ export function CaptionWhileAdding({ id, name, save, max, onSaved }: { id: strin
           id={field}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          maxLength={max}
+          maxLength={max * UNITS_PER_CHARACTER}
           autoComplete="off"
           aria-describedby={error ? `${field}-error` : undefined}
           aria-invalid={error ? true : undefined}

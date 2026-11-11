@@ -42,6 +42,7 @@ services:
       RATE_LIMIT_PASSWORD_RESET: 5/1m
       RATE_LIMIT_MAIL: 5/1m
       RATE_LIMIT_REPORT: 5/1m
+      RATE_LIMIT_VOTE: 10/1m
       # Tiny upload parts, so a small test clip spans several and a dropped part can be tested (M7).
       UPLOAD_TEST_PART_BYTES: "65536"
     ports:

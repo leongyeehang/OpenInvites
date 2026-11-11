@@ -2,7 +2,7 @@
 
 import { Check, ChevronLeft, ChevronRight, CircleDot, Download, Film, ImagePlus, Trash2, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Dialog } from "radix-ui";
 import { useOptimistic, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { approvePhotoAction, deletePhotoAction, setCaptionAction } from "@/album/actions";
@@ -90,6 +90,22 @@ function useItemLabel(): (photo: ShownPhoto, n: number) => string {
   };
 }
 
+// What a feature draws in the album (M8 ticket 12; the album vote's, src/voting/album-voting.tsx),
+// built on the server: a head above the grid, a node on each item's tile and one in the viewer's
+// header, by the item's id, and lists of the items to show, one per choice the page's query names
+// (`param`), `initial` when it names none. The album knows nothing of what the nodes are.
+export type AlbumSlot = { head: ReactNode; tile: Record<string, ReactNode>; viewer: Record<string, ReactNode>; lists: { param: string; initial: string; ids: Record<string, string[]> } };
+
+// The items a slot lists for the choice in the page's query, in the list's order; every item
+// without a slot.
+function useListed(photos: ShownPhoto[], slot: AlbumSlot | undefined): ShownPhoto[] {
+  const named = useSearchParams().get(slot?.lists.param ?? "");
+  if (!slot) return photos;
+  const ids = slot.lists.ids[named !== null && Object.hasOwn(slot.lists.ids, named) ? named : slot.lists.initial] ?? [];
+  const byId = new Map(photos.map((photo) => [photo.id, photo]));
+  return ids.flatMap((id) => byId.get(id) ?? []);
+}
+
 // The id of the album's heading, which every layout gives it: where the focus goes once a photo is
 // deleted, since the thumbnail that opened it goes with it.
 export const ALBUM_HEADING = "album-heading";
@@ -98,11 +114,28 @@ const NONE_APPROVING: ReadonlySet<string> = new Set();
 
 // The album (M4 ticket 11): a grid of the photos, oldest first, each opening the viewer; and Add
 // photos, which sends up to ten at once and says what became of each. A photo waiting for approval
-// is marked under its thumbnail, and to a host has Approve and Delete there (M6 ticket 03).
-export function Album({ slug, photos, maxMegabytes, video, keeps }: { slug: string; photos: ShownPhoto[]; maxMegabytes: number; video: VideoCaps; keeps: Keeps }) {
+// is marked under its thumbnail, and to a host has Approve and Delete there (M6 ticket 03). With a
+// slot (M8 ticket 12), its head sits above the grid, the grid lists the slot's items, which the
+// numbers and the viewer follow, and each tile and the viewer's header carry the slot's node.
+export function Album({
+  slug,
+  photos: all,
+  maxMegabytes,
+  video,
+  keeps,
+  slot,
+}: {
+  slug: string;
+  photos: ShownPhoto[];
+  maxMegabytes: number;
+  video: VideoCaps;
+  keeps: Keeps;
+  slot?: AlbumSlot;
+}) {
   const t = useTranslations("EventPage.album");
   const locale = useLocale();
   const router = useRouter();
+  const photos = useListed(all, slot);
   const opening = photos.filter(openable);
   const label = useItemLabel();
   const [adding, setAdding] = useState<number>();
@@ -124,6 +157,9 @@ export function Album({ slug, photos, maxMegabytes, video, keeps }: { slug: stri
   // item before it leaves the viewer on it, and one that removes it closes the viewer.
   const [open, setOpen] = useState<string>();
   const shown = shownIndex(opening.map((photo) => photo.id), open);
+  // An item that left the list is forgotten, so the viewer does not open on it again should it come
+  // back (media part re-review).
+  if (open !== undefined && shown === undefined) setOpen(undefined);
   // The item last shown, whose thumbnail has the focus back once the viewer closes.
   const last = useRef<string | undefined>(undefined);
   const thumbnails = useRef(new Map<string, HTMLButtonElement>());
@@ -184,7 +220,8 @@ export function Album({ slug, photos, maxMegabytes, video, keeps }: { slug: stri
 
   return (
     <div className="flex flex-col gap-4">
-      {photos.some((photo) => (photo.kind === "video" ? photo.state === "processing" : photo.motionPending)) && <RefreshWhileProcessing />}
+      {slot?.head}
+      {all.some((photo) => (photo.kind === "video" ? photo.state === "processing" : photo.motionPending)) && <RefreshWhileProcessing />}
       {photos.length === 0 ? (
         <p className="text-sm text-theme-text-muted">{t("empty")}</p>
       ) : (
@@ -195,34 +232,40 @@ export function Album({ slug, photos, maxMegabytes, video, keeps }: { slug: stri
             return (
               <li key={photo.id} data-item={photo.kind} data-state={photo.kind === "video" ? photo.state : "ready"} className="flex flex-col gap-1">
                 {openable(photo) ? (
-                  <button
-                    ref={(button) => {
-                      if (button) thumbnails.current.set(photo.id, button);
-                      else thumbnails.current.delete(photo.id);
-                    }}
-                    type="button"
-                    onClick={() => {
-                      last.current = photo.id;
-                      setOpen(photo.id);
-                    }}
-                    className="relative block aspect-square w-full cursor-pointer overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized */}
-                    <img src={photo.thumb} alt={label(photo, n)} loading="lazy" className="size-full object-cover" />
-                    {photo.kind === "video" && (
-                      <span className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 text-[11px] font-medium text-white">
-                        <Film className="size-3" aria-hidden />
-                        {clockTime(photo.durationMs)}
-                      </span>
-                    )}
-                    {/* A live photo's mark is inside the tile's button, never a button of its own. */}
-                    {isLive(photo) && (
-                      <span data-slot="live-mark" className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 text-[11px] font-medium text-white">
-                        <CircleDot className="size-3" aria-hidden />
-                        {t("live")}
-                      </span>
-                    )}
-                  </button>
+                  // The slot's node sits beside the thumbnail's button, never inside it: it may hold
+                  // a button of its own.
+                  <div className="relative">
+                    <button
+                      id={`album-item-${photo.id}`}
+                      ref={(button) => {
+                        if (button) thumbnails.current.set(photo.id, button);
+                        else thumbnails.current.delete(photo.id);
+                      }}
+                      type="button"
+                      onClick={() => {
+                        last.current = photo.id;
+                        setOpen(photo.id);
+                      }}
+                      className="relative block aspect-square w-full cursor-pointer overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized */}
+                      <img src={photo.thumb} alt={label(photo, n)} loading="lazy" className="size-full object-cover" />
+                      {photo.kind === "video" && (
+                        <span className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 text-[11px] font-medium text-white">
+                          <Film className="size-3" aria-hidden />
+                          {clockTime(photo.durationMs)}
+                        </span>
+                      )}
+                      {/* A live photo's mark is inside the tile's button, never a button of its own. */}
+                      {isLive(photo) && (
+                        <span data-slot="live-mark" className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 text-[11px] font-medium text-white">
+                          <CircleDot className="size-3" aria-hidden />
+                          {t("live")}
+                        </span>
+                      )}
+                    </button>
+                    {slot?.tile[photo.id]}
+                  </div>
                 ) : (
                   // A video still processing, or one that could not be: its uploader and the hosts
                   // see it, nobody else (album/visibility.ts). No pulse: nothing here moves.
@@ -377,6 +420,7 @@ export function Album({ slug, photos, maxMegabytes, video, keeps }: { slug: stri
         approving={approving}
         approve={approve}
         saveCaption={saveCaption}
+        slot={slot}
         onClosed={(deleted) => {
           // Its thumbnail, unless the item went, here or elsewhere: then the album's heading.
           const thumbnail = deleted || last.current === undefined ? undefined : thumbnails.current.get(last.current);
@@ -389,12 +433,12 @@ export function Album({ slug, photos, maxMegabytes, video, keeps }: { slug: stri
 }
 
 // The viewer: the photo full screen, the previous and next by the buttons, the arrow keys or a
-// swipe, who added it, Download (the large rendition), Approve where this viewer may (M6 ticket
-// 03), which stays on the photo and waits, as the one under its thumbnail does, while that photo
-// is being approved, Delete where this viewer may, and Escape. It shows the item it was opened on
-// or turned to, wherever a refresh moves it, and closes once that item is gone (media part
-// review). Closed, the focus is back on the photo's thumbnail, or on the album's heading once it
-// is deleted.
+// swipe, who added it, a slot's node (M8 ticket 12), Download (the large rendition), Approve where
+// this viewer may (M6 ticket 03), which stays on the photo and waits, as the one under its
+// thumbnail does, while that photo is being approved, Delete where this viewer may, and Escape. It
+// shows the item it was opened on or turned to, wherever a refresh moves it, and closes once that
+// item is gone (media part review). Closed, the focus is back on the photo's thumbnail, or on the
+// album's heading once it is deleted.
 function Viewer({
   photos,
   index,
@@ -403,6 +447,7 @@ function Viewer({
   approving,
   approve,
   saveCaption,
+  slot,
   onClosed,
 }: {
   photos: Openable[];
@@ -412,6 +457,7 @@ function Viewer({
   approving: ReadonlySet<string>;
   approve: (id: string, then: () => void) => void;
   saveCaption: SaveCaption;
+  slot: AlbumSlot | undefined;
   onClosed: (deleted: boolean) => void;
 }) {
   const t = useTranslations("EventPage.album");
@@ -493,6 +539,7 @@ function Viewer({
                     {t("approve")}
                   </button>
                 )}
+                {slot?.viewer[photo.id]}
                 <a
                   ref={download}
                   href={photo.kind === "video" ? photo.original : photo.large}

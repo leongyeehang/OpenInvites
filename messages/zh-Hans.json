@@ -1796,6 +1796,25 @@
         "never": "从不向宾客显示",
         "hint": "主办人和添加者本人始终能看到是谁添加的。"
       }
+    },
+    "album": {
+      "open": "投票进行中",
+      "closed": "投票已结束",
+      "hint": "投票结束前不显示票数。",
+      "tapToVote": "点星星，为「{award}」投票。",
+      "yourVote": "你已为「{award}」投票。点另一颗星星可改投，点你投的那颗可收回。",
+      "voteFor": "投票给",
+      "voteThis": "{kind, select, video {投票给这段视频} other {投票给这张照片}}",
+      "votes": "{count, plural, other {# 票}}",
+      "place": "{place, selectordinal, other {第 # 名}}",
+      "placeLabel": "{place, selectordinal, other {第 # 名}}",
+      "hostsOnly": "仅主办人可见",
+      "soFar": "「{award}」目前共 {count, plural, other {# 票}}",
+      "errors": {
+        "tooFast": "操作太频繁了，请稍后再试。",
+        "closed": "投票已结束。",
+        "notAllowed": "你不能为这一项投票。"
+      }
     }
   }
 }

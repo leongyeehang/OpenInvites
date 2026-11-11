@@ -17,6 +17,7 @@ describe("rateLimitConfigFromEnv", () => {
         mail: { limit: 10, windowMs: 60 * MINUTE },
         comment: { limit: 30, windowMs: 10 * MINUTE },
         report: { limit: 5, windowMs: 60 * MINUTE },
+        vote: { limit: 120, windowMs: 10 * MINUTE },
       },
     });
   });
@@ -32,6 +33,7 @@ describe("rateLimitConfigFromEnv", () => {
       RATE_LIMIT_MAIL: "6/1h",
       RATE_LIMIT_COMMENT: "7/5m",
       RATE_LIMIT_REPORT: "2/3h",
+      RATE_LIMIT_VOTE: "7/1m",
     });
     expect(rules).toEqual({
       eventPage: { limit: 30, windowMs: MINUTE },
@@ -43,6 +45,7 @@ describe("rateLimitConfigFromEnv", () => {
       mail: { limit: 6, windowMs: 60 * MINUTE },
       comment: { limit: 7, windowMs: 5 * MINUTE },
       report: { limit: 2, windowMs: 180 * MINUTE },
+      vote: { limit: 7, windowMs: MINUTE },
     });
   });
 

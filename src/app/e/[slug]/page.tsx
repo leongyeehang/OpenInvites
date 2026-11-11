@@ -137,7 +137,9 @@ async function pollCandidates(eventId: string, locale: string): Promise<PollCand
 // An open item's technical line and the details the host keeps (M8 ticket 07) are written here, a
 // detail whose switch is off left out, so no page carries it; each item's caption, and whether this
 // viewer may change it (M8 ticket 09). Who added each item is left out where this viewer may not
-// see it (M8 ticket 11): the album vote decides, per item, before anything is sent.
+// see it (M8 ticket 11): the album vote decides, per item, before anything is sent, and the
+// camera that took it goes with the name (ticket 12). While there is a vote, the open album carries
+// what the vote draws in it (ticket 12).
 async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: string, now: Date): Promise<AlbumShown | undefined> {
   const switches = await siteFeatures();
   const state = albumState(event, now, featureOn(switches, "album"));
@@ -148,13 +150,16 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
     const awaitingApproval = viewer.kind === "guest" && viewer.approval === "pending";
     return { view: "locked", count: await countPhotos(event.id, "approved"), visibility: event.albumVisibility, awaitingApproval };
   }
-  const voting = await albumVotingFor({ event, locale, viewer, view, now });
-  const photos: ShownPhoto[] = (await listPhotos(event.id, photoScope(view, viewer), albumOrderFor(event))).map((each) => {
+  const listed = await listPhotos(event.id, photoScope(view, viewer), albumOrderFor(event));
+  const items = listed.map(({ id, kind, status, rsvpId, hostId }) => ({ id, kind, status, rsvpId, hostId }));
+  const voting = await albumVotingFor({ event, locale, viewer, view, items, now });
+  const photos: ShownPhoto[] = listed.map((each) => {
+    const named = voting.showsName(each);
     // Its caption (M8 ticket 09) is the uploader's words, not a detail of the file: no switch of
     // the host's hides it.
     const base = {
       id: each.id,
-      name: voting.showsName(each) ? each.name : null,
+      name: named ? each.name : null,
       deletable: mayDeletePhoto(viewer, each),
       pending: each.status === "pending",
       approvable: each.status === "pending" && mayApprovePhoto(viewer),
@@ -162,7 +167,7 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
       captionEditable: mayCaption(viewer, each),
     };
     const taken = event.albumKeepTakenAt ? each.takenAt : null;
-    const details = { details: shownDetails(each, event), takenAt: taken && formatTaken(taken, event.timeZone, locale), takenAtIso: taken && taken.toISOString() };
+    const details = { details: shownDetails(each, event, named), takenAt: taken && formatTaken(taken, event.timeZone, locale), takenAtIso: taken && taken.toISOString() };
     // A live photo carries its motion (M8 ticket 08), and one whose motion is being made says so
     // to its uploader and the hosts alone, whose pages refresh until it is made (media part review).
     if (each.kind === "photo") {
@@ -207,7 +212,7 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
   // A guest who may add but not see is shown their own, and why: the album is for those Going, or
   // the hosts keep it.
   if (view === "own") return { view: "own", why: event.albumVisibility === "going" ? "going" : "hosts", photos, maxMegabytes, video, keeps };
-  return { view: "open", photos, maxMegabytes, video, keeps };
+  return { view: "open", photos, maxMegabytes, video, keeps, ...(voting.slot && { slot: voting.slot }) };
 }
 
 // The schedule (M6 ticket 02), or nothing when the host has listed none, the event has no date
@@ -426,7 +431,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
 
   // The client components below read their messages in the browser.
   return (
-    <ClientMessages namespaces={["EventPage", "Rsvp", "Turnstile"]}>
+    <ClientMessages namespaces={["EventPage", "Rsvp", "Turnstile", "Voting"]}>
       <ThemedPage
         // A picture the host put aside is sent to nobody but the host, whose Poster sheet works
         // with it (spec, "Events, guests and the page").

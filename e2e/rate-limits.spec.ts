@@ -1,7 +1,8 @@
 import sharp from "sharp";
-import { createPublished, openDesign } from "./events";
+import { createPublished, openDesign, openSettings, savedAfter } from "./events";
 import { mailCountTo, newHost, signUp } from "./hosts";
-import { clientAddress, expect, test } from "./test";
+import { closeReply } from "./reply";
+import { clientAddress, expect, test, type Locator, type Page } from "./test";
 
 // Ticket 18: the rate limits, at the low values the Compose test profile and .env.development
 // set. Each test comes from an address of its own (e2e/test.ts), so reaching a limit here leaves
@@ -11,6 +12,7 @@ const RSVP_LIMIT = 5; // RATE_LIMIT_RSVP=5/1m
 const SIGN_IN_LIMIT = 5; // RATE_LIMIT_SIGN_IN=5/1m
 const UPLOAD_LIMIT = 3; // RATE_LIMIT_UPLOAD=3/1m
 const MAIL_LIMIT = 5; // RATE_LIMIT_MAIL=5/1m
+const VOTE_LIMIT = 10; // RATE_LIMIT_VOTE=10/1m
 
 const TOO_FAST = "You’re going too fast. Try again shortly.";
 
@@ -183,4 +185,50 @@ test("a host uploading picture after picture is told to slow down in the Poster 
   await expect(drawer.getByLabel("Replace")).toBeEnabled();
   expect(await uploadOne("Replace", 220)).toBe(429);
   await expect(drawer.getByRole("alert")).toHaveText(TOO_FAST);
+});
+
+// M8 ticket 12: each press of a star in an album's vote counts against the vote limit.
+test("a guest pressing star after star is told to slow down", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "rate-vote", { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" });
+  const editor = host.page.url();
+  const album = (page: Page) => page.locator('[data-slot="album"]');
+  const photo = async (name: string, background: string) => ({
+    name,
+    mimeType: "image/jpeg",
+    buffer: await sharp({ create: { width: 1200, height: 900, channels: 3, background } }).jpeg().toBuffer(),
+  });
+  await host.page.goto(host.link);
+  await album(host.page).getByLabel(/^Add photos/).setInputFiles([await photo("toast.jpg", "#e0b040"), await photo("cake.jpg", "#c0506a")]);
+  await expect(album(host.page).locator("li[data-item]")).toHaveCount(2, { timeout: 20_000 });
+  await host.page.goto(editor);
+  const block = (await openSettings(host.page)).locator('[data-slot="voting-block"]');
+  await savedAfter(host.page, () => block.getByRole("button", { name: "Start voting" }).click());
+  await expect(block).toHaveAttribute("data-state", "open");
+
+  const guest = await (await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
+  await guest.goto(host.link);
+  await guest.getByRole("button", { name: "Going" }).click();
+  await guest.getByLabel("Your name").fill("Ana Ruiz");
+  await guest.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(guest.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+  await closeReply(guest);
+  const star = (n: number) => album(guest).getByRole("button", { name: new RegExp(`^Vote for Photo ${n}`) });
+  const press = async (button: Locator) => {
+    const answered = guest.waitForResponse((response) => response.request().method() === "POST" && response.request().headers()["next-action"] !== undefined);
+    await button.click();
+    await answered;
+  };
+
+  // Each press answers, moving the vote from one photo to the other, up to the limit.
+  for (let pressed = 0; pressed < VOTE_LIMIT; pressed++) {
+    await press(star(1 + (pressed % 2)));
+    await expect(star(1 + (pressed % 2))).toHaveAttribute("aria-pressed", "true");
+  }
+  // One more is one too many: the vote stays where it was, and the album says why.
+  await press(star(1));
+  await expect(album(guest).locator('[data-slot="album-voting"]').getByRole("alert")).toHaveText(TOO_FAST);
+  await expect(star(1)).toHaveAttribute("aria-pressed", "false");
+  await expect(star(2)).toHaveAttribute("aria-pressed", "true");
+  await Promise.all([host.context.close(), guest.context().close()]);
 });

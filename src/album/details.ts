@@ -222,7 +222,9 @@ export function exposureLine(exposure: NonNullable<ItemDetails["exposure"]>): st
 // The facts under an open item (M8 spec, "Technical line"), decided on the server: a photo's size
 // as added, or a video's size by name, frame rate, HDR and length; the file size as uploaded when
 // it is known; and the camera and exposure only while the host keeps them, so a detail read under a
-// switch later turned off stops being shown, though it is not erased.
+// switch later turned off stops being shown, though it is not erased. The camera's make and model
+// are left out too where this viewer is not shown who added the item (M8 ticket 12), as a camera
+// could name its owner; the exposure stays.
 export type ShownDetails = ({ kind: "photo"; width: number; height: number } | { kind: "video"; size: string; fps?: number; hdr: boolean; durationMs: number }) & {
   bytes?: number;
   camera?: string;
@@ -232,6 +234,7 @@ export type ShownDetails = ({ kind: "photo"; width: number; height: number } | {
 export function shownDetails(
   item: { kind: PhotoKind; width: number | null; height: number | null; bytes: number | null; durationMs: number | null; details: ItemDetails | null },
   event: { albumKeepCamera: boolean },
+  nameShown = true,
 ): ShownDetails {
   const details = item.details ?? {};
   const technical =
@@ -244,7 +247,7 @@ export function shownDetails(
           hdr: details.hdr !== undefined,
           durationMs: item.durationMs ?? 0,
         };
-  const camera = event.albumKeepCamera && details.camera ? cameraLine(details.camera) : "";
+  const camera = event.albumKeepCamera && nameShown && details.camera ? cameraLine(details.camera) : "";
   const exposure = event.albumKeepCamera && details.exposure ? exposureLine(details.exposure) : "";
   return { ...technical, ...(item.bytes !== null ? { bytes: item.bytes } : {}), ...(camera ? { camera } : {}), ...(exposure ? { exposure } : {}) };
 }
