@@ -1,0 +1,36 @@
+# 28: Sections: a host renames and collapses sections, and adds a Countdown
+
+**What to build:** A row in Arrange opens to its heading, typed in place with the default as its placeholder, and to a Collapsed switch where the section offers one. Guests read the host's heading in every layout. A collapsed section is a native disclosure in the Poster and the Broadsheet too, showing its heading and how many things it holds, opened with one tap and still open after the page refreshes. A section locked to the viewer is drawn open, since there is nothing in it to open. Countdown joins the sheet: off by default; switched on, it is a section of its own and the countdown leaves When (Poster, Thread) and the Broadsheet's facts. A placeholder in the editor opens Arrange at its own row.
+
+**Blocked by:** 27 (the count phrases and the Thread's disclosure), 26 (a row that opens)
+
+**Status:** ready-for-agent
+
+**Stories:** 306, 307, 309
+
+**Interfaces**
+- Consumes: from `@/sections` the `rename`, `collapse` and `toggle` changes, `applyArrangementChange`, `REGISTRY` (`collapse`, `rename`, `heading`), `SECTION_LIMITS.heading`; ticket 25's `ArrangeSheet`, `previewSections`, `DRAWINGS`, `SectionPage`, `PosterLayout`'s frame; ticket 26's open row; ticket 27's `BroadsheetLayout` and `ThreadLayout` frames, the Thread's collapsed frame and `EventPage.sections.count.*`; `Countdown` and `CountdownFigure` (`src/app/e/[slug]/viewer.tsx:27,52`); the inline countdown under When (`src/app/e/[slug]/page.tsx:408-413,429-430,454-461`); the Settings sheet's 600 ms debounce (`src/editor/settings-sheet.tsx:29,133-136`); `EditorProvider` (`src/editor/status.tsx:34-65`).
+- Produces:
+  - `countdownOn(arrangement: Arrangement): boolean` in `src/sections/arrangement.ts`, through `index.ts`.
+  - `applyArrangementChange`: Countdown toggled on while it is the last section moves to just after Details.
+  - `countdownDrawing` in `src/themes/sections/countdown-section.tsx`: loads the event's time when the event is dated, not cancelled and its date is not being polled; shown `{ count: null }`; body `CountdownFigure`; default heading `EventPage.sections.countdown`.
+  - `page.tsx`: with `countdownOn`, `<Countdown>` leaves `underWhen` in the Poster and the Thread and the Broadsheet gets no `countdown` fact.
+  - Collapsed frames for the Poster (`<details>` carrying the `Glass` classes, `data-slot`, `data-section`) and the Broadsheet (`<details>` under its rule), each with the summary of ticket 27: icon, `<h2 id>` heading, `aria-hidden` dot, `<span data-slot="section-count">`, chevron turning only under `motion-safe`.
+  - `EditorProvider` gains `openSection: (key: string) => void` and `openRow: string | null`; `ArrangeSheet` opens that row; previews call `openSection(key)` and show the host's heading.
+  - The open row: an `Input` "Heading" (`maxLength={40}`, placeholder the default heading, sent as `rename` 600 ms after the last key, empty as null) where `REGISTRY[kind].rename`; a Switch "Collapsed" where `REGISTRY[kind].collapse`. The Countdown row (switch, heading).
+
+- [ ] Unit, first, in `src/sections/arrangement.test.ts`: `countdownOn(null)` is false, true with countdown on, false with it off; toggling Countdown on in `defaultOrder("poster")` puts it right after `details`; toggling it on when the host has put it after `album` but not last (a note after it) leaves it there. Then the code.
+- [ ] Browser, written first, `e2e/sections.spec.ts` (both widths): (1) "a renamed section reads the host's heading": Comments renamed "Guestbook" in Arrange; a guest who replied reads a "Guestbook" heading in the Poster, then the Broadsheet, then the Thread (switched with `chooseLayout`); deleting their comment puts the focus on "Guestbook"; the field emptied, "Comments" is back. (2) "a collapsed Album opens with one tap and stays open": on a started event with one photo, the Album collapsed; a Going guest's `details[data-slot="album"]` is closed and its summary reads "Photos" and "1 photo or video"; Enter on the summary opens it; the guest posts a comment, the page refreshes, the album is still open. (3) "a section locked to the viewer is drawn open": Comments collapsed; a visitor sees "No comments yet" and the lock line without opening anything. (4) "Countdown": switched on, `[data-section="countdown"]` shows the countdown and `[data-slot="details"]` no longer does; in the Broadsheet there is no "Countdown" fact and the section is there; once the event is cancelled, no countdown section; an undated draft's editor shows no countdown placeholder. (5) "a placeholder opens its row": pressing the Album placeholder opens Arrange with the Album row expanded. Axe on Arrange with a row open, and on a page with a collapsed section in each layout; `e2e/keyboard.spec.ts`: the heading field and Collapsed reached by Tab, a summary opened with Enter and Space; `e2e/reduced-motion.spec.ts`: a page with a collapsed section opened, `expectStill`.
+- [ ] The code: `countdown-section.tsx` and its registration; the Poster's and Broadsheet's collapsed frames; `page.tsx`'s inline countdown rule; the open row's fields; `openSection`; the Countdown row in the sheet and its placeholder in `previewSections` (`preview.countdown`, only for a dated event).
+- [ ] Messages, in all three locales: `Editor.arrange.heading` "Heading", `headingHint` "Leave it empty to keep “{name}”.", `collapsed` "Collapsed", `collapsedHint` "Guests see the heading and how much it holds, and open it with a tap.", `countdownHint` "On, the countdown leaves When and has a place of its own.", `preview.countdown` "A countdown to the start, in each guest’s own time."
+- [ ] Existing specs on the rebuilt test profile: `e2e/sections.spec.ts`'s rows from ticket 25 now count eight rows ("Album, 6 of 8", "Album, 5 of 8"), since the Countdown row joins the sheet; `poster.spec.ts`, `broadsheet.spec.ts` (the Countdown fact still shows while the section is off), `thread.spec.ts`, `comments.spec.ts`, `album.spec.ts`, `schedule.spec.ts`, `polls.spec.ts`, `cancel-delete.spec.ts`, `accessibility.spec.ts`, `keyboard.spec.ts`, `reduced-motion.spec.ts`, `locales.spec.ts`.
+- [ ] Checks: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `e2e/sections.spec.ts` and the specs above (`CI=1`, `--workers=2`). Comments entry; commit `Sections: a host renames and collapses sections, and adds a Countdown`.
+
+## Notes for the implementer
+
+- **(plan)** Countdown switched on while it is still last moves to just after Details, where a host looks for it; it is last in every default order only so that the Poster's entrance delays reproduce today's (ticket 24). Once the host has placed it, switching it off and on keeps its place, unless it is last.
+- **(plan)** The heading is sent 600 ms after the last key, as the Settings sheet sends a capacity; the optimistic list and the row's name follow each key at once, the live copy after the save's `refresh()`.
+- The disclosure needs no script: never pass `open` to a `<details>`, so React leaves the guest's choice alone across `refresh()`. The summary is the control; its `<h2>` keeps the heading ids the delete buttons send the focus to.
+- A countdown on a cancelled event, an open date poll or an undated draft has nothing to count to: the drawing loads nothing and `placedSections` leaves it out.
+
+## Comments

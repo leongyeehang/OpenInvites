@@ -1,0 +1,37 @@
+# 11: Voting: who added an item is left out on the server while guests may not see it
+
+**What to build:** The host chooses whether guests see who added each album item: always, after voting closes (the default), or never. Hosts and an item's own uploader always see its name. "After voting closes" hides names only while the album vote is open, so an event that never votes shows names as it always did. A hidden name is left out on the server: it is in no markup, label or payload of the guest's page, and the item reads "Photo 4" where it read "Photo 4 by Priya".
+
+**Blocked by:** 10
+
+**Status:** ready-for-agent
+
+**Stories:** 290, 294
+
+**Interfaces**
+- Consumes: from ticket 10, `namesShown`, `votingState`, `VotingEvent`, `VotingViewer`, `VotableItem`, `UploaderNames`, `UPLOADER_NAMES`, `lockVoting`, `VotingBlock`, `VotingSettings` and the host-action guard in `src/voting/host-actions.ts`; `featureOn(switches, "voting")`, `siteFeatures()` (`@/features`). Existing: `albumFor` (`src/app/e/[slug]/page.tsx:133-170`, the name at `:143`, as ticket 01 and tickets 06 to 09 leave it); `albumViewer` (`src/album/viewer.ts:9-14`); `ShownBase` (`src/themes/sections/album.tsx:33`); the labels at `album.tsx:61`, `:175`, `:191`, `:211`, the viewer's title and description at `:344-348` and its `alt` and player label at `:401` and `:404`; ticket 09's `withCaption` wrapping of a label.
+- Produces:
+  - `src/voting/album-voting.tsx` (server): `albumVotingFor(input: { event: VotingEvent & { id: string; slug: string; timeZone: string }; locale: string; viewer: { kind: "host"; hostId: string } | { kind: "guest"; rsvpId: string; approval: Approval; status: SavedStatus } | { kind: "visitor" }; view: AlbumViewName; now: Date }): Promise<AlbumVoting>` with `type AlbumVoting = { state: VotingState; showsName: (item: Pick<VotableItem, "rsvpId" | "hostId">) => boolean }`. The `viewer` is the album's `AlbumViewer` as it is; voting adds `invited` itself. Ticket 12 adds `items` to the input and `slot` to the answer; tickets 24 and 25 move the call with `albumFor` into the album's drawing.
+  - `nameShownTo(votingOn: boolean, event: VotingEvent, viewer: VotingViewer, now: Date): (item: Pick<VotableItem, "rsvpId" | "hostId">) => boolean` in `voting.ts`.
+  - `withInvite(viewer, db?): Promise<VotingViewer>` in `src/voting/repository.ts`: a guest gains `invited` from their RSVP's `invite_id` (read through `@/db/schema`).
+  - `setUploaderNamesAction(eventId: string, names: UploaderNames): Promise<void>` in `src/voting/host-actions.ts`.
+  - `ShownBase.name: string | null`. Messages `EventPage.album.openUnnamed`, `EventPage.album.openVideoUnnamed`, `Voting.block.names.*`.
+
+- [ ] Unit, `src/voting/voting.test.ts`, first: `nameShownTo(false, …)` shows every item's name under `never` with the vote open (with Voting off for the site, names are as before 0.8) **(plan)**; `nameShownTo(true, …)` agrees with `namesShown(event, votingState(event, now), viewer, item)` for an `afterVoting` event open, open past its closing time (names show: it reads closed), and closed; a guest's own item shows under `never`.
+- [ ] `nameShownTo` in `voting.ts`; `withInvite` in `repository.ts`; `albumVotingFor`: reads `featureOn(await siteFeatures(), "voting")`, returns `{ state: "off", showsName: () => true }` while it is off, otherwise the event's `votingState` and `nameShownTo(true, …)` for the viewer `withInvite` gives. Export both through `src/voting/index.ts`.
+- [ ] `albumFor`: after `albumView` and before the items are mapped, `const voting = await albumVotingFor({ event, locale, viewer, view, now })`; `name: voting.showsName(each) ? each.name : null`. The locked branch is unchanged. No other field of a `ShownPhoto` carries the uploader.
+- [ ] `album.tsx`: `ShownBase.name` becomes `string | null`. `label` (`:61`) uses `openUnnamed` ("Photo {n}") and `openVideoUnnamed` ("Video {n}") when the name is null; a pending item is shown only to its uploader and the hosts, who always have the name, so `openPending` and `openVideoPending` keep `{name}`. The viewer's description (`:345-348`) leaves out "Added by" when the name is null, and is not rendered at all when there is nothing to say (pass `aria-describedby={undefined}` to `Dialog.Content` then, as Radix asks). Approve, Delete and Remove (`:175`, `:191`, `:211`) are only for hosts and uploaders, who always have the name; narrow the type there rather than print an empty name. Whatever label ticket 09 wraps with the caption keeps its wrapping.
+- [ ] The block: in `VotingBlock`, whatever the state, a radio group "Who added each item" with Always shown, Shown after voting closes, Never shown to guests and the hint, saved on change through `useEditor().save` and `setUploaderNamesAction` (host guard as ticket 10's actions; refuses a value outside `UPLOADER_NAMES`; revalidates as they do). `VotingSettings` passes the event's `albumUploaderNames`.
+- [ ] Messages, in all three locale files: `EventPage.album.openUnnamed` "Photo {n}"; `EventPage.album.openVideoUnnamed` "Video {n}"; `Voting.block.names.title` "Who added each item"; `names.always` "Always shown"; `names.afterVoting` "Shown after voting closes"; `names.never` "Never shown to guests"; `names.hint` "Hosts and the person who added an item always see who did."
+- [ ] Browser, `e2e/album-voting.spec.ts`. "while voting is open a guest's page leaves out who added each item, and the names come back when it closes": the host sets the guest list to hidden and turns comments off (so the album is the only place a name could be); Priya Nair, Going, adds a photo; the host starts voting; Ana Ruiz, Going, sees the tile "Photo 1" exactly, and its viewer with no "Added by"; `await (await ana.request.get(link)).text()` does not contain "Priya Nair"; Priya sees "Photo 1 by Priya Nair"; the host sees "Photo 1 by Priya Nair" and the host's page HTML does contain "Priya Nair" (the check can fail); the host closes voting and Ana sees "Photo 1 by Priya Nair". "Never keeps names from guests whatever the vote, and Always shows them while it is open": Never chosen with voting off, Ana's tile is "Photo 1"; Always chosen and voting started, Ana's tile is "Photo 1 by Priya Nair".
+- [ ] Existing specs keep passing unchanged with voting off: `e2e/album.spec.ts`, `e2e/album-settings.spec.ts`, `e2e/album-video.spec.ts`, `e2e/keyboard.spec.ts`, `e2e/reduced-motion.spec.ts`, `e2e/album-reminder.spec.ts` and `e2e/limits.spec.ts`, which read names in about 40 places. None of them is edited.
+- [ ] Checks: `pnpm lint`, `pnpm typecheck`, `pnpm test`; on the rebuilt test profile the specs above and `e2e/album-voting.spec.ts`. Comments entry. Commit `Voting: who added an item is left out on the server while guests may not see it`.
+
+## Notes for the implementer
+
+- **(plan)** With Voting switched off for the site, names show as they did before 0.8, whatever the event's setting: the setting lives in the Voting block, which is not shown then, and a host could not see why names were missing.
+- `albumVotingFor` is the one hook on the album's server side. Keep it cheap while the vote is off: no award or vote is read until ticket 12 needs them, and then only when the state is not off.
+- The name is decided per item, before anything is sent: a guest's own items keep theirs, a co-host's items are hidden from guests like any other.
+- The guest list, comments and announcements carry names of their own by the host's other choices; this ticket hides only the link between a name and an item.
+
+## Comments
