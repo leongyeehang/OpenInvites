@@ -118,7 +118,7 @@ Numbered on from M7's 271.
 ### Voting
 
 - **Shape (maintainer).** Off, open or closed per event. One vote per person per award; a second tap in an award moves the vote; a tap on the voted item takes it back. Nobody votes for their own upload. Only approved items in the award's scope take votes.
-- **Awards (maintainer).** At least one; a new vote starts with "Favourite" for photos and videos. The host adds, renames, reorders and removes awards, each for photos, videos or both, with suggestions (Best photo, Best video, Funniest, Best group shot). Removing an award deletes its votes after a confirmation.
+- **Awards (maintainer).** At least one; a new vote starts with "Favourite" for photos and videos. The host adds, renames, reorders and removes awards, each for photos, videos or both, with suggestions (Best photo, Best video, Funniest, Best group shot). Removing an award deletes its votes after a confirmation. **(maintainer, 2026-11-11)** While an award for photos only or for videos only is chosen, the album shows only those items, for voting and for its results; nothing is dimmed.
 - **Who may vote (maintainer).** Everyone who sees the whole album (the default), only guests who are going, or only guests who replied through a personal invite link. Hosts always may.
 - **Closing (maintainer).** By the host, or at a time the host sets, shown to guests. **(decided here)** No timer runs: once the time has passed, pages and the vote action treat voting as closed.
 - **What guests see while open (maintainer).** No counts. The album in an order shuffled per guest, stable for that guest. **(decided here)** Hosts see counts and the usual order.
