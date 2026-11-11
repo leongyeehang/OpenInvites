@@ -56,7 +56,7 @@ import { mayVote, pollState, tally } from "@/polls/poll";
 import { loadPoll } from "@/polls/repository";
 import { findVoterOnThisDevice } from "@/polls/voter";
 import { PollBar, PollFlow, PollWhen, type PollCandidate } from "./poll-flow";
-import { albumState, mayApprovePhoto, mayDeletePhoto, type AlbumViewer } from "@/album/album";
+import { albumState, mayApprovePhoto, mayCaption, mayDeletePhoto, type AlbumViewer } from "@/album/album";
 import { albumOrderFor, formatTaken, shownDetails } from "@/album/details";
 import { ffmpegStatus } from "@/album/ffmpeg";
 import { motionUrl, photoUrl } from "@/album/files";
@@ -134,7 +134,8 @@ async function pollCandidates(eventId: string, locale: string): Promise<PollCand
 // Locked, it says how many photos it shows, which counts approved photos only; otherwise the
 // photos this viewer may see, each marked when it waits for approval, and approvable by a host.
 // An open item's technical line and the details the host keeps (M8 ticket 07) are written here, a
-// detail whose switch is off left out, so no page carries it.
+// detail whose switch is off left out, so no page carries it; each item's caption, and whether this
+// viewer may change it (M8 ticket 09).
 async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: string, now: Date): Promise<AlbumShown | undefined> {
   const switches = await siteFeatures();
   const state = albumState(event, now, featureOn(switches, "album"));
@@ -146,7 +147,17 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
     return { view: "locked", count: await countPhotos(event.id, "approved"), visibility: event.albumVisibility, awaitingApproval };
   }
   const photos: ShownPhoto[] = (await listPhotos(event.id, photoScope(view, viewer), albumOrderFor(event))).map((each) => {
-    const base = { id: each.id, name: each.name, deletable: mayDeletePhoto(viewer, each), pending: each.status === "pending", approvable: each.status === "pending" && mayApprovePhoto(viewer) };
+    // Its caption (M8 ticket 09) is the uploader's words, not a detail of the file: no switch of
+    // the host's hides it.
+    const base = {
+      id: each.id,
+      name: each.name,
+      deletable: mayDeletePhoto(viewer, each),
+      pending: each.status === "pending",
+      approvable: each.status === "pending" && mayApprovePhoto(viewer),
+      caption: each.caption,
+      captionEditable: mayCaption(viewer, each),
+    };
     const taken = event.albumKeepTakenAt ? each.takenAt : null;
     const details = { details: shownDetails(each, event), takenAt: taken && formatTaken(taken, event.timeZone, locale), takenAtIso: taken && taken.toISOString() };
     // A live photo carries its motion (M8 ticket 08), and one whose motion is being made says so.

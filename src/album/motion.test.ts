@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { keepsMotion, MOTION_MAX_BYTES, motionRange, readXmp, seesLivePhotoNote } from "./motion";
+import { keepsMotion, MOTION_MAX_BYTES, motionRange, readXmp, seesLivePhotoNote, TRAILER_MAX_BYTES } from "./motion";
 
 // Live photos (M8 ticket 08): where an Android motion photo keeps its clip, whether the site keeps
 // motion, and who is told what becomes of an iPhone's Live Photo. Every offset and length is the
@@ -98,6 +98,31 @@ describe("motionRange", () => {
     // A trailer header further from the end than that is not looked for: the clip runs to the end.
     const far = join(still, SAMSUNG, CLIP, ascii("SEFH"), new Uint8Array(70_000));
     expect(motionRange(far)).toEqual({ start: still.length + SAMSUNG.length, end: far.length });
+  });
+
+  // M8 ticket 09: Samsung's marker is looked for only where it could still give a clip, at most
+  // MOTION_MAX_BYTES ending no later than the trailer's window, so the search costs no more for a
+  // larger file. Built to the byte, not timed.
+  describe("Samsung's marker, searched only near the end", () => {
+    const WINDOW = MOTION_MAX_BYTES + TRAILER_MAX_BYTES + SAMSUNG.length;
+
+    it("does not find a marker before the window, and finds a valid one inside it", () => {
+      const still = jpeg();
+      const early = join(still, SAMSUNG, new Uint8Array(WINDOW));
+      const file = join(early, SAMSUNG, CLIP, trailer());
+      expect(early.length - SAMSUNG.length - still.length).toBeGreaterThan(0);
+      expect(still.length).toBeLessThan(file.length - WINDOW);
+      expect(motionRange(file)).toEqual({ start: early.length + SAMSUNG.length, end: early.length + SAMSUNG.length + CLIP.length });
+    });
+
+    it("finds a marker at the window's very start, whose clip runs to a trailer at the start of the last 64 KB", () => {
+      const still = jpeg();
+      const lead = join(still, new Uint8Array(100));
+      const clip = mp4(MOTION_MAX_BYTES - 12);
+      const file = join(lead, SAMSUNG, clip, ascii("SEFH"), new Uint8Array(TRAILER_MAX_BYTES - 4));
+      expect(lead.length).toBe(file.length - WINDOW);
+      expect(motionRange(file)).toEqual({ start: lead.length + SAMSUNG.length, end: lead.length + SAMSUNG.length + MOTION_MAX_BYTES });
+    });
   });
 
   it("finds a Pixel's Ultra HDR motion photo's clip, the last of three items, by its length from the end", () => {

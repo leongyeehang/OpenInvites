@@ -37,19 +37,35 @@ Restore the backup you took instead.
 
 ### Upgrading to 0.8
 
-0.8's migrations, from `0054`, run as the app starts.
+0.8 gives an album's videos several sizes and a player that picks among them, keeps an Android
+motion photo's few seconds as a live photo, lets a host keep when and with what each item was
+taken, and lets whoever adds an item caption it. Eight migrations, `0054` to `0061`, run as the app
+starts. They add tables, columns and enum values, and carry each video's lighter copy and each
+event's choice of it over to the new sizes; nothing else is back-filled, and no existing event
+changes until its host chooses:
 
 - **Update the worker container with the app.** A site that processes videos in a second
   container (`VIDEO_PROCESSING=worker`, see [configuration.md](configuration.md#storage)) runs the
-  new image in both at once: a 0.7 worker would write a column that 0.8 has dropped.
+  new image in both at once: a 0.7 worker would write the column 0.8 has dropped (`photo.copy`).
+- **Every feature is on.** Site settings' new **Features** card switches the album, videos and
+  voting off for every event at once; an upgraded site starts with all three on.
 - **Video sizes replace the lighter copy.** Each event's Album settings tick the sizes its videos
   get, 1080p and 720p, both by default. An event that chose 720p in 0.7 keeps 720p alone; every
-  other event gets both. A video already processed keeps the copy it has until you press **Make
-  missing sizes** on the Storage card, which gives every ready video the sizes its event asks for,
-  one at a time behind new uploads, while it stays in its album.
+  other event gets both. A video from before 0.8 keeps its one copy until you press **Make missing
+  sizes** on the Storage card, which gives every ready video the sizes its event asks for, one at
+  a time behind new uploads, while it stays in its album.
 - **A 4K copy is the operator's choice.** The Storage card's **Also make a 4K copy that plays
   everywhere** is off after the upgrade; see [configuration.md](configuration.md#storage) for what
   it costs.
+- **Details are off for every event.** Keeping when items were taken, and the camera with its
+  settings, are two switches in each event's Album settings, both off, and every album stays
+  ordered by when items were added. Nothing is read from items added before 0.8, whose files kept
+  nothing to read; where a picture was taken is never read, under any setting.
+- **Live photos and captions start from now.** No photo added before 0.8 kept its motion, so none
+  becomes live; a motion photo added from now on does, while Videos is on and ffmpeg is usable.
+  No item has a caption until someone writes one, which counts against `RATE_LIMIT_COMMENT`.
+
+No new environment variable is required, and `compose.yaml` gains no service.
 
 ### Upgrading to 0.7
 

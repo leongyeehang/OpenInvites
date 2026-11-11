@@ -1024,7 +1024,8 @@
         "failed": "The photos didn’t upload. Try again.",
         "albumStorageFull": "This album is full: {limit}.",
         "siteFull": "The site is full: ask the hosts to clear an album.",
-        "diskFull": "The site’s disk is nearly full. Try again later."
+        "diskFull": "The site’s disk is nearly full. Try again later.",
+        "captionTooLong": "Captions can be up to 140 characters."
       },
       "open": "Photo {n} by {name}",
       "openPending": "Photo {n} by {name}, awaiting approval",
@@ -1068,7 +1069,15 @@
         "fps": "{fps} fps",
         "hdr": "HDR",
         "taken": "Taken {when}"
-      }
+      },
+      "withCaption": "{label}: {caption}",
+      "caption": "Caption",
+      "captionFor": "Caption for {name}",
+      "addCaption": "Add a caption",
+      "editCaption": "Edit caption",
+      "saveCaption": "Save",
+      "cancelCaption": "Cancel",
+      "captionSaved": "{name}: caption saved"
     },
     "letter": {
       "for": "For {name}"

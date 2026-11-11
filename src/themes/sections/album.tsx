@@ -1,12 +1,12 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight, CircleDot, Download, Film, ImagePlus, Trash2, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, CircleDot, Download, Film, ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
 import { useEffect, useEffectEvent, useOptimistic, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
-import { approvePhotoAction, deletePhotoAction } from "@/album/actions";
-import { MAX_PHOTOS_AT_ONCE } from "@/album/album";
+import { approvePhotoAction, deletePhotoAction, setCaptionAction } from "@/album/actions";
+import { MAX_CAPTION, MAX_PHOTOS_AT_ONCE, parseCaption } from "@/album/album";
 import type { ShownDetails } from "@/album/details";
 import { seesLivePhotoNote } from "@/album/motion";
 import {
@@ -36,8 +36,9 @@ import { VideoPlayer, type ShownSize } from "./video-player";
 // added it, whether this viewer may delete it, whether it waits for a host's approval (M6 ticket
 // 03), and whether this viewer may approve it. An item that opens carries its technical line, and
 // the capture time and camera the host keeps, written on the server (M8 ticket 07). A live photo
-// carries its motion's file, and a photo whose motion is being made says so (M8 ticket 08).
-type ShownBase = { id: string; name: string; deletable: boolean; pending: boolean; approvable: boolean };
+// carries its motion's file, and a photo whose motion is being made says so (M8 ticket 08). Each
+// has its caption, and whether this viewer may write it (M8 ticket 09).
+type ShownBase = { id: string; name: string; deletable: boolean; pending: boolean; approvable: boolean; caption: string | null; captionEditable: boolean };
 // `takenAt` is the capture time as written for the viewer, `takenAtIso` the same instant for the
 // line's <time> element; both null while the host does not keep it.
 type ShownFacts = { details: ShownDetails; takenAt: string | null; takenAtIso: string | null };
@@ -62,7 +63,15 @@ const isLive = (photo: ShownPhoto): photo is LivePhoto => photo.kind === "photo"
 const noSubscription = () => () => undefined;
 const onAnIPhone = () => seesLivePhotoNote(navigator.userAgent, navigator.maxTouchPoints);
 
-type Line = { name: string; text: string; ok: boolean };
+// A file's status line; one added carries its item's id until it is captioned (M8 ticket 09).
+type Line = { name: string; text: string; ok: boolean; id?: string };
+
+// An item's accessible name with its caption after it (M8 ticket 09), or the name alone: the tile's
+// and the viewer's pictures, and the player.
+function useNamed(): (photo: ShownPhoto, label: string) => string {
+  const t = useTranslations("EventPage.album");
+  return (photo, label) => (photo.caption ? t("withCaption", { label, caption: photo.caption }) : label);
+}
 
 // The id of the album's heading, which every layout gives it: where the focus goes once a photo is
 // deleted, since the thumbnail that opened it goes with it.
@@ -78,7 +87,8 @@ export function Album({ slug, photos, maxMegabytes, video }: { slug: string; pho
   const locale = useLocale();
   const router = useRouter();
   const opening = photos.filter(openable);
-  const label = (photo: ShownPhoto, n: number) => t(photo.kind === "video" ? (photo.pending ? "openVideoPending" : "openVideo") : photo.pending ? "openPending" : "open", { n, name: photo.name });
+  const named = useNamed();
+  const label = (photo: ShownPhoto, n: number) => named(photo, t(photo.kind === "video" ? (photo.pending ? "openVideoPending" : "openVideo") : photo.pending ? "openPending" : "open", { n, name: photo.name }));
   const [adding, setAdding] = useState<number>();
   const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState<string>();
@@ -121,16 +131,16 @@ export function Album({ slug, photos, maxMegabytes, video }: { slug: string; pho
       const lineOf = (each: Prepared, outcome?: UploadOutcome): Line => {
         if (each.problem) return { name: each.file.name, ok: false, text: t("refusedFile", { name: each.file.name, reason: reason(each, each.problem) }) };
         if (!outcome) return { name: each.file.name, ok: true, text: t("uploading", { name: each.file.name }) };
-        if (outcome.ok) return { name: outcome.name, ok: true, text: t(outcome.kind === "video" ? "uploaded" : outcome.pending ? "addedPending" : "added", { name: outcome.name }) };
+        if (outcome.ok) return { name: outcome.name, ok: true, id: outcome.id, text: t(outcome.kind === "video" ? "uploaded" : outcome.pending ? "addedPending" : "added", { name: outcome.name }) };
         return { name: outcome.name, ok: false, text: t("refusedFile", { name: outcome.name, reason: reason(each, outcome.problem, outcome.max) }) };
       };
       const sending = prepared.filter((each) => !each.problem);
-      const lines = prepared.map((each) => lineOf(each));
-      setLines([...lines]);
+      setLines(prepared.map((each) => lineOf(each)));
       if (sending.length === 0) return;
+      // Each line from what it was, so a caption saved on one meanwhile stays saved.
       const answer = await uploadFiles(slug, sending, (index, outcome) => {
-        lines[prepared.indexOf(sending[index])] = lineOf(sending[index], outcome);
-        setLines([...lines]);
+        const at = prepared.indexOf(sending[index]);
+        setLines((current) => current.map((line, each) => (each === at ? lineOf(sending[index], outcome) : line)));
       });
       // A storage refusal names its limit in plain units (M7 ticket 02); the others use what they use.
       if (answer.error) setError(t(`errors.${answer.error}`, { left: answer.left ?? 0, limit: formatSize(answer.limit ?? 0, locale) }));
@@ -292,6 +302,30 @@ export function Album({ slug, photos, maxMegabytes, video }: { slug: string; pho
             </ul>
           </div>
         )}
+        {/* Outside the status, so typing in a field is not read out as news; saved, the file's own
+            line says so. */}
+        {lines.some((line) => line.id) && (
+          <ul className="flex flex-col gap-2">
+            {lines.map(
+              (line, index) =>
+                line.id && (
+                  <li key={line.id}>
+                    <CaptionWhileAdding
+                      slug={slug}
+                      id={line.id}
+                      name={line.name}
+                      // Its field goes once saved, so the focus goes back to where files are added.
+                      onSaved={() => {
+                        setLines((current) => current.map((each, at) => (at === index ? { ...each, id: undefined, text: t("captionSaved", { name: each.name }) } : each)));
+                        input.current?.focus();
+                        startRefresh(() => router.refresh());
+                      }}
+                    />
+                  </li>
+                ),
+            )}
+          </ul>
+        )}
       </div>
 
       <Viewer
@@ -336,10 +370,15 @@ function Viewer({
   onClosed: (deleted: boolean) => void;
 }) {
   const t = useTranslations("EventPage.album");
+  const named = useNamed();
   const deleted = useRef(false);
   const download = useRef<HTMLAnchorElement>(null);
   const swipe = useRef<number | undefined>(undefined);
   const photo = index === undefined ? undefined : photos[index];
+  // The item whose caption is being written, if any (M8 ticket 09): Escape then ends the writing,
+  // not the viewer, and turning the page leaves it.
+  const [captioning, setCaptioning] = useState<string>();
+  const editing = photo !== undefined && captioning === photo.id;
   const go = (step: number) => index !== undefined && photos.length > 0 && onIndex((index + step + photos.length) % photos.length);
 
   return (
@@ -355,14 +394,20 @@ function Viewer({
             event.preventDefault();
             onClosed(deleted.current);
           }}
-          // The player has its own keys and its own seek bar: nothing from inside it turns the page.
+          onEscapeKeyDown={(event) => {
+            if (!editing) return;
+            event.preventDefault();
+            setCaptioning(undefined);
+          }}
+          // The player has its own keys and its own seek bar, and the caption's field its own
+          // cursor: nothing from inside either turns the page.
           onKeyDown={(event) => {
-            if ((event.target as HTMLElement).closest("video")) return;
+            if ((event.target as HTMLElement).closest("video, input")) return;
             if (event.key === "ArrowRight") go(1);
             if (event.key === "ArrowLeft") go(-1);
           }}
           onPointerDown={(event) => {
-            swipe.current = (event.target as HTMLElement).closest("video") ? undefined : event.clientX;
+            swipe.current = (event.target as HTMLElement).closest("video, input") ? undefined : event.clientX;
           }}
           onPointerUp={(event) => {
             if (swipe.current === undefined) return;
@@ -433,12 +478,19 @@ function Viewer({
               </header>
               <div className={cn("relative flex min-h-0 flex-1 items-center justify-center px-2 pb-2", isLive(photo) && "[container-type:size]")}>
                 {photo.kind === "video" ? (
-                  <VideoPlayer key={photo.id} video={photo} label={t(photo.pending ? "openVideoPending" : "openVideo", { n: index + 1, name: photo.name })} />
+                  <VideoPlayer key={photo.id} video={photo} label={named(photo, t(photo.pending ? "openVideoPending" : "openVideo", { n: index + 1, name: photo.name }))} />
                 ) : isLive(photo) ? (
-                  <LivePicture key={photo.id} photo={photo} alt={t(photo.pending ? "openPending" : "open", { n: index + 1, name: photo.name })} />
+                  <LivePicture key={photo.id} photo={photo} alt={named(photo, t(photo.pending ? "openPending" : "open", { n: index + 1, name: photo.name }))} />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized
-                  <img src={photo.large} alt={t(photo.pending ? "openPending" : "open", { n: index + 1, name: photo.name })} width={photo.width} height={photo.height} className="max-h-full max-w-full object-contain select-none" draggable={false} />
+                  <img
+                    src={photo.large}
+                    alt={named(photo, t(photo.pending ? "openPending" : "open", { n: index + 1, name: photo.name }))}
+                    width={photo.width}
+                    height={photo.height}
+                    className="max-h-full max-w-full object-contain select-none"
+                    draggable={false}
+                  />
                 )}
                 {photos.length > 1 && (
                   <>
@@ -461,6 +513,7 @@ function Viewer({
                   </>
                 )}
               </div>
+              <Caption key={photo.id} slug={slug} photo={photo} editing={editing} onEditing={(on) => setCaptioning(on ? photo.id : undefined)} />
               <ItemDetails photo={photo} />
             </>
           )}
@@ -584,6 +637,169 @@ function LivePicture({ photo, alt }: { photo: LivePhoto; alt: string }) {
         {t("live")}
       </button>
     </div>
+  );
+}
+
+// An item's caption under it in the viewer (M8 ticket 09), drawn as text, and for whoever may write
+// it Add a caption or Edit caption, which opens a field in its place: Enter saves, Escape (the
+// viewer's, while writing) and Cancel leave it, and either way the focus is back on the button. A
+// refusal is said under the field. Saved, the caption shows at once and the page is drawn again.
+function Caption({ slug, photo, editing, onEditing }: { slug: string; photo: Openable; editing: boolean; onEditing: (on: boolean) => void }) {
+  const t = useTranslations("EventPage.album");
+  const router = useRouter();
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string>();
+  const [saving, startSaving] = useTransition();
+  // What was saved here, shown in place of the caption it replaced until the page drawn again
+  // brings it.
+  const [saved, setSaved] = useState<{ over: string | null; caption: string | null }>();
+  // Set when writing begins, so the button has the focus back when it returns.
+  const refocus = useRef(false);
+  const caption = saved && saved.over === photo.caption ? saved.caption : photo.caption;
+  if (!caption && !photo.captionEditable) return null;
+
+  const begin = () => {
+    refocus.current = true;
+    setDraft(caption ?? "");
+    setError(undefined);
+    onEditing(true);
+  };
+  const save = () =>
+    startSaving(async () => {
+      const answer = await setCaptionAction(slug, photo.id, draft);
+      if (answer.error) return setError(t(`errors.${answer.error}`));
+      const parsed = parseCaption(draft);
+      if (parsed.ok) setSaved({ over: photo.caption, caption: parsed.caption });
+      onEditing(false);
+      router.refresh();
+    });
+
+  return (
+    <div className="flex flex-col items-center gap-1 px-4 pt-1 pb-2 text-center">
+      {editing ? (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            save();
+          }}
+          className="flex w-full max-w-md flex-col gap-1.5 text-left"
+        >
+          <div className="flex items-baseline justify-between gap-2 text-xs text-white/70">
+            <label htmlFor="caption-field">{t("caption")}</label>
+            <span id="caption-count">
+              {draft.length}/{MAX_CAPTION}
+            </span>
+          </div>
+          <input
+            id="caption-field"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            maxLength={MAX_CAPTION}
+            autoComplete="off"
+            autoFocus
+            aria-describedby={error ? "caption-count caption-error" : "caption-count"}
+            aria-invalid={error ? true : undefined}
+            className="h-10 w-full rounded-full bg-white/10 px-4 text-sm text-white focus-visible:outline-2 focus-visible:outline-white"
+          />
+          {error && (
+            <p id="caption-error" role="alert" className="text-sm font-medium">
+              {error}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => onEditing(false)}
+              className="inline-flex h-10 cursor-pointer items-center rounded-full px-4 text-sm font-medium hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white"
+            >
+              {t("cancelCaption")}
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex h-10 cursor-pointer items-center rounded-full bg-white px-4 text-sm font-medium text-black hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-wait disabled:opacity-60"
+            >
+              {t("saveCaption")}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <>
+          {caption && (
+            <p data-slot="caption" className="max-w-prose text-sm break-words text-white">
+              {caption}
+            </p>
+          )}
+          {photo.captionEditable && (
+            <button
+              ref={(button) => {
+                if (!button || !refocus.current) return;
+                refocus.current = false;
+                button.focus();
+              }}
+              type="button"
+              onClick={begin}
+              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3 text-xs font-medium text-white/80 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white"
+            >
+              {caption ? <Pencil className="size-3.5" aria-hidden /> : <Plus className="size-3.5" aria-hidden />}
+              {t(caption ? "editCaption" : "addCaption")}
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// A caption written for a file just added (M8 ticket 09), under the status lines, with the same
+// action as the viewer's: the picker sends files as soon as they are picked, so this is where one
+// is written while adding. Saved, the file's status line says so.
+function CaptionWhileAdding({ slug, id, name, onSaved }: { slug: string; id: string; name: string; onSaved: () => void }) {
+  const t = useTranslations("EventPage.album");
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string>();
+  const [saving, startSaving] = useTransition();
+  const field = `caption-${id}`;
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        startSaving(async () => {
+          const answer = await setCaptionAction(slug, id, draft);
+          if (answer.error) return setError(t(`errors.${answer.error}`));
+          onSaved();
+        });
+      }}
+      className="flex flex-col gap-1"
+    >
+      <label htmlFor={field} className="text-xs text-theme-text-muted">
+        {t("captionFor", { name })}
+      </label>
+      <div className="flex items-center gap-1.5">
+        <input
+          id={field}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          maxLength={MAX_CAPTION}
+          autoComplete="off"
+          aria-describedby={error ? `${field}-error` : undefined}
+          aria-invalid={error ? true : undefined}
+          className="h-9 min-w-0 flex-1 rounded-full bg-theme-glass-strong px-3 text-sm text-theme-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
+        />
+        <button
+          type="submit"
+          disabled={saving}
+          className="inline-flex h-9 shrink-0 cursor-pointer items-center rounded-full bg-theme-glass-strong px-3 text-xs font-medium text-theme-text hover:bg-theme-glass focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text disabled:cursor-wait"
+        >
+          {t("saveCaption")}
+        </button>
+      </div>
+      {error && (
+        <p id={`${field}-error`} role="alert" className="text-sm font-medium text-theme-text">
+          {error}
+        </p>
+      )}
+    </form>
   );
 }
 

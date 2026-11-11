@@ -1,17 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { findEventBySlug } from "@/events/repository";
 import { featureOn, siteFeatures } from "@/features";
 import { gateFor } from "@/invites/gate";
 import { eventPaths } from "@/events/slug";
 import { isUuid } from "@/lib/uuid";
-import { mayApprovePhoto, mayDeletePhoto } from "./album";
-import { approvePhoto, deletePhoto, findPhoto } from "./repository";
+import { consume } from "@/rate-limit/rate-limit";
+import { mayApprovePhoto, mayCaption, mayDeletePhoto, parseCaption } from "./album";
+import { approvePhoto, deletePhoto, findPhoto, setCaption } from "./repository";
 import { albumViewer } from "./viewer";
 
-// Both open the event only to whom its page opens (invites/gate.ts): on an invite-only event, its
-// hosts and the devices that are in. Neither acts while the operator has the Album switched off
+// Each opens the event only to whom its page opens (invites/gate.ts): on an invite-only event, its
+// hosts and the devices that are in. None acts while the operator has the Album switched off
 // (M8 ticket 01).
 
 // Deleting a photo from the album (M4 ticket 11): a host any, a guest their own. Not counted against
@@ -37,4 +39,21 @@ export async function approvePhotoAction(slug: string, id: string): Promise<void
   if (!found || !mayApprovePhoto(viewer)) return;
   if (!(await approvePhoto(event.id, found.id))) return;
   for (const path of eventPaths(event)) revalidatePath(path);
+}
+
+// Writing, changing or removing an item's caption (M8 ticket 09): its uploader's or a host's. Every
+// save counts against the comment limit before anything is looked up, as a comment does. An event
+// whose page is not open to this viewer, an album switched off, an item gone or one this viewer may
+// not caption are all closed; the caption is cleaned and measured as parseCaption says.
+export async function setCaptionAction(slug: string, photoId: string, caption: string): Promise<{ error?: "tooFast" | "captionTooLong" | "closed" }> {
+  if (!(await consume("comment", await headers())).allowed) return { error: "tooFast" };
+  const event = await findEventBySlug(slug);
+  if (!event || !isUuid(photoId) || (await gateFor(event)).page !== "invitation" || !featureOn(await siteFeatures(), "album")) return { error: "closed" };
+  const [viewer, found] = await Promise.all([albumViewer(event.id), findPhoto(event.id, photoId)]);
+  if (!found || !mayCaption(viewer, found)) return { error: "closed" };
+  const parsed = parseCaption(typeof caption === "string" ? caption : "");
+  if (!parsed.ok) return { error: parsed.error };
+  if (!(await setCaption(event.id, found.id, parsed.caption))) return { error: "closed" };
+  for (const path of eventPaths(event)) revalidatePath(path);
+  return {};
 }

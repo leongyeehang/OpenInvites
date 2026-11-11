@@ -486,3 +486,52 @@ test("an invitee whose browser asks for zh-TW opens an invite-only event, reads 
   await context.close();
   await host.context.close();
 });
+
+// M8 ticket 09: the album's media in Traditional Chinese, as a guest whose browser asks for zh-TW
+// meets them: a video's sizes, a live photo's mark, and a caption written while adding and opened
+// again in the viewer. The video and the live photo wait their turn in the queue.
+test("a guest whose browser asks for zh-TW opens a video's sizes, a live photo and a caption in Traditional Chinese", async ({ browser, request }) => {
+  test.setTimeout(480_000);
+  const host = await createPublished(browser, request, "locale-media", { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" });
+  const context = await browser.newContext({ locale: "zh-TW", extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
+  const page = await context.newPage();
+  await page.goto(host.link);
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
+  await page.getByRole("button", { name: "參加", exact: true }).click();
+  await page.getByLabel("你的名字").fill("Priya Nair");
+  await page.getByRole("button", { name: "送出回覆" }).click();
+  await expect(page.getByText("期待你的到來！")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("dialog", { name: "你的回覆" }).getByRole("button", { name: "關閉" }).click();
+
+  const album = page.locator('[data-slot="album"]');
+  await album.getByLabel("新增照片和影片").setInputFiles(["e2e/fixtures/motion-photo.jpg", "e2e/fixtures/clip-hevc-1080p.mp4"]);
+  const lines = album.getByRole("status").last();
+  await expect(lines).toContainText("motion-photo.jpg：已新增", { timeout: 30_000 });
+  await album.getByLabel("motion-photo.jpg 的說明").fill("湖邊的夕陽");
+  await album.getByRole("button", { name: "儲存" }).first().click();
+  await expect(lines).toContainText("motion-photo.jpg：說明已儲存");
+
+  // Both ready: the photo live, the video with its first copy.
+  await expect(album.locator('li[data-item="photo"] [data-slot="live-mark"]')).toHaveText("原況", { timeout: 300_000 });
+  await expect(album.locator('li[data-item="video"][data-state="ready"]')).toBeVisible({ timeout: 300_000 });
+  await page.reload();
+
+  await album.getByRole("button", { name: /^Priya Nair 的第 \d 張照片：湖邊的夕陽/ }).click();
+  let viewer = page.getByRole("dialog", { name: /^第 \d 張，共 2 張$/ });
+  await expect(viewer.getByRole("button", { name: "播放原況照片" })).toHaveText("原況");
+  await expect(viewer.locator('[data-slot="caption"]')).toHaveText("湖邊的夕陽");
+  await viewer.getByRole("button", { name: "編輯說明" }).click();
+  await expect(viewer.getByLabel("說明", { exact: true })).toHaveValue("湖邊的夕陽");
+  await expect(viewer.getByRole("button", { name: "儲存" })).toBeVisible();
+  await viewer.getByRole("button", { name: "取消" }).click();
+  await expect(viewer.getByRole("button", { name: "編輯說明" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+
+  await album.getByRole("button", { name: /^Priya Nair 的第 \d 段影片/ }).click();
+  viewer = page.getByRole("dialog", { name: /^第 \d 段影片，共 2 項$/ });
+  const group = viewer.getByRole("radiogroup", { name: "尺寸" });
+  await expect(group.getByRole("radio").first()).toHaveText(/^自動 · \d+p$/);
+  await expect(viewer.getByRole("button", { name: "新增說明" })).toBeVisible();
+  await Promise.all([host.context.close(), context.close()]);
+});

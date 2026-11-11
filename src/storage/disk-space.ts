@@ -33,7 +33,19 @@ export async function diskUseOf(dir: string): Promise<number> {
   }
   let total = 0;
   for (const entry of entries) {
-    if (entry.isFile()) total += (await stat(join(dir, entry.name))).size;
+    if (entry.isFile()) total += await sizeOf(join(dir, entry.name));
   }
   return total;
+}
+
+// A file's size, or zero for one that went after the directory was listed: an album item deleted
+// meanwhile, or a partial renamed onto its key. It is absent, never an error on the page that
+// asked (M8 ticket 09).
+async function sizeOf(file: string): Promise<number> {
+  try {
+    return (await stat(file)).size;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return 0;
+    throw error;
+  }
 }

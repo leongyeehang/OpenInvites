@@ -428,6 +428,13 @@
       "when": 1794410932647,
       "tag": "0060_live_photo",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1794414405639,
+      "tag": "0061_caption",
+      "breakpoints": true
     }
   ]
 }

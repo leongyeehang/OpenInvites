@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MIN_FREE_BYTES } from "@/lib/sizes";
-import { albumRoom, albumState, mayAddPhotos, mayApprovePhoto, mayDeletePhoto, storageRoom } from "./album";
+import { albumRoom, albumState, MAX_CAPTION, mayAddPhotos, mayApprovePhoto, mayCaption, mayDeletePhoto, parseCaption, storageRoom } from "./album";
 
 const START = new Date("2027-05-08T11:00:00Z");
 
@@ -94,5 +94,57 @@ describe("albumRoom", () => {
   it("then checks the site's storage and the disk", () => {
     expect(albumRoom({ ...held, siteBytes: 995 * MB }, { items: 1, bytes: 6 * MB }, caps)).toEqual({ ok: false, error: "siteFull", left: 300, limit: 1000 * MB });
     expect(albumRoom({ ...held, freeBytes: MIN_FREE_BYTES }, { items: 1, bytes: 1 }, caps)).toEqual({ ok: false, error: "diskFull", left: 300, limit: MIN_FREE_BYTES });
+  });
+});
+
+// M8 ticket 09: a caption is plain text of at most 140 characters, counted as Postgres counts them.
+describe("parseCaption", () => {
+  it("trims the caption", () => {
+    expect(parseCaption("  Sunset over the lake  ")).toEqual({ ok: true, caption: "Sunset over the lake" });
+  });
+
+  it("makes each line break one space", () => {
+    expect(parseCaption("a\r\nb\nc")).toEqual({ ok: true, caption: "a b c" });
+    expect(parseCaption("a\u2028b\u2029c")).toEqual({ ok: true, caption: "a b c" });
+  });
+
+  it("makes a tab and other control characters spaces, and runs of spaces one", () => {
+    expect(parseCaption("a\tb\u0000c\u007fd\u0085e   f")).toEqual({ ok: true, caption: "a b c d e f" });
+  });
+
+  it("drops the bidi and zero-width characters plainText drops", () => {
+    expect(parseCaption("a\u202eb\u200bc\ufeffd")).toEqual({ ok: true, caption: "abcd" });
+  });
+
+  it("removes the caption when nothing is left", () => {
+    expect(parseCaption("")).toEqual({ ok: true, caption: null });
+    expect(parseCaption("   ")).toEqual({ ok: true, caption: null });
+    expect(parseCaption("\n\t\u200b")).toEqual({ ok: true, caption: null });
+  });
+
+  it("takes 140 characters and refuses 141", () => {
+    expect(MAX_CAPTION).toBe(140);
+    expect(parseCaption("a".repeat(140))).toEqual({ ok: true, caption: "a".repeat(140) });
+    expect(parseCaption("a".repeat(141))).toEqual({ ok: false, error: "captionTooLong" });
+  });
+
+  it("counts by code point, so 140 emoji pass", () => {
+    expect(parseCaption("🌅".repeat(140))).toEqual({ ok: true, caption: "🌅".repeat(140) });
+    expect(parseCaption("🌅".repeat(141))).toEqual({ ok: false, error: "captionTooLong" });
+  });
+});
+
+describe("mayCaption", () => {
+  it("is a host for any item", () => {
+    expect(mayCaption({ kind: "host", hostId: "h1" }, { rsvpId: "r1" })).toBe(true);
+    expect(mayCaption({ kind: "host", hostId: "h1" }, { rsvpId: null })).toBe(true);
+  });
+
+  it("is a guest for an item their RSVP added, and nobody else", () => {
+    const guest = (rsvpId: string) => ({ kind: "guest" as const, rsvpId, approval: "approved" as const, status: "going" as const, name: "Priya Nair" });
+    expect(mayCaption(guest("r1"), { rsvpId: "r1" })).toBe(true);
+    expect(mayCaption(guest("r2"), { rsvpId: "r1" })).toBe(false);
+    expect(mayCaption(guest("r2"), { rsvpId: null })).toBe(false);
+    expect(mayCaption({ kind: "visitor" }, { rsvpId: "r1" })).toBe(false);
   });
 });

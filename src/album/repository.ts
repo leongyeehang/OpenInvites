@@ -107,6 +107,17 @@ export async function approvePhoto(eventId: string, id: string): Promise<boolean
   return approved.length > 0;
 }
 
+// A caption written, changed or removed (M8 ticket 09), scoped to the event: whether an item was
+// there to take it.
+export async function setCaption(eventId: string, id: string, caption: string | null): Promise<boolean> {
+  const changed = await getDb()
+    .update(photo)
+    .set({ caption })
+    .where(and(eq(photo.id, id), eq(photo.eventId, eventId)))
+    .returning({ id: photo.id });
+  return changed.length > 0;
+}
+
 // Approves every photo still waiting, inside the caller's transaction and under its lock on the
 // event: what turning approval off does (events/repository.ts, updateEvent). Nobody is emailed.
 export async function approvePendingPhotos(eventId: string, tx: Db): Promise<void> {

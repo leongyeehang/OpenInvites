@@ -110,7 +110,9 @@ test("an HEVC clip held portrait gets a lighter copy, an upright poster, and los
   expect((await request.get(`${files}/video-720p.mp4`)).status()).toBe(404);
   expect(original.includes("+35.6895+139.6917")).toBe(false);
   expect(original.includes("6895")).toBe(false);
-  const poster = await sharp(await (await request.get(`${files}/video-poster.webp`)).body()).metadata();
+  // The poster is made from the stored original, so it is stored after it: waited for, not read
+  // at once (M8 ticket 09, a flake of the media pass).
+  const poster = await sharp(await servedWithin(request, `${files}/video-poster.webp`, 30_000)).metadata();
   expect(poster.height!).toBeGreaterThan(poster.width!);
   await Promise.all([host.context.close(), priya.context().close()]);
 });

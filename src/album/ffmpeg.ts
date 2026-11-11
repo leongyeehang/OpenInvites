@@ -33,12 +33,18 @@ export function toneMappingAvailable(filters: Set<string>): boolean {
   return filters.has("zscale") && filters.has("tonemap");
 }
 
-function output(command: string, args: string[]): string | undefined {
+// A command's output, or why there is none: it could not run, timed out, or did not succeed.
+function run(command: string, args: string[]): { stdout: string } | { failed: string } {
   const result = spawnSync(command, args, { encoding: "utf8", timeout: 5000 });
-  return result.error || result.status !== 0 ? undefined : result.stdout;
+  if (result.error) return { failed: result.error.message };
+  if (result.status !== 0) return { failed: result.signal ? `killed by ${result.signal}` : `exit status ${result.status}` };
+  return { stdout: result.stdout };
 }
 
-const versionOutput = (command: string) => output(command, ["-version"]);
+const versionOutput = (command: string) => {
+  const result = run(command, ["-version"]);
+  return "stdout" in result ? result.stdout : undefined;
+};
 
 export function detectFfmpeg(): FfmpegStatus {
   const ffmpeg = versionOutput("ffmpeg");
@@ -46,7 +52,11 @@ export function detectFfmpeg(): FfmpegStatus {
   if (!ffmpeg || !ffprobe) return { available: false, reason: "missing" };
   const version = parseFfmpegVersion(ffmpeg);
   if (!version || !ffmpegUsable(version)) return { available: false, reason: "old", version };
-  return { available: true, version, toneMapping: toneMappingAvailable(parseFilters(output("ffmpeg", ["-hide_banner", "-filters"]) ?? "")) };
+  // A filter list that could not be read is taken as one without the filters, and said once here
+  // (M8 ticket 09), so a passing failure at start leaves more trace than the Storage card's line.
+  const filters = run("ffmpeg", ["-hide_banner", "-filters"]);
+  if ("failed" in filters) console.warn(`Videos: asking ffmpeg for its filters failed (${filters.failed}), so HDR videos' copies are not converted until the app restarts.`);
+  return { available: true, version, toneMapping: toneMappingAvailable(parseFilters("stdout" in filters ? filters.stdout : "")) };
 }
 
 // Kept on globalThis, as the mail worker keeps its state: the instrumentation hook and the pages

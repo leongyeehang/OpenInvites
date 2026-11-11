@@ -123,6 +123,11 @@ test("a video offers Auto, its original by its size and the copies, and Auto pic
   await expect.poll(playing(viewer)).toMatch(/\/video-720p\.mp4$/);
   await expect(viewer.getByRole("link", { name: "Download" })).toHaveAttribute("href", /\/video\.mp4$/);
   await expectNoSeriousViolations(priya, "the player with its sizes", { except: ["video-caption"] });
+  // M8 ticket 09: the sizes, the details line and the caption's field, open together.
+  await viewer.getByRole("button", { name: "Add a caption" }).click();
+  await expect(viewer.getByLabel("Caption", { exact: true })).toBeFocused();
+  await expect(viewer.locator('[data-slot="item-details"]')).toBeVisible();
+  await expectNoSeriousViolations(priya, "the player with its sizes, its details and the caption's field", { except: ["video-caption"] });
   await Promise.all([host.context.close(), priya.context().close()]);
 });
 
@@ -435,17 +440,19 @@ test("the size control is reached from the player and worked by keyboard", async
   await Promise.all([host.context.close(), context.close()]);
 });
 
+// M8 ticket 09: with the size group shown, an HEVC clip's, which has copies to pick from.
 test("under reduced motion the processing tile and the player hold still", async ({ browser, request }) => {
-  test.slow();
+  test.setTimeout(SIZES_MS);
   const host = await createPublished(browser, request, "video-still", PAST);
   const priya = await guestGoing(browser, host.link, "Priya Nair", { reducedMotion: "reduce" });
-  await album(priya).getByLabel("Add photos and videos").setInputFiles(H264);
+  await album(priya).getByLabel("Add photos and videos").setInputFiles(HEVC_1080);
   await expect(album(priya).locator('li[data-state="processing"]')).toBeVisible();
   await expectStill(priya, "the album, a clip processing");
-  const tile = await readyTile(priya);
-  await tile.getByRole("button", { name: "Video 1 by Priya Nair" }).click();
-  await expect(priya.getByRole("dialog", { name: "Video 1 of 1" }).locator("video")).toBeVisible();
-  await expectStill(priya, "the viewer with the player");
+  await allSizesMade(priya);
+  const viewer = await openVideo(priya);
+  await expect(viewer.locator("video")).toBeVisible();
+  await expect(sizes(viewer)).toBeVisible();
+  await expectStill(priya, "the viewer with the player and its sizes");
   await Promise.all([host.context.close(), priya.context().close()]);
 });
 

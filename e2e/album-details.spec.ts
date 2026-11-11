@@ -116,6 +116,10 @@ test("with the switches off, nothing of when, with what or where is shown", asyn
   await expect(viewer).not.toContainText("iPhone");
   const sent = await html(priya, host.link);
   expect(sent).not.toContain("iPhone 15 Pro");
+  // Nor when it was taken: not its instant, and no Taken line, the message's own pattern aside.
+  expect(sent).not.toContain(PHOTO_TAKEN);
+  expect(sent).toContain("Taken {when}");
+  expect(sent).not.toMatch(/Taken (?!\{when\})/);
   await Promise.all([host.context.close(), priya.context().close()]);
 });
 

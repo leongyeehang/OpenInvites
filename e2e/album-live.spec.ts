@@ -71,6 +71,7 @@ test("a motion photo is added as a live photo, wears the Live mark and plays whe
   const host = await createPublished(browser, request, "live-photo", PAST);
   const priya = await guestGoing(browser, host.link, "Priya Nair");
   await addLivePhoto(priya);
+  await expectNoSeriousViolations(priya, "the album with a live photo's tile");
 
   const viewer = await openPhoto(priya);
   const motion = motionOf(viewer);
@@ -90,6 +91,19 @@ test("a motion photo is added as a live photo, wears the Live mark and plays whe
   expect(await motion.evaluate((video: HTMLVideoElement) => video.currentSrc)).toMatch(/\/motion\.mp4$/);
   await expect(play).toHaveAttribute("aria-pressed", "false", { timeout: 15_000 });
   await expect(motion).toBeHidden();
+
+  // By keyboard (M8 ticket 09): Enter plays it, Space stops it, and Space plays it again.
+  await play.focus();
+  await priya.keyboard.press("Enter");
+  await expect(play).toHaveAttribute("aria-pressed", "true");
+  await expect(motion).toBeVisible();
+  await priya.keyboard.press("Space");
+  await expect(play).toHaveAttribute("aria-pressed", "false");
+  await expect(motion).toBeHidden();
+  await priya.keyboard.press("Space");
+  await expect(play).toHaveAttribute("aria-pressed", "true");
+  await expect(play).toHaveAttribute("aria-pressed", "false", { timeout: 15_000 });
+  await expect(play).toBeFocused();
 
   // The picture's menu is the browser's, so a right-click can save it.
   expect(await menuPrevented(pictureOf(viewer))).toBe(false);

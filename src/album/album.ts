@@ -2,6 +2,7 @@ import type { EventState } from "@/events/repository";
 import { MIN_FREE_BYTES } from "@/lib/sizes";
 import type { Approval } from "@/rsvps/admission";
 import type { SavedStatus } from "@/rsvps/form";
+import { withoutUnseen } from "./exif";
 
 // The photo album (M4 ticket 11): from the event's start, its guests whose replies the host has
 // approved, and its hosts, add photos; who sees them is the host's choice (M6 ticket 03,
@@ -51,6 +52,29 @@ export function mayApprovePhoto(viewer: AlbumViewer): boolean {
 export function mayDeletePhoto(viewer: AlbumViewer, photo: { rsvpId: string | null }): boolean {
   if (viewer.kind === "host") return true;
   return viewer.kind === "guest" && photo.rsvpId === viewer.rsvpId;
+}
+
+// A caption (M8 ticket 09): whoever added the item, and any host, writes and changes it.
+export function mayCaption(viewer: AlbumViewer, item: { rsvpId: string | null }): boolean {
+  if (viewer.kind === "host") return true;
+  return viewer.kind === "guest" && item.rsvpId === viewer.rsvpId;
+}
+
+// The longest caption, in characters as Postgres's char_length counts them: code points, so an
+// emoji is one.
+export const MAX_CAPTION = 140;
+
+// A caption as posted, made plain text on one line: line breaks (U+2028 and U+2029 too), tabs and
+// other control characters become spaces, the characters that could reorder or hide text go
+// (exif.ts, withoutUnseen, the rule camera names follow), runs of spaces become one and the ends
+// are trimmed. Nothing left removes the caption. It is never parsed: React writes it as text.
+export function parseCaption(posted: string): { ok: true; caption: string | null } | { ok: false; error: "captionTooLong" } {
+  const caption = withoutUnseen(posted.replace(/[\u2028\u2029]/g, " "), " ")
+    .replace(/ {2,}/g, " ")
+    .trim();
+  if (caption === "") return { ok: true, caption: null };
+  if ([...caption].length > MAX_CAPTION) return { ok: false, error: "captionTooLong" };
+  return { ok: true, caption };
 }
 
 // Why an upload is refused, with what the message names: how many places are left in the album,

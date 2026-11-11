@@ -46,7 +46,7 @@ const MAX_ITEMS = 16;
 
 // Samsung's trailer is a short index of its blocks at the very end of the file; its header is
 // looked for only this far from the end.
-const TRAILER_MAX_BYTES = 64 * 1024;
+export const TRAILER_MAX_BYTES = 64 * 1024;
 
 type Range = { start: number; end: number };
 
@@ -131,9 +131,12 @@ function fromXmp(bytes: Uint8Array, xmp: string): Range | undefined {
 }
 
 // Samsung's: the clip follows the marker, after the picture, and ends where the trailer's header
-// begins, in the file's last TRAILER_MAX_BYTES, or at the end of the file when there is none.
+// begins, in the file's last TRAILER_MAX_BYTES, or at the end of the file when there is none. The
+// marker is looked for only where a clip of at most MOTION_MAX_BYTES could follow it (M8 ticket 09):
+// one further from the end would give a range `checked` refuses, so the search costs the same for
+// a photo of any size, the operator's largest included.
 function fromSamsung(bytes: Uint8Array, from: number): Range | undefined {
-  const marker = indexOf(bytes, SAMSUNG_MARKER, from);
+  const marker = indexOf(bytes, SAMSUNG_MARKER, Math.max(from, bytes.length - MOTION_MAX_BYTES - TRAILER_MAX_BYTES - SAMSUNG_MARKER.length));
   if (marker < 0) return undefined;
   const start = marker + SAMSUNG_MARKER.length;
   const trailer = lastIndexOf(bytes, SAMSUNG_TRAILER, Math.max(start, bytes.length - TRAILER_MAX_BYTES));
@@ -192,9 +195,12 @@ function indexOf(bytes: Uint8Array, pattern: Uint8Array, from: number): number {
 }
 
 // The last place `pattern` starts at or after `from`, or -1; the caller bounds how far back that is.
+// Searched within the window alone, so no scan runs on past `from` towards the file's start.
 function lastIndexOf(bytes: Uint8Array, pattern: Uint8Array, from: number): number {
-  for (let at = bytes.lastIndexOf(pattern[0]); at >= from; at = at === 0 ? -1 : bytes.lastIndexOf(pattern[0], at - 1)) {
-    if (startsWith(bytes, at, pattern)) return at;
+  const start = Math.max(0, from);
+  const window = bytes.subarray(start);
+  for (let at = window.lastIndexOf(pattern[0]); at >= 0; at = at === 0 ? -1 : window.lastIndexOf(pattern[0], at - 1)) {
+    if (startsWith(window, at, pattern)) return start + at;
   }
   return -1;
 }

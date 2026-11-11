@@ -772,6 +772,10 @@ export const photo = pgTable(
     // A live photo (M8 ticket 08): a photo whose motion the video queue has made and stored beside
     // its files (album/files.ts, motionKey). False until then, and for every other item.
     live: boolean("live").notNull().default(false),
+    // Its caption (M8 ticket 09): plain text on one line, written by whoever added it or a host,
+    // at most 140 characters as char_length counts them (album/album.ts, parseCaption); null for
+    // none.
+    caption: text("caption"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -779,6 +783,7 @@ export const photo = pgTable(
     index("photo_rsvp_id_idx").on(table.rsvpId),
     index("photo_host_id_idx").on(table.hostId),
     check("photo_one_owner", sql`(${table.rsvpId} is null) <> (${table.hostId} is null)`),
+    check("photo_caption_length", sql`char_length(${table.caption}) <= 140`),
   ],
 );
 

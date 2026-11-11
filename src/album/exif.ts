@@ -125,7 +125,15 @@ export function readExif(exif: Uint8Array, groups: KeepDetails): ExifFacts {
 // costs no more than a short one.
 export function plainText(value: string): string {
   const head = value.slice(0, MAX_TEXT_BYTES);
-  return [...head.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, "")].slice(0, MAX_TEXT).join("").trim();
+  return [...withoutUnseen(head, "")].slice(0, MAX_TEXT).join("").trim();
+}
+
+// The one rule for text from outside that a page shows as it is (camera names here, captions in
+// album.ts): each control character (C0, DEL and C1, line breaks and tabs among them) becomes
+// `control`, and the bidi and zero-width characters, which could reorder or hide what is around
+// them, are dropped.
+export function withoutUnseen(value: string, control: string): string {
+  return value.replace(/[\u0000-\u001f\u007f-\u009f]/g, control).replace(/[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, "");
 }
 
 // An ASCII value, read as UTF-8, which is what phones write there.

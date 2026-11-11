@@ -3,11 +3,14 @@ import { checkFfmpegAtStart, detectFfmpeg, ffmpegStatus, ffmpegUsable, parseFfmp
 
 // What the start-up check is told by ffmpeg, -version and -filters, set per test; a command left
 // out is a command not found.
-const outputs = vi.hoisted(() => ({ byArgs: new Map<string, string>() }));
+// A command in `timedOut` is killed at its timeout, as spawnSync reports it.
+const outputs = vi.hoisted(() => ({ byArgs: new Map<string, string>(), timedOut: new Set<string>() }));
 vi.mock("node:child_process", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:child_process")>();
   const spawnSync = vi.fn((command: string, args: string[]) => {
-    const stdout = outputs.byArgs.get(`${command} ${args.join(" ")}`);
+    const line = `${command} ${args.join(" ")}`;
+    if (outputs.timedOut.has(line)) return { error: new Error(`spawnSync ${command} ETIMEDOUT`), status: null, signal: "SIGTERM", stdout: "" };
+    const stdout = outputs.byArgs.get(line);
     return stdout === undefined ? { error: new Error("ENOENT"), status: null, stdout: "" } : { status: 0, stdout };
   });
   return { ...actual, spawnSync };
@@ -82,6 +85,7 @@ describe("toneMappingAvailable", () => {
 describe("detectFfmpeg", () => {
   afterEach(() => {
     outputs.byArgs.clear();
+    outputs.timedOut.clear();
     vi.restoreAllMocks();
   });
 
@@ -98,8 +102,26 @@ describe("detectFfmpeg", () => {
     expect(spawnSync).toHaveBeenCalledWith("ffmpeg", ["-hide_banner", "-filters"], { encoding: "utf8", timeout: 5000 });
     outputs.byArgs.set("ffmpeg -hide_banner -filters", FILTERS.replace(/^.*zscale.*$/m, ""));
     expect(detectFfmpeg()).toEqual({ available: true, version: "8.1.3", toneMapping: false });
-    outputs.byArgs.delete("ffmpeg -hide_banner -filters");
+  });
+
+  // M8 ticket 09: a check that itself fails is said, so the Storage card's "lacks the filters" is
+  // not the only trace of what may have been a passing failure.
+  it("logs one line when asking for the filters fails or times out, and takes it as no tone mapping", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    usable();
     expect(detectFfmpeg()).toEqual({ available: true, version: "8.1.3", toneMapping: false });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0].join(" ")).toMatch(/^Videos: asking ffmpeg for its filters failed \(ENOENT\)/);
+    warn.mockClear();
+    outputs.timedOut.add("ffmpeg -hide_banner -filters");
+    expect(detectFfmpeg()).toEqual({ available: true, version: "8.1.3", toneMapping: false });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0].join(" ")).toMatch(/^Videos: asking ffmpeg for its filters failed \(spawnSync ffmpeg ETIMEDOUT\)/);
+    warn.mockClear();
+    outputs.timedOut.clear();
+    outputs.byArgs.set("ffmpeg -hide_banner -filters", FILTERS);
+    detectFfmpeg();
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it("logs at start whether HDR copies are converted", () => {

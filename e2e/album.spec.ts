@@ -1,8 +1,9 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
 import { createPublished, openMore } from "./events";
+import { tabUntil } from "./keys";
 import { closeReply } from "./reply";
-import { expect, test, type Browser, type Page } from "./test";
+import { clientAddress, expect, test, type Browser, type Locator, type Page } from "./test";
 
 // M4 ticket 11: from the event's start, guests whose replies are approved and the hosts add photos
 // to the event's album, shown on the page with a full-screen viewer; hosts delete any, guests their
@@ -17,7 +18,7 @@ async function photo(name: string, colour: string) {
 
 // A guest of their own who answers Going and comes back to the page.
 async function guestGoing(browser: Browser, link: string, name: string): Promise<Page> {
-  const page = await (await browser.newContext()).newPage();
+  const page = await (await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
   await page.goto(link);
   await page.getByRole("button", { name: "Going" }).click();
   await page.getByLabel("Your name").fill(name);
@@ -116,5 +117,142 @@ test("the album in Traditional Chinese", async ({ browser, request }) => {
   await expect(priya.locator("html")).toHaveAttribute("lang", "zh-Hant");
   await expect(album(priya)).toContainText("還沒有照片，來新增第一張吧。");
   await expect(album(priya).getByLabel("新增照片")).toBeAttached();
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+// M8 ticket 09: a caption, written by whoever added the item or a host, while adding or afterwards;
+// shown under the item in the viewer and in its name, never under the tiles; plain text.
+const caption = (viewer: Locator) => viewer.locator('[data-slot="caption"]');
+const captionField = (viewer: Locator) => viewer.getByLabel("Caption", { exact: true });
+
+test("whoever adds an item captions it, a host changes it, and another guest cannot", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-caption", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+
+  // Priya captions her photo from its line, as it is added.
+  await album(priya).getByLabel(/^Add photos/).setInputFiles([await photo("lake.jpg", "#d07a3a")]);
+  await expect(album(priya).getByRole("status")).toHaveText("lake.jpg: added", { timeout: 20_000 });
+  await album(priya).getByLabel("Caption for lake.jpg").fill("Sunset over the lake");
+  await album(priya).getByRole("button", { name: "Save" }).click();
+  await expect(album(priya).getByRole("status")).toHaveText("lake.jpg: caption saved");
+  await expect(album(priya).getByLabel("Caption for lake.jpg")).toHaveCount(0);
+
+  // Mei reads it under the picture and in the photo's name, never under the tile, and may not
+  // change it.
+  const mei = await guestGoing(browser, host.link, "Mei Tan");
+  const meiTile = album(mei).getByRole("button", { name: "Photo 1 by Priya Nair: Sunset over the lake" });
+  await expect(meiTile).toBeVisible();
+  await expect(album(mei).locator("li[data-item]")).not.toContainText("Sunset");
+  await meiTile.click();
+  let viewer = mei.getByRole("dialog", { name: "Photo 1 of 1" });
+  await expect(caption(viewer)).toHaveText("Sunset over the lake");
+  await expect(viewer.getByRole("img", { name: "Photo 1 by Priya Nair: Sunset over the lake" })).toBeVisible();
+  await expect(viewer.getByRole("button", { name: /caption/i })).toHaveCount(0);
+  await mei.keyboard.press("Escape");
+
+  // Priya changes it in the viewer by keyboard alone.
+  await priya.reload();
+  await album(priya).getByRole("button", { name: "Photo 1 by Priya Nair: Sunset over the lake" }).focus();
+  await priya.keyboard.press("Enter");
+  viewer = priya.getByRole("dialog", { name: "Photo 1 of 1" });
+  const edit = viewer.getByRole("button", { name: "Edit caption" });
+  await tabUntil(priya, edit);
+  await priya.keyboard.press("Enter");
+  await expect(captionField(viewer)).toBeFocused();
+  await expect(captionField(viewer)).toHaveValue("Sunset over the lake");
+  await expect(viewer).toContainText("20/140");
+  await expectNoSeriousViolations(priya, "the photo viewer, a caption being written");
+  await priya.keyboard.press("End");
+  await priya.keyboard.type(" at dusk");
+  await priya.keyboard.press("Enter");
+  await expect(caption(viewer)).toHaveText("Sunset over the lake at dusk");
+  await expect(edit).toBeFocused();
+  // Escape while writing again leaves the field, not the viewer, and the caption as it was.
+  await priya.keyboard.press("Enter");
+  await expect(captionField(viewer)).toBeFocused();
+  await priya.keyboard.type(" and more");
+  await priya.keyboard.press("Escape");
+  await expect(captionField(viewer)).toHaveCount(0);
+  await expect(viewer).toBeVisible();
+  await expect(caption(viewer)).toHaveText("Sunset over the lake at dusk");
+  await expect(edit).toBeFocused();
+  await priya.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+
+  // A host changes it; it is written as typed, never as markup.
+  await host.page.goto(host.link);
+  await album(host.page).getByRole("button", { name: "Photo 1 by Priya Nair: Sunset over the lake at dusk" }).click();
+  const hostViewer = host.page.getByRole("dialog", { name: "Photo 1 of 1" });
+  await hostViewer.getByRole("button", { name: "Edit caption" }).click();
+  await captionField(hostViewer).fill("<b>Ada’s</b> lake");
+  await hostViewer.getByRole("button", { name: "Save" }).click();
+  await expect(caption(hostViewer)).toHaveText("<b>Ada’s</b> lake");
+  await expect(caption(hostViewer).locator("b")).toHaveCount(0);
+
+  // Mei sees the host's, and still has no way to write one.
+  await mei.reload();
+  await album(mei).getByRole("button", { name: "Photo 1 by Priya Nair: <b>Ada’s</b> lake" }).click();
+  viewer = mei.getByRole("dialog", { name: "Photo 1 of 1" });
+  await expect(caption(viewer)).toHaveText("<b>Ada’s</b> lake");
+  await expect(viewer.getByRole("button", { name: /caption/i })).toHaveCount(0);
+  await mei.keyboard.press("Escape");
+
+  // An empty save removes it: the name is the photo's alone again, and Mei has no Add a caption.
+  await hostViewer.getByRole("button", { name: "Edit caption" }).click();
+  await captionField(hostViewer).fill("");
+  await hostViewer.getByRole("button", { name: "Save" }).click();
+  await expect(caption(hostViewer)).toHaveCount(0);
+  await expect(hostViewer.getByRole("button", { name: "Add a caption" })).toBeVisible();
+  await host.page.keyboard.press("Escape");
+  await expect(album(host.page).getByRole("button", { name: "Photo 1 by Priya Nair", exact: true })).toBeVisible();
+  await mei.reload();
+  await album(mei).getByRole("button", { name: "Photo 1 by Priya Nair", exact: true }).click();
+  viewer = mei.getByRole("dialog", { name: "Photo 1 of 1" });
+  await expect(caption(viewer)).toHaveCount(0);
+  await expect(viewer.getByRole("button", { name: "Add a caption" })).toHaveCount(0);
+  await Promise.all([host.context.close(), priya.context().close(), mei.context().close()]);
+});
+
+test("a caption over 140 characters is refused", async ({ browser, request }) => {
+  const host = await createPublished(browser, request, "album-caption-long", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await album(priya).getByLabel(/^Add photos/).setInputFiles([await photo("lake.jpg", "#d07a3a")]);
+  await album(priya).getByRole("button", { name: "Photo 1 by Priya Nair" }).click({ timeout: 20_000 });
+  const viewer = priya.getByRole("dialog", { name: "Photo 1 of 1" });
+  await viewer.getByRole("button", { name: "Add a caption" }).click();
+  // Typed past the field's own limit, as a page that is not this one could post it.
+  await captionField(viewer).evaluate((field: HTMLInputElement, value) => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, value);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  }, "a".repeat(141));
+  await expect(viewer).toContainText("141/140");
+  await viewer.getByRole("button", { name: "Save" }).click();
+  await expect(viewer.getByRole("alert")).toHaveText("Captions can be up to 140 characters.");
+  await expect(captionField(viewer)).toHaveAccessibleDescription(/Captions can be up to 140 characters\./);
+  await expectNoSeriousViolations(priya, "the photo viewer, a caption refused");
+  // 140 are taken.
+  await captionField(viewer).fill("a".repeat(140));
+  await viewer.getByRole("button", { name: "Save" }).click();
+  await expect(caption(viewer)).toHaveText("a".repeat(140));
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+test("a video's caption, written while it is processing, shows once it is ready", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-caption-video", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await album(priya).getByLabel("Add photos and videos").setInputFiles("e2e/fixtures/clip-h264.mp4");
+  const lines = album(priya).getByRole("status").last();
+  await expect(lines).toHaveText("clip-h264.mp4: uploaded, processing", { timeout: 30_000 });
+  await album(priya).getByLabel("Caption for clip-h264.mp4").fill("The first dance");
+  await album(priya).getByRole("button", { name: "Save" }).click();
+  await expect(lines).toHaveText("clip-h264.mp4: caption saved");
+  const tile = album(priya).locator('li[data-item="video"][data-state="ready"]');
+  await expect(tile).toBeVisible({ timeout: 150_000 });
+  await tile.getByRole("button", { name: /^Video 1 by Priya Nair: The first dance/ }).click();
+  const viewer = priya.getByRole("dialog", { name: "Video 1 of 1" });
+  await expect(caption(viewer)).toHaveText("The first dance");
+  await expect(viewer.locator("video")).toHaveAccessibleName("Video 1 by Priya Nair: The first dance");
   await Promise.all([host.context.close(), priya.context().close()]);
 });
