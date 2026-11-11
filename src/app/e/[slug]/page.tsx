@@ -59,7 +59,7 @@ import { PollBar, PollFlow, PollWhen, type PollCandidate } from "./poll-flow";
 import { albumState, mayApprovePhoto, mayDeletePhoto, type AlbumViewer } from "@/album/album";
 import { ffmpegStatus } from "@/album/ffmpeg";
 import { photoUrl } from "@/album/files";
-import { copyName, effectiveVideoCaps, videoUrl } from "@/album/video";
+import { copyName, effectiveVideoCaps, videoSizes, videoUrl } from "@/album/video";
 import { countPhotos, listPhotos } from "@/album/repository";
 import { albumViewer } from "@/album/viewer";
 import { albumView, photoScope } from "@/album/visibility";
@@ -147,9 +147,9 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
     if (each.kind === "photo") return { ...base, kind: "photo", thumb: photoUrl(each.id, "thumb"), large: photoUrl(each.id, "large"), width: each.width ?? 0, height: each.height ?? 0 };
     // A video (M7 ticket 07): processing or failed shows as such; ready shows its files.
     if (each.status === "processing" || each.status === "failed") return { ...base, kind: "video", state: each.status, failure: each.failure };
-    // The 0.7 player plays one copy until ticket 06 rebuilds it (M8 ticket 02): 1080p, else 720p,
-    // else 4K.
-    const copy = (["1080p", "720p", "2160p"] as const).find((size) => each.copies.includes(size));
+    // Every size it plays at, the original first, each with its file (M8 ticket 06), and whether
+    // the original is HDR, for its badge.
+    const sizes = videoSizes(each).map((size) => ({ ...size, src: videoUrl(each.id, size.name === "original" ? "original" : copyName(size.name)) }));
     return {
       ...base,
       kind: "video",
@@ -157,7 +157,8 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
       thumb: videoUrl(each.id, "thumb"),
       poster: videoUrl(each.id, "poster"),
       original: videoUrl(each.id, "original"),
-      copy: copy ? videoUrl(each.id, copyName(copy)) : null,
+      sizes,
+      hdr: each.details.hdr !== undefined,
       codec: each.codec ?? "",
       durationMs: each.durationMs ?? 0,
       width: each.width ?? 0,

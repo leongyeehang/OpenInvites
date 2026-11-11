@@ -1,6 +1,45 @@
 import { describe, expect, it } from "vitest";
 import { MEGABYTE } from "@/lib/sizes";
-import { chooseQuality, copyName, copySide, copyTimeoutMs, effectiveVideoCaps, EVENT_SIZES, madeBeforeReady, missingSizes, needsCopy, playable, probeOfItem, SENT_FILE, shortSide, sizeLabel, sizesToMake, TARGET_BITRATE, TARGET_SHORT_SIDE, VIDEO_FILES, VIDEO_QUALITIES, VIDEO_WORKS, videoFileNamed, videoKey, videoProblem, videoProcessor, videoSizes, videoUrl, withFourK, WORKER_STALE_MS, type VideoQuality } from "./video";
+import {
+  autoSize,
+  copyName,
+  copySide,
+  copyTimeoutMs,
+  effectiveVideoCaps,
+  EVENT_SIZES,
+  formatPick,
+  madeBeforeReady,
+  missingSizes,
+  needsCopy,
+  OLD_PICK_KEY,
+  PICK_KEY,
+  pickedSize,
+  playable,
+  probeOfItem,
+  readPick,
+  SENT_FILE,
+  shortSide,
+  shouldStepDown,
+  sizeLabel,
+  sizesToMake,
+  stepDown,
+  TARGET_BITRATE,
+  TARGET_SHORT_SIDE,
+  VIDEO_FILES,
+  VIDEO_QUALITIES,
+  VIDEO_WORKS,
+  videoFileNamed,
+  videoKey,
+  videoProblem,
+  videoProcessor,
+  videoSizes,
+  videoUrl,
+  withFourK,
+  WORKER_STALE_MS,
+  type SizePick,
+  type VideoQuality,
+  type VideoSize,
+} from "./video";
 
 // Videos in the album (M7 ticket 05): the files a video is kept as, and the caps a clip is held to.
 
@@ -268,25 +307,130 @@ describe("copyTimeoutMs", () => {
   });
 });
 
-// The player's choice of quality (M7 ticket 07): the viewer's own choice rules, kept on the
-// device; a device that never chose gets the lighter copy; the original only where it plays.
-describe("chooseQuality", () => {
-  it("plays the original when there is no copy, whatever was chosen", () => {
-    expect(chooseQuality(undefined, true, false)).toBe("original");
-    expect(chooseQuality("copy", true, false)).toBe("original");
+// The size a guest picked, kept on the device (M8 ticket 06): "auto", a side, or a side and
+// "original"; M7's "original" or "copy" is read once from its own key.
+describe("readPick and formatPick", () => {
+  it("reads nothing as nothing, and each kind of pick as itself", () => {
+    expect(readPick(null, null)).toBeUndefined();
+    expect(readPick("auto", null)).toBe("auto");
+    expect(readPick("1080", null)).toEqual({ side: 1080, original: false });
+    expect(readPick("2160:original", null)).toEqual({ side: 2160, original: true });
+    expect(readPick("original", null)).toEqual({ side: Infinity, original: true });
   });
 
-  it("plays the lighter copy by default, and the stored choice when there is one", () => {
-    expect(chooseQuality(undefined, true, true)).toBe("copy");
-    expect(chooseQuality("original", true, true)).toBe("original");
-    expect(chooseQuality("copy", true, true)).toBe("copy");
+  it("reads M7's choice when the new key is absent, and the new key when both are there", () => {
+    expect(readPick(null, "original")).toEqual({ side: Infinity, original: true });
+    expect(readPick(null, "copy")).toBe("auto");
+    expect(readPick("1080", "original")).toEqual({ side: 1080, original: false });
   });
 
-  it("plays the copy when the original cannot be played here, whatever was chosen", () => {
-    expect(chooseQuality("original", false, true)).toBe("copy");
-    expect(chooseQuality(undefined, false, true)).toBe("copy");
-    // With no copy either, the original is all there is; the player says it cannot play it.
-    expect(chooseQuality("original", false, false)).toBe("original");
+  it("reads an unreadable value as absent", () => {
+    expect(readPick("junk", null)).toBeUndefined();
+    expect(readPick("-5", null)).toBeUndefined();
+    expect(readPick("0", null)).toBeUndefined();
+    expect(readPick("junk", "copy")).toBe("auto");
+  });
+
+  it("writes each pick so that it reads back as itself", () => {
+    const picks: SizePick[] = ["auto", { side: 1080, original: false }, { side: 2160, original: true }, { side: Infinity, original: true }];
+    expect(picks.map(formatPick)).toEqual(["auto", "1080", "2160:original", "original"]);
+    for (const pick of picks) expect(readPick(formatPick(pick), null)).toEqual(pick);
+  });
+
+  it("keeps its keys", () => {
+    expect(PICK_KEY).toBe("openinvites.videoSize");
+    expect(OLD_PICK_KEY).toBe("openinvites.videoQuality");
+  });
+});
+
+// A 4K HDR original with a 4K copy, a 1080p and a 720p one.
+const original4k: VideoSize = { name: "original", side: 2160, original: true, bitRate: 40e6 };
+const copy4k: VideoSize = { name: "2160p", side: 2160, original: false, bitRate: 16e6 };
+const copy1080: VideoSize = { name: "1080p", side: 1080, original: false, bitRate: 6e6 };
+const copy720: VideoSize = { name: "720p", side: 720, original: false, bitRate: 3e6 };
+const four = [original4k, copy4k, copy1080, copy720];
+
+describe("pickedSize", () => {
+  const all = () => true;
+  const copiesOnly = (size: VideoSize) => !size.original;
+
+  it("plays the size picked, or the nearest below, or the smallest above", () => {
+    expect(pickedSize(four, { side: 1080, original: false }, all)).toBe(copy1080);
+    expect(pickedSize(four, { side: 1440, original: false }, all)).toBe(copy1080);
+    expect(pickedSize(four, { side: 480, original: false }, all)).toBe(copy720);
+  });
+
+  it("plays the original picked where it plays, and the copy of its side where it does not", () => {
+    expect(pickedSize(four, { side: 2160, original: true }, all)).toBe(original4k);
+    expect(pickedSize(four, { side: 2160, original: true }, copiesOnly)).toBe(copy4k);
+    expect(pickedSize(four, { side: 2160, original: false }, all)).toBe(copy4k);
+  });
+
+  it("plays the original whatever its size, or the largest copy where it does not play", () => {
+    expect(pickedSize(four, { side: Infinity, original: true }, all)).toBe(original4k);
+    expect(pickedSize(four, { side: Infinity, original: true }, copiesOnly)).toBe(copy4k);
+  });
+
+  it("plays nothing when nothing plays", () => {
+    expect(pickedSize(four, { side: 1080, original: false }, () => false)).toBeUndefined();
+  });
+});
+
+describe("autoSize", () => {
+  const video = { width: 3840, height: 2160 };
+  const at = (width: number, height: number, pixelRatio: number) => ({ width, height, pixelRatio });
+  const fourK = at(3840, 2160, 1);
+
+  it("picks by the screen alone when the browser says nothing of the connection", () => {
+    expect(autoSize(four, video, at(1280, 800, 1), undefined)).toBe(copy720);
+    expect(autoSize(four, video, at(390, 844, 3), undefined)).toBe(copy1080);
+    expect(autoSize(four, video, at(1180, 1600, 1), undefined)).toBe(copy1080);
+  });
+
+  it("never picks over the video's own size, and a copy before the original of the same side", () => {
+    expect(autoSize(four, video, at(2560, 1440, 2), undefined)).toBe(copy4k);
+    const small: VideoSize = { name: "original", side: 720, original: true, bitRate: 2e6 };
+    expect(autoSize([small], { width: 1280, height: 720 }, fourK, undefined)).toBe(small);
+    const original1080: VideoSize = { name: "original", side: 1080, original: true, bitRate: 8e6 };
+    expect(autoSize([original1080, copy1080, copy720], { width: 1920, height: 1080 }, fourK, undefined)).toBe(copy1080);
+  });
+
+  it("plays the smallest under data saver or a 2G connection, and 720p at most on 3G", () => {
+    expect(autoSize(four, video, fourK, { saveData: true })).toBe(copy720);
+    expect(autoSize(four, video, fourK, { effectiveType: "2g" })).toBe(copy720);
+    expect(autoSize(four, video, fourK, { effectiveType: "slow-2g" })).toBe(copy720);
+    expect(autoSize(four, video, fourK, { effectiveType: "3g" })).toBe(copy720);
+    expect(autoSize(four, video, fourK, { effectiveType: "4g" })).toBe(copy4k);
+  });
+
+  it("keeps to sizes whose bit rate fits in 0.7 of the downlink under 10 Mbit/s", () => {
+    expect(autoSize(four, video, fourK, { downlink: 5 })).toBe(copy720);
+    expect(autoSize(four, video, at(1920, 1080, 1), { downlink: 9 })).toBe(copy1080);
+    expect(autoSize(four, video, fourK, { downlink: 1 })).toBe(copy720);
+    expect(autoSize(four, video, fourK, { downlink: 12 })).toBe(copy4k);
+  });
+
+  it("picks nothing from no sizes", () => {
+    expect(autoSize([], video, fourK, undefined)).toBeUndefined();
+  });
+});
+
+describe("shouldStepDown and stepDown", () => {
+  const now = 1_000_000;
+  const ended = (secondsAgo: number) => ({ at: now - secondsAgo * 1000, until: now - secondsAgo * 1000 + 500 });
+
+  it("steps down after three waits in a minute, or one of six seconds", () => {
+    expect(shouldStepDown([], now)).toBe(false);
+    expect(shouldStepDown([ended(50), ended(30), ended(1)], now)).toBe(true);
+    expect(shouldStepDown([ended(61), ended(30), ended(1)], now)).toBe(false);
+    expect(shouldStepDown([{ at: now - 6000 }], now)).toBe(true);
+    expect(shouldStepDown([{ at: now - 5999 }], now)).toBe(false);
+  });
+
+  it("steps down to the largest smaller size, and no further than the smallest", () => {
+    expect(stepDown(four, copy1080)).toBe(copy720);
+    expect(stepDown(four, original4k)).toBe(copy1080);
+    expect(stepDown(four, copy720)).toBeUndefined();
   });
 });
 

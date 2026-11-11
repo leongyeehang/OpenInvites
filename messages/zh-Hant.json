@@ -1045,10 +1045,11 @@
       "removeVideo": "移除 {name} 的影片",
       "uploading": "{name}：上傳中",
       "uploaded": "{name}：已上傳，處理中",
-      "quality": "畫質",
-      "original": "原始畫質",
-      "copy": "輕量副本",
-      "originalUnplayable": "原始畫質：此瀏覽器無法播放。",
+      "sizes": "尺寸",
+      "sizeAuto": "自動 · {size}",
+      "sizeOriginal": "{size} · 原片",
+      "sizeOriginalHdr": "{size} · <hdr>HDR</hdr> · 原片",
+      "originalUnplayable": "原片：此瀏覽器無法播放。",
       "unplayable": "此瀏覽器無法播放這段影片，請下載後觀看。"
     },
     "letter": {

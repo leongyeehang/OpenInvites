@@ -1045,10 +1045,11 @@
       "removeVideo": "Remove the video from {name}",
       "uploading": "{name}: uploading",
       "uploaded": "{name}: uploaded, processing",
-      "quality": "Quality",
-      "original": "Original quality",
-      "copy": "Lighter copy",
-      "originalUnplayable": "Original quality: not playable in this browser.",
+      "sizes": "Size",
+      "sizeAuto": "Auto · {size}",
+      "sizeOriginal": "{size} · Original",
+      "sizeOriginalHdr": "{size} · <hdr>HDR</hdr> · Original",
+      "originalUnplayable": "Original: not playable in this browser.",
       "unplayable": "This browser cannot play this video. Download it to watch."
     },
     "letter": {

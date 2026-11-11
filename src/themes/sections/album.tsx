@@ -23,18 +23,19 @@ import { clockTime, formatMinutes, formatSize, MEGABYTE } from "@/lib/sizes";
 import { prepareFiles, uploadFiles, type Prepared, type UploadOutcome } from "./album-upload";
 import type { UploadProblem } from "@/uploads/validate";
 import { RefreshWhileProcessing } from "./refresh-while-processing";
-import { VideoPlayer } from "./video-player";
+import { VideoPlayer, type ShownSize } from "./video-player";
 
 // One item as the album shows it (M4 ticket 11; videos M7 ticket 07): a photo in its two sizes;
-// a ready video with its thumbnail, poster, original and lighter copy, its codec for the player
-// and its length; or a video still processing, or failed, which only its uploader and the hosts
-// see. Each with who added it, whether this viewer may delete it, whether it waits for a host's
-// approval (M6 ticket 03), and whether this viewer may approve it.
+// a ready video with its thumbnail, poster, original (for Download), every size it plays at with
+// its file (M8 ticket 06), whether the original is HDR, its codec for the player and its length;
+// or a video still processing, or failed, which only its uploader and the hosts see. Each with who
+// added it, whether this viewer may delete it, whether it waits for a host's approval (M6 ticket
+// 03), and whether this viewer may approve it.
 type ShownBase = { id: string; name: string; deletable: boolean; pending: boolean; approvable: boolean };
 export type ShownPhoto = ShownBase &
   (
     | { kind: "photo"; thumb: string; large: string; width: number; height: number }
-    | { kind: "video"; state: "ready"; thumb: string; poster: string; original: string; copy: string | null; codec: string; durationMs: number; width: number; height: number }
+    | { kind: "video"; state: "ready"; thumb: string; poster: string; original: string; sizes: ShownSize[]; hdr: boolean; codec: string; durationMs: number; width: number; height: number }
     | { kind: "video"; state: "processing" | "failed"; failure: string | null }
   );
 
@@ -398,7 +399,7 @@ function Viewer({
               </header>
               <div className="relative flex min-h-0 flex-1 items-center justify-center px-2 pb-[max(env(safe-area-inset-bottom),1rem)]">
                 {photo.kind === "video" ? (
-                  <VideoPlayer video={photo} label={t(photo.pending ? "openVideoPending" : "openVideo", { n: index + 1, name: photo.name })} />
+                  <VideoPlayer key={photo.id} video={photo} label={t(photo.pending ? "openVideoPending" : "openVideo", { n: index + 1, name: photo.name })} />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized
                   <img src={photo.large} alt={t(photo.pending ? "openPending" : "open", { n: index + 1, name: photo.name })} width={photo.width} height={photo.height} className="max-h-full max-w-full object-contain select-none" draggable={false} />

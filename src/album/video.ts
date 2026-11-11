@@ -201,15 +201,90 @@ export function videoSizes(item: VideoItem): VideoSize[] {
   ];
 }
 
-// The player's quality (ticket 07; the maintainer, 2026-11-09): the viewer's own choice, kept on
-// the device, rules; a device that never chose gets the lighter copy; without a copy the original
-// is all there is; an original the browser cannot play gives way to the copy.
-export type PlayQuality = "original" | "copy";
+// The size a guest picked in the player (M8 ticket 06; spec, "Remembered pick"): Auto, or a size
+// by its short side, the original or a copy. The original whatever its size is an infinite side,
+// which M7's "original" meant: on a 4K original this browser cannot decode, it gives the 4K copy.
+export type SizePick = "auto" | { side: number; original: boolean };
 
-export function chooseQuality(stored: PlayQuality | undefined, originalPlayable: boolean, hasCopy: boolean): PlayQuality {
-  if (!hasCopy) return "original";
-  if (!originalPlayable) return "copy";
-  return stored ?? "copy";
+// Where the pick is kept on the device, for every video on the site; M7's choice of quality, under
+// its own key, is read once and then replaced.
+export const PICK_KEY = "openinvites.videoSize";
+export const OLD_PICK_KEY = "openinvites.videoQuality";
+
+function readNew(raw: string | null): SizePick | undefined {
+  if (raw === "auto") return "auto";
+  if (raw === "original") return { side: Infinity, original: true };
+  const match = /^(\d+)(:original)?$/.exec(raw ?? "");
+  const side = Number(match?.[1]);
+  return match && side > 0 ? { side, original: match[2] !== undefined } : undefined;
+}
+
+// The stored pick: the new key's when it reads, else M7's ("original" the original whatever its
+// size, "copy" Auto, which plays a copy wherever one is lighter), else none.
+export function readPick(raw: string | null, old: string | null): SizePick | undefined {
+  const pick = readNew(raw);
+  if (pick) return pick;
+  if (old === "original") return { side: Infinity, original: true };
+  if (old === "copy") return "auto";
+  return undefined;
+}
+
+export function formatPick(pick: SizePick): string {
+  if (pick === "auto") return "auto";
+  if (pick.side === Infinity) return "original";
+  return pick.original ? `${pick.side}:original` : String(pick.side);
+}
+
+// Sizes in order of side, a copy before an original of the same side: a copy is lighter and plays
+// everywhere, so it is the one taken when either would do.
+function bySide(order: 1 | -1) {
+  return (a: VideoSize, b: VideoSize) => order * (a.side - b.side) || Number(a.original) - Number(b.original);
+}
+
+// The size a pick plays, among those this browser plays: the side picked or the nearest below, the
+// original or a copy as picked when both have that side, else the smallest above; none when
+// nothing plays.
+export function pickedSize<Size extends VideoSize>(sizes: Size[], pick: { side: number; original: boolean }, playable: (size: Size) => boolean): Size | undefined {
+  const plays = sizes.filter(playable);
+  const below = plays.filter((size) => size.side <= pick.side).sort((a, b) => b.side - a.side || Number(b.original === pick.original) - Number(a.original === pick.original));
+  return below[0] ?? plays.sort(bySide(1))[0];
+}
+
+// What the browser says of its connection (the Network Information API, which Firefox and Safari
+// do not have).
+export type Connection = { saveData?: boolean; effectiveType?: string; downlink?: number };
+
+// Auto's size (spec, "Auto"), from the sizes this browser plays, picked once when a video opens:
+// the smallest under data saver or on 2G; at most 720p on 3G; under 10 Mbit/s, only sizes whose
+// bit rate fits in 0.7 of the downlink; the smallest of all when that leaves nothing. Then the
+// smallest left that covers 0.9 of the screen's short side in pixels, never more than the video's,
+// else the largest left.
+export function autoSize<Size extends VideoSize>(sizes: Size[], video: { width: number; height: number }, screen: { width: number; height: number; pixelRatio: number }, net: Connection | undefined): Size | undefined {
+  const smallest = [...sizes].sort(bySide(1))[0];
+  if (!smallest) return undefined;
+  if (net?.saveData || net?.effectiveType === "2g" || net?.effectiveType === "slow-2g") return smallest;
+  const downlink = net?.downlink;
+  let kept = sizes;
+  if (net?.effectiveType === "3g") kept = kept.filter((size) => size.side <= 720);
+  if (downlink !== undefined && downlink < 10) kept = kept.filter((size) => size.bitRate <= 0.7 * downlink * 1e6);
+  if (kept.length === 0) return smallest;
+  const target = Math.min(shortSide(video), shortSide(screen) * screen.pixelRatio);
+  return [...kept].sort(bySide(1)).find((size) => size.side >= 0.9 * target) ?? [...kept].sort(bySide(-1))[0];
+}
+
+// A wait for data while a video plays, in milliseconds on one clock (the player uses the page's
+// monotonic one); `until` once it ended.
+export type Wait = { at: number; until?: number };
+
+// Auto steps down when a video stalls three times in a minute, or once for six seconds.
+export function shouldStepDown(waits: Wait[], now: number): boolean {
+  return waits.filter((wait) => now - wait.at < 60_000).length >= 3 || waits.some((wait) => wait.until === undefined && now - wait.at >= 6000);
+}
+
+// The size Auto steps down to: the largest with a smaller side, since a copy of the same side as
+// a stalling original would stall as well; none below the smallest.
+export function stepDown<Size extends VideoSize>(sizes: Size[], current: VideoSize): Size | undefined {
+  return sizes.filter((size) => size.side < current.side).sort(bySide(-1))[0];
 }
 
 // Whether this browser plays the original, asked of its own player with the codec string the
