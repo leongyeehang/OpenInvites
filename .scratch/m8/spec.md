@@ -2,7 +2,7 @@
 
 Written 2026-11-10 (Fable 5.2) from the maintainer's answers of the same day, `CONTEXT.md`, the M4, M6 and M7 specs, the home page and dashboard specs and what they built, and a read of the album, theme, editor and host-area code. Choices the maintainer made are marked **(maintainer, 2026-11-10)**. Where nobody decided, the choice is marked **(decided here)** and the maintainer may overrule it before the ticket that carries it starts.
 
-The earlier specs stay binding for everything they cover. This spec adds to them and changes six things they settled:
+The earlier specs stay binding for everything they cover. This spec adds to them and changes seven things they settled (the seventh: a photo may carry a short motion clip, a live photo, which M7 listed as out of scope; HEIC photos stay out):
 
 1. A video may have more than one lighter copy (M7 listed that as out of scope).
 2. HDR clips are converted properly in their copies (M7: "HDR comes out flatter: a known limit").
@@ -26,7 +26,7 @@ Constraints: guests never have accounts; nothing leaves the instance (ADR-0005);
 
 **(maintainer, 2026-11-10)** One milestone, M8, in four parts, built in this order on branch `m8`. Each part ends in a state that could be released.
 
-1. **Album media.** Every video offers Auto, its original under its real size, 1080p and 720p. Auto picks for the viewer's screen and connection and steps down if playback stalls; the player remembers the last pick on the device. The operator may have a 4K copy made that plays in every browser. HDR copies are converted to standard colour and the original wears an HDR badge. The viewer shows a line of technical facts; the host may keep the capture time, the camera and the exposure; whoever adds an item may caption it.
+1. **Album media.** Every video offers Auto, its original under its real size, 1080p and 720p. Auto picks for the viewer's screen and connection and steps down if playback stalls; the player remembers the last pick on the device. The operator may have a 4K copy made that plays in every browser. HDR copies are converted to standard colour and the original wears an HDR badge. The viewer shows a line of technical facts; the host may keep the capture time, the camera and the exposure; whoever adds an item may caption it. A live photo keeps its motion, wears a Live mark and plays when pressed.
 2. **Album voting.** The host starts a vote. Each person has one vote per award; the host names the awards, says who may vote and may set a closing time. Counts and, by default, uploader names stay hidden from guests while voting is open, and each guest sees the album in a different order. Closing shows the winners; a tie for first can go to a tie-break round.
 3. **Poster and glass everywhere.** Every page sits on a blurred poster with frosted panels. Each page wears the poster of its own subject, and a host may pick their own for their signed-in pages.
 4. **A page the host arranges.** An Arrange sheet in the editor reorders the page's sections, switches them on and off, renames them, collapses them, gives some a display style, and adds Notes, Links and a Countdown.
@@ -52,6 +52,8 @@ Numbered on from M7's 271.
 282. As a host, I want to keep the camera and exposure of each item, for a party of photographers.
 283. As a guest, I want my location never to reach other guests, whatever the host keeps.
 284. As a guest or host, I want to caption what I add, and to change the caption later.
+311. As a guest, I want a live photo I add to stay a photo, keep its motion, wear a Live mark and play when I press it.
+312. As a guest on an iPhone, I want to be told how to share a Live Photo's motion when my phone sends only the still.
 
 ### Voting
 
@@ -113,6 +115,7 @@ Numbered on from M7's 271.
 - **Technical line (maintainer).** Under an open item: size, frame rate, HDR, length and file size for a video; size and file size for a photo.
 - **Order (decided here).** With capture time kept, the host may order the album by when items were taken, falling back to when they were added.
 - **Captions (maintainer).** Up to 140 characters of plain text, written while adding or afterwards by the item's uploader or a host, shown under the item and in its accessible name. Changing one is rate-limited as a comment is.
+- **Live photos (maintainer, 2026-11-11; the sources decided here).** A photo may carry a motion clip and is then a live photo. It is a photo everywhere: in counts, in approval and in awards for photos. Its tile and the viewer wear a Live mark; the motion plays, muted, while the picture is pressed or when the mark is activated, and never by itself under reduced motion. The motion has two sources. An Android motion photo carries its clip inside the JPEG, and the clip is taken out while the photo is processed. An iPhone Live Photo sent as its two files, the still as a JPEG and its `.mov`, as a computer or the Files app hands them over, is joined into one item: the browser pairs a still and a clip of the same name added together, and the server confirms the pair by the content identifier where both carry one. The clip is kept as a small H.264 MP4 beside the photo's files, at most a few seconds, its metadata dropped; it needs ffmpeg, and without it a live photo is its still. **Known limit:** picked from an iPhone's photo library, a Live Photo reaches a web page as its still alone, so it arrives as a plain photo; the add-photos screen says so and suggests Save as Video. The ticket checks this on a real iPhone, and if the phone does hand over the motion, the same joining takes it.
 - **Storage** still counts uploads as sent only (M7). The configuration doc says a video may now have up to three copies.
 
 ### Voting
@@ -170,6 +173,7 @@ Numbered on from M7's 271.
 - **Award**: one thing an album vote chooses a winner for. _Avoid_: category, prize.
 - **Tie-break**: a further round among the items sharing first place in an award.
 - **Caption**: the line its uploader writes under an album item.
+- **Live photo**: a photo that carries a short motion clip. It is a photo, not a video. _Avoid_: motion photo (in the interface), GIF, clip.
 - **Section**: one part of an event page below the poster, which the host places. _Avoid_: block, module, widget.
 - **Note**, **Links**: the sections a host writes.
 - **Backdrop**: what fills a page that is not an event page: a poster's blurred copy, still. The glossary's Background stays the event page's.
@@ -181,7 +185,7 @@ Numbered on from M7's 271.
 ## Testing Decisions
 
 - **Unit**: the size rules (what is made, labels, the pick, Auto, stepping down, reading the old key); the voting rules (state with a closing time, who may vote and for what, places with ties, the tie-break's first place, what is shown to whom, the shuffle being stable per viewer and different between two); the arrangement (defaults equal to today's order in each layout, tolerant parsing, limits, link safety, every change); the site look (stable per area, the fallback without a database); legibility over every backdrop with the new inks.
-- **Browser, per ticket**, on the Docker test profile. New fixtures: a two-second 1920x1080 HEVC clip and a two-second HDR clip, each with a note of how it was made. New specs: `album-voting`, `site-look`, `sections`. A guest's page is read as HTML to prove a hidden name and count are absent.
+- **Browser, per ticket**, on the Docker test profile. New fixtures: a two-second 1920x1080 HEVC clip, a two-second HDR clip, an Android motion photo, and a JPEG with its paired `.mov`, each with a note of how it was made. New specs: `album-voting`, `site-look`, `sections`. A guest's page is read as HTML to prove a hidden name and count are absent.
 - **Existing specs each part must keep green or update** are named in the tickets; the largest are `album-video`, `album-upload`, `album-settings`, `album`, `accessibility`, `keyboard`, `reduced-motion`, `dashboard`, `invites`, `thread`, `broadsheet`, `guest-list`, `comments`.
 - **Each part ends with a pass**: three locales, axe in every new state, keyboard, reduced motion, docs, and for Glass the README screenshots.
 - The Lighthouse budget on event pages is run again after Sections.
@@ -190,6 +194,7 @@ Numbered on from M7's 271.
 
 - Adaptive streaming (HLS or DASH); sizes below 720p; an HDR copy; hardware encoding.
 - Location in any form; editing a detail by hand; details in a downloaded file.
+- HEIC photos; the motion of a Live Photo picked straight from an iPhone's photo library, which the phone does not hand to a web page; sound in a live photo's motion.
 - Comments or emoji on album items; votes on anything but album items; more than one vote per award; automatic emails about voting.
 - A dark and light switch; drifting or animated backdrops outside event pages; a host's own picture as their backdrop.
 - Drag and drop; two-column arrangements; sections shown only to some guests; embedded maps, players or forms.
@@ -198,5 +203,6 @@ Numbered on from M7's 271.
 ## Further Notes
 
 - The maintainer's answers of 2026-11-10, in order: four parts as one milestone; a menu of sizes, then "just 4K, 1080p and 720p" with Auto following the last pick; Auto as a smart pick after asking for the difference from streaming; a favourites contest; ties sharing a place; names shown after voting closes by default and changeable in settings; every Arrange extra offered "and more customisation"; look B after asking for a demo; the page's own subject's poster with the host able to pick their own; then, on reading the plan, all four voting extras, "one vote each person" in place of several, and a further contest for a tied first place; another round or a shared first if still tied; a 4K copy as an operator switch; HDR converted in the copies with a badge; capture time, camera and exposure kept at the host's choice, a technical line and captions.
-- The plan at `m8-plan.md` orders the tickets: media 01 to 07, voting 08 to 14, glass 15 to 21, sections 22 to 29. Tickets 13 (tie-break) and 28 (styles) are placed so either can follow in a later release.
+- The maintainer's answers of 2026-11-11, after trying the voting mock-up (https://claude.ai/artifact/KCCLGuyyQHC7mmG1oVCGgp): an award for photos or videos only shows only those items; live photos are photos, with a Live mark and their motion.
+- The plan at `m8-plan.md` orders the tickets: media 01 to 08 (live photos are 07), voting 09 to 15, glass 16 to 22, sections 23 to 30. Tickets 14 (tie-break) and 29 (styles) are placed so either can follow in a later release.
 - The mock-up the maintainer chose from is at https://claude.ai/artifact/WqS8ugi7GrAxsB9XzfZGrq.
