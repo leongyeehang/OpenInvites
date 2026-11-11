@@ -16,11 +16,11 @@ import { removeItemFiles } from "./files";
 import { completeJob, failJob, type ClaimedJob } from "./jobs";
 import { notifyHostsOfVideo } from "./notify-hosts";
 import { removeDir, scratchDir } from "./tmp";
-import { copyName, effectiveVideoCaps, needsCopy, sentKey, TARGET_BITRATE, videoKey, type Probe, type VideoQuality } from "./video";
+import { copyName, effectiveVideoCaps, needsCopy, sentKey, TARGET_BITRATE, TARGET_SHORT_SIDE, videoKey, type Probe, type VideoQuality } from "./video";
 
 // What the queue does to a clip (M7 spec, "Videos"; ADR-0007): reads its streams with ffprobe;
 // rewraps it at original quality into MP4 with every piece of metadata dropped and the index in
-// front, which is instant since the frames are copied; makes a lighter H.264 copy when the clip
+// front, which is instant since the frames are copied; makes an H.264 copy at a size when the clip
 // needs one (video.ts, needsCopy) and the site's switch is on; takes a poster frame and the album's
 // thumbnail through the same image pipeline as photos; stores all of it; and deletes the clip as
 // sent. ffmpeg runs at low priority with two threads, so the site keeps answering pages.
@@ -111,11 +111,11 @@ async function rewrap(input: string, output: string, streams: Streams): Promise<
   }
 }
 
-// The lighter copy: H.264 at the event's quality, never larger than the original on either side,
-// about the target bit rate, AAC audio, upright (ffmpeg rotates what the phone's matrix says).
-async function makeCopy(input: string, output: string, quality: VideoQuality): Promise<void> {
-  const side = quality === "1080p" ? 1080 : 720;
-  const rate = TARGET_BITRATE[quality];
+// A copy: H.264 at a size, never larger than the original on either side, about the size's bit
+// rate, AAC audio, upright (ffmpeg rotates what the phone's matrix says).
+async function makeCopy(input: string, output: string, size: VideoQuality): Promise<void> {
+  const side = TARGET_SHORT_SIDE[size];
+  const rate = TARGET_BITRATE[size];
   const scale = `scale=w='if(lt(iw,ih),min(${side},iw),-2)':h='if(lt(iw,ih),-2,min(${side},ih))'`;
   await ffmpeg(
     ["-y", "-i", input, "-map", "0:v:0", "-map", "0:a:0?", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-maxrate", String(rate), "-bufsize", String(rate * 2), "-vf", scale, "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-map_metadata", "-1", "-movflags", "+faststart", output],
@@ -150,7 +150,7 @@ async function putFile(key: string, path: string): Promise<void> {
 export async function processVideo(job: ClaimedJob): Promise<void> {
   const id = job.photoId;
   const [item] = await getDb()
-    .select({ eventId: photo.eventId, quality: event.albumCopyQuality, maxMb: event.albumMaxVideoMb, maxMinutes: event.albumMaxVideoMinutes })
+    .select({ eventId: photo.eventId, sizes: event.albumCopySizes, maxMb: event.albumMaxVideoMb, maxMinutes: event.albumMaxVideoMinutes })
     .from(photo)
     .innerJoin(event, eq(event.id, photo.eventId))
     .where(eq(photo.id, id));
@@ -170,12 +170,15 @@ export async function processVideo(job: ClaimedJob): Promise<void> {
 
     const original = join(dir, "video.mp4");
     await rewrap(sent, original, streams);
-    let copy: VideoQuality | null = null;
-    if (needsCopy(streams, item.quality) && (await videoProcessing())) {
-      const lighter = join(dir, "copy.mp4");
-      await makeCopy(sent, lighter, item.quality);
-      await putFile(videoKey(id, copyName(item.quality)), lighter);
-      copy = item.quality;
+    // At most one copy until ticket 03 makes every size, as 0.7 made it: at the first size the
+    // host ticked, or, with none ticked, at 720p for an original not every browser plays.
+    const copies: VideoQuality[] = [];
+    const size = item.sizes[0] ?? (streams.codec !== "h264" ? "720p" : undefined);
+    if (size && needsCopy(streams, size) && (await videoProcessing())) {
+      const copy = join(dir, "copy.mp4");
+      await makeCopy(sent, copy, size);
+      await putFile(videoKey(id, copyName(size)), copy);
+      copies.push(size);
     }
     await putFile(videoKey(id, "original"), original);
     const { poster, thumb } = await stills(await posterFrame(original, streams.durationMs, dir));
@@ -183,7 +186,7 @@ export async function processVideo(job: ClaimedJob): Promise<void> {
     await getStorage().put(videoKey(id, "thumb"), thumb);
 
     const upright = streams.rotation % 180 === 90 ? { width: streams.height, height: streams.width } : { width: streams.width, height: streams.height };
-    const done = await completeJob(id, { ...upright, durationMs: streams.durationMs, codec: streams.codecString, copy });
+    const done = await completeJob(id, { ...upright, durationMs: streams.durationMs, codec: streams.codecString, copies });
     if (!done) {
       // Deleted while it was processed (plan ruling 20): nothing of it stays.
       await removeItemFiles([id]);

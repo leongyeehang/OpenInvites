@@ -35,6 +35,17 @@ a newer copy may move it to a later one: that needs nothing more than `docker co
 Going back to an older release after a newer one has migrated the database is not supported.
 Restore the backup you took instead.
 
+### Upgrading to 0.8
+
+0.8's migrations, from `0054`, run as the app starts.
+
+- **Update the worker container with the app.** A site that processes videos in a second
+  container (`VIDEO_PROCESSING=worker`, see [configuration.md](configuration.md#storage)) runs the
+  new image in both at once: a 0.7 worker would write a column that 0.8 has dropped.
+- **Video sizes replace the lighter copy.** Each event's Album settings tick the sizes its videos
+  get, 1080p and 720p, both by default. An event that chose 720p in 0.7 keeps 720p alone; every
+  other event gets both. A video already processed keeps the copy it has.
+
 ### Upgrading to 0.7
 
 0.7 brings videos to the album, every upload and storage limit onto Site settings, a Storage card

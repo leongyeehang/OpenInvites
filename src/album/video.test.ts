@@ -1,12 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { MEGABYTE } from "@/lib/sizes";
-import { chooseQuality, copyName, effectiveVideoCaps, needsCopy, playable, SENT_FILE, shortSide, TARGET_BITRATE, VIDEO_FILES, videoFileNamed, videoKey, videoProblem, videoProcessor, videoUrl, WORKER_STALE_MS } from "./video";
+import { chooseQuality, copyName, effectiveVideoCaps, EVENT_SIZES, needsCopy, playable, SENT_FILE, shortSide, TARGET_BITRATE, TARGET_SHORT_SIDE, VIDEO_FILES, VIDEO_QUALITIES, videoFileNamed, videoKey, videoProblem, videoProcessor, videoUrl, WORKER_STALE_MS } from "./video";
 
 // Videos in the album (M7 ticket 05): the files a video is kept as, and the caps a clip is held to.
 
+// M8 ticket 02: the sizes an item may keep, largest first, and the two a host may tick.
+describe("video sizes", () => {
+  it("stores 4K, 1080p and 720p, and lets a host tick 1080p and 720p", () => {
+    expect(VIDEO_QUALITIES).toEqual(["2160p", "1080p", "720p"]);
+    expect(EVENT_SIZES).toEqual(["1080p", "720p"]);
+  });
+});
+
 describe("a video's files", () => {
-  it("names the original, the two lighter copies, the poster and the thumbnail, and never the file as sent", () => {
+  it("names the original, the three sizes, the poster and the thumbnail, and never the file as sent", () => {
     expect(videoFileNamed("video.mp4")).toBe("original");
+    expect(videoFileNamed("video-2160p.mp4")).toBe("copy2160");
     expect(videoFileNamed("video-1080p.mp4")).toBe("copy1080");
     expect(videoFileNamed("video-720p.mp4")).toBe("copy720");
     expect(videoFileNamed("video-poster.webp")).toBe("poster");
@@ -20,6 +29,7 @@ describe("a video's files", () => {
   it("keeps each under the item's id, and serves it under the uploads route", () => {
     expect(videoKey("abc", "original")).toBe("abc-video.mp4");
     expect(videoUrl("abc", "poster")).toBe("/uploads/abc/video-poster.webp");
+    expect(copyName("2160p")).toBe("copy2160");
     expect(copyName("1080p")).toBe("copy1080");
     expect(copyName("720p")).toBe("copy720");
   });
@@ -92,6 +102,14 @@ describe("needsCopy", () => {
     expect(needsCopy({ ...probe, width: 1280, height: 720, bitRate: 2_500_000 }, "720p")).toBe(false);
     expect(needsCopy({ ...probe, width: 1280, height: 720, bitRate: 4_500_001 }, "720p")).toBe(true);
     expect(TARGET_BITRATE["720p"]).toBe(3_000_000);
+  });
+
+  // M8 ticket 02: the 4K size, 16 Mbit/s.
+  it("holds a 4K clip to 4K's short side and bit rate", () => {
+    expect(TARGET_BITRATE["2160p"]).toBe(16_000_000);
+    expect(TARGET_SHORT_SIDE["2160p"]).toBe(2160);
+    expect(needsCopy({ ...probe, codec: "hevc", width: 3840, height: 2160 }, "2160p")).toBe(true);
+    expect(needsCopy({ ...probe, width: 3840, height: 2160, bitRate: 20_000_000 }, "2160p")).toBe(false);
   });
 
   it("reads the short side after a rotation", () => {

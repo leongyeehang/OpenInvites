@@ -641,10 +641,10 @@
         "maxVideoMinutes": "最长视频（分钟）",
         "maxVideoMb": "最大视频（MB）",
         "videoCapsHint": "留空即采用本站的上限：最长 {minutes} 分钟、最大 {mb} MB。高于本站上限的值按本站上限计。",
-        "quality": "轻量副本",
-        "quality1080": "1080p",
-        "quality720": "720p（更省空间）",
-        "qualityHint": "轻量副本便于在网速慢时播放；宾客仍可选择原始画质。",
+        "sizes": "视频尺寸",
+        "size1080": "1080p",
+        "size720": "720p",
+        "sizesHint": "每段视频在需要时会生成这些尺寸，以便在网速慢时和任何浏览器中都能播放。视频不会生成比自身更大的尺寸。两项都不勾选时，并非所有浏览器都能播放的视频仍会生成一份 720p 副本。",
         "videosUnavailable": "视频功能需要本站安装 ffmpeg，目前尚未安装；请联系本站运营者。"
       },
       "notifyOnRsvp": "有宾客回复时给主办人发邮件",
@@ -721,7 +721,7 @@
       "scheduleInvalid": "无法读取日程，请重试。",
       "albumMaxVideoMinutesInvalid": "请为最长视频填写 1 到 180 之间的整数分钟数，或留空。",
       "albumMaxVideoMbInvalid": "请为最大视频填写 1 到 10,000 之间的整数（MB），或留空。",
-      "albumQualityInvalid": "请为轻量副本选择 1080p 或 720p。"
+      "albumSizesInvalid": "请从 1080p 和 720p 中选择视频尺寸。"
     },
     "manage": {
       "link": "活动链接",

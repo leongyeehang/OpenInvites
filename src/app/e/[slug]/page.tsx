@@ -147,6 +147,9 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
     if (each.kind === "photo") return { ...base, kind: "photo", thumb: photoUrl(each.id, "thumb"), large: photoUrl(each.id, "large"), width: each.width ?? 0, height: each.height ?? 0 };
     // A video (M7 ticket 07): processing or failed shows as such; ready shows its files.
     if (each.status === "processing" || each.status === "failed") return { ...base, kind: "video", state: each.status, failure: each.failure };
+    // The 0.7 player plays one copy until ticket 06 rebuilds it (M8 ticket 02): 1080p, else 720p,
+    // else 4K.
+    const copy = (["1080p", "720p", "2160p"] as const).find((size) => each.copies.includes(size));
     return {
       ...base,
       kind: "video",
@@ -154,7 +157,7 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
       thumb: videoUrl(each.id, "thumb"),
       poster: videoUrl(each.id, "poster"),
       original: videoUrl(each.id, "original"),
-      copy: each.copy ? videoUrl(each.id, copyName(each.copy)) : null,
+      copy: copy ? videoUrl(each.id, copyName(copy)) : null,
       codec: each.codec ?? "",
       durationMs: each.durationMs ?? 0,
       width: each.width ?? 0,

@@ -46,7 +46,7 @@ const source: Event = {
   albumVideosAllowed: false,
   albumMaxVideoMinutes: 3,
   albumMaxVideoMb: 200,
-  albumCopyQuality: "720p",
+  albumCopySizes: ["720p"],
   lettersEnabled: true,
   inviteOnly: true,
   albumReminderDays: 90,
@@ -115,8 +115,9 @@ describe("duplicateInput", () => {
   });
 
   // M7 ticket 05: the video settings travel with the album's.
-  it("copies whether videos are allowed, their caps, and the lighter copy's quality", () => {
-    expect(copy.event).toMatchObject({ albumVideosAllowed: false, albumMaxVideoMinutes: 3, albumMaxVideoMb: 200, albumCopyQuality: "720p" });
+  // M8 ticket 02: the video sizes in place of the lighter copy's quality.
+  it("copies whether videos are allowed, their caps, and the video sizes", () => {
+    expect(copy.event).toMatchObject({ albumVideosAllowed: false, albumMaxVideoMinutes: 3, albumMaxVideoMb: 200, albumCopySizes: ["720p"] });
   });
 
   // M7 ticket 09: when to be reminded about the album travels with the settings; the mark does not.

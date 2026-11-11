@@ -200,9 +200,10 @@ export const contactField = pgEnum("contact_field", CONTACT_FIELDS);
 export const scheduleRefresh = pgEnum("schedule_refresh", SCHEDULE_REFRESH);
 
 export const albumVisibility = pgEnum("album_visibility", ALBUM_VISIBILITIES);
-// An album item's kind and the lighter copy's quality (M7 ticket 05; album/video.ts).
+// An album item's kind (M7 ticket 05) and the sizes a video's copies are kept at (M8 ticket 02;
+// album/video.ts).
 export const photoKind = pgEnum("photo_kind", PHOTO_KINDS);
-export const videoQuality = pgEnum("video_quality", VIDEO_QUALITIES);
+export const videoSize = pgEnum("video_size", VIDEO_QUALITIES);
 
 // An event belongs to one host. Its time is an instant plus the event's own IANA zone; all-day
 // events store midnight in that zone with the flag set. A draft may have no date yet (M4 spec, "A
@@ -294,11 +295,12 @@ export const event = pgTable(
     albumApprovalRequired: boolean("album_approval_required").notNull().default(false),
     notifyOnPhoto: boolean("notify_on_photo").notNull().default(true),
     // Videos in the album (M7 ticket 05): whether the event takes them, the host's caps under the
-    // site's (null: the site's; album/video.ts, effectiveVideoCaps), and the lighter copy's quality.
+    // site's (null: the site's; album/video.ts, effectiveVideoCaps), and the sizes the host ticks
+    // for its videos, largest first, both by default (M8 ticket 02).
     albumVideosAllowed: boolean("album_videos_allowed").notNull().default(true),
     albumMaxVideoMb: integer("album_max_video_mb"),
     albumMaxVideoMinutes: integer("album_max_video_minutes"),
-    albumCopyQuality: videoQuality("album_copy_quality").notNull().default("1080p"),
+    albumCopySizes: videoSize("album_copy_sizes").array().notNull().default(sql`'{1080p,720p}'`),
     // Whether the host writes each invited guest a letter (M6 spec, "Personal letters"). Set only
     // from the Invites page, never by the Settings sheet, whose every save posts every setting.
     lettersEnabled: boolean("letters_enabled").notNull().default(false),
@@ -739,11 +741,11 @@ export const photo = pgTable(
     // before 0.7 until the one-time measuring records what is stored (storage/measure.ts).
     bytes: bigint("bytes", { mode: "number" }),
     // A photo or a video (M7 ticket 05); a video's length, its original's codec string (RFC 6381,
-    // for the player's canPlayType), and the lighter copy it has, if one was needed.
+    // for the player's canPlayType), and the sizes it has copies at, largest first (M8 ticket 02).
     kind: photoKind("kind").notNull().default("photo"),
     durationMs: integer("duration_ms"),
     codec: text("codec"),
-    copy: videoQuality("copy"),
+    copies: videoSize("copies").array().notNull().default(sql`'{}'`),
     status: photoStatus("status").notNull().default("approved"),
     // Why a video could not be processed (album/jobs.ts, failJob): "tooLong" for one over the
     // length cap once measured, which its tile names; anything else shows as plain failure.

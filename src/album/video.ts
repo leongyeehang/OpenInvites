@@ -7,15 +7,21 @@ import { MEGABYTE } from "../lib/sizes";
 export const PHOTO_KINDS = ["photo", "video"] as const;
 export type PhotoKind = (typeof PHOTO_KINDS)[number];
 
-// The lighter copy a host chooses for an event: 1080p, or 720p to save space.
-export const VIDEO_QUALITIES = ["1080p", "720p"] as const;
+// The sizes a video's copies are kept at, named by their short side, largest first (M8 ticket 02;
+// the database's `video_size` enum is built from this list), and the two a host may tick for an
+// event; 4K is the operator's (ticket 04).
+export const VIDEO_QUALITIES = ["2160p", "1080p", "720p"] as const;
 export type VideoQuality = (typeof VIDEO_QUALITIES)[number];
 
+export const EVENT_SIZES = ["1080p", "720p"] as const;
+export type EventSize = (typeof EVENT_SIZES)[number];
+
 // A video's files, named after the item's id under the uploads route (ticket 04): the original
-// quality (the clip rewrapped, metadata dropped, index in front), the lighter copy when one is
-// needed, a poster frame for the player and the album's square thumbnail.
+// (the clip rewrapped, metadata dropped, index in front), a copy at each size it has, a poster
+// frame for the player and the album's square thumbnail.
 export const VIDEO_FILES = {
   original: { file: "video.mp4", type: "video/mp4" },
+  copy2160: { file: "video-2160p.mp4", type: "video/mp4" },
   copy1080: { file: "video-1080p.mp4", type: "video/mp4" },
   copy720: { file: "video-720p.mp4", type: "video/mp4" },
   poster: { file: "video-poster.webp", type: "image/webp" },
@@ -45,8 +51,8 @@ export function videoUrl(id: string, name: VideoFile): string {
   return `/uploads/${id}/${VIDEO_FILES[name].file}`;
 }
 
-export function copyName(quality: VideoQuality): "copy1080" | "copy720" {
-  return quality === "1080p" ? "copy1080" : "copy720";
+export function copyName(size: VideoQuality): "copy2160" | "copy1080" | "copy720" {
+  return size === "2160p" ? "copy2160" : size === "1080p" ? "copy1080" : "copy720";
 }
 
 export type VideoCaps = { allowed: boolean; maxBytes: number; maxMs: number };
@@ -73,24 +79,24 @@ export function videoProblem(file: { size: number; durationMs: number | undefine
   return undefined;
 }
 
-// The lighter copy's targets (ticket 06): the short side and about the bit rate the copy is made
-// at, 6 Mbit/s at 1080p and 3 at 720p.
-export const TARGET_BITRATE: Record<VideoQuality, number> = { "1080p": 6_000_000, "720p": 3_000_000 };
-const TARGET_SHORT_SIDE: Record<VideoQuality, number> = { "1080p": 1080, "720p": 720 };
+// Each size's targets (ticket 06; 4K in M8 ticket 02): the short side and about the bit rate a
+// copy is made at, 16 Mbit/s at 4K, 6 at 1080p and 3 at 720p.
+export const TARGET_BITRATE: Record<VideoQuality, number> = { "2160p": 16_000_000, "1080p": 6_000_000, "720p": 3_000_000 };
+export const TARGET_SHORT_SIDE: Record<VideoQuality, number> = { "2160p": 2160, "1080p": 1080, "720p": 720 };
 
 // What ffprobe says of a clip's video stream.
 export type Probe = { codec: string; width: number; height: number; rotation: number; bitRate: number };
 
-// The short side is what a quality names, whichever way the phone was held (plan ruling 13).
+// The short side is what a size names, whichever way the phone was held (plan ruling 13).
 export function shortSide(probe: { width: number; height: number; rotation: number }): number {
   return Math.min(probe.width, probe.height);
 }
 
-// Whether a clip needs a lighter copy: when it is not H.264, which every browser plays; when its
-// short side is over the quality's; or when its bit rate is over one and a half times the copy's.
-// Otherwise the original serves both qualities and no CPU is spent.
-export function needsCopy(probe: Probe, quality: VideoQuality): boolean {
-  return probe.codec !== "h264" || shortSide(probe) > TARGET_SHORT_SIDE[quality] || probe.bitRate > 1.5 * TARGET_BITRATE[quality];
+// Whether a clip needs a copy at a size: when it is not H.264, which every browser plays; when its
+// short side is over the size's; or when its bit rate is over one and a half times the copy's.
+// Otherwise the original serves that size and no CPU is spent.
+export function needsCopy(probe: Probe, size: VideoQuality): boolean {
+  return probe.codec !== "h264" || shortSide(probe) > TARGET_SHORT_SIDE[size] || probe.bitRate > 1.5 * TARGET_BITRATE[size];
 }
 
 // The player's quality (ticket 07; the maintainer, 2026-11-09): the viewer's own choice, kept on

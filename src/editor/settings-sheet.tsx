@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { QuestionsEditor } from "@/app/(host)/events/questions-editor";
 import type { AlbumTotals } from "@/album/album";
-import { VIDEO_QUALITIES } from "@/album/video";
+import { EVENT_SIZES } from "@/album/video";
 import { ALBUM_VISIBILITIES } from "@/album/visibility";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
@@ -351,17 +351,17 @@ export function SettingsSheet({
                     />
                     <FieldDescription id={`${id}-video-caps-hint`}>{t("album.videoCapsHint", { minutes: siteVideo.maxMinutes, mb: siteVideo.maxMb })}</FieldDescription>
                   </Field>
-                  <Field>
-                    <FieldLabel htmlFor={`${id}-video-quality`}>{t("album.quality")}</FieldLabel>
-                    <NativeSelect id={`${id}-video-quality`} name="albumCopyQuality" defaultValue={settings.albumCopyQuality} aria-describedby={`${id}-video-quality-hint`}>
-                      {VIDEO_QUALITIES.map((quality) => (
-                        <NativeSelectOption key={quality} value={quality}>
-                          {t(quality === "1080p" ? "album.quality1080" : "album.quality720")}
-                        </NativeSelectOption>
-                      ))}
-                    </NativeSelect>
-                    <FieldDescription id={`${id}-video-quality-hint`}>{t("album.qualityHint")}</FieldDescription>
-                  </Field>
+                  {/* The sizes a video gets (M8 ticket 02): any of the two, or neither. */}
+                  <FieldSet className="gap-3" aria-describedby={`${id}-video-sizes-hint`}>
+                    <FieldLegend variant="label">{t("album.sizes")}</FieldLegend>
+                    {EVENT_SIZES.map((size) => (
+                      <Field key={size} orientation="horizontal">
+                        <Checkbox id={`${id}-video-size-${size}`} name="albumCopySizes" value={size} defaultChecked={settings.albumCopySizes.includes(size)} />
+                        <FieldLabel htmlFor={`${id}-video-size-${size}`}>{t(size === "1080p" ? "album.size1080" : "album.size720")}</FieldLabel>
+                      </Field>
+                    ))}
+                    <FieldDescription id={`${id}-video-sizes-hint`}>{t("album.sizesHint")}</FieldDescription>
+                  </FieldSet>
                 </>
               )}
             </FieldSet>

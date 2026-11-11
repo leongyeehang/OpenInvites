@@ -1,4 +1,4 @@
-import { VIDEO_QUALITIES, type VideoQuality } from "@/album/video";
+import { EVENT_SIZES, VIDEO_QUALITIES, type VideoQuality } from "@/album/video";
 import { ALBUM_VISIBILITIES, type AlbumVisibility } from "@/album/visibility";
 import { VIDEO_MB, VIDEO_MINUTES } from "@/instance/limits";
 import { richTextToPlain, type RichText } from "@/rich-text/rich-text";
@@ -33,11 +33,11 @@ export type EventInput = {
   albumApprovalRequired: boolean;
   notifyOnPhoto: boolean;
   // Videos in the album (M7 ticket 05): whether the event takes them, the host's caps (null: the
-  // site's), and the lighter copy's quality.
+  // site's), and the sizes its videos get, largest first (M8 ticket 02).
   albumVideosAllowed: boolean;
   albumMaxVideoMinutes: number | null;
   albumMaxVideoMb: number | null;
-  albumCopyQuality: VideoQuality;
+  albumCopySizes: VideoQuality[];
   // Only the people on the invite list open the invitation (M6 spec, "Invite-only events").
   inviteOnly: boolean;
 };
@@ -69,7 +69,7 @@ export type EventFormFields = {
   albumVideosAllowed: boolean;
   albumMaxVideoMinutes: string;
   albumMaxVideoMb: string;
-  albumCopyQuality: string;
+  albumCopySizes: string[];
   inviteOnly: boolean;
 };
 
@@ -94,7 +94,7 @@ export type EventFormError =
   | "albumVisibilityInvalid"
   | "albumMaxVideoMinutesInvalid"
   | "albumMaxVideoMbInvalid"
-  | "albumQualityInvalid";
+  | "albumSizesInvalid";
 
 export type ParsedEventForm = { ok: true; input: EventInput } | { ok: false; error: EventFormError };
 
@@ -185,8 +185,10 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
   if (albumMaxVideoMinutes === undefined) return { ok: false, error: "albumMaxVideoMinutesInvalid" };
   const albumMaxVideoMb = parseOptionalWhole(fields.albumMaxVideoMb, VIDEO_MB.min, VIDEO_MB.max);
   if (albumMaxVideoMb === undefined) return { ok: false, error: "albumMaxVideoMbInvalid" };
-  const albumCopyQuality = VIDEO_QUALITIES.find((each) => each === fields.albumCopyQuality);
-  if (!albumCopyQuality) return { ok: false, error: "albumQualityInvalid" };
+  // The video sizes (M8 ticket 02): any of the two a host may tick, none included, kept largest
+  // first and each once; 4K is not the host's to tick.
+  if (fields.albumCopySizes.some((each) => !EVENT_SIZES.some((size) => size === each))) return { ok: false, error: "albumSizesInvalid" };
+  const albumCopySizes = VIDEO_QUALITIES.filter((size) => fields.albumCopySizes.includes(size));
 
   return {
     ok: true,
@@ -209,7 +211,7 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
       albumVideosAllowed: fields.albumVideosAllowed,
       albumMaxVideoMinutes,
       albumMaxVideoMb,
-      albumCopyQuality,
+      albumCopySizes,
       inviteOnly: fields.inviteOnly,
     },
   };
@@ -217,7 +219,7 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
 
 // The album's settings, the videos' among them, which the Settings sheet leaves out while the
 // operator has the Album or Videos switched off (M8 ticket 01).
-const VIDEO_SETTINGS = ["albumVideosAllowed", "albumMaxVideoMinutes", "albumMaxVideoMb", "albumCopyQuality"] as const;
+const VIDEO_SETTINGS = ["albumVideosAllowed", "albumMaxVideoMinutes", "albumMaxVideoMb", "albumCopySizes"] as const;
 const ALBUM_SETTINGS = ["albumVisibility", "albumApprovalRequired", "notifyOnPhoto", ...VIDEO_SETTINGS] as const;
 export type AlbumSettingsField = (typeof ALBUM_SETTINGS)[number];
 
@@ -226,7 +228,7 @@ export type AlbumSettingsField = (typeof ALBUM_SETTINGS)[number];
 // album off would turn its approval off, and with that approve every photo that waits.
 export function keptSettings(posted: SettingsFields, stored: Pick<EventSettings, AlbumSettingsField>, on: { album: boolean; videos: boolean }): SettingsFields {
   const kept = !on.album ? ALBUM_SETTINGS : !on.videos ? VIDEO_SETTINGS : [];
-  const asPosted = (value: string | number | boolean | null) => (typeof value === "boolean" ? value : value === null ? "" : String(value));
+  const asPosted = (value: string | number | boolean | null | readonly string[]) => (typeof value === "boolean" ? value : value === null ? "" : Array.isArray(value) ? [...value] : String(value));
   return { ...posted, ...Object.fromEntries(kept.map((field) => [field, asPosted(stored[field])])) };
 }
 

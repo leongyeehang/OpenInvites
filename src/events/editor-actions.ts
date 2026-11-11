@@ -74,7 +74,7 @@ export async function newEventAction(_: FormState, formData: FormData): Promise<
     albumVideosAllowed: true,
     albumMaxVideoMinutes: null,
     albumMaxVideoMb: null,
-    albumCopyQuality: "1080p",
+    albumCopySizes: ["1080p", "720p"],
     inviteOnly: false,
     // When to be reminded about the album, the site's default (M7 ticket 09).
     albumReminderDays: limits.albumReminderDefaultDays,
@@ -251,7 +251,7 @@ export async function saveSettingsAction(id: string, formData: FormData): Promis
     albumVideosAllowed: formData.get("albumVideosAllowed") === "on",
     albumMaxVideoMinutes: text("albumMaxVideoMinutes"),
     albumMaxVideoMb: text("albumMaxVideoMb"),
-    albumCopyQuality: text("albumCopyQuality"),
+    albumCopySizes: formData.getAll("albumCopySizes").filter((each) => typeof each === "string"),
     inviteOnly: formData.get("inviteOnly") === "on",
   };
   const switches = await siteFeatures();

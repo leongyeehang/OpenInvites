@@ -43,7 +43,8 @@ export async function claimJob(me: string, now: Date): Promise<ClaimedJob | unde
   return row && { id: row.id, photoId: row.photo_id, attempts: row.attempts };
 }
 
-export type Processed = { width: number; height: number; durationMs: number; codec: string; copy: VideoQuality | null };
+// What processing learned of a video, and the sizes it stored copies at, largest first (M8 ticket 02).
+export type Processed = { width: number; height: number; durationMs: number; codec: string; copies: VideoQuality[] };
 
 // The item becomes what a photo added now would be, pending for a guest while the host approves
 // items and approved otherwise, decided under the event's lock as addPhotos decides it; only an

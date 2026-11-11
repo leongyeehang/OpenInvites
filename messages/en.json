@@ -641,10 +641,10 @@
         "maxVideoMinutes": "Longest video (min)",
         "maxVideoMb": "Largest video (MB)",
         "videoCapsHint": "Blank means the site’s caps: up to {minutes} min and {mb} MB. A cap above the site’s counts as the site’s.",
-        "quality": "Lighter copy",
-        "quality1080": "1080p",
-        "quality720": "720p (saves space)",
-        "qualityHint": "A lighter copy plays on slow connections; guests can still choose the original.",
+        "sizes": "Video sizes",
+        "size1080": "1080p",
+        "size720": "720p",
+        "sizesHint": "Each video gets these sizes when it needs them, so it plays on slow connections and in every browser. A video never gets a size larger than itself. With neither ticked, a video not every browser plays still gets a 720p copy.",
         "videosUnavailable": "Videos need ffmpeg on this site, which it does not have yet; ask the site’s operator."
       },
       "notifyOnRsvp": "Email the hosts when a guest replies",
@@ -721,7 +721,7 @@
       "scheduleInvalid": "The schedule couldn’t be read. Try again.",
       "albumMaxVideoMinutesInvalid": "Enter a whole number of minutes from 1 to 180 for the longest video, or leave it blank.",
       "albumMaxVideoMbInvalid": "Enter a whole number from 1 to 10,000 MB for the largest video, or leave it blank.",
-      "albumQualityInvalid": "Choose 1080p or 720p for the lighter copy."
+      "albumSizesInvalid": "Choose video sizes from 1080p and 720p."
     },
     "manage": {
       "link": "Event link",

@@ -48,7 +48,7 @@ export function duplicateInput(
       albumVideosAllowed: source.albumVideosAllowed,
       albumMaxVideoMinutes: source.albumMaxVideoMinutes,
       albumMaxVideoMb: source.albumMaxVideoMb,
-      albumCopyQuality: source.albumCopyQuality,
+      albumCopySizes: source.albumCopySizes,
       lettersEnabled: source.lettersEnabled,
       inviteOnly: source.inviteOnly,
       albumReminderDays: source.albumReminderDays,

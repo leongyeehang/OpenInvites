@@ -352,19 +352,21 @@ test("the album's own view in Traditional Chinese", async ({ browser, request })
 
 // M7 ticket 05: the event's video settings, in the Album group of the Settings sheet. Blank caps
 // mean the site's; a cap typed above the site's is kept as typed, since the effective cap is
-// decided when a clip is checked.
-test("the host allows videos, caps them under the site's, and picks the lighter copy's quality", async ({ browser, request }) => {
+// decided when a clip is checked. M8 ticket 02: the video sizes, both ticked by default.
+test("the host allows videos, caps them under the site's, and ticks the video sizes", async ({ browser, request }) => {
   const host = await createPublished(browser, request, "video-settings", PAST);
+  const sizes = (sheet: Locator) => albumGroup(sheet).getByRole("group", { name: "Video sizes" });
   await editSettings(host.page, async (sheet) => {
     const group = albumGroup(sheet);
     await expect(group.getByLabel("Allow videos")).toBeChecked();
     await expect(group.getByLabel("Longest video (min)")).toHaveValue("");
     await expect(group.getByLabel("Largest video (MB)")).toHaveValue("");
-    await expect(group.getByLabel("Lighter copy")).toHaveValue("1080p");
+    await expect(sizes(sheet).getByLabel("1080p", { exact: true })).toBeChecked();
+    await expect(sizes(sheet).getByLabel("720p", { exact: true })).toBeChecked();
     await expect(group.getByText(/Blank means the site’s caps: up to \d+ min and \d+ MB\./)).toBeVisible();
     await group.getByLabel("Longest video (min)").fill("2");
     await group.getByLabel("Largest video (MB)").fill("9000");
-    await group.getByLabel("Lighter copy").selectOption({ label: "720p (saves space)" });
+    await sizes(sheet).getByLabel("1080p", { exact: true }).uncheck();
     await group.getByLabel("Allow videos").uncheck();
   });
   await host.page.reload();
@@ -373,8 +375,10 @@ test("the host allows videos, caps them under the site's, and picks the lighter 
     await expect(group.getByLabel("Allow videos")).not.toBeChecked();
     await expect(group.getByLabel("Longest video (min)")).toHaveValue("2");
     await expect(group.getByLabel("Largest video (MB)")).toHaveValue("9000");
-    await expect(group.getByLabel("Lighter copy")).toHaveValue("720p");
+    await expect(sizes(sheet).getByLabel("1080p", { exact: true })).not.toBeChecked();
+    await expect(sizes(sheet).getByLabel("720p", { exact: true })).toBeChecked();
     await group.getByLabel("Largest video (MB)").fill("");
+    await sizes(sheet).getByLabel("1080p", { exact: true }).check();
     await group.getByLabel("Allow videos").check();
   });
   await host.page.reload();
@@ -382,6 +386,8 @@ test("the host allows videos, caps them under the site's, and picks the lighter 
   await editSettings(host.page, async (sheet) => {
     await expect(albumGroup(sheet).getByLabel("Largest video (MB)")).toHaveValue("");
     await expect(albumGroup(sheet).getByLabel("Allow videos")).toBeChecked();
+    await expect(sizes(sheet).getByLabel("1080p", { exact: true })).toBeChecked();
+    await expect(sizes(sheet).getByLabel("720p", { exact: true })).toBeChecked();
     await albumGroup(sheet).getByLabel("Longest video (min)").fill("");
   });
   await host.context.close();

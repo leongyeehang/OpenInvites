@@ -433,9 +433,10 @@ and one the processor itself did not survive (out of memory, say) is taken again
 and failed after its third claim, never retried for ever. Its files are named after the
 item's id: `<id>-video.mp4` (the clip at original quality, rewrapped as MP4 with its metadata
 dropped, so a phone's location and device details never reach a guest, and its index moved to the
-front, so playing starts at once); `<id>-video-1080p.mp4` or `<id>-video-720p.mp4` (the lighter
-H.264 copy at the quality the host chose, made only when the original is not H.264, larger than
-that quality or far above its bit rate, and only while **Process videos for playback** is on);
+front, so playing starts at once); `<id>-video-2160p.mp4`, `<id>-video-1080p.mp4` and
+`<id>-video-720p.mp4` (H.264 copies, made at the sizes the host ticks, each only when the original
+is not H.264, larger than that size or far above its bit rate, and only while **Process videos for
+playback** is on);
 `<id>-video-poster.webp` (the frame the player shows first) and `<id>-video-thumb.webp` (the
 album's square thumbnail). Only the original counts toward storage. They go with the item, as a
 photo's files do.

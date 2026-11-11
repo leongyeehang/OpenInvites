@@ -27,7 +27,7 @@ const valid = {
   albumVideosAllowed: true,
   albumMaxVideoMinutes: "",
   albumMaxVideoMb: "",
-  albumCopyQuality: "1080p",
+  albumCopySizes: ["1080p", "720p"],
   inviteOnly: true,
 };
 
@@ -63,7 +63,7 @@ describe("parseEventForm", () => {
         albumVideosAllowed: true,
         albumMaxVideoMinutes: null,
         albumMaxVideoMb: null,
-        albumCopyQuality: "1080p",
+        albumCopySizes: ["1080p", "720p"],
         inviteOnly: true,
       },
     });
@@ -114,21 +114,35 @@ describe("parseEventForm", () => {
 
   // M7 ticket 05: the video settings. Blank caps mean the site's; a cap above the site's is kept
   // as typed, since the effective cap is decided when a clip is checked (album/video.ts).
-  it("reads the video caps as whole numbers, blank for none, and the lighter copy's quality", () => {
-    const parsed = parseEventForm({ ...valid, albumVideosAllowed: false, albumMaxVideoMinutes: "2", albumMaxVideoMb: "9000", albumCopyQuality: "720p" });
-    expect(parsed.ok && parsed.input).toMatchObject({ albumVideosAllowed: false, albumMaxVideoMinutes: 2, albumMaxVideoMb: 9000, albumCopyQuality: "720p" });
+  it("reads the video caps as whole numbers, blank for none, and the video sizes", () => {
+    const parsed = parseEventForm({ ...valid, albumVideosAllowed: false, albumMaxVideoMinutes: "2", albumMaxVideoMb: "9000", albumCopySizes: ["720p"] });
+    expect(parsed.ok && parsed.input).toMatchObject({ albumVideosAllowed: false, albumMaxVideoMinutes: 2, albumMaxVideoMb: 9000, albumCopySizes: ["720p"] });
     const blank = parseEventForm({ ...valid, albumMaxVideoMinutes: " ", albumMaxVideoMb: "" });
     expect(blank.ok && blank.input).toMatchObject({ albumMaxVideoMinutes: null, albumMaxVideoMb: null });
   });
 
-  it("refuses a video cap outside its range or not a whole number, and an unknown quality, naming each", () => {
+  // M8 ticket 02: the sizes a host ticks, largest first, each once; none is allowed.
+  it("reads the ticked video sizes largest first, each once, and none as none", () => {
+    const sizes = (albumCopySizes: string[]) => {
+      const parsed = parseEventForm({ ...valid, albumCopySizes });
+      return parsed.ok && parsed.input.albumCopySizes;
+    };
+    expect(sizes(["720p", "1080p"])).toEqual(["1080p", "720p"]);
+    expect(sizes(["720p"])).toEqual(["720p"]);
+    expect(sizes([])).toEqual([]);
+    expect(sizes(["720p", "720p"])).toEqual(["720p"]);
+  });
+
+  it("refuses a video cap outside its range or not a whole number, and an unknown size, naming each", () => {
     for (const minutes of ["0", "181", "1.5", "two"]) {
       expect(parseEventForm({ ...valid, albumMaxVideoMinutes: minutes })).toEqual({ ok: false, error: "albumMaxVideoMinutesInvalid" });
     }
     for (const mb of ["0", "10001", "-5"]) {
       expect(parseEventForm({ ...valid, albumMaxVideoMb: mb })).toEqual({ ok: false, error: "albumMaxVideoMbInvalid" });
     }
-    expect(parseEventForm({ ...valid, albumCopyQuality: "4k" })).toEqual({ ok: false, error: "albumQualityInvalid" });
+    // 4K is the operator's to make (ticket 04), never a host's to tick.
+    expect(parseEventForm({ ...valid, albumCopySizes: ["4k"] })).toEqual({ ok: false, error: "albumSizesInvalid" });
+    expect(parseEventForm({ ...valid, albumCopySizes: ["2160p"] })).toEqual({ ok: false, error: "albumSizesInvalid" });
   });
 
   it("asks for an email and a phone number only in the three ways it knows", () => {
@@ -198,7 +212,7 @@ describe("keptSettings", () => {
     albumVideosAllowed: false,
     albumMaxVideoMinutes: "",
     albumMaxVideoMb: "",
-    albumCopyQuality: "",
+    albumCopySizes: [],
   };
   const stored = {
     albumVisibility: "hosts" as const,
@@ -207,7 +221,7 @@ describe("keptSettings", () => {
     albumVideosAllowed: true,
     albumMaxVideoMinutes: 5,
     albumMaxVideoMb: null,
-    albumCopyQuality: "720p" as const,
+    albumCopySizes: ["720p" as const],
   };
 
   it("keeps every album field as stored while the album is off, numbers as their digits and none as empty", () => {
@@ -219,7 +233,7 @@ describe("keptSettings", () => {
       albumVideosAllowed: true,
       albumMaxVideoMinutes: "5",
       albumMaxVideoMb: "",
-      albumCopyQuality: "720p",
+      albumCopySizes: ["720p"],
     });
   });
 
@@ -230,7 +244,7 @@ describe("keptSettings", () => {
       albumVideosAllowed: true,
       albumMaxVideoMinutes: "5",
       albumMaxVideoMb: "",
-      albumCopyQuality: "720p",
+      albumCopySizes: ["720p"],
     });
   });
 
