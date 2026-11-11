@@ -61,8 +61,9 @@ async function servedWithin(request: APIRequestContext, url: string, ms: number)
 const videoSize = (sheet: Locator, size: "1080p" | "720p") => sheet.getByRole("group", { name: "Album", exact: true }).getByRole("group", { name: "Video sizes" }).getByLabel(size, { exact: true });
 
 test("with the 4K switch on, a 4K HEVC clip gets a 4K copy that plays everywhere once it is ready", async ({ browser, request }) => {
-  // The worker takes the clip at its next minute, then makes its sizes one at a time.
-  test.setTimeout(480_000);
+  // The worker takes the clip at its next minute, then makes its sizes one at a time. The waits
+  // below add up to 630 s, so a slow run ends at the wait's own message, not the test's timeout.
+  test.setTimeout(720_000);
   operator = await (await browser.newContext()).newPage();
   const host = newHost("video-sizes");
   await signUp(operator, host);

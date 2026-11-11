@@ -4,6 +4,7 @@ import { getDb, type Db } from "@/db/client";
 import { albumUpload, event, photo, rsvp, user, videoJob } from "@/db/schema";
 import { eventAlbumBytes, reservedUploads, siteBytes } from "@/storage/usage";
 import { albumRoom, NO_ITEMS, type AlbumTotals, type Room } from "./album";
+import { readDetails } from "./details";
 import { removeItemFiles } from "./files";
 import { removeDir, UPLOADS_ROOT } from "./tmp";
 import type { PhotoKind } from "./video";
@@ -18,7 +19,8 @@ export type NamedPhoto = Photo & { name: string };
 export type PhotoOwner = { rsvpId: string; hostId?: undefined } | { hostId: string; rsvpId?: undefined };
 
 // An event's album as one viewer may see it (album/visibility.ts, photoScope), oldest first: every
-// photo, the approved ones and the viewer's own, or the viewer's own alone.
+// photo, the approved ones and the viewer's own, or the viewer's own alone. Each comes with its
+// details as read back (details.ts, readDetails), for the player (M8 ticket 05).
 export async function listPhotos(eventId: string, scope: PhotoScope): Promise<NamedPhoto[]> {
   const rows = await getDb()
     .select({ photo, name: sql<string>`coalesce(${rsvp.name}, ${user.name})` })
@@ -27,7 +29,7 @@ export async function listPhotos(eventId: string, scope: PhotoScope): Promise<Na
     .leftJoin(user, eq(user.id, photo.hostId))
     .where(and(eq(photo.eventId, eventId), inScope(scope)))
     .orderBy(asc(photo.createdAt), asc(photo.id));
-  return rows.map((row) => ({ ...row.photo, name: row.name }));
+  return rows.map((row) => ({ ...row.photo, details: readDetails(row.photo.details), name: row.name }));
 }
 
 function inScope(scope: PhotoScope): SQL | undefined {

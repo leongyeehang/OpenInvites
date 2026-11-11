@@ -85,7 +85,8 @@ export async function kickVideoQueue(): Promise<void> {
 }
 
 // A clip made into a ready item (M7 ticket 06): a try that throws is given back for another under
-// a new lease, or fails the item on the last (jobs.ts, failJob).
+// a new lease, or fails the item on the last (jobs.ts, failJob); one that throws once its job has
+// moved on touches nothing, and its log line says so.
 async function processClip(job: ClaimedJob): Promise<void> {
   // Claimed more times than there are tries: every try so far killed the processor.
   if (crashedOut(job)) {
@@ -98,7 +99,8 @@ async function processClip(job: ClaimedJob): Promise<void> {
     await processVideo(job);
   } catch (error) {
     const outcome = await failJob(job, error instanceof Error ? error.message : String(error));
-    console.error(`Videos: processing item ${job.photoId} failed on try ${job.attempts} (${outcome}):`, error);
+    if (outcome === "gone") console.error(`Videos: processing item ${job.photoId} threw on try ${job.attempts} after its job had moved on (finished, or its item deleted), so nothing was retried or failed:`, error);
+    else console.error(`Videos: processing item ${job.photoId} failed on try ${job.attempts} (${outcome}):`, error);
   }
 }
 

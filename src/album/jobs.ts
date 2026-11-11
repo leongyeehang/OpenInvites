@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { event, photo, videoJob } from "@/db/schema";
+import type { ItemDetails } from "./details";
 import type { VideoQuality, VideoWork } from "./video";
 import { photoStatusForOwner, type PhotoStatus } from "./visibility";
 
@@ -72,17 +73,35 @@ export async function renewLease(job: ClaimedJob, me: string): Promise<boolean> 
   return rows.length > 0;
 }
 
+// Whether a lease last renewed (or taken) at `renewedAt` is lost by `now`, though no renewal said
+// so: it has lapsed, so another processor may claim the job (`claimable`), and this one must stop
+// rather than keep encoding beside it, as a container cut off from the database would.
+export function leaseLost(renewedAt: Date, now: Date): boolean {
+  return claimable({ leasedAt: renewedAt }, now);
+}
+
 // Renews a lease every `every` ms while a job runs, and gives back the function that stops it. A
 // renewal that answers false is the job lost: `onLost` is called once and nothing more is renewed.
 // One that throws (the database out of reach for a moment) is logged and is not a loss, since the
-// lease still has minutes to run and the next renewal may reach it.
+// lease still has minutes to run and the next renewal may reach it; but once no renewal has
+// succeeded for a whole lease (`leaseLost`, counted from when the last good one was sent, or from
+// the start), the lease is lost all the same, M8 ticket 05.
 export function keepLease(renew: () => Promise<boolean>, onLost: () => void, every = RENEW_MS): () => void {
+  let renewedAt = new Date();
+  let lost = false;
+  const lose = () => {
+    if (lost) return;
+    lost = true;
+    clearInterval(timer);
+    onLost();
+  };
   const timer = setInterval(() => {
+    const sentAt = new Date();
+    if (leaseLost(renewedAt, sentAt)) return lose();
     renew().then(
       (held) => {
-        if (held) return;
-        clearInterval(timer);
-        onLost();
+        if (held) renewedAt = sentAt;
+        else lose();
       },
       (error) => console.error("Videos: a lease could not be renewed:", error),
     );
@@ -90,8 +109,9 @@ export function keepLease(renew: () => Promise<boolean>, onLost: () => void, eve
   return () => clearInterval(timer);
 }
 
-// What processing learned of a video, and the sizes it stored copies at, largest first (M8 ticket 02).
-export type Processed = { width: number; height: number; durationMs: number; codec: string; copies: VideoQuality[] };
+// What processing learned of a video, the sizes it stored copies at, largest first (M8 ticket 02),
+// and its HDR kind and frame rate (ticket 05, details.ts).
+export type Processed = { width: number; height: number; durationMs: number; codec: string; copies: VideoQuality[]; details: ItemDetails };
 
 // The item becomes what a photo added now would be, pending for a guest while the host approves
 // items and approved otherwise, decided under the event's lock as addPhotos decides it; only an
@@ -126,17 +146,19 @@ export async function completeJob(photoId: string, result: Processed, more: bool
 // with the reason on it, for its tile, and the job goes. Only a job still processing a clip is
 // touched: a try that throws after completeJob made its row the item's `sizes` job (deleting the
 // clip as sent, telling the hosts) must neither clear another processor's lease on it nor drop it.
-export async function failJob(job: ClaimedJob, reason: string, final = false): Promise<"retry" | "failed"> {
+// Such a try, or one whose item was deleted meanwhile, matches no job and is told "gone": nothing
+// was retried or failed, which the queue's log line then says.
+export async function failJob(job: ClaimedJob, reason: string, final = false): Promise<"retry" | "failed" | "gone"> {
   const stillProcessing = and(eq(videoJob.id, job.id), eq(videoJob.work, "process"));
   if (final || exhausted(job)) {
-    await getDb().transaction(async (tx) => {
+    const dropped = await getDb().transaction(async (tx) => {
       await tx.update(photo).set({ status: "failed", failure: reason.slice(0, 200) }).where(and(eq(photo.id, job.photoId), eq(photo.status, "processing")));
-      await tx.delete(videoJob).where(stillProcessing);
+      return tx.delete(videoJob).where(stillProcessing).returning({ id: videoJob.id });
     });
-    return "failed";
+    return dropped.length > 0 ? "failed" : "gone";
   }
-  await getDb().update(videoJob).set({ leasedAt: null, leasedBy: null, lastError: reason.slice(0, 1000) }).where(stillProcessing);
-  return "retry";
+  const released = await getDb().update(videoJob).set({ leasedAt: null, leasedBy: null, lastError: reason.slice(0, 1000) }).where(stillProcessing).returning({ id: videoJob.id });
+  return released.length > 0 ? "retry" : "gone";
 }
 
 // A `sizes` job that is done, or that failed: it goes, and the item stays as it is.

@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { bigint, boolean, check, date, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, time, timestamp, unique, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { ALBUM_VISIBILITIES, PHOTO_STATUSES } from "../album/visibility";
 import { PHOTO_KINDS, VIDEO_QUALITIES, VIDEO_WORKS } from "../album/video";
+import type { ItemDetails } from "../album/details";
 import { DEFAULT_REGISTRATION_MODE, REGISTRATION_MODES } from "../instance/registration";
 import { HOME_POSTER_MODES } from "../instance/home";
 import { DEFAULT_LIMITS } from "../instance/limits";
@@ -753,6 +754,10 @@ export const photo = pgTable(
     // Why a video could not be processed (album/jobs.ts, failJob): "tooLong" for one over the
     // length cap once measured, which its tile names; anything else shows as plain failure.
     failure: text("failure"),
+    // What processing learned of the item beyond the columns above (album/details.ts, M8 ticket
+    // 05): a video's HDR kind and frame rate. The stored files keep none of it, since processing
+    // drops their metadata, so this is where the player and the technical line read it.
+    details: jsonb("details").$type<ItemDetails>().notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

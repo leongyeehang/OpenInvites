@@ -466,6 +466,16 @@ uploaded meanwhile, so a new upload never waits for another's copies. A size tha
 and logged (`Videos: making a size of item … failed, so it was dropped`), and the item stays as it
 is with the copies it has.
 
+A video recorded in HDR (HLG or PQ, as a recent phone records it) keeps its HDR in the original,
+which is a stream copy (0.8). Its copies, poster and thumbnail are converted to standard colour
+(BT.709) with ffmpeg's `zscale` and `tonemap` filters, so a guest on any screen sees natural colour
+rather than a flat, greyish picture. The app checks for those filters at start and logs the
+answer; an ffmpeg without them makes the copies as 0.7 did, which look flatter than the original,
+and the Storage card says so. An iPhone's Dolby Vision clip is HLG underneath and is kept as HLG
+HDR; whether its Dolby Vision record survives the rewrap has not been checked yet. Each video's HDR
+kind and frame rate are recorded with the item, for the player and the item's details; a
+video from before 0.8 gains them when **Make missing sizes** reaches it.
+
 Processing needs ffmpeg 6 or later, which the image carries
 ([ADR-0007](../adr/0007-ffmpeg-in-the-image.md)); without a usable one the app starts, refuses
 videos, and the Storage card and the event's Album settings say so. A clip being processed takes

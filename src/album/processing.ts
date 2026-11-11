@@ -12,11 +12,14 @@ import { event, photo } from "@/db/schema";
 import { videoFourKCopy, videoLimits, videoProcessing } from "@/instance/repository";
 import { getStorage } from "@/storage/storage";
 import { MAX_PIXELS } from "@/uploads/validate";
+import { frameRate, hdrKind, type ItemDetails } from "./details";
+import { ffmpegStatus } from "./ffmpeg";
+import { copyArgs, posterArgs, rewrapArgs } from "./ffmpeg-args";
 import { removeItemFiles } from "./files";
 import { completeJob, dropJob, failJob, keepLease, releaseJob, renewLease, type ClaimedJob } from "./jobs";
 import { notifyHostsOfVideo } from "./notify-hosts";
 import { removeDir, scratchDir } from "./tmp";
-import { copyName, copyTimeoutMs, effectiveVideoCaps, madeBeforeReady, missingSizes, probeOfItem, sentKey, sizesToMake, TARGET_BITRATE, TARGET_SHORT_SIDE, videoKey, withFourK, type Probe, type VideoQuality } from "./video";
+import { copyName, copyTimeoutMs, effectiveVideoCaps, madeBeforeReady, missingSizes, probeOfItem, sentKey, sizesToMake, videoKey, withFourK, type Probe, type VideoQuality } from "./video";
 
 // What the queue does to a clip (M7 spec, "Videos"; ADR-0007): reads its streams with ffprobe;
 // rewraps it at original quality into MP4 with every piece of metadata dropped and the index in
@@ -26,7 +29,9 @@ import { copyName, copyTimeoutMs, effectiveVideoCaps, madeBeforeReady, missingSi
 // clip as sent. The other sizes the event asks for (video.ts, sizesToMake) follow from the stored
 // original, one a claim, once the item is ready (M8 ticket 03, processSizes). ffmpeg runs at low
 // priority with two threads, so the site keeps answering pages. The job's lease is renewed while
-// either runs, and a renewal that finds the job gone stops ffmpeg (M8 ticket 04).
+// either runs, and a renewal that finds the job gone stops ffmpeg (M8 ticket 04). An HDR clip keeps
+// its HDR in the original, while its copies, poster and thumbnail are tone-mapped to standard
+// colour when the server's ffmpeg can (M8 ticket 05; ffmpeg-args.ts).
 
 // A failure no retry would mend: the item is failed at once.
 class Final extends Error {}
@@ -39,7 +44,9 @@ export class JobGone extends Error {
   }
 }
 
-type Streams = Probe & { durationMs: number; hasAudio: boolean; codecString: string };
+// What the probe tells of a clip: beside the copy decision's Probe, its length, sound and codec
+// string, its HDR kind and frame rate (details.ts), and whether it carries a Dolby Vision record.
+type Streams = Probe & { durationMs: number; hasAudio: boolean; codecString: string; hdr: "hlg" | "pq" | undefined; fps: number | undefined; dolbyVision: boolean };
 
 const ONE_MINUTE = 60_000;
 
@@ -80,7 +87,20 @@ export function run(command: string, args: string[], timeoutMs: number, signal?:
 
 const ffmpeg = (args: string[], timeoutMs: number, signal?: AbortSignal) => run("ffmpeg", ["-v", "error", "-nostdin", "-threads", "2", ...args], timeoutMs, signal);
 
-type ProbeStream = { codec_type?: string; codec_name?: string; profile?: string; level?: number; width?: number; height?: number; bit_rate?: string; duration?: string; side_data_list?: { rotation?: number }[] };
+type ProbeStream = {
+  codec_type?: string;
+  codec_name?: string;
+  profile?: string;
+  level?: number;
+  width?: number;
+  height?: number;
+  bit_rate?: string;
+  duration?: string;
+  color_transfer?: string;
+  avg_frame_rate?: string;
+  r_frame_rate?: string;
+  side_data_list?: { side_data_type?: string; rotation?: number }[];
+};
 
 // The clip's video stream, as the copy decision and the player need it. A clip with none, or one
 // ffprobe cannot read, is unsupported.
@@ -105,7 +125,22 @@ export async function probe(path: string, signal?: AbortSignal): Promise<Streams
     bitRate: Number(video.bit_rate ?? parsed.format?.bit_rate ?? 0),
     durationMs,
     hasAudio: parsed.streams?.some((stream) => stream.codec_type === "audio") ?? false,
+    hdr: hdrKind(video.color_transfer),
+    fps: frameRate(video.avg_frame_rate) ?? frameRate(video.r_frame_rate),
+    dolbyVision: video.side_data_list?.some((data) => data.side_data_type === "DOVI configuration record") ?? false,
   };
+}
+
+// The HDR kind a copy or still is tone-mapped from: the clip's, when the server's ffmpeg has the
+// filters (ffmpeg.ts, toneMappingAvailable); nothing otherwise, and the copy is made as in 0.7.
+function toneMapped(streams: Streams): "hlg" | "pq" | undefined {
+  const status = ffmpegStatus();
+  return status.available && status.toneMapping ? streams.hdr : undefined;
+}
+
+// What the item records of the clip (details.ts), keys it has no value for left out.
+function detailsOf(streams: Streams): ItemDetails {
+  return { ...(streams.hdr ? { hdr: streams.hdr } : {}), ...(streams.fps !== undefined ? { fps: streams.fps } : {}) };
 }
 
 // The RFC 6381 string the player hands to canPlayType: exact for H.264 (profile and level), a
@@ -120,40 +155,27 @@ function codecStringOf(stream: ProbeStream): string {
   return stream.codec_name ?? "unknown";
 }
 
-// Original quality: the streams copied into MP4, metadata and chapters dropped, the index in
-// front. HEVC is tagged hvc1 or Safari will not play it; audio MP4 cannot hold is re-encoded.
+// Original quality (ffmpeg-args.ts, rewrapArgs): the streams copied, the sound re-encoded only
+// when MP4 cannot hold it as it is.
 async function rewrap(input: string, output: string, streams: Streams, signal: AbortSignal): Promise<void> {
-  const maps = ["-map", "0:v:0", ...(streams.hasAudio ? ["-map", "0:a:0"] : [])];
-  const strip = ["-map_metadata", "-1", "-map_metadata:s:v", "-1", ...(streams.hasAudio ? ["-map_metadata:s:a", "-1"] : []), "-map_chapters", "-1"];
-  const tag = streams.codec === "hevc" ? ["-tag:v", "hvc1"] : [];
-  const tail = [...strip, "-movflags", "+faststart", "-f", "mp4", output];
   try {
-    await ffmpeg(["-y", "-i", input, ...maps, "-c", "copy", ...tag, ...tail], 10 * ONE_MINUTE, signal);
+    await ffmpeg(rewrapArgs(input, output, streams, "copy"), 10 * ONE_MINUTE, signal);
   } catch (error) {
     if (!streams.hasAudio || error instanceof JobGone) throw error;
-    await ffmpeg(["-y", "-i", input, ...maps, "-c:v", "copy", ...tag, "-c:a", "aac", "-b:a", "128k", ...tail], 10 * ONE_MINUTE, signal);
+    await ffmpeg(rewrapArgs(input, output, streams, "aac"), 10 * ONE_MINUTE, signal);
   }
 }
 
-// A copy: H.264 at a size, never larger than the original on either side, about the size's bit
-// rate, AAC audio, upright (ffmpeg rotates what the phone's matrix says). Given time by the clip's
-// length (copyTimeoutMs), so a long 4K encode is not cut off.
-async function makeCopy(input: string, output: string, size: VideoQuality, durationMs: number, signal: AbortSignal): Promise<void> {
-  const side = TARGET_SHORT_SIDE[size];
-  const rate = TARGET_BITRATE[size];
-  const scale = `scale=w='if(lt(iw,ih),min(${side},iw),-2)':h='if(lt(iw,ih),-2,min(${side},ih))'`;
-  await ffmpeg(
-    ["-y", "-i", input, "-map", "0:v:0", "-map", "0:a:0?", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-maxrate", String(rate), "-bufsize", String(rate * 2), "-vf", scale, "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-map_metadata", "-1", "-movflags", "+faststart", output],
-    copyTimeoutMs(durationMs, size),
-    signal,
-  );
+// A copy at a size (ffmpeg-args.ts, copyArgs), tone-mapped from `hdr` when given. Given time by
+// the clip's length (copyTimeoutMs), so a long 4K encode is not cut off.
+async function makeCopy(input: string, output: string, size: VideoQuality, durationMs: number, hdr: "hlg" | "pq" | undefined, signal: AbortSignal): Promise<void> {
+  await ffmpeg(copyArgs(input, output, size, hdr), copyTimeoutMs(durationMs, size), signal);
 }
 
-// A frame a second in, or the first of a shorter clip, upright.
-async function posterFrame(input: string, durationMs: number, dir: string, signal: AbortSignal): Promise<Buffer> {
-  const at = durationMs > 1500 ? 1 : 0;
+// A frame a second in, or the first of a shorter clip, upright, tone-mapped from `hdr` when given.
+async function posterFrame(input: string, durationMs: number, dir: string, hdr: "hlg" | "pq" | undefined, signal: AbortSignal): Promise<Buffer> {
   const frame = join(dir, "frame.png");
-  await ffmpeg(["-y", "-ss", String(at), "-i", input, "-frames:v", "1", "-f", "image2", frame], ONE_MINUTE, signal);
+  await ffmpeg(posterArgs(input, durationMs > 1500 ? 1 : 0, frame, hdr), ONE_MINUTE, signal);
   return readFile(frame);
 }
 
@@ -225,20 +247,21 @@ export async function processVideo(job: ClaimedJob): Promise<void> {
     const on = await videoProcessing();
     const all = on ? sizesToMake(streams, withFourK(streams, item.sizes, await videoFourKCopy())) : [];
     const before = on ? madeBeforeReady(streams, sizesToMake(streams, item.sizes)) : [];
+    const hdr = toneMapped(streams);
     for (const size of before) {
       const copy = join(dir, `copy-${size}.mp4`);
-      await makeCopy(sent, copy, size, streams.durationMs, lost.signal);
+      await makeCopy(sent, copy, size, streams.durationMs, hdr, lost.signal);
       await putFile(videoKey(id, copyName(size)), copy);
     }
     await putFile(videoKey(id, "original"), original);
-    const { poster, thumb } = await stills(await posterFrame(original, streams.durationMs, dir, lost.signal));
+    const { poster, thumb } = await stills(await posterFrame(original, streams.durationMs, dir, hdr, lost.signal));
     await getStorage().put(videoKey(id, "poster"), poster);
     await getStorage().put(videoKey(id, "thumb"), thumb);
 
     const upright = streams.rotation % 180 === 90 ? { width: streams.height, height: streams.width } : { width: streams.width, height: streams.height };
     goneIf(lost);
     const more = all.some((size) => !before.includes(size));
-    const done = await completeJob(id, { ...upright, durationMs: streams.durationMs, codec: streams.codecString, copies: before }, more);
+    const done = await completeJob(id, { ...upright, durationMs: streams.durationMs, codec: streams.codecString, copies: before, details: detailsOf(streams) }, more);
     if (!done) {
       // Deleted while it was processed (plan ruling 20): nothing of it stays.
       await removeItemFiles([id]);
@@ -265,12 +288,14 @@ export async function processVideo(job: ClaimedJob): Promise<void> {
 }
 
 // The sizes added to a ready item's copies, each once and kept largest first, for an item still
-// approved or pending; false when none answered, as for one deleted while its copy was made.
-export async function addCopies(photoId: string, sizes: VideoQuality[]): Promise<boolean> {
+// approved or pending; false when none answered, as for one deleted while its copy was made. The
+// details the stored original was probed for are merged into the item's (M8 ticket 05), so a
+// video from before 0.8 gains its HDR kind and frame rate when Make missing sizes reaches it.
+export async function addCopies(photoId: string, sizes: VideoQuality[], details: ItemDetails = {}): Promise<boolean> {
   const added = sql`array[${sql.join(sizes.map((size) => sql`${size}::video_size`), sql`, `)}]::video_size[]`;
   const updated = await getDb()
     .update(photo)
-    .set({ copies: sql`array(select distinct size from unnest(${photo.copies} || ${added}) as size order by size)` })
+    .set({ copies: sql`array(select distinct size from unnest(${photo.copies} || ${added}) as size order by size)`, details: sql`${photo.details} || ${JSON.stringify(details)}::jsonb` })
     .where(and(eq(photo.id, photoId), inArray(photo.status, ["approved", "pending"])))
     .returning({ id: photo.id });
   return updated.length > 0;
@@ -303,12 +328,15 @@ export async function processSizes(job: ClaimedJob): Promise<void> {
     const stream = await getStorage().stream(videoKey(id, "original"));
     if (!stream) throw new Error("the original is gone");
     await pipeline(Readable.fromWeb(stream as unknown as NodeReadableStream<Uint8Array>), createWriteStream(stored));
+    // The stored original is probed for its HDR kind, which the copy is tone-mapped from, and
+    // its details, which an item from before 0.8 lacks.
+    const streams = await probe(stored, lost.signal);
     const copy = join(dir, `copy-${size}.mp4`);
-    await makeCopy(stored, copy, size, item.durationMs ?? 0, lost.signal);
+    await makeCopy(stored, copy, size, item.durationMs ?? 0, toneMapped(streams), lost.signal);
     await putFile(key, copy);
     goneIf(lost);
     // Deleted while its copy was made: the copy goes too.
-    if (!(await addCopies(id, [size]))) await getStorage().delete(key);
+    if (!(await addCopies(id, [size], detailsOf(streams)))) await getStorage().delete(key);
     await (missing.length > 1 ? releaseJob(job) : dropJob(job));
   } catch (error) {
     if (!(error instanceof JobGone)) throw error;

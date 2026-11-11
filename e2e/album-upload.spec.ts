@@ -13,6 +13,7 @@ const PAST = { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOne
 const H264 = readFileSync("e2e/fixtures/clip-h264.mp4");
 const HEVC = readFileSync("e2e/fixtures/clip-hevc.mov");
 const HEVC_1080 = readFileSync("e2e/fixtures/clip-hevc-1080p.mp4");
+const HDR = readFileSync("e2e/fixtures/clip-hdr.mp4");
 const LONG = readFileSync("e2e/fixtures/clip-long.mp4");
 const TEST_PART = 65536;
 
@@ -143,6 +144,24 @@ test("an event that asks for 720p only gives a 1080p HEVC clip a 720p copy and n
   await servedWithin(request, `${files}/video.mp4`, 120_000);
   expect((await request.get(`${files}/video-720p.mp4`)).status()).toBe(200);
   expect((await request.get(`${files}/video-1080p.mp4`)).status()).toBe(404);
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+// M8 ticket 05: an HDR original keeps its HDR, and its copies are tone-mapped to standard colour.
+test("an HDR clip keeps HLG in its original, and its copies come out in standard colour", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "video-hdr", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  const api = apiOf(priya, host.link);
+  const { item } = await uploadWhole(api, "clip-hdr.mp4", "video/mp4", HDR, 2000);
+  const files = `${api.origin}/uploads/${item.id}`;
+  const original = await servedWithin(request, `${files}/video.mp4`, 120_000);
+  expect(probeServed(original)).toMatchObject({ color_transfer: "arib-std-b67", color_primaries: "bt2020" });
+  const standard = { codec_name: "h264", pix_fmt: "yuv420p", color_transfer: "bt709", color_primaries: "bt709" };
+  const large = await request.get(`${files}/video-1080p.mp4`);
+  expect(large.status()).toBe(200);
+  expect(probeServed(await large.body())).toMatchObject(standard);
+  expect(probeServed(await servedWithin(request, `${files}/video-720p.mp4`, 120_000))).toMatchObject(standard);
   await Promise.all([host.context.close(), priya.context().close()]);
 });
 

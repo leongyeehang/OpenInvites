@@ -150,6 +150,8 @@ export default async function InstancePage() {
             </dl>
             {storage.bucket && <p className="text-sm text-muted-foreground">{t("storage.bucketNote")}</p>}
             <VideosLine status={storage.ffmpeg} />
+            {/* Whether HDR videos' copies come out in standard colour (M8 ticket 05). */}
+            {storage.ffmpeg.available && <p className="text-sm">{t(storage.ffmpeg.toneMapping ? "storage.hdrConverted" : "storage.hdrFlat")}</p>}
             {storage.ffmpeg.available && <ProcessedByLine mode={storage.mode} seenAt={storage.workerSeenAt} now={now} />}
             <div className="flex flex-col gap-2">
               <p role="status" className="text-sm">

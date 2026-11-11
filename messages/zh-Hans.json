@@ -391,6 +391,8 @@
       "videosAvailable": "视频：可用（ffmpeg {version}）。",
       "videosOld": "视频功能需要 ffmpeg 6 或更高版本；本服务器的版本是 {version}。",
       "videosMissing": "视频功能需要 ffmpeg，本服务器尚未安装。",
+      "hdrConverted": "HDR 视频：其副本会转换为标准色彩，在任何屏幕上都显得自然。",
+      "hdrFlat": "HDR 视频：本服务器的 ffmpeg 缺少 zscale 和 tonemap 滤镜，因此其副本会比原片显得平淡。",
       "processedByApp": "视频由本站的应用自行处理。",
       "processedByWorker": "视频由工作容器处理，最近一次报告：{time}。",
       "processedByWorkerMissing": "视频由工作容器处理，但它尚未报告：请检查它是否在运行。",

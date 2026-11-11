@@ -407,6 +407,13 @@
       "when": 1794398005342,
       "tag": "0057_video_4k_copy",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1794401938900,
+      "tag": "0058_item_details",
+      "breakpoints": true
     }
   ]
 }

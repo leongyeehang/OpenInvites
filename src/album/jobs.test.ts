@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { claimable, crashedOut, exhausted, keepLease, LEASE_MS, MAX_TRIES, processorOf, RENEW_MS } from "./jobs";
+import { claimable, crashedOut, exhausted, keepLease, LEASE_MS, leaseLost, MAX_TRIES, processorOf, RENEW_MS } from "./jobs";
 import { VIDEO_WORKS } from "./video";
 
 // The processing queue's lease (M7 ticket 06; ten minutes since M8 ticket 04): a job is claimable
@@ -21,8 +21,21 @@ describe("claimable", () => {
   });
 });
 
+// A lease no renewal has reached for ten minutes is lost (M8 ticket 05): another processor may
+// claim the job by then, so this one stops.
+describe("leaseLost", () => {
+  const renewedAt = new Date("2026-11-09T12:00:00Z");
+  const later = (ms: number) => new Date(renewedAt.getTime() + ms);
+
+  it("is true once a whole lease has passed since the last renewal, and not before", () => {
+    expect(leaseLost(renewedAt, later(LEASE_MS - 1))).toBe(false);
+    expect(leaseLost(renewedAt, later(LEASE_MS))).toBe(true);
+    expect(leaseLost(renewedAt, later(LEASE_MS + 60_000))).toBe(true);
+  });
+});
+
 // Renewing a lease while a job runs (M8 ticket 04): every two minutes; a renewal that finds the
-// job gone is a loss, and one that fails is not.
+// job gone is a loss, and one that fails is not, until none has succeeded for a whole lease.
 describe("keepLease", () => {
   afterEach(() => {
     vi.useRealTimers();
@@ -64,6 +77,25 @@ describe("keepLease", () => {
     await vi.advanceTimersByTimeAsync(2 * 60_000);
     expect(renew).toHaveBeenCalledTimes(2);
     expect(onLost).not.toHaveBeenCalled();
+    stop();
+  });
+
+  it("calls onLost once when no renewal has succeeded for ten minutes, and renews no more", async () => {
+    vi.useFakeTimers();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const renew = vi.fn().mockResolvedValueOnce(true).mockRejectedValue(new Error("connection refused"));
+    const onLost = vi.fn();
+    const stop = keepLease(renew, onLost);
+    // Renewed at two minutes, then out of reach: lost ten minutes after that renewal.
+    await vi.advanceTimersByTimeAsync(LEASE_MS + RENEW_MS - 1);
+    expect(onLost).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(onLost).toHaveBeenCalledTimes(1);
+    expect(renew).toHaveBeenCalledTimes(5);
+    expect(error).toHaveBeenCalledTimes(4);
+    await vi.advanceTimersByTimeAsync(LEASE_MS);
+    expect(onLost).toHaveBeenCalledTimes(1);
+    expect(renew).toHaveBeenCalledTimes(5);
     stop();
   });
 
