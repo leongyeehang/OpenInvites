@@ -1,3 +1,4 @@
+import { DETAIL_TAGS } from "./details";
 import { MOTION_MAX_SECONDS } from "./motion";
 import { TARGET_BITRATE, TARGET_SHORT_SIDE, type VideoQuality } from "./video";
 
@@ -7,12 +8,25 @@ import { TARGET_BITRATE, TARGET_SHORT_SIDE, type VideoQuality } from "./video";
 // thumbnail are tone-mapped to BT.709 (M8 ticket 05), so they look natural on any screen rather
 // than flat and grey; processing passes no HDR kind when the server's ffmpeg lacks the filters.
 
+// What ffprobe is asked of a clip (processing.ts, probe; media part review): the video stream's
+// fields the copy decision, the player and the item's details read, the side data that holds a
+// phone's rotation and a Dolby Vision record, the format's length and bit rate, and only the format
+// tags named in DETAIL_TAGS. Nothing else is printed, so a location tag never leaves ffprobe, and a
+// file's other metadata, however large, is never handed to the processor.
+const PROBE_STREAM = ["codec_type", "codec_name", "profile", "level", "width", "height", "bit_rate", "duration", "color_transfer", "avg_frame_rate", "r_frame_rate"];
+
+export function probeArgs(input: string): string[] {
+  const entries = [`stream=${PROBE_STREAM.join(",")}`, "stream_side_data=side_data_type,rotation", "format=duration,bit_rate", `format_tags=${DETAIL_TAGS.join(",")}`];
+  return ["-v", "error", "-print_format", "json", "-show_entries", entries.join(":"), input];
+}
+
 // To linear light, then BT.709's primaries, then the hable curve that brings HDR's highlights
 // within standard range, then BT.709's transfer: limited-range 4:2:0 for a copy, full-range RGB
 // for a still. zscale and tonemap run on the CPU (ADR-0007); npl=100 and hable are the common
 // recipe, chosen over libplacebo, which wants a GPU, and colorspace, which does not tone-map.
 export function toneMapFilter(hdr: "hlg" | "pq", out: "video" | "still"): string {
   const transfer = hdr === "hlg" ? "arib-std-b67" : "smpte2084";
+  // A phone's HLG and PQ are bt2020nc, bt2020 and tv range, which the input is taken to be.
   const linear = `zscale=tin=${transfer}:min=bt2020nc:pin=bt2020:rin=tv:t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0`;
   return out === "video" ? `${linear},zscale=t=bt709:m=bt709:r=tv,format=yuv420p` : `${linear},zscale=t=bt709:r=pc,format=gbrp`;
 }

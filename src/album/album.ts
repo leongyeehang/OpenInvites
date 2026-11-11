@@ -60,6 +60,24 @@ export function mayCaption(viewer: AlbumViewer, item: { rsvpId: string | null })
   return viewer.kind === "guest" && item.rsvpId === viewer.rsvpId;
 }
 
+// Whose page follows an item's processing (media part review): the hosts, and the guest who added
+// it, as a video still processing is shown to them alone (M7 ticket 07). A live photo's motion
+// being made is sent to them only, so no other guest's page refreshes for it, each refresh being a
+// visit the event page limit counts (src/proxy.ts).
+export function seesProcessing(viewer: AlbumViewer, item: { rsvpId: string | null }): boolean {
+  if (viewer.kind === "host") return true;
+  return viewer.kind === "guest" && item.rsvpId === viewer.rsvpId;
+}
+
+// Where the item the viewer opened now is among those that open, found by its id (media part
+// review), so a refresh that adds or removes an item before it never turns the viewer to another;
+// nothing, and the viewer closes, once it is no longer there.
+export function shownIndex(ids: readonly string[], open: string | undefined): number | undefined {
+  if (open === undefined) return undefined;
+  const at = ids.indexOf(open);
+  return at === -1 ? undefined : at;
+}
+
 // The longest caption, in characters as Postgres's char_length counts them: code points, so an
 // emoji is one.
 export const MAX_CAPTION = 140;

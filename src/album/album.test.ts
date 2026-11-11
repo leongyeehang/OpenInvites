@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MIN_FREE_BYTES } from "@/lib/sizes";
-import { albumRoom, albumState, MAX_CAPTION, mayAddPhotos, mayApprovePhoto, mayCaption, mayDeletePhoto, parseCaption, storageRoom } from "./album";
+import { albumRoom, albumState, MAX_CAPTION, mayAddPhotos, mayApprovePhoto, mayCaption, mayDeletePhoto, parseCaption, seesProcessing, shownIndex, storageRoom } from "./album";
 
 const START = new Date("2027-05-08T11:00:00Z");
 
@@ -146,5 +146,39 @@ describe("mayCaption", () => {
     expect(mayCaption(guest("r2"), { rsvpId: "r1" })).toBe(false);
     expect(mayCaption(guest("r2"), { rsvpId: null })).toBe(false);
     expect(mayCaption({ kind: "visitor" }, { rsvpId: "r1" })).toBe(false);
+  });
+});
+
+// Whose page follows an item's processing (media part review): the hosts, and the guest who added
+// it, as a processing video is shown to them alone; any other guest's page never refreshes for it.
+describe("seesProcessing", () => {
+  const guest = (rsvpId: string) => ({ kind: "guest" as const, rsvpId, approval: "approved" as const, status: "going" as const, name: "Priya Nair" });
+
+  it("is a host for any item, and a guest for their own", () => {
+    expect(seesProcessing({ kind: "host", hostId: "h1" }, { rsvpId: "r1" })).toBe(true);
+    expect(seesProcessing({ kind: "host", hostId: "h1" }, { rsvpId: null })).toBe(true);
+    expect(seesProcessing(guest("r1"), { rsvpId: "r1" })).toBe(true);
+  });
+
+  it("is never another guest, nor a visitor", () => {
+    expect(seesProcessing(guest("r2"), { rsvpId: "r1" })).toBe(false);
+    expect(seesProcessing(guest("r2"), { rsvpId: null })).toBe(false);
+    expect(seesProcessing({ kind: "visitor" }, { rsvpId: "r1" })).toBe(false);
+  });
+});
+
+// The viewer follows the item it opened, not a place in the list (media part review): wherever a
+// refresh moves it, it is found by its id, and once it is gone the viewer closes.
+describe("shownIndex", () => {
+  it("is where the open item now is", () => {
+    expect(shownIndex(["a", "b", "c"], "b")).toBe(1);
+    expect(shownIndex(["b", "c"], "b")).toBe(0);
+    expect(shownIndex(["x", "a", "b", "c"], "b")).toBe(2);
+  });
+
+  it("is closed when nothing is open, or the open item has gone", () => {
+    expect(shownIndex(["a", "b"], undefined)).toBeUndefined();
+    expect(shownIndex(["a", "c"], "b")).toBeUndefined();
+    expect(shownIndex([], "b")).toBeUndefined();
   });
 });

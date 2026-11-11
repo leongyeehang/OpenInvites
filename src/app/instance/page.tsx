@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ffmpegStatus, type FfmpegStatus } from "@/album/ffmpeg";
 import { albumTotalsByEvent } from "@/album/repository";
 import { NO_ITEMS, type AlbumTotals } from "@/album/album";
-import { videosMissingSizes } from "@/album/sizes";
+import { videosHavingSizesMade, videosMissingSizes } from "@/album/sizes";
 import { videoProcessor } from "@/album/video";
 import { requireOperator } from "@/auth/session";
 import { AlertDialog, AlertDialogCancel, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -154,9 +154,12 @@ export default async function InstancePage() {
             {storage.ffmpeg.available && <p className="text-sm">{t(storage.ffmpeg.toneMapping ? "storage.hdrConverted" : "storage.hdrFlat")}</p>}
             {storage.ffmpeg.available && <ProcessedByLine mode={storage.mode} seenAt={storage.workerSeenAt} now={now} />}
             <div className="flex flex-col gap-2">
-              <p role="status" className="text-sm">
-                {t("storage.missingSizes", { count: storage.missing })}
-              </p>
+              {/* Every video has its sizes only when none lacks one and none is being given them
+                  (media part review). */}
+              <div role="status" className="flex flex-col gap-1 text-sm">
+                {(storage.missing > 0 || storage.making === 0) && <p>{t("storage.missingSizes", { count: storage.missing })}</p>}
+                {storage.making > 0 && <p>{t("storage.sizesBeingMade", { count: storage.making })}</p>}
+              </div>
               {storage.processing && storage.ffmpeg.available && (
                 <ClientMessages namespaces={["Instance.storage"]}>
                   <MissingSizesForm count={storage.missing} />
@@ -223,9 +226,10 @@ export default async function InstancePage() {
 // What the Storage card shows (M7 ticket 03): the counted use, what local disk really holds and
 // has free (nothing on S3, where the site cannot see a disk), what is still being measured from
 // before the upgrade, the albums that take the most, the processing switches, and how many videos
-// lack a size their event asks for (M8 ticket 04), counted before Make missing sizes is pressed.
+// lack a size their event asks for (M8 ticket 04), counted before Make missing sizes is pressed,
+// and how many are having sizes made meanwhile.
 async function storageFacts() {
-  const [use, disk, free, unmeasured, biggest, processing, fourK, workerSeenAt, missing] = await Promise.all([
+  const [use, disk, free, unmeasured, biggest, processing, fourK, workerSeenAt, missing, making] = await Promise.all([
     siteBytes(),
     diskUse(),
     freeDiskBytes(),
@@ -235,10 +239,11 @@ async function storageFacts() {
     videoFourKCopy(),
     videoWorkerSeenAt(),
     videosMissingSizes(),
+    videosHavingSizesMade(),
   ]);
   // What each of the biggest albums holds, for the confirmation before clearing one (ticket 10).
   const totals = await albumTotalsByEvent(biggest.map(({ id }) => id));
-  return { use, disk, free, unmeasured, biggest, totals, processing, fourK, workerSeenAt, missing: missing.length, mode: videoProcessingMode(), bucket: storageConfig().backend === "s3", ffmpeg: ffmpegStatus() };
+  return { use, disk, free, unmeasured, biggest, totals, processing, fourK, workerSeenAt, missing: missing.length, making, mode: videoProcessingMode(), bucket: storageConfig().backend === "s3", ffmpeg: ffmpegStatus() };
 }
 
 // Whether this server can process videos (ADR-0007, ticket 05).

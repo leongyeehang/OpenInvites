@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
 import { createPublished, openMore } from "./events";
+import { holdMotionPending } from "./instances";
 import { tabUntil } from "./keys";
 import { closeReply } from "./reply";
 import { clientAddress, expect, test, type Browser, type Locator, type Page } from "./test";
@@ -254,5 +255,135 @@ test("a video's caption, written while it is processing, shows once it is ready"
   const viewer = priya.getByRole("dialog", { name: "Video 1 of 1" });
   await expect(caption(viewer)).toHaveText("The first dance");
   await expect(viewer.locator("video")).toHaveAccessibleName("Video 1 by Priya Nair: The first dance");
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+// Media part review: the viewer follows its item, not a place in the list, and a caption being
+// written is left whenever the viewer closes or turns. A page refreshes while a photo's motion is
+// made only for its uploader and the hosts.
+
+// An item's id, read from its tile's thumbnail.
+async function idOf(tile: Locator): Promise<string> {
+  const thumb = await tile.locator("img").getAttribute("src");
+  expect(thumb).toMatch(/^\/uploads\/[0-9a-f-]{36}\/photo-thumb\.webp$/);
+  return thumb!.split("/")[2];
+}
+
+// One photo added on its own, so the album's order of adding is fixed.
+async function addOne(page: Page, name: string, colour: string): Promise<void> {
+  await album(page).getByLabel(/^Add photos/).setInputFiles([await photo(name, colour)]);
+  await expect(album(page).getByRole("status")).toHaveText(`${name}: added`, { timeout: 20_000 });
+}
+
+// Whether the page as its browser receives it, before any script runs, refreshes itself.
+async function refreshes(page: Page, link: string): Promise<boolean> {
+  return (await (await page.request.get(link)).text()).includes('data-slot="refresh-while-processing"');
+}
+
+test("the viewer stays on its item while the album changes around it, and closes once it is deleted elsewhere", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-follow", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await addOne(priya, "garden.jpg", "#2f6b3a");
+  await addOne(priya, "cake.jpg", "#c0506a");
+  const mei = await guestGoing(browser, host.link, "Mei Tan");
+  await addOne(mei, "lake.jpg", "#d07a3a");
+
+  // Mei's photo's motion is being made, so the host's page refreshes itself.
+  const release = holdMotionPending(await idOf(album(mei).getByRole("button", { name: "Photo 3 by Mei Tan" })));
+  try {
+    await host.page.goto(host.link);
+    const cake = await album(host.page).getByRole("button", { name: "Photo 2 by Priya Nair" }).locator("img").getAttribute("src");
+    await album(host.page).getByRole("button", { name: "Photo 2 by Priya Nair" }).click();
+    await expect(host.page.getByRole("dialog", { name: "Photo 2 of 3" })).toBeVisible();
+
+    // Priya deletes the photo before it: the host's viewer is drawn again on the same photo.
+    await priya.reload();
+    await album(priya).getByRole("button", { name: "Photo 1 by Priya Nair" }).click();
+    await priya.getByRole("dialog", { name: "Photo 1 of 3" }).getByRole("button", { name: "Delete" }).click();
+    await priya.getByRole("alertdialog").getByRole("button", { name: "Delete it" }).click();
+    const viewer = host.page.getByRole("dialog", { name: "Photo 1 of 2" });
+    await expect(viewer).toBeVisible({ timeout: 30_000 });
+    await expect(viewer.getByRole("img", { name: "Photo 1 by Priya Nair" })).toHaveAttribute("src", cake!.replace("photo-thumb", "photo"));
+    await expect(viewer).toContainText("Added by Priya Nair");
+
+    // Priya deletes the open photo itself: the host's viewer closes, and the album stays.
+    await album(priya).getByRole("button", { name: "Photo 1 by Priya Nair" }).click();
+    await priya.getByRole("dialog", { name: "Photo 1 of 2" }).getByRole("button", { name: "Delete" }).click();
+    await priya.getByRole("alertdialog").getByRole("button", { name: "Delete it" }).click();
+    await expect(host.page.getByRole("dialog")).toHaveCount(0, { timeout: 30_000 });
+    await expect(album(host.page).getByRole("button", { name: "Photo 1 by Mei Tan" })).toBeVisible();
+    await expect(host.page.getByRole("heading", { name: "Photos" })).toBeFocused();
+  } finally {
+    release();
+  }
+  await Promise.all([host.context.close(), priya.context().close(), mei.context().close()]);
+});
+
+test("only the uploader's and the hosts' pages refresh while a photo's motion is made", async ({ browser, request }) => {
+  const host = await createPublished(browser, request, "album-motion-pending", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await addOne(priya, "garden.jpg", "#2f6b3a");
+  const mei = await guestGoing(browser, host.link, "Mei Tan");
+  const id = await idOf(album(mei).getByRole("button", { name: "Photo 1 by Priya Nair" }));
+  expect(await refreshes(mei, host.link)).toBe(false);
+
+  const release = holdMotionPending(id);
+  try {
+    expect(await refreshes(priya, host.link)).toBe(true);
+    expect(await refreshes(host.page, host.link)).toBe(true);
+    // Mei sees the photo, and her page never refreshes for its motion.
+    const sent = await (await mei.request.get(host.link)).text();
+    expect(sent).toContain(id);
+    expect(sent).not.toContain('data-slot="refresh-while-processing"');
+  } finally {
+    release();
+  }
+  expect(await refreshes(priya, host.link)).toBe(false);
+  await Promise.all([host.context.close(), priya.context().close(), mei.context().close()]);
+});
+
+test("a caption being written is left when the viewer closes or turns, and comes back as it was", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-caption-left", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await addOne(priya, "lake.jpg", "#d07a3a");
+  await album(priya).getByLabel("Caption for lake.jpg").fill("Sunset over the lake");
+  await album(priya).getByRole("button", { name: "Save" }).click();
+  await expect(album(priya).getByRole("status")).toHaveText("lake.jpg: caption saved");
+  await addOne(priya, "cake.jpg", "#c0506a");
+  await priya.reload();
+  const tile = album(priya).getByRole("button", { name: "Photo 1 by Priya Nair: Sunset over the lake" });
+
+  // Closed while writing: opened again, the caption is as it was and the field is closed.
+  await tile.click();
+  let viewer = priya.getByRole("dialog", { name: "Photo 1 of 2" });
+  await viewer.getByRole("button", { name: "Edit caption" }).click();
+  await expect(captionField(viewer)).toHaveValue("Sunset over the lake");
+  await captionField(viewer).fill("");
+  await viewer.getByRole("button", { name: "Close" }).click();
+  await expect(viewer).toBeHidden();
+  await tile.click();
+  viewer = priya.getByRole("dialog", { name: "Photo 1 of 2" });
+  await expect(caption(viewer)).toHaveText("Sunset over the lake");
+  await expect(captionField(viewer)).toHaveCount(0);
+  // Opened again, the field starts from the caption as it is.
+  await viewer.getByRole("button", { name: "Edit caption" }).click();
+  await expect(captionField(viewer)).toHaveValue("Sunset over the lake");
+
+  // Turned while writing: back again, the same.
+  await captionField(viewer).fill("");
+  await viewer.getByRole("button", { name: "Next photo" }).click();
+  await expect(priya.getByRole("dialog", { name: "Photo 2 of 2" })).toBeVisible();
+  await priya.getByRole("dialog", { name: "Photo 2 of 2" }).getByRole("button", { name: "Previous photo" }).click();
+  viewer = priya.getByRole("dialog", { name: "Photo 1 of 2" });
+  await expect(caption(viewer)).toHaveText("Sunset over the lake");
+  await expect(captionField(viewer)).toHaveCount(0);
+  await priya.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+
+  // Nothing was saved: the page drawn again still has it.
+  await priya.reload();
+  await expect(tile).toBeVisible();
   await Promise.all([host.context.close(), priya.context().close()]);
 });

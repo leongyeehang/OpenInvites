@@ -183,9 +183,9 @@ Storage card's **Process videos for playback** is not a feature switch, and is u
 ### Storage
 
 Site settings' **Storage** card (0.7) answers how full the site is: what albums and hosts'
-pictures take, counted as uploaded (a video's lighter copy, poster and thumbnail never count);
-on local disk, what the `uploads` volume really holds and how much of it is free; the five albums
-that take the most, each with its hosts; whether the server can process videos (its ffmpeg
+pictures take, counted as uploaded (a video's 4K, 1080p and 720p copies, poster and thumbnail never
+count); on local disk, what the `uploads` volume really holds and how much of it is free; the five
+albums that take the most, each with its hosts; whether the server can process videos (its ffmpeg
 version, or that it has none); and the switch **Process videos for playback**, on by default,
 which gives each video the sizes its event asks for when it needs them. On S3 the card shows the
 counted use only. After upgrading to 0.7 the card says how many files from before the upgrade are
@@ -200,14 +200,16 @@ upload that never started cannot hold the site.
 Beside **Process videos for playback**, the switch **Also make a 4K copy that plays everywhere**
 (0.8), off by default, gives a 4K video that is not H.264, such as an iPhone's, which some browsers
 cannot play, a 4K H.264 copy as well. It costs one more file of up to about 115 MB a minute of
-video, which the storage limits do not count, and on a small server it takes several times the
+video, which the storage limits do not count, and on a small server it can take many times the
 video's length to make; it is made after the video is ready, never before. Without it, those
-browsers play the 1080p copy. The switch counts for what is processed afterwards. Under the
-processing lines the card says how many ready videos lack a size their events ask for (an event's
-sizes changed since they were processed, the 4K switch turned on, or videos from before 0.8), and,
-while processing is on and ffmpeg is usable, offers **Make missing sizes**: it queues each of them,
-the copies are made one at a time behind new uploads, and the videos stay in their albums
-meanwhile. Copies an event no longer asks for are kept.
+browsers play the largest copy the event keeps. The switch counts for what is processed
+afterwards. Under the processing lines the card says how many ready videos lack a size their
+events ask for (an event's sizes changed since they were processed, the 4K switch turned on, or
+videos from before 0.8), and, while processing is on and ffmpeg is usable, offers **Make missing
+sizes**: it queues each of them, the copies are made one at a time behind new uploads, and the
+videos stay in their albums meanwhile. Until their copies are made the card says how many videos
+are having sizes made, on a line of its own, and says that every video has its sizes only once
+none lacks one and none is queued. Copies an event no longer asks for are kept.
 
 Videos are processed in the app's own container unless `VIDEO_PROCESSING=worker` moves the work
 to a **worker** container: the same image started as `node scripts/video-worker.mjs`, on the same
@@ -447,7 +449,8 @@ storage as sent, its clip included; both files go with it. An iPhone hands a web
 Photo's still, so it is added as a photo, which the album tells iPhone guests.
 
 A video added to an album (0.7) is kept as sent only until it is processed, which the queue does one
-clip at a time per container, within a minute of the upload. A clip ffmpeg cannot read, or one found
+clip at a time per container: within a minute of the upload when the queue is idle, otherwise once
+the job in hand is done. A clip ffmpeg cannot read, or one found
 over the event's length cap once measured (a browser cannot always read a clip's length before
 sending), is failed at once, and its tile tells its uploader and the hosts so, the length cap by
 name; a clip that fails for any other reason is tried three times and then failed, and one the
@@ -469,17 +472,23 @@ counts toward storage. They go with the item, as a photo's files do.
 So a video may have up to three copies (4K, 1080p and 720p), and a size whose copy would come out
 the same as one already made (720p of a 640×480 clip, say) is skipped. Each copy is capped at a bit
 rate of its own, so a minute of video takes at most about 115 MB at 4K, 43 MB at 1080p and 21 MB at
-720p, none of which the storage limits count; a 4K copy takes several times the video's length to
+720p, none of which the storage limits count; a 4K copy can take many times the video's length to
 make on a small server. A video is ready, and plays, after at most one of them: an original that is
 not H.264 gets one copy, from the clip as sent, before it shows in the album, and an H.264 original
 none. The other sizes are made afterwards from the stored original, one at a time, smallest first,
-each behind every video uploaded meanwhile, so a new upload never waits for another's copies. A size
-that fails is dropped and logged (`Videos: making a size of item … failed, so it was dropped`), and
-the item stays as it is with the copies it has. A video that lacks a size its event asks for (one
-from before 0.8, an event's sizes changed, or the 4K switch turned on) gets it when the operator
-presses **Make missing sizes** on the Storage card (see Storage above). The player offers Auto,
-which picks a size for the guest's screen and connection and steps down when playing stalls, and
-every size the video has, its original included; a guest's pick is remembered on their device.
+each behind every video uploaded meanwhile, so a new upload waits for no other video's copies but
+the one being encoded when it arrives, which may run to that copy's timeout (eight times its
+video's length at 1080p and 720p, thirty times at 4K, and never under an hour). A size that fails
+is dropped and logged (`Videos: making a size of item … failed, so it was dropped`), and the item
+stays as it is with the copies it has. On local disk a copy is not started while the `uploads`
+volume would be left with under 1 GB free, the floor uploads keep: the video's remaining sizes are
+dropped, not retried, with one line in the log (`Videos: the disk is too full to make the … copy
+of item …`), and **Make missing sizes** queues them again once there is room. A video that lacks a
+size its event asks for (one from before 0.8, an event's sizes changed, or the 4K switch turned
+on) gets it when the operator presses **Make missing sizes** on the Storage card (see Storage
+above). The player offers Auto, which picks a size for the guest's screen and connection and
+steps down when playing stalls, and every size the video has, its original included; a guest's
+pick is remembered on their device.
 
 A video recorded in HDR (HLG or PQ, as a recent phone records it) keeps its HDR in the original,
 which is a stream copy (0.8). Its copies, poster and thumbnail are converted to standard colour
@@ -511,8 +520,9 @@ counts against `RATE_LIMIT_COMMENT`.
 
 Processing needs ffmpeg 6 or later, which the image carries
 ([ADR-0007](../adr/0007-ffmpeg-in-the-image.md)); without a usable one the app starts, refuses
-videos, and the Storage card and the event's Album settings say so. A clip being processed takes
-about 300 MB of memory on top of the app's. The parts of an upload in progress and ffmpeg's
+videos, and the Storage card and the event's Album settings say so. A clip being processed into
+a 1080p copy took about 300 MB of memory on top of the app's when measured for 0.7; a 4K or HDR
+copy needs more, which has not been measured. The parts of an upload in progress and ffmpeg's
 scratch files live under `/tmp` in the container, which needs about three times the largest
 video free; the parts live on the container that took them, so the site runs one app container
 (the worker is a second container, but takes no uploads).

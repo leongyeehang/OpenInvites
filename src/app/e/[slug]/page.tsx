@@ -56,11 +56,11 @@ import { mayVote, pollState, tally } from "@/polls/poll";
 import { loadPoll } from "@/polls/repository";
 import { findVoterOnThisDevice } from "@/polls/voter";
 import { PollBar, PollFlow, PollWhen, type PollCandidate } from "./poll-flow";
-import { albumState, mayApprovePhoto, mayCaption, mayDeletePhoto, type AlbumViewer } from "@/album/album";
-import { albumOrderFor, formatTaken, shownDetails } from "@/album/details";
+import { albumState, mayApprovePhoto, mayCaption, mayDeletePhoto, seesProcessing, type AlbumViewer } from "@/album/album";
+import { albumOrderFor, formatTaken, keepDetailsOf, keptNotice, shownDetails } from "@/album/details";
 import { ffmpegStatus } from "@/album/ffmpeg";
 import { motionUrl, photoUrl } from "@/album/files";
-import { copyName, effectiveVideoCaps, videoSizes, videoUrl } from "@/album/video";
+import { copyName, effectiveVideoCaps, shownFailure, videoSizes, videoUrl } from "@/album/video";
 import { countPhotos, listPhotos } from "@/album/repository";
 import { albumViewer } from "@/album/viewer";
 import { albumView, photoScope } from "@/album/visibility";
@@ -160,13 +160,15 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
     };
     const taken = event.albumKeepTakenAt ? each.takenAt : null;
     const details = { details: shownDetails(each, event), takenAt: taken && formatTaken(taken, event.timeZone, locale), takenAtIso: taken && taken.toISOString() };
-    // A live photo carries its motion (M8 ticket 08), and one whose motion is being made says so.
+    // A live photo carries its motion (M8 ticket 08), and one whose motion is being made says so
+    // to its uploader and the hosts alone, whose pages refresh until it is made (media part review).
     if (each.kind === "photo") {
-      const live = { motion: each.live ? motionUrl(each.id) : null, motionPending: each.motionPending };
+      const live = { motion: each.live ? motionUrl(each.id) : null, motionPending: each.motionPending && seesProcessing(viewer, each) };
       return { ...base, ...details, ...live, kind: "photo", thumb: photoUrl(each.id, "thumb"), large: photoUrl(each.id, "large"), width: each.width ?? 0, height: each.height ?? 0 };
     }
-    // A video (M7 ticket 07): processing or failed shows as such; ready shows its files.
-    if (each.status === "processing" || each.status === "failed") return { ...base, kind: "video", state: each.status, failure: each.failure };
+    // A video (M7 ticket 07): processing or failed shows as such, a failure by the reason the tile
+    // names and never the processor's text; ready shows its files.
+    if (each.status === "processing" || each.status === "failed") return { ...base, kind: "video", state: each.status, failure: shownFailure(each.failure) };
     // Every size it plays at, the original first, each with its file (M8 ticket 06), and whether
     // the original is HDR, for its badge.
     const sizes = videoSizes(each).map((size) => ({ ...size, src: videoUrl(each.id, size.name === "original" ? "original" : copyName(size.name)) }));
@@ -197,10 +199,12 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
     videosAvailable: ffmpegStatus().available,
     videosOn: featureOn(switches, "videos"),
   });
+  // What the host keeps of each item added, said where it is added (media part review).
+  const keeps = keptNotice(keepDetailsOf(event));
   // A guest who may add but not see is shown their own, and why: the album is for those Going, or
   // the hosts keep it.
-  if (view === "own") return { view: "own", why: event.albumVisibility === "going" ? "going" : "hosts", photos, maxMegabytes, video };
-  return { view: "open", photos, maxMegabytes, video };
+  if (view === "own") return { view: "own", why: event.albumVisibility === "going" ? "going" : "hosts", photos, maxMegabytes, video, keeps };
+  return { view: "open", photos, maxMegabytes, video, keeps };
 }
 
 // The schedule (M6 ticket 02), or nothing when the host has listed none, the event has no date

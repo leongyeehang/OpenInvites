@@ -17,6 +17,15 @@ export function exec(service: string, ...command: string[]): string {
   return execFileSync("docker", ["compose", "--profile", "test", "exec", "-T", service, ...command], { stdio: "pipe" }).toString();
 }
 
+// A photo's motion held as being made (media part review): a `motion` job on it under a lease that
+// no processor holds, which no queue claims for ten minutes (jobs.ts, LEASE_MS), so the pages that
+// follow it keep refreshing however busy or idle the queue is. Gives back its release.
+export function holdMotionPending(photoId: string): () => void {
+  if (!/^[0-9a-f-]{36}$/.test(photoId)) throw new Error(`not an item's id: ${photoId}`);
+  const sql = (statement: string) => exec("db", "psql", "-U", "openinvites", "-d", "openinvites", "-v", "ON_ERROR_STOP=1", "-c", statement);
+  sql(`insert into video_job (photo_id, work, leased_at, leased_by) values ('${photoId}', 'motion', now(), 'e2e')`);
+  return () => void sql(`delete from video_job where photo_id = '${photoId}' and leased_by = 'e2e'`);
+}
 
 // What ffprobe says of a served video's first video stream (M8 ticket 03), read in one of the
 // profile's containers, which carry ffmpeg where this machine may not, from the bytes on stdin.

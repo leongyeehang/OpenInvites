@@ -97,6 +97,7 @@ function autoAtOpen(video: PlayableVideo): ShownSize | undefined {
   if (typeof window === "undefined") return undefined;
   const plays = video.sizes.filter((size) => !size.original || canPlay(video.codec));
   const net = (navigator as Navigator & { connection?: Connection }).connection;
+  // A ready video always has its width and height; a 0 would make Auto pick the smallest size.
   return autoSize(plays, video, { width: screen.width, height: screen.height, pixelRatio: window.devicePixelRatio || 1 }, net);
 }
 

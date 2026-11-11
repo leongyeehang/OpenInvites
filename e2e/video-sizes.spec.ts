@@ -119,6 +119,10 @@ test("Make missing sizes gives a video the size its event now asks for, and it s
   await expectNoSeriousViolations(operator, "Site settings with Make missing sizes");
   await make.click();
   await expect(card.getByRole("status").filter({ hasText: "1 video queued." })).toBeVisible();
+  // Queued, it is having its sizes made, which the card says on a line of its own, and not yet
+  // that every video has them (media part review). The worker takes it at its next minute.
+  await expect(card.getByText("1 video is having sizes made.")).toBeVisible();
+  await expect(card.getByText("Every video has the sizes its event asks for.")).toHaveCount(0);
 
   await mei.reload();
   await expect(readyVideo(mei)).toBeVisible();

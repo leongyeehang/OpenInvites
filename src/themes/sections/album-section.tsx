@@ -2,7 +2,7 @@ import { Lock } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import type { VideoCaps } from "@/album/video";
 import type { AlbumVisibility } from "@/album/visibility";
-import { Album, type ShownPhoto } from "./album";
+import { Album, type Keeps, type ShownPhoto } from "./album";
 
 export { ALBUM_HEADING } from "./album";
 
@@ -11,12 +11,14 @@ export { ALBUM_HEADING } from "./album";
 // many photos it shows and what opens it, which depends on who the host lets see it and, for a
 // guest whose reply awaits the host's approval, on that approval (M6 ticket 10); to a guest who
 // may add but not see, their own photos and why; to the hosts and the guests who see it, the
-// photos, and the way to add theirs.
+// photos, and the way to add theirs, with what the host keeps of each (media part review).
+type AlbumProps = { photos: ShownPhoto[]; maxMegabytes: number; video: VideoCaps; keeps: Keeps };
+
 export type AlbumShown =
   | { view: "notYet"; opensOn: string }
   | { view: "locked"; count: number; visibility: AlbumVisibility; awaitingApproval: boolean }
-  | { view: "own"; why: "going" | "hosts"; photos: ShownPhoto[]; maxMegabytes: number; video: VideoCaps }
-  | { view: "open"; photos: ShownPhoto[]; maxMegabytes: number; video: VideoCaps };
+  | ({ view: "own"; why: "going" | "hosts" } & AlbumProps)
+  | ({ view: "open" } & AlbumProps);
 
 const LOCKED = { replied: "locked", going: "lockedGoing", hosts: "lockedHosts" } as const;
 const YOURS = { going: "yoursGoing", hosts: "yoursHosts" } as const;
@@ -42,9 +44,9 @@ export async function AlbumSection({ album, slug }: { album: AlbumShown; slug: s
           <h3 className="font-medium">{t("yours")}</h3>
           <p className="mt-0.5 text-sm text-theme-text-muted">{t(YOURS[album.why])}</p>
         </div>
-        <Album slug={slug} photos={album.photos} maxMegabytes={album.maxMegabytes} video={album.video} />
+        <Album slug={slug} photos={album.photos} maxMegabytes={album.maxMegabytes} video={album.video} keeps={album.keeps} />
       </div>
     );
   }
-  return <Album slug={slug} photos={album.photos} maxMegabytes={album.maxMegabytes} video={album.video} />;
+  return <Album slug={slug} photos={album.photos} maxMegabytes={album.maxMegabytes} video={album.video} keeps={album.keeps} />;
 }

@@ -1,4 +1,4 @@
-import { MEGABYTE } from "../lib/sizes";
+import { MEGABYTE, MIN_FREE_BYTES } from "../lib/sizes";
 
 // Videos in the album (M7 spec, "Videos"): what an item is, the files a video is kept as, and the
 // caps a clip is held to. Pure; the database enums are built from the lists here.
@@ -151,6 +151,22 @@ export function copyTimeoutMs(durationMs: number, size: VideoQuality): number {
   return Math.max(60 * 60_000, durationMs * (size === "2160p" ? 30 : 8));
 }
 
+// About how many bytes a copy takes (media part review): its size's bit rate, which the copy is
+// capped at, and its sound's (ffmpeg-args.ts, copyArgs), over the clip's length.
+const COPY_AUDIO_BITRATE = 128_000;
+
+export function copyEstimateBytes(size: VideoQuality, durationMs: number): number {
+  return Math.ceil(((TARGET_BITRATE[size] + COPY_AUDIO_BITRATE) * durationMs) / 8000);
+}
+
+// Whether a copy may be started (media part review): only while the free-space floor uploads keep
+// (album.ts, storageRoom; MIN_FREE_BYTES) would still be free once it is stored, so Make missing
+// sizes, which can queue a copy for every video on the site, never fills the disk. A disk the app
+// cannot see (S3) never stops one.
+export function roomForCopy(freeBytes: number | undefined, size: VideoQuality, durationMs: number): boolean {
+  return freeBytes === undefined || freeBytes - copyEstimateBytes(size, durationMs) >= MIN_FREE_BYTES;
+}
+
 // A size's name for a person (M8 spec, "Sizes made"): a short side rounded down to a standard
 // name, 2160 and over being 4K, and any side under 360 named by itself.
 const LABELS: [number, string][] = [
@@ -170,13 +186,27 @@ export function sizeLabel(side: number): string {
 // length, and the sizes it has copies at.
 export type VideoItem = { codec: string | null; width: number | null; height: number | null; bytes: number | null; durationMs: number | null; copies: readonly VideoQuality[] };
 
+// A video's bit rate as the sizes are decided from it: the file as sent over its length, which the
+// row keeps (`bytes`, `duration_ms`), so processing and the row read back count the same figure.
+function fileBitRate(bytes: number, durationMs: number): number {
+  return Math.round((bytes * 8000) / durationMs);
+}
+
+// The clip as processing decides its sizes from (media part review): its probe, with the bit rate
+// of the file as sent rather than the stream's, the figure probeOfItem gives back once the item is
+// stored. Otherwise a video at the margin would be counted, once ready, as lacking a size
+// processing chose not to make, and queued again at every press of Make missing sizes.
+export function asProcessed<P extends Probe & { durationMs: number }>(probe: P, bytes: number): P {
+  return { ...probe, bitRate: fileBitRate(bytes, probe.durationMs) };
+}
+
 // The item read back as a probe of its original: the codec string named as ffprobe names it, no
 // rotation since the row is stored upright, and the bit rate of the file as sent. Nothing for an
 // item not yet measured.
 export function probeOfItem(item: VideoItem): Probe | undefined {
   if (item.codec === null || !item.width || !item.height || item.bytes === null || !item.durationMs) return undefined;
   const codec = item.codec.startsWith("avc1") ? "h264" : item.codec.startsWith("hvc1") ? "hevc" : item.codec;
-  return { codec, width: item.width, height: item.height, rotation: 0, bitRate: Math.round((item.bytes * 8000) / item.durationMs) };
+  return { codec, width: item.width, height: item.height, rotation: 0, bitRate: fileBitRate(item.bytes, item.durationMs) };
 }
 
 // The sizes a ready item lacks of those its event asks for now, smallest last; a copy it has
@@ -303,6 +333,13 @@ export function stepDown<Size extends VideoSize>(sizes: Size[], current: VideoSi
 // item recorded; the player answers "probably", "maybe" or nothing.
 export function playable(codecString: string, canPlayType: (type: string) => string): boolean {
   return canPlayType(`video/mp4; codecs="${codecString}"`) !== "";
+}
+
+// What a failed video's tile is told of why (media part review): the length cap, which it names,
+// or nothing. The processor's own text (ffmpeg's last lines, which can hold the server's scratch
+// path) stays in the database and the log.
+export function shownFailure(failure: string | null): "tooLong" | null {
+  return failure === "tooLong" ? "tooLong" : null;
 }
 
 // Who processes videos, for the Storage card (ticket 08): the app itself, or the worker container,

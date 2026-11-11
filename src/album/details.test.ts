@@ -7,6 +7,7 @@ import {
   frameRate,
   hdrKind,
   keepDetailsOf,
+  keptNotice,
   photoDetails,
   readDetails,
   shownDetails,
@@ -235,5 +236,16 @@ describe("formatTaken", () => {
     expect(formatTaken(at, "Asia/Singapore", "en")).toBe(new Intl.DateTimeFormat("en", { timeZone: "Asia/Singapore", dateStyle: "long", timeStyle: "short" }).format(at));
     expect(formatTaken(at, "Asia/Singapore", "en")).toContain("4:42");
     expect(formatTaken(at, "Europe/London", "en")).toContain("8:42");
+  });
+});
+
+// What the add-photos screen tells a guest the host keeps (media part review): the capture time,
+// the camera, both, or nothing when both switches are off.
+describe("keptNotice", () => {
+  it("names what the host keeps", () => {
+    expect(keptNotice({ takenAt: true, camera: false })).toBe("takenAt");
+    expect(keptNotice({ takenAt: false, camera: true })).toBe("camera");
+    expect(keptNotice({ takenAt: true, camera: true })).toBe("both");
+    expect(keptNotice({ takenAt: false, camera: false })).toBeUndefined();
   });
 });

@@ -86,6 +86,15 @@ export function keepDetailsOf(event: { albumKeepTakenAt: boolean; albumKeepCamer
   return { takenAt: event.albumKeepTakenAt, camera: event.albumKeepCamera };
 }
 
+// What the add-photos screen tells a guest before they add anything (media part review): that the
+// host keeps when each item was taken, the camera it was taken with, or both; nothing when the
+// host keeps neither.
+export function keptNotice(keep: KeepDetails): "takenAt" | "camera" | "both" | undefined {
+  if (keep.takenAt && keep.camera) return "both";
+  if (keep.takenAt) return "takenAt";
+  return keep.camera ? "camera" : undefined;
+}
+
 const DAY = 24 * 60 * 60 * 1000;
 const EARLIEST = Date.UTC(2000, 0, 1);
 

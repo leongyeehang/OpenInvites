@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { MEGABYTE } from "@/lib/sizes";
+import { MEGABYTE, MIN_FREE_BYTES } from "@/lib/sizes";
 import {
+  asProcessed,
   autoSize,
+  copyEstimateBytes,
   copyName,
   copySide,
   copyTimeoutMs,
@@ -17,9 +19,11 @@ import {
   playable,
   probeOfItem,
   readPick,
+  roomForCopy,
   SENT_FILE,
   shortSide,
   shouldStepDown,
+  shownFailure,
   endWait,
   recentWaits,
   sizeLabel,
@@ -478,5 +482,57 @@ describe("who processes videos", () => {
     expect(videoProcessor("worker", new Date(now.getTime() - WORKER_STALE_MS + 1), now)).toBe("worker");
     expect(videoProcessor("worker", new Date(now.getTime() - WORKER_STALE_MS), now)).toBe("missing");
     expect(videoProcessor("worker", undefined, now)).toBe("missing");
+  });
+});
+
+// One figure for "this video lacks a size" (media part review): processing decides from the bit
+// rate the row gives back, the file as sent over its length, not the stream's, so a video just
+// processed is never counted as lacking a size at the margin and queued again at every press.
+describe("asProcessed", () => {
+  // An H.264 1080p clip whose stream is under 1.5 times 1080p's 6 Mbit/s, while the file as sent,
+  // its sound and box included, is just over.
+  const stream = { codec: "h264", width: 1920, height: 1080, rotation: 0, bitRate: 8_800_000, durationMs: 10_000 };
+  const bytes = 11_375_000; // 9.1 Mbit/s over ten seconds
+  const both = ["1080p", "720p"] as const;
+
+  it("is the clip with the bit rate of the file as sent, as the row reads back", () => {
+    expect(asProcessed(stream, bytes)).toEqual({ ...stream, bitRate: 9_100_000 });
+    expect(asProcessed(stream, bytes).bitRate).toBe(probeOfItem({ codec: "avc1.640028", width: 1920, height: 1080, bytes, durationMs: 10_000, copies: [] })!.bitRate);
+  });
+
+  it("leaves nothing missing once the sizes processing chose are made", () => {
+    const made = sizesToMake(asProcessed(stream, bytes), both);
+    expect(made).toEqual(["1080p", "720p"]);
+    expect(missingSizes({ codec: "avc1.640028", width: 1920, height: 1080, bytes, durationMs: 10_000, copies: made }, both)).toEqual([]);
+  });
+});
+
+// A copy is not started on a full disk (media part review): its size estimated from its bit rate
+// and the sound's over the clip's length, and made only when the free-space floor uploads keep
+// (MIN_FREE_BYTES) is still free afterwards. A disk the app cannot see (S3) never stops it.
+describe("roomForCopy", () => {
+  it("estimates a copy from its size's bit rate and the sound's, over the clip's length", () => {
+    expect(copyEstimateBytes("1080p", 60_000)).toBe(((6_000_000 + 128_000) * 60) / 8);
+    expect(copyEstimateBytes("2160p", 60_000)).toBe(((16_000_000 + 128_000) * 60) / 8);
+    expect(copyEstimateBytes("720p", 1)).toBe(391);
+  });
+
+  it("makes the copy when the floor stays free afterwards, exactly included", () => {
+    const copy = copyEstimateBytes("2160p", 120_000);
+    expect(roomForCopy(MIN_FREE_BYTES + copy, "2160p", 120_000)).toBe(true);
+    expect(roomForCopy(MIN_FREE_BYTES + copy - 1, "2160p", 120_000)).toBe(false);
+    expect(roomForCopy(MIN_FREE_BYTES - 1, "720p", 1000)).toBe(false);
+    expect(roomForCopy(undefined, "2160p", 3_600_000)).toBe(true);
+  });
+});
+
+// What a failed video's tile is told (media part review): the reason the interface names, never
+// the processor's own text, which can hold the server's scratch path.
+describe("shownFailure", () => {
+  it("is the length cap, or nothing", () => {
+    expect(shownFailure("tooLong")).toBe("tooLong");
+    expect(shownFailure("unsupported")).toBeNull();
+    expect(shownFailure("ffmpeg exited with 1: /tmp/openinvites/scratch/0193-abc/sent: Invalid data found")).toBeNull();
+    expect(shownFailure(null)).toBeNull();
   });
 });

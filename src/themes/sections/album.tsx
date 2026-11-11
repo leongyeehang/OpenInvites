@@ -1,12 +1,12 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight, CircleDot, Download, Film, ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, CircleDot, Download, Film, ImagePlus, Trash2, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
-import { useEffect, useEffectEvent, useOptimistic, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import { useOptimistic, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { approvePhotoAction, deletePhotoAction, setCaptionAction } from "@/album/actions";
-import { MAX_CAPTION, MAX_PHOTOS_AT_ONCE, parseCaption } from "@/album/album";
+import { MAX_CAPTION, MAX_PHOTOS_AT_ONCE, parseCaption, shownIndex } from "@/album/album";
 import type { ShownDetails } from "@/album/details";
 import { seesLivePhotoNote } from "@/album/motion";
 import {
@@ -23,21 +23,25 @@ import { Button } from "@/components/ui/button";
 import type { VideoCaps } from "@/album/video";
 import { clockTime, formatMinutes, formatSize, MEGABYTE } from "@/lib/sizes";
 import { cn } from "@/lib/utils";
+import { Caption, CaptionWhileAdding, type SaveCaption } from "./album-captions";
 import { prepareFiles, uploadFiles, type Prepared, type UploadOutcome } from "./album-upload";
 import type { UploadProblem } from "@/uploads/validate";
-import { useReducedMotion } from "../use-reduced-motion";
+import { ItemDetails } from "./item-details";
+import { LivePicture } from "./live-picture";
 import { RefreshWhileProcessing } from "./refresh-while-processing";
 import { VideoPlayer, type ShownSize } from "./video-player";
 
 // One item as the album shows it (M4 ticket 11; videos M7 ticket 07): a photo in its two sizes;
 // a ready video with its thumbnail, poster, original (for Download), every size it plays at with
 // its file (M8 ticket 06), whether the original is HDR, its codec for the player and its length;
-// or a video still processing, or failed, which only its uploader and the hosts see. Each with who
-// added it, whether this viewer may delete it, whether it waits for a host's approval (M6 ticket
-// 03), and whether this viewer may approve it. An item that opens carries its technical line, and
-// the capture time and camera the host keeps, written on the server (M8 ticket 07). A live photo
-// carries its motion's file, and a photo whose motion is being made says so (M8 ticket 08). Each
-// has its caption, and whether this viewer may write it (M8 ticket 09).
+// or a video still processing, or failed (by the reason its tile names, never the processor's
+// text), which only its uploader and the hosts see. Each with who added it, whether this viewer
+// may delete it, whether it waits for a host's approval (M6 ticket 03), and whether this viewer
+// may approve it. An item that opens carries its technical line, and the capture time and camera
+// the host keeps, written on the server (M8 ticket 07). A live photo carries its motion's file,
+// and a photo whose motion is being made says so (M8 ticket 08), to its uploader and the hosts
+// alone, whose pages refresh until it is made. Each has its caption, and whether this viewer may
+// write it (M8 ticket 09).
 type ShownBase = { id: string; name: string; deletable: boolean; pending: boolean; approvable: boolean; caption: string | null; captionEditable: boolean };
 // `takenAt` is the capture time as written for the viewer, `takenAtIso` the same instant for the
 // line's <time> element; both null while the host does not keep it.
@@ -46,7 +50,7 @@ export type ShownPhoto = ShownBase &
   (
     | ({ kind: "photo"; thumb: string; large: string; width: number; height: number; motion: string | null; motionPending: boolean } & ShownFacts)
     | ({ kind: "video"; state: "ready"; thumb: string; poster: string; original: string; sizes: ShownSize[]; hdr: boolean; codec: string; durationMs: number; width: number; height: number } & ShownFacts)
-    | { kind: "video"; state: "processing" | "failed"; failure: string | null }
+    | { kind: "video"; state: "processing" | "failed"; failure: "tooLong" | null }
   );
 
 // What opens in the viewer.
@@ -55,7 +59,7 @@ const openable = (photo: ShownPhoto): photo is Openable => photo.kind === "photo
 
 // A photo that opens, and a live photo among them (M8 ticket 08): one whose motion is made.
 type OpenPhoto = Extract<Openable, { kind: "photo" }>;
-type LivePhoto = OpenPhoto & { motion: string };
+export type LivePhoto = OpenPhoto & { motion: string };
 const isLive = (photo: ShownPhoto): photo is LivePhoto => photo.kind === "photo" && photo.motion !== null;
 
 // Whether this device is an iPhone or iPad (album/motion.ts, seesLivePhotoNote), which only the
@@ -66,11 +70,19 @@ const onAnIPhone = () => seesLivePhotoNote(navigator.userAgent, navigator.maxTou
 // A file's status line; one added carries its item's id until it is captioned (M8 ticket 09).
 type Line = { name: string; text: string; ok: boolean; id?: string };
 
-// An item's accessible name with its caption after it (M8 ticket 09), or the name alone: the tile's
-// and the viewer's pictures, and the player.
-function useNamed(): (photo: ShownPhoto, label: string) => string {
+// What the host keeps of each item added (album/details.ts, keptNotice), told before anything is
+// added; nothing when the host keeps neither.
+export type Keeps = "takenAt" | "camera" | "both" | undefined;
+
+// An item's accessible name, the `n`th of those that open: "Photo 3 by Priya Nair", marked when it
+// waits for approval, with its caption after it (M8 ticket 09). One rule for the tile's and the
+// viewer's pictures, and the player.
+function useItemLabel(): (photo: ShownPhoto, n: number) => string {
   const t = useTranslations("EventPage.album");
-  return (photo, label) => (photo.caption ? t("withCaption", { label, caption: photo.caption }) : label);
+  return (photo, n) => {
+    const label = t(photo.kind === "video" ? (photo.pending ? "openVideoPending" : "openVideo") : photo.pending ? "openPending" : "open", { n, name: photo.name });
+    return photo.caption ? t("withCaption", { label, caption: photo.caption }) : label;
+  };
 }
 
 // The id of the album's heading, which every layout gives it: where the focus goes once a photo is
@@ -82,13 +94,12 @@ const NONE_APPROVING: ReadonlySet<string> = new Set();
 // The album (M4 ticket 11): a grid of the photos, oldest first, each opening the viewer; and Add
 // photos, which sends up to ten at once and says what became of each. A photo waiting for approval
 // is marked under its thumbnail, and to a host has Approve and Delete there (M6 ticket 03).
-export function Album({ slug, photos, maxMegabytes, video }: { slug: string; photos: ShownPhoto[]; maxMegabytes: number; video: VideoCaps }) {
+export function Album({ slug, photos, maxMegabytes, video, keeps }: { slug: string; photos: ShownPhoto[]; maxMegabytes: number; video: VideoCaps; keeps: Keeps }) {
   const t = useTranslations("EventPage.album");
   const locale = useLocale();
   const router = useRouter();
   const opening = photos.filter(openable);
-  const named = useNamed();
-  const label = (photo: ShownPhoto, n: number) => named(photo, t(photo.kind === "video" ? (photo.pending ? "openVideoPending" : "openVideo") : photo.pending ? "openPending" : "open", { n, name: photo.name }));
+  const label = useItemLabel();
   const [adding, setAdding] = useState<number>();
   const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState<string>();
@@ -104,12 +115,24 @@ export function Album({ slug, photos, maxMegabytes, video }: { slug: string; pho
       then();
       router.refresh();
     });
-  const [shown, setShown] = useState<number>();
-  // The photo last shown, whose thumbnail has the focus back once the viewer closes.
-  const last = useRef<number | undefined>(undefined);
-  const thumbnails = useRef<(HTMLButtonElement | null)[]>([]);
+  // The item open in the viewer, by its id (media part review): a refresh that adds or removes an
+  // item before it leaves the viewer on it, and one that removes it closes the viewer.
+  const [open, setOpen] = useState<string>();
+  const shown = shownIndex(opening.map((photo) => photo.id), open);
+  // The item last shown, whose thumbnail has the focus back once the viewer closes.
+  const last = useRef<string | undefined>(undefined);
+  const thumbnails = useRef(new Map<string, HTMLButtonElement>());
   const input = useRef<HTMLInputElement>(null);
   const iPhone = useSyncExternalStore(noSubscription, onAnIPhone, () => false);
+
+  // A caption saved through the album's action (M8 ticket 09): the refusal, or the caption as the
+  // server stores it.
+  const saveCaption: SaveCaption = async (id, draft) => {
+    const answer = await setCaptionAction(slug, id, draft);
+    if (answer.error) return { error: answer.error };
+    const parsed = parseCaption(draft);
+    return { caption: parsed.ok ? parsed.caption : null };
+  };
 
   // Through the upload protocol (M7 tickets 06 and 07; album-upload.ts): checked before anything is
   // sent, then the ask, each file's parts, each file's finish; the lines say what became of each.
@@ -169,12 +192,13 @@ export function Album({ slug, photos, maxMegabytes, video }: { slug: string; pho
                 {openable(photo) ? (
                   <button
                     ref={(button) => {
-                      thumbnails.current[at] = button;
+                      if (button) thumbnails.current.set(photo.id, button);
+                      else thumbnails.current.delete(photo.id);
                     }}
                     type="button"
                     onClick={() => {
-                      last.current = at;
-                      setShown(at);
+                      last.current = photo.id;
+                      setOpen(photo.id);
                     }}
                     className="relative block aspect-square w-full cursor-pointer overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
                   >
@@ -232,7 +256,7 @@ export function Album({ slug, photos, maxMegabytes, video }: { slug: string; pho
                       aria-busy={approving.has(photo.id)}
                       onClick={() =>
                         // The controls go once it is approved; the focus stays with its item.
-                        approve(photo.id, () => thumbnails.current[at]?.focus())
+                        approve(photo.id, () => thumbnails.current.get(photo.id)?.focus())
                       }
                       className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-theme-accent text-theme-on-accent hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text disabled:cursor-wait disabled:opacity-50"
                     >
@@ -272,13 +296,19 @@ export function Album({ slug, photos, maxMegabytes, video }: { slug: string; pho
             multiple
             disabled={adding !== undefined}
             onChange={(event) => void add([...(event.target.files ?? [])])}
-            aria-describedby={iPhone ? "album-hint album-live-note" : "album-hint"}
+            aria-describedby={["album-hint", keeps && "album-keeps", iPhone && "album-live-note"].filter(Boolean).join(" ")}
             className="sr-only"
           />
         </label>
         <p id="album-hint" className="text-xs text-theme-text-faint">
           {t("hint", { max: maxMegabytes })}
         </p>
+        {/* What the host keeps of each item, said before anything is added (media part review). */}
+        {keeps && (
+          <p id="album-keeps" data-slot="album-keeps" className="text-xs text-theme-text-faint">
+            {t(`keeps.${keeps}`)}
+          </p>
+        )}
         {/* An iPhone hands a page only a Live Photo's still (M8 ticket 08): said once, where the
             guest adds, and Save as Video suggested only where the event takes videos. */}
         {iPhone && (
@@ -311,9 +341,10 @@ export function Album({ slug, photos, maxMegabytes, video }: { slug: string; pho
                 line.id && (
                   <li key={line.id}>
                     <CaptionWhileAdding
-                      slug={slug}
                       id={line.id}
                       name={line.name}
+                      save={saveCaption}
+                      max={MAX_CAPTION}
                       // Its field goes once saved, so the focus goes back to where files are added.
                       onSaved={() => {
                         setLines((current) => current.map((each, at) => (at === index ? { ...each, id: undefined, text: t("captionSaved", { name: each.name }) } : each)));
@@ -331,16 +362,19 @@ export function Album({ slug, photos, maxMegabytes, video }: { slug: string; pho
       <Viewer
         photos={opening}
         index={shown}
-        onIndex={(index) => {
-          if (index !== undefined) last.current = index;
-          setShown(index);
+        onShow={(id) => {
+          if (id !== undefined) last.current = id;
+          setOpen(id);
         }}
         slug={slug}
         approving={approving}
         approve={approve}
+        saveCaption={saveCaption}
         onClosed={(deleted) => {
-          if (deleted) document.getElementById(ALBUM_HEADING)?.focus();
-          else if (last.current !== undefined) thumbnails.current[last.current]?.focus();
+          // Its thumbnail, unless the item went, here or elsewhere: then the album's heading.
+          const thumbnail = deleted || last.current === undefined ? undefined : thumbnails.current.get(last.current);
+          if (thumbnail) thumbnail.focus();
+          else document.getElementById(ALBUM_HEADING)?.focus();
         }}
       />
     </div>
@@ -350,39 +384,48 @@ export function Album({ slug, photos, maxMegabytes, video }: { slug: string; pho
 // The viewer: the photo full screen, the previous and next by the buttons, the arrow keys or a
 // swipe, who added it, Download (the large rendition), Approve where this viewer may (M6 ticket
 // 03), which stays on the photo and waits, as the one under its thumbnail does, while that photo
-// is being approved, Delete where this viewer may, and Escape. Closed, the focus is back on the
-// photo's thumbnail, or on the album's heading once it is deleted.
+// is being approved, Delete where this viewer may, and Escape. It shows the item it was opened on
+// or turned to, wherever a refresh moves it, and closes once that item is gone (media part
+// review). Closed, the focus is back on the photo's thumbnail, or on the album's heading once it
+// is deleted.
 function Viewer({
   photos,
   index,
-  onIndex,
+  onShow,
   slug,
   approving,
   approve,
+  saveCaption,
   onClosed,
 }: {
   photos: Openable[];
   index: number | undefined;
-  onIndex: (index: number | undefined) => void;
+  onShow: (id: string | undefined) => void;
   slug: string;
   approving: ReadonlySet<string>;
   approve: (id: string, then: () => void) => void;
+  saveCaption: SaveCaption;
   onClosed: (deleted: boolean) => void;
 }) {
   const t = useTranslations("EventPage.album");
-  const named = useNamed();
+  const label = useItemLabel();
   const deleted = useRef(false);
   const download = useRef<HTMLAnchorElement>(null);
   const swipe = useRef<number | undefined>(undefined);
   const photo = index === undefined ? undefined : photos[index];
-  // The item whose caption is being written, if any (M8 ticket 09): Escape then ends the writing,
-  // not the viewer, and turning the page leaves it.
-  const [captioning, setCaptioning] = useState<string>();
-  const editing = photo !== undefined && captioning === photo.id;
-  const go = (step: number) => index !== undefined && photos.length > 0 && onIndex((index + step + photos.length) % photos.length);
+  // Whether the shown item's caption is being written (M8 ticket 09): Escape then ends the writing,
+  // not the viewer. Showing another item, or closing, ends it too, so coming back finds the caption
+  // as it is and the field closed (media part review).
+  const [editing, setEditing] = useState(false);
+  const [editingFor, setEditingFor] = useState(photo?.id);
+  if (editingFor !== photo?.id) {
+    setEditingFor(photo?.id);
+    setEditing(false);
+  }
+  const go = (step: number) => index !== undefined && photos.length > 0 && onShow(photos[(index + step + photos.length) % photos.length].id);
 
   return (
-    <Dialog.Root open={photo !== undefined} onOpenChange={(open) => !open && onIndex(undefined)}>
+    <Dialog.Root open={photo !== undefined} onOpenChange={(open) => !open && onShow(undefined)}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-70 bg-black/95" />
         <Dialog.Content
@@ -397,7 +440,7 @@ function Viewer({
           onEscapeKeyDown={(event) => {
             if (!editing) return;
             event.preventDefault();
-            setCaptioning(undefined);
+            setEditing(false);
           }}
           // The player has its own keys and its own seek bar, and the caption's field its own
           // cursor: nothing from inside either turns the page.
@@ -451,13 +494,15 @@ function Viewer({
                   <Download className="size-5" aria-hidden />
                 </a>
                 {photo.deletable && (
+                  // Keyed by the item, so a confirmation open on one is never carried to another.
                   <DeletePhoto
+                    key={photo.id}
                     slug={slug}
                     id={photo.id}
                     className="z-80"
                     onDeleted={() => {
                       deleted.current = true;
-                      onIndex(undefined);
+                      onShow(undefined);
                     }}
                   >
                     <button
@@ -478,14 +523,14 @@ function Viewer({
               </header>
               <div className={cn("relative flex min-h-0 flex-1 items-center justify-center px-2 pb-2", isLive(photo) && "[container-type:size]")}>
                 {photo.kind === "video" ? (
-                  <VideoPlayer key={photo.id} video={photo} label={named(photo, t(photo.pending ? "openVideoPending" : "openVideo", { n: index + 1, name: photo.name }))} />
+                  <VideoPlayer key={photo.id} video={photo} label={label(photo, index + 1)} />
                 ) : isLive(photo) ? (
-                  <LivePicture key={photo.id} photo={photo} alt={named(photo, t(photo.pending ? "openPending" : "open", { n: index + 1, name: photo.name }))} />
+                  <LivePicture key={photo.id} photo={photo} alt={label(photo, index + 1)} />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized
                   <img
                     src={photo.large}
-                    alt={named(photo, t(photo.pending ? "openPending" : "open", { n: index + 1, name: photo.name }))}
+                    alt={label(photo, index + 1)}
                     width={photo.width}
                     height={photo.height}
                     className="max-h-full max-w-full object-contain select-none"
@@ -513,320 +558,13 @@ function Viewer({
                   </>
                 )}
               </div>
-              <Caption key={photo.id} slug={slug} photo={photo} editing={editing} onEditing={(on) => setCaptioning(on ? photo.id : undefined)} />
+              <Caption key={photo.id} photo={photo} editing={editing} onEditing={setEditing} save={saveCaption} max={MAX_CAPTION} />
               <ItemDetails photo={photo} />
             </>
           )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
-  );
-}
-
-// How long a press must last, and how little it may move, to be a hold rather than a tap or a swipe.
-const HOLD_MS = 300;
-const HOLD_SLOP_PX = 10;
-
-// A live photo in the viewer (M8 ticket 08): the still, and over it the motion, muted, shown only
-// while it plays. Held (a press of HOLD_MS that moves less than HOLD_SLOP_PX) it plays until let
-// go, cancelled or left, and a swipe still turns the page; its Live mark, in the picture's corner,
-// is a button that plays it once from the start and back to the still at its end, or stops it.
-// Nothing plays by itself, nor when the viewer opens or turns, which mounts this anew; under
-// reduced motion the hold is off and only the button plays it. A hold also ends when the window
-// loses focus or the page is hidden, where the lifted pointer would never be heard. The picture is
-// sized by the viewer's area (a size container), so the mark sits on the picture, not the
-// letterbox.
-function LivePicture({ photo, alt }: { photo: LivePhoto; alt: string }) {
-  const t = useTranslations("EventPage.album");
-  const reduced = useReducedMotion();
-  const motion = useRef<HTMLVideoElement>(null);
-  const hold = useRef<{ x: number; y: number; timer: number; on: boolean } | undefined>(undefined);
-  // Each play and stop counts, so a play cut short by a stop does not stop the play after it.
-  const runs = useRef(0);
-  const [playing, setPlaying] = useState<"once" | "held">();
-  const [shown, setShown] = useState(false);
-
-  useEffect(() => () => window.clearTimeout(hold.current?.timer), []);
-
-  const stop = () => {
-    runs.current += 1;
-    motion.current?.pause();
-    setPlaying(undefined);
-    setShown(false);
-  };
-  const play = (how: "once" | "held") => {
-    const video = motion.current;
-    if (!video) return;
-    const run = (runs.current += 1);
-    video.currentTime = 0;
-    setPlaying(how);
-    video.play().catch(() => runs.current === run && stop());
-  };
-  const release = () => {
-    const held = hold.current;
-    if (!held) return;
-    window.clearTimeout(held.timer);
-    hold.current = undefined;
-    if (held.on) stop();
-  };
-  const lost = useEffectEvent(() => release());
-  useEffect(() => {
-    const blurred = () => lost();
-    const hidden = () => document.visibilityState === "hidden" && lost();
-    window.addEventListener("blur", blurred);
-    document.addEventListener("visibilitychange", hidden);
-    return () => {
-      window.removeEventListener("blur", blurred);
-      document.removeEventListener("visibilitychange", hidden);
-    };
-  }, []);
-
-  return (
-    <div
-      data-hold={reduced ? "off" : "on"}
-      onPointerDown={(event) => {
-        if (reduced || event.button !== 0 || (event.target as HTMLElement).closest("button")) return;
-        release();
-        const timer = window.setTimeout(() => {
-          if (!hold.current) return;
-          hold.current.on = true;
-          play("held");
-        }, HOLD_MS);
-        hold.current = { x: event.clientX, y: event.clientY, timer, on: false };
-      }}
-      onPointerMove={(event) => {
-        const held = hold.current;
-        if (!held || held.on || Math.hypot(event.clientX - held.x, event.clientY - held.y) < HOLD_SLOP_PX) return;
-        window.clearTimeout(held.timer);
-        hold.current = undefined;
-      }}
-      onPointerUp={release}
-      onPointerCancel={release}
-      onPointerLeave={release}
-      // During a hold only: Android's long press would otherwise open the picture's menu and end
-      // it. Any other time the menu is the browser's, so a right-click still saves the picture.
-      onContextMenu={(event) => {
-        if (hold.current) event.preventDefault();
-      }}
-      className="relative select-none [-webkit-touch-callout:none]"
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized */}
-      <img src={photo.large} alt={alt} width={photo.width} height={photo.height} className="block h-auto max-h-[100cqh] w-auto max-w-[100cqw] object-contain" draggable={false} />
-      <video
-        ref={motion}
-        data-slot="live-motion"
-        src={photo.motion}
-        muted
-        playsInline
-        preload="none"
-        loop={playing === "held"}
-        onPlaying={() => setShown(true)}
-        onEnded={stop}
-        aria-hidden
-        className={cn("pointer-events-none absolute inset-0 size-full object-contain", !shown && "invisible")}
-      />
-      <button
-        type="button"
-        data-slot="live-mark"
-        aria-label={t("playLive")}
-        aria-pressed={playing !== undefined}
-        onClick={() => (playing ? stop() : play("once"))}
-        className="absolute top-2 left-2 inline-flex h-8 cursor-pointer items-center gap-1 rounded-full bg-black/50 px-2.5 text-xs font-medium text-white hover:bg-black/70 focus-visible:outline-2 focus-visible:outline-white aria-pressed:bg-white aria-pressed:text-black"
-      >
-        <CircleDot className="size-3.5" aria-hidden />
-        {t("live")}
-      </button>
-    </div>
-  );
-}
-
-// An item's caption under it in the viewer (M8 ticket 09), drawn as text, and for whoever may write
-// it Add a caption or Edit caption, which opens a field in its place: Enter saves, Escape (the
-// viewer's, while writing) and Cancel leave it, and either way the focus is back on the button. A
-// refusal is said under the field. Saved, the caption shows at once and the page is drawn again.
-function Caption({ slug, photo, editing, onEditing }: { slug: string; photo: Openable; editing: boolean; onEditing: (on: boolean) => void }) {
-  const t = useTranslations("EventPage.album");
-  const router = useRouter();
-  const [draft, setDraft] = useState("");
-  const [error, setError] = useState<string>();
-  const [saving, startSaving] = useTransition();
-  // What was saved here, shown in place of the caption it replaced until the page drawn again
-  // brings it.
-  const [saved, setSaved] = useState<{ over: string | null; caption: string | null }>();
-  // Set when writing begins, so the button has the focus back when it returns.
-  const refocus = useRef(false);
-  const caption = saved && saved.over === photo.caption ? saved.caption : photo.caption;
-  if (!caption && !photo.captionEditable) return null;
-
-  const begin = () => {
-    refocus.current = true;
-    setDraft(caption ?? "");
-    setError(undefined);
-    onEditing(true);
-  };
-  const save = () =>
-    startSaving(async () => {
-      const answer = await setCaptionAction(slug, photo.id, draft);
-      if (answer.error) return setError(t(`errors.${answer.error}`));
-      const parsed = parseCaption(draft);
-      if (parsed.ok) setSaved({ over: photo.caption, caption: parsed.caption });
-      onEditing(false);
-      router.refresh();
-    });
-
-  return (
-    <div className="flex flex-col items-center gap-1 px-4 pt-1 pb-2 text-center">
-      {editing ? (
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            save();
-          }}
-          className="flex w-full max-w-md flex-col gap-1.5 text-left"
-        >
-          <div className="flex items-baseline justify-between gap-2 text-xs text-white/70">
-            <label htmlFor="caption-field">{t("caption")}</label>
-            <span id="caption-count">
-              {draft.length}/{MAX_CAPTION}
-            </span>
-          </div>
-          <input
-            id="caption-field"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            maxLength={MAX_CAPTION}
-            autoComplete="off"
-            autoFocus
-            aria-describedby={error ? "caption-count caption-error" : "caption-count"}
-            aria-invalid={error ? true : undefined}
-            className="h-10 w-full rounded-full bg-white/10 px-4 text-sm text-white focus-visible:outline-2 focus-visible:outline-white"
-          />
-          {error && (
-            <p id="caption-error" role="alert" className="text-sm font-medium">
-              {error}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => onEditing(false)}
-              className="inline-flex h-10 cursor-pointer items-center rounded-full px-4 text-sm font-medium hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white"
-            >
-              {t("cancelCaption")}
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex h-10 cursor-pointer items-center rounded-full bg-white px-4 text-sm font-medium text-black hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-wait disabled:opacity-60"
-            >
-              {t("saveCaption")}
-            </button>
-          </div>
-        </form>
-      ) : (
-        <>
-          {caption && (
-            <p data-slot="caption" className="max-w-prose text-sm break-words text-white">
-              {caption}
-            </p>
-          )}
-          {photo.captionEditable && (
-            <button
-              ref={(button) => {
-                if (!button || !refocus.current) return;
-                refocus.current = false;
-                button.focus();
-              }}
-              type="button"
-              onClick={begin}
-              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3 text-xs font-medium text-white/80 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white"
-            >
-              {caption ? <Pencil className="size-3.5" aria-hidden /> : <Plus className="size-3.5" aria-hidden />}
-              {t(caption ? "editCaption" : "addCaption")}
-            </button>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-// A caption written for a file just added (M8 ticket 09), under the status lines, with the same
-// action as the viewer's: the picker sends files as soon as they are picked, so this is where one
-// is written while adding. Saved, the file's status line says so.
-function CaptionWhileAdding({ slug, id, name, onSaved }: { slug: string; id: string; name: string; onSaved: () => void }) {
-  const t = useTranslations("EventPage.album");
-  const [draft, setDraft] = useState("");
-  const [error, setError] = useState<string>();
-  const [saving, startSaving] = useTransition();
-  const field = `caption-${id}`;
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        startSaving(async () => {
-          const answer = await setCaptionAction(slug, id, draft);
-          if (answer.error) return setError(t(`errors.${answer.error}`));
-          onSaved();
-        });
-      }}
-      className="flex flex-col gap-1"
-    >
-      <label htmlFor={field} className="text-xs text-theme-text-muted">
-        {t("captionFor", { name })}
-      </label>
-      <div className="flex items-center gap-1.5">
-        <input
-          id={field}
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          maxLength={MAX_CAPTION}
-          autoComplete="off"
-          aria-describedby={error ? `${field}-error` : undefined}
-          aria-invalid={error ? true : undefined}
-          className="h-9 min-w-0 flex-1 rounded-full bg-theme-glass-strong px-3 text-sm text-theme-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
-        />
-        <button
-          type="submit"
-          disabled={saving}
-          className="inline-flex h-9 shrink-0 cursor-pointer items-center rounded-full bg-theme-glass-strong px-3 text-xs font-medium text-theme-text hover:bg-theme-glass focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text disabled:cursor-wait"
-        >
-          {t("saveCaption")}
-        </button>
-      </div>
-      {error && (
-        <p id={`${field}-error`} role="alert" className="text-sm font-medium text-theme-text">
-          {error}
-        </p>
-      )}
-    </form>
-  );
-}
-
-// The facts under an open item (M8 ticket 07): its technical line ("4K · 60 fps · HDR · 0:42 ·
-// 310 MB", "4032 × 3024 · 3.1 MB"), then when it was taken and the camera with its exposure, when
-// the host keeps them. Never on the tiles.
-function ItemDetails({ photo }: { photo: Openable }) {
-  const t = useTranslations("EventPage.album");
-  const locale = useLocale();
-  const { details, takenAt, takenAtIso } = photo;
-  const technical =
-    details.kind === "photo"
-      ? [`${details.width} × ${details.height}`]
-      : [details.size, details.fps !== undefined && t("details.fps", { fps: details.fps }), details.hdr && t("details.hdr"), clockTime(details.durationMs)];
-  const line = (parts: (string | false | undefined)[]) => parts.filter(Boolean).join(" · ");
-  const facts = line([...technical, details.bytes !== undefined && formatSize(details.bytes, locale)]);
-  const camera = line([details.camera, details.exposure]);
-  return (
-    <div data-slot="item-details" className="px-4 pb-[max(env(safe-area-inset-bottom),1rem)] text-center text-xs text-white/70">
-      <p>{facts}</p>
-      {takenAt && takenAtIso && (
-        <p>
-          <time dateTime={takenAtIso}>{t("details.taken", { when: takenAt })}</time>
-        </p>
-      )}
-      {camera && <p>{camera}</p>}
-    </div>
   );
 }
 

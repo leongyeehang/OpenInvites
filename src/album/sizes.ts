@@ -1,4 +1,4 @@
-import { and, eq, inArray, notExists } from "drizzle-orm";
+import { and, count, eq, inArray, notExists } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { event, photo, videoJob } from "@/db/schema";
 import { videoFourKCopy } from "@/instance/repository";
@@ -24,6 +24,14 @@ export async function videosMissingSizes(): Promise<{ id: string; missing: Video
     const missing = probe ? missingSizes(item, withFourK(probe, item.sizes, fourK)) : [];
     return missing.length > 0 ? [{ id: item.id, missing }] : [];
   });
+}
+
+// How many videos have a `sizes` job, queued or under way, for the Storage card's line of its own
+// (media part review): until they are done, not every video has its sizes, though none is counted
+// as lacking one.
+export async function videosHavingSizesMade(): Promise<number> {
+  const [row] = await getDb().select({ count: count() }).from(videoJob).where(eq(videoJob.work, "sizes"));
+  return row?.count ?? 0;
 }
 
 // Each of those queued as a `sizes` job, behind every new upload (jobs.ts), and how many went in;

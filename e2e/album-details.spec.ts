@@ -53,6 +53,11 @@ async function guestGoing(browser: Browser, link: string, name: string): Promise
 const album = (page: Page) => page.locator('[data-slot="album"]');
 const albumGroup = (sheet: Locator) => sheet.getByRole("group", { name: "Album", exact: true });
 const details = (viewer: Locator) => viewer.locator('[data-slot="item-details"]');
+// What the host keeps, told where items are added (media part review).
+const keeps = (page: Page) => album(page).locator('[data-slot="album-keeps"]');
+const KEEPS_BOTH = "The host keeps when each photo or video was taken, and the camera and settings it was taken with.";
+const KEEPS_TAKEN = "The host keeps when each photo or video was taken.";
+const KEEPS_CAMERA = "The host keeps the camera and settings each photo or video was taken with.";
 
 // A video waits its turn in the queue behind every other upload the specs keep sending.
 const VIDEO_MS = 150_000;
@@ -109,6 +114,10 @@ test("with the switches off, nothing of when, with what or where is shown", asyn
   test.slow();
   const host = await createPublished(browser, request, "details-off", PAST);
   const priya = await guestGoing(browser, host.link, "Priya Nair");
+  // Nothing is said of what the host keeps, since it keeps nothing.
+  await expect(album(priya).getByLabel(/^Add photos/)).toBeVisible();
+  await expect(keeps(priya)).toHaveCount(0);
+  expect(await html(priya, host.link)).not.toContain('data-slot="album-keeps"');
   await add(priya, EXIF_PHOTO, 1);
   const viewer = await open(priya, /^Photo 1 by Priya Nair$/, 1, 1);
   await expect(details(viewer)).toHaveText(/^640 × 480 · \d+(\.\d)? MB$/);
@@ -131,6 +140,9 @@ test("the host keeps both, guests see them, and turning one off hides it without
     await albumGroup(sheet).getByLabel(KEEP_CAMERA).check();
   });
   const priya = await guestGoing(browser, host.link, "Priya Nair");
+  // Told before anything is added, and read with Add photos.
+  await expect(keeps(priya)).toHaveText(KEEPS_BOTH);
+  await expect(album(priya).getByLabel(/^Add photos/)).toHaveAccessibleDescription(new RegExp(KEEPS_BOTH.replace(/\./g, "\\.")));
   await add(priya, EXIF_PHOTO, 1);
   await add(priya, TAGGED, 2);
 
@@ -150,17 +162,20 @@ test("the host keeps both, guests see them, and turning one off hides it without
     await albumGroup(sheet).getByLabel(KEEP_CAMERA).uncheck();
   });
   await priya.reload();
+  await expect(keeps(priya)).toHaveText(KEEPS_TAKEN);
   viewer = await open(priya, /^(Photo|Video) \d by Priya Nair/, 1, 2);
   await expect(details(viewer).locator("p")).toHaveText([/^640 × 480 · /, TAKEN_TEXT]);
   await expectTaken(viewer, PHOTO_TAKEN);
   await close(priya, viewer);
   expect(await html(priya, host.link)).not.toContain("iPhone 15 Pro");
 
-  // On again: it was never erased.
+  // On again: it was never erased. The capture time off, only the camera is said to be kept.
   await editSettings(host.page, async (sheet) => {
     await albumGroup(sheet).getByLabel(KEEP_CAMERA).check();
+    await albumGroup(sheet).getByLabel(KEEP_TAKEN).uncheck();
   });
   await priya.reload();
+  await expect(keeps(priya)).toHaveText(KEEPS_CAMERA);
   viewer = await open(priya, /^(Photo|Video) \d by Priya Nair/, 1, 2);
   await expect(details(viewer)).toContainText(CAMERA_LINE);
   await Promise.all([host.context.close(), priya.context().close()]);

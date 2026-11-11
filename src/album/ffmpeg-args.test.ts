@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { copyArgs, motionArgs, posterArgs, rewrapArgs, toneMapFilter } from "./ffmpeg-args";
+import { DETAIL_TAGS } from "./details";
+import { copyArgs, motionArgs, posterArgs, probeArgs, rewrapArgs, toneMapFilter } from "./ffmpeg-args";
 
 // What ffmpeg is asked to do with a clip (M8 ticket 05): the arguments as they were in 0.7 for a
 // video in standard colour, and an HDR one's copies and poster tone-mapped to BT.709.
@@ -94,5 +95,33 @@ describe("motionArgs", () => {
     expect(after(args, "-vf")).toBe(`${SCALE},${toneMapFilter("pq", "video")}`);
     expect(holdsRun(args, ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709"])).toBe(true);
     expect(args.at(-1)).toBe("out.mp4");
+  });
+});
+
+// What ffprobe is asked for (media part review): only the stream fields, format fields and tags the
+// probe reads, so a file's other metadata, a location tag above all, is never printed, and the
+// output stays small whatever the file carries.
+describe("probeArgs", () => {
+  it("names each field the probe reads, and the detail tags alone", () => {
+    expect(probeArgs("in.mp4")).toEqual([
+      "-v",
+      "error",
+      "-print_format",
+      "json",
+      "-show_entries",
+      "stream=codec_type,codec_name,profile,level,width,height,bit_rate,duration,color_transfer,avg_frame_rate,r_frame_rate" +
+        ":stream_side_data=side_data_type,rotation" +
+        ":format=duration,bit_rate" +
+        ":format_tags=com.apple.quicktime.creationdate,creation_time,com.apple.quicktime.make,com.apple.quicktime.model,com.android.manufacturer,com.android.model",
+      "in.mp4",
+    ]);
+    expect(after(probeArgs("in.mp4"), "-show_entries").split(":format_tags=")[1].split(",")).toEqual([...DETAIL_TAGS]);
+  });
+
+  it("never asks for a location tag, nor for every stream or format field", () => {
+    const args = probeArgs("in.mp4");
+    expect(args.join(" ")).not.toMatch(/location|xyz|gps/i);
+    expect(args).not.toContain("-show_streams");
+    expect(args).not.toContain("-show_format");
   });
 });

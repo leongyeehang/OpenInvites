@@ -11,15 +11,16 @@ import { getDb } from "@/db/client";
 import { event, photo } from "@/db/schema";
 import { videoFourKCopy, videoLimits, videoProcessing } from "@/instance/repository";
 import { getStorage } from "@/storage/storage";
+import { freeDiskBytes } from "@/storage/usage";
 import { MAX_PIXELS } from "@/uploads/validate";
 import { DETAIL_TAGS, frameRate, hdrKind, keepDetailsOf, videoDetails, type ItemDetails } from "./details";
 import { ffmpegStatus } from "./ffmpeg";
-import { copyArgs, motionArgs, posterArgs, rewrapArgs } from "./ffmpeg-args";
+import { copyArgs, motionArgs, posterArgs, probeArgs, rewrapArgs } from "./ffmpeg-args";
 import { motionKey, motionSentKey, removeItemFiles } from "./files";
 import { completeJob, completeMotion, dropJob, failJob, keepLease, releaseJob, renewLease, type ClaimedJob } from "./jobs";
 import { notifyHostsOfVideo } from "./notify-hosts";
 import { removeDir, scratchDir } from "./tmp";
-import { copyName, copyTimeoutMs, effectiveVideoCaps, madeBeforeReady, missingSizes, probeOfItem, sentKey, sizesToMake, videoKey, withFourK, type Probe, type VideoQuality } from "./video";
+import { asProcessed, copyName, copyTimeoutMs, effectiveVideoCaps, madeBeforeReady, missingSizes, probeOfItem, roomForCopy, sentKey, sizesToMake, videoKey, withFourK, type Probe, type VideoQuality } from "./video";
 
 // What the queue does to a clip (M7 spec, "Videos"; ADR-0007): reads its streams with ffprobe;
 // rewraps it at original quality into MP4 with every piece of metadata dropped and the index in
@@ -52,16 +53,16 @@ type Streams = Probe & { durationMs: number; hasAudio: boolean; codecString: str
 
 const ONE_MINUTE = 60_000;
 
-// A command run to its end, killed when it takes longer than `timeoutMs`, or when `signal` says
-// the job is gone, already or while it runs, which rejects with JobGone.
-export function run(command: string, args: string[], timeoutMs: number, signal?: AbortSignal): Promise<string> {
+// A command run to its end, killed when it takes longer than `timeoutMs`, when it prints more than
+// `maxOutput` bytes, or when `signal` says the job is gone, already or while it runs, which
+// rejects with JobGone.
+export function run(command: string, args: string[], timeoutMs: number, signal?: AbortSignal, maxOutput = Infinity): Promise<string> {
   if (signal?.aborted) return Promise.reject(new JobGone());
   return new Promise((resolve, reject) => {
     const child = spawn("nice", ["-n", "10", command, ...args], { stdio: ["ignore", "pipe", "pipe"] });
-    let out = "";
+    const out: Buffer[] = [];
+    let printed = 0;
     let err = "";
-    child.stdout.on("data", (chunk: Buffer) => (out += chunk));
-    child.stderr.on("data", (chunk: Buffer) => (err = (err + chunk).slice(-4000)));
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
       reject(new Error(`${command} took longer than ${timeoutMs / 1000} s`));
@@ -75,13 +76,23 @@ export function run(command: string, args: string[], timeoutMs: number, signal?:
       clearTimeout(timer);
       signal?.removeEventListener("abort", gone);
     };
+    child.stdout.on("data", (chunk: Buffer) => {
+      if (printed > maxOutput) return;
+      printed += chunk.length;
+      if (printed <= maxOutput) return void out.push(chunk);
+      out.length = 0;
+      settle();
+      child.kill("SIGKILL");
+      reject(new Error(`${command} printed more than ${maxOutput} bytes`));
+    });
+    child.stderr.on("data", (chunk: Buffer) => (err = (err + chunk).slice(-4000)));
     child.on("error", (error) => {
       settle();
       reject(error);
     });
     child.on("close", (code) => {
       settle();
-      if (code === 0) resolve(out);
+      if (code === 0) resolve(Buffer.concat(out).toString());
       else reject(new Error(`${command} exited with ${code}: ${err.trim().split("\n").slice(-3).join(" | ")}`));
     });
   });
@@ -104,8 +115,13 @@ type ProbeStream = {
   side_data_list?: { side_data_type?: string; rotation?: number }[];
 };
 
-// Only the tags named in DETAIL_TAGS are kept from the format's, so a location tag goes no further
-// than the parse.
+// The most of ffprobe's output a probe holds (media part review): the fields it asks for
+// (ffmpeg-args.ts, probeArgs) take a few kilobytes, so a clip whose output passes this is one no
+// phone made, and is unsupported.
+export const PROBE_MAX_BYTES = 1024 * 1024;
+
+// Only the tags named in DETAIL_TAGS are asked for, and kept from the format's, so a location tag
+// never reaches the parse.
 function detailTags(tags: Record<string, unknown> | undefined): Record<string, string> {
   return Object.fromEntries(DETAIL_TAGS.flatMap((key) => (typeof tags?.[key] === "string" ? [[key, tags[key]]] : [])));
 }
@@ -115,7 +131,7 @@ function detailTags(tags: Record<string, unknown> | undefined): Record<string, s
 export async function probe(path: string, signal?: AbortSignal): Promise<Streams> {
   let parsed: { streams?: ProbeStream[]; format?: { duration?: string; bit_rate?: string; tags?: Record<string, unknown> } };
   try {
-    parsed = JSON.parse(await run("ffprobe", ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", path], ONE_MINUTE, signal));
+    parsed = JSON.parse(await run("ffprobe", probeArgs(path), ONE_MINUTE, signal, PROBE_MAX_BYTES));
   } catch (error) {
     if (error instanceof JobGone) throw error;
     throw new Final("unsupported");
@@ -229,6 +245,7 @@ export async function processVideo(job: ClaimedJob): Promise<void> {
   const [item] = await getDb()
     .select({
       eventId: photo.eventId,
+      bytes: photo.bytes,
       sizes: event.albumCopySizes,
       maxMb: event.albumMaxVideoMb,
       maxMinutes: event.albumMaxVideoMinutes,
@@ -246,6 +263,7 @@ export async function processVideo(job: ClaimedJob): Promise<void> {
     const stream = await getStorage().stream(sentKey(id));
     if (!stream) throw new Final("the clip as sent is gone");
     await pipeline(Readable.fromWeb(stream as unknown as NodeReadableStream<Uint8Array>), createWriteStream(sent));
+    const sentSize = item.bytes ?? (await stat(sent)).size;
     const streams = await probe(sent, lost.signal);
     const limits = await videoLimits();
     // Only the length cap is checked here: a clip already accepted is processed whatever the
@@ -259,10 +277,13 @@ export async function processVideo(job: ClaimedJob): Promise<void> {
     // not H.264 needs is made now, from the clip as sent and stored before the original; the rest
     // of the sizes are the `sizes` job's. With the switch off, no copy and no job, as in 0.7. The
     // operator's 4K copy (ticket 04) is among the rest, never made before the item is ready: on a
-    // small server it takes far longer than the copy the item needs to play.
+    // small server it takes far longer than the copy the item needs to play. The sizes are decided
+    // from the bit rate the row gives back (video.ts, asProcessed), so Make missing sizes later
+    // counts as missing only what the `sizes` job has not made yet.
     const on = await videoProcessing();
-    const all = on ? sizesToMake(streams, withFourK(streams, item.sizes, await videoFourKCopy())) : [];
-    const before = on ? madeBeforeReady(streams, sizesToMake(streams, item.sizes)) : [];
+    const clip = asProcessed(streams, sentSize);
+    const all = on ? sizesToMake(clip, withFourK(clip, item.sizes, await videoFourKCopy())) : [];
+    const before = on ? madeBeforeReady(clip, sizesToMake(clip, item.sizes)) : [];
     const hdr = toneMapped(streams);
     for (const size of before) {
       const copy = join(dir, `copy-${size}.mp4`);
@@ -326,8 +347,12 @@ export async function addCopies(photoId: string, sizes: VideoQuality[], details:
 // the stored original, since the clip as sent went when the item became ready (plan ruling 8).
 // The job is given back while more sizes are missing, and dropped once none is, or when the item
 // is no longer a ready video or the site's switch is off. The operator's 4K copy counts among the
-// sizes when its switch is on (ticket 04). Anything thrown is the queue's: it drops the job, and
-// the item stays ready. A job found gone is left alone, its copy removed if the item went.
+// sizes when its switch is on (ticket 04). A copy is not started while the disk would be left under
+// the free-space floor uploads keep (video.ts, roomForCopy): the job is dropped with one line in
+// the log, never retried, so a full disk cannot spin the queue, and the operator presses Make
+// missing sizes again once there is room (media part review). Anything thrown is the queue's: it
+// drops the job, and the item stays ready. A job found gone, or whose item was deleted before its
+// original was read, is left alone, its copy removed if the item went.
 export async function processSizes(job: ClaimedJob): Promise<void> {
   const id = job.photoId;
   const [item] = await getDb()
@@ -340,13 +365,21 @@ export async function processSizes(job: ClaimedJob): Promise<void> {
   const missing = original ? missingSizes(item, withFourK(original, item.sizes, await videoFourKCopy())) : [];
   if (missing.length === 0) return dropJob(job);
   const size = missing[missing.length - 1];
+  if (!roomForCopy(await freeDiskBytes(), size, item.durationMs ?? 0)) {
+    console.error(`Videos: the disk is too full to make the ${size} copy of item ${id}, so its sizes job was dropped; press Make missing sizes once there is room.`);
+    return dropJob(job);
+  }
   const key = videoKey(id, copyName(size));
   const dir = await scratchDir(id);
   const { lost, stop } = leaseKept(job);
   try {
     const stored = join(dir, "video.mp4");
     const stream = await getStorage().stream(videoKey(id, "original"));
-    if (!stream) throw new Error("the original is gone");
+    if (!stream) {
+      // Deleted since it was claimed: its job went with it, so nothing is logged.
+      if (!(await itemExists(id))) return;
+      throw new Error("the original is gone");
+    }
     await pipeline(Readable.fromWeb(stream as unknown as NodeReadableStream<Uint8Array>), createWriteStream(stored));
     // The stored original is probed for its HDR kind, which the copy is tone-mapped from, and
     // its details, which an item from before 0.8 lacks.
