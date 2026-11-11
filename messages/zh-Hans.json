@@ -175,7 +175,10 @@
       "draft": "草稿",
       "firstTitle": "制作你的第一张邀请函",
       "firstText": "选一张海报，定个日期，再分享一个链接。宾客无需账号就能回复。",
-      "firstButton": "开始制作邀请函"
+      "firstButton": "开始制作邀请函",
+      "albumReminders": {
+        "title": "待处理的相册"
+      }
     }
   },
   "Dashboard": {
@@ -311,22 +314,81 @@
     },
     "limits": {
       "title": "上限",
-      "description": "每位主办人最多能有多少场活动、每场活动最多能收到多少条回复，以及活动结束后保留多久。更改立即生效。调低活动数或回复数的上限时，已有的内容保持不变；保留期限适用于所有活动，包括已有的活动。",
+      "description": "每位主办人最多能有多少场活动、每场活动最多能收到多少条回复和多少张照片与视频、单个文件最大多少、每场活动和本站最多能用多少存储空间、活动结束后保留多久，以及何时提醒主办人处理活动相册。更改立即生效。调低上限时，已有的内容保持不变，只会拒绝新的活动、回复和上传；保留期限适用于所有活动，包括已有的活动。",
       "maxEventsPerHost": "每位主办人的活动数",
       "maxEventsPerHostHint": "计入主办人名下的每一场活动，包括草稿和已结束的活动。",
       "maxRsvpsPerEvent": "每场活动的回复数",
       "maxRsvpsPerEventHint": "计入一场活动收到的每一条回复，无论回复的是什么。",
-      "maxPhotosPerEvent": "每个活动的照片数",
-      "maxPhotosPerEventHint": "每个活动相册中宾客和主办人最多可添加的照片数量。",
+      "maxPhotosPerEvent": "每个活动的照片和视频数",
+      "maxPhotosPerEventHint": "每个活动相册中宾客和主办人最多可添加的照片和视频数量，包括等待批准的。",
+      "maxPhotoMb": "最大照片（MB）",
+      "maxPhotoMbHint": "宾客和主办人可添加到相册的最大照片，也是主办人可为活动上传的最大图片。",
+      "maxVideoMb": "最大视频（MB）",
+      "maxVideoMbHint": "宾客和主办人可添加到相册的最大视频。主办人可为自己的活动设置更低的上限。",
+      "maxVideoMinutes": "最长视频（分钟）",
+      "maxVideoMinutesHint": "相册接受的最长视频。主办人可为自己的活动设置更短的上限。",
+      "maxEventStorageGb": "每个活动的存储空间（GB）",
+      "maxEventStorageGbHint": "一场活动的照片和视频合计最多可占用的空间，按上传时的大小计算。可填小数，最低 0.01 GB。",
+      "maxSiteStorageGb": "本站的存储空间（GB）",
+      "maxSiteStorageGbHint": "所有相册和所有主办人的图片合计最多可占用的空间。本站已满，或磁盘剩余空间不足 1 GB 时，上传会被拒绝。",
       "retentionDays": "活动保留天数",
       "retentionDaysHint": "活动结束后保留的天数，可填 30 到 3,650。到期后，活动连同宾客名单和其他所有相关内容都会被删除。删除前 30 天会提醒活动的主办人，提醒后至少过 30 天才会删除。",
       "keepForever": "永久保留",
+      "albumReminderDefaultDays": "活动结束多少天后提醒主办人处理相册",
+      "albumReminderDefaultDaysHint": "活动结束后过多少天提醒主办人清空或保留相册。新活动以此为默认值，主办人可为自己的活动更改。不会自动删除任何内容。",
+      "remindNever": "从不",
       "submit": "保存",
       "saved": "已保存。",
       "maxEventsPerHostInvalid": "请为每位主办人的活动数填写 1 到 100,000 之间的整数。",
       "maxRsvpsPerEventInvalid": "请为每场活动的回复数填写 1 到 100,000 之间的整数。",
-      "maxPhotosPerEventInvalid": "请为每个活动的照片数填写 1 到 100,000 之间的整数。",
-      "retentionDaysInvalid": "请为活动保留天数填写 30 到 3,650 之间的整数，或勾选“永久保留”。"
+      "maxPhotosPerEventInvalid": "请为每个活动的照片和视频数填写 1 到 100,000 之间的整数。",
+      "maxPhotoMbInvalid": "请为最大照片填写 1 到 1,000 之间的整数（MB）。",
+      "maxVideoMbInvalid": "请为最大视频填写 1 到 10,000 之间的整数（MB）。",
+      "maxVideoMinutesInvalid": "请为最长视频填写 1 到 180 之间的整数（分钟）。",
+      "maxEventStorageGbInvalid": "请为每个活动的存储空间填写 0.01 到 100,000 之间的数字（GB）。",
+      "maxSiteStorageGbInvalid": "请为本站的存储空间填写 0.01 到 100,000 之间的数字（GB）。",
+      "retentionDaysInvalid": "请为活动保留天数填写 30 到 3,650 之间的整数，或勾选“永久保留”。",
+      "albumReminderDefaultDaysInvalid": "请填写 1 到 3,650 之间的整数天数，或勾选“从不”。"
+    },
+    "storage": {
+      "title": "存储空间",
+      "description": "本站的上传内容占用的空间，按上传时的大小计算：相册中的照片和视频，以及主办人的图片。上限在“上限”卡片中设置。",
+      "albums": "相册",
+      "reserved": "进行中的上传",
+      "pictures": "主办人的图片",
+      "total": "已使用",
+      "onDisk": "磁盘上实际占用",
+      "free": "磁盘剩余",
+      "bucketNote": "使用 S3 时，本站只知道自己计算的数字；存储桶的实际用量以服务商为准。",
+      "measuring": "升级前的 {count, plural, other {# 个文件}}仍在测量中；完成后数字才会准确。",
+      "biggest": "占用最多的相册",
+      "none": "还没有相册存有内容。",
+      "use": "{size}，{count, plural, other {# 项}}",
+      "processVideos": "为播放处理视频",
+      "processVideosHint": "开启后，需要的视频都会生成一个较小的副本，以便在网速慢的情况下和各种浏览器中播放。关闭后，视频按原样保存，能否播放取决于浏览器。",
+      "submit": "保存",
+      "saved": "已保存。",
+      "videosAvailable": "视频：可用（ffmpeg {version}）。",
+      "videosOld": "视频功能需要 ffmpeg 6 或更高版本；本服务器的版本是 {version}。",
+      "videosMissing": "视频功能需要 ffmpeg，本服务器尚未安装。",
+      "processedByApp": "视频由本站的应用自行处理。",
+      "processedByWorker": "视频由工作容器处理，最近一次报告：{time}。",
+      "processedByWorkerMissing": "视频由工作容器处理，但它尚未报告：请检查它是否在运行。",
+      "clearAlbum": "清空相册",
+      "clearAlbumTitle": "从“{title}”删除 {photos, plural, other {# 张照片}}和 {videos, plural, other {# 个视频}}（{size}）？",
+      "clearAlbumText": "主办人会收到邮件，得知你清空了相册。此操作无法撤销。",
+      "clearAlbumConfirm": "删除",
+      "neverMind": "算了",
+      "straysTitle": "残留文件",
+      "checkStrays": "检查残留文件",
+      "checkStraysHint": "没有任何照片、视频或图片使用、且已存在一小时以上的文件。删除后无法找回。",
+      "straysNone": "没有残留文件。",
+      "straysFound": "{count, plural, other {# 个残留文件}}（{size}）",
+      "removeStrays": "删除 {count, plural, other {# 个文件}}（{size}）",
+      "removeStraysTitle": "删除 {count, plural, other {# 个文件}}（{size}）？",
+      "removeStraysText": "删除后无法找回。",
+      "removeStraysConfirm": "删除",
+      "straysRemoved": "已删除 {count, plural, other {# 个文件}}。"
     },
     "invitations": {
       "title": "主办人邀请",
@@ -427,8 +489,8 @@
       "body": "{name} 在“{title}”留言：\n\n{comment}\n\n活动页面：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有宾客留言时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
     },
     "photos": {
-      "subject": "{name} 在“{title}”添加了 {count, plural, other {# 张照片}}，正在等待你的批准",
-      "body": "{name} 在“{title}”添加了 {count, plural, other {# 张照片}}，正在等待你的批准。\n\n活动页面：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有照片等待批准时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
+      "subject": "{name} 在“{title}”添加了{photos, plural, =0 {} other {# 张照片}}{photos, plural, =0 {} other {{videos, plural, =0 {} other {和}}}}{videos, plural, =0 {} other {# 段视频}}，正在等待你的批准",
+      "body": "{name} 在“{title}”添加了{photos, plural, =0 {} other {# 张照片}}{photos, plural, =0 {} other {{videos, plural, =0 {} other {和}}}}{videos, plural, =0 {} other {# 段视频}}，正在等待你的批准。\n\n活动页面：\n{url}\n\n如果不想再收到这类邮件，请在活动设置中取消勾选“有照片等待批准时给主办人发邮件”。取消后，这个活动的所有主办人都不会再收到这类邮件。"
     },
     "reminderWeek": {
       "subject": "“{title}”还有一周就到了",
@@ -468,6 +530,14 @@
     "retentionWarning": {
       "subject": "“{title}”将于 {date} 删除",
       "body": "“{title}”将于 {date} 删除，宾客名单和其他所有相关内容也会一并删除。\n\n本站的活动会在结束 {days, plural, other {# 天}}后删除，这是本站对所有活动的规定。\n\n如果想保留活动详情以后再用，请在删除前打开活动，选择“复制活动”。副本会保留详情、外观、问题和设置，但不包括宾客。记得给副本设定新的日期。\n\n你的活动：\n{url}"
+    },
+    "albumReminder": {
+      "subject": "“{title}”的相册：清空还是保留？",
+      "body": "你曾要求在“{title}”结束 {days, plural, other {# 天}}后提醒你处理相册。相册里有 {photos, plural, other {# 张照片}}和 {videos, plural, other {# 个视频}}（{size}）。\n\n系统不会自行删除任何内容：打开活动，选择“清空相册”释放空间，或选择“保留”。\n\n你的活动：\n{url}\n\n要停止这类提醒，请在活动设置的“提醒我处理相册”下选择“从不”。"
+    },
+    "albumCleared": {
+      "subject": "本站运营者清空了“{title}”的相册",
+      "body": "本站运营者清空了“{title}”的相册：{photos, plural, other {# 张照片}}和 {videos, plural, other {# 个视频}}（{size}）已删除。\n\n你的活动：\n{url}"
     },
     "dateSet": {
       "subject": "日期已确定：{title}",
@@ -551,7 +621,17 @@
         "visibilityHint": "已回复的宾客始终可以添加照片；主办人能看到所有照片。",
         "approval": "照片须经批准才会显示",
         "approvalHint": "新照片会等待主办人批准。关闭此项，所有等待中的照片都会显示。",
-        "notify": "有照片等待批准时给主办人发邮件"
+        "notify": "有照片等待批准时给主办人发邮件",
+        "videos": "允许视频",
+        "videosHint": "宾客可以像添加照片一样添加视频。每段视频都以原始画质保存，并去除手机记录的位置和设备信息。",
+        "maxVideoMinutes": "最长视频（分钟）",
+        "maxVideoMb": "最大视频（MB）",
+        "videoCapsHint": "留空即采用本站的上限：最长 {minutes} 分钟、最大 {mb} MB。高于本站上限的值按本站上限计。",
+        "quality": "轻量副本",
+        "quality1080": "1080p",
+        "quality720": "720p（更省空间）",
+        "qualityHint": "轻量副本便于在网速慢时播放；宾客仍可选择原始画质。",
+        "videosUnavailable": "视频功能需要本站安装 ffmpeg，目前尚未安装；请联系本站运营者。"
       },
       "notifyOnRsvp": "有宾客回复时给主办人发邮件",
       "remindersEnabled": "发邮件提醒宾客（提前一周提醒待定的宾客，提前一天提醒参加的宾客）",
@@ -624,7 +704,10 @@
       "scheduleTitleTooLong": "第 {n} 项的标题超过 80 个字符。",
       "schedulePlaceTooLong": "第 {n} 项的地点超过 120 个字符。",
       "scheduleNoteTooLong": "第 {n} 项的备注超过 500 个字符。",
-      "scheduleInvalid": "无法读取日程，请重试。"
+      "scheduleInvalid": "无法读取日程，请重试。",
+      "albumMaxVideoMinutesInvalid": "请为最长视频填写 1 到 180 之间的整数分钟数，或留空。",
+      "albumMaxVideoMbInvalid": "请为最大视频填写 1 到 10,000 之间的整数（MB），或留空。",
+      "albumQualityInvalid": "请为轻量副本选择 1080p 或 720p。"
     },
     "manage": {
       "link": "活动链接",
@@ -658,6 +741,19 @@
       "hosts": "主办人",
       "coHost": "共同主办人",
       "leave": "退出这个活动"
+    },
+    "album": {
+      "remind": "提醒我处理相册",
+      "remindHint": "到那天，这里和邮件都会提醒你清空相册或保留它。系统不会自行删除任何内容。",
+      "days": "活动结束 {count, plural, other {# 天}}后",
+      "never": "从不",
+      "empty": "清空相册",
+      "emptyTitle": "删除 {photos, plural, other {# 张照片}}和 {videos, plural, other {# 个视频}}（{size}）？",
+      "emptyText": "所有照片和视频都会删除，空间随之释放。此操作无法撤销。",
+      "emptyConfirm": "删除",
+      "cancel": "算了",
+      "noticeText": "相册里有 {photos, plural, other {# 张照片}}和 {videos, plural, other {# 个视频}}（{size}）。清空相册，或保留它。",
+      "keep": "保留"
     },
     "verify": {
       "title": "请先验证邮箱",
@@ -877,16 +973,27 @@
       "problems": {
         "tooLarge": "超过 {max, number} MB",
         "unsupported": "不是 JPEG、PNG、WebP 或 AVIF 图片",
-        "tooManyPixels": "像素过多"
+        "tooManyPixels": "像素过多",
+        "siteFull": "本站空间已满",
+        "diskFull": "本站磁盘空间即将用尽",
+        "tooLong": "超过了这个相册允许的时长",
+        "videosNotAllowed": "是视频，而这个活动不接受视频",
+        "incomplete": "没有完整上传",
+        "tooLongKnown": "超过 {max} 的时长：这段有 {length}",
+        "videoTooLargeKnown": "超过 {max}：这段有 {size}"
       },
       "errors": {
         "tooFast": "操作太频繁了，请稍后再试。",
         "closed": "相册尚未开放。",
         "notAllowed": "只有已回复的宾客和主办人可以添加照片。",
+        "tooManyItems": "每次最多添加十张照片或视频。",
         "tooMany": "每次最多添加十张照片。",
         "albumFull": "{left, plural, =0 {相册已满。} other {相册还能再放 # 张照片。}}",
         "tooLarge": "这些照片加起来太大了，请分几次添加。",
-        "failed": "照片未能上传，请再试一次。"
+        "failed": "照片未能上传，请再试一次。",
+        "albumStorageFull": "相册已满：{limit}。",
+        "siteFull": "本站空间已满，请联系主办人清理相册。",
+        "diskFull": "本站磁盘空间即将用尽，请稍后再试。"
       },
       "open": "{name} 的第 {n} 张照片",
       "openPending": "{name} 的第 {n} 张照片，等待批准",
@@ -904,7 +1011,23 @@
       "deleteTitle": "要删除这张照片吗？",
       "deleteText": "所有人都将看不到它，且无法恢复。",
       "deleteConfirm": "删除",
-      "keep": "保留"
+      "keep": "保留",
+      "addVideos": "添加照片和视频",
+      "openVideo": "{name} 的第 {n} 段视频",
+      "openVideoPending": "{name} 的第 {n} 段视频，等待批准",
+      "viewerVideo": "第 {n} 段视频，共 {count} 项",
+      "processing": "处理中",
+      "failedTooLong": "无法处理：超过 {max}",
+      "failed": "无法处理",
+      "remove": "移除",
+      "removeVideo": "移除 {name} 的视频",
+      "uploading": "{name}：上传中",
+      "uploaded": "{name}：已上传，处理中",
+      "quality": "画质",
+      "original": "原始画质",
+      "copy": "轻量副本",
+      "originalUnplayable": "原始画质：此浏览器无法播放。",
+      "unplayable": "此浏览器无法播放这段视频，请下载后观看。"
     },
     "letter": {
       "for": "致 {name}"
@@ -925,7 +1048,12 @@
       "unsupported": "这个文件不是这里能用的图片。请选择 JPEG、PNG、WebP 或 AVIF 图片。",
       "tooManyPixels": "这张图片像素太多，处理不了。请选择 5000 万像素以下的图片。",
       "failed": "图片没有上传成功，请再试一次。",
-      "tooFast": "操作太频繁了，请稍后再试。"
+      "tooFast": "操作太频繁了，请稍后再试。",
+      "siteFull": "本站空间已满：请清理相册，或请本站运营者增加空间。",
+      "diskFull": "本站磁盘空间即将用尽。请稍后再试，或联系本站运营者。",
+      "tooLong": "上传没有完成，请重试。",
+      "videosNotAllowed": "上传没有完成，请重试。",
+      "incomplete": "上传没有完成，请重试。"
     },
     "replace": "更换",
     "yourPicture": "你的图片",

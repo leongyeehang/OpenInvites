@@ -67,7 +67,7 @@ test("only guests who are going: a Going guest's photo is hidden from a Maybe gu
   });
 
   const priya = await guest(browser, host.link, "Priya Nair");
-  await album(priya).getByLabel("Add photos").setInputFiles([await photo("garden.jpg", "#2f6b3a")]);
+  await album(priya).getByLabel(/^Add photos/).setInputFiles([await photo("garden.jpg", "#2f6b3a")]);
   await expect(album(priya).getByRole("status")).toHaveText("garden.jpg: added", { timeout: 20_000 });
   await expect(album(priya).getByRole("button", { name: "Photo 1 by Priya Nair" })).toBeVisible({ timeout: 15_000 });
   await expect(album(priya).getByRole("heading", { name: "Your photos" })).toHaveCount(0);
@@ -77,7 +77,7 @@ test("only guests who are going: a Going guest's photo is hidden from a Maybe gu
   await expect(album(mei).getByRole("heading", { name: "Your photos" })).toBeVisible();
   await expect(album(mei)).toContainText("The album is for guests who are going; the hosts see what you add.");
   await expect(album(mei).getByRole("button", { name: /^Photo \d by Priya Nair/ })).toHaveCount(0);
-  await expect(album(mei).getByLabel("Add photos")).toBeAttached();
+  await expect(album(mei).getByLabel(/^Add photos/)).toBeAttached();
 
   await editSettings(host.page, async (sheet) => {
     await albumGroup(sheet).getByLabel(VISIBILITY).selectOption({ label: "Guests who have replied" });
@@ -99,7 +99,7 @@ test("only the hosts: a guest sees only their own, a visitor how many and why, a
   const priya = await guest(browser, host.link, "Priya Nair");
   await expect(album(priya).getByRole("heading", { name: "Your photos" })).toBeVisible();
   await expect(album(priya)).toContainText("The hosts keep this album; they see what you add.");
-  await album(priya).getByLabel("Add photos").setInputFiles([await photo("garden.jpg", "#2f6b3a")]);
+  await album(priya).getByLabel(/^Add photos/).setInputFiles([await photo("garden.jpg", "#2f6b3a")]);
   await expect(album(priya).getByRole("status")).toHaveText("garden.jpg: added", { timeout: 20_000 });
   await expect(album(priya).getByRole("button", { name: "Photo 1 by Priya Nair" })).toBeVisible({ timeout: 15_000 });
 
@@ -135,7 +135,7 @@ test("a guest whose reply awaits the host's approval is told the album opens onc
   await expect(priya.getByRole("heading", { name: "Your reply is waiting for the host’s approval." })).toBeVisible({ timeout: 15_000 });
   await closeReply(priya);
   await expect(album(priya)).toContainText("Once the host approves your reply you’ll see the album and can add your photos.");
-  await expect(album(priya).getByLabel("Add photos")).toHaveCount(0);
+  await expect(album(priya).getByLabel(/^Add photos/)).toHaveCount(0);
 
   await editSettings(host.page, async (sheet) => {
     await albumGroup(sheet).getByLabel(VISIBILITY).selectOption({ label: "Only the hosts" });
@@ -168,7 +168,7 @@ test("with approval on, a guest's photos wait for the host, who approves one in 
 
   // Priya's two photos wait, and she sees them marked.
   const priya = await guest(browser, host.link, "Priya Nair");
-  await album(priya).getByLabel("Add photos").setInputFiles([await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a")]);
+  await album(priya).getByLabel(/^Add photos/).setInputFiles([await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a")]);
   await expect(album(priya).getByRole("status")).toContainText("garden.jpg: added, awaiting approval", { timeout: 20_000 });
   await expect(album(priya).getByRole("status")).toContainText("cake.jpg: added, awaiting approval");
   await expect(album(priya).getByRole("button", { name: /^Photo \d by Priya Nair, awaiting approval$/ })).toHaveCount(2, { timeout: 15_000 });
@@ -218,7 +218,7 @@ test("with approval on, a guest's photos wait for the host, who approves one in 
 
   // Two more wait; turning approval off shows them both.
   await priya.reload();
-  await album(priya).getByLabel("Add photos").setInputFiles([await photo("toast.jpg", "#e0b040"), await photo("lanterns.jpg", "#3050a0")]);
+  await album(priya).getByLabel(/^Add photos/).setInputFiles([await photo("toast.jpg", "#e0b040"), await photo("lanterns.jpg", "#3050a0")]);
   await expect(album(priya).getByRole("status")).toContainText("lanterns.jpg: added, awaiting approval", { timeout: 20_000 });
   await mei.reload();
   await expect(album(mei).getByRole("img")).toHaveCount(1);
@@ -244,7 +244,7 @@ test("with approval on, the hosts are emailed once about a guest's photos waitin
   // Priya's two photos wait, and the host is told of them in one email: who, how many, and the
   // event link, after the verification from signing up and the email about Priya's reply.
   const priya = await guest(browser, host.link, "Priya Nair");
-  await album(priya).getByLabel("Add photos").setInputFiles([await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a")]);
+  await album(priya).getByLabel(/^Add photos/).setInputFiles([await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a")]);
   await expect(album(priya).getByRole("status")).toContainText("cake.jpg: added, awaiting approval", { timeout: 20_000 });
   await expect
     .poll(() => subjectOfLatestMailTo(request, host.email), { timeout: 30_000, message: `an email to ${host.email} about Priya’s photos` })
@@ -258,14 +258,14 @@ test("with approval on, the hosts are emailed once about a guest's photos waitin
 
   // The host's own photo is approved at once, and tells nobody.
   await host.page.goto(host.link);
-  await album(host.page).getByLabel("Add photos").setInputFiles([await photo("toast.jpg", "#e0b040")]);
+  await album(host.page).getByLabel(/^Add photos/).setInputFiles([await photo("toast.jpg", "#e0b040")]);
   await expect(album(host.page).getByRole("status")).toHaveText("toast.jpg: added", { timeout: 20_000 });
 
   // With the email turned off, Priya's next photo waits without one.
   await host.page.goto(editor);
   await editSettings(host.page, (sheet) => albumGroup(sheet).getByLabel(NOTIFY_PHOTOS).uncheck());
   await priya.reload();
-  await album(priya).getByLabel("Add photos").setInputFiles([await photo("lanterns.jpg", "#3050a0")]);
+  await album(priya).getByLabel(/^Add photos/).setInputFiles([await photo("lanterns.jpg", "#3050a0")]);
   await expect(album(priya).getByRole("status")).toHaveText("lanterns.jpg: added, awaiting approval", { timeout: 20_000 });
 
   // Mail goes out in the order it was queued, so once the email about Mei's reply is in, an email
@@ -277,6 +277,24 @@ test("with approval on, the hosts are emailed once about a guest's photos waitin
   expect(await mailCountTo(request, host.email)).toBe(4);
 
   await Promise.all([host.context.close(), priya.context().close(), mei.context().close()]);
+});
+
+// Review fix (I1): the hosts' email about photos waiting goes once the batch's last photo is
+// finished or refused, whichever comes last; a refused file at the end of a batch used to lose it.
+// The junk file spans many parts, so its finish comes after the photo's.
+test("with approval on, a photo whose batch ends with a refused file is still announced to the hosts", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-notify-refused", PAST);
+  await editSettings(host.page, (sheet) => albumGroup(sheet).getByLabel(APPROVE_PHOTOS).check());
+  const priya = await guest(browser, host.link, "Priya Nair");
+  const junk = { name: "notes.jpg", mimeType: "image/jpeg", buffer: Buffer.alloc(6 * 1024 * 1024, 7) };
+  await album(priya).getByLabel(/^Add photos/).setInputFiles([await photo("garden.jpg", "#2f6b3a"), junk]);
+  await expect(album(priya).getByRole("status")).toContainText("notes.jpg: not a JPEG, PNG, WebP or AVIF picture", { timeout: 60_000 });
+  await expect(album(priya).getByRole("status")).toContainText("garden.jpg: added, awaiting approval");
+  await expect
+    .poll(() => subjectOfLatestMailTo(request, host.email), { timeout: 30_000, message: `an email to ${host.email} about Priya’s photo` })
+    .toBe("Priya Nair added a photo to Ada’s garden party for your approval");
+  await Promise.all([host.context.close(), priya.context().close()]);
 });
 
 // The Thread's column is the narrowest, the Broadsheet's set apart; the Poster's is above. The
@@ -293,12 +311,12 @@ for (const layout of ["Thread", "Broadsheet"] as const) {
     await editSettings(host.page, (sheet) => albumGroup(sheet).getByLabel(APPROVE_PHOTOS).check());
 
     const priya = await guest(browser, host.link, "Priya Nair");
-    await album(priya).getByLabel("Add photos").setInputFiles([await photo("garden.jpg", "#2f6b3a")]);
+    await album(priya).getByLabel(/^Add photos/).setInputFiles([await photo("garden.jpg", "#2f6b3a")]);
     await expect(album(priya).getByRole("status")).toHaveText("garden.jpg: added, awaiting approval", { timeout: 20_000 });
 
     // The host's own photo is approved at once.
     await host.page.goto(host.link);
-    await album(host.page).getByLabel("Add photos").setInputFiles([await photo("toast.jpg", "#e0b040")]);
+    await album(host.page).getByLabel(/^Add photos/).setInputFiles([await photo("toast.jpg", "#e0b040")]);
     await expect(album(host.page).getByRole("status")).toHaveText("toast.jpg: added", { timeout: 20_000 });
     await expect(album(host.page).getByRole("button", { name: `Photo 2 by ${host.name}` })).toBeVisible({ timeout: 15_000 });
 
@@ -330,4 +348,41 @@ test("the album's own view in Traditional Chinese", async ({ browser, request })
   await expect(album(priya).getByRole("heading", { name: "你的照片" })).toBeVisible();
   await expect(album(priya)).toContainText("這個相簿僅主辦人可見；你新增的照片主辦人都看得到。");
   await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+// M7 ticket 05: the event's video settings, in the Album group of the Settings sheet. Blank caps
+// mean the site's; a cap typed above the site's is kept as typed, since the effective cap is
+// decided when a clip is checked.
+test("the host allows videos, caps them under the site's, and picks the lighter copy's quality", async ({ browser, request }) => {
+  const host = await createPublished(browser, request, "video-settings", PAST);
+  await editSettings(host.page, async (sheet) => {
+    const group = albumGroup(sheet);
+    await expect(group.getByLabel("Allow videos")).toBeChecked();
+    await expect(group.getByLabel("Longest video (min)")).toHaveValue("");
+    await expect(group.getByLabel("Largest video (MB)")).toHaveValue("");
+    await expect(group.getByLabel("Lighter copy")).toHaveValue("1080p");
+    await expect(group.getByText(/Blank means the site’s caps: up to \d+ min and \d+ MB\./)).toBeVisible();
+    await group.getByLabel("Longest video (min)").fill("2");
+    await group.getByLabel("Largest video (MB)").fill("9000");
+    await group.getByLabel("Lighter copy").selectOption({ label: "720p (saves space)" });
+    await group.getByLabel("Allow videos").uncheck();
+  });
+  await host.page.reload();
+  await editSettings(host.page, async (sheet) => {
+    const group = albumGroup(sheet);
+    await expect(group.getByLabel("Allow videos")).not.toBeChecked();
+    await expect(group.getByLabel("Longest video (min)")).toHaveValue("2");
+    await expect(group.getByLabel("Largest video (MB)")).toHaveValue("9000");
+    await expect(group.getByLabel("Lighter copy")).toHaveValue("720p");
+    await group.getByLabel("Largest video (MB)").fill("");
+    await group.getByLabel("Allow videos").check();
+  });
+  await host.page.reload();
+  // editSettings waits for a save, so this last look changes the length back to the site's too.
+  await editSettings(host.page, async (sheet) => {
+    await expect(albumGroup(sheet).getByLabel("Largest video (MB)")).toHaveValue("");
+    await expect(albumGroup(sheet).getByLabel("Allow videos")).toBeChecked();
+    await albumGroup(sheet).getByLabel("Longest video (min)").fill("");
+  });
+  await host.context.close();
 });

@@ -21,7 +21,7 @@ export async function uploadPicture(hostId: string, eventId: string, bytes: Uint
   try {
     // Stored before the row that names them, so no page ever asks for a file not yet there.
     await storeRenditions(id, processed.picture.renditions);
-    const saved = await replaceUpload(hostId, eventId, id, processed.picture.sample, emoji);
+    const saved = await replaceUpload(hostId, eventId, id, processed.picture.sample, bytes.byteLength, emoji);
     if (!saved) {
       await removeRenditions([id]);
       return { ok: false, problem: "notFound" };

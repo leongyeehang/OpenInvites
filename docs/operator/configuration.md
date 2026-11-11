@@ -54,17 +54,24 @@ interface says "site" where these docs say "instance".)
   invitation can create an account, by email, Google, or GitHub alike. Open lets anyone sign up.
   A change takes effect at once. With mail configured, Open also lets anyone who signs up have the
   instance email addresses of their choosing ([Mail](#mail)).
-- **Limits** are three caps, set on the same page and read each time they are checked, so a change
-  takes effect at once. **Events per host** (50 by default) counts every event a host owns,
+- **Limits** are set on the same page and read each time they are checked, so a change takes
+  effect at once. **Events per host** (50 by default) counts every event a host owns,
   drafts and past events included but not events they only co-host; a host at the limit cannot
   create or duplicate an event until they delete one. **Replies per event** (500 by default)
   counts every reply to an event, whatever its answer; a guest who has not yet replied is told
   the event can't take more replies, while guests who have replied can still change or withdraw
-  theirs. **Photos per event** (300 by default) counts the photos in an event's album, those
-  awaiting a host's approval included; guests and hosts adding more are told how many places are
-  left, and those already there stay. Each is a
-  whole number from 1 to 100,000. Lowering a limit below what exists leaves the existing events,
-  replies and photos alone and refuses only new ones. The same card sets how long
+  theirs. **Photos and videos per event** (300 by default) counts the items in an event's album,
+  those awaiting a host's approval included; guests and hosts adding more are told how many
+  places are left, and those already there stay. Those three are whole numbers from 1 to
+  100,000. Since 0.7 the card also sets **Largest photo** (40 MB by default, 1 to 1,000),
+  which covers album photos and hosts' pictures (a photo is decoded in memory as it is
+  processed, so the largest photo allowed is memory the app may need for each upload); **Largest video** (750 MB, 1 to 10,000) and
+  **Longest video** (15 minutes, 1 to 180), which a host may lower for their event; **Storage
+  per event** and **Storage for the site** (50 GB each, 0.01 to 100,000 GB), counted as
+  uploaded (two albums uploading at the same moment can each overshoot the site's by one post,
+  and on local disk every upload stops while the volume has under 1 GB free); and **Remind hosts about albums after** (60 days by default, or Never), the default
+  new events start with. Lowering a limit below what exists leaves the existing events,
+  replies and uploads alone and refuses only new ones. The same card sets how long
   events are kept ([Retention](#retention)).
 - **Host invitations** are single-use links the operator makes on the same page, optionally
   addressed to an email, which then fills in the sign-up form (anyone with the link can still
@@ -153,6 +160,35 @@ dashboard, a welcome points to the name, registration and limits; it shows once 
 operator, so one who takes over with `OPERATOR_EMAIL` sees it once too. An instance upgraded from
 an earlier version does not greet the operator it already has.
 
+### Storage
+
+Site settings' **Storage** card (0.7) answers how full the site is: what albums and hosts'
+pictures take, counted as uploaded (a video's lighter copy, poster and thumbnail never count);
+on local disk, what the `uploads` volume really holds and how much of it is free; the five albums
+that take the most, each with its hosts; whether the server can process videos (its ffmpeg
+version, or that it has none); and the switch **Process videos for playback**, on by default,
+which makes a lighter copy of every video that needs one. On S3 the card shows the counted use
+only. After upgrading to 0.7 the card says how many files from before the upgrade are still being
+measured, until that is done; a photo from before counts the size of the file the site stored,
+since the file as sent was never kept. Two albums uploading at the same moment can each overshoot
+Storage for the site by one batch, and on local disk every upload stops while the volume has
+under 1 GB free. An upload counts from the moment it is asked for, and the card shows what
+uploads in progress hold on a line of its own; a batch that receives nothing for an hour, or any
+upload not finished within a day, is dropped by the hourly sweep and its room released, so an
+upload that never started cannot hold the site.
+
+Videos are processed in the app's own container unless `VIDEO_PROCESSING=worker` moves the work
+to a **worker** container: the same image started as `node scripts/video-worker.mjs`, on the same
+database and the same `uploads` volume or bucket, with no published port. `deploy/compose.yaml`
+holds the service, commented out. The app then only queues each clip; the worker takes it within
+a minute and reports itself every minute, and the Storage card says when it was last seen. A
+worker not heard from for five minutes is called out on the card, so a stopped one is noticed.
+
+From the card the operator can **Clear the album** of one of the biggest albums, confirming what
+goes; its hosts are emailed. **Check for stray files** lists what storage holds that no photo,
+video or host's picture names, older than an hour, and removes it on a second confirmation.
+Nothing is removed by the clock.
+
 ### Retention
 
 Events are deleted a set time after they end: **Keep events for**, on the Limits card of
@@ -225,8 +261,12 @@ With mail configured:
   event;
 - the hosts are emailed when someone comments on the event page, unless they turn it off for the
   event;
-- the hosts are emailed once for each upload of a guest's photos that wait for their approval,
-  when they approve photos before they're shown, unless they turn it off for the event;
+- the hosts are emailed once for each upload of a guest's photos and videos that wait for their
+  approval, when they approve photos before they're shown, unless they turn it off for the event;
+- the hosts are emailed once, so many days after an event as its host chose (60 by default, set
+  on Site settings and changed per event), that its album holds photos and videos to empty or
+  keep; nothing is deleted on its own;
+- the hosts are emailed when the site's operator clears their event's album from Site settings;
 - guests who gave an email are told when the host cancels the event, if they said Going or Maybe
   or are on the waitlist, whether or not the host had approved their reply yet; guests the host
   declined are not written to;
@@ -338,17 +378,18 @@ screen lock in place of the password). Nothing needs configuring, with two condi
 Email and password always keep working beside passkeys, so a host who loses their device, or
 removes their last passkey, is never locked out.
 
-## Uploaded pictures
+## Uploaded pictures and videos
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `MAX_UPLOAD_MB` | `10` | The largest picture a host may upload, and the largest photo anyone may add to an album (up to ten at once), in megabytes. Decimals are allowed. |
+| `MAX_UPLOAD_MB` | retired in 0.7 | Was the largest picture and photo in megabytes. At the first start after upgrading, its value is read once into **Largest photo** on Site settings, and the variable is ignored from then on. |
 | `STORAGE_BACKEND` | `local` | `local` keeps pictures in the `uploads` volume; `s3` in an S3-compatible bucket. |
 | `UPLOADS_DIR` | `uploads` | Local storage's directory, relative to `/app` in the container. `compose.yaml` mounts the `uploads` volume at `/app/uploads`: leave it. |
 | `S3_ENDPOINT` | Required for `s3` | The provider's S3 endpoint, such as `https://s3.eu-central-1.amazonaws.com`. |
 | `S3_REGION` | `us-east-1` | The bucket's region. |
 | `S3_BUCKET` | Required for `s3` | The bucket's name. |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Required for `s3` | The access key the app signs its requests with. |
+| `VIDEO_PROCESSING` | `app` | Where the album's videos are processed: `app`, in the app's container; `worker`, in a second container from the same image started as `node scripts/video-worker.mjs` (see Storage above). Anything else keeps the app from starting. |
 
 A host's picture is never kept as sent. The app re-encodes it without its metadata (a photo's
 location never reaches a guest) and stores six files named after the upload's id, in the sizes
@@ -362,6 +403,30 @@ A photo added to an event's album is re-encoded the same way and kept as two fil
 the photo's id: `<id>-photo.webp` (up to 2048 pixels, for the viewer and Download) and
 `<id>-photo-thumb.webp` (the album's square thumbnail). They are removed with the photo: when
 whoever may deletes it, or the event, the guest's reply or the host's account goes.
+
+A video added to an album (0.7) is kept as sent only until it is processed, which the queue does
+one clip at a time per container, within a minute of the upload. A clip ffmpeg cannot read, or
+one found over the event's length cap once measured (a browser cannot always read a clip's
+length before sending), is failed at once, and its tile tells its uploader and the hosts so, the
+length cap by name; a clip that fails for any other reason is tried three times and then failed,
+and one the processor itself did not survive (out of memory, say) is taken again an hour later
+and failed after its third claim, never retried for ever. Its files are named after the
+item's id: `<id>-video.mp4` (the clip at original quality, rewrapped as MP4 with its metadata
+dropped, so a phone's location and device details never reach a guest, and its index moved to the
+front, so playing starts at once); `<id>-video-1080p.mp4` or `<id>-video-720p.mp4` (the lighter
+H.264 copy at the quality the host chose, made only when the original is not H.264, larger than
+that quality or far above its bit rate, and only while **Process videos for playback** is on);
+`<id>-video-poster.webp` (the frame the player shows first) and `<id>-video-thumb.webp` (the
+album's square thumbnail). Only the original counts toward storage. They go with the item, as a
+photo's files do.
+
+Processing needs ffmpeg 6 or later, which the image carries
+([ADR-0007](../adr/0007-ffmpeg-in-the-image.md)); without a usable one the app starts, refuses
+videos, and the Storage card and the event's Album settings say so. A clip being processed takes
+about 300 MB of memory on top of the app's. The parts of an upload in progress and ffmpeg's
+scratch files live under `/tmp` in the container, which needs about three times the largest
+video free; the parts live on the container that took them, so the site runs one app container
+(the worker is a second container, but takes no uploads).
 
 ### Configuring S3
 
@@ -417,7 +482,7 @@ runs.
 | `TRUSTED_PROXY_HOPS` | `1` | Not a limit: how many reverse proxies stand in front of the app (below). |
 | `RATE_LIMIT_EVENT_PAGE` | `120/1m` | Every request under an event link: the page, its preview card, its calendar file, whether the link exists or not, so links cannot be found by trying them. Opening a personal invite link counts too, whether it exists or not. The host's own changes in the editor do not count, as the editor is not under the event link; their visits to the page do, and so does the refresh that shows a picture they have just uploaded. |
 | `RATE_LIMIT_RSVP` | `60/10m` | Sending an RSVP, and removing one. Asking for a code to prove a guest's email, and entering it, each count as sending, on the RSVP form and on an invite-only event's locked page alike. This also bounds the emails that tell hosts about replies. |
-| `RATE_LIMIT_UPLOAD` | `20/10m` | Uploading a picture. This also bounds the emails that tell hosts about photos awaiting their approval. |
+| `RATE_LIMIT_UPLOAD` | `20/10m` | Uploading a picture, or asking to add a batch of photos and videos to an album: the ask counts once, however many files, and the parts and finishes that follow count nothing. This also bounds the emails that tell hosts about items awaiting their approval. |
 | `RATE_LIMIT_SIGN_UP` | `10/1h` | Signing up, and opening a host invitation link. |
 | `RATE_LIMIT_SIGN_IN` | `10/15m` | Signing in, and everything else that checks a password (changing it, deleting an account), starting a Google or GitHub sign-in, signing in with a passkey, and opening a co-host link. |
 | `RATE_LIMIT_PASSWORD_RESET` | `10/1h` | Asking for a password reset link, and setting the new password. |

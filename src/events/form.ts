@@ -1,4 +1,6 @@
+import { VIDEO_QUALITIES, type VideoQuality } from "@/album/video";
 import { ALBUM_VISIBILITIES, type AlbumVisibility } from "@/album/visibility";
+import { VIDEO_MB, VIDEO_MINUTES } from "@/instance/limits";
 import { richTextToPlain, type RichText } from "@/rich-text/rich-text";
 import { CONTACT_FIELDS, type ContactField } from "@/rsvps/form";
 import { GUEST_LIST_VISIBILITIES, type GuestListVisibility } from "@/rsvps/visibility";
@@ -30,6 +32,12 @@ export type EventInput = {
   albumVisibility: AlbumVisibility;
   albumApprovalRequired: boolean;
   notifyOnPhoto: boolean;
+  // Videos in the album (M7 ticket 05): whether the event takes them, the host's caps (null: the
+  // site's), and the lighter copy's quality.
+  albumVideosAllowed: boolean;
+  albumMaxVideoMinutes: number | null;
+  albumMaxVideoMb: number | null;
+  albumCopyQuality: VideoQuality;
   // Only the people on the invite list open the invitation (M6 spec, "Invite-only events").
   inviteOnly: boolean;
 };
@@ -58,6 +66,10 @@ export type EventFormFields = {
   albumVisibility: string;
   albumApprovalRequired: boolean;
   notifyOnPhoto: boolean;
+  albumVideosAllowed: boolean;
+  albumMaxVideoMinutes: string;
+  albumMaxVideoMb: string;
+  albumCopyQuality: string;
   inviteOnly: boolean;
 };
 
@@ -79,7 +91,10 @@ export type EventFormError =
   | "capacityInvalid"
   | "contactFieldInvalid"
   | "guestListVisibilityInvalid"
-  | "albumVisibilityInvalid";
+  | "albumVisibilityInvalid"
+  | "albumMaxVideoMinutesInvalid"
+  | "albumMaxVideoMbInvalid"
+  | "albumQualityInvalid";
 
 export type ParsedEventForm = { ok: true; input: EventInput } | { ok: false; error: EventFormError };
 
@@ -164,6 +179,15 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
   const albumVisibility = ALBUM_VISIBILITIES.find((each) => each === fields.albumVisibility);
   if (!albumVisibility) return { ok: false, error: "albumVisibilityInvalid" };
 
+  // The video caps (M7 ticket 05): blank means the site's; a value above the site's is kept as
+  // typed, since the effective cap is decided at check time (album/video.ts).
+  const albumMaxVideoMinutes = parseOptionalWhole(fields.albumMaxVideoMinutes, VIDEO_MINUTES.min, VIDEO_MINUTES.max);
+  if (albumMaxVideoMinutes === undefined) return { ok: false, error: "albumMaxVideoMinutesInvalid" };
+  const albumMaxVideoMb = parseOptionalWhole(fields.albumMaxVideoMb, VIDEO_MB.min, VIDEO_MB.max);
+  if (albumMaxVideoMb === undefined) return { ok: false, error: "albumMaxVideoMbInvalid" };
+  const albumCopyQuality = VIDEO_QUALITIES.find((each) => each === fields.albumCopyQuality);
+  if (!albumCopyQuality) return { ok: false, error: "albumQualityInvalid" };
+
   return {
     ok: true,
     settings: {
@@ -182,6 +206,10 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
       albumVisibility,
       albumApprovalRequired: fields.albumApprovalRequired,
       notifyOnPhoto: fields.notifyOnPhoto,
+      albumVideosAllowed: fields.albumVideosAllowed,
+      albumMaxVideoMinutes,
+      albumMaxVideoMb,
+      albumCopyQuality,
       inviteOnly: fields.inviteOnly,
     },
   };
@@ -190,9 +218,14 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
 // A capacity is a whole number written in digits, within the range; empty is no capacity at all.
 // Undefined when it is neither.
 function parseCapacity(raw: string): number | null | undefined {
+  return parseOptionalWhole(raw, CAPACITY_MIN, CAPACITY_MAX);
+}
+
+// A whole number written in digits, within the range; empty is none. Undefined when it is neither.
+function parseOptionalWhole(raw: string, min: number, max: number): number | null | undefined {
   const text = raw.trim();
   if (!text) return null;
   if (!/^\d+$/.test(text)) return undefined;
-  const capacity = Number(text);
-  return capacity >= CAPACITY_MIN && capacity <= CAPACITY_MAX ? capacity : undefined;
+  const value = Number(text);
+  return value >= min && value <= max ? value : undefined;
 }

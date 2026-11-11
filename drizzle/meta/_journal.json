@@ -323,6 +323,62 @@
       "when": 1794054411246,
       "tag": "0045_invite_list",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1794276110184,
+      "tag": "0046_album_limits",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794277174563,
+      "tag": "0047_upload_sizes",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1794281804930,
+      "tag": "0048_photo_states",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1794281891063,
+      "tag": "0049_video_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1794283131679,
+      "tag": "0050_upload_batch",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1794286895081,
+      "tag": "0051_worker_heartbeat",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1794288297340,
+      "tag": "0052_album_reminder",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1794300069907,
+      "tag": "0053_touched_at_failure",
+      "breakpoints": true
     }
   ]
 }

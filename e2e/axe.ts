@@ -17,12 +17,14 @@ import { expect, test, type Page } from "@playwright/test";
 // as passing. The event page's contrast is legibility.ts's rule, which solves every surface
 // against the backdrop at its most extreme and is unit-tested for every combination the drawer
 // offers.
-export async function expectNoSeriousViolations(page: Page, where: string) {
+// `except` names rules the page cannot satisfy by its nature, set aside for that page alone: a
+// guest's video has no captions track (M7 ticket 11, the album's viewer), and no page can make one.
+export async function expectNoSeriousViolations(page: Page, where: string, { except = [] }: { except?: string[] } = {}) {
   let read: Awaited<ReturnType<typeof readPage>>;
   for (let attempt = 1; ; attempt++) {
     await settled(page);
     await page.evaluate(WATCH_CHANGES);
-    read = await readPage(page);
+    read = await readPage(page, except);
     const changed = await page.evaluate(() => (window as unknown as { axeSawChanges: () => boolean }).axeSawChanges());
     if (!changed || attempt === 3) break;
     test.info().annotations.push({ type: "axe", description: `${where}: the page changed while axe read it; read again` });
@@ -55,7 +57,7 @@ type Violation = { id: string; impact?: string | null; help: string; targets: st
 // verdict on contrast is kept only from a view where its text is wholly in sight: on the screen,
 // and inside everything that clips it. Text taller or wider than half its view is never wholly in
 // sight, and is left out.
-async function readPage(page: Page) {
+async function readPage(page: Page, except: string[]) {
   const violations: Violation[] = [];
   const contrast = new Map<string, Violation>();
   const incomplete = new Map<string, Set<string>>();
@@ -79,7 +81,7 @@ async function readPage(page: Page) {
   // All the rules, once, from the top.
   const from = await page.evaluate(() => window.scrollY);
   await page.evaluate(() => window.scrollTo(0, 0));
-  const whole = await new AxeBuilder({ page }).analyze();
+  const whole = await new AxeBuilder({ page }).disableRules(except).analyze();
   for (const { id, impact, help, nodes } of whole.violations) {
     if (id !== CONTRAST || !fixedBackdrop) violations.push({ id, impact, help, targets: nodes.map((node) => node.target.join(" ") + measuredAs(node, 0)) });
   }

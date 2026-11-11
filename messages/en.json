@@ -175,7 +175,10 @@
       "draft": "Draft",
       "firstTitle": "Make your first invitation",
       "firstText": "Pick a poster, add a date, and share one link. Guests reply without an account.",
-      "firstButton": "Start an invitation"
+      "firstButton": "Start an invitation",
+      "albumReminders": {
+        "title": "Albums to empty or keep"
+      }
     }
   },
   "Dashboard": {
@@ -311,22 +314,81 @@
     },
     "limits": {
       "title": "Limits",
-      "description": "How many events a host may have, how many replies an event may take, and how long events are kept once they have ended. A change takes effect at once. A lower limit on events or replies leaves what already exists as it is; the period applies to every event, those that exist included.",
+      "description": "How many events a host may have, how many replies and how many photos and videos an event may take, how large an upload may be, how much storage an event and the site may use, how long events are kept once they have ended, and when hosts are reminded about an event’s album. A change takes effect at once. A lower limit leaves what already exists as it is and refuses only new events, replies and uploads; the retention period applies to every event, those that exist included.",
       "maxEventsPerHost": "Events per host",
       "maxEventsPerHostHint": "Counts every event a host owns, drafts and past events included.",
       "maxRsvpsPerEvent": "Replies per event",
       "maxRsvpsPerEventHint": "Counts every reply to an event, whatever its answer.",
-      "maxPhotosPerEvent": "Photos per event",
-      "maxPhotosPerEventHint": "How many photos guests and hosts can add to one event’s album.",
+      "maxPhotosPerEvent": "Photos and videos per event",
+      "maxPhotosPerEventHint": "How many photos and videos guests and hosts can add to one event’s album, those awaiting approval included.",
+      "maxPhotoMb": "Largest photo (MB)",
+      "maxPhotoMbHint": "The largest photo a guest or host can add to an album, and the largest picture a host can upload for an event.",
+      "maxVideoMb": "Largest video (MB)",
+      "maxVideoMbHint": "The largest video a guest or host can add to an album. Hosts can set a lower cap for their event.",
+      "maxVideoMinutes": "Longest video (min)",
+      "maxVideoMinutesHint": "The longest video an album takes. Hosts can set a shorter cap for their event.",
+      "maxEventStorageGb": "Storage per event (GB)",
+      "maxEventStorageGbHint": "How much one event’s photos and videos may take together, counted as uploaded. Decimals are allowed, down to 0.01 GB.",
+      "maxSiteStorageGb": "Storage for the site (GB)",
+      "maxSiteStorageGbHint": "How much every album and every host’s picture may take together. Uploads are refused when the site is full, or when its disk has under 1 GB free.",
       "retentionDays": "Keep events for",
       "retentionDaysHint": "Days after an event ends, from 30 to 3,650, before it is deleted with its guest list and everything else about it. Its hosts are warned 30 days before, and nothing is deleted sooner than 30 days after the warning.",
       "keepForever": "Keep forever",
+      "albumReminderDefaultDays": "Remind hosts about albums after",
+      "albumReminderDefaultDaysHint": "Days after an event ends before its hosts are reminded to empty its album or keep it. New events start with this; a host can change it for their event. Nothing is deleted on its own.",
+      "remindNever": "Never",
       "submit": "Save",
       "saved": "Saved.",
       "maxEventsPerHostInvalid": "Enter a whole number from 1 to 100,000 for events per host.",
       "maxRsvpsPerEventInvalid": "Enter a whole number from 1 to 100,000 for replies per event.",
-      "maxPhotosPerEventInvalid": "Enter a whole number from 1 to 100,000 for photos per event.",
-      "retentionDaysInvalid": "Enter a whole number of days from 30 to 3,650 to keep events for, or tick Keep forever."
+      "maxPhotosPerEventInvalid": "Enter a whole number from 1 to 100,000 for photos and videos per event.",
+      "maxPhotoMbInvalid": "Enter a whole number from 1 to 1,000 MB for the largest photo.",
+      "maxVideoMbInvalid": "Enter a whole number from 1 to 10,000 MB for the largest video.",
+      "maxVideoMinutesInvalid": "Enter a whole number from 1 to 180 minutes for the longest video.",
+      "maxEventStorageGbInvalid": "Enter a number from 0.01 to 100,000 GB for storage per event.",
+      "maxSiteStorageGbInvalid": "Enter a number from 0.01 to 100,000 GB for storage for the site.",
+      "retentionDaysInvalid": "Enter a whole number of days from 30 to 3,650 to keep events for, or tick Keep forever.",
+      "albumReminderDefaultDaysInvalid": "Enter a whole number of days from 1 to 3,650 to remind hosts after, or tick Never."
+    },
+    "storage": {
+      "title": "Storage",
+      "description": "What the site’s uploads take, counted as uploaded: the photos and videos in albums, and hosts’ pictures. The limits are on the Limits card.",
+      "albums": "Albums",
+      "reserved": "Uploads in progress",
+      "pictures": "Hosts’ pictures",
+      "total": "In use",
+      "onDisk": "On the disk",
+      "free": "Free on the disk",
+      "bucketNote": "On S3 the site knows only what it counted; the bucket’s own figures are the provider’s.",
+      "measuring": "{count, plural, one {# file} other {# files}} from before the upgrade still being measured; the figures settle once that is done.",
+      "biggest": "Biggest albums",
+      "none": "No album holds anything yet.",
+      "use": "{size}, {count, plural, one {# item} other {# items}}",
+      "processVideos": "Process videos for playback",
+      "processVideosHint": "On, a lighter copy is made of every video that needs one, so it plays on slow connections and in every browser. Off, videos are kept as sent and play where the browser can.",
+      "submit": "Save",
+      "saved": "Saved.",
+      "videosAvailable": "Videos: available (ffmpeg {version}).",
+      "videosOld": "Videos need ffmpeg 6 or later; this server has {version}.",
+      "videosMissing": "Videos need ffmpeg, which this server does not have.",
+      "processedByApp": "Videos are processed by this site’s app.",
+      "processedByWorker": "Videos are processed by the worker container, last seen {time}.",
+      "processedByWorkerMissing": "Videos are processed by a worker container, which has not reported yet: check it is running.",
+      "clearAlbum": "Clear the album",
+      "clearAlbumTitle": "Delete {photos, plural, one {# photo} other {# photos}} and {videos, plural, one {# video} other {# videos}} ({size}) from {title}?",
+      "clearAlbumText": "The hosts are emailed that you cleared it. This cannot be undone.",
+      "clearAlbumConfirm": "Delete them",
+      "neverMind": "Never mind",
+      "straysTitle": "Stray files",
+      "checkStrays": "Check for stray files",
+      "checkStraysHint": "Files no photo, video or picture names, older than an hour. A deleted file cannot be brought back.",
+      "straysNone": "No stray files.",
+      "straysFound": "{count, plural, one {# stray file} other {# stray files}} ({size})",
+      "removeStrays": "Remove {count, plural, one {# file} other {# files}} ({size})",
+      "removeStraysTitle": "Remove {count, plural, one {# file} other {# files}} ({size})?",
+      "removeStraysText": "They cannot be brought back.",
+      "removeStraysConfirm": "Remove them",
+      "straysRemoved": "{count, plural, one {# file} other {# files}} removed."
     },
     "invitations": {
       "title": "Host invitations",
@@ -427,8 +489,8 @@
       "body": "{name} commented on {title}:\n\n{comment}\n\nThe event page:\n{url}\n\nTo stop these emails, untick “Email the hosts when a guest comments” in the event’s settings. That stops them for every host of the event."
     },
     "photos": {
-      "subject": "{name} added {count, plural, one {a photo} other {# photos}} to {title} for your approval",
-      "body": "{name} added {count, plural, one {a photo} other {# photos}} to {title} for your approval.\n\nThe event page:\n{url}\n\nTo stop these emails, untick “Email the hosts when photos need approval” in the event’s settings. That stops them for every host of the event."
+      "subject": "{name} added {photos, plural, =0 {{videos, plural, one {a video} other {# videos}}} one {a photo{videos, plural, =0 {} one { and a video} other { and # videos}}} other {# photos{videos, plural, =0 {} one { and a video} other { and # videos}}}} to {title} for your approval",
+      "body": "{name} added {photos, plural, =0 {{videos, plural, one {a video} other {# videos}}} one {a photo{videos, plural, =0 {} one { and a video} other { and # videos}}} other {# photos{videos, plural, =0 {} one { and a video} other { and # videos}}}} to {title} for your approval.\n\nThe event page:\n{url}\n\nTo stop these emails, untick “Email the hosts when photos need approval” in the event’s settings. That stops them for every host of the event."
     },
     "reminderWeek": {
       "subject": "{title} is in a week",
@@ -468,6 +530,14 @@
     "retentionWarning": {
       "subject": "{title} will be deleted on {date}",
       "body": "{title} will be deleted on {date}, with its guest list and everything else about it.\n\nEvents on this site are kept {days, plural, one {# day} other {# days}} after they end; that is the site’s rule for every event.\n\nTo keep the details for another time, open the event before then and choose Duplicate. The copy keeps the details, look, questions and settings, but not the guests. Give it its new date.\n\nYour event:\n{url}"
+    },
+    "albumReminder": {
+      "subject": "Empty or keep the album of {title}?",
+      "body": "You asked to be reminded about the album {days, plural, one {# day} other {# days}} after {title}. It holds {photos, plural, =0 {no photos} one {# photo} other {# photos}} and {videos, plural, =0 {no videos} one {# video} other {# videos}} ({size}).\n\nNothing is deleted on its own: open the event and choose Empty the album to free the space, or Keep it.\n\nYour event:\n{url}\n\nTo stop these reminders, choose Never under “Remind me about the album” in the event’s settings."
+    },
+    "albumCleared": {
+      "subject": "The site’s operator cleared the album of {title}",
+      "body": "The site’s operator cleared the album of {title}: {photos, plural, =0 {no photos} one {# photo} other {# photos}} and {videos, plural, =0 {no videos} one {# video} other {# videos}} ({size}) were deleted.\n\nYour event:\n{url}"
     },
     "dateSet": {
       "subject": "The date is set: {title}",
@@ -551,7 +621,17 @@
         "visibilityHint": "Guests who have replied can always add photos; the hosts see them all.",
         "approval": "Approve photos before they’re shown",
         "approvalHint": "New photos wait for a host. Turning this off shows every photo that is waiting.",
-        "notify": "Email the hosts when photos need approval"
+        "notify": "Email the hosts when photos need approval",
+        "videos": "Allow videos",
+        "videosHint": "Guests add videos as they add photos. Every video is kept at original quality with the phone’s location and device details dropped.",
+        "maxVideoMinutes": "Longest video (min)",
+        "maxVideoMb": "Largest video (MB)",
+        "videoCapsHint": "Blank means the site’s caps: up to {minutes} min and {mb} MB. A cap above the site’s counts as the site’s.",
+        "quality": "Lighter copy",
+        "quality1080": "1080p",
+        "quality720": "720p (saves space)",
+        "qualityHint": "A lighter copy plays on slow connections; guests can still choose the original.",
+        "videosUnavailable": "Videos need ffmpeg on this site, which it does not have yet; ask the site’s operator."
       },
       "notifyOnRsvp": "Email the hosts when a guest replies",
       "remindersEnabled": "Remind guests by email (a week before to Maybe, the day before to Going)",
@@ -624,7 +704,10 @@
       "scheduleTitleTooLong": "Item {n}’s title is longer than 80 characters.",
       "schedulePlaceTooLong": "Item {n}’s place is longer than 120 characters.",
       "scheduleNoteTooLong": "Item {n}’s note is longer than 500 characters.",
-      "scheduleInvalid": "The schedule couldn’t be read. Try again."
+      "scheduleInvalid": "The schedule couldn’t be read. Try again.",
+      "albumMaxVideoMinutesInvalid": "Enter a whole number of minutes from 1 to 180 for the longest video, or leave it blank.",
+      "albumMaxVideoMbInvalid": "Enter a whole number from 1 to 10,000 MB for the largest video, or leave it blank.",
+      "albumQualityInvalid": "Choose 1080p or 720p for the lighter copy."
     },
     "manage": {
       "link": "Event link",
@@ -658,6 +741,19 @@
       "hosts": "Hosts",
       "coHost": "Co-host",
       "leave": "Leave this event"
+    },
+    "album": {
+      "remind": "Remind me about the album",
+      "remindHint": "On that day you’re reminded here and by email to empty the album or keep it. Nothing is deleted on its own.",
+      "days": "{count, plural, one {# day} other {# days}} after the event",
+      "never": "Never",
+      "empty": "Empty the album",
+      "emptyTitle": "Delete {photos, plural, one {# photo} other {# photos}} and {videos, plural, one {# video} other {# videos}} ({size})?",
+      "emptyText": "Every photo and video goes, and the space is freed. This cannot be undone.",
+      "emptyConfirm": "Delete them",
+      "cancel": "Never mind",
+      "noticeText": "The album holds {photos, plural, one {# photo} other {# photos}} and {videos, plural, one {# video} other {# videos}} ({size}). Empty it or keep it.",
+      "keep": "Keep it"
     },
     "verify": {
       "title": "Verify your email first",
@@ -877,16 +973,27 @@
       "problems": {
         "tooLarge": "larger than {max, number} MB",
         "unsupported": "not a JPEG, PNG, WebP or AVIF picture",
-        "tooManyPixels": "too many pixels"
+        "tooManyPixels": "too many pixels",
+        "siteFull": "the site is full",
+        "diskFull": "the site’s disk is nearly full",
+        "tooLong": "longer than this album takes",
+        "videosNotAllowed": "a video, which this event does not take",
+        "incomplete": "not fully uploaded",
+        "tooLongKnown": "longer than {max}: it is {length}",
+        "videoTooLargeKnown": "larger than {max}: it is {size}"
       },
       "errors": {
         "tooFast": "You’re going too fast. Try again shortly.",
         "closed": "The album isn’t open.",
         "notAllowed": "Only guests who replied and the hosts can add photos.",
+        "tooManyItems": "Add up to ten photos or videos at a time.",
         "tooMany": "Add up to ten photos at a time.",
         "albumFull": "{left, plural, =0 {The album is full.} one {The album has room for # more photo.} other {The album has room for # more photos.}}",
         "tooLarge": "Those photos are too large together. Add fewer at a time.",
-        "failed": "The photos didn’t upload. Try again."
+        "failed": "The photos didn’t upload. Try again.",
+        "albumStorageFull": "This album is full: {limit}.",
+        "siteFull": "The site is full: ask the hosts to clear an album.",
+        "diskFull": "The site’s disk is nearly full. Try again later."
       },
       "open": "Photo {n} by {name}",
       "openPending": "Photo {n} by {name}, awaiting approval",
@@ -904,7 +1011,23 @@
       "deleteTitle": "Delete this photo?",
       "deleteText": "It goes for everyone, and can’t be brought back.",
       "deleteConfirm": "Delete it",
-      "keep": "Keep it"
+      "keep": "Keep it",
+      "addVideos": "Add photos and videos",
+      "openVideo": "Video {n} by {name}",
+      "openVideoPending": "Video {n} by {name}, awaiting approval",
+      "viewerVideo": "Video {n} of {count}",
+      "processing": "Processing",
+      "failedTooLong": "Couldn’t be processed: longer than {max}",
+      "failed": "Couldn’t be processed",
+      "remove": "Remove",
+      "removeVideo": "Remove the video from {name}",
+      "uploading": "{name}: uploading",
+      "uploaded": "{name}: uploaded, processing",
+      "quality": "Quality",
+      "original": "Original quality",
+      "copy": "Lighter copy",
+      "originalUnplayable": "Original quality: not playable in this browser.",
+      "unplayable": "This browser cannot play this video. Download it to watch."
     },
     "letter": {
       "for": "For {name}"
@@ -925,7 +1048,12 @@
       "unsupported": "That file isn’t a picture that can be used here. Choose a JPEG, PNG, WebP or AVIF picture.",
       "tooManyPixels": "That picture has too many pixels to work with. Choose one under 50 megapixels.",
       "failed": "The picture didn’t upload. Try it again.",
-      "tooFast": "You’re going too fast. Try again shortly."
+      "tooFast": "You’re going too fast. Try again shortly.",
+      "siteFull": "The site is full: clear an album, or ask the site’s operator for more room.",
+      "diskFull": "The site’s disk is nearly full. Try again later, or ask the site’s operator.",
+      "tooLong": "The upload didn’t complete. Try it again.",
+      "videosNotAllowed": "The upload didn’t complete. Try it again.",
+      "incomplete": "The upload didn’t complete. Try it again."
     },
     "replace": "Replace",
     "yourPicture": "Your picture",

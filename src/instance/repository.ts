@@ -1,6 +1,6 @@
 import { and, desc, eq, gt, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import { cache } from "react";
-import { getDb } from "@/db/client";
+import { getDb, type Db } from "@/db/client";
 import { event, hostInvitation, instanceSettings, user } from "@/db/schema";
 import { chunks } from "@/lib/chunks";
 import { staleMarks } from "@/retention/plan";
@@ -30,10 +30,44 @@ export const instanceLimits = cache(async (): Promise<Limits> => {
       maxRsvpsPerEvent: instanceSettings.maxRsvpsPerEvent,
       maxPhotosPerEvent: instanceSettings.maxPhotosPerEvent,
       retentionDays: instanceSettings.retentionDays,
+      maxPhotoMb: instanceSettings.maxPhotoMb,
+      maxVideoMb: instanceSettings.maxVideoMb,
+      maxVideoMinutes: instanceSettings.maxVideoMinutes,
+      maxEventStorageMb: instanceSettings.maxEventStorageMb,
+      maxSiteStorageMb: instanceSettings.maxSiteStorageMb,
+      albumReminderDefaultDays: instanceSettings.albumReminderDefaultDays,
     })
     .from(instanceSettings);
   return settings;
 });
+
+// The Storage card's switch (M7 ticket 03): whether a lighter copy is made of videos that need
+// one. Read when a video is processed (ticket 06), through the caller's `db` where it has one.
+export async function videoProcessing(db: Db = getDb()): Promise<boolean> {
+  const [settings] = await db.select({ on: instanceSettings.videoProcessing }).from(instanceSettings);
+  return settings.on;
+}
+
+// The site's video caps, read by the queue outside any request (ticket 06).
+export async function videoLimits(db: Db = getDb()): Promise<{ maxVideoMb: number; maxVideoMinutes: number }> {
+  const [row] = await db.select({ maxVideoMb: instanceSettings.maxVideoMb, maxVideoMinutes: instanceSettings.maxVideoMinutes }).from(instanceSettings);
+  return row;
+}
+
+export async function setVideoProcessing(on: boolean): Promise<void> {
+  await getDb().update(instanceSettings).set({ videoProcessing: on });
+}
+
+// The worker container's heartbeat (ticket 08): written every minute by the worker, read by the
+// Storage card.
+export async function videoWorkerSeenAt(): Promise<Date | undefined> {
+  const [row] = await getDb().select({ seenAt: instanceSettings.videoWorkerSeenAt }).from(instanceSettings);
+  return row.seenAt ?? undefined;
+}
+
+export async function markVideoWorkerSeen(now: Date): Promise<void> {
+  await getDb().update(instanceSettings).set({ videoWorkerSeenAt: now });
+}
 
 // Cached per request: the header, the page and the settings card may all ask. Posters that have
 // left the gallery since they were chosen are dropped as they are read.

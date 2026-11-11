@@ -17,8 +17,11 @@ export const MAX_PIXELS = 50_000_000;
 // A description is a sentence or two; screen readers read it whole, so it should stay short.
 export const ALT_TEXT_MAX = 300;
 
-// What an upload can be refused for, each of which the drawer explains.
-export const UPLOAD_PROBLEMS = ["tooLarge", "unsupported", "tooManyPixels"] as const;
+// What an upload can be refused for, each of which the drawer explains: the file itself; since
+// M7 the site's storage and its disk (ticket 02; album/album.ts, storageRoom); and a video's
+// length, an event that takes no videos, and an upload finished before every part arrived
+// (ticket 06; album/upload-protocol.ts).
+export const UPLOAD_PROBLEMS = ["tooLarge", "unsupported", "tooManyPixels", "siteFull", "diskFull", "tooLong", "videosNotAllowed", "incomplete"] as const;
 export type UploadProblem = (typeof UPLOAD_PROBLEMS)[number];
 
 const startsWith = (bytes: Uint8Array, signature: readonly number[], at = 0) =>

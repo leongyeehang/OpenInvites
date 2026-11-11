@@ -8,8 +8,9 @@ import { isUuid } from "@/lib/uuid";
 import type { Locale } from "@/locale/resolve-locale";
 import { DEFAULT_THEME, parseTheme, type Theme } from "@/themes/theme";
 import { approvePending, promoteWaitlist } from "@/rsvps/repository";
-import { removePhotoFiles } from "@/album/files";
+import { removeItemFiles } from "@/album/files";
 import { approvePendingPhotos } from "@/album/repository";
+import { albumReminderDue } from "@/album/reminders";
 import { inviteRepliedGuests } from "@/invites/repository";
 import { removeRenditions } from "@/uploads/files";
 import type { EventInput } from "./form";
@@ -43,9 +44,10 @@ function isSlugCollision(error: unknown): boolean {
 // What saving the event form writes: the form, and the language it was saved in.
 export type EventChanges = EventInput & { locale: Locale };
 
-// What a new event is made from: the form, and, for a duplicate, personal letters, which the form
-// does not carry and the copy keeps (M6 spec).
-export type NewEvent = MaybeDated<EventChanges> & Partial<Pick<Event, "lettersEnabled">>;
+// What a new event is made from: the form, and what the form does not carry: for a duplicate,
+// personal letters, which the copy keeps (M6 spec); and when to be reminded about the album, the
+// site's default for a new event and the source's for a copy (M7 ticket 09).
+export type NewEvent = MaybeDated<EventChanges> & Partial<Pick<Event, "lettersEnabled" | "albumReminderDays">>;
 
 // A new event starts with the Birthday template's theme (ticket 06), unless it is given one: a
 // duplicate starts with the theme of the event it copies.
@@ -108,6 +110,7 @@ export async function updateEvent(hostId: string, id: string, input: Partial<Eve
         endsAt: event.endsAt,
         allDay: event.allDay,
         timeZone: event.timeZone,
+        albumReminderDays: event.albumReminderDays,
       })
       .from(event)
       .where(and(eq(event.id, id), hostedBy(hostId)))
@@ -115,9 +118,12 @@ export async function updateEvent(hostId: string, id: string, input: Partial<Eve
     if (!before) return undefined;
     const after = { ...before, ...input };
     const redated = isDated(after) && (!isDated(before) || eventEnd(after).getTime() !== eventEnd(before).getTime());
+    // A redate that puts the album's reminder day ahead again takes its mark off, so the hosts are
+    // reminded on the new day (M7 ticket 09, plan ruling 8).
+    const remindAgain = redated && (albumReminderDue(after)?.getTime() ?? 0) > now.getTime();
     const [updated] = await tx
       .update(event)
-      .set({ ...input, updatedAt: now, ...(redated ? { retentionWarnedAt: null } : {}) })
+      .set({ ...input, updatedAt: now, ...(redated ? { retentionWarnedAt: null } : {}), ...(remindAgain ? { albumRemindedAt: null } : {}) })
       .where(eq(event.id, id))
       .returning();
     const promotionMailed = updated.capacity === before.capacity ? false : (await promoteWaitlist(updated, tx, now)).mailed;
@@ -296,7 +302,7 @@ export async function removeEvents(which: SQL | undefined): Promise<void> {
     await tx.delete(event).where(inArray(event.id, doomed));
     return { uploads: removed.map(({ id }) => id), photos: photos.map(({ id }) => id) };
   });
-  await Promise.all([removeRenditions(uploads), removePhotoFiles(photos)]);
+  await Promise.all([removeRenditions(uploads), removeItemFiles(photos)]);
 }
 
 // The dashboard: the events a host owns and those they co-host, each with their role.
@@ -315,6 +321,12 @@ export async function countOwnedEvents(hostId: string): Promise<number> {
 export type EventWithHost = Event & { hostName: string };
 
 // The event page: an event by its link, with its owner's display name, which the preview card shows.
+// An event by its id, scoped to no host: the operator's (M7 ticket 10, clearing an album).
+export async function findEventById(id: string): Promise<Event | undefined> {
+  const found = await getDb().query.event.findFirst({ where: eq(event.id, id) });
+  return found ? withTheme(found) : undefined;
+}
+
 export const findEventBySlug = cache(async (slug: string): Promise<EventWithHost | undefined> => {
   const [row] = await getDb()
     .select({ event, hostName: user.name })

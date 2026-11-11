@@ -317,6 +317,30 @@ test("the operator who switches to Simplified Chinese finds 站点设置 in thei
   await context.close();
 });
 
+// M7 ticket 11: the operator's Limits and Storage cards in Traditional Chinese, chosen from the
+// switcher as the operator above chooses Simplified: every new limit's label, the Storage card's
+// headings and its controls.
+test("the operator who switches to Traditional Chinese reads the Limits and Storage cards in it", async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await signIn(page, OPERATOR.email, PASSWORD);
+  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
+  await page.getByRole("button", { name: "繁體中文" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "我的活動" })).toBeVisible();
+  await page.goto("/instance");
+  await expect(page.getByRole("heading", { level: 1, name: "網站設定" })).toBeVisible();
+  for (const label of ["最大照片（MB）", "最大影片（MB）", "最長影片（分鐘）", "每個活動的儲存空間（GB）", "本站的儲存空間（GB）", "活動結束多少天後提醒主辦人處理相簿"]) {
+    await expect(page.getByLabel(label)).toBeVisible();
+  }
+  const storage = page.locator("#storage");
+  await expect(storage.getByRole("heading", { name: "儲存空間" })).toBeVisible();
+  await expect(storage.getByRole("heading", { name: "佔用最多的相簿" })).toBeVisible();
+  await expect(storage.getByRole("heading", { name: "殘留檔案" })).toBeVisible();
+  await expect(storage.getByRole("button", { name: "檢查殘留檔案" })).toBeVisible();
+  await expect(storage.getByLabel("為播放處理影片")).toBeVisible();
+  await context.close();
+});
+
 // The dashboard in each Chinese script, chosen by the host's browser (dashboard, ticket 05): the
 // shelves' headings and Next up's chips.
 for (const [acceptLanguage, copy] of [
@@ -456,7 +480,7 @@ test("an invitee whose browser asks for zh-TW opens an invite-only event, reads 
   await page.getByRole("dialog", { name: "你的回覆" }).getByRole("button", { name: "關閉" }).click();
   const photo = { name: "garden.jpg", mimeType: "image/jpeg", buffer: await sharp({ create: { width: 800, height: 600, channels: 3, background: "#2f6b3a" } }).jpeg().toBuffer() };
   const album = page.locator('[data-slot="album"]');
-  await album.getByLabel("新增照片").setInputFiles([photo]);
+  await album.getByLabel(/^新增照片/).setInputFiles([photo]);
   await expect(album.getByRole("status")).toHaveText("garden.jpg：已新增，等候核准", { timeout: 20_000 });
   await expect(album.getByText("等候核准", { exact: true })).toBeVisible({ timeout: 15_000 });
   await context.close();

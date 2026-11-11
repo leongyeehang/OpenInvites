@@ -42,6 +42,8 @@ services:
       RATE_LIMIT_PASSWORD_RESET: 5/1m
       RATE_LIMIT_MAIL: 5/1m
       RATE_LIMIT_REPORT: 5/1m
+      # Tiny upload parts, so a small test clip spans several and a dropped part can be tested (M7).
+      UPLOAD_TEST_PART_BYTES: "65536"
     ports:
       - "3000:3000"
     # Uploaded pictures on local disk, the default storage, in a named volume as an operator keeps them.
@@ -129,13 +131,40 @@ services:
       SMTP_URL: smtp://mail:1025
       MAIL_FROM: OpenInvites <no-reply@openinvites.test>
       OPERATOR_EMAIL: operator@fresh.openinvites.test
+      # Its videos are processed by worker-fresh (M7 ticket 08); the other specs on this instance
+      # add photos only, which need no queue.
+      VIDEO_PROCESSING: worker
     ports:
       - "3002:3000"
+    volumes:
+      - uploads-fresh:/app/uploads
     depends_on:
       db-fresh:
         condition: service_healthy
       mail:
         condition: service_started
+
+  # The worker container that processes app-fresh's videos: the same image in the worker role, on
+  # the same database and uploads, its port unpublished. e2e/worker.spec.ts recreates it with
+  # app-fresh.
+  worker-fresh:
+    build: .
+    profiles: [test]
+    command: ["node", "scripts/video-worker.mjs"]
+    environment:
+      DATABASE_URL: postgres://openinvites:openinvites@db-fresh:5432/openinvites
+      BASE_URL: http://localhost:3002
+      AUTH_SECRET: test-profile-only-secret-change-me-0123456789abcdef
+      SMTP_URL: smtp://mail:1025
+      MAIL_FROM: OpenInvites <no-reply@openinvites.test>
+      OPERATOR_EMAIL: operator@fresh.openinvites.test
+      VIDEO_PROCESSING: worker
+      VIDEO_ROLE: worker
+    volumes:
+      - uploads-fresh:/app/uploads
+    depends_on:
+      db-fresh:
+        condition: service_healthy
 
   # The same again without mail, where no email can be verified: there the account OPERATOR_EMAIL
   # names takes over from an operator only at a restart. e2e/registration-without-mail.spec.ts, then
@@ -206,3 +235,4 @@ services:
 volumes:
   db-data:
   uploads:
+  uploads-fresh:

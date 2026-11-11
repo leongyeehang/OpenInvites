@@ -15,8 +15,11 @@ import { findHostEvent } from "@/events/repository";
 import { eventUrl } from "@/events/slug";
 import { formatDay, formatWhen, isDated, timeZones, toWallTime } from "@/events/time";
 import { can } from "@/hosts/role";
-import { maxUploadBytes } from "@/instance/env";
+import { AlbumReminderNotice } from "@/album/album-reminder-notice";
+import { ffmpegStatus } from "@/album/ffmpeg";
+import { albumTotals } from "@/album/repository";
 import { instanceLimits } from "@/instance/repository";
+import { MEGABYTE } from "@/lib/sizes";
 import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
 import { countAnswersByQuestion, listQuestions } from "@/questions/repository";
@@ -71,7 +74,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
   if (!event) notFound();
   // Where a duplicate came from, said only when the host can see that event themselves.
   const source = typeof from === "string" ? await findHostEvent(host.id, from) : undefined;
-  const [questions, answerCounts, counts, limits, upload, hosts, editor, schedule] = await Promise.all([
+  const [questions, answerCounts, counts, limits, upload, hosts, editor, schedule, album] = await Promise.all([
     listQuestions(event.id),
     countAnswersByQuestion(event.id),
     countRsvpsByEvent([event.id]),
@@ -80,6 +83,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
     eventHosts(event.id),
     getTranslations("Editor"),
     listSchedule(event.id),
+    albumTotals(event.id),
   ]);
   const picture = upload ? themeUpload(upload) : null;
   const replies = counts.get(event.id);
@@ -115,11 +119,14 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
     ...(source ? [t("duplicatedFrom", { title: source.title })] : []),
     ...(deletion ? [t("deletionDate", { date: formatDay(deletion, event.timeZone, locale) })] : []),
   ];
+  // The album's reminder, once the clock has sent it and while the album holds anything and the
+  // host has not answered it (M7 ticket 09): Empty the album, or Keep it.
+  const reminded = event.albumRemindedAt !== null && event.albumReminderDays !== null && album.photos + album.videos > 0;
 
   // The Poster layout brings the comments' reactions and the album with it, which read
   // EventPage.comments and EventPage.album, though the editor shows neither.
   return (
-    <ClientMessages namespaces={["Editor", "Design", "Posters", "Events.form", "Events.manage", "EventPage.comments", "EventPage.album"]}>
+    <ClientMessages namespaces={["Editor", "Design", "Posters", "Events.form", "Events.manage", "Events.album", "EventPage.comments", "EventPage.album"]}>
       {/* The invite list's link to the settings opens the editor with them open (M6 ticket 08). */}
       <EditorProvider sheet={sheet === "settings" ? "settings" : null}>
         <ThemedPage
@@ -142,24 +149,28 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
                   rsvps,
                 }}
               />
-              {notices.length > 0 && (
+              {(notices.length > 0 || reminded) && (
                 <div className="fixed inset-x-3 top-[calc(max(env(safe-area-inset-top),0.75rem)+3rem)] z-30 mx-auto flex max-w-md flex-col gap-2">
                   {notices.map((notice) => (
                     <p key={notice} className="dark rounded-2xl border bg-popover/95 px-4 py-2.5 text-sm text-popover-foreground shadow-lg backdrop-blur-xl">
                       {notice}
                     </p>
                   ))}
+                  {reminded && <AlbumReminderNotice eventId={event.id} album={album} className="dark rounded-2xl border bg-popover/95 px-4 py-3 text-popover-foreground shadow-lg backdrop-blur-xl" />}
                 </div>
               )}
               <EditorToolbar
                 sheets={
                   <>
-                    <DesignSheets eventId={event.id} title={event.title} maxUploadBytes={maxUploadBytes()} />
+                    <DesignSheets eventId={event.id} title={event.title} maxUploadBytes={limits.maxPhotoMb * MEGABYTE} />
                     <SettingsSheet
                       eventId={event.id}
                       settings={event}
                       mail={isMailConfigured()}
                       maxReplies={limits.maxRsvpsPerEvent}
+                      siteVideo={{ maxMinutes: limits.maxVideoMinutes, maxMb: limits.maxVideoMb, available: ffmpegStatus().available }}
+                      album={album}
+                      reminderDays={event.albumReminderDays}
                       questions={questions}
                       answerCounts={answerCounts}
                     />

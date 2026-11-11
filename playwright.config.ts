@@ -12,6 +12,12 @@ const RETENTION_INSTANCE = /(^|\/)retention\.spec\.ts$/;
 // The spec that takes `app-fresh` after the retention spec, and saves the home page settings, which
 // change what every page shows: so never on the shared `app`.
 const HOME_INSTANCE = /(^|\/)home-page\.spec\.ts$/;
+// The spec that takes `app-fresh` and `app-no-mail` after the retention spec: the album's reminder
+// (M7 ticket 09). A project of its own, as two files in one project would run at once.
+const ALBUM_REMINDER_INSTANCE = /(^|\/)album-reminder\.spec\.ts$/;
+// The spec that takes `app-fresh` after the home page spec, with `worker-fresh` beside it: the
+// video processing moved to a worker container (M7 ticket 08).
+const WORKER_INSTANCE = /(^|\/)worker\.spec\.ts$/;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -39,13 +45,13 @@ export default defineConfig({
     {
       name: "mobile",
       dependencies: ["operator"],
-      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE, HOME_INSTANCE],
+      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE, ALBUM_REMINDER_INSTANCE, HOME_INSTANCE, WORKER_INSTANCE],
       use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
     },
     {
       name: "desktop",
       dependencies: ["operator"],
-      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE, HOME_INSTANCE],
+      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE, ALBUM_REMINDER_INSTANCE, HOME_INSTANCE, WORKER_INSTANCE],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } },
     },
     // One instance per spec, so one project: each spec's scenarios run in order and change what
@@ -72,11 +78,27 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, baseURL: "http://localhost:3002" },
     },
     // After the retention spec, which leaves app-fresh and app-no-mail as it likes; this spec
+    // recreates both.
+    {
+      name: "album-reminder-instance",
+      testMatch: ALBUM_REMINDER_INSTANCE,
+      dependencies: ["retention-instance"],
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, baseURL: "http://localhost:3002" },
+    },
+    // After the album reminder spec, which leaves app-fresh and app-no-mail as it likes; this spec
     // recreates app-fresh.
     {
       name: "home-instance",
       testMatch: HOME_INSTANCE,
-      dependencies: ["retention-instance"],
+      dependencies: ["album-reminder-instance"],
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, baseURL: "http://localhost:3002" },
+    },
+    // After the home page spec, which leaves app-fresh as it likes; this spec recreates app-fresh
+    // and worker-fresh.
+    {
+      name: "worker-instance",
+      testMatch: WORKER_INSTANCE,
+      dependencies: ["home-instance"],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, baseURL: "http://localhost:3002" },
     },
   ],

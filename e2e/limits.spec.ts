@@ -1,8 +1,11 @@
+import { randomBytes } from "node:crypto";
 import sharp from "sharp";
+import { expectNoSeriousViolations } from "./axe";
+import { tabUntil } from "./keys";
 import { expect, test, type Browser, type Page } from "./test";
-import { APPROVAL, editSettings, eventLinkIn, openMore, publishInEditor, setWhen, typeTitle } from "./events";
-import { dismissOperatorWelcome, mailCountTo, newHost, signUp, toSiteSettings, verifyEmail } from "./hosts";
-import { recreate } from "./instances";
+import { APPROVAL, createDraft, editSettings, eventLinkIn, openDesign, openMore, publishInEditor, setWhen, typeTitle } from "./events";
+import { dismissOperatorWelcome, latestMailTo, mailCountTo, newHost, signUp, toSiteSettings, verifyEmail } from "./hosts";
+import { exec, recreate } from "./instances";
 import { closeReply } from "./reply";
 
 // Ticket 01: the operator's two limits. Runs against `app-fresh` after the fresh-instance specs
@@ -73,6 +76,57 @@ test("the operator sets the limits to two and sees them saved", async ({ browser
   await operator.reload();
   await expect(operator.getByLabel("Events per host")).toHaveValue("2");
   await expect(operator.getByLabel("Replies per event")).toHaveValue("2");
+});
+
+// M7 ticket 01: the upload and storage limits and the album reminder's default, on the same card,
+// in effect from the moment they are saved. The small values set here stay for the album rows below.
+test("the upload and storage limits and the reminder default save, read back, and refuse what is out of range", async () => {
+  await operator.goto("/instance");
+  await expect(operator.getByLabel("Largest photo (MB)")).toHaveValue("40");
+  await expect(operator.getByLabel("Largest video (MB)")).toHaveValue("750");
+  await expect(operator.getByLabel("Longest video (min)")).toHaveValue("15");
+  await expect(operator.getByLabel("Storage per event (GB)")).toHaveValue("50");
+  await expect(operator.getByLabel("Storage for the site (GB)")).toHaveValue("50");
+  await expect(operator.getByLabel("Remind hosts about albums after")).toHaveValue("60");
+  const limits = operator.locator("form").filter({ has: operator.getByLabel("Events per host") });
+
+  await operator.getByLabel("Largest photo (MB)").fill("1");
+  await operator.getByLabel("Largest video (MB)").fill("2");
+  await operator.getByLabel("Longest video (min)").fill("1");
+  await operator.getByLabel("Storage per event (GB)").fill("0.01");
+  await operator.getByLabel("Storage for the site (GB)").fill("0.02");
+  await operator.getByLabel("Remind hosts about albums after").fill("7");
+  await limits.getByRole("button", { name: "Save" }).click();
+  await expect(limits.getByText("Saved.")).toBeVisible();
+  await operator.reload();
+  await expect(operator.getByLabel("Largest photo (MB)")).toHaveValue("1");
+  await expect(operator.getByLabel("Largest video (MB)")).toHaveValue("2");
+  await expect(operator.getByLabel("Longest video (min)")).toHaveValue("1");
+  await expect(operator.getByLabel("Storage per event (GB)")).toHaveValue("0.01");
+  await expect(operator.getByLabel("Storage for the site (GB)")).toHaveValue("0.02");
+  await expect(operator.getByLabel("Remind hosts about albums after")).toHaveValue("7");
+
+  // Out of range, past the browser's own check: the server names the field, and nothing is saved.
+  await limits.evaluate((form) => form.setAttribute("novalidate", ""));
+  await operator.getByLabel("Largest photo (MB)").fill("2000");
+  await limits.getByRole("button", { name: "Save" }).click();
+  await expect(limits.getByText("Enter a whole number from 1 to 1,000 MB for the largest photo.")).toBeVisible();
+  await operator.getByLabel("Largest photo (MB)").fill("1");
+  await operator.getByLabel("Storage per event (GB)").fill("0.001");
+  await limits.getByRole("button", { name: "Save" }).click();
+  await expect(limits.getByText("Enter a number from 0.01 to 100,000 GB for storage per event.")).toBeVisible();
+  await operator.reload();
+  await expect(operator.getByLabel("Largest photo (MB)")).toHaveValue("1");
+  await expect(operator.getByLabel("Storage per event (GB)")).toHaveValue("0.01");
+
+  // Never turns the reminder off, and the choice survives a reload.
+  await operator.getByLabel("Never", { exact: true }).check();
+  await expect(operator.getByLabel("Remind hosts about albums after")).toBeDisabled();
+  await limits.getByRole("button", { name: "Save" }).click();
+  await expect(limits.getByText("Saved.")).toBeVisible();
+  await operator.reload();
+  await expect(operator.getByLabel("Never", { exact: true })).toBeChecked();
+  await expect(operator.getByLabel("Remind hosts about albums after")).toBeDisabled();
 });
 
 test("a limit outside the range is refused", async () => {
@@ -149,8 +203,8 @@ test("a third guest is refused at the replies limit, a reply waiting for approva
 test("an album at the operator's photos limit refuses more, saying how many it has room for", async () => {
   test.slow();
   await operator.goto("/instance");
-  await expect(operator.getByLabel("Photos per event")).toHaveValue("300");
-  await operator.getByLabel("Photos per event").fill("1");
+  await expect(operator.getByLabel("Photos and videos per event")).toHaveValue("300");
+  await operator.getByLabel("Photos and videos per event").fill("1");
   const limits = operator.locator("form").filter({ has: operator.getByLabel("Events per host") });
   await limits.getByRole("button", { name: "Save" }).click();
   await expect(limits.getByText("Saved.")).toBeVisible();
@@ -162,7 +216,7 @@ test("an album at the operator's photos limit refuses more, saying how many it h
   await publishInEditor(operator);
   await operator.goto(await eventLinkIn(operator));
   const album = operator.locator('[data-slot="album"]');
-  const add = album.getByLabel("Add photos");
+  const add = album.getByLabel(/^Add photos/);
   const photo = async (name: string) => ({ name, mimeType: "image/png", buffer: await sharp({ create: { width: 40, height: 30, channels: 3, background: "#406080" } }).png().toBuffer() });
 
   await add.setInputFiles([await photo("one.png"), await photo("two.png")]);
@@ -195,15 +249,214 @@ test("with approval on, a guest's photo waiting for it takes the album's last pl
   await closeReply(guest);
   const guestAlbum = guest.locator('[data-slot="album"]');
   const photo = async (name: string) => ({ name, mimeType: "image/png", buffer: await sharp({ create: { width: 40, height: 30, channels: 3, background: "#806040" } }).png().toBuffer() });
-  await guestAlbum.getByLabel("Add photos").setInputFiles([await photo("one.png")]);
+  await guestAlbum.getByLabel(/^Add photos/).setInputFiles([await photo("one.png")]);
   await expect(guestAlbum.getByRole("status")).toHaveText("one.png: added, awaiting approval", { timeout: 15_000 });
-  await guestAlbum.getByLabel("Add photos").setInputFiles([await photo("two.png")]);
+  await guestAlbum.getByLabel(/^Add photos/).setInputFiles([await photo("two.png")]);
   await expect(guestAlbum.getByRole("alert")).toHaveText("The album is full.", { timeout: 15_000 });
 
   // The host, whose photos need no approval, is refused the same.
   await operator.reload();
   await expect(album.getByText("Awaiting approval", { exact: true })).toBeVisible();
-  await album.getByLabel("Add photos").setInputFiles([await photo("three.png")]);
+  await album.getByLabel(/^Add photos/).setInputFiles([await photo("three.png")]);
   await expect(album.getByRole("alert")).toHaveText("The album is full.", { timeout: 15_000 });
   await guest.context().close();
 });
+
+// M7 ticket 02: albums are bounded in bytes too. Storage per event and Storage for the site were
+// set above to 0.01 and 0.02 GB, that is 10 and 20 MB. A photo of random pixels of about 9 MB does
+// not compress, so two fill an album and three fill the site; a host's picture counts for the site.
+test("an album and the site are bounded in bytes, and a host's picture counts toward the site's", async () => {
+  test.slow();
+  // Room for photos again: the items limit was 1 and the largest photo 1 MB above.
+  await operator.goto("/instance");
+  await operator.getByLabel("Photos and videos per event").fill("300");
+  await operator.getByLabel("Largest photo (MB)").fill("40");
+  const limits = operator.locator("form").filter({ has: operator.getByLabel("Events per host") });
+  await limits.getByRole("button", { name: "Save" }).click();
+  await expect(limits.getByText("Saved.")).toBeVisible();
+
+  const big = async (name: string) => ({
+    name,
+    mimeType: "image/png",
+    buffer: await sharp(randomBytes(2048 * 1536 * 3), { raw: { width: 2048, height: 1536, channels: 3 } }).png({ compressionLevel: 0 }).toBuffer(),
+  });
+  const album = operator.locator('[data-slot="album"]');
+
+  // The second party's album: one 9 MB photo fits in 10 MB, a second does not.
+  await operator.goto("/dashboard");
+  await operator.getByRole("link", { name: /Second party/ }).click();
+  const secondLink = await eventLinkIn(operator);
+  await operator.goto(secondLink);
+  await album.getByLabel(/^Add photos/).setInputFiles([await big("big-one.png")]);
+  await expect(album.getByRole("status")).toHaveText("big-one.png: added", { timeout: 30_000 });
+  await album.getByLabel(/^Add photos/).setInputFiles([await big("big-two.png")]);
+  await expect(album.getByRole("alert")).toHaveText("This album is full: 10 MB.", { timeout: 30_000 });
+
+  // With room per event (30 MB) but not for the site (20 MB): the first party's album takes one
+  // photo (the site at 18 of 20 MB) and refuses the next for the site, and so is a 9 MB picture
+  // for its poster.
+  await operator.goto("/instance");
+  await operator.getByLabel("Storage per event (GB)").fill("0.03");
+  await limits.getByRole("button", { name: "Save" }).click();
+  await expect(limits.getByText("Saved.")).toBeVisible();
+  await operator.goto("/dashboard");
+  await operator.getByRole("link", { name: /First party/ }).click();
+  await setWhen(operator, { start: "2026-01-10T19:00" });
+  // Published already by the events-limit row above, unless that row changes.
+  if ((await operator.getByRole("button", { name: "Publish" }).count()) > 0) await publishInEditor(operator);
+  const firstLink = await eventLinkIn(operator);
+  await operator.goto(firstLink);
+  await album.getByLabel(/^Add photos/).setInputFiles([await big("big-three.png")]);
+  await expect(album.getByRole("status")).toHaveText("big-three.png: added", { timeout: 30_000 });
+  await album.getByLabel(/^Add photos/).setInputFiles([await big("big-four.png")]);
+  await expect(album.getByRole("alert")).toHaveText("The site is full: ask the hosts to clear an album.", { timeout: 30_000 });
+  await operator.goto("/dashboard");
+  await operator.getByRole("link", { name: /First party/ }).click();
+  const drawer = await openDesign(operator, "Poster", "Upload");
+  await drawer.getByLabel("Upload your photo or poster").setInputFiles(await big("big-poster.png"));
+  await expect(drawer.getByRole("alert")).toHaveText("The site is full: clear an album, or ask the site’s operator for more room.", { timeout: 30_000 });
+
+  // A photo deleted frees its bytes: the second party's album takes one again.
+  await operator.goto(secondLink);
+  await album.getByRole("button", { name: /^Photo \d by / }).last().click();
+  await operator.getByRole("dialog", { name: /^Photo \d of \d$/ }).getByRole("button", { name: "Delete" }).click();
+  await operator.getByRole("alertdialog").getByRole("button", { name: "Delete it" }).click();
+  await expect(album.getByRole("button", { name: /^Photo \d by / })).toHaveCount(1, { timeout: 15_000 });
+  await album.getByLabel(/^Add photos/).setInputFiles([await big("big-five.png")]);
+  await expect(album.getByRole("status")).toHaveText("big-five.png: added", { timeout: 30_000 });
+});
+
+// M7 ticket 03: the Storage card answers "how full is my site?", from what the rows above left:
+// two 9 MB photos and a tiny one in two albums, and no host's picture.
+test("the Storage card shows the site's use, the biggest albums, and the processing switch", async () => {
+  await operator.goto("/instance");
+  const card = operator.locator("#storage");
+  await expect(card.getByRole("heading", { name: "Storage" })).toBeVisible();
+  const albums = await card.locator('dt:text-is("Albums") + dd').textContent();
+  expect(Number(albums!.replace(/[^\d.]/g, ""))).toBeGreaterThan(17.5);
+  expect(Number(albums!.replace(/[^\d.]/g, ""))).toBeLessThan(19);
+  await expect(card.locator('dt:text-is("Hosts’ pictures") + dd')).toContainText("MB");
+  await expect(card.locator('dt:text-is("Free on the disk") + dd')).toContainText(/MB|GB/);
+  const rows = card.getByRole("listitem");
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first()).toContainText(/Second party|First party/);
+  await expect(rows.first()).toContainText(/Ada /);
+
+  // The switch is on by default, stays off once saved so, and comes back on.
+  const form = card.locator("form");
+  await expect(card.getByLabel("Process videos for playback")).toBeChecked();
+  await card.getByLabel("Process videos for playback").uncheck();
+  await form.getByRole("button", { name: "Save" }).click();
+  await expect(form.getByText("Saved.")).toBeVisible();
+  await operator.reload();
+  await expect(card.getByLabel("Process videos for playback")).not.toBeChecked();
+  await card.getByLabel("Process videos for playback").check();
+  await card.locator("form").getByRole("button", { name: "Save" }).click();
+  await expect(card.locator("form").getByText("Saved.")).toBeVisible();
+});
+
+// Review fix (I3): an upload counts from its ask, which the Storage card shows under "Uploads in
+// progress"; a batch that receives nothing for an hour is dropped by the sweep, which the first
+// minute after a restart runs, so a reservation with no bytes behind it cannot hold the site.
+test("an upload asked for and never sent shows on the Storage card, and an idle hour drops it", async () => {
+  test.setTimeout(240_000);
+  const url = new URL(eventLink);
+  const base = `${url.origin}/api/albums/${url.pathname.split("/").pop()}/uploads`;
+  const asked = await operator.request.post(base, { headers: { origin: url.origin }, data: { files: [{ name: "big.jpg", size: 1024 * 1024, type: "image/jpeg" }] } });
+  expect(asked.status()).toBe(200);
+  const { uploads } = (await asked.json()) as { uploads: { ok: boolean; id: string }[] };
+  expect(uploads[0].ok).toBe(true);
+  await operator.goto("/instance");
+  const card = operator.locator("#storage");
+  await expect(card.locator('dt:text-is("Uploads in progress") + dd')).toHaveText("1 MB");
+  // Two hours pass for the batch, and the app restarts: its first minute sweeps.
+  exec("db-fresh", "psql", "-U", "openinvites", "-d", "openinvites", "-c", "update album_upload set created_at = created_at - interval '2 hours', touched_at = touched_at - interval '2 hours'");
+  recreate("app-fresh");
+  await expect.poll(async () => (await operator.request.get(`${base}/${uploads[0].id}`)).status(), { timeout: 150_000, intervals: [5_000], message: "the upload dropped" }).toBe(404);
+  await operator.goto("/instance");
+  await expect(card.getByRole("heading", { name: "Storage" })).toBeVisible();
+  await expect(card.locator('dt:text-is("Uploads in progress")')).toHaveCount(0);
+});
+
+// A small photo, well inside every limit the rows above left.
+async function small(name: string) {
+  return { name, mimeType: "image/jpeg", buffer: await sharp({ create: { width: 800, height: 600, channels: 3, background: "#2f6b3a" } }).jpeg().toBuffer() };
+}
+
+// The operator opens registration, so that a host of their own can sign up.
+async function openRegistration(page: Page) {
+  await page.goto("/instance");
+  await page.getByLabel("Open", { exact: true }).check();
+  await page.locator("form").filter({ has: page.getByLabel("Open", { exact: true }) }).getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Saved.")).toBeVisible();
+}
+
+// A UUIDv7 made two hours ago, as an item from then would have.
+function oldUuidv7(): string {
+  const hex = (Date.now() - 2 * 60 * 60 * 1000).toString(16).padStart(12, "0");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-7abc-8def-0123456789ab`;
+}
+
+// M7 ticket 10: the operator clears an album from the Storage card, and its hosts are told.
+test("the operator clears a host's album from the Storage card, confirming what goes, and the host is emailed", async ({ browser, request }) => {
+  test.slow();
+  await openRegistration(operator);
+  const page = await (await browser.newContext()).newPage();
+  const host = newHost("limits-host");
+  await signUp(page, host);
+  await verifyEmail(page, request, host.email);
+  const link = await createDraft(page, { title: "Ada’s picnic", start: "2026-01-10T19:00" });
+  await publishInEditor(page);
+  await page.goto(link);
+  const album = page.locator('[data-slot="album"]');
+  await album.getByLabel(/^Add photos/).setInputFiles([await small("one.jpg"), await small("two.jpg")]);
+  await expect(album.getByRole("button", { name: /^Photo \d by / })).toHaveCount(2, { timeout: 30_000 });
+  const mails = await mailCountTo(request, host.email);
+
+  await operator.goto("/instance");
+  const card = operator.locator("#storage");
+  const row = card.getByRole("listitem").filter({ hasText: "Ada’s picnic" });
+  await expect(row).toBeVisible();
+  await row.getByRole("button", { name: "Clear the album" }).click();
+  const dialog = operator.getByRole("alertdialog");
+  await expect(dialog.getByRole("heading", { name: /^Delete 2 photos and 0 videos \(.+\) from Ada’s picnic\?$/ })).toBeVisible();
+  await dialog.getByRole("button", { name: "Delete them" }).click();
+  await expect(row).toHaveCount(0);
+  await page.goto(link);
+  await expect(album.getByRole("button", { name: /^Photo \d by / })).toHaveCount(0);
+  const text = await latestMailTo(request, host.email, mails);
+  expect(text).toContain("The site’s operator cleared the album of Ada’s picnic: 2 photos and no videos (");
+  expect(text).toContain("/events/");
+  await page.context().close();
+});
+
+// A file planted in the uploads volume under an id from two hours ago, written two hours ago, is
+// what the check finds; the photos' own files are not.
+test("the operator finds a stray file and removes it after confirming", async () => {
+  const stray = `${oldUuidv7()}-photo.webp`;
+  const stamp = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString().replace(/\D/g, "").slice(0, 12);
+  exec("app-fresh", "sh", "-c", `printf stray > /app/uploads/${stray} && touch -t ${stamp} /app/uploads/${stray}`);
+  await operator.goto("/instance");
+  // The check is the page's first press: once the page has hydrated, so the form posts through
+  // its action rather than as a plain form.
+  await operator.waitForLoadState("networkidle");
+  const card = operator.locator("#storage");
+  await card.getByRole("button", { name: "Check for stray files" }).click();
+  await expect(card.getByText(/^1 stray file \(.+\)$/)).toBeVisible();
+  await expect(card.getByRole("listitem").filter({ hasText: stray })).toHaveCount(1);
+  await expect(card.getByRole("listitem").filter({ hasText: /-photo(-thumb)?\.webp/ })).toHaveCount(1);
+  await expectNoSeriousViolations(operator, "Site settings, the stray list");
+  // Removed by keyboard: Enter on Remove opens the confirmation, Tab reaches Remove them.
+  await card.getByRole("button", { name: /^Remove 1 file / }).focus();
+  await operator.keyboard.press("Enter");
+  const dialog = operator.getByRole("alertdialog");
+  await expect(dialog).toBeVisible();
+  await expectNoSeriousViolations(operator, "Site settings, the stray list, the confirmation open");
+  await tabUntil(operator, dialog.getByRole("button", { name: "Remove them" }));
+  await operator.keyboard.press("Enter");
+  await expect(card.getByText("1 file removed.")).toBeVisible();
+  expect(() => exec("app-fresh", "test", "!", "-e", `/app/uploads/${stray}`)).not.toThrow();
+  await card.getByRole("button", { name: "Check for stray files" }).click();
+  await expect(card.getByText("No stray files.")).toBeVisible();
+});
+

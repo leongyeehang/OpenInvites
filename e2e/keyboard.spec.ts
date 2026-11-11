@@ -712,7 +712,7 @@ test("a host approves one waiting photo and deletes another in the album's viewe
     buffer: await sharp({ create: { width: 1600, height: 1200, channels: 3, background } }).jpeg().toBuffer(),
   });
   const album = (on: Page) => on.locator('[data-slot="album"]');
-  await album(guest).getByLabel("Add photos").setInputFiles([await picture("garden.jpg", "#2f6b3a"), await picture("cake.jpg", "#c0506a")]);
+  await album(guest).getByLabel(/^Add photos/).setInputFiles([await picture("garden.jpg", "#2f6b3a"), await picture("cake.jpg", "#c0506a")]);
   await expect(album(guest).getByRole("status")).toContainText("cake.jpg: added, awaiting approval", { timeout: 20_000 });
 
   const page = host.page;

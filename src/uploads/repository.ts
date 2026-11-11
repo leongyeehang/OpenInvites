@@ -45,13 +45,15 @@ export async function findHostUploadId(hostId: string, eventId: string): Promise
 // (themes/changes.ts). The event is locked
 // while it happens, so two uploads at once apply one after the other, and deleting the event
 // meanwhile waits for it or finds it gone. The description does not carry over, as the new
-// picture shows something else. Returns the id of the upload it replaced, whose files the
-// caller removes, or undefined when the event is not the host's.
+// picture shows something else. The size as uploaded is recorded, for Storage for the site (M7
+// ticket 02). Returns the id of the upload it replaced, whose files the caller removes, or
+// undefined when the event is not the host's.
 export async function replaceUpload(
   hostId: string,
   eventId: string,
   id: string,
   sample: Sample,
+  bytes: number,
   emoji?: EmojiChoice,
 ): Promise<{ replaced: string | null } | undefined> {
   return getDb().transaction(async (tx) => {
@@ -62,7 +64,7 @@ export async function replaceUpload(
       .for("update");
     if (!row) return undefined;
     const [old] = await tx.delete(upload).where(eq(upload.eventId, eventId)).returning({ id: upload.id });
-    await tx.insert(upload).values({ id, eventId, ...sample, ...(emoji ? { origin: "emoji" as const, emojiSet: emoji.emoji, emojiBackground: emoji.background } : {}) });
+    await tx.insert(upload).values({ id, eventId, ...sample, bytes, ...(emoji ? { origin: "emoji" as const, emojiSet: emoji.emoji, emojiBackground: emoji.background } : {}) });
     // A theme write moves updatedAt, which is what makes the link's preview card redraw.
     const theme = showNewUpload(parseTheme(row.theme));
     await tx.update(event).set({ theme, updatedAt: new Date() }).where(eq(event.id, eventId));
@@ -93,11 +95,13 @@ export async function attachUploadCopy(hostId: string, eventId: string, id: stri
       .where(and(eq(event.id, eventId), hostedBy(hostId)))
       .for("update");
     if (!row) return false;
-    const { altText, luminance, accent, lightest, darkest, posterLightest, posterDarkest, posterWidth, posterHeight, origin, emojiSet, emojiBackground } = from;
+    const { altText, luminance, accent, lightest, darkest, posterLightest, posterDarkest, posterWidth, posterHeight, origin, emojiSet, emojiBackground, bytes } = from;
+    // The copy is real files, so it counts its size as the source did (M7 ticket 02).
     await tx.insert(upload).values({
       id,
       eventId,
       altText,
+      bytes,
       luminance,
       accent,
       lightest,

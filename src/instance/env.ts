@@ -35,13 +35,26 @@ export function analyticsSnippet(): string | undefined {
   return process.env.ANALYTICS_SNIPPET?.trim() || undefined;
 }
 
-const MEGABYTE = 1024 * 1024;
+// MAX_UPLOAD_MB, the largest picture, retired in 0.7: Largest photo on Site settings took its
+// place, and instance/upload-limit.ts reads the old setting once at the first start after.
 
-// The largest picture a host may upload, in megabytes (MAX_UPLOAD_MB, default 10).
-export function maxUploadBytes(): number {
-  const setting = process.env.MAX_UPLOAD_MB?.trim();
-  if (!setting) return 10 * MEGABYTE;
-  const megabytes = Number(setting);
-  if (!Number.isFinite(megabytes) || megabytes <= 0) throw new Error(`MAX_UPLOAD_MB must be a number of megabytes, not "${setting}"`);
-  return Math.floor(megabytes * MEGABYTE);
+// Where the album's videos are processed (VIDEO_PROCESSING, M7 ticket 08): in the app container,
+// or in a worker container started from the same image. Anything else is refused at start.
+export type VideoProcessingMode = "app" | "worker";
+
+export function videoProcessingMode(): VideoProcessingMode {
+  const raw = process.env.VIDEO_PROCESSING?.trim() || "app";
+  if (raw !== "app" && raw !== "worker") throw new Error(`VIDEO_PROCESSING must be "app" or "worker", not "${raw}"`);
+  return raw;
+}
+
+// What this process is (VIDEO_ROLE): the app, or the worker that scripts/video-worker.mjs starts.
+export function videoRole(): VideoProcessingMode {
+  return process.env.VIDEO_ROLE?.trim() === "worker" ? "worker" : "app";
+}
+
+// Whether this process takes jobs from the video queue: the app does unless the processing was
+// moved to a worker, and the worker always does.
+export function processesVideosHere(): boolean {
+  return videoRole() === "worker" || videoProcessingMode() === "app";
 }

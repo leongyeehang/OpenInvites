@@ -8,8 +8,10 @@ export const ALBUM_VISIBILITIES = ["replied", "going", "hosts"] as const;
 export type AlbumVisibility = (typeof ALBUM_VISIBILITIES)[number];
 
 // A photo waits for a host while the host approves photos before they show; every other is
-// approved. The database enum is built from this list too.
-export const PHOTO_STATUSES = ["pending", "approved"] as const;
+// approved. A video (M7 ticket 05) is processing from its upload until ffmpeg is done with it, and
+// failed when ffmpeg could not read it or it was over the length cap; a failed item counts for
+// nothing. The database enum is built from this list too.
+export const PHOTO_STATUSES = ["pending", "approved", "processing", "failed"] as const;
 
 export type PhotoStatus = (typeof PHOTO_STATUSES)[number];
 
@@ -42,5 +44,11 @@ export function photoScope(view: Exclude<AlbumView, "locked">, viewer: Exclude<A
 // The status a new photo is added with: pending, from a guest, while the host approves photos; a
 // host's own photos are approved at once, as are everyone's while approval is off.
 export function photoStatusFor(event: { albumApprovalRequired: boolean }, viewer: AlbumViewer): PhotoStatus {
-  return event.albumApprovalRequired && viewer.kind === "guest" ? "pending" : "approved";
+  return photoStatusForOwner(event, viewer.kind === "guest" ? "guest" : "host");
+}
+
+// The same, from who owns the item, for a video finished by the queue (M7 ticket 06), where the
+// owner is a column, not a viewer.
+export function photoStatusForOwner(event: { albumApprovalRequired: boolean }, owner: "host" | "guest"): PhotoStatus {
+  return event.albumApprovalRequired && owner === "guest" ? "pending" : "approved";
 }

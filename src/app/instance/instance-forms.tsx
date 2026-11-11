@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { createHostInvitationAction, setHomePageAction, setInstanceLimitsAction, setRegistrationModeAction } from "@/instance/actions";
+import { createHostInvitationAction, setHomePageAction, setInstanceLimitsAction, setRegistrationModeAction, setVideoProcessingAction } from "@/instance/actions";
 import { DEFAULT_HOME_PAGE, DEFAULT_INSTANCE_NAME, HOME_POSTER_MODES, type HomePage } from "@/instance/home";
-import { LIMIT_MAX, LIMIT_MIN, type Limits } from "@/instance/limits";
+import { DEFAULT_LIMITS, LIMIT_MAX, LIMIT_MIN, PHOTO_MB, REMINDER_DAYS, STORAGE_GB, VIDEO_MB, VIDEO_MINUTES, type Limits } from "@/instance/limits";
 import { REGISTRATION_MODES, type RegistrationMode } from "@/instance/registration";
 import { GALLERY_POSTERS, OCCASIONS, type GalleryPosterId } from "@/themes/posters";
 import { DEFAULT_RETENTION_DAYS, RETENTION_MAX_DAYS, RETENTION_MIN_DAYS } from "@/retention/plan";
@@ -218,19 +218,35 @@ export function RegistrationForm({ mode }: { mode: RegistrationMode }) {
   );
 }
 
+// The storage limits are kept in whole megabytes and typed in gigabytes, to two decimals.
+const gigabytes = (megabytes: number) => Number((megabytes / 1024).toFixed(2));
+
 export function LimitsForm({ limits }: { limits: Limits }) {
   const t = useTranslations("Instance.limits");
   const [state, action, pending] = useActionState(setInstanceLimitsAction, undefined);
   // Keep forever turns the days off: the field then sends nothing and asks for nothing, and keeps
-  // what it showed for when the box is unticked.
+  // what it showed for when the box is unticked. Never does the same for the album reminder.
   const [forever, setForever] = useState(limits.retentionDays === null);
+  const [never, setNever] = useState(limits.albumReminderDefaultDays === null);
+  // The card's numbers, in its order (M7 ticket 01): the three counts, then the upload and storage
+  // limits with their unit in the label, each within the range instance/limits.ts sets.
+  const numbers = [
+    { name: "maxEventsPerHost", min: LIMIT_MIN, max: LIMIT_MAX, step: 1, value: limits.maxEventsPerHost },
+    { name: "maxRsvpsPerEvent", min: LIMIT_MIN, max: LIMIT_MAX, step: 1, value: limits.maxRsvpsPerEvent },
+    { name: "maxPhotosPerEvent", min: LIMIT_MIN, max: LIMIT_MAX, step: 1, value: limits.maxPhotosPerEvent },
+    { name: "maxPhotoMb", min: PHOTO_MB.min, max: PHOTO_MB.max, step: 1, value: limits.maxPhotoMb },
+    { name: "maxVideoMb", min: VIDEO_MB.min, max: VIDEO_MB.max, step: 1, value: limits.maxVideoMb },
+    { name: "maxVideoMinutes", min: VIDEO_MINUTES.min, max: VIDEO_MINUTES.max, step: 1, value: limits.maxVideoMinutes },
+    { name: "maxEventStorageGb", min: STORAGE_GB.min, max: STORAGE_GB.max, step: 0.01, value: gigabytes(limits.maxEventStorageMb) },
+    { name: "maxSiteStorageGb", min: STORAGE_GB.min, max: STORAGE_GB.max, step: 0.01, value: gigabytes(limits.maxSiteStorageMb) },
+  ] as const;
   return (
     <form action={action}>
       <FieldGroup>
-        {(["maxEventsPerHost", "maxRsvpsPerEvent", "maxPhotosPerEvent"] as const).map((name) => (
+        {numbers.map(({ name, min, max, step, value }) => (
           <Field key={name}>
             <FieldLabel htmlFor={name}>{t(name)}</FieldLabel>
-            <Input id={name} name={name} type="number" inputMode="numeric" min={LIMIT_MIN} max={LIMIT_MAX} step={1} defaultValue={limits[name]} required />
+            <Input id={name} name={name} type="number" inputMode={step === 1 ? "numeric" : "decimal"} min={min} max={max} step={step} defaultValue={value} required />
             <FieldDescription>{t(`${name}Hint`)}</FieldDescription>
           </Field>
         ))}
@@ -253,6 +269,49 @@ export function LimitsForm({ limits }: { limits: Limits }) {
         <Field orientation="horizontal">
           <Checkbox id="keepForever" name="keepForever" checked={forever} onCheckedChange={(checked) => setForever(checked === true)} />
           <FieldLabel htmlFor="keepForever">{t("keepForever")}</FieldLabel>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="albumReminderDefaultDays">{t("albumReminderDefaultDays")}</FieldLabel>
+          <Input
+            id="albumReminderDefaultDays"
+            name="albumReminderDefaultDays"
+            type="number"
+            inputMode="numeric"
+            min={REMINDER_DAYS.min}
+            max={REMINDER_DAYS.max}
+            step={1}
+            defaultValue={limits.albumReminderDefaultDays ?? DEFAULT_LIMITS.albumReminderDefaultDays ?? 60}
+            disabled={never}
+            required={!never}
+          />
+          <FieldDescription>{t("albumReminderDefaultDaysHint")}</FieldDescription>
+        </Field>
+        <Field orientation="horizontal">
+          <Checkbox id="remindNever" name="remindNever" checked={never} onCheckedChange={(checked) => setNever(checked === true)} />
+          <FieldLabel htmlFor="remindNever">{t("remindNever")}</FieldLabel>
+        </Field>
+        <FormOutcome state={state} />
+        <Button type="submit" disabled={pending} className="self-start">
+          {t("submit")}
+        </Button>
+      </FieldGroup>
+    </form>
+  );
+}
+
+// The Storage card's one switch (M7 ticket 03): whether videos get a lighter copy for playback.
+export function StorageForm({ processing }: { processing: boolean }) {
+  const t = useTranslations("Instance.storage");
+  const [state, action, pending] = useActionState(setVideoProcessingAction, undefined);
+  return (
+    <form action={action}>
+      <FieldGroup>
+        <Field orientation="horizontal">
+          <Checkbox id="videoProcessing" name="videoProcessing" defaultChecked={processing} aria-describedby="videoProcessing-hint" />
+          <FieldContent>
+            <FieldLabel htmlFor="videoProcessing">{t("processVideos")}</FieldLabel>
+            <FieldDescription id="videoProcessing-hint">{t("processVideosHint")}</FieldDescription>
+          </FieldContent>
         </Field>
         <FormOutcome state={state} />
         <Button type="submit" disabled={pending} className="self-start">
