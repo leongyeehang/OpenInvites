@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { createHostInvitationAction, setHomePageAction, setInstanceLimitsAction, setRegistrationModeAction, setVideoProcessingAction } from "@/instance/actions";
+import type { FeatureSwitches } from "@/features";
+import { createHostInvitationAction, setFeaturesAction, setHomePageAction, setInstanceLimitsAction, setRegistrationModeAction, setVideoProcessingAction } from "@/instance/actions";
 import { DEFAULT_HOME_PAGE, DEFAULT_INSTANCE_NAME, HOME_POSTER_MODES, type HomePage } from "@/instance/home";
 import { DEFAULT_LIMITS, LIMIT_MAX, LIMIT_MIN, PHOTO_MB, REMINDER_DAYS, STORAGE_GB, VIDEO_MB, VIDEO_MINUTES, type Limits } from "@/instance/limits";
 import { REGISTRATION_MODES, type RegistrationMode } from "@/instance/registration";
@@ -289,6 +290,52 @@ export function LimitsForm({ limits }: { limits: Limits }) {
         <Field orientation="horizontal">
           <Checkbox id="remindNever" name="remindNever" checked={never} onCheckedChange={(checked) => setNever(checked === true)} />
           <FieldLabel htmlFor="remindNever">{t("remindNever")}</FieldLabel>
+        </Field>
+        <FormOutcome state={state} />
+        <Button type="submit" disabled={pending} className="self-start">
+          {t("submit")}
+        </Button>
+      </FieldGroup>
+    </form>
+  );
+}
+
+// The Features card (M8 ticket 01): one switch per feature, each saying what it does, what
+// switching it off means, and what it needs, each on a line of its own. The switches arrive as
+// props: the feature list's values are for server code alone.
+export function FeaturesForm({ switches, videosAvailable }: { switches: FeatureSwitches; videosAvailable: boolean }) {
+  const t = useTranslations("Instance.features");
+  const [state, action, pending] = useActionState(setFeaturesAction, undefined);
+  return (
+    <form action={action}>
+      <FieldGroup>
+        <Field orientation="horizontal">
+          <Checkbox id="feature-album" name="album" defaultChecked={switches.album} aria-describedby="feature-album-hint" />
+          <FieldContent>
+            <FieldLabel htmlFor="feature-album">{t("album")}</FieldLabel>
+            <FieldDescription id="feature-album-hint">{t("albumHint")}</FieldDescription>
+          </FieldContent>
+        </Field>
+        <Field orientation="horizontal">
+          <Checkbox id="feature-videos" name="videos" defaultChecked={switches.videos} aria-describedby="feature-videos-hint" />
+          <FieldContent>
+            <FieldLabel htmlFor="feature-videos">{t("videos")}</FieldLabel>
+            <FieldDescription id="feature-videos-hint">
+              <span className="block">{t("videosHint")}</span>
+              <span className="block">{t("needsAlbum")}</span>
+              {!videosAvailable && <span className="block">{t("videosNoFfmpeg")}</span>}
+            </FieldDescription>
+          </FieldContent>
+        </Field>
+        <Field orientation="horizontal">
+          <Checkbox id="feature-voting" name="voting" defaultChecked={switches.voting} aria-describedby="feature-voting-hint" />
+          <FieldContent>
+            <FieldLabel htmlFor="feature-voting">{t("voting")}</FieldLabel>
+            <FieldDescription id="feature-voting-hint">
+              <span className="block">{t("votingHint")}</span>
+              <span className="block">{t("needsAlbum")}</span>
+            </FieldDescription>
+          </FieldContent>
         </Field>
         <FormOutcome state={state} />
         <Button type="submit" disabled={pending} className="self-start">

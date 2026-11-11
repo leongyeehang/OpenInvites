@@ -54,15 +54,15 @@ export type VideoCaps = { allowed: boolean; maxBytes: number; maxMs: number };
 // The caps a clip is held to on an event (plan ruling 3): the smaller of the event's and the
 // site's, the event's blank meaning the site's, decided here at check time rather than refused
 // when the host saves, so lowering the site's cap never makes a host's unrelated change fail.
-// Videos are allowed only when the site has a usable ffmpeg (album/ffmpeg.ts) and the event
-// allows them.
+// Videos are allowed only when the site has a usable ffmpeg (album/ffmpeg.ts), the operator has
+// Videos switched on (M8 ticket 01; the caller reads the switch), and the event allows them.
 export function effectiveVideoCaps(
   event: { albumVideosAllowed: boolean; albumMaxVideoMb: number | null; albumMaxVideoMinutes: number | null },
-  site: { maxVideoMb: number; maxVideoMinutes: number; videosAvailable: boolean },
+  site: { maxVideoMb: number; maxVideoMinutes: number; videosAvailable: boolean; videosOn: boolean },
 ): VideoCaps {
   const megabytes = Math.min(event.albumMaxVideoMb ?? site.maxVideoMb, site.maxVideoMb);
   const minutes = Math.min(event.albumMaxVideoMinutes ?? site.maxVideoMinutes, site.maxVideoMinutes);
-  return { allowed: site.videosAvailable && event.albumVideosAllowed, maxBytes: megabytes * MEGABYTE, maxMs: minutes * 60_000 };
+  return { allowed: site.videosAvailable && site.videosOn && event.albumVideosAllowed, maxBytes: megabytes * MEGABYTE, maxMs: minutes * 60_000 };
 }
 
 // What is wrong with a clip before it is sent or stored: too large, or too long. A length not

@@ -79,6 +79,7 @@ export function SettingsSheet({
   mail,
   maxReplies,
   siteVideo,
+  features,
   album,
   reminderDays,
   questions,
@@ -97,6 +98,10 @@ export function SettingsSheet({
   // The site's video caps, which the event's caps hint names, and whether the site can process
   // videos at all (M7 ticket 05).
   siteVideo: { maxMinutes: number; maxMb: number; available: boolean };
+  // What the operator has switched on (M8 ticket 01): with the album off its group and the block
+  // after the form are left out, and with videos off the video controls. Saving then keeps what
+  // the event had for them (events/form.ts, keptSettings).
+  features: { album: boolean; videos: boolean };
   questions: QuestionDraft[];
   answerCounts: Record<string, number>;
 }) {
@@ -274,87 +279,93 @@ export function SettingsSheet({
             <FieldDescription>{t("guestListVisibilityHint")}</FieldDescription>
           </Field>
 
-          <FieldSet className="gap-3">
-            <FieldLegend variant="label">{t("album.title")}</FieldLegend>
-            <Field>
-              <FieldLabel htmlFor={`${id}-album`}>{t("album.visibility")}</FieldLabel>
-              <NativeSelect id={`${id}-album`} name="albumVisibility" defaultValue={settings.albumVisibility} aria-describedby={`${id}-album-hint`}>
-                {ALBUM_VISIBILITIES.map((visibility) => (
-                  <NativeSelectOption key={visibility} value={visibility}>
-                    {t(`album.${visibility}`)}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-              <FieldDescription id={`${id}-album-hint`}>{t("album.visibilityHint")}</FieldDescription>
-            </Field>
-            <Field orientation="horizontal">
-              <Checkbox
-                id={`${id}-album-approval`}
-                name="albumApprovalRequired"
-                defaultChecked={settings.albumApprovalRequired}
-                aria-describedby={`${id}-album-approval-hint`}
-              />
-              <FieldContent>
-                <FieldLabel htmlFor={`${id}-album-approval`}>{t("album.approval")}</FieldLabel>
-                <FieldDescription id={`${id}-album-approval-hint`}>{t("album.approvalHint")}</FieldDescription>
-              </FieldContent>
-            </Field>
-            <Field orientation="horizontal">
-              <Checkbox id={`${id}-photo-mail`} name="notifyOnPhoto" defaultChecked={settings.notifyOnPhoto} />
-              <FieldLabel htmlFor={`${id}-photo-mail`}>{t("album.notify")}</FieldLabel>
-            </Field>
-            {/* Videos (M7 ticket 05). The controls stay enabled without ffmpeg: this form posts every
-                field on every change, and a disabled box would be saved as off. */}
-            <Field orientation="horizontal">
-              <Checkbox id={`${id}-videos`} name="albumVideosAllowed" defaultChecked={settings.albumVideosAllowed} aria-describedby={`${id}-videos-hint`} />
-              <FieldContent>
-                <FieldLabel htmlFor={`${id}-videos`}>{t("album.videos")}</FieldLabel>
-                <FieldDescription id={`${id}-videos-hint`}>{siteVideo.available ? t("album.videosHint") : t("album.videosUnavailable")}</FieldDescription>
-              </FieldContent>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor={`${id}-video-minutes`}>{t("album.maxVideoMinutes")}</FieldLabel>
-              <Input
-                id={`${id}-video-minutes`}
-                name="albumMaxVideoMinutes"
-                type="number"
-                inputMode="numeric"
-                min={VIDEO_MINUTES.min}
-                max={VIDEO_MINUTES.max}
-                step={1}
-                defaultValue={settings.albumMaxVideoMinutes ?? ""}
-                placeholder={String(siteVideo.maxMinutes)}
-                aria-describedby={`${id}-video-caps-hint`}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor={`${id}-video-mb`}>{t("album.maxVideoMb")}</FieldLabel>
-              <Input
-                id={`${id}-video-mb`}
-                name="albumMaxVideoMb"
-                type="number"
-                inputMode="numeric"
-                min={VIDEO_MB.min}
-                max={VIDEO_MB.max}
-                step={1}
-                defaultValue={settings.albumMaxVideoMb ?? ""}
-                placeholder={String(siteVideo.maxMb)}
-                aria-describedby={`${id}-video-caps-hint`}
-              />
-              <FieldDescription id={`${id}-video-caps-hint`}>{t("album.videoCapsHint", { minutes: siteVideo.maxMinutes, mb: siteVideo.maxMb })}</FieldDescription>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor={`${id}-video-quality`}>{t("album.quality")}</FieldLabel>
-              <NativeSelect id={`${id}-video-quality`} name="albumCopyQuality" defaultValue={settings.albumCopyQuality} aria-describedby={`${id}-video-quality-hint`}>
-                {VIDEO_QUALITIES.map((quality) => (
-                  <NativeSelectOption key={quality} value={quality}>
-                    {t(quality === "1080p" ? "album.quality1080" : "album.quality720")}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-              <FieldDescription id={`${id}-video-quality-hint`}>{t("album.qualityHint")}</FieldDescription>
-            </Field>
-          </FieldSet>
+          {features.album && (
+            <FieldSet className="gap-3">
+              <FieldLegend variant="label">{t("album.title")}</FieldLegend>
+              <Field>
+                <FieldLabel htmlFor={`${id}-album`}>{t("album.visibility")}</FieldLabel>
+                <NativeSelect id={`${id}-album`} name="albumVisibility" defaultValue={settings.albumVisibility} aria-describedby={`${id}-album-hint`}>
+                  {ALBUM_VISIBILITIES.map((visibility) => (
+                    <NativeSelectOption key={visibility} value={visibility}>
+                      {t(`album.${visibility}`)}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+                <FieldDescription id={`${id}-album-hint`}>{t("album.visibilityHint")}</FieldDescription>
+              </Field>
+              <Field orientation="horizontal">
+                <Checkbox
+                  id={`${id}-album-approval`}
+                  name="albumApprovalRequired"
+                  defaultChecked={settings.albumApprovalRequired}
+                  aria-describedby={`${id}-album-approval-hint`}
+                />
+                <FieldContent>
+                  <FieldLabel htmlFor={`${id}-album-approval`}>{t("album.approval")}</FieldLabel>
+                  <FieldDescription id={`${id}-album-approval-hint`}>{t("album.approvalHint")}</FieldDescription>
+                </FieldContent>
+              </Field>
+              <Field orientation="horizontal">
+                <Checkbox id={`${id}-photo-mail`} name="notifyOnPhoto" defaultChecked={settings.notifyOnPhoto} />
+                <FieldLabel htmlFor={`${id}-photo-mail`}>{t("album.notify")}</FieldLabel>
+              </Field>
+              {/* Videos (M7 ticket 05). The controls stay enabled without ffmpeg: this form posts every
+                  field on every change, and a disabled box would be saved as off. */}
+              {features.videos && (
+                <>
+                  <Field orientation="horizontal">
+                    <Checkbox id={`${id}-videos`} name="albumVideosAllowed" defaultChecked={settings.albumVideosAllowed} aria-describedby={`${id}-videos-hint`} />
+                    <FieldContent>
+                      <FieldLabel htmlFor={`${id}-videos`}>{t("album.videos")}</FieldLabel>
+                      <FieldDescription id={`${id}-videos-hint`}>{siteVideo.available ? t("album.videosHint") : t("album.videosUnavailable")}</FieldDescription>
+                    </FieldContent>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor={`${id}-video-minutes`}>{t("album.maxVideoMinutes")}</FieldLabel>
+                    <Input
+                      id={`${id}-video-minutes`}
+                      name="albumMaxVideoMinutes"
+                      type="number"
+                      inputMode="numeric"
+                      min={VIDEO_MINUTES.min}
+                      max={VIDEO_MINUTES.max}
+                      step={1}
+                      defaultValue={settings.albumMaxVideoMinutes ?? ""}
+                      placeholder={String(siteVideo.maxMinutes)}
+                      aria-describedby={`${id}-video-caps-hint`}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor={`${id}-video-mb`}>{t("album.maxVideoMb")}</FieldLabel>
+                    <Input
+                      id={`${id}-video-mb`}
+                      name="albumMaxVideoMb"
+                      type="number"
+                      inputMode="numeric"
+                      min={VIDEO_MB.min}
+                      max={VIDEO_MB.max}
+                      step={1}
+                      defaultValue={settings.albumMaxVideoMb ?? ""}
+                      placeholder={String(siteVideo.maxMb)}
+                      aria-describedby={`${id}-video-caps-hint`}
+                    />
+                    <FieldDescription id={`${id}-video-caps-hint`}>{t("album.videoCapsHint", { minutes: siteVideo.maxMinutes, mb: siteVideo.maxMb })}</FieldDescription>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor={`${id}-video-quality`}>{t("album.quality")}</FieldLabel>
+                    <NativeSelect id={`${id}-video-quality`} name="albumCopyQuality" defaultValue={settings.albumCopyQuality} aria-describedby={`${id}-video-quality-hint`}>
+                      {VIDEO_QUALITIES.map((quality) => (
+                        <NativeSelectOption key={quality} value={quality}>
+                          {t(quality === "1080p" ? "album.quality1080" : "album.quality720")}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                    <FieldDescription id={`${id}-video-quality-hint`}>{t("album.qualityHint")}</FieldDescription>
+                  </Field>
+                </>
+              )}
+            </FieldSet>
+          )}
 
           <FieldSet className="gap-3">
             <FieldLegend variant="label">{editor("emailsAndComments")}</FieldLegend>
@@ -388,7 +399,7 @@ export function SettingsSheet({
           </FieldSet>
         </FieldGroup>
       </form>
-      <AlbumBlock key={String(reminderDays)} eventId={eventId} album={album} reminderDays={reminderDays} />
+      {features.album && <AlbumBlock key={String(reminderDays)} eventId={eventId} album={album} reminderDays={reminderDays} />}
     </EditorSheet>
   );
 }

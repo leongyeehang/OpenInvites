@@ -26,7 +26,7 @@ describe("a video's files", () => {
 });
 
 describe("effectiveVideoCaps", () => {
-  const site = { maxVideoMb: 750, maxVideoMinutes: 15, videosAvailable: true };
+  const site = { maxVideoMb: 750, maxVideoMinutes: 15, videosAvailable: true, videosOn: true };
 
   it("takes the site's caps when the event sets none", () => {
     expect(effectiveVideoCaps({ albumVideosAllowed: true, albumMaxVideoMb: null, albumMaxVideoMinutes: null }, site)).toEqual({ allowed: true, maxBytes: 750 * MEGABYTE, maxMs: 15 * 60_000 });
@@ -40,6 +40,14 @@ describe("effectiveVideoCaps", () => {
   it("disallows videos when the event says so, or when the site has no usable ffmpeg, whatever the event says", () => {
     expect(effectiveVideoCaps({ albumVideosAllowed: false, albumMaxVideoMb: null, albumMaxVideoMinutes: null }, site).allowed).toBe(false);
     expect(effectiveVideoCaps({ albumVideosAllowed: true, albumMaxVideoMb: null, albumMaxVideoMinutes: null }, { ...site, videosAvailable: false }).allowed).toBe(false);
+  });
+
+  // M8 ticket 01: the operator's Videos switch.
+  it("disallows videos while the operator has Videos switched off, whatever the event and ffmpeg say, with the same caps", () => {
+    const event = { albumVideosAllowed: true, albumMaxVideoMb: 100, albumMaxVideoMinutes: 2 };
+    const off = effectiveVideoCaps(event, { ...site, videosOn: false });
+    expect(off.allowed).toBe(false);
+    expect(off).toEqual({ ...effectiveVideoCaps(event, site), allowed: false });
   });
 });
 

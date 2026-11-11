@@ -63,6 +63,7 @@ import { copyName, effectiveVideoCaps, videoUrl } from "@/album/video";
 import { countPhotos, listPhotos } from "@/album/repository";
 import { albumViewer } from "@/album/viewer";
 import { albumView, photoScope } from "@/album/visibility";
+import { featureOn, siteFeatures } from "@/features";
 import { instanceLimits } from "@/instance/repository";
 import type { ShownPhoto } from "@/themes/sections/album";
 import { AlbumSection, type AlbumShown } from "@/themes/sections/album-section";
@@ -128,10 +129,12 @@ async function pollCandidates(eventId: string, locale: string): Promise<PollCand
 }
 
 // What the album shows this viewer (album/album.ts, album/visibility.ts), or nothing where there is
-// no album. Locked, it says how many photos it shows, which counts approved photos only; otherwise
-// the photos this viewer may see, each marked when it waits for approval, and approvable by a host.
+// no album, which every event is while the operator has the Album switched off (M8 ticket 01).
+// Locked, it says how many photos it shows, which counts approved photos only; otherwise the
+// photos this viewer may see, each marked when it waits for approval, and approvable by a host.
 async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: string, now: Date): Promise<AlbumShown | undefined> {
-  const state = albumState(event, now);
+  const switches = await siteFeatures();
+  const state = albumState(event, now, featureOn(switches, "album"));
   if (state === "none" || !event.startsAt) return undefined;
   if (state === "notYet") return { view: "notYet", opensOn: formatDay(event.startsAt, event.timeZone, locale) };
   const view = albumView(event, viewer);
@@ -159,10 +162,16 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
     };
   });
   // Largest photo on Site settings (M7 ticket 01), for the album's hint and its refusals, and the
-  // video caps the browser checks a clip against before sending it (ticket 07).
+  // video caps the browser checks a clip against before sending it (ticket 07), which take no
+  // video while the operator has Videos switched off (M8 ticket 01).
   const limits = await instanceLimits();
   const maxMegabytes = limits.maxPhotoMb;
-  const video = effectiveVideoCaps(event, { maxVideoMb: limits.maxVideoMb, maxVideoMinutes: limits.maxVideoMinutes, videosAvailable: ffmpegStatus().available });
+  const video = effectiveVideoCaps(event, {
+    maxVideoMb: limits.maxVideoMb,
+    maxVideoMinutes: limits.maxVideoMinutes,
+    videosAvailable: ffmpegStatus().available,
+    videosOn: featureOn(switches, "videos"),
+  });
   // A guest who may add but not see is shown their own, and why: the album is for those Going, or
   // the hosts keep it.
   if (view === "own") return { view: "own", why: event.albumVisibility === "going" ? "going" : "hosts", photos, maxMegabytes, video };

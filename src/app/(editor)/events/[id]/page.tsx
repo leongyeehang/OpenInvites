@@ -12,6 +12,7 @@ import { EditorProvider } from "@/editor/status";
 import { EditorTopBar } from "@/editor/top-bar";
 import { eventHosts } from "@/events/hosts";
 import { findHostEvent } from "@/events/repository";
+import { featureOn, siteFeatures } from "@/features";
 import { eventUrl } from "@/events/slug";
 import { formatDay, formatWhen, isDated, timeZones, toWallTime } from "@/events/time";
 import { can } from "@/hosts/role";
@@ -74,7 +75,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
   if (!event) notFound();
   // Where a duplicate came from, said only when the host can see that event themselves.
   const source = typeof from === "string" ? await findHostEvent(host.id, from) : undefined;
-  const [questions, answerCounts, counts, limits, upload, hosts, editor, schedule, album] = await Promise.all([
+  const [questions, answerCounts, counts, limits, upload, hosts, editor, schedule, album, switches] = await Promise.all([
     listQuestions(event.id),
     countAnswersByQuestion(event.id),
     countRsvpsByEvent([event.id]),
@@ -84,7 +85,10 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
     getTranslations("Editor"),
     listSchedule(event.id),
     albumTotals(event.id),
+    siteFeatures(),
   ]);
+  // What the operator has switched on (M8 ticket 01): the Settings sheet leaves out the rest.
+  const features = { album: featureOn(switches, "album"), videos: featureOn(switches, "videos") };
   const picture = upload ? themeUpload(upload) : null;
   const replies = counts.get(event.id);
   const rsvps = replies ? replies.going + replies.maybe + replies.cant + replies.waitlisted + replies.pending + replies.declined : 0;
@@ -120,8 +124,9 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
     ...(deletion ? [t("deletionDate", { date: formatDay(deletion, event.timeZone, locale) })] : []),
   ];
   // The album's reminder, once the clock has sent it and while the album holds anything and the
-  // host has not answered it (M7 ticket 09): Empty the album, or Keep it.
-  const reminded = event.albumRemindedAt !== null && event.albumReminderDays !== null && album.photos + album.videos > 0;
+  // host has not answered it (M7 ticket 09): Empty the album, or Keep it. None while the album is
+  // switched off.
+  const reminded = features.album && event.albumRemindedAt !== null && event.albumReminderDays !== null && album.photos + album.videos > 0;
 
   // The Poster layout brings the comments' reactions and the album with it, which read
   // EventPage.comments and EventPage.album, though the editor shows neither.
@@ -169,6 +174,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
                       mail={isMailConfigured()}
                       maxReplies={limits.maxRsvpsPerEvent}
                       siteVideo={{ maxMinutes: limits.maxVideoMinutes, maxMb: limits.maxVideoMb, available: ffmpegStatus().available }}
+                      features={features}
                       album={album}
                       reminderDays={event.albumReminderDays}
                       questions={questions}

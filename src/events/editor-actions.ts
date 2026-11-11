@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { requireHost } from "@/auth/session";
 import { hostNeedsVerification } from "@/auth/verification";
+import { featureOn, siteFeatures } from "@/features";
 import { can } from "@/hosts/role";
 import type { FormState } from "@/lib/form-state";
 import { queueGuestMail } from "@/mail/queue-guest-mail";
@@ -19,7 +20,7 @@ import { EMPTY_RICH_TEXT, parseRichText, richTextToPlain } from "@/rich-text/ric
 import { DEFAULT_GUEST_LIST_VISIBILITY } from "@/rsvps/visibility";
 import { saveSchedule } from "@/schedule/repository";
 import { parseSchedule, parseScheduleRefresh } from "@/schedule/schedule";
-import { parseEventSettings, parseWhen, type WhenFields } from "./form";
+import { keptSettings, parseEventSettings, parseWhen, type SettingsFields, type WhenFields } from "./form";
 import { eventsOwnedAtLimit } from "./limit";
 import { missingToPublish } from "./publish";
 import { createEvent, findHostEvent, publishEvent, updateEvent, type Event, type EventChanges } from "./repository";
@@ -221,7 +222,8 @@ export async function saveDescriptionAction(id: string, posted: string): Promise
   return save(found.host.id, found.event, { description: richTextToPlain(description.doc), descriptionRich: description.doc });
 }
 
-// Everything a guest does not see, from the Settings sheet, which posts all of it at each change.
+// Everything a guest does not see, from the Settings sheet, which posts all of it at each change,
+// less the groups the operator's switches leave out, which keep what the event has (M8 ticket 01).
 export async function saveSettingsAction(id: string, formData: FormData): Promise<SaveResult> {
   const found = await editable(id);
   const t = await getTranslations("Events");
@@ -230,7 +232,7 @@ export async function saveSettingsAction(id: string, formData: FormData): Promis
     const value = formData.get(name);
     return typeof value === "string" ? value : "";
   };
-  const settings = parseEventSettings({
+  const fields: SettingsFields = {
     plusOnesAllowed: text("plusOnesAllowed"),
     requirePlusOneNames: formData.get("requirePlusOneNames") === "on",
     capacity: text("capacity"),
@@ -251,7 +253,9 @@ export async function saveSettingsAction(id: string, formData: FormData): Promis
     albumMaxVideoMb: text("albumMaxVideoMb"),
     albumCopyQuality: text("albumCopyQuality"),
     inviteOnly: formData.get("inviteOnly") === "on",
-  });
+  };
+  const switches = await siteFeatures();
+  const settings = parseEventSettings(keptSettings(fields, found.event, { album: featureOn(switches, "album"), videos: featureOn(switches, "videos") }));
   if (!settings.ok) return { saved: false, error: t(`errors.${settings.error}`), field: settings.error === "capacityInvalid" ? "capacity" : undefined };
   let posted: unknown = [];
   const raw = text("questions");

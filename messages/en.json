@@ -350,6 +350,20 @@
       "retentionDaysInvalid": "Enter a whole number of days from 30 to 3,650 to keep events for, or tick Keep forever.",
       "albumReminderDefaultDaysInvalid": "Enter a whole number of days from 1 to 3,650 to remind hosts after, or tick Never."
     },
+    "features": {
+      "title": "Features",
+      "description": "Switch parts of the site on or off for every event. Nothing is deleted: switching one back on brings back what it held.",
+      "album": "Album",
+      "albumHint": "Guests and hosts add photos to an event’s page. Off: no event shows its album or takes photos; the photos stay and still count toward storage.",
+      "videos": "Videos",
+      "videosHint": "Albums take videos as well as photos. Off: no new videos; the ones added still play.",
+      "voting": "Voting",
+      "votingHint": "Hosts may run a vote on their album’s photos and videos. Off: no event shows a vote; votes already given are kept.",
+      "needsAlbum": "Needs the album.",
+      "videosNoFfmpeg": "This server has no usable ffmpeg, so videos stay off whatever this says.",
+      "submit": "Save",
+      "saved": "Saved."
+    },
     "storage": {
       "title": "Storage",
       "description": "What the site’s uploads take, counted as uploaded: the photos and videos in albums, and hosts’ pictures. The limits are on the Limits card.",

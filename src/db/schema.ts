@@ -165,6 +165,16 @@ export const instanceSettings = pgTable(
   ],
 );
 
+// The operator's feature switches (M8 ticket 01, features/features.ts): one row per feature the
+// operator has saved, keyed by its id, which the code checks; a feature with no row is on. Rows
+// of their own rather than columns on the settings row, so a feature added later brings its switch
+// without touching that row.
+export const instanceFeature = pgTable("instance_feature", {
+  id: text("id").primaryKey(),
+  enabled: boolean("enabled").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // A host invitation (CONTEXT.md): the operator's permission for one person to become a host,
 // carried by a single-use link. Only the hash of the link's token is kept, so a copy of the
 // database hands out no invitations; the operator sees the link once, when it is made.

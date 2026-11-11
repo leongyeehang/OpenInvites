@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireHost } from "@/auth/session";
 import { findHostEvent, type HostEvent } from "@/events/repository";
 import { eventPaths } from "@/events/slug";
+import { featureOn, siteFeatures } from "@/features";
 import { can } from "@/hosts/role";
 import { ALBUM_REMINDER_CHOICES } from "./album";
 import { setAlbumReminder } from "./reminders";
@@ -12,10 +13,11 @@ import { emptyAlbum } from "./repository";
 // The hosts' own album actions (M7 ticket 09): emptying it in one confirmed step, and when to be
 // reminded about it. Each is for the event's hosts, co-hosts included (hosts/role.ts), and each
 // refreshes the manage page, the event's pages and the dashboard, which show the album or the
-// reminder.
+// reminder. None acts while the operator has the Album switched off (M8 ticket 01).
 
 async function hostAlbum(eventId: string): Promise<HostEvent | undefined> {
   const host = await requireHost();
+  if (!featureOn(await siteFeatures(), "album")) return undefined;
   const event = await findHostEvent(host.id, eventId);
   return event && can(event.role, "guests") ? event : undefined;
 }

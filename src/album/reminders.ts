@@ -4,6 +4,7 @@ import { event, photo } from "@/db/schema";
 import { eventHosts } from "@/events/hosts";
 import type { Event } from "@/events/repository";
 import { eventEnd, isDated, type EventTime, type MaybeDated } from "@/events/time";
+import { featureOn, siteFeatures } from "@/features";
 import { baseUrl } from "@/instance/env";
 import { chunks } from "@/lib/chunks";
 import { formatSize } from "@/lib/sizes";
@@ -64,8 +65,11 @@ export async function setAlbumReminder(eventId: string, days: number | null, now
 // transaction claims the events that may be due, by a superset Postgres finds (the end an event
 // keeps is never later than its end; something not failed in the album), which the rule narrows;
 // marks them; and with mail queues one email per host in the event's language. The claim skips rows
-// another container holds, so each event is reminded once.
+// another container holds, so each event is reminded once. While the operator has the Album
+// switched off nothing is sent or marked (M8 ticket 01), so a reminder that falls due then goes
+// out once the album is back.
 export async function sendAlbumReminders(now: Date): Promise<void> {
+  if (!featureOn(await siteFeatures(), "album")) return;
   await getDb().transaction(async (tx) => {
     const candidates = await tx
       .select({

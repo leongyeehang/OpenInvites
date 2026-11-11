@@ -215,6 +215,21 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
   };
 }
 
+// The album's settings, the videos' among them, which the Settings sheet leaves out while the
+// operator has the Album or Videos switched off (M8 ticket 01).
+const VIDEO_SETTINGS = ["albumVideosAllowed", "albumMaxVideoMinutes", "albumMaxVideoMb", "albumCopyQuality"] as const;
+const ALBUM_SETTINGS = ["albumVisibility", "albumApprovalRequired", "notifyOnPhoto", ...VIDEO_SETTINGS] as const;
+export type AlbumSettingsField = (typeof ALBUM_SETTINGS)[number];
+
+// What the sheet posted, with each group it left out taken from what the event has, written as the
+// sheet would post it, so that saving keeps the event's values for it. Otherwise saving with the
+// album off would turn its approval off, and with that approve every photo that waits.
+export function keptSettings(posted: SettingsFields, stored: Pick<EventSettings, AlbumSettingsField>, on: { album: boolean; videos: boolean }): SettingsFields {
+  const kept = !on.album ? ALBUM_SETTINGS : !on.videos ? VIDEO_SETTINGS : [];
+  const asPosted = (value: string | number | boolean | null) => (typeof value === "boolean" ? value : value === null ? "" : String(value));
+  return { ...posted, ...Object.fromEntries(kept.map((field) => [field, asPosted(stored[field])])) };
+}
+
 // A capacity is a whole number written in digits, within the range; empty is no capacity at all.
 // Undefined when it is neither.
 function parseCapacity(raw: string): number | null | undefined {

@@ -4,6 +4,7 @@ import { ffmpegStatus } from "@/album/ffmpeg";
 import { reserveUploads, type AskedFile } from "@/album/repository";
 import { kindOf, parseAskRequest, partBytes, type AskResponse } from "@/album/upload-protocol";
 import { effectiveVideoCaps, videoProblem } from "@/album/video";
+import { featureOn, siteFeatures } from "@/features";
 import { instanceLimits } from "@/instance/repository";
 import { MEGABYTE } from "@/lib/sizes";
 import { consume, retryAfter } from "@/rate-limit/rate-limit";
@@ -25,9 +26,14 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
   if (!ask) return refusal("failed", 400).response;
 
   const { event, viewer } = access;
-  const limits = await instanceLimits();
+  const [limits, switches] = await Promise.all([instanceLimits(), siteFeatures()]);
   const caps = { maxItems: limits.maxPhotosPerEvent, maxEventBytes: limits.maxEventStorageMb * MEGABYTE, maxSiteBytes: limits.maxSiteStorageMb * MEGABYTE };
-  const video = effectiveVideoCaps(event, { maxVideoMb: limits.maxVideoMb, maxVideoMinutes: limits.maxVideoMinutes, videosAvailable: ffmpegStatus().available });
+  const video = effectiveVideoCaps(event, {
+    maxVideoMb: limits.maxVideoMb,
+    maxVideoMinutes: limits.maxVideoMinutes,
+    videosAvailable: ffmpegStatus().available,
+    videosOn: featureOn(switches, "videos"),
+  });
   const maxPhotoBytes = limits.maxPhotoMb * MEGABYTE;
   const partSize = partBytes();
   const token = () => randomBytes(18).toString("base64url");

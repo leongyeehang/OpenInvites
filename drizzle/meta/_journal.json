@@ -379,6 +379,13 @@
       "when": 1794300069907,
       "tag": "0053_touched_at_failure",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1794392889644,
+      "tag": "0054_instance_feature",
+      "breakpoints": true
     }
   ]
 }

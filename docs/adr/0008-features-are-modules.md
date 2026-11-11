@@ -1,0 +1,18 @@
+# Features are modules inside the app
+
+The maintainer said on 2026-11-11 that the site should become modular later, the album included: an operator should be able to do without a feature, and a feature should be able to be lifted out. But the app builds into one standalone image, with every page, route and worker in it, so separately installed extensions would need a way to load code the image was not built with, and that is a milestone of its own. The album today is not a module either: its files are imported from all over the app.
+
+So 0.8 (M8) does three smaller things. A **feature list** in `src/features/` names the site's optional features (Album, Videos and Voting), what each needs (Videos and Voting need the Album; Videos also need a usable ffmpeg, ADR-0007, which the server says rather than a switch) and whether the site has it on. A **Features card** on Site settings lets the operator switch each on or off for every event; a feature with no stored switch is on. And four **rules** bind every feature added from now on:
+
+1. A new feature lives in its own folder with one public entry file (`index.ts`), which is all the rest of the app imports.
+2. It touches the rest of the app only through named hooks, each one the ticket that adds it names.
+3. The event page takes features through the section registry, not by importing them one by one.
+4. Nothing imports another feature's internals. `no-restricted-imports` in `eslint.config.mjs` enforces this for `src/features`, `src/voting` and `src/sections`: outside a module, only its entry may be imported, by the alias or by a relative path; inside, its own files are free and another module's are not.
+
+The path from here: the switches in M8; the album made a module by the same rules in M9; and whether to support separately installed extensions decided after that, with real modules to look at.
+
+## Consequences
+
+- What a switched-off feature means: hosts and guests are not shown it, and its actions refuse. Nothing is deleted: an album's files stay and still count toward storage, votes stay, and switching the feature back on brings them back. With Videos off, events take no new videos and the ones they have still play. The Storage card's "Process videos for playback" switch is unchanged; it is not a feature switch. An event's own settings for a feature that is off are kept as they were when the host saves the rest.
+- The album's outside dependents, the files outside `src/album` that import its internals, numbered 25 on 2026-11-11, by `grep -rlE "[\"'](@|\.\.?)/(\.\./)*album/" src --include=*.ts --include=*.tsx | grep -v '^src/album/' | wc -l` (the spec's first count of 24 missed `src/instrumentation.ts`, which imports the album dynamically). That number must not grow, and `src/features/boundaries.test.ts` fails `pnpm test` when it does. A change that needs one more moves the code into `src/album` instead, or records a ruling here that raises the number, and the test's with it.
+- Pure rules take a switch as a plain boolean, and only server code reads the switches, so `src/features`, which carries the database, stays out of the browser's bundles.

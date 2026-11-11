@@ -8,6 +8,7 @@ import { emptyAlbum } from "@/album/repository";
 import { requireOperator } from "@/auth/session";
 import { findEventById } from "@/events/repository";
 import { eventPaths } from "@/events/slug";
+import { FEATURES, setFeature } from "@/features";
 import type { FormState } from "@/lib/form-state";
 import { isUuid } from "@/lib/uuid";
 import { isMailConfigured } from "@/mail/config";
@@ -103,6 +104,16 @@ export async function setVideoProcessingAction(_: FormState, formData: FormData)
   const t = await getTranslations("Instance.storage");
   await setVideoProcessing(formData.get("videoProcessing") === "on");
   revalidatePath("/instance");
+  return { success: t("saved") };
+}
+
+// The Features card (M8 ticket 01): each feature's switch, read wherever the feature shows or acts,
+// so every page the site draws may change: all of them are refreshed.
+export async function setFeaturesAction(_: FormState, formData: FormData): Promise<FormState> {
+  await requireOperator();
+  const t = await getTranslations("Instance.features");
+  for (const id of FEATURES) await setFeature(id, formData.get(id) === "on");
+  revalidatePath("/", "layout");
   return { success: t("saved") };
 }
 

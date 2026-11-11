@@ -12,6 +12,7 @@ import { DeleteDialogContent } from "@/components/delete-dialog-content";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { eventPath } from "@/events/slug";
+import { siteFeatures } from "@/features";
 import { clearAlbumAsOperatorAction, revokeHostInvitationAction } from "@/instance/actions";
 import { videoProcessingMode, type VideoProcessingMode } from "@/instance/env";
 import { HOST_INVITATION_DAYS, hostInvitationDaysLeft, hostInvitationState, type HostInvitationState } from "@/instance/host-invitation";
@@ -24,7 +25,7 @@ import { storageConfig } from "@/storage/config";
 import { unmeasuredCount } from "@/storage/measure";
 import { biggestAlbums, diskUse, freeDiskBytes, siteBytes, type BiggestAlbum } from "@/storage/usage";
 import { HostHeader } from "../(host)/host-header";
-import { HomePageForm, HostInvitationForm, LimitsForm, RegistrationForm, StorageForm } from "./instance-forms";
+import { FeaturesForm, HomePageForm, HostInvitationForm, LimitsForm, RegistrationForm, StorageForm } from "./instance-forms";
 import { StrayFiles } from "./stray-files";
 
 // Outside the host area's layout, which sends a signed-out visitor to sign in: this page does
@@ -37,12 +38,13 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function InstancePage() {
   const host = await requireOperator();
-  const [t, locale, home, mode, limits, invitations, unhandledReports, storage] = await Promise.all([
+  const [t, locale, home, mode, limits, switches, invitations, unhandledReports, storage] = await Promise.all([
     getTranslations("Instance"),
     getLocale(),
     homePage(),
     registrationMode(),
     instanceLimits(),
+    siteFeatures(),
     listHostInvitations(),
     countUnhandledReports(),
     storageFacts(),
@@ -95,6 +97,19 @@ export default async function InstancePage() {
           <CardContent>
             <ClientMessages namespaces={["Instance.limits"]}>
               <LimitsForm limits={limits} />
+            </ClientMessages>
+          </CardContent>
+        </Card>
+        <Card id="features">
+          <CardHeader>
+            <CardTitle>
+              <h2>{t("features.title")}</h2>
+            </CardTitle>
+            <CardDescription>{t("features.description")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ClientMessages namespaces={["Instance.features"]}>
+              <FeaturesForm switches={switches} videosAvailable={storage.ffmpeg.available} />
             </ClientMessages>
           </CardContent>
         </Card>

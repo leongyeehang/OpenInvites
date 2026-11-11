@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseEventForm } from "./form";
+import { keptSettings, parseEventForm, type SettingsFields } from "./form";
 
 const valid = {
   title: "Ada’s birthday",
@@ -171,5 +171,70 @@ describe("parseEventForm with times that do not exist", () => {
       ok: false,
       error: "startInvalid",
     });
+  });
+});
+
+// M8 ticket 01: a group the operator's switches leave out of the Settings sheet is posted empty,
+// and saving keeps what the event had for it.
+describe("keptSettings", () => {
+  // What the sheet posts with the album's group left out: its boxes unticked, its fields empty.
+  const posted: SettingsFields = {
+    plusOnesAllowed: "1",
+    requirePlusOneNames: false,
+    capacity: "40",
+    approvalRequired: true,
+    emailField: "optional",
+    phoneField: "none",
+    verifyEmail: true,
+    guestListVisibility: "afterReply",
+    notifyOnRsvp: true,
+    remindersEnabled: true,
+    commentsEnabled: true,
+    notifyOnComment: true,
+    inviteOnly: true,
+    albumVisibility: "",
+    albumApprovalRequired: false,
+    notifyOnPhoto: false,
+    albumVideosAllowed: false,
+    albumMaxVideoMinutes: "",
+    albumMaxVideoMb: "",
+    albumCopyQuality: "",
+  };
+  const stored = {
+    albumVisibility: "hosts" as const,
+    albumApprovalRequired: true,
+    notifyOnPhoto: true,
+    albumVideosAllowed: true,
+    albumMaxVideoMinutes: 5,
+    albumMaxVideoMb: null,
+    albumCopyQuality: "720p" as const,
+  };
+
+  it("keeps every album field as stored while the album is off, numbers as their digits and none as empty", () => {
+    expect(keptSettings(posted, stored, { album: false, videos: true })).toEqual({
+      ...posted,
+      albumVisibility: "hosts",
+      albumApprovalRequired: true,
+      notifyOnPhoto: true,
+      albumVideosAllowed: true,
+      albumMaxVideoMinutes: "5",
+      albumMaxVideoMb: "",
+      albumCopyQuality: "720p",
+    });
+  });
+
+  it("keeps the video fields as stored while videos are off, and takes the rest of the album's as posted", () => {
+    const shown = { ...posted, albumVisibility: "going", albumApprovalRequired: false, notifyOnPhoto: true };
+    expect(keptSettings(shown, stored, { album: true, videos: false })).toEqual({
+      ...shown,
+      albumVideosAllowed: true,
+      albumMaxVideoMinutes: "5",
+      albumMaxVideoMb: "",
+      albumCopyQuality: "720p",
+    });
+  });
+
+  it("takes everything as posted while both are on", () => {
+    expect(keptSettings(posted, stored, { album: true, videos: true })).toEqual(posted);
   });
 });

@@ -23,9 +23,10 @@ export type AlbumState = "none" | "notYet" | "open";
 
 // The album opens at the event's start, which for an all-day event is its day's first moment in
 // the event's zone, as it is kept (events/time.ts, toInstant), and stays open until retention
-// deletes the event. A draft, a cancelled event, or one with no date yet has no album.
-export function albumState(event: { state: EventState; startsAt: Date | null }, now: Date): AlbumState {
-  if (event.state !== "published" || !event.startsAt) return "none";
+// deletes the event. A draft, a cancelled event, or one with no date yet has no album; nor has any
+// event while the operator has the Album switched off (M8 ticket 01), which the caller reads.
+export function albumState(event: { state: EventState; startsAt: Date | null }, now: Date, albumOn: boolean): AlbumState {
+  if (!albumOn || event.state !== "published" || !event.startsAt) return "none";
   return now >= event.startsAt ? "open" : "notYet";
 }
 

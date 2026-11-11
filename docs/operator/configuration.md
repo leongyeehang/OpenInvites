@@ -160,6 +160,26 @@ dashboard, a welcome points to the name, registration and limits; it shows once 
 operator, so one who takes over with `OPERATOR_EMAIL` sees it once too. An instance upgraded from
 an earlier version does not greet the operator it already has.
 
+### Features
+
+Site settings' **Features** card (0.8) switches parts of the site on or off for every event at
+once ([ADR-0008](../adr/0008-features-are-modules.md)). Each is on until you switch it off, an
+upgraded site included.
+
+- **Album**: guests and hosts add photos to an event's page. Off, no event shows its album or
+  takes photos, the hosts' Settings sheet leaves out its Album group, album reminders wait, and
+  the photos and videos stay where they are and still count toward storage.
+- **Videos**: albums take videos as well as photos. Off, albums take photos only; the videos
+  they hold still play, and a clip already sent is still processed. Videos need the album, and a
+  usable ffmpeg: without one they stay off whatever the switch says.
+- **Voting**: hosts may run a vote on their album's photos and videos. Off, no event shows a vote,
+  and votes already given are kept. Voting needs the album.
+
+A feature that needs another is off while that one is. Nothing is deleted by switching a feature
+off: switching it back on brings back what it held, and an event's own settings for it (who sees
+the album, whether its photos wait for approval, its video caps) are kept as they were. The
+Storage card's **Process videos for playback** is not a feature switch, and is unchanged by these.
+
 ### Storage
 
 Site settings' **Storage** card (0.7) answers how full the site is: what albums and hosts'

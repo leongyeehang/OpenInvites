@@ -163,7 +163,9 @@ export async function processVideo(job: ClaimedJob): Promise<void> {
     await pipeline(Readable.fromWeb(stream as unknown as NodeReadableStream<Uint8Array>), createWriteStream(sent));
     const streams = await probe(sent);
     const limits = await videoLimits();
-    const caps = effectiveVideoCaps({ albumVideosAllowed: true, albumMaxVideoMb: item.maxMb, albumMaxVideoMinutes: item.maxMinutes }, { ...limits, videosAvailable: true });
+    // Only the length cap is checked here: a clip already accepted is processed whatever the
+    // event or the operator's Videos switch now says (M8 ticket 01).
+    const caps = effectiveVideoCaps({ albumVideosAllowed: true, albumMaxVideoMb: item.maxMb, albumMaxVideoMinutes: item.maxMinutes }, { ...limits, videosAvailable: true, videosOn: true });
     if (streams.durationMs > caps.maxMs) throw new Final("tooLong");
 
     const original = join(dir, "video.mp4");

@@ -9,6 +9,7 @@ import { requireHost } from "@/auth/session";
 import { glowEvent, shelve, showsYear, tileChip, tileNumber, whenKind, type ShelfEvent, type TileChip } from "@/dashboard/shelves";
 import { eventsOwnedAtLimit } from "@/events/limit";
 import { listHostEvents } from "@/events/repository";
+import { featureOn, siteFeatures } from "@/features";
 import { formatDay, formatWhen, formatWhenBrief, isDated } from "@/events/time";
 import type { Limits } from "@/instance/limits";
 import { homeTheme, pickPoster, posterPool } from "@/instance/home";
@@ -41,17 +42,20 @@ type Translate = Awaited<ReturnType<typeof getTranslations<"Host.dashboard">>>;
 // is shelves.ts's to say; this page only draws it. A new operator is first welcomed on it, once.
 export default async function DashboardPage() {
   const host = await requireHost();
-  const [t, locale, events, limits, welcome, atLimit] = await Promise.all([
+  const [t, locale, events, limits, welcome, atLimit, switches] = await Promise.all([
     getTranslations("Host.dashboard"),
     getLocale(),
     listHostEvents(host.id),
     instanceLimits(),
     operatorToWelcome(host.id),
     eventsOwnedAtLimit(host.id),
+    siteFeatures(),
   ]);
   const ids = events.map((event) => event.id);
-  // The albums the clock reminded the host about, while they hold anything (M7 ticket 09).
-  const reminded = events.filter((event) => event.albumRemindedAt !== null && event.albumReminderDays !== null);
+  // The albums the clock reminded the host about, while they hold anything (M7 ticket 09), and
+  // none while the operator has the Album switched off (M8 ticket 01).
+  const albumOn = featureOn(switches, "album");
+  const reminded = events.filter((event) => albumOn && event.albumRemindedAt !== null && event.albumReminderDays !== null);
   const [counts, uploads, albums] = await Promise.all([
     countRsvpsByEvent(ids),
     findEventUploads(events.filter((event) => event.theme.poster.kind === "upload").map((event) => event.id)),
