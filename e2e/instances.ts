@@ -17,3 +17,15 @@ export function exec(service: string, ...command: string[]): string {
   return execFileSync("docker", ["compose", "--profile", "test", "exec", "-T", service, ...command], { stdio: "pipe" }).toString();
 }
 
+
+// What ffprobe says of a served video's first video stream (M8 ticket 03), read in one of the
+// profile's containers, which carry ffmpeg where this machine may not, from the bytes on stdin.
+// ffprobe stops reading once it has the streams, so the rest of stdin is drained after it, or
+// sending it would break the pipe.
+export type ServedStream = { codec_name: string; width: number; height: number; pix_fmt: string; color_transfer?: string; color_primaries?: string; avg_frame_rate: string };
+
+export function probeServed(bytes: Buffer, service = "app"): ServedStream {
+  const probe = "ffprobe -v error -select_streams v:0 -show_streams -of json -i pipe:0; status=$?; cat > /dev/null; exit $status";
+  const out = execFileSync("docker", ["compose", "--profile", "test", "exec", "-T", service, "sh", "-c", probe], { input: bytes, stdio: "pipe" });
+  return (JSON.parse(out.toString()) as { streams: ServedStream[] }).streams[0];
+}

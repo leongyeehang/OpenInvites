@@ -379,7 +379,7 @@
       "none": "还没有相册存有内容。",
       "use": "{size}，{count, plural, other {# 项}}",
       "processVideos": "为播放处理视频",
-      "processVideosHint": "开启后，需要的视频都会生成一个较小的副本，以便在网速慢的情况下和各种浏览器中播放。关闭后，视频按原样保存，能否播放取决于浏览器。",
+      "processVideosHint": "开启后，每段视频会在需要时生成其活动要求的尺寸，以便在网速慢的情况下和各种浏览器中播放。关闭后，视频按原样保存，能否播放取决于浏览器。",
       "submit": "保存",
       "saved": "已保存。",
       "videosAvailable": "视频：可用（ffmpeg {version}）。",

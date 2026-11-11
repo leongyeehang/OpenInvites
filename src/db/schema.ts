@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { bigint, boolean, check, date, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, time, timestamp, unique, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { ALBUM_VISIBILITIES, PHOTO_STATUSES } from "../album/visibility";
-import { PHOTO_KINDS, VIDEO_QUALITIES } from "../album/video";
+import { PHOTO_KINDS, VIDEO_QUALITIES, VIDEO_WORKS } from "../album/video";
 import { DEFAULT_REGISTRATION_MODE, REGISTRATION_MODES } from "../instance/registration";
 import { HOME_POSTER_MODES } from "../instance/home";
 import { DEFAULT_LIMITS } from "../instance/limits";
@@ -760,15 +760,21 @@ export const photo = pgTable(
   ],
 );
 
+// What a queued job does (M8 ticket 03; album/video.ts): process a clip, make the sizes a ready
+// item lacks, or a live photo's motion (ticket 08).
+export const videoWork = pgEnum("video_work", VIDEO_WORKS);
+
 // A video's place in the processing queue (M7 ticket 06): one per item while it is processed,
 // taken under a lease that a crashed processor's hour lets lapse, and tried three times
-// (album/jobs.ts). Goes with the item.
+// (album/jobs.ts), then, once the item is ready, while it lacks a size its event asks for (M8
+// ticket 03). Goes with the item.
 export const videoJob = pgTable("video_job", {
   id: id(),
   photoId: uuid("photo_id")
     .notNull()
     .unique()
     .references(() => photo.id, { onDelete: "cascade" }),
+  work: videoWork("work").notNull().default("process"),
   attempts: integer("attempts").notNull().default(0),
   leasedAt: timestamp("leased_at", { withTimezone: true }),
   leasedBy: text("leased_by"),

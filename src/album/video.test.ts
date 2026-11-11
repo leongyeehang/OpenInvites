@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MEGABYTE } from "@/lib/sizes";
-import { chooseQuality, copyName, effectiveVideoCaps, EVENT_SIZES, needsCopy, playable, SENT_FILE, shortSide, TARGET_BITRATE, TARGET_SHORT_SIDE, VIDEO_FILES, VIDEO_QUALITIES, videoFileNamed, videoKey, videoProblem, videoProcessor, videoUrl, WORKER_STALE_MS } from "./video";
+import { chooseQuality, copyName, copySide, effectiveVideoCaps, EVENT_SIZES, madeBeforeReady, missingSizes, needsCopy, playable, probeOfItem, SENT_FILE, shortSide, sizeLabel, sizesToMake, TARGET_BITRATE, TARGET_SHORT_SIDE, VIDEO_FILES, VIDEO_QUALITIES, VIDEO_WORKS, videoFileNamed, videoKey, videoProblem, videoProcessor, videoSizes, videoUrl, WORKER_STALE_MS, type VideoQuality } from "./video";
 
 // Videos in the album (M7 ticket 05): the files a video is kept as, and the caps a clip is held to.
 
@@ -115,6 +115,115 @@ describe("needsCopy", () => {
   it("reads the short side after a rotation", () => {
     expect(shortSide({ width: 1920, height: 1080, rotation: 90 })).toBe(1080);
     expect(shortSide({ width: 640, height: 480, rotation: 0 })).toBe(480);
+  });
+});
+
+// M8 ticket 03: the sizes processing makes. Each ticked size when needsCopy says so, skipped when
+// its side matches a copy already taken, never the original's, and never larger than the original.
+describe("sizesToMake", () => {
+  const both = ["1080p", "720p"] as const;
+  const hevc = { codec: "hevc", width: 1920, height: 1080, rotation: 0, bitRate: 5_000_000 };
+  const h264 = { ...hevc, codec: "h264" };
+
+  it("makes only the sizes a clip needs, smallest side once", () => {
+    expect(sizesToMake(h264, both)).toEqual(["720p"]);
+    expect(sizesToMake(hevc, both)).toEqual(["1080p", "720p"]);
+    // The M7 fixture: a 720p copy would be 480 on its short side, as the 1080p one is.
+    expect(sizesToMake({ ...hevc, width: 640, height: 480 }, both)).toEqual(["1080p"]);
+    expect(sizesToMake({ ...hevc, width: 2160, height: 3840 }, both)).toEqual(["1080p", "720p"]);
+    expect(sizesToMake({ ...h264, width: 640, height: 480, bitRate: 3_000_000 }, both)).toEqual([]);
+  });
+
+  it("never compares a size with the original, so a heavy H.264 original still gets a lighter copy at its own size", () => {
+    expect(sizesToMake({ ...h264, bitRate: 20_000_000 }, both)).toEqual(["1080p", "720p"]);
+  });
+
+  it("goes through the sizes largest first whatever the order ticked, and makes only what is ticked", () => {
+    expect(sizesToMake(hevc, ["720p", "1080p"])).toEqual(["1080p", "720p"]);
+    expect(sizesToMake(hevc, ["720p"])).toEqual(["720p"]);
+    expect(sizesToMake(hevc, [])).toEqual([]);
+  });
+
+  it("gives a copy the size's short side, or the original's when that is smaller", () => {
+    expect(copySide({ width: 1920, height: 1080 }, "720p")).toBe(720);
+    expect(copySide({ width: 640, height: 480 }, "1080p")).toBe(480);
+    expect(copySide({ width: 2160, height: 3840 }, "2160p")).toBe(2160);
+  });
+});
+
+// A video is ready as soon as it plays everywhere: only an original that is not H.264 waits for
+// one copy, the first size made, or 720p when the host ticked none (M8 ticket 02's ruling).
+describe("madeBeforeReady", () => {
+  const hevc = { codec: "hevc", width: 1920, height: 1080, rotation: 0, bitRate: 5_000_000 };
+
+  it("makes nothing before an H.264 clip is ready, and one copy before any other is", () => {
+    expect(madeBeforeReady({ ...hevc, codec: "h264" }, ["720p"])).toEqual([]);
+    expect(madeBeforeReady(hevc, ["1080p", "720p"])).toEqual(["1080p"]);
+    expect(madeBeforeReady(hevc, [])).toEqual(["720p"]);
+  });
+});
+
+describe("sizeLabel", () => {
+  it("rounds a short side down to a standard name, and names any other by itself", () => {
+    expect(sizeLabel(3840)).toBe("4K");
+    expect(sizeLabel(2160)).toBe("4K");
+    expect(sizeLabel(2159)).toBe("1440p");
+    expect(sizeLabel(1440)).toBe("1440p");
+    expect(sizeLabel(1080)).toBe("1080p");
+    expect(sizeLabel(1079)).toBe("720p");
+    expect(sizeLabel(720)).toBe("720p");
+    expect(sizeLabel(480)).toBe("480p");
+    expect(sizeLabel(479)).toBe("360p");
+    expect(sizeLabel(360)).toBe("360p");
+    expect(sizeLabel(300)).toBe("300p");
+  });
+});
+
+// A stored item read back as a probe, for the sizes it lacks and the player's list of its sizes.
+describe("an item's sizes", () => {
+  const item = { codec: "hvc1.1.6.L93.B0", width: 1920, height: 1080, bytes: 500_000, durationMs: 2000, copies: [] as VideoQuality[] };
+  const both = ["1080p", "720p"] as const;
+
+  it("reads the codec string back as ffprobe's name, upright, with the bit rate of the file as sent", () => {
+    expect(probeOfItem(item)).toEqual({ codec: "hevc", width: 1920, height: 1080, rotation: 0, bitRate: 2_000_000 });
+    expect(probeOfItem({ ...item, codec: "avc1.640028" })?.codec).toBe("h264");
+    expect(probeOfItem({ ...item, codec: "vp09" })?.codec).toBe("vp09");
+    expect(probeOfItem({ ...item, bytes: 1_000_001, durationMs: 3000 })?.bitRate).toBe(2_666_669);
+  });
+
+  it("reads no probe of an item without its width, height, file size or length", () => {
+    expect(probeOfItem({ ...item, width: null })).toBeUndefined();
+    expect(probeOfItem({ ...item, height: null })).toBeUndefined();
+    expect(probeOfItem({ ...item, bytes: null })).toBeUndefined();
+    expect(probeOfItem({ ...item, durationMs: null })).toBeUndefined();
+  });
+
+  it("finds the sizes an item lacks, counting the copies it has", () => {
+    expect(missingSizes({ ...item, copies: ["1080p"] }, both)).toEqual(["720p"]);
+    expect(missingSizes({ ...item, copies: ["1080p", "720p"] }, both)).toEqual([]);
+    // A 0.7 event that chose 720p: a 1080p copy of the 640x480 fixture would be 480, as its 720p one is.
+    expect(missingSizes({ ...item, width: 640, height: 480, copies: ["720p"] }, both)).toEqual([]);
+    expect(missingSizes({ ...item, codec: "avc1.640028", bytes: 1_250_000 }, both)).toEqual(["720p"]);
+    expect(missingSizes(item, [])).toEqual([]);
+    // A copy the event no longer asks for stays, and counts.
+    expect(missingSizes({ ...item, copies: ["720p"] }, ["1080p"])).toEqual(["1080p"]);
+  });
+
+  it("lists the original first, then the copies largest first, each with its side and bit rate", () => {
+    expect(videoSizes({ ...item, copies: ["720p", "1080p"] })).toEqual([
+      { name: "original", side: 1080, original: true, bitRate: 2_000_000 },
+      { name: "1080p", side: 1080, original: false, bitRate: 6_000_000 },
+      { name: "720p", side: 720, original: false, bitRate: 3_000_000 },
+    ]);
+    expect(videoSizes({ ...item, width: 640, height: 480, copies: ["1080p"] }).map(({ name, side }) => ({ name, side }))).toEqual([
+      { name: "original", side: 480 },
+      { name: "1080p", side: 480 },
+    ]);
+    expect(videoSizes({ ...item, width: null })).toEqual([]);
+  });
+
+  it("names the jobs the queue does", () => {
+    expect(VIDEO_WORKS).toEqual(["process", "sizes", "motion"]);
   });
 });
 

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream as NodeReadableStream } from "node:stream/web";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import sharp from "sharp";
 import { getDb } from "@/db/client";
 import { event, photo } from "@/db/schema";
@@ -13,17 +13,19 @@ import { videoLimits, videoProcessing } from "@/instance/repository";
 import { getStorage } from "@/storage/storage";
 import { MAX_PIXELS } from "@/uploads/validate";
 import { removeItemFiles } from "./files";
-import { completeJob, failJob, type ClaimedJob } from "./jobs";
+import { completeJob, dropJob, failJob, releaseJob, type ClaimedJob } from "./jobs";
 import { notifyHostsOfVideo } from "./notify-hosts";
 import { removeDir, scratchDir } from "./tmp";
-import { copyName, effectiveVideoCaps, needsCopy, sentKey, TARGET_BITRATE, TARGET_SHORT_SIDE, videoKey, type Probe, type VideoQuality } from "./video";
+import { copyName, effectiveVideoCaps, madeBeforeReady, missingSizes, sentKey, sizesToMake, TARGET_BITRATE, TARGET_SHORT_SIDE, videoKey, type Probe, type VideoQuality } from "./video";
 
 // What the queue does to a clip (M7 spec, "Videos"; ADR-0007): reads its streams with ffprobe;
 // rewraps it at original quality into MP4 with every piece of metadata dropped and the index in
-// front, which is instant since the frames are copied; makes an H.264 copy at a size when the clip
-// needs one (video.ts, needsCopy) and the site's switch is on; takes a poster frame and the album's
-// thumbnail through the same image pipeline as photos; stores all of it; and deletes the clip as
-// sent. ffmpeg runs at low priority with two threads, so the site keeps answering pages.
+// front, which is instant since the frames are copied; makes the H.264 copy an original that is
+// not H.264 needs to play everywhere, when the site's switch is on; takes a poster frame and the
+// album's thumbnail through the same image pipeline as photos; stores all of it; and deletes the
+// clip as sent. The other sizes the event asks for (video.ts, sizesToMake) follow from the stored
+// original, one a claim, once the item is ready (M8 ticket 03, processSizes). ffmpeg runs at low
+// priority with two threads, so the site keeps answering pages.
 
 // A failure no retry would mend: the item is failed at once.
 class Final extends Error {}
@@ -170,15 +172,16 @@ export async function processVideo(job: ClaimedJob): Promise<void> {
 
     const original = join(dir, "video.mp4");
     await rewrap(sent, original, streams);
-    // At most one copy until ticket 03 makes every size, as 0.7 made it: at the first size the
-    // host ticked, or, with none ticked, at 720p for an original not every browser plays.
-    const copies: VideoQuality[] = [];
-    const size = item.sizes[0] ?? (streams.codec !== "h264" ? "720p" : undefined);
-    if (size && needsCopy(streams, size) && (await videoProcessing())) {
-      const copy = join(dir, "copy.mp4");
+    // A video is ready as soon as it plays everywhere (M8 spec): only the copy an original that is
+    // not H.264 needs is made now, from the clip as sent and stored before the original; the rest
+    // of the sizes are the `sizes` job's. With the switch off, no copy and no job, as in 0.7.
+    const on = await videoProcessing();
+    const sizes = on ? sizesToMake(streams, item.sizes) : [];
+    const before = on ? madeBeforeReady(streams, sizes) : [];
+    for (const size of before) {
+      const copy = join(dir, `copy-${size}.mp4`);
       await makeCopy(sent, copy, size);
       await putFile(videoKey(id, copyName(size)), copy);
-      copies.push(size);
     }
     await putFile(videoKey(id, "original"), original);
     const { poster, thumb } = await stills(await posterFrame(original, streams.durationMs, dir));
@@ -186,7 +189,7 @@ export async function processVideo(job: ClaimedJob): Promise<void> {
     await getStorage().put(videoKey(id, "thumb"), thumb);
 
     const upright = streams.rotation % 180 === 90 ? { width: streams.height, height: streams.width } : { width: streams.width, height: streams.height };
-    const done = await completeJob(id, { ...upright, durationMs: streams.durationMs, codec: streams.codecString, copies });
+    const done = await completeJob(id, { ...upright, durationMs: streams.durationMs, codec: streams.codecString, copies: before }, sizes.length > before.length);
     if (!done) {
       // Deleted while it was processed (plan ruling 20): nothing of it stays.
       await removeItemFiles([id]);
@@ -201,6 +204,53 @@ export async function processVideo(job: ClaimedJob): Promise<void> {
       return;
     }
     throw error;
+  } finally {
+    await removeDir(dir);
+  }
+}
+
+// The sizes added to a ready item's copies, each once and kept largest first, for an item still
+// approved or pending; false when none answered, as for one deleted while its copy was made.
+export async function addCopies(photoId: string, sizes: VideoQuality[]): Promise<boolean> {
+  const added = sql`array[${sql.join(sizes.map((size) => sql`${size}::video_size`), sql`, `)}]::video_size[]`;
+  const updated = await getDb()
+    .update(photo)
+    .set({ copies: sql`array(select distinct size from unnest(${photo.copies} || ${added}) as size order by size)` })
+    .where(and(eq(photo.id, photoId), inArray(photo.status, ["approved", "pending"])))
+    .returning({ id: photo.id });
+  return updated.length > 0;
+}
+
+// One claim of a `sizes` job (M8 ticket 03): the smallest size the item lacks of those its event
+// asks for now, so the size a slow connection needs never waits behind a longer encode, made from
+// the stored original, since the clip as sent went when the item became ready (plan ruling 8).
+// The job is given back while more sizes are missing, and dropped once none is, or when the item
+// is no longer a ready video or the site's switch is off. Anything thrown is the queue's: it drops
+// the job, and the item stays ready.
+export async function processSizes(job: ClaimedJob): Promise<void> {
+  const id = job.photoId;
+  const [item] = await getDb()
+    .select({ kind: photo.kind, status: photo.status, codec: photo.codec, width: photo.width, height: photo.height, bytes: photo.bytes, durationMs: photo.durationMs, copies: photo.copies, sizes: event.albumCopySizes })
+    .from(photo)
+    .innerJoin(event, eq(event.id, photo.eventId))
+    .where(eq(photo.id, id));
+  if (!item || item.kind !== "video" || (item.status !== "approved" && item.status !== "pending") || !(await videoProcessing())) return dropJob(job);
+  const missing = missingSizes(item, item.sizes);
+  if (missing.length === 0) return dropJob(job);
+  const size = missing[missing.length - 1];
+  const dir = await scratchDir(id);
+  try {
+    const original = join(dir, "video.mp4");
+    const stream = await getStorage().stream(videoKey(id, "original"));
+    if (!stream) throw new Error("the original is gone");
+    await pipeline(Readable.fromWeb(stream as unknown as NodeReadableStream<Uint8Array>), createWriteStream(original));
+    const copy = join(dir, `copy-${size}.mp4`);
+    await makeCopy(original, copy, size);
+    const key = videoKey(id, copyName(size));
+    await putFile(key, copy);
+    // Deleted while its copy was made: the copy goes too.
+    if (!(await addCopies(id, [size]))) await getStorage().delete(key);
+    await (missing.length > 1 ? releaseJob(job) : dropJob(job));
   } finally {
     await removeDir(dir);
   }

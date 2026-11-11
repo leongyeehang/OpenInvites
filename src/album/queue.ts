@@ -3,15 +3,16 @@ import { hostname } from "node:os";
 import { processesVideosHere, videoRole } from "@/instance/env";
 import { markVideoWorkerSeen } from "@/instance/repository";
 import { getStorage } from "@/storage/storage";
-import { claimJob, crashedOut, failJob } from "./jobs";
-import { processVideo } from "./processing";
+import { claimJob, crashedOut, dropJob, failJob, type ClaimedJob } from "./jobs";
+import { processSizes, processVideo } from "./processing";
 import { sentKey } from "./video";
 
 // The processing queue's loop (M7 ticket 06): one clip at a time per container, taken under a
 // lease (jobs.ts) and processed with ffmpeg (processing.ts). As the mail worker, its state hangs
 // off the process's global object, since the instrumentation hook that starts it and the finish
 // route that kicks it are bundled apart but run in one process: a kick while a run is going sets
-// `again`, and the run goes round once more. A kick is never awaited by a request.
+// `again`, and the run goes round once more. A kick is never awaited by a request. A claimed job
+// processes a clip or makes one of a ready item's sizes, by its work (M8 ticket 03).
 
 const SHARED = Symbol.for("openinvites.videoQueue");
 
@@ -58,6 +59,10 @@ export async function kickVideoQueue(): Promise<void> {
     do {
       state.again = false;
       for (let job = await claimJob(me(), new Date()); job; job = await claimJob(me(), new Date())) {
+        if (job.work === "sizes") {
+          await makeSize(job);
+          continue;
+        }
         // Claimed more times than there are tries: every try so far killed the processor.
         if (crashedOut(job)) {
           await failJob(job, "crashed", true);
@@ -77,5 +82,17 @@ export async function kickVideoQueue(): Promise<void> {
     console.error("Videos: the queue failed:", error);
   } finally {
     state.running = false;
+  }
+}
+
+// A size that cannot be made, or one whose encode the processor did not survive, is dropped with
+// its job and logged, never failed: the item stays ready with the sizes it has (M8 spec).
+async function makeSize(job: ClaimedJob): Promise<void> {
+  try {
+    if (crashedOut(job)) throw new Error(`claimed ${job.attempts} times and never given back; the processor did not survive it`);
+    await processSizes(job);
+  } catch (error) {
+    console.error(`Videos: making a size of item ${job.photoId} failed, so it was dropped:`, error);
+    await dropJob(job);
   }
 }

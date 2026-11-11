@@ -1,13 +1,20 @@
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { event, photo, videoJob } from "@/db/schema";
-import type { VideoQuality } from "./video";
+import type { VideoQuality, VideoWork } from "./video";
 import { photoStatusForOwner, type PhotoStatus } from "./visibility";
 
 // The processing queue (M7 ticket 06): one `video_job` row per video from its upload until ffmpeg
 // is done with it. A job is taken under a committed lease, never inside a transaction held across
 // ffmpeg, which runs for minutes and would pin a pooled connection; a lease an hour old is a
 // crashed processor's and is taken again. Three tries in all, then the item is failed.
+//
+// A job is first a `process` job, which makes a clip into a ready item. When the item's event asks
+// for sizes it still lacks, the job does not go but becomes a `sizes` job (M8 ticket 03): each
+// claim makes one missing copy from the stored original and gives the job back behind everything
+// else waiting, so a new upload never waits behind another item's encodes. A `sizes` job carries
+// no list; each claim works out what the item lacks at that moment. It is never failed: a size
+// that cannot be made drops the job, and the item stays ready.
 
 export const LEASE_MS = 60 * 60 * 1000;
 export const MAX_TRIES = 3;
@@ -28,19 +35,20 @@ export function crashedOut(job: { attempts: number }): boolean {
   return job.attempts > MAX_TRIES;
 }
 
-export type ClaimedJob = { id: string; photoId: string; attempts: number };
+export type ClaimedJob = { id: string; photoId: string; attempts: number; work: VideoWork };
 
-// One statement: the oldest claimable job, locked and skipped if another container holds it,
-// leased to `me` with its tries counted. Nothing when the queue is empty. The times go as ISO
-// strings: a raw statement's Date parameters reach the driver unserialised.
+// One statement: the oldest claimable job, `process` jobs before `sizes` ones, locked and skipped
+// if another container holds it, leased to `me` with its tries counted. Nothing when the queue is
+// empty. The times go as ISO strings: a raw statement's Date parameters reach the driver
+// unserialised.
 export async function claimJob(me: string, now: Date): Promise<ClaimedJob | undefined> {
   const lapsed = new Date(now.getTime() - LEASE_MS).toISOString();
-  const rows = await getDb().execute<{ id: string; photo_id: string; attempts: number }>(sql`
+  const rows = await getDb().execute<{ id: string; photo_id: string; attempts: number; work: VideoWork }>(sql`
     update video_job set leased_at = ${now.toISOString()}::timestamptz, leased_by = ${me}, attempts = attempts + 1
-    where id = (select id from video_job where leased_at is null or leased_at < ${lapsed}::timestamptz order by created_at limit 1 for update skip locked)
-    returning id, photo_id, attempts`);
+    where id = (select id from video_job where leased_at is null or leased_at < ${lapsed}::timestamptz order by (work = 'sizes'), created_at limit 1 for update skip locked)
+    returning id, photo_id, attempts, work`);
   const row = rows[0];
-  return row && { id: row.id, photoId: row.photo_id, attempts: row.attempts };
+  return row && { id: row.id, photoId: row.photo_id, attempts: row.attempts, work: row.work };
 }
 
 // What processing learned of a video, and the sizes it stored copies at, largest first (M8 ticket 02).
@@ -49,8 +57,9 @@ export type Processed = { width: number; height: number; durationMs: number; cod
 // The item becomes what a photo added now would be, pending for a guest while the host approves
 // items and approved otherwise, decided under the event's lock as addPhotos decides it; only an
 // item still processing is finished, so one deleted meanwhile (plan ruling 20) is left alone and
-// the caller removes what it stored. The job goes either way.
-export async function completeJob(photoId: string, result: Processed): Promise<{ status: PhotoStatus; eventId: string } | undefined> {
+// the caller removes what it stored. The job goes, or, when there are `more` sizes to make, becomes
+// the item's `sizes` job, untried and behind every job already waiting.
+export async function completeJob(photoId: string, result: Processed, more: boolean): Promise<{ status: PhotoStatus; eventId: string } | undefined> {
   return getDb().transaction(async (tx) => {
     const [item] = await tx
       .select({ eventId: photo.eventId, hostId: photo.hostId })
@@ -67,7 +76,8 @@ export async function completeJob(photoId: string, result: Processed): Promise<{
       .set({ status, ...result })
       .where(and(eq(photo.id, photoId), eq(photo.status, "processing")))
       .returning({ id: photo.id });
-    await tx.delete(videoJob).where(eq(videoJob.photoId, photoId));
+    if (more && updated.length > 0) await tx.update(videoJob).set({ work: "sizes", leasedAt: null, leasedBy: null, lastError: null, attempts: 0, createdAt: sql`now()` }).where(eq(videoJob.photoId, photoId));
+    else await tx.delete(videoJob).where(eq(videoJob.photoId, photoId));
     return updated.length > 0 ? { status, eventId: item.eventId } : undefined;
   });
 }
@@ -85,4 +95,15 @@ export async function failJob(job: ClaimedJob, reason: string, final = false): P
   }
   await getDb().update(videoJob).set({ leasedAt: null, leasedBy: null, lastError: reason.slice(0, 1000) }).where(eq(videoJob.id, job.id));
   return "retry";
+}
+
+// A `sizes` job that is done, or that failed: it goes, and the item stays as it is.
+export async function dropJob(job: ClaimedJob): Promise<void> {
+  await getDb().delete(videoJob).where(eq(videoJob.id, job.id));
+}
+
+// A `sizes` job with more to make after this claim's copy: given back behind every job waiting,
+// so other items' sizes, and every new upload, take their turn first.
+export async function releaseJob(job: ClaimedJob): Promise<void> {
+  await getDb().update(videoJob).set({ leasedAt: null, leasedBy: null, attempts: 0, createdAt: sql`now()` }).where(eq(videoJob.id, job.id));
 }

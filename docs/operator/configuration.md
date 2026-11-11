@@ -187,7 +187,7 @@ pictures take, counted as uploaded (a video's lighter copy, poster and thumbnail
 on local disk, what the `uploads` volume really holds and how much of it is free; the five albums
 that take the most, each with its hosts; whether the server can process videos (its ffmpeg
 version, or that it has none); and the switch **Process videos for playback**, on by default,
-which makes a lighter copy of every video that needs one. On S3 the card shows the counted use
+which gives each video the sizes its event asks for when it needs them. On S3 the card shows the counted use
 only. After upgrading to 0.7 the card says how many files from before the upgrade are still being
 measured, until that is done; a photo from before counts the size of the file the site stored,
 since the file as sent was never kept. Two albums uploading at the same moment can each overshoot
@@ -435,11 +435,20 @@ item's id: `<id>-video.mp4` (the clip at original quality, rewrapped as MP4 with
 dropped, so a phone's location and device details never reach a guest, and its index moved to the
 front, so playing starts at once); `<id>-video-2160p.mp4`, `<id>-video-1080p.mp4` and
 `<id>-video-720p.mp4` (H.264 copies, made at the sizes the host ticks, each only when the original
-is not H.264, larger than that size or far above its bit rate, and only while **Process videos for
-playback** is on);
+is not H.264, larger than that size or far above its bit rate, never larger than the original, and
+only while **Process videos for playback** is on);
 `<id>-video-poster.webp` (the frame the player shows first) and `<id>-video-thumb.webp` (the
 album's square thumbnail). Only the original counts toward storage. They go with the item, as a
 photo's files do.
+
+So a video may have up to three copies (2160p, 1080p and 720p), and a size whose copy would come
+out the same as one already made (720p of a 640×480 clip, say) is skipped. A video is ready, and
+plays, after at most one of them: an original that is not H.264 gets one copy, from the clip as
+sent, before it shows in the album, and an H.264 original none. The other sizes are made
+afterwards from the stored original, one at a time, smallest first, each behind every video
+uploaded meanwhile, so a new upload never waits for another's copies. A size that fails is dropped
+and logged (`Videos: making a size of item … failed, so it was dropped`), and the item stays as it
+is with the copies it has.
 
 Processing needs ffmpeg 6 or later, which the image carries
 ([ADR-0007](../adr/0007-ffmpeg-in-the-image.md)); without a usable one the app starts, refuses

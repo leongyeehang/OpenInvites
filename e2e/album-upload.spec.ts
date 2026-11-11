@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import sharp from "sharp";
 import { createPublished, editSettings } from "./events";
+import { probeServed } from "./instances";
 import { closeReply } from "./reply";
 import { clientAddress, expect, test, type APIRequestContext, type Browser, type Page } from "./test";
 
@@ -11,6 +12,7 @@ import { clientAddress, expect, test, type APIRequestContext, type Browser, type
 const PAST = { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" };
 const H264 = readFileSync("e2e/fixtures/clip-h264.mp4");
 const HEVC = readFileSync("e2e/fixtures/clip-hevc.mov");
+const HEVC_1080 = readFileSync("e2e/fixtures/clip-hevc-1080p.mp4");
 const LONG = readFileSync("e2e/fixtures/clip-long.mp4");
 const TEST_PART = 65536;
 
@@ -88,6 +90,7 @@ test("an H.264 clip goes up in parts, is finished, processed, and served at orig
   // The clip as sent is never served, and an H.264 clip at 640x480 needs no lighter copy.
   expect((await request.get(`${files}/video-sent`)).status()).toBe(404);
   expect((await request.get(`${files}/video-1080p.mp4`)).status()).toBe(404);
+  expect((await request.get(`${files}/video-720p.mp4`)).status()).toBe(404);
   await Promise.all([host.context.close(), priya.context().close()]);
 });
 
@@ -102,10 +105,44 @@ test("an HEVC clip held portrait gets a lighter copy, an upright poster, and los
   const copy = await servedWithin(request, `${files}/video-1080p.mp4`, 120_000);
   expect(copy.length).toBeGreaterThan(10_000);
   const original = await servedWithin(request, `${files}/video.mp4`, 30_000);
+  // M8 ticket 03: a 720p copy of a 640x480 clip would be 480 on its short side, as the 1080p one is.
+  expect((await request.get(`${files}/video-720p.mp4`)).status()).toBe(404);
   expect(original.includes("+35.6895+139.6917")).toBe(false);
   expect(original.includes("6895")).toBe(false);
   const poster = await sharp(await (await request.get(`${files}/video-poster.webp`)).body()).metadata();
   expect(poster.height!).toBeGreaterThan(poster.width!);
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+// M8 ticket 03: a video is ready once it plays everywhere, with the one copy an HEVC original
+// needs; the event's other sizes follow from the stored original.
+test("a 1080p HEVC clip is ready with its 1080p copy, and its 720p copy follows", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "video-sizes", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  const api = apiOf(priya, host.link);
+  const { item } = await uploadWhole(api, "clip-hevc-1080p.mp4", "video/mp4", HEVC_1080, 2000);
+  const files = `${api.origin}/uploads/${item.id}`;
+  await servedWithin(request, `${files}/video.mp4`, 120_000);
+  const large = await request.get(`${files}/video-1080p.mp4`);
+  expect(large.status()).toBe(200);
+  const small = await servedWithin(request, `${files}/video-720p.mp4`, 120_000);
+  expect(probeServed(await large.body())).toMatchObject({ codec_name: "h264", width: 1920, height: 1080 });
+  expect(probeServed(small)).toMatchObject({ codec_name: "h264", width: 1280, height: 720 });
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+test("an event that asks for 720p only gives a 1080p HEVC clip a 720p copy and no 1080p one", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "video-720", PAST);
+  await editSettings(host.page, (sheet) => sheet.getByRole("group", { name: "Album", exact: true }).getByRole("group", { name: "Video sizes" }).getByLabel("1080p", { exact: true }).uncheck());
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  const api = apiOf(priya, host.link);
+  const { item } = await uploadWhole(api, "clip-hevc-1080p.mp4", "video/mp4", HEVC_1080, 2000);
+  const files = `${api.origin}/uploads/${item.id}`;
+  await servedWithin(request, `${files}/video.mp4`, 120_000);
+  expect((await request.get(`${files}/video-720p.mp4`)).status()).toBe(200);
+  expect((await request.get(`${files}/video-1080p.mp4`)).status()).toBe(404);
   await Promise.all([host.context.close(), priya.context().close()]);
 });
 

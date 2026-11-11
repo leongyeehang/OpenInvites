@@ -379,7 +379,7 @@
       "none": "No album holds anything yet.",
       "use": "{size}, {count, plural, one {# item} other {# items}}",
       "processVideos": "Process videos for playback",
-      "processVideosHint": "On, a lighter copy is made of every video that needs one, so it plays on slow connections and in every browser. Off, videos are kept as sent and play where the browser can.",
+      "processVideosHint": "On, each video gets the sizes its event asks for when it needs them, so it plays on slow connections and in every browser. Off, videos are kept as sent and play where the browser can.",
       "submit": "Save",
       "saved": "Saved.",
       "videosAvailable": "Videos: available (ffmpeg {version}).",

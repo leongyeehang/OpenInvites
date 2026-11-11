@@ -88,7 +88,7 @@ export const TARGET_SHORT_SIDE: Record<VideoQuality, number> = { "2160p": 2160, 
 export type Probe = { codec: string; width: number; height: number; rotation: number; bitRate: number };
 
 // The short side is what a size names, whichever way the phone was held (plan ruling 13).
-export function shortSide(probe: { width: number; height: number; rotation: number }): number {
+export function shortSide(probe: { width: number; height: number; rotation?: number }): number {
   return Math.min(probe.width, probe.height);
 }
 
@@ -97,6 +97,95 @@ export function shortSide(probe: { width: number; height: number; rotation: numb
 // Otherwise the original serves that size and no CPU is spent.
 export function needsCopy(probe: Probe, size: VideoQuality): boolean {
   return probe.codec !== "h264" || shortSide(probe) > TARGET_SHORT_SIDE[size] || probe.bitRate > 1.5 * TARGET_BITRATE[size];
+}
+
+// The jobs the processing queue does (M8 ticket 03; the database's `video_work` enum is built from
+// this list): `process` turns a clip as sent into a ready item; `sizes` makes the copies the item
+// still lacks, one a claim; `motion` is a live photo's clip (ticket 08).
+export const VIDEO_WORKS = ["process", "sizes", "motion"] as const;
+export type VideoWork = (typeof VIDEO_WORKS)[number];
+
+// A copy's short side: the size's, never larger than the original's, since nothing is upscaled.
+export function copySide(probe: { width: number; height: number }, size: VideoQuality): number {
+  return Math.min(TARGET_SHORT_SIDE[size], shortSide(probe));
+}
+
+// The ticked sizes, largest first, that a clip needs a copy at (M8 spec, "Sizes made"), leaving
+// out a size whose copy would come out at the same side as one already kept or taken. The
+// original's own side is never compared: an H.264 original far over 1080p's bit rate still gets
+// a lighter 1080p copy (plan ruling 7).
+function sizesNeeded(probe: Probe, ticked: readonly VideoQuality[], kept: readonly VideoQuality[]): VideoQuality[] {
+  const sides = kept.map((size) => copySide(probe, size));
+  const taken: VideoQuality[] = [];
+  for (const size of VIDEO_QUALITIES) {
+    if (!ticked.includes(size) || kept.includes(size) || !needsCopy(probe, size)) continue;
+    const side = copySide(probe, size);
+    if (sides.includes(side)) continue;
+    sides.push(side);
+    taken.push(size);
+  }
+  return taken;
+}
+
+export function sizesToMake(probe: Probe, ticked: readonly VideoQuality[]): VideoQuality[] {
+  return sizesNeeded(probe, ticked, []);
+}
+
+// What is made before the item is ready (M8 spec, "A video is ready as soon as it can play"):
+// nothing for H.264, which plays everywhere; otherwise the first size to make, or 720p when the
+// host ticked none (plan ruling 6). The other sizes follow as a `sizes` job (jobs.ts).
+export function madeBeforeReady(probe: Probe, sizes: readonly VideoQuality[]): VideoQuality[] {
+  return probe.codec === "h264" ? [] : sizes.length > 0 ? sizes.slice(0, 1) : ["720p"];
+}
+
+// A size's name for a person (M8 spec, "Sizes made"): a short side rounded down to a standard
+// name, 2160 and over being 4K, and any side under 360 named by itself.
+const LABELS: [number, string][] = [
+  [2160, "4K"],
+  [1440, "1440p"],
+  [1080, "1080p"],
+  [720, "720p"],
+  [480, "480p"],
+  [360, "360p"],
+];
+
+export function sizeLabel(side: number): string {
+  return LABELS.find(([least]) => side >= least)?.[1] ?? `${side}p`;
+}
+
+// A processed video as stored: its original's codec string, size upright, file size as sent,
+// length, and the sizes it has copies at.
+export type VideoItem = { codec: string | null; width: number | null; height: number | null; bytes: number | null; durationMs: number | null; copies: readonly VideoQuality[] };
+
+// The item read back as a probe of its original: the codec string named as ffprobe names it, no
+// rotation since the row is stored upright, and the bit rate of the file as sent. Nothing for an
+// item not yet measured.
+export function probeOfItem(item: VideoItem): Probe | undefined {
+  if (item.codec === null || !item.width || !item.height || item.bytes === null || !item.durationMs) return undefined;
+  const codec = item.codec.startsWith("avc1") ? "h264" : item.codec.startsWith("hvc1") ? "hevc" : item.codec;
+  return { codec, width: item.width, height: item.height, rotation: 0, bitRate: Math.round((item.bytes * 8000) / item.durationMs) };
+}
+
+// The sizes a ready item lacks of those its event asks for now, smallest last; a copy it has
+// that the event no longer asks for stays and counts (plan, ticket 03).
+export function missingSizes(item: VideoItem, ticked: readonly VideoQuality[]): VideoQuality[] {
+  const probe = probeOfItem(item);
+  return probe ? sizesNeeded(probe, ticked, item.copies) : [];
+}
+
+// One size a video plays at, for the player (ticket 06): the original or a copy, its short side,
+// and about its bit rate.
+export type VideoSize = { name: "original" | VideoQuality; side: number; original: boolean; bitRate: number };
+
+// The original first, then the copies largest first, whatever order they were stored in.
+export function videoSizes(item: VideoItem): VideoSize[] {
+  const probe = probeOfItem(item);
+  if (!probe) return [];
+  const copies = VIDEO_QUALITIES.filter((size) => item.copies.includes(size));
+  return [
+    { name: "original", side: shortSide(probe), original: true, bitRate: probe.bitRate },
+    ...copies.map((size) => ({ name: size, side: copySide(probe, size), original: false, bitRate: TARGET_BITRATE[size] })),
+  ];
 }
 
 // The player's quality (ticket 07; the maintainer, 2026-11-09): the viewer's own choice, kept on

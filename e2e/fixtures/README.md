@@ -1,6 +1,6 @@
 # Test clips
 
-Three small videos for the browser tests of the album (M7 ticket 06 onwards). They were made
+Four small videos for the browser tests of the album (M7 ticket 06 onwards). They were made
 with ffmpeg 8.1.3 in a throwaway container, since this repository's development machines need
 no ffmpeg; the commands below remake them:
 
@@ -21,8 +21,16 @@ docker run --rm -v "$PWD/e2e/fixtures:/out" node:22-alpine sh -c '
   ffmpeg -y -f lavfi -i color=c=gray:size=64x64:rate=1 -t 61 -c:v libx264 -preset veryfast -pix_fmt yuv420p -an clip-long.mp4'
 ```
 
+The fourth was added in M8 ticket 03, with ffmpeg 8.1.3 in the same throwaway container:
+
+```sh
+# An HEVC clip with sound, 2 s at 1920x1080 (about 400 KB): gets a 1080p copy before it is ready, and a 720p copy after.
+docker run --rm -v "$PWD/e2e/fixtures:/out" node:22-alpine sh -c 'apk add --no-cache ffmpeg && cd /out && ffmpeg -y -f lavfi -i testsrc2=size=1920x1080:rate=30 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 2 -c:v libx265 -preset veryfast -b:v 1500k -pix_fmt yuv420p -tag:v hvc1 -c:a aac -b:a 64k -shortest clip-hevc-1080p.mp4'
+```
+
 What the tests rely on: `clip-h264.mp4` is H.264 at 640×480 and plays in headless Chrome;
 `clip-hevc.mov` reports a display-matrix rotation of 90 and holds the string `+35.6895+139.6917`
 twice (keys `location` and `location-eng`), and headless Chrome cannot decode it; `clip-long.mp4`
-is 61 seconds long. The test profile's `app` uses 64 KB upload parts (`UPLOAD_TEST_PART_BYTES`),
-so the first two span several parts.
+is 61 seconds long; `clip-hevc-1080p.mp4` is HEVC at 1920×1080 with sound, 2 seconds long, so
+its two copies come out at 1920×1080 and 1280×720. The test profile's `app` uses 64 KB upload
+parts (`UPLOAD_TEST_PART_BYTES`), so all but the long clip span several parts.

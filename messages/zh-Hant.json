@@ -379,7 +379,7 @@
       "none": "還沒有相簿存有內容。",
       "use": "{size}，{count, plural, other {# 項}}",
       "processVideos": "為播放處理影片",
-      "processVideosHint": "開啟後，需要的影片都會產生一個較小的副本，以便在網速慢的情況下和各種瀏覽器中播放。關閉後，影片按原樣保存，能否播放取決於瀏覽器。",
+      "processVideosHint": "開啟後，每段影片會在需要時產生其活動要求的尺寸，以便在網速慢的情況下和各種瀏覽器中播放。關閉後，影片按原樣保存，能否播放取決於瀏覽器。",
       "submit": "儲存",
       "saved": "已儲存。",
       "videosAvailable": "影片：可用（ffmpeg {version}）。",
