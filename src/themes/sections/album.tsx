@@ -7,6 +7,7 @@ import { Dialog } from "radix-ui";
 import { useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
 import { approvePhotoAction, deletePhotoAction } from "@/album/actions";
 import { MAX_PHOTOS_AT_ONCE } from "@/album/album";
+import type { ShownDetails } from "@/album/details";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -30,12 +31,14 @@ import { VideoPlayer, type ShownSize } from "./video-player";
 // its file (M8 ticket 06), whether the original is HDR, its codec for the player and its length;
 // or a video still processing, or failed, which only its uploader and the hosts see. Each with who
 // added it, whether this viewer may delete it, whether it waits for a host's approval (M6 ticket
-// 03), and whether this viewer may approve it.
+// 03), and whether this viewer may approve it. An item that opens carries its technical line, and
+// the capture time and camera the host keeps, written on the server (M8 ticket 07).
 type ShownBase = { id: string; name: string; deletable: boolean; pending: boolean; approvable: boolean };
+type ShownFacts = { details: ShownDetails; takenAt: string | null };
 export type ShownPhoto = ShownBase &
   (
-    | { kind: "photo"; thumb: string; large: string; width: number; height: number }
-    | { kind: "video"; state: "ready"; thumb: string; poster: string; original: string; sizes: ShownSize[]; hdr: boolean; codec: string; durationMs: number; width: number; height: number }
+    | ({ kind: "photo"; thumb: string; large: string; width: number; height: number } & ShownFacts)
+    | ({ kind: "video"; state: "ready"; thumb: string; poster: string; original: string; sizes: ShownSize[]; hdr: boolean; codec: string; durationMs: number; width: number; height: number } & ShownFacts)
     | { kind: "video"; state: "processing" | "failed"; failure: string | null }
   );
 
@@ -397,7 +400,7 @@ function Viewer({
                   <X className="size-5" aria-hidden />
                 </Dialog.Close>
               </header>
-              <div className="relative flex min-h-0 flex-1 items-center justify-center px-2 pb-[max(env(safe-area-inset-bottom),1rem)]">
+              <div className="relative flex min-h-0 flex-1 items-center justify-center px-2 pb-2">
                 {photo.kind === "video" ? (
                   <VideoPlayer key={photo.id} video={photo} label={t(photo.pending ? "openVideoPending" : "openVideo", { n: index + 1, name: photo.name })} />
                 ) : (
@@ -425,11 +428,39 @@ function Viewer({
                   </>
                 )}
               </div>
+              <ItemDetails photo={photo} />
             </>
           )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+// The facts under an open item (M8 ticket 07): its technical line ("4K · 60 fps · HDR · 0:42 ·
+// 310 MB", "4032 × 3024 · 3.1 MB"), then when it was taken and the camera with its exposure, when
+// the host keeps them. Never on the tiles.
+function ItemDetails({ photo }: { photo: Openable }) {
+  const t = useTranslations("EventPage.album");
+  const locale = useLocale();
+  const { details, takenAt } = photo;
+  const technical =
+    details.kind === "photo"
+      ? [`${details.width} × ${details.height}`]
+      : [details.size, details.fps !== undefined && t("details.fps", { fps: details.fps }), details.hdr && t("details.hdr"), clockTime(details.durationMs)];
+  const lines = [
+    [...technical, details.bytes !== undefined && formatSize(details.bytes, locale)],
+    [takenAt && t("details.taken", { when: takenAt })],
+    [details.camera, details.exposure],
+  ]
+    .map((parts) => parts.filter(Boolean).join(" · "))
+    .filter(Boolean);
+  return (
+    <div data-slot="item-details" className="px-4 pb-[max(env(safe-area-inset-bottom),1rem)] text-center text-xs text-white/70">
+      {lines.map((line) => (
+        <p key={line}>{line}</p>
+      ))}
+    </div>
   );
 }
 

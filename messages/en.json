@@ -653,7 +653,15 @@
         "size1080": "1080p",
         "size720": "720p",
         "sizesHint": "Each video gets these sizes when it needs them, so it plays on slow connections and in every browser. A video never gets a size larger than itself. With neither ticked, a video not every browser plays still gets a 720p copy.",
-        "videosUnavailable": "Videos need ffmpeg on this site, which it does not have yet; ask the site’s operator."
+        "videosUnavailable": "Videos need ffmpeg on this site, which it does not have yet; ask the site’s operator.",
+        "keepTakenAt": "Keep when each photo and video was taken",
+        "keepTakenAtHint": "Read from the phone or camera as each is added, and shown under it.",
+        "keepCamera": "Keep the camera and its settings",
+        "keepCameraHint": "The camera, lens and exposure, for a party of photographers. Where a picture was taken is never kept.",
+        "order": "Order of the album",
+        "orderAdded": "When added",
+        "orderTaken": "When taken",
+        "orderHint": "When taken needs the time kept; anything without one sits by when it was added."
       },
       "notifyOnRsvp": "Email the hosts when a guest replies",
       "remindersEnabled": "Remind guests by email (a week before to Maybe, the day before to Going)",
@@ -729,7 +737,8 @@
       "scheduleInvalid": "The schedule couldn’t be read. Try again.",
       "albumMaxVideoMinutesInvalid": "Enter a whole number of minutes from 1 to 180 for the longest video, or leave it blank.",
       "albumMaxVideoMbInvalid": "Enter a whole number from 1 to 10,000 MB for the largest video, or leave it blank.",
-      "albumSizesInvalid": "Choose video sizes from 1080p and 720p."
+      "albumSizesInvalid": "Choose video sizes from 1080p and 720p.",
+      "albumOrderInvalid": "Choose how the album is ordered."
     },
     "manage": {
       "link": "Event link",
@@ -1050,7 +1059,12 @@
       "sizeOriginal": "{size} · Original",
       "sizeOriginalHdr": "{size} · <hdr>HDR</hdr> · Original",
       "originalUnplayable": "Original: not playable in this browser.",
-      "unplayable": "This browser cannot play this video. Download it to watch."
+      "unplayable": "This browser cannot play this video. Download it to watch.",
+      "details": {
+        "fps": "{fps} fps",
+        "hdr": "HDR",
+        "taken": "Taken {when}"
+      }
     },
     "letter": {
       "for": "For {name}"

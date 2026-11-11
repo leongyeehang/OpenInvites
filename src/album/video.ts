@@ -281,6 +281,18 @@ export function shouldStepDown(waits: Wait[], now: number): boolean {
   return waits.filter((wait) => now - wait.at < 60_000).length >= 3 || waits.some((wait) => wait.until === undefined && now - wait.at >= 6000);
 }
 
+// The waits with the one still open ended at `now`: playback resumed, the guest paused (a paused
+// video is not stalling), or the source was emptied (M8 ticket 07, from ticket 06's review).
+export function endWait<W extends Wait>(waits: W[], now: number): W[] {
+  return waits.map((wait) => (wait.until === undefined ? { ...wait, until: now } : wait));
+}
+
+// The waits still counted: one open, and those begun within the minute; the rest no rule reads, and
+// the player drops them, with their checks, rather than keep one for every wait a video ever had.
+export function recentWaits<W extends Wait>(waits: W[], now: number): W[] {
+  return waits.filter((wait) => wait.until === undefined || now - wait.at < 60_000);
+}
+
 // The size Auto steps down to: the largest with a smaller side, since a copy of the same side as
 // a stalling original would stall as well; none below the smallest.
 export function stepDown<Size extends VideoSize>(sizes: Size[], current: VideoSize): Size | undefined {

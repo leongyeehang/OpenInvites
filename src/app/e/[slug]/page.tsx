@@ -57,6 +57,7 @@ import { loadPoll } from "@/polls/repository";
 import { findVoterOnThisDevice } from "@/polls/voter";
 import { PollBar, PollFlow, PollWhen, type PollCandidate } from "./poll-flow";
 import { albumState, mayApprovePhoto, mayDeletePhoto, type AlbumViewer } from "@/album/album";
+import { albumOrderFor, formatTaken, shownDetails } from "@/album/details";
 import { ffmpegStatus } from "@/album/ffmpeg";
 import { photoUrl } from "@/album/files";
 import { copyName, effectiveVideoCaps, videoSizes, videoUrl } from "@/album/video";
@@ -132,6 +133,8 @@ async function pollCandidates(eventId: string, locale: string): Promise<PollCand
 // no album, which every event is while the operator has the Album switched off (M8 ticket 01).
 // Locked, it says how many photos it shows, which counts approved photos only; otherwise the
 // photos this viewer may see, each marked when it waits for approval, and approvable by a host.
+// An open item's technical line and the details the host keeps (M8 ticket 07) are written here, a
+// detail whose switch is off left out, so no page carries it.
 async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: string, now: Date): Promise<AlbumShown | undefined> {
   const switches = await siteFeatures();
   const state = albumState(event, now, featureOn(switches, "album"));
@@ -142,9 +145,10 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
     const awaitingApproval = viewer.kind === "guest" && viewer.approval === "pending";
     return { view: "locked", count: await countPhotos(event.id, "approved"), visibility: event.albumVisibility, awaitingApproval };
   }
-  const photos: ShownPhoto[] = (await listPhotos(event.id, photoScope(view, viewer))).map((each) => {
+  const photos: ShownPhoto[] = (await listPhotos(event.id, photoScope(view, viewer), albumOrderFor(event))).map((each) => {
     const base = { id: each.id, name: each.name, deletable: mayDeletePhoto(viewer, each), pending: each.status === "pending", approvable: each.status === "pending" && mayApprovePhoto(viewer) };
-    if (each.kind === "photo") return { ...base, kind: "photo", thumb: photoUrl(each.id, "thumb"), large: photoUrl(each.id, "large"), width: each.width ?? 0, height: each.height ?? 0 };
+    const details = { details: shownDetails(each, event), takenAt: event.albumKeepTakenAt && each.takenAt ? formatTaken(each.takenAt, event.timeZone, locale) : null };
+    if (each.kind === "photo") return { ...base, ...details, kind: "photo", thumb: photoUrl(each.id, "thumb"), large: photoUrl(each.id, "large"), width: each.width ?? 0, height: each.height ?? 0 };
     // A video (M7 ticket 07): processing or failed shows as such; ready shows its files.
     if (each.status === "processing" || each.status === "failed") return { ...base, kind: "video", state: each.status, failure: each.failure };
     // Every size it plays at, the original first, each with its file (M8 ticket 06), and whether
@@ -152,6 +156,7 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
     const sizes = videoSizes(each).map((size) => ({ ...size, src: videoUrl(each.id, size.name === "original" ? "original" : copyName(size.name)) }));
     return {
       ...base,
+      ...details,
       kind: "video",
       state: "ready",
       thumb: videoUrl(each.id, "thumb"),

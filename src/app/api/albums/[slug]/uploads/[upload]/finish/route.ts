@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
+import { keepDetailsOf, photoDetails } from "@/album/details";
+import { readExif } from "@/album/exif";
 import { processPhoto, removeItemFiles, storePhoto } from "@/album/files";
 import { notifyHostsOfItems } from "@/album/notify-hosts";
 import { kickVideoQueue } from "@/album/queue";
@@ -52,10 +54,16 @@ export async function POST(request: Request, context: RouteContext<"/api/albums/
       await tellHosts(lastPhotoOfBatch);
       return problem(processed.problem, 422);
     }
+    // The details the host keeps (M8 ticket 07), read from the photo's EXIF only for the groups
+    // switched on, and not at all with both off; the picture's size as added always.
+    const { width, height, pixels, exif } = processed.photo;
+    const keep = keepDetailsOf(event);
+    const facts = exif && (keep.takenAt || keep.camera) ? readExif(exif, keep) : {};
+    const { takenAt, ...kept } = photoDetails(facts, event.timeZone, new Date());
     const itemId = await newUploadId();
     // Stored before the row that names them, so no page asks for a file not there.
     await storePhoto(itemId, processed.photo.files);
-    const finished = await finishPhotoUpload(upload, { id: itemId, width: processed.photo.width, height: processed.photo.height }, (locked) => photoStatusFor(locked, viewer));
+    const finished = await finishPhotoUpload(upload, { id: itemId, width, height, takenAt, details: { pixels, ...kept } }, (locked) => photoStatusFor(locked, viewer));
     await removeDir(dir);
     if (!finished) {
       await removeItemFiles([itemId]);

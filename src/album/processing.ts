@@ -12,7 +12,7 @@ import { event, photo } from "@/db/schema";
 import { videoFourKCopy, videoLimits, videoProcessing } from "@/instance/repository";
 import { getStorage } from "@/storage/storage";
 import { MAX_PIXELS } from "@/uploads/validate";
-import { frameRate, hdrKind, type ItemDetails } from "./details";
+import { DETAIL_TAGS, frameRate, hdrKind, keepDetailsOf, videoDetails, type ItemDetails } from "./details";
 import { ffmpegStatus } from "./ffmpeg";
 import { copyArgs, posterArgs, rewrapArgs } from "./ffmpeg-args";
 import { removeItemFiles } from "./files";
@@ -45,8 +45,9 @@ export class JobGone extends Error {
 }
 
 // What the probe tells of a clip: beside the copy decision's Probe, its length, sound and codec
-// string, its HDR kind and frame rate (details.ts), and whether it carries a Dolby Vision record.
-type Streams = Probe & { durationMs: number; hasAudio: boolean; codecString: string; hdr: "hlg" | "pq" | undefined; fps: number | undefined; dolbyVision: boolean };
+// string, its HDR kind and frame rate (details.ts), whether it carries a Dolby Vision record, and the
+// format tags a host's details may be read from (details.ts, DETAIL_TAGS; M8 ticket 07).
+type Streams = Probe & { durationMs: number; hasAudio: boolean; codecString: string; hdr: "hlg" | "pq" | undefined; fps: number | undefined; dolbyVision: boolean; tags: Record<string, string> };
 
 const ONE_MINUTE = 60_000;
 
@@ -102,10 +103,16 @@ type ProbeStream = {
   side_data_list?: { side_data_type?: string; rotation?: number }[];
 };
 
+// Only the tags named in DETAIL_TAGS are kept from the format's, so a location tag goes no further
+// than the parse.
+function detailTags(tags: Record<string, unknown> | undefined): Record<string, string> {
+  return Object.fromEntries(DETAIL_TAGS.flatMap((key) => (typeof tags?.[key] === "string" ? [[key, tags[key]]] : [])));
+}
+
 // The clip's video stream, as the copy decision and the player need it. A clip with none, or one
 // ffprobe cannot read, is unsupported.
 export async function probe(path: string, signal?: AbortSignal): Promise<Streams> {
-  let parsed: { streams?: ProbeStream[]; format?: { duration?: string; bit_rate?: string } };
+  let parsed: { streams?: ProbeStream[]; format?: { duration?: string; bit_rate?: string; tags?: Record<string, unknown> } };
   try {
     parsed = JSON.parse(await run("ffprobe", ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", path], ONE_MINUTE, signal));
   } catch (error) {
@@ -128,6 +135,7 @@ export async function probe(path: string, signal?: AbortSignal): Promise<Streams
     hdr: hdrKind(video.color_transfer),
     fps: frameRate(video.avg_frame_rate) ?? frameRate(video.r_frame_rate),
     dolbyVision: video.side_data_list?.some((data) => data.side_data_type === "DOVI configuration record") ?? false,
+    tags: detailTags(parsed.format?.tags),
   };
 }
 
@@ -218,7 +226,14 @@ function goneIf(lost: AbortController): void {
 export async function processVideo(job: ClaimedJob): Promise<void> {
   const id = job.photoId;
   const [item] = await getDb()
-    .select({ eventId: photo.eventId, sizes: event.albumCopySizes, maxMb: event.albumMaxVideoMb, maxMinutes: event.albumMaxVideoMinutes })
+    .select({
+      eventId: photo.eventId,
+      sizes: event.albumCopySizes,
+      maxMb: event.albumMaxVideoMb,
+      maxMinutes: event.albumMaxVideoMinutes,
+      albumKeepTakenAt: event.albumKeepTakenAt,
+      albumKeepCamera: event.albumKeepCamera,
+    })
     .from(photo)
     .innerJoin(event, eq(event.id, photo.eventId))
     .where(eq(photo.id, id));
@@ -261,7 +276,11 @@ export async function processVideo(job: ClaimedJob): Promise<void> {
     const upright = streams.rotation % 180 === 90 ? { width: streams.height, height: streams.width } : { width: streams.width, height: streams.height };
     goneIf(lost);
     const more = all.some((size) => !before.includes(size));
-    const done = await completeJob(id, { ...upright, durationMs: streams.durationMs, codec: streams.codecString, copies: before, details: detailsOf(streams) }, more);
+    // The details the host keeps (M8 ticket 07), from the clip's tags, beside its HDR kind and frame
+    // rate; the event's switches are read as the job began.
+    const { takenAt, camera } = videoDetails(streams.tags, keepDetailsOf(item), new Date());
+    const details = { ...detailsOf(streams), ...(camera ? { camera } : {}) };
+    const done = await completeJob(id, { ...upright, durationMs: streams.durationMs, codec: streams.codecString, copies: before, details, takenAt }, more);
     if (!done) {
       // Deleted while it was processed (plan ruling 20): nothing of it stays.
       await removeItemFiles([id]);

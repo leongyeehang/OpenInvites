@@ -168,6 +168,69 @@ test("Auto steps down after three stalls and does not remember it", async ({ bro
   await Promise.all([host.context.close(), priya.context().close()]);
 });
 
+// Ticket 06's review, carried in ticket 07: the six-second check, on Playwright's clock. One wait
+// that lasts six seconds steps Auto down; one the guest ends by pausing does not, while a wait
+// begun after it still does. Nothing waits in real time.
+const settled = (page: Page) =>
+  page.evaluate(async () => {
+    // Two turns of the task queue, where React draws a state changed by a timer.
+    for (let turn = 0; turn < 2; turn += 1) {
+      await new Promise<void>((done) => {
+        const channel = new MessageChannel();
+        channel.port1.onmessage = () => done();
+        channel.port2.postMessage(undefined);
+      });
+    }
+  });
+
+test("a wait of six seconds steps Auto down", async ({ browser, request }) => {
+  test.setTimeout(SIZES_MS);
+  const host = await createPublished(browser, request, "video-sizes-long-wait", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair", { deviceScaleFactor: 3 });
+  await addVideo(priya, HEVC_1080);
+  await priya.clock.install();
+  await priya.reload();
+  const viewer = await openVideo(priya);
+  await expect(size(viewer, "Auto · 1080p")).toHaveAttribute("aria-checked", "true");
+  await expect.poll(playing(viewer)).toMatch(/\/video-1080p\.mp4$/);
+  await viewer.locator("video").evaluate((video: HTMLVideoElement) => video.dispatchEvent(new Event("waiting")));
+  await priya.clock.fastForward(5000);
+  await settled(priya);
+  await expect(size(viewer, "Auto · 1080p")).toHaveAttribute("aria-checked", "true");
+  await priya.clock.fastForward(1000);
+  await expect(size(viewer, "Auto · 720p")).toHaveAttribute("aria-checked", "true");
+  await expect.poll(playing(viewer)).toMatch(/\/video-720p\.mp4$/);
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+test("a pause during a stall does not step Auto down", async ({ browser, request }) => {
+  test.setTimeout(SIZES_MS);
+  const host = await createPublished(browser, request, "video-sizes-paused", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair", { deviceScaleFactor: 3 });
+  await addVideo(priya, HEVC_1080);
+  await priya.clock.install();
+  await priya.reload();
+  const viewer = await openVideo(priya);
+  await expect(size(viewer, "Auto · 1080p")).toHaveAttribute("aria-checked", "true");
+  await viewer.locator("video").evaluate(async (video: HTMLVideoElement) => {
+    video.muted = true;
+    await video.play();
+    video.dispatchEvent(new Event("waiting"));
+    const paused = new Promise((done) => video.addEventListener("pause", done, { once: true }));
+    video.pause();
+    await paused;
+  });
+  await priya.clock.fastForward(6000);
+  await settled(priya);
+  await expect(size(viewer, "Auto · 1080p")).toHaveAttribute("aria-checked", "true");
+  await expect.poll(playing(viewer)).toMatch(/\/video-1080p\.mp4$/);
+  // The check is still wired: a wait begun now, while paused, with no pause to end it, steps down.
+  await viewer.locator("video").evaluate((video: HTMLVideoElement) => video.dispatchEvent(new Event("waiting")));
+  await priya.clock.fastForward(6000);
+  await expect(size(viewer, "Auto · 720p")).toHaveAttribute("aria-checked", "true");
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
 test("scrubbing does not step Auto down", async ({ browser, request }) => {
   test.setTimeout(SIZES_MS);
   const host = await createPublished(browser, request, "video-sizes-scrub", PAST);

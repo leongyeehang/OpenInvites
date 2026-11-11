@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { bigint, boolean, check, date, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, time, timestamp, unique, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { ALBUM_VISIBILITIES, PHOTO_STATUSES } from "../album/visibility";
 import { PHOTO_KINDS, VIDEO_QUALITIES, VIDEO_WORKS } from "../album/video";
-import type { ItemDetails } from "../album/details";
+import { ALBUM_ORDERS, type ItemDetails } from "../album/details";
 import { DEFAULT_REGISTRATION_MODE, REGISTRATION_MODES } from "../instance/registration";
 import { HOME_POSTER_MODES } from "../instance/home";
 import { DEFAULT_LIMITS } from "../instance/limits";
@@ -208,6 +208,8 @@ export const albumVisibility = pgEnum("album_visibility", ALBUM_VISIBILITIES);
 // album/video.ts).
 export const photoKind = pgEnum("photo_kind", PHOTO_KINDS);
 export const videoSize = pgEnum("video_size", VIDEO_QUALITIES);
+// How an album is ordered (M8 ticket 07; album/details.ts): by when items were added, or taken.
+export const albumOrder = pgEnum("album_order", ALBUM_ORDERS);
 
 // An event belongs to one host. Its time is an instant plus the event's own IANA zone; all-day
 // events store midnight in that zone with the flag set. A draft may have no date yet (M4 spec, "A
@@ -305,6 +307,12 @@ export const event = pgTable(
     albumMaxVideoMb: integer("album_max_video_mb"),
     albumMaxVideoMinutes: integer("album_max_video_minutes"),
     albumCopySizes: videoSize("album_copy_sizes").array().notNull().default(sql`'{1080p,720p}'`),
+    // The details the host keeps of each item as it is added (M8 ticket 07; album/details.ts): when
+    // it was taken, and the camera with its lens and exposure, both off by default; and whether the
+    // album is ordered by when items were taken, which applies only while the time is kept.
+    albumKeepTakenAt: boolean("album_keep_taken_at").notNull().default(false),
+    albumKeepCamera: boolean("album_keep_camera").notNull().default(false),
+    albumOrder: albumOrder("album_order").notNull().default("added"),
     // Whether the host writes each invited guest a letter (M6 spec, "Personal letters"). Set only
     // from the Invites page, never by the Settings sheet, whose every save posts every setting.
     lettersEnabled: boolean("letters_enabled").notNull().default(false),
@@ -758,6 +766,9 @@ export const photo = pgTable(
     // 05): a video's HDR kind and frame rate. The stored files keep none of it, since processing
     // drops their metadata, so this is where the player and the technical line read it.
     details: jsonb("details").$type<ItemDetails>().notNull().default({}),
+    // When the item was taken, read as it was processed while the host kept capture times (M8
+    // ticket 07); null otherwise, and for anything with no time a camera could have set.
+    takenAt: timestamp("taken_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

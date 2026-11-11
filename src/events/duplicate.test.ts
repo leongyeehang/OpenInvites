@@ -47,6 +47,9 @@ const source: Event = {
   albumMaxVideoMinutes: 3,
   albumMaxVideoMb: 200,
   albumCopySizes: ["720p"],
+  albumKeepTakenAt: true,
+  albumKeepCamera: true,
+  albumOrder: "taken",
   lettersEnabled: true,
   inviteOnly: true,
   albumReminderDays: 90,
@@ -118,6 +121,11 @@ describe("duplicateInput", () => {
   // M8 ticket 02: the video sizes in place of the lighter copy's quality.
   it("copies whether videos are allowed, their caps, and the video sizes", () => {
     expect(copy.event).toMatchObject({ albumVideosAllowed: false, albumMaxVideoMinutes: 3, albumMaxVideoMb: 200, albumCopySizes: ["720p"] });
+  });
+
+  // M8 ticket 07: the details the host keeps, and the album's order.
+  it("copies whether the capture time and the camera are kept, and the album's order", () => {
+    expect(copy.event).toMatchObject({ albumKeepTakenAt: true, albumKeepCamera: true, albumOrder: "taken" });
   });
 
   // M7 ticket 09: when to be reminded about the album travels with the settings; the mark does not.

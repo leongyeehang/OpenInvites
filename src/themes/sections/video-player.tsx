@@ -4,12 +4,14 @@ import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   autoSize,
+  endWait,
   formatPick,
   OLD_PICK_KEY,
   PICK_KEY,
   pickedSize,
   playable,
   readPick,
+  recentWaits,
   shouldStepDown,
   sizeLabel,
   stepDown,
@@ -99,9 +101,11 @@ function autoAtOpen(video: PlayableVideo): ShownSize | undefined {
 }
 
 // A stall: a wait for data that lasts six seconds is checked once it has. Waits are timed on the
-// page's monotonic clock, read only from the player's events and the checks they set.
+// page's monotonic clock, read only from the player's events and the checks they set; each wait
+// keeps the timer of its check, so the two go together.
 const LONG_WAIT_MS = 6000;
 const clock = () => performance.now();
+type TimedWait = Wait & { check: number };
 
 export function VideoPlayer({ video, label }: { video: PlayableVideo; label: string }) {
   const t = useTranslations("EventPage.album");
@@ -124,20 +128,18 @@ export function VideoPlayer({ video, label }: { video: PlayableVideo; label: str
 
   useEffect(moveOldPick, []);
 
-  // The waits for data under Auto, whether a seek is under way (its wait is no stall), and the
-  // checks of a long wait still to come.
-  const waits = useRef<Wait[]>([]);
+  // The waits for data under Auto, each with its check of a long wait, and whether a seek is under
+  // way (its wait is no stall).
+  const waits = useRef<TimedWait[]>([]);
   const seeking = useRef(false);
-  const checks = useRef<number[]>([]);
   useEffect(() => {
-    const pending = checks;
-    return () => pending.current.forEach((check) => window.clearTimeout(check));
+    const pending = waits;
+    return () => pending.current.forEach((wait) => window.clearTimeout(wait.check));
   }, []);
 
   const forgetWaits = () => {
+    waits.current.forEach((wait) => window.clearTimeout(wait.check));
     waits.current = [];
-    checks.current.forEach((check) => window.clearTimeout(check));
-    checks.current = [];
   };
 
   const holdPosition = () => {
@@ -167,16 +169,20 @@ export function VideoPlayer({ video, label }: { video: PlayableVideo; label: str
     setAuto(next);
   };
 
-  const endWait = () => {
-    const last = waits.current.at(-1);
-    if (last && last.until === undefined) last.until = clock();
+  // Playing again, a pause or the source emptied ends the wait under way, so a guest who pauses
+  // during a stall is not stepped down six seconds later (video.ts, endWait).
+  const endWaits = () => {
+    waits.current = endWait(waits.current, clock());
   };
 
+  // A wait begins, closing one still open; waits no rule counts any longer go, with their checks.
   const beginWait = () => {
     if (!onAuto || seeking.current) return;
-    endWait();
-    waits.current.push({ at: clock() });
-    checks.current.push(window.setTimeout(stepIfStalling, LONG_WAIT_MS));
+    const now = clock();
+    const kept = recentWaits(endWait(waits.current, now), now);
+    const keptChecks = new Set(kept.map((wait) => wait.check));
+    for (const wait of waits.current) if (!keptChecks.has(wait.check)) window.clearTimeout(wait.check);
+    waits.current = [...kept, { at: now, check: window.setTimeout(stepIfStalling, LONG_WAIT_MS) }];
     stepIfStalling();
   };
 
@@ -240,7 +246,9 @@ export function VideoPlayer({ video, label }: { video: PlayableVideo; label: str
           seeking.current = false;
         }}
         onWaiting={beginWait}
-        onPlaying={endWait}
+        onPlaying={endWaits}
+        onPause={endWaits}
+        onEmptied={endWaits}
         className="min-h-0 max-w-full"
       />
       {video.sizes.length >= 2 && (

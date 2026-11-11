@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
-import { chooseLayout, createPublished, editSettings } from "./events";
+import { chooseLayout, createPublished, editSettings, openSettings } from "./events";
 import { latestMailTo, MAILPIT, mailCountTo } from "./hosts";
 import { closeReply } from "./reply";
 import { expect, test, type APIRequestContext, type Browser, type Locator, type Page } from "./test";
@@ -390,5 +390,36 @@ test("the host allows videos, caps them under the site's, and ticks the video si
     await expect(sizes(sheet).getByLabel("720p", { exact: true })).toBeChecked();
     await albumGroup(sheet).getByLabel("Longest video (min)").fill("");
   });
+  await host.context.close();
+});
+
+// M8 ticket 07: the details the host keeps of each item, and the album's order, in the Album group
+// of the Settings sheet: both switches off and the order by when added, until the host saves them.
+test("the host keeps capture times and cameras, and orders the album by when taken", async ({ browser, request }) => {
+  const host = await createPublished(browser, request, "details-settings", PAST);
+  const keepTaken = (sheet: Locator) => albumGroup(sheet).getByLabel("Keep when each photo and video was taken");
+  const keepCamera = (sheet: Locator) => albumGroup(sheet).getByLabel("Keep the camera and its settings");
+  const order = (sheet: Locator) => albumGroup(sheet).getByLabel("Order of the album");
+  await editSettings(host.page, async (sheet) => {
+    await expect(keepTaken(sheet)).not.toBeChecked();
+    await expect(keepCamera(sheet)).not.toBeChecked();
+    await expect(order(sheet)).toHaveValue("added");
+    await expect(albumGroup(sheet).getByText("Where a picture was taken is never kept.", { exact: false })).toBeVisible();
+    await keepTaken(sheet).check();
+    await keepCamera(sheet).check();
+    await order(sheet).selectOption({ label: "When taken" });
+  });
+  await host.page.reload();
+  await editSettings(host.page, async (sheet) => {
+    await expect(keepTaken(sheet)).toBeChecked();
+    await expect(keepCamera(sheet)).toBeChecked();
+    await expect(order(sheet)).toHaveValue("taken");
+    await keepCamera(sheet).uncheck();
+  });
+  await host.page.reload();
+  const sheet = await openSettings(host.page);
+  await expect(keepTaken(sheet)).toBeChecked();
+  await expect(keepCamera(sheet)).not.toBeChecked();
+  await expect(order(sheet)).toHaveValue("taken");
   await host.context.close();
 });

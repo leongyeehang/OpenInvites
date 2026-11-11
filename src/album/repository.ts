@@ -4,7 +4,7 @@ import { getDb, type Db } from "@/db/client";
 import { albumUpload, event, photo, rsvp, user, videoJob } from "@/db/schema";
 import { eventAlbumBytes, reservedUploads, siteBytes } from "@/storage/usage";
 import { albumRoom, NO_ITEMS, type AlbumTotals, type Room } from "./album";
-import { readDetails } from "./details";
+import { readDetails, type AlbumOrder, type ItemDetails } from "./details";
 import { removeItemFiles } from "./files";
 import { removeDir, UPLOADS_ROOT } from "./tmp";
 import type { PhotoKind } from "./video";
@@ -20,15 +20,16 @@ export type PhotoOwner = { rsvpId: string; hostId?: undefined } | { hostId: stri
 
 // An event's album as one viewer may see it (album/visibility.ts, photoScope), oldest first: every
 // photo, the approved ones and the viewer's own, or the viewer's own alone. Each comes with its
-// details as read back (details.ts, readDetails), for the player (M8 ticket 05).
-export async function listPhotos(eventId: string, scope: PhotoScope): Promise<NamedPhoto[]> {
+// details as read back (details.ts, readDetails), for the player (M8 ticket 05). Ordered by when
+// taken (M8 ticket 07), an item with no capture time sits by when it was added.
+export async function listPhotos(eventId: string, scope: PhotoScope, order: AlbumOrder = "added"): Promise<NamedPhoto[]> {
   const rows = await getDb()
     .select({ photo, name: sql<string>`coalesce(${rsvp.name}, ${user.name})` })
     .from(photo)
     .leftJoin(rsvp, eq(rsvp.id, photo.rsvpId))
     .leftJoin(user, eq(user.id, photo.hostId))
     .where(and(eq(photo.eventId, eventId), inScope(scope)))
-    .orderBy(asc(photo.createdAt), asc(photo.id));
+    .orderBy(...(order === "taken" ? [asc(sql`coalesce(${photo.takenAt}, ${photo.createdAt})`)] : []), asc(photo.createdAt), asc(photo.id));
   return rows.map((row) => ({ ...row.photo, details: readDetails(row.photo.details), name: row.name }));
 }
 
@@ -257,10 +258,11 @@ async function noPhotoLeftIn(batch: string, tx: Db): Promise<boolean> {
 // transaction under the event's lock, which also orders the finishes and refusals of a batch so
 // that the last of its photos knows it is the last and the hosts are emailed once (as one post
 // was, M6 ticket 04). Its status is decided as addPhotos decided it. Nothing when the upload is
-// gone: an emptied album.
+// gone: an emptied album. The item's details are the picture's size as added and what the host
+// keeps (M8 ticket 07), its capture time in a column of its own.
 export async function finishPhotoUpload(
   upload: AlbumUpload,
-  item: { id: string; width: number; height: number },
+  item: { id: string; width: number; height: number; takenAt: Date | null; details: ItemDetails },
   statusFor: (locked: { albumApprovalRequired: boolean }) => PhotoStatus,
 ): Promise<{ status: PhotoStatus; lastPhotoOfBatch: boolean } | undefined> {
   return getDb().transaction(async (tx) => {
@@ -268,7 +270,19 @@ export async function finishPhotoUpload(
     const gone = await tx.delete(albumUpload).where(eq(albumUpload.id, upload.id)).returning({ id: albumUpload.id });
     if (gone.length === 0) return undefined;
     const status = statusFor(locked);
-    await tx.insert(photo).values({ id: item.id, eventId: upload.eventId, rsvpId: upload.rsvpId, hostId: upload.hostId, kind: "photo", width: item.width, height: item.height, bytes: upload.size, status });
+    await tx.insert(photo).values({
+      id: item.id,
+      eventId: upload.eventId,
+      rsvpId: upload.rsvpId,
+      hostId: upload.hostId,
+      kind: "photo",
+      width: item.width,
+      height: item.height,
+      bytes: upload.size,
+      takenAt: item.takenAt,
+      details: item.details,
+      status,
+    });
     return { status, lastPhotoOfBatch: await noPhotoLeftIn(upload.batch, tx) };
   });
 }

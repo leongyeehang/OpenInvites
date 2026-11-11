@@ -20,6 +20,8 @@ import {
   SENT_FILE,
   shortSide,
   shouldStepDown,
+  endWait,
+  recentWaits,
   sizeLabel,
   sizesToMake,
   stepDown,
@@ -425,6 +427,24 @@ describe("shouldStepDown and stepDown", () => {
     expect(shouldStepDown([ended(61), ended(30), ended(1)], now)).toBe(false);
     expect(shouldStepDown([{ at: now - 6000 }], now)).toBe(true);
     expect(shouldStepDown([{ at: now - 5999 }], now)).toBe(false);
+  });
+
+  // Ticket 06's review, carried in ticket 07: a guest who pauses during a stall ends its wait, so
+  // the six-second check finds none open and a paused video is not stepped down.
+  it("ends the open wait, so a pause during a stall is no long wait six seconds on", () => {
+    const paused = endWait([ended(30), { at: now - 6000 }], now - 4000);
+    expect(paused).toEqual([ended(30), { at: now - 6000, until: now - 4000 }]);
+    expect(shouldStepDown(paused, now)).toBe(false);
+    expect(shouldStepDown([ended(30), { at: now - 6000 }], now)).toBe(true);
+    expect(endWait([ended(1)], now)).toEqual([ended(1)]);
+  });
+
+  it("keeps the waits still counted: those open, and those begun within the minute", () => {
+    const open = { at: now - 90_000, check: 3 };
+    const old = { ...ended(61), check: 1 };
+    const recent = { ...ended(59), check: 2 };
+    expect(recentWaits([old, recent, open], now)).toEqual([recent, open]);
+    expect(shouldStepDown(recentWaits([old, recent], now), now)).toBe(shouldStepDown([old, recent], now));
   });
 
   it("steps down to the largest smaller size, and no further than the smallest", () => {

@@ -1,3 +1,4 @@
+import { ALBUM_ORDERS, type AlbumOrder } from "@/album/details";
 import { EVENT_SIZES, VIDEO_QUALITIES, type VideoQuality } from "@/album/video";
 import { ALBUM_VISIBILITIES, type AlbumVisibility } from "@/album/visibility";
 import { VIDEO_MB, VIDEO_MINUTES } from "@/instance/limits";
@@ -38,6 +39,10 @@ export type EventInput = {
   albumMaxVideoMinutes: number | null;
   albumMaxVideoMb: number | null;
   albumCopySizes: VideoQuality[];
+  // The details kept of each item as it is added, and the album's order (M8 ticket 07).
+  albumKeepTakenAt: boolean;
+  albumKeepCamera: boolean;
+  albumOrder: AlbumOrder;
   // Only the people on the invite list open the invitation (M6 spec, "Invite-only events").
   inviteOnly: boolean;
 };
@@ -70,6 +75,9 @@ export type EventFormFields = {
   albumMaxVideoMinutes: string;
   albumMaxVideoMb: string;
   albumCopySizes: string[];
+  albumKeepTakenAt: boolean;
+  albumKeepCamera: boolean;
+  albumOrder: string;
   inviteOnly: boolean;
 };
 
@@ -94,7 +102,8 @@ export type EventFormError =
   | "albumVisibilityInvalid"
   | "albumMaxVideoMinutesInvalid"
   | "albumMaxVideoMbInvalid"
-  | "albumSizesInvalid";
+  | "albumSizesInvalid"
+  | "albumOrderInvalid";
 
 export type ParsedEventForm = { ok: true; input: EventInput } | { ok: false; error: EventFormError };
 
@@ -189,6 +198,10 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
   // first and each once; 4K is not the host's to tick.
   if (fields.albumCopySizes.some((each) => !EVENT_SIZES.some((size) => size === each))) return { ok: false, error: "albumSizesInvalid" };
   const albumCopySizes = VIDEO_QUALITIES.filter((size) => fields.albumCopySizes.includes(size));
+  // The album's order (M8 ticket 07): saved as chosen, though "taken" applies only while the
+  // capture time is kept (album/details.ts, albumOrderFor).
+  const albumOrder = ALBUM_ORDERS.find((each) => each === fields.albumOrder);
+  if (!albumOrder) return { ok: false, error: "albumOrderInvalid" };
 
   return {
     ok: true,
@@ -212,6 +225,9 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
       albumMaxVideoMinutes,
       albumMaxVideoMb,
       albumCopySizes,
+      albumKeepTakenAt: fields.albumKeepTakenAt,
+      albumKeepCamera: fields.albumKeepCamera,
+      albumOrder,
       inviteOnly: fields.inviteOnly,
     },
   };
@@ -220,7 +236,7 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
 // The album's settings, the videos' among them, which the Settings sheet leaves out while the
 // operator has the Album or Videos switched off (M8 ticket 01).
 const VIDEO_SETTINGS = ["albumVideosAllowed", "albumMaxVideoMinutes", "albumMaxVideoMb", "albumCopySizes"] as const;
-const ALBUM_SETTINGS = ["albumVisibility", "albumApprovalRequired", "notifyOnPhoto", ...VIDEO_SETTINGS] as const;
+const ALBUM_SETTINGS = ["albumVisibility", "albumApprovalRequired", "notifyOnPhoto", ...VIDEO_SETTINGS, "albumKeepTakenAt", "albumKeepCamera", "albumOrder"] as const;
 export type AlbumSettingsField = (typeof ALBUM_SETTINGS)[number];
 
 // What the sheet posted, with each group it left out taken from what the event has, written as the

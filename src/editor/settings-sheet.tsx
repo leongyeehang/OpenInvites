@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { QuestionsEditor } from "@/app/(host)/events/questions-editor";
 import type { AlbumTotals } from "@/album/album";
+import { ALBUM_ORDERS } from "@/album/details";
 import { EVENT_SIZES } from "@/album/video";
 import { ALBUM_VISIBILITIES } from "@/album/visibility";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -364,6 +365,34 @@ export function SettingsSheet({
                   </FieldSet>
                 </>
               )}
+              {/* The details kept of each item, and the album's order (M8 ticket 07). The order is
+                  never disabled, since a disabled control is not posted; "When taken" applies only
+                  while the time is kept. */}
+              <Field orientation="horizontal">
+                <Checkbox id={`${id}-keep-taken`} name="albumKeepTakenAt" defaultChecked={settings.albumKeepTakenAt} aria-describedby={`${id}-keep-taken-hint`} />
+                <FieldContent>
+                  <FieldLabel htmlFor={`${id}-keep-taken`}>{t("album.keepTakenAt")}</FieldLabel>
+                  <FieldDescription id={`${id}-keep-taken-hint`}>{t("album.keepTakenAtHint")}</FieldDescription>
+                </FieldContent>
+              </Field>
+              <Field orientation="horizontal">
+                <Checkbox id={`${id}-keep-camera`} name="albumKeepCamera" defaultChecked={settings.albumKeepCamera} aria-describedby={`${id}-keep-camera-hint`} />
+                <FieldContent>
+                  <FieldLabel htmlFor={`${id}-keep-camera`}>{t("album.keepCamera")}</FieldLabel>
+                  <FieldDescription id={`${id}-keep-camera-hint`}>{t("album.keepCameraHint")}</FieldDescription>
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor={`${id}-album-order`}>{t("album.order")}</FieldLabel>
+                <NativeSelect id={`${id}-album-order`} name="albumOrder" defaultValue={settings.albumOrder} aria-describedby={`${id}-album-order-hint`}>
+                  {ALBUM_ORDERS.map((order) => (
+                    <NativeSelectOption key={order} value={order}>
+                      {t(order === "added" ? "album.orderAdded" : "album.orderTaken")}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+                <FieldDescription id={`${id}-album-order-hint`}>{t("album.orderHint")}</FieldDescription>
+              </Field>
             </FieldSet>
           )}
 

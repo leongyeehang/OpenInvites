@@ -28,6 +28,9 @@ const valid = {
   albumMaxVideoMinutes: "",
   albumMaxVideoMb: "",
   albumCopySizes: ["1080p", "720p"],
+  albumKeepTakenAt: true,
+  albumKeepCamera: false,
+  albumOrder: "taken",
   inviteOnly: true,
 };
 
@@ -64,6 +67,9 @@ describe("parseEventForm", () => {
         albumMaxVideoMinutes: null,
         albumMaxVideoMb: null,
         albumCopySizes: ["1080p", "720p"],
+        albumKeepTakenAt: true,
+        albumKeepCamera: false,
+        albumOrder: "taken",
         inviteOnly: true,
       },
     });
@@ -131,6 +137,17 @@ describe("parseEventForm", () => {
     expect(sizes(["720p"])).toEqual(["720p"]);
     expect(sizes([])).toEqual([]);
     expect(sizes(["720p", "720p"])).toEqual(["720p"]);
+  });
+
+  // M8 ticket 07: the details a host keeps, and the album's order.
+  it("passes the two switches for details through, and reads the album's order", () => {
+    const parsed = parseEventForm({ ...valid, albumKeepTakenAt: false, albumKeepCamera: true, albumOrder: "added" });
+    expect(parsed.ok && parsed.input).toMatchObject({ albumKeepTakenAt: false, albumKeepCamera: true, albumOrder: "added" });
+    const taken = parseEventForm({ ...valid, albumOrder: "taken" });
+    expect(taken.ok && taken.input.albumOrder).toBe("taken");
+    for (const albumOrder of ["", "newest", "Taken"]) {
+      expect(parseEventForm({ ...valid, albumOrder })).toEqual({ ok: false, error: "albumOrderInvalid" });
+    }
   });
 
   it("refuses a video cap outside its range or not a whole number, and an unknown size, naming each", () => {
@@ -213,6 +230,9 @@ describe("keptSettings", () => {
     albumMaxVideoMinutes: "",
     albumMaxVideoMb: "",
     albumCopySizes: [],
+    albumKeepTakenAt: false,
+    albumKeepCamera: false,
+    albumOrder: "",
   };
   const stored = {
     albumVisibility: "hosts" as const,
@@ -222,6 +242,9 @@ describe("keptSettings", () => {
     albumMaxVideoMinutes: 5,
     albumMaxVideoMb: null,
     albumCopySizes: ["720p" as const],
+    albumKeepTakenAt: true,
+    albumKeepCamera: true,
+    albumOrder: "taken" as const,
   };
 
   it("keeps every album field as stored while the album is off, numbers as their digits and none as empty", () => {
@@ -234,6 +257,9 @@ describe("keptSettings", () => {
       albumMaxVideoMinutes: "5",
       albumMaxVideoMb: "",
       albumCopySizes: ["720p"],
+      albumKeepTakenAt: true,
+      albumKeepCamera: true,
+      albumOrder: "taken",
     });
   });
 

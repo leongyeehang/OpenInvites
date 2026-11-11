@@ -653,7 +653,15 @@
         "size1080": "1080p",
         "size720": "720p",
         "sizesHint": "每段视频在需要时会生成这些尺寸，以便在网速慢时和任何浏览器中都能播放。视频不会生成比自身更大的尺寸。两项都不勾选时，并非所有浏览器都能播放的视频仍会生成一份 720p 副本。",
-        "videosUnavailable": "视频功能需要本站安装 ffmpeg，目前尚未安装；请联系本站运营者。"
+        "videosUnavailable": "视频功能需要本站安装 ffmpeg，目前尚未安装；请联系本站运营者。",
+        "keepTakenAt": "保留每张照片和每段视频的拍摄时间",
+        "keepTakenAtHint": "在添加时从手机或相机读取，并显示在其下方。",
+        "keepCamera": "保留相机及其设置",
+        "keepCameraHint": "相机、镜头和曝光参数，适合摄影爱好者的聚会。照片的拍摄地点从不保留。",
+        "order": "相册排序",
+        "orderAdded": "按添加时间",
+        "orderTaken": "按拍摄时间",
+        "orderHint": "按拍摄时间排序需要保留拍摄时间；没有拍摄时间的按添加时间排列。"
       },
       "notifyOnRsvp": "有宾客回复时给主办人发邮件",
       "remindersEnabled": "发邮件提醒宾客（提前一周提醒待定的宾客，提前一天提醒参加的宾客）",
@@ -729,7 +737,8 @@
       "scheduleInvalid": "无法读取日程，请重试。",
       "albumMaxVideoMinutesInvalid": "请为最长视频填写 1 到 180 之间的整数分钟数，或留空。",
       "albumMaxVideoMbInvalid": "请为最大视频填写 1 到 10,000 之间的整数（MB），或留空。",
-      "albumSizesInvalid": "请从 1080p 和 720p 中选择视频尺寸。"
+      "albumSizesInvalid": "请从 1080p 和 720p 中选择视频尺寸。",
+      "albumOrderInvalid": "请选择相册的排序方式。"
     },
     "manage": {
       "link": "活动链接",
@@ -1050,7 +1059,12 @@
       "sizeOriginal": "{size} · 原片",
       "sizeOriginalHdr": "{size} · <hdr>HDR</hdr> · 原片",
       "originalUnplayable": "原片：此浏览器无法播放。",
-      "unplayable": "此浏览器无法播放这段视频，请下载后观看。"
+      "unplayable": "此浏览器无法播放这段视频，请下载后观看。",
+      "details": {
+        "fps": "{fps} 帧/秒",
+        "hdr": "HDR",
+        "taken": "拍摄于 {when}"
+      }
     },
     "letter": {
       "for": "致 {name}"

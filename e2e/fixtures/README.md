@@ -64,6 +64,32 @@ avg_frame_rate=30/1
 duration=2.000000
 ```
 
+The seventh and eighth were added in M8 ticket 07, with ffmpeg 8.1.3 and exiftool in the same
+throwaway container. `photo-exif.jpg` is the one photo here: a still with an iPhone's EXIF,
+location included, which the album never reads; `clip-tagged.mov` is `clip-h264.mp4` rewrapped
+with an iPhone's capture time, make, model and location in its tags:
+
+```sh
+docker run --rm -v "$PWD/e2e/fixtures:/out" node:22-alpine sh -c '
+  apk add --no-cache ffmpeg exiftool && cd /out &&
+  # A 640x480 frame of testsrc2 with an iPhone 15 Pro's EXIF and a location (about 25 KB).
+  ffmpeg -y -f lavfi -i testsrc2=size=640x480 -frames:v 1 -q:v 3 photo-exif.jpg &&
+  exiftool -overwrite_original -Make=Apple "-Model=iPhone 15 Pro" "-LensModel=iPhone 15 Pro back camera 6.86mm f/1.78" \
+    "-DateTimeOriginal=2026:01:10 16:42:05" -OffsetTimeOriginal=+08:00 -ExposureTime=1/120 -FNumber=1.78 -ISO=80 \
+    -FocalLength=6.86 -GPSLatitude=35.6895 -GPSLatitudeRef=N -GPSLongitude=139.6917 -GPSLongitudeRef=E photo-exif.jpg &&
+  # clip-h264.mp4 remuxed into a .mov with an iPhone's tags and a location (about 1.3 MB).
+  ffmpeg -y -i clip-h264.mp4 -c copy -map_metadata -1 -metadata com.apple.quicktime.creationdate=2026-01-10T16:20:00+0800 \
+    -metadata com.apple.quicktime.make=Apple "-metadata" "com.apple.quicktime.model=iPhone 15 Pro" \
+    -metadata location=+35.6895+139.6917/ -movflags +use_metadata_tags clip-tagged.mov'
+```
+
+`exiftool -s` then read the photo's Make `Apple`, Model `iPhone 15 Pro`, LensModel `iPhone 15 Pro
+back camera 6.86mm f/1.78`, DateTimeOriginal `2026:01:10 16:42:05`, OffsetTimeOriginal `+08:00`,
+ExposureTime `1/120`, FNumber `1.8`, ISO `80`, FocalLength `6.9 mm` and a GPSPosition of 35 deg 41'
+22.20" N, 139 deg 41' 30.12" E; and `ffprobe -show_entries format_tags` read the clip's
+`com.apple.quicktime.creationdate` `2026-01-10T16:20:00+0800`, `com.apple.quicktime.make` `Apple`,
+`com.apple.quicktime.model` `iPhone 15 Pro`, and `location` and `location-eng` `+35.6895+139.6917/`.
+
 What the tests rely on: `clip-h264.mp4` is H.264 at 640×480 and plays in headless Chrome;
 `clip-hevc.mov` reports a display-matrix rotation of 90 and holds the string `+35.6895+139.6917`
 twice (keys `location` and `location-eng`), and headless Chrome cannot decode it;
@@ -74,5 +100,7 @@ at 3840×2160, so with the 4K switch on its three copies come out at 3840×2160,
 `color_primaries` `bt2020`, so it is HDR (HLG) and not H.264: its 1080p copy is made before it
 is ready and its 720p copy after, both H.264 `yuv420p` tagged `bt709`, while its original keeps
 the HLG tags. Nothing here carries a Dolby Vision record: no encoder in the image writes one.
-The test profile's `app` uses 64 KB upload parts (`UPLOAD_TEST_PART_BYTES`), so all but the long
-clip span several parts.
+`photo-exif.jpg` is 640×480 and carries the EXIF above, the GPS IFD included; `clip-tagged.mov`
+is `clip-h264.mp4`'s streams, 640×480 at 30 frames a second for 4 seconds, with the tags above,
+its location the string `+35.6895+139.6917/`. The test profile's `app` uses 64 KB upload parts
+(`UPLOAD_TEST_PART_BYTES`), so all but the long clip span several parts.

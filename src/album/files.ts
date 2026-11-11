@@ -31,7 +31,10 @@ export function photoUrl(id: string, name: PhotoFile): string {
   return `/uploads/${id}/${PHOTO_FILES[name].file}`;
 }
 
-export type ProcessedPhoto = { width: number; height: number; files: Record<PhotoFile, Uint8Array> };
+// The photo as processed: the large file's size; the picture's own size as added, upright, for the
+// technical line (M8 ticket 07); and the raw EXIF block, which no stored file keeps, for the
+// details the host keeps (exif.ts, readExif), when the photo carries one.
+export type ProcessedPhoto = { width: number; height: number; pixels: { width: number; height: number }; exif?: Uint8Array; files: Record<PhotoFile, Uint8Array> };
 
 // A photo as sent, checked by its content and size, upright, re-encoded at the album's two sizes.
 export async function processPhoto(bytes: Uint8Array, maxBytes: number): Promise<{ ok: true; photo: ProcessedPhoto } | { ok: false; problem: UploadProblem }> {
@@ -39,8 +42,9 @@ export async function processPhoto(bytes: Uint8Array, maxBytes: number): Promise
   if (problem) return { ok: false, problem };
   if (!imageTypeOf(bytes)) return { ok: false, problem: "unsupported" };
   let size: { width: number; height: number };
+  let exif: Uint8Array | undefined;
   try {
-    ({ autoOrient: size } = await sharp(bytes, { limitInputPixels: false }).metadata());
+    ({ autoOrient: size, exif } = await sharp(bytes, { limitInputPixels: false }).metadata());
   } catch {
     return { ok: false, problem: "unsupported" };
   }
@@ -50,7 +54,7 @@ export async function processPhoto(bytes: Uint8Array, maxBytes: number): Promise
     const decode = () => sharp(bytes, { limitInputPixels: MAX_PIXELS }).autoOrient().flatten({ background: "#ffffff" }).toColourspace("srgb");
     const large = await decode().resize(LARGE, LARGE, { fit: "inside", withoutEnlargement: true }).webp({ quality: 82 }).toBuffer({ resolveWithObject: true });
     const thumb = await decode().resize(THUMB, THUMB, { fit: "cover", position: "attention" }).webp({ quality: 74 }).toBuffer();
-    return { ok: true, photo: { width: large.info.width, height: large.info.height, files: { large: large.data, thumb } } };
+    return { ok: true, photo: { width: large.info.width, height: large.info.height, pixels: { width: size.width, height: size.height }, exif, files: { large: large.data, thumb } } };
   } catch {
     return { ok: false, problem: "unsupported" };
   }
