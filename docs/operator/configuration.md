@@ -197,6 +197,18 @@ uploads in progress hold on a line of its own; a batch that receives nothing for
 upload not finished within a day, is dropped by the hourly sweep and its room released, so an
 upload that never started cannot hold the site.
 
+Beside **Process videos for playback**, the switch **Also make a 4K copy that plays everywhere**
+(0.8), off by default, gives a 4K video that is not H.264, such as an iPhone's, which some browsers
+cannot play, a 4K H.264 copy as well. It costs one more file of up to about 115 MB a minute of
+video, which the storage limits do not count, and on a small server it takes several times the
+video's length to make; it is made after the video is ready, never before. Without it, those
+browsers play the 1080p copy. The switch counts for what is processed afterwards. Under the
+processing lines the card says how many ready videos lack a size their events ask for (an event's
+sizes changed since they were processed, the 4K switch turned on, or videos from before 0.8), and,
+while processing is on and ffmpeg is usable, offers **Make missing sizes**: it queues each of them,
+the copies are made one at a time behind new uploads, and the videos stay in their albums
+meanwhile. Copies an event no longer asks for are kept.
+
 Videos are processed in the app's own container unless `VIDEO_PROCESSING=worker` moves the work
 to a **worker** container: the same image started as `node scripts/video-worker.mjs`, on the same
 database and the same `uploads` volume or bucket, with no published port. `deploy/compose.yaml`
@@ -429,19 +441,23 @@ one clip at a time per container, within a minute of the upload. A clip ffmpeg c
 one found over the event's length cap once measured (a browser cannot always read a clip's
 length before sending), is failed at once, and its tile tells its uploader and the hosts so, the
 length cap by name; a clip that fails for any other reason is tried three times and then failed,
-and one the processor itself did not survive (out of memory, say) is taken again an hour later
-and failed after its third claim, never retried for ever. Its files are named after the
-item's id: `<id>-video.mp4` (the clip at original quality, rewrapped as MP4 with its metadata
-dropped, so a phone's location and device details never reach a guest, and its index moved to the
-front, so playing starts at once); `<id>-video-2160p.mp4`, `<id>-video-1080p.mp4` and
-`<id>-video-720p.mp4` (H.264 copies, made at the sizes the host ticks, each only when the original
-is not H.264, larger than that size or far above its bit rate, never larger than the original, and
-only while **Process videos for playback** is on);
+and one the processor itself did not survive (out of memory, say) is taken again and failed
+after its third claim, never retried for ever. A job's lease is ten minutes, renewed every two
+while it runs (0.8), so a long encode keeps its job, a processor that dies is replaced ten minutes
+later, and when the item is deleted meanwhile its encode stops at the next renewal and what was
+stored for it is removed. Its files are named after the item's id: `<id>-video.mp4` (the clip at
+original quality, rewrapped as MP4 with its metadata dropped, so a phone's location and device
+details never reach a guest, and its index moved to the front, so playing starts at once); `<id>-video-1080p.mp4` and `<id>-video-720p.mp4` (H.264
+copies, made at the sizes the host ticks for the event, each only when the original is not H.264,
+larger than that size or far above its bit rate, never larger than the original, and only while
+**Process videos for playback** is on); `<id>-video-2160p.mp4` (the 4K H.264 copy, made only when
+the operator's **Also make a 4K copy that plays everywhere** is on, off by default, and only of a
+4K original that is not H.264);
 `<id>-video-poster.webp` (the frame the player shows first) and `<id>-video-thumb.webp` (the
 album's square thumbnail). Only the original counts toward storage. They go with the item, as a
 photo's files do.
 
-So a video may have up to three copies (2160p, 1080p and 720p), and a size whose copy would come
+So a video may have up to three copies (4K, 1080p and 720p), and a size whose copy would come
 out the same as one already made (720p of a 640×480 clip, say) is skipped. A video is ready, and
 plays, after at most one of them: an original that is not H.264 gets one copy, from the clip as
 sent, before it shows in the album, and an H.264 original none. The other sizes are made

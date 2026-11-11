@@ -1,6 +1,6 @@
 # Test clips
 
-Four small videos for the browser tests of the album (M7 ticket 06 onwards). They were made
+Small videos for the browser tests of the album (M7 ticket 06 onwards). They were made
 with ffmpeg 8.1.3 in a throwaway container, since this repository's development machines need
 no ffmpeg; the commands below remake them:
 
@@ -28,9 +28,18 @@ The fourth was added in M8 ticket 03, with ffmpeg 8.1.3 in the same throwaway co
 docker run --rm -v "$PWD/e2e/fixtures:/out" node:22-alpine sh -c 'apk add --no-cache ffmpeg && cd /out && ffmpeg -y -f lavfi -i testsrc2=size=1920x1080:rate=30 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 2 -c:v libx265 -preset veryfast -b:v 1500k -pix_fmt yuv420p -tag:v hvc1 -c:a aac -b:a 64k -shortest clip-hevc-1080p.mp4'
 ```
 
+The fifth was added in M8 ticket 04, with ffmpeg 8.1.3 in the same throwaway container:
+
+```sh
+# An HEVC clip with no sound, 1 s at 3840x2160 and ten frames a second (about 570 KB): gets a 4K copy when the operator's switch is on.
+docker run --rm -v "$PWD/e2e/fixtures:/out" node:22-alpine sh -c 'apk add --no-cache ffmpeg && cd /out && ffmpeg -y -f lavfi -i testsrc2=size=3840x2160:rate=10 -t 1 -c:v libx265 -preset veryfast -b:v 2000k -pix_fmt yuv420p -tag:v hvc1 -an clip-hevc-4k.mp4'
+```
+
 What the tests rely on: `clip-h264.mp4` is H.264 at 640×480 and plays in headless Chrome;
 `clip-hevc.mov` reports a display-matrix rotation of 90 and holds the string `+35.6895+139.6917`
 twice (keys `location` and `location-eng`), and headless Chrome cannot decode it; `clip-long.mp4`
 is 61 seconds long; `clip-hevc-1080p.mp4` is HEVC at 1920×1080 with sound, 2 seconds long, so
-its two copies come out at 1920×1080 and 1280×720. The test profile's `app` uses 64 KB upload
-parts (`UPLOAD_TEST_PART_BYTES`), so all but the long clip span several parts.
+its two copies come out at 1920×1080 and 1280×720; `clip-hevc-4k.mp4` is HEVC at 3840×2160, so
+with the 4K switch on its three copies come out at 3840×2160, 1920×1080 and 1280×720. The test
+profile's `app` uses 64 KB upload parts (`UPLOAD_TEST_PART_BYTES`), so all but the long clip span
+several parts.

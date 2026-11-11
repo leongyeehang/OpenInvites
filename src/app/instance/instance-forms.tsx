@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import type { FeatureSwitches } from "@/features";
-import { createHostInvitationAction, setFeaturesAction, setHomePageAction, setInstanceLimitsAction, setRegistrationModeAction, setVideoProcessingAction } from "@/instance/actions";
+import { createHostInvitationAction, queueMissingSizesAction, setFeaturesAction, setHomePageAction, setInstanceLimitsAction, setRegistrationModeAction, setVideoProcessingAction } from "@/instance/actions";
 import { DEFAULT_HOME_PAGE, DEFAULT_INSTANCE_NAME, HOME_POSTER_MODES, type HomePage } from "@/instance/home";
 import { DEFAULT_LIMITS, LIMIT_MAX, LIMIT_MIN, PHOTO_MB, REMINDER_DAYS, STORAGE_GB, VIDEO_MB, VIDEO_MINUTES, type Limits } from "@/instance/limits";
 import { REGISTRATION_MODES, type RegistrationMode } from "@/instance/registration";
@@ -346,8 +346,10 @@ export function FeaturesForm({ switches, videosAvailable }: { switches: FeatureS
   );
 }
 
-// The Storage card's one switch (M7 ticket 03): whether videos get a lighter copy for playback.
-export function StorageForm({ processing }: { processing: boolean }) {
+// The Storage card's switches: whether videos get the sizes their events ask for (M7 ticket 03),
+// and whether a 4K original that is not H.264 also gets a 4K copy, with what that costs (M8 ticket
+// 04).
+export function StorageForm({ processing, fourK }: { processing: boolean; fourK: boolean }) {
   const t = useTranslations("Instance.storage");
   const [state, action, pending] = useActionState(setVideoProcessingAction, undefined);
   return (
@@ -360,11 +362,45 @@ export function StorageForm({ processing }: { processing: boolean }) {
             <FieldDescription id="videoProcessing-hint">{t("processVideosHint")}</FieldDescription>
           </FieldContent>
         </Field>
+        <Field orientation="horizontal">
+          <Checkbox id="videoFourKCopy" name="videoFourKCopy" defaultChecked={fourK} aria-describedby="videoFourKCopy-hint" />
+          <FieldContent>
+            <FieldLabel htmlFor="videoFourKCopy">{t("fourK")}</FieldLabel>
+            <FieldDescription id="videoFourKCopy-hint">{t("fourKHint")}</FieldDescription>
+          </FieldContent>
+        </Field>
         <FormOutcome state={state} />
         <Button type="submit" disabled={pending} className="self-start">
           {t("submit")}
         </Button>
       </FieldGroup>
+    </form>
+  );
+}
+
+// Make missing sizes (M8 ticket 04), offered while processing is on and ffmpeg is usable: the
+// button while any video lacks a size, and what a press queued, which stays said after the page
+// is refreshed with nothing left to queue.
+export function MissingSizesForm({ count }: { count: number }) {
+  const t = useTranslations("Instance.storage");
+  const [state, action, pending] = useActionState(queueMissingSizesAction, undefined);
+  return (
+    <form action={action} className="flex flex-col gap-2">
+      {count > 0 && (
+        <>
+          <Button type="submit" variant="outline" disabled={pending} className="self-start" aria-describedby="missing-sizes-hint">
+            {t("makeMissingSizes")}
+          </Button>
+          <p id="missing-sizes-hint" className="text-sm text-muted-foreground">
+            {t("makeMissingSizesHint")}
+          </p>
+        </>
+      )}
+      {state && (
+        <p role="status" className="text-sm">
+          {t("queued", { count: state.queued })}
+        </p>
+      )}
     </form>
   );
 }

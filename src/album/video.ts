@@ -9,7 +9,7 @@ export type PhotoKind = (typeof PHOTO_KINDS)[number];
 
 // The sizes a video's copies are kept at, named by their short side, largest first (M8 ticket 02;
 // the database's `video_size` enum is built from this list), and the two a host may tick for an
-// event; 4K is the operator's (ticket 04).
+// event; 4K is the operator's switch (ticket 04, withFourK).
 export const VIDEO_QUALITIES = ["2160p", "1080p", "720p"] as const;
 export type VideoQuality = (typeof VIDEO_QUALITIES)[number];
 
@@ -136,6 +136,19 @@ export function sizesToMake(probe: Probe, ticked: readonly VideoQuality[]): Vide
 // host ticked none (plan ruling 6). The other sizes follow as a `sizes` job (jobs.ts).
 export function madeBeforeReady(probe: Probe, sizes: readonly VideoQuality[]): VideoQuality[] {
   return probe.codec === "h264" ? [] : sizes.length > 0 ? sizes.slice(0, 1) : ["720p"];
+}
+
+// The sizes to make with the operator's 4K copy (M8 ticket 04; spec, "4K copy"): when the switch is
+// on, a 4K original that is not H.264, which some browsers cannot play, also gets a 4K H.264 copy,
+// first among the sizes; an H.264 original already plays everywhere. Otherwise the host's sizes.
+export function withFourK(probe: Probe, ticked: readonly VideoQuality[], on: boolean): VideoQuality[] {
+  return on && probe.codec !== "h264" && shortSide(probe) >= TARGET_SHORT_SIDE["2160p"] ? ["2160p", ...ticked] : [...ticked];
+}
+
+// How long a copy may take (M8 ticket 04): 30 times the clip's length at 4K and 8 times at the
+// other sizes, which a small server's two threads need, and never under an hour.
+export function copyTimeoutMs(durationMs: number, size: VideoQuality): number {
+  return Math.max(60 * 60_000, durationMs * (size === "2160p" ? 30 : 8));
 }
 
 // A size's name for a person (M8 spec, "Sizes made"): a short side rounded down to a standard

@@ -44,7 +44,12 @@ Restore the backup you took instead.
   new image in both at once: a 0.7 worker would write a column that 0.8 has dropped.
 - **Video sizes replace the lighter copy.** Each event's Album settings tick the sizes its videos
   get, 1080p and 720p, both by default. An event that chose 720p in 0.7 keeps 720p alone; every
-  other event gets both. A video already processed keeps the copy it has.
+  other event gets both. A video already processed keeps the copy it has until you press **Make
+  missing sizes** on the Storage card, which gives every ready video the sizes its event asks for,
+  one at a time behind new uploads, while it stays in its album.
+- **A 4K copy is the operator's choice.** The Storage card's **Also make a 4K copy that plays
+  everywhere** is off after the upgrade; see [configuration.md](configuration.md#storage) for what
+  it costs.
 
 ### Upgrading to 0.7
 

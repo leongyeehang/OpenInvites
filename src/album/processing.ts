@@ -9,14 +9,14 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import sharp from "sharp";
 import { getDb } from "@/db/client";
 import { event, photo } from "@/db/schema";
-import { videoLimits, videoProcessing } from "@/instance/repository";
+import { videoFourKCopy, videoLimits, videoProcessing } from "@/instance/repository";
 import { getStorage } from "@/storage/storage";
 import { MAX_PIXELS } from "@/uploads/validate";
 import { removeItemFiles } from "./files";
-import { completeJob, dropJob, failJob, releaseJob, type ClaimedJob } from "./jobs";
+import { completeJob, dropJob, failJob, keepLease, releaseJob, renewLease, type ClaimedJob } from "./jobs";
 import { notifyHostsOfVideo } from "./notify-hosts";
 import { removeDir, scratchDir } from "./tmp";
-import { copyName, effectiveVideoCaps, madeBeforeReady, missingSizes, sentKey, sizesToMake, TARGET_BITRATE, TARGET_SHORT_SIDE, videoKey, type Probe, type VideoQuality } from "./video";
+import { copyName, copyTimeoutMs, effectiveVideoCaps, madeBeforeReady, missingSizes, probeOfItem, sentKey, sizesToMake, TARGET_BITRATE, TARGET_SHORT_SIDE, videoKey, withFourK, type Probe, type VideoQuality } from "./video";
 
 // What the queue does to a clip (M7 spec, "Videos"; ADR-0007): reads its streams with ffprobe;
 // rewraps it at original quality into MP4 with every piece of metadata dropped and the index in
@@ -25,16 +25,28 @@ import { copyName, effectiveVideoCaps, madeBeforeReady, missingSizes, sentKey, s
 // album's thumbnail through the same image pipeline as photos; stores all of it; and deletes the
 // clip as sent. The other sizes the event asks for (video.ts, sizesToMake) follow from the stored
 // original, one a claim, once the item is ready (M8 ticket 03, processSizes). ffmpeg runs at low
-// priority with two threads, so the site keeps answering pages.
+// priority with two threads, so the site keeps answering pages. The job's lease is renewed while
+// either runs, and a renewal that finds the job gone stops ffmpeg (M8 ticket 04).
 
 // A failure no retry would mend: the item is failed at once.
 class Final extends Error {}
+
+// The job is no longer this container's: its item was deleted, or its lease lapsed and another
+// processor took it. Whatever ran is stopped, and nothing more is done for the job.
+export class JobGone extends Error {
+  constructor() {
+    super("the job is gone");
+  }
+}
 
 type Streams = Probe & { durationMs: number; hasAudio: boolean; codecString: string };
 
 const ONE_MINUTE = 60_000;
 
-function run(command: string, args: string[], timeoutMs: number): Promise<string> {
+// A command run to its end, killed when it takes longer than `timeoutMs`, or when `signal` says
+// the job is gone, already or while it runs, which rejects with JobGone.
+export function run(command: string, args: string[], timeoutMs: number, signal?: AbortSignal): Promise<string> {
+  if (signal?.aborted) return Promise.reject(new JobGone());
   return new Promise((resolve, reject) => {
     const child = spawn("nice", ["-n", "10", command, ...args], { stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
@@ -45,29 +57,39 @@ function run(command: string, args: string[], timeoutMs: number): Promise<string
       child.kill("SIGKILL");
       reject(new Error(`${command} took longer than ${timeoutMs / 1000} s`));
     }, timeoutMs);
-    child.on("error", (error) => {
+    const gone = () => {
+      child.kill("SIGKILL");
+      reject(new JobGone());
+    };
+    signal?.addEventListener("abort", gone, { once: true });
+    const settle = () => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", gone);
+    };
+    child.on("error", (error) => {
+      settle();
       reject(error);
     });
     child.on("close", (code) => {
-      clearTimeout(timer);
+      settle();
       if (code === 0) resolve(out);
       else reject(new Error(`${command} exited with ${code}: ${err.trim().split("\n").slice(-3).join(" | ")}`));
     });
   });
 }
 
-const ffmpeg = (args: string[], timeoutMs: number) => run("ffmpeg", ["-v", "error", "-nostdin", "-threads", "2", ...args], timeoutMs);
+const ffmpeg = (args: string[], timeoutMs: number, signal?: AbortSignal) => run("ffmpeg", ["-v", "error", "-nostdin", "-threads", "2", ...args], timeoutMs, signal);
 
 type ProbeStream = { codec_type?: string; codec_name?: string; profile?: string; level?: number; width?: number; height?: number; bit_rate?: string; duration?: string; side_data_list?: { rotation?: number }[] };
 
 // The clip's video stream, as the copy decision and the player need it. A clip with none, or one
 // ffprobe cannot read, is unsupported.
-export async function probe(path: string): Promise<Streams> {
+export async function probe(path: string, signal?: AbortSignal): Promise<Streams> {
   let parsed: { streams?: ProbeStream[]; format?: { duration?: string; bit_rate?: string } };
   try {
-    parsed = JSON.parse(await run("ffprobe", ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", path], ONE_MINUTE));
-  } catch {
+    parsed = JSON.parse(await run("ffprobe", ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", path], ONE_MINUTE, signal));
+  } catch (error) {
+    if (error instanceof JobGone) throw error;
     throw new Final("unsupported");
   }
   const video = parsed.streams?.find((stream) => stream.codec_type === "video");
@@ -100,36 +122,38 @@ function codecStringOf(stream: ProbeStream): string {
 
 // Original quality: the streams copied into MP4, metadata and chapters dropped, the index in
 // front. HEVC is tagged hvc1 or Safari will not play it; audio MP4 cannot hold is re-encoded.
-async function rewrap(input: string, output: string, streams: Streams): Promise<void> {
+async function rewrap(input: string, output: string, streams: Streams, signal: AbortSignal): Promise<void> {
   const maps = ["-map", "0:v:0", ...(streams.hasAudio ? ["-map", "0:a:0"] : [])];
   const strip = ["-map_metadata", "-1", "-map_metadata:s:v", "-1", ...(streams.hasAudio ? ["-map_metadata:s:a", "-1"] : []), "-map_chapters", "-1"];
   const tag = streams.codec === "hevc" ? ["-tag:v", "hvc1"] : [];
   const tail = [...strip, "-movflags", "+faststart", "-f", "mp4", output];
   try {
-    await ffmpeg(["-y", "-i", input, ...maps, "-c", "copy", ...tag, ...tail], 10 * ONE_MINUTE);
+    await ffmpeg(["-y", "-i", input, ...maps, "-c", "copy", ...tag, ...tail], 10 * ONE_MINUTE, signal);
   } catch (error) {
-    if (!streams.hasAudio) throw error;
-    await ffmpeg(["-y", "-i", input, ...maps, "-c:v", "copy", ...tag, "-c:a", "aac", "-b:a", "128k", ...tail], 10 * ONE_MINUTE);
+    if (!streams.hasAudio || error instanceof JobGone) throw error;
+    await ffmpeg(["-y", "-i", input, ...maps, "-c:v", "copy", ...tag, "-c:a", "aac", "-b:a", "128k", ...tail], 10 * ONE_MINUTE, signal);
   }
 }
 
 // A copy: H.264 at a size, never larger than the original on either side, about the size's bit
-// rate, AAC audio, upright (ffmpeg rotates what the phone's matrix says).
-async function makeCopy(input: string, output: string, size: VideoQuality): Promise<void> {
+// rate, AAC audio, upright (ffmpeg rotates what the phone's matrix says). Given time by the clip's
+// length (copyTimeoutMs), so a long 4K encode is not cut off.
+async function makeCopy(input: string, output: string, size: VideoQuality, durationMs: number, signal: AbortSignal): Promise<void> {
   const side = TARGET_SHORT_SIDE[size];
   const rate = TARGET_BITRATE[size];
   const scale = `scale=w='if(lt(iw,ih),min(${side},iw),-2)':h='if(lt(iw,ih),-2,min(${side},ih))'`;
   await ffmpeg(
     ["-y", "-i", input, "-map", "0:v:0", "-map", "0:a:0?", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-maxrate", String(rate), "-bufsize", String(rate * 2), "-vf", scale, "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-map_metadata", "-1", "-movflags", "+faststart", output],
-    60 * ONE_MINUTE,
+    copyTimeoutMs(durationMs, size),
+    signal,
   );
 }
 
 // A frame a second in, or the first of a shorter clip, upright.
-async function posterFrame(input: string, durationMs: number, dir: string): Promise<Buffer> {
+async function posterFrame(input: string, durationMs: number, dir: string, signal: AbortSignal): Promise<Buffer> {
   const at = durationMs > 1500 ? 1 : 0;
   const frame = join(dir, "frame.png");
-  await ffmpeg(["-y", "-ss", String(at), "-i", input, "-frames:v", "1", "-f", "image2", frame], ONE_MINUTE);
+  await ffmpeg(["-y", "-ss", String(at), "-i", input, "-frames:v", "1", "-f", "image2", frame], ONE_MINUTE, signal);
   return readFile(frame);
 }
 
@@ -146,9 +170,29 @@ async function putFile(key: string, path: string): Promise<void> {
   await getStorage().putStream(key, Readable.toWeb(createReadStream(path)) as unknown as ReadableStream<Uint8Array>, size);
 }
 
+// Whether an item is still there, for a job found gone: files stored for a deleted item go, while
+// one whose job another processor took keeps them for that processor.
+async function itemExists(id: string): Promise<boolean> {
+  const [row] = await getDb().select({ id: photo.id }).from(photo).where(eq(photo.id, id));
+  return row !== undefined;
+}
+
+// The lease renewed while a job runs (jobs.ts, keepLease): `lost` aborts once a renewal finds the
+// job gone, which stops the ffprobe or ffmpeg under way.
+function leaseKept(job: ClaimedJob): { lost: AbortController; stop: () => void } {
+  const lost = new AbortController();
+  const stop = keepLease(() => renewLease(job, job.leasedBy), () => lost.abort());
+  return { lost, stop };
+}
+
+function goneIf(lost: AbortController): void {
+  if (lost.signal.aborted) throw new JobGone();
+}
+
 // One job, start to finish. A failure no retry would mend (a clip ffmpeg cannot read, or one over
 // the length cap once probed, Review Focus 2) fails the item at once and drops the clip as sent;
-// any other error is thrown for the queue to retry under a new lease.
+// any other error is thrown for the queue to retry under a new lease. A job found gone is left
+// alone, its item's files removed if the item went.
 export async function processVideo(job: ClaimedJob): Promise<void> {
   const id = job.photoId;
   const [item] = await getDb()
@@ -158,12 +202,13 @@ export async function processVideo(job: ClaimedJob): Promise<void> {
     .where(eq(photo.id, id));
   if (!item) return;
   const dir = await scratchDir(id);
+  const { lost, stop } = leaseKept(job);
   try {
     const sent = join(dir, "sent");
     const stream = await getStorage().stream(sentKey(id));
     if (!stream) throw new Final("the clip as sent is gone");
     await pipeline(Readable.fromWeb(stream as unknown as NodeReadableStream<Uint8Array>), createWriteStream(sent));
-    const streams = await probe(sent);
+    const streams = await probe(sent, lost.signal);
     const limits = await videoLimits();
     // Only the length cap is checked here: a clip already accepted is processed whatever the
     // event or the operator's Videos switch now says (M8 ticket 01).
@@ -171,25 +216,29 @@ export async function processVideo(job: ClaimedJob): Promise<void> {
     if (streams.durationMs > caps.maxMs) throw new Final("tooLong");
 
     const original = join(dir, "video.mp4");
-    await rewrap(sent, original, streams);
+    await rewrap(sent, original, streams, lost.signal);
     // A video is ready as soon as it plays everywhere (M8 spec): only the copy an original that is
     // not H.264 needs is made now, from the clip as sent and stored before the original; the rest
-    // of the sizes are the `sizes` job's. With the switch off, no copy and no job, as in 0.7.
+    // of the sizes are the `sizes` job's. With the switch off, no copy and no job, as in 0.7. The
+    // operator's 4K copy (ticket 04) is among the rest, never made before the item is ready: on a
+    // small server it takes far longer than the copy the item needs to play.
     const on = await videoProcessing();
-    const sizes = on ? sizesToMake(streams, item.sizes) : [];
-    const before = on ? madeBeforeReady(streams, sizes) : [];
+    const all = on ? sizesToMake(streams, withFourK(streams, item.sizes, await videoFourKCopy())) : [];
+    const before = on ? madeBeforeReady(streams, sizesToMake(streams, item.sizes)) : [];
     for (const size of before) {
       const copy = join(dir, `copy-${size}.mp4`);
-      await makeCopy(sent, copy, size);
+      await makeCopy(sent, copy, size, streams.durationMs, lost.signal);
       await putFile(videoKey(id, copyName(size)), copy);
     }
     await putFile(videoKey(id, "original"), original);
-    const { poster, thumb } = await stills(await posterFrame(original, streams.durationMs, dir));
+    const { poster, thumb } = await stills(await posterFrame(original, streams.durationMs, dir, lost.signal));
     await getStorage().put(videoKey(id, "poster"), poster);
     await getStorage().put(videoKey(id, "thumb"), thumb);
 
     const upright = streams.rotation % 180 === 90 ? { width: streams.height, height: streams.width } : { width: streams.width, height: streams.height };
-    const done = await completeJob(id, { ...upright, durationMs: streams.durationMs, codec: streams.codecString, copies: before }, sizes.length > before.length);
+    goneIf(lost);
+    const more = all.some((size) => !before.includes(size));
+    const done = await completeJob(id, { ...upright, durationMs: streams.durationMs, codec: streams.codecString, copies: before }, more);
     if (!done) {
       // Deleted while it was processed (plan ruling 20): nothing of it stays.
       await removeItemFiles([id]);
@@ -198,6 +247,11 @@ export async function processVideo(job: ClaimedJob): Promise<void> {
     await getStorage().delete(sentKey(id));
     if (done.status === "pending") await notifyHostsOfVideo(id);
   } catch (error) {
+    if (error instanceof JobGone) {
+      console.log(`Videos: the job of item ${id} was gone at its lease's renewal, so its processing stopped.`);
+      if (!(await itemExists(id))) await removeItemFiles([id]);
+      return;
+    }
     if (error instanceof Final) {
       await failJob(job, error.message, true);
       await getStorage().delete(sentKey(id));
@@ -205,6 +259,7 @@ export async function processVideo(job: ClaimedJob): Promise<void> {
     }
     throw error;
   } finally {
+    stop();
     await removeDir(dir);
   }
 }
@@ -225,8 +280,9 @@ export async function addCopies(photoId: string, sizes: VideoQuality[]): Promise
 // asks for now, so the size a slow connection needs never waits behind a longer encode, made from
 // the stored original, since the clip as sent went when the item became ready (plan ruling 8).
 // The job is given back while more sizes are missing, and dropped once none is, or when the item
-// is no longer a ready video or the site's switch is off. Anything thrown is the queue's: it drops
-// the job, and the item stays ready.
+// is no longer a ready video or the site's switch is off. The operator's 4K copy counts among the
+// sizes when its switch is on (ticket 04). Anything thrown is the queue's: it drops the job, and
+// the item stays ready. A job found gone is left alone, its copy removed if the item went.
 export async function processSizes(job: ClaimedJob): Promise<void> {
   const id = job.photoId;
   const [item] = await getDb()
@@ -235,23 +291,31 @@ export async function processSizes(job: ClaimedJob): Promise<void> {
     .innerJoin(event, eq(event.id, photo.eventId))
     .where(eq(photo.id, id));
   if (!item || item.kind !== "video" || (item.status !== "approved" && item.status !== "pending") || !(await videoProcessing())) return dropJob(job);
-  const missing = missingSizes(item, item.sizes);
+  const original = probeOfItem(item);
+  const missing = original ? missingSizes(item, withFourK(original, item.sizes, await videoFourKCopy())) : [];
   if (missing.length === 0) return dropJob(job);
   const size = missing[missing.length - 1];
+  const key = videoKey(id, copyName(size));
   const dir = await scratchDir(id);
+  const { lost, stop } = leaseKept(job);
   try {
-    const original = join(dir, "video.mp4");
+    const stored = join(dir, "video.mp4");
     const stream = await getStorage().stream(videoKey(id, "original"));
     if (!stream) throw new Error("the original is gone");
-    await pipeline(Readable.fromWeb(stream as unknown as NodeReadableStream<Uint8Array>), createWriteStream(original));
+    await pipeline(Readable.fromWeb(stream as unknown as NodeReadableStream<Uint8Array>), createWriteStream(stored));
     const copy = join(dir, `copy-${size}.mp4`);
-    await makeCopy(original, copy, size);
-    const key = videoKey(id, copyName(size));
+    await makeCopy(stored, copy, size, item.durationMs ?? 0, lost.signal);
     await putFile(key, copy);
+    goneIf(lost);
     // Deleted while its copy was made: the copy goes too.
     if (!(await addCopies(id, [size]))) await getStorage().delete(key);
     await (missing.length > 1 ? releaseJob(job) : dropJob(job));
+  } catch (error) {
+    if (!(error instanceof JobGone)) throw error;
+    console.log(`Videos: the sizes job of item ${id} was gone at its lease's renewal, so its ${size} copy stopped.`);
+    if (!(await itemExists(id))) await getStorage().delete(key);
   } finally {
+    stop();
     await removeDir(dir);
   }
 }

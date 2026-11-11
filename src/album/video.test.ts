@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MEGABYTE } from "@/lib/sizes";
-import { chooseQuality, copyName, copySide, effectiveVideoCaps, EVENT_SIZES, madeBeforeReady, missingSizes, needsCopy, playable, probeOfItem, SENT_FILE, shortSide, sizeLabel, sizesToMake, TARGET_BITRATE, TARGET_SHORT_SIDE, VIDEO_FILES, VIDEO_QUALITIES, VIDEO_WORKS, videoFileNamed, videoKey, videoProblem, videoProcessor, videoSizes, videoUrl, WORKER_STALE_MS, type VideoQuality } from "./video";
+import { chooseQuality, copyName, copySide, copyTimeoutMs, effectiveVideoCaps, EVENT_SIZES, madeBeforeReady, missingSizes, needsCopy, playable, probeOfItem, SENT_FILE, shortSide, sizeLabel, sizesToMake, TARGET_BITRATE, TARGET_SHORT_SIDE, VIDEO_FILES, VIDEO_QUALITIES, VIDEO_WORKS, videoFileNamed, videoKey, videoProblem, videoProcessor, videoSizes, videoUrl, withFourK, WORKER_STALE_MS, type VideoQuality } from "./video";
 
 // Videos in the album (M7 ticket 05): the files a video is kept as, and the caps a clip is held to.
 
@@ -224,6 +224,47 @@ describe("an item's sizes", () => {
 
   it("names the jobs the queue does", () => {
     expect(VIDEO_WORKS).toEqual(["process", "sizes", "motion"]);
+  });
+});
+
+// The operator's 4K copy (M8 ticket 04): for a 4K original that is not H.264, which some browsers
+// cannot play, when the switch is on; never the copy made before the item is ready.
+describe("the 4K copy", () => {
+  const hevc4k = { codec: "hevc", width: 3840, height: 2160, rotation: 0, bitRate: 40_000_000 };
+  const both = ["1080p", "720p"] as const;
+
+  it("is added first for a 4K original that is not H.264, only with the switch on", () => {
+    expect(withFourK(hevc4k, both, true)).toEqual(["2160p", "1080p", "720p"]);
+    expect(withFourK(hevc4k, both, false)).toEqual(["1080p", "720p"]);
+    expect(withFourK({ ...hevc4k, codec: "h264" }, both, true)).toEqual(["1080p", "720p"]);
+    expect(withFourK({ ...hevc4k, width: 1920, height: 1080 }, both, true)).toEqual(["1080p", "720p"]);
+    expect(withFourK({ ...hevc4k, width: 2160, height: 3840 }, both, true)).toEqual(["2160p", "1080p", "720p"]);
+  });
+
+  it("is made after the item is ready, and counts among the sizes an item lacks", () => {
+    expect(sizesToMake(hevc4k, withFourK(hevc4k, both, true))).toEqual(["2160p", "1080p", "720p"]);
+    expect(madeBeforeReady(hevc4k, sizesToMake(hevc4k, both))).toEqual(["1080p"]);
+    const item = { codec: "hvc1.1.6.L93.B0", width: 3840, height: 2160, bytes: 10_000_000, durationMs: 2000, copies: ["1080p"] as VideoQuality[] };
+    expect(missingSizes(item, withFourK(probeOfItem(item)!, both, true))).toEqual(["2160p", "720p"]);
+  });
+
+  it("is listed as 4K beside the 4K original", () => {
+    const item = { codec: "hvc1.1.6.L93.B0", width: 3840, height: 2160, bytes: 10_000_000, durationMs: 2000, copies: ["720p", "2160p", "1080p"] as VideoQuality[] };
+    expect(videoSizes(item).map(({ side }) => side)).toEqual([2160, 2160, 1080, 720]);
+    expect(sizeLabel(2160)).toBe("4K");
+  });
+});
+
+// A copy's timeout grows with the clip: 30 times its length at 4K, 8 times at the other sizes,
+// never under an hour.
+describe("copyTimeoutMs", () => {
+  const minutes = (count: number) => count * 60_000;
+
+  it("gives a copy an hour, or more for a long clip", () => {
+    expect(copyTimeoutMs(minutes(2), "1080p")).toBe(minutes(60));
+    expect(copyTimeoutMs(minutes(15), "1080p")).toBe(minutes(120));
+    expect(copyTimeoutMs(minutes(1), "2160p")).toBe(minutes(60));
+    expect(copyTimeoutMs(minutes(15), "2160p")).toBe(minutes(450));
   });
 });
 

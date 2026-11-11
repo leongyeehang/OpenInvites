@@ -22,6 +22,9 @@ const WORKER_INSTANCE = /(^|\/)worker\.spec\.ts$/;
 // switches (M8 ticket 01), which change what every page of the site shows, so never on the shared
 // `app`.
 const FEATURES_INSTANCE = /(^|\/)features\.spec\.ts$/;
+// The spec that takes `app-fresh` and `worker-fresh` after the features spec: the operator's 4K
+// copy and Make missing sizes (M8 ticket 04), which change what the site's processing makes.
+const SIZES_INSTANCE = /(^|\/)video-sizes\.spec\.ts$/;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -49,13 +52,13 @@ export default defineConfig({
     {
       name: "mobile",
       dependencies: ["operator"],
-      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE, ALBUM_REMINDER_INSTANCE, HOME_INSTANCE, WORKER_INSTANCE, FEATURES_INSTANCE],
+      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE, ALBUM_REMINDER_INSTANCE, HOME_INSTANCE, WORKER_INSTANCE, FEATURES_INSTANCE, SIZES_INSTANCE],
       use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
     },
     {
       name: "desktop",
       dependencies: ["operator"],
-      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE, ALBUM_REMINDER_INSTANCE, HOME_INSTANCE, WORKER_INSTANCE, FEATURES_INSTANCE],
+      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE, ALBUM_REMINDER_INSTANCE, HOME_INSTANCE, WORKER_INSTANCE, FEATURES_INSTANCE, SIZES_INSTANCE],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } },
     },
     // One instance per spec, so one project: each spec's scenarios run in order and change what
@@ -111,6 +114,14 @@ export default defineConfig({
       name: "features-instance",
       testMatch: FEATURES_INSTANCE,
       dependencies: ["worker-instance"],
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, baseURL: "http://localhost:3002" },
+    },
+    // After the features spec, which leaves app-fresh and worker-fresh as it likes; this spec
+    // recreates both, with db-fresh.
+    {
+      name: "sizes-instance",
+      testMatch: SIZES_INSTANCE,
+      dependencies: ["features-instance"],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, baseURL: "http://localhost:3002" },
     },
   ],

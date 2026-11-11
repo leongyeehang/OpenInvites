@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ffmpegStatus, type FfmpegStatus } from "@/album/ffmpeg";
 import { albumTotalsByEvent } from "@/album/repository";
 import { NO_ITEMS, type AlbumTotals } from "@/album/album";
+import { videosMissingSizes } from "@/album/sizes";
 import { videoProcessor } from "@/album/video";
 import { requireOperator } from "@/auth/session";
 import { AlertDialog, AlertDialogCancel, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -16,7 +17,7 @@ import { siteFeatures } from "@/features";
 import { clearAlbumAsOperatorAction, revokeHostInvitationAction } from "@/instance/actions";
 import { videoProcessingMode, type VideoProcessingMode } from "@/instance/env";
 import { HOST_INVITATION_DAYS, hostInvitationDaysLeft, hostInvitationState, type HostInvitationState } from "@/instance/host-invitation";
-import { homePage, instanceLimits, listHostInvitations, registrationMode, videoProcessing, videoWorkerSeenAt, type HostInvitation } from "@/instance/repository";
+import { homePage, instanceLimits, listHostInvitations, registrationMode, videoFourKCopy, videoProcessing, videoWorkerSeenAt, type HostInvitation } from "@/instance/repository";
 import { formatSize } from "@/lib/sizes";
 import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
@@ -25,7 +26,7 @@ import { storageConfig } from "@/storage/config";
 import { unmeasuredCount } from "@/storage/measure";
 import { biggestAlbums, diskUse, freeDiskBytes, siteBytes, type BiggestAlbum } from "@/storage/usage";
 import { HostHeader } from "../(host)/host-header";
-import { FeaturesForm, HomePageForm, HostInvitationForm, LimitsForm, RegistrationForm, StorageForm } from "./instance-forms";
+import { FeaturesForm, HomePageForm, HostInvitationForm, LimitsForm, MissingSizesForm, RegistrationForm, StorageForm } from "./instance-forms";
 import { StrayFiles } from "./stray-files";
 
 // Outside the host area's layout, which sends a signed-out visitor to sign in: this page does
@@ -150,6 +151,16 @@ export default async function InstancePage() {
             {storage.bucket && <p className="text-sm text-muted-foreground">{t("storage.bucketNote")}</p>}
             <VideosLine status={storage.ffmpeg} />
             {storage.ffmpeg.available && <ProcessedByLine mode={storage.mode} seenAt={storage.workerSeenAt} now={now} />}
+            <div className="flex flex-col gap-2">
+              <p role="status" className="text-sm">
+                {t("storage.missingSizes", { count: storage.missing })}
+              </p>
+              {storage.processing && storage.ffmpeg.available && (
+                <ClientMessages namespaces={["Instance.storage"]}>
+                  <MissingSizesForm count={storage.missing} />
+                </ClientMessages>
+              )}
+            </div>
             {storage.unmeasured > 0 && (
               <p role="status" className="text-sm text-muted-foreground">
                 {t("storage.measuring", { count: storage.unmeasured })}
@@ -170,7 +181,7 @@ export default async function InstancePage() {
               )}
             </section>
             <ClientMessages namespaces={["Instance.storage"]}>
-              <StorageForm processing={storage.processing} />
+              <StorageForm processing={storage.processing} fourK={storage.fourK} />
               <StrayFiles />
             </ClientMessages>
           </CardContent>
@@ -209,12 +220,23 @@ export default async function InstancePage() {
 
 // What the Storage card shows (M7 ticket 03): the counted use, what local disk really holds and
 // has free (nothing on S3, where the site cannot see a disk), what is still being measured from
-// before the upgrade, the albums that take the most, and the processing switch.
+// before the upgrade, the albums that take the most, the processing switches, and how many videos
+// lack a size their event asks for (M8 ticket 04), counted before Make missing sizes is pressed.
 async function storageFacts() {
-  const [use, disk, free, unmeasured, biggest, processing, workerSeenAt] = await Promise.all([siteBytes(), diskUse(), freeDiskBytes(), unmeasuredCount(), biggestAlbums(5), videoProcessing(), videoWorkerSeenAt()]);
+  const [use, disk, free, unmeasured, biggest, processing, fourK, workerSeenAt, missing] = await Promise.all([
+    siteBytes(),
+    diskUse(),
+    freeDiskBytes(),
+    unmeasuredCount(),
+    biggestAlbums(5),
+    videoProcessing(),
+    videoFourKCopy(),
+    videoWorkerSeenAt(),
+    videosMissingSizes(),
+  ]);
   // What each of the biggest albums holds, for the confirmation before clearing one (ticket 10).
   const totals = await albumTotalsByEvent(biggest.map(({ id }) => id));
-  return { use, disk, free, unmeasured, biggest, totals, processing, workerSeenAt, mode: videoProcessingMode(), bucket: storageConfig().backend === "s3", ffmpeg: ffmpegStatus() };
+  return { use, disk, free, unmeasured, biggest, totals, processing, fourK, workerSeenAt, missing: missing.length, mode: videoProcessingMode(), bucket: storageConfig().backend === "s3", ffmpeg: ffmpegStatus() };
 }
 
 // Whether this server can process videos (ADR-0007, ticket 05).

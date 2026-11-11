@@ -142,6 +142,9 @@ export const instanceSettings = pgTable(
     albumReminderDefaultDays: integer("album_reminder_default_days").default(60),
     // Whether a lighter copy is made of videos that need one (M7 ticket 03, the Storage card).
     videoProcessing: boolean("video_processing").notNull().default(true),
+    // Whether a 4K original that is not H.264 also gets a 4K H.264 copy that plays everywhere (M8
+    // ticket 04, the Storage card); off by default, as it costs disk and hours of CPU.
+    videoFourKCopy: boolean("video_4k_copy").notNull().default(false),
     // When the worker container, if the processing was moved to one, last reported (ticket 08).
     videoWorkerSeenAt: timestamp("video_worker_seen_at", { withTimezone: true }),
     // Whether MAX_UPLOAD_MB has been read once into Largest photo (instance/upload-limit.ts).
@@ -765,7 +768,7 @@ export const photo = pgTable(
 export const videoWork = pgEnum("video_work", VIDEO_WORKS);
 
 // A video's place in the processing queue (M7 ticket 06): one per item while it is processed,
-// taken under a lease that a crashed processor's hour lets lapse, and tried three times
+// taken under a lease that a crashed processor's ten minutes let lapse, and tried three times
 // (album/jobs.ts), then, once the item is ready, while it lacks a size its event asks for (M8
 // ticket 03). Goes with the item.
 export const videoJob = pgTable("video_job", {

@@ -58,6 +58,17 @@ export async function setVideoProcessing(on: boolean): Promise<void> {
   await getDb().update(instanceSettings).set({ videoProcessing: on });
 }
 
+// The Storage card's 4K switch (M8 ticket 04): whether a 4K original that is not H.264 also gets a
+// 4K copy that plays everywhere. Read when a video's sizes are worked out.
+export async function videoFourKCopy(db: Db = getDb()): Promise<boolean> {
+  const [settings] = await db.select({ on: instanceSettings.videoFourKCopy }).from(instanceSettings);
+  return settings.on;
+}
+
+export async function setVideoFourKCopy(on: boolean): Promise<void> {
+  await getDb().update(instanceSettings).set({ videoFourKCopy: on });
+}
+
 // The worker container's heartbeat (ticket 08): written every minute by the worker, read by the
 // Storage card.
 export async function videoWorkerSeenAt(): Promise<Date | undefined> {

@@ -6,8 +6,10 @@ import { photoStatusForOwner, type PhotoStatus } from "./visibility";
 
 // The processing queue (M7 ticket 06): one `video_job` row per video from its upload until ffmpeg
 // is done with it. A job is taken under a committed lease, never inside a transaction held across
-// ffmpeg, which runs for minutes and would pin a pooled connection; a lease an hour old is a
-// crashed processor's and is taken again. Three tries in all, then the item is failed.
+// ffmpeg, which runs for minutes and would pin a pooled connection. A lease is ten minutes, renewed
+// every two while the job runs (M8 ticket 04), so a lease ten minutes old is a crashed processor's
+// and is taken again, and a renewal that finds the job gone (its item deleted) stops ffmpeg. Three
+// tries in all, then the item is failed.
 //
 // A job is first a `process` job, which makes a clip into a ready item. When the item's event asks
 // for sizes it still lacks, the job does not go but becomes a `sizes` job (M8 ticket 03): each
@@ -16,7 +18,8 @@ import { photoStatusForOwner, type PhotoStatus } from "./visibility";
 // no list; each claim works out what the item lacks at that moment. It is never failed: a size
 // that cannot be made drops the job, and the item stays ready.
 
-export const LEASE_MS = 60 * 60 * 1000;
+export const LEASE_MS = 10 * 60_000;
+export const RENEW_MS = 2 * 60_000;
 export const MAX_TRIES = 3;
 
 export function claimable(job: { leasedAt: Date | null }, now: Date): boolean {
@@ -30,12 +33,22 @@ export function exhausted(job: { attempts: number }): boolean {
 // A claim counts a try. A job claimed more times than there are tries was never given back by a
 // try that ended (failJob gives it back): the processor died on it each time, as a clip that
 // takes more memory than the container has would see to, and it is failed rather than taken again
-// every hour for ever.
+// every ten minutes for ever.
 export function crashedOut(job: { attempts: number }): boolean {
   return job.attempts > MAX_TRIES;
 }
 
-export type ClaimedJob = { id: string; photoId: string; attempts: number; work: VideoWork };
+export type ClaimedJob = { id: string; photoId: string; attempts: number; work: VideoWork; leasedBy: string };
+
+// Who takes a claimed job, by its work, over every work there is, so that one left out does not
+// compile: a clip goes to processing, a `sizes` job to the sizes, and a `motion` job has nobody
+// until ticket 08 lands, so one met before then is dropped and logged rather than processed as a
+// clip, which would fail its item and delete what was sent.
+const PROCESSORS: Record<VideoWork, "clip" | "sizes" | undefined> = { process: "clip", sizes: "sizes", motion: undefined };
+
+export function processorOf(work: VideoWork): "clip" | "sizes" | undefined {
+  return PROCESSORS[work];
+}
 
 // One statement: the oldest claimable job, `process` jobs before `sizes` ones, locked and skipped
 // if another container holds it, leased to `me` with its tries counted. Nothing when the queue is
@@ -43,12 +56,38 @@ export type ClaimedJob = { id: string; photoId: string; attempts: number; work: 
 // unserialised.
 export async function claimJob(me: string, now: Date): Promise<ClaimedJob | undefined> {
   const lapsed = new Date(now.getTime() - LEASE_MS).toISOString();
-  const rows = await getDb().execute<{ id: string; photo_id: string; attempts: number; work: VideoWork }>(sql`
+  const rows = await getDb().execute<{ id: string; photo_id: string; attempts: number; work: VideoWork; leased_by: string }>(sql`
     update video_job set leased_at = ${now.toISOString()}::timestamptz, leased_by = ${me}, attempts = attempts + 1
     where id = (select id from video_job where leased_at is null or leased_at < ${lapsed}::timestamptz order by (work = 'sizes'), created_at limit 1 for update skip locked)
-    returning id, photo_id, attempts, work`);
+    returning id, photo_id, attempts, work, leased_by`);
   const row = rows[0];
-  return row && { id: row.id, photoId: row.photo_id, attempts: row.attempts, work: row.work };
+  return row && { id: row.id, photoId: row.photo_id, attempts: row.attempts, work: row.work, leasedBy: row.leased_by };
+}
+
+// The lease taken again from now, from the app's clock as claimJob takes it, so that `claimable`
+// compares like with like; false when the job is gone (its item was deleted, or it was finished
+// elsewhere) or another processor holds it.
+export async function renewLease(job: ClaimedJob, me: string): Promise<boolean> {
+  const rows = await getDb().execute<{ id: string }>(sql`update video_job set leased_at = ${new Date().toISOString()}::timestamptz where id = ${job.id} and leased_by = ${me} returning id`);
+  return rows.length > 0;
+}
+
+// Renews a lease every `every` ms while a job runs, and gives back the function that stops it. A
+// renewal that answers false is the job lost: `onLost` is called once and nothing more is renewed.
+// One that throws (the database out of reach for a moment) is logged and is not a loss, since the
+// lease still has minutes to run and the next renewal may reach it.
+export function keepLease(renew: () => Promise<boolean>, onLost: () => void, every = RENEW_MS): () => void {
+  const timer = setInterval(() => {
+    renew().then(
+      (held) => {
+        if (held) return;
+        clearInterval(timer);
+        onLost();
+      },
+      (error) => console.error("Videos: a lease could not be renewed:", error),
+    );
+  }, every);
+  return () => clearInterval(timer);
 }
 
 // What processing learned of a video, and the sizes it stored copies at, largest first (M8 ticket 02).
@@ -84,16 +123,19 @@ export async function completeJob(photoId: string, result: Processed, more: bool
 
 // A try that did not end well: the lease is given up with the reason kept for the operator's
 // logs, or, on the last try or for a failure no retry would mend (`final`), the item is failed
-// with the reason on it, for its tile, and the job goes.
+// with the reason on it, for its tile, and the job goes. Only a job still processing a clip is
+// touched: a try that throws after completeJob made its row the item's `sizes` job (deleting the
+// clip as sent, telling the hosts) must neither clear another processor's lease on it nor drop it.
 export async function failJob(job: ClaimedJob, reason: string, final = false): Promise<"retry" | "failed"> {
+  const stillProcessing = and(eq(videoJob.id, job.id), eq(videoJob.work, "process"));
   if (final || exhausted(job)) {
     await getDb().transaction(async (tx) => {
       await tx.update(photo).set({ status: "failed", failure: reason.slice(0, 200) }).where(and(eq(photo.id, job.photoId), eq(photo.status, "processing")));
-      await tx.delete(videoJob).where(eq(videoJob.id, job.id));
+      await tx.delete(videoJob).where(stillProcessing);
     });
     return "failed";
   }
-  await getDb().update(videoJob).set({ leasedAt: null, leasedBy: null, lastError: reason.slice(0, 1000) }).where(eq(videoJob.id, job.id));
+  await getDb().update(videoJob).set({ leasedAt: null, leasedBy: null, lastError: reason.slice(0, 1000) }).where(stillProcessing);
   return "retry";
 }
 
