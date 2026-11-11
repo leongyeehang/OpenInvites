@@ -132,7 +132,7 @@ describe("crashedOut", () => {
 // Who takes a claimed job, by its work (M8 ticket 04): a `motion` job has nobody until ticket 08,
 // so one met before then is dropped and logged, never processed as a clip.
 describe("processorOf", () => {
-  it("sends a clip to processing, a sizes job to the sizes, and a motion job to nobody yet", () => {
-    expect(VIDEO_WORKS.map(processorOf)).toEqual(["clip", "sizes", undefined]);
+  it("sends a clip to processing, a sizes job to the sizes, and a motion job to the live photo's motion", () => {
+    expect(VIDEO_WORKS.map(processorOf)).toEqual(["clip", "sizes", "motion"]);
   });
 });

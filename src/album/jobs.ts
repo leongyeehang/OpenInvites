@@ -18,6 +18,11 @@ import { photoStatusForOwner, type PhotoStatus } from "./visibility";
 // else waiting, so a new upload never waits behind another item's encodes. A `sizes` job carries
 // no list; each claim works out what the item lacks at that moment. It is never failed: a size
 // that cannot be made drops the job, and the item stays ready.
+//
+// A `motion` job (M8 ticket 08) makes a live photo's motion from the clip its JPEG carried. It is
+// queued with the photo, which is ready at once as its still, and is tried three times as a clip
+// is; it never fails the photo: a clip that cannot be made into motion drops the job, and the
+// photo stays a still.
 
 export const LEASE_MS = 10 * 60_000;
 export const RENEW_MS = 2 * 60_000;
@@ -42,12 +47,11 @@ export function crashedOut(job: { attempts: number }): boolean {
 export type ClaimedJob = { id: string; photoId: string; attempts: number; work: VideoWork; leasedBy: string };
 
 // Who takes a claimed job, by its work, over every work there is, so that one left out does not
-// compile: a clip goes to processing, a `sizes` job to the sizes, and a `motion` job has nobody
-// until ticket 08 lands, so one met before then is dropped and logged rather than processed as a
-// clip, which would fail its item and delete what was sent.
-const PROCESSORS: Record<VideoWork, "clip" | "sizes" | undefined> = { process: "clip", sizes: "sizes", motion: undefined };
+// compile: a clip goes to processing, a `sizes` job to the sizes, and a `motion` job to a live
+// photo's motion (M8 ticket 08).
+const PROCESSORS: Record<VideoWork, "clip" | "sizes" | "motion"> = { process: "clip", sizes: "sizes", motion: "motion" };
 
-export function processorOf(work: VideoWork): "clip" | "sizes" | undefined {
+export function processorOf(work: VideoWork): "clip" | "sizes" | "motion" {
   return PROCESSORS[work];
 }
 
@@ -162,7 +166,7 @@ export async function failJob(job: ClaimedJob, reason: string, final = false): P
   return released.length > 0 ? "retry" : "gone";
 }
 
-// A `sizes` job that is done, or that failed: it goes, and the item stays as it is.
+// A `sizes` or `motion` job that is done, or that failed: it goes, and the item stays as it is.
 export async function dropJob(job: ClaimedJob): Promise<void> {
   await getDb().delete(videoJob).where(eq(videoJob.id, job.id));
 }
@@ -171,4 +175,32 @@ export async function dropJob(job: ClaimedJob): Promise<void> {
 // so other items' sizes, and every new upload, take their turn first.
 export async function releaseJob(job: ClaimedJob): Promise<void> {
   await getDb().update(videoJob).set({ leasedAt: null, leasedBy: null, attempts: 0, createdAt: sql`now()` }).where(eq(videoJob.id, job.id));
+}
+
+// A `motion` job's try that threw before its last (M8 ticket 08): the lease is given up, the
+// reason kept for the operator's logs and the tries left as they are, so the next claim is the
+// next try. Only while this processor still holds it, and never a job of another work; false
+// when no job answered (it was finished, or its photo deleted, before the try threw).
+export async function retryJob(job: ClaimedJob, reason: string): Promise<boolean> {
+  const released = await getDb()
+    .update(videoJob)
+    .set({ leasedAt: null, leasedBy: null, lastError: reason.slice(0, 1000) })
+    .where(and(eq(videoJob.id, job.id), eq(videoJob.work, job.work), eq(videoJob.leasedBy, job.leasedBy)))
+    .returning({ id: videoJob.id });
+  return released.length > 0;
+}
+
+// A live photo's motion is made and stored (M8 ticket 08): the photo becomes live, and its job
+// goes, in one transaction; false when the photo was deleted meanwhile (plan ruling 20), and the
+// caller removes what it stored. Its status is never touched.
+export async function completeMotion(photoId: string): Promise<boolean> {
+  return getDb().transaction(async (tx) => {
+    const live = await tx
+      .update(photo)
+      .set({ live: true })
+      .where(and(eq(photo.id, photoId), eq(photo.kind, "photo")))
+      .returning({ id: photo.id });
+    await tx.delete(videoJob).where(and(eq(videoJob.photoId, photoId), eq(videoJob.work, "motion")));
+    return live.length > 0;
+  });
 }

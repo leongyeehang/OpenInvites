@@ -14,9 +14,9 @@ import { getStorage } from "@/storage/storage";
 import { MAX_PIXELS } from "@/uploads/validate";
 import { DETAIL_TAGS, frameRate, hdrKind, keepDetailsOf, videoDetails, type ItemDetails } from "./details";
 import { ffmpegStatus } from "./ffmpeg";
-import { copyArgs, posterArgs, rewrapArgs } from "./ffmpeg-args";
-import { removeItemFiles } from "./files";
-import { completeJob, dropJob, failJob, keepLease, releaseJob, renewLease, type ClaimedJob } from "./jobs";
+import { copyArgs, motionArgs, posterArgs, rewrapArgs } from "./ffmpeg-args";
+import { motionKey, motionSentKey, removeItemFiles } from "./files";
+import { completeJob, completeMotion, dropJob, failJob, keepLease, releaseJob, renewLease, type ClaimedJob } from "./jobs";
 import { notifyHostsOfVideo } from "./notify-hosts";
 import { removeDir, scratchDir } from "./tmp";
 import { copyName, copyTimeoutMs, effectiveVideoCaps, madeBeforeReady, missingSizes, probeOfItem, sentKey, sizesToMake, videoKey, withFourK, type Probe, type VideoQuality } from "./video";
@@ -31,9 +31,10 @@ import { copyName, copyTimeoutMs, effectiveVideoCaps, madeBeforeReady, missingSi
 // priority with two threads, so the site keeps answering pages. The job's lease is renewed while
 // either runs, and a renewal that finds the job gone stops ffmpeg (M8 ticket 04). An HDR clip keeps
 // its HDR in the original, while its copies, poster and thumbnail are tone-mapped to standard
-// colour when the server's ffmpeg can (M8 ticket 05; ffmpeg-args.ts).
+// colour when the server's ffmpeg can (M8 ticket 05; ffmpeg-args.ts). A live photo's motion is
+// made here too, as a job of its own (M8 ticket 08, processMotion).
 
-// A failure no retry would mend: the item is failed at once.
+// A failure no retry would mend: the item is failed at once, or a live photo's motion given up.
 class Final extends Error {}
 
 // The job is no longer this container's: its item was deleted, or its lease lapsed and another
@@ -361,6 +362,60 @@ export async function processSizes(job: ClaimedJob): Promise<void> {
     if (!(error instanceof JobGone)) throw error;
     console.log(`Videos: the sizes job of item ${id} was gone at its lease's renewal, so its ${size} copy stopped.`);
     if (!(await itemExists(id))) await getStorage().delete(key);
+  } finally {
+    stop();
+    await removeDir(dir);
+  }
+}
+
+// A live photo's motion given up (M8 ticket 08): its job goes, and the clip as sent with it, so the
+// photo stays a still. The photo itself is never touched.
+export async function giveUpMotion(job: ClaimedJob): Promise<void> {
+  await dropJob(job);
+  await getStorage().delete(motionSentKey(job.photoId));
+}
+
+// One claim of a `motion` job (M8 ticket 08): the clip the photo carried, stored as sent while the
+// photo was finished, made into a few silent seconds of H.264 at most 720 on its short side
+// (ffmpeg-args.ts, motionArgs), tone-mapped as a copy is when it is HDR, and stored beside the
+// photo's files; then the photo is live and the job and the clip as sent go. A clip ffmpeg cannot
+// read is given up at once, with one line in the log; anything else thrown is the queue's, which
+// tries again and gives up on the last try. A job found gone is left alone, and the motion removed
+// if the photo went.
+export async function processMotion(job: ClaimedJob): Promise<void> {
+  const id = job.photoId;
+  // Deleted since it was claimed: its job went with it, and its files with its row.
+  if (!(await itemExists(id))) return;
+  const dir = await scratchDir(id);
+  const { lost, stop } = leaseKept(job);
+  try {
+    const sent = join(dir, "motion-sent");
+    const stream = await getStorage().stream(motionSentKey(id));
+    if (!stream) throw new Final("the clip as sent is gone");
+    await pipeline(Readable.fromWeb(stream as unknown as NodeReadableStream<Uint8Array>), createWriteStream(sent));
+    const streams = await probe(sent, lost.signal);
+    const motion = join(dir, "motion.mp4");
+    await ffmpeg(motionArgs(sent, motion, toneMapped(streams)), 3 * ONE_MINUTE, lost.signal);
+    await putFile(motionKey(id), motion);
+    goneIf(lost);
+    if (!(await completeMotion(id))) {
+      // Deleted while its motion was made (plan ruling 20): nothing of it stays.
+      await removeItemFiles([id]);
+      return;
+    }
+    await getStorage().delete(motionSentKey(id));
+  } catch (error) {
+    if (error instanceof JobGone) {
+      console.log(`Videos: the motion job of live photo ${id} was gone at its lease's renewal, so its motion stopped.`);
+      if (!(await itemExists(id))) await removeItemFiles([id]);
+      return;
+    }
+    if (error instanceof Final) {
+      console.error(`Videos: the motion of photo ${id} could not be made (${error.message}), so it stays a still.`);
+      await giveUpMotion(job);
+      return;
+    }
+    throw error;
   } finally {
     stop();
     await removeDir(dir);

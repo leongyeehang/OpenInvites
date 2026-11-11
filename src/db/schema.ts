@@ -769,6 +769,9 @@ export const photo = pgTable(
     // When the item was taken, read as it was processed while the host kept capture times (M8
     // ticket 07); null otherwise, and for anything with no time a camera could have set.
     takenAt: timestamp("taken_at", { withTimezone: true }),
+    // A live photo (M8 ticket 08): a photo whose motion the video queue has made and stored beside
+    // its files (album/files.ts, motionKey). False until then, and for every other item.
+    live: boolean("live").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

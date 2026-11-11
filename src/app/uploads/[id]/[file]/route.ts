@@ -1,4 +1,4 @@
-import { PHOTO_FILES, photoFileNamed, photoKey } from "@/album/files";
+import { MOTION_FILE, motionKey, PHOTO_FILES, photoFileNamed, photoKey } from "@/album/files";
 import { VIDEO_FILES, videoFileNamed, videoKey } from "@/album/video";
 import { isUuid } from "@/lib/uuid";
 import { parseRange } from "@/storage/range";
@@ -14,13 +14,15 @@ import { RENDITIONS, renditionKey, renditionNamed } from "@/uploads/renditions";
 
 type Served = { key: string; type: string; size: number };
 
-// What a file name under an id is, and where it is kept: a rendition, a photo's file, or a
-// video's (album/video.ts; the clip as sent is not among them, and is never served).
+// What a file name under an id is, and where it is kept: a rendition, a photo's file, a live
+// photo's motion (M8 ticket 08), or a video's (album/video.ts; neither clip as sent is among them,
+// and neither is ever served).
 function fileNamed(id: string, file: string): { key: string; type: string } | undefined {
   const rendition = renditionNamed(file);
   if (rendition) return { key: renditionKey(id, rendition), type: RENDITIONS[rendition].type };
   const photo = photoFileNamed(file);
   if (photo) return { key: photoKey(id, photo), type: PHOTO_FILES[photo].type };
+  if (file === MOTION_FILE.file) return { key: motionKey(id), type: MOTION_FILE.type };
   const video = videoFileNamed(file);
   if (video) return { key: videoKey(id, video), type: VIDEO_FILES[video].type };
   return undefined;

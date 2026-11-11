@@ -1,13 +1,14 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight, Download, Film, ImagePlus, Trash2, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, CircleDot, Download, Film, ImagePlus, Trash2, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
-import { useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useOptimistic, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { approvePhotoAction, deletePhotoAction } from "@/album/actions";
 import { MAX_PHOTOS_AT_ONCE } from "@/album/album";
 import type { ShownDetails } from "@/album/details";
+import { seesLivePhotoNote } from "@/album/motion";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -21,8 +22,10 @@ import {
 import { Button } from "@/components/ui/button";
 import type { VideoCaps } from "@/album/video";
 import { clockTime, formatMinutes, formatSize, MEGABYTE } from "@/lib/sizes";
+import { cn } from "@/lib/utils";
 import { prepareFiles, uploadFiles, type Prepared, type UploadOutcome } from "./album-upload";
 import type { UploadProblem } from "@/uploads/validate";
+import { useReducedMotion } from "../effects/confetti";
 import { RefreshWhileProcessing } from "./refresh-while-processing";
 import { VideoPlayer, type ShownSize } from "./video-player";
 
@@ -32,14 +35,15 @@ import { VideoPlayer, type ShownSize } from "./video-player";
 // or a video still processing, or failed, which only its uploader and the hosts see. Each with who
 // added it, whether this viewer may delete it, whether it waits for a host's approval (M6 ticket
 // 03), and whether this viewer may approve it. An item that opens carries its technical line, and
-// the capture time and camera the host keeps, written on the server (M8 ticket 07).
+// the capture time and camera the host keeps, written on the server (M8 ticket 07). A live photo
+// carries its motion's file, and a photo whose motion is being made says so (M8 ticket 08).
 type ShownBase = { id: string; name: string; deletable: boolean; pending: boolean; approvable: boolean };
 // `takenAt` is the capture time as written for the viewer, `takenAtIso` the same instant for the
 // line's <time> element; both null while the host does not keep it.
 type ShownFacts = { details: ShownDetails; takenAt: string | null; takenAtIso: string | null };
 export type ShownPhoto = ShownBase &
   (
-    | ({ kind: "photo"; thumb: string; large: string; width: number; height: number } & ShownFacts)
+    | ({ kind: "photo"; thumb: string; large: string; width: number; height: number; motion: string | null; motionPending: boolean } & ShownFacts)
     | ({ kind: "video"; state: "ready"; thumb: string; poster: string; original: string; sizes: ShownSize[]; hdr: boolean; codec: string; durationMs: number; width: number; height: number } & ShownFacts)
     | { kind: "video"; state: "processing" | "failed"; failure: string | null }
   );
@@ -47,6 +51,16 @@ export type ShownPhoto = ShownBase &
 // What opens in the viewer.
 export type Openable = Extract<ShownPhoto, { kind: "photo" } | { state: "ready" }>;
 const openable = (photo: ShownPhoto): photo is Openable => photo.kind === "photo" || photo.state === "ready";
+
+// A photo that opens, and a live photo among them (M8 ticket 08): one whose motion is made.
+type OpenPhoto = Extract<Openable, { kind: "photo" }>;
+type LivePhoto = OpenPhoto & { motion: string };
+const isLive = (photo: ShownPhoto): photo is LivePhoto => photo.kind === "photo" && photo.motion !== null;
+
+// Whether this device is an iPhone or iPad (album/motion.ts, seesLivePhotoNote), which only the
+// browser knows: the server's answer, and the first drawing's, is no.
+const noSubscription = () => () => undefined;
+const onAnIPhone = () => seesLivePhotoNote(navigator.userAgent, navigator.maxTouchPoints);
 
 type Line = { name: string; text: string; ok: boolean };
 
@@ -85,6 +99,7 @@ export function Album({ slug, photos, maxMegabytes, video }: { slug: string; pho
   const last = useRef<number | undefined>(undefined);
   const thumbnails = useRef<(HTMLButtonElement | null)[]>([]);
   const input = useRef<HTMLInputElement>(null);
+  const iPhone = useSyncExternalStore(noSubscription, onAnIPhone, () => false);
 
   // Through the upload protocol (M7 tickets 06 and 07; album-upload.ts): checked before anything is
   // sent, then the ask, each file's parts, each file's finish; the lines say what became of each.
@@ -131,7 +146,7 @@ export function Album({ slug, photos, maxMegabytes, video }: { slug: string; pho
 
   return (
     <div className="flex flex-col gap-4">
-      {photos.some((photo) => photo.kind === "video" && photo.state === "processing") && <RefreshWhileProcessing />}
+      {photos.some((photo) => (photo.kind === "video" ? photo.state === "processing" : photo.motionPending)) && <RefreshWhileProcessing />}
       {photos.length === 0 ? (
         <p className="text-sm text-theme-text-muted">{t("empty")}</p>
       ) : (
@@ -159,6 +174,13 @@ export function Album({ slug, photos, maxMegabytes, video }: { slug: string; pho
                       <span className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 text-[11px] font-medium text-white">
                         <Film className="size-3" aria-hidden />
                         {clockTime(photo.durationMs)}
+                      </span>
+                    )}
+                    {/* A live photo's mark is inside the tile's button, never a button of its own. */}
+                    {isLive(photo) && (
+                      <span data-slot="live-mark" className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 text-[11px] font-medium text-white">
+                        <CircleDot className="size-3" aria-hidden />
+                        {t("live")}
                       </span>
                     )}
                   </button>
@@ -240,13 +262,20 @@ export function Album({ slug, photos, maxMegabytes, video }: { slug: string; pho
             multiple
             disabled={adding !== undefined}
             onChange={(event) => void add([...(event.target.files ?? [])])}
-            aria-describedby="album-hint"
+            aria-describedby={iPhone ? "album-hint album-live-note" : "album-hint"}
             className="sr-only"
           />
         </label>
         <p id="album-hint" className="text-xs text-theme-text-faint">
           {t("hint", { max: maxMegabytes })}
         </p>
+        {/* An iPhone hands a page only a Live Photo's still (M8 ticket 08): said once, where the
+            guest adds, and Save as Video suggested only where the event takes videos. */}
+        {iPhone && (
+          <p id="album-live-note" className="text-xs text-theme-text-faint">
+            {t(video.allowed ? "livePhotoNote" : "livePhotoNoteNoVideos")}
+          </p>
+        )}
         {error && (
           <p role="alert" className="text-sm font-medium">
             {error}
@@ -402,9 +431,11 @@ function Viewer({
                   <X className="size-5" aria-hidden />
                 </Dialog.Close>
               </header>
-              <div className="relative flex min-h-0 flex-1 items-center justify-center px-2 pb-2">
+              <div className={cn("relative flex min-h-0 flex-1 items-center justify-center px-2 pb-2", isLive(photo) && "[container-type:size]")}>
                 {photo.kind === "video" ? (
                   <VideoPlayer key={photo.id} video={photo} label={t(photo.pending ? "openVideoPending" : "openVideo", { n: index + 1, name: photo.name })} />
+                ) : isLive(photo) ? (
+                  <LivePicture key={photo.id} photo={photo} alt={t(photo.pending ? "openPending" : "open", { n: index + 1, name: photo.name })} />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized
                   <img src={photo.large} alt={t(photo.pending ? "openPending" : "open", { n: index + 1, name: photo.name })} width={photo.width} height={photo.height} className="max-h-full max-w-full object-contain select-none" draggable={false} />
@@ -436,6 +467,107 @@ function Viewer({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+// How long a press must last, and how little it may move, to be a hold rather than a tap or a swipe.
+const HOLD_MS = 300;
+const HOLD_SLOP_PX = 10;
+
+// A live photo in the viewer (M8 ticket 08): the still, and over it the motion, muted, shown only
+// while it plays. Held (a press of HOLD_MS that moves less than HOLD_SLOP_PX) it plays until let
+// go, cancelled or left, and a swipe still turns the page; its Live mark, in the picture's corner,
+// is a button that plays it once from the start and back to the still at its end, or stops it.
+// Nothing plays by itself, nor when the viewer opens or turns, which mounts this anew; under
+// reduced motion the hold is off and only the button plays it. The picture is sized by the
+// viewer's area (a size container), so the mark sits on the picture, not the letterbox.
+function LivePicture({ photo, alt }: { photo: LivePhoto; alt: string }) {
+  const t = useTranslations("EventPage.album");
+  const reduced = useReducedMotion();
+  const motion = useRef<HTMLVideoElement>(null);
+  const hold = useRef<{ x: number; y: number; timer: number; on: boolean } | undefined>(undefined);
+  // Each play and stop counts, so a play cut short by a stop does not stop the play after it.
+  const runs = useRef(0);
+  const [playing, setPlaying] = useState<"once" | "held">();
+  const [shown, setShown] = useState(false);
+
+  useEffect(() => () => window.clearTimeout(hold.current?.timer), []);
+
+  const stop = () => {
+    runs.current += 1;
+    motion.current?.pause();
+    setPlaying(undefined);
+    setShown(false);
+  };
+  const play = (how: "once" | "held") => {
+    const video = motion.current;
+    if (!video) return;
+    const run = (runs.current += 1);
+    video.currentTime = 0;
+    setPlaying(how);
+    video.play().catch(() => runs.current === run && stop());
+  };
+  const release = () => {
+    const held = hold.current;
+    if (!held) return;
+    window.clearTimeout(held.timer);
+    hold.current = undefined;
+    if (held.on) stop();
+  };
+
+  return (
+    <div
+      data-hold={reduced ? "off" : "on"}
+      onPointerDown={(event) => {
+        if (reduced || event.button !== 0 || (event.target as HTMLElement).closest("button")) return;
+        release();
+        const timer = window.setTimeout(() => {
+          if (!hold.current) return;
+          hold.current.on = true;
+          play("held");
+        }, HOLD_MS);
+        hold.current = { x: event.clientX, y: event.clientY, timer, on: false };
+      }}
+      onPointerMove={(event) => {
+        const held = hold.current;
+        if (!held || held.on || Math.hypot(event.clientX - held.x, event.clientY - held.y) < HOLD_SLOP_PX) return;
+        window.clearTimeout(held.timer);
+        hold.current = undefined;
+      }}
+      onPointerUp={release}
+      onPointerCancel={release}
+      onPointerLeave={release}
+      // A long press would otherwise open the browser's menu for the picture, ending the hold.
+      onContextMenu={reduced ? undefined : (event) => event.preventDefault()}
+      className="relative select-none [-webkit-touch-callout:none]"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized */}
+      <img src={photo.large} alt={alt} width={photo.width} height={photo.height} className="block h-auto max-h-[100cqh] w-auto max-w-[100cqw] object-contain" draggable={false} />
+      <video
+        ref={motion}
+        data-slot="live-motion"
+        src={photo.motion}
+        muted
+        playsInline
+        preload="none"
+        loop={playing === "held"}
+        onPlaying={() => setShown(true)}
+        onEnded={stop}
+        aria-hidden
+        className={cn("pointer-events-none absolute inset-0 size-full object-contain", !shown && "invisible")}
+      />
+      <button
+        type="button"
+        data-slot="live-mark"
+        aria-label={t("playLive")}
+        aria-pressed={playing !== undefined}
+        onClick={() => (playing ? stop() : play("once"))}
+        className="absolute top-2 left-2 inline-flex h-8 cursor-pointer items-center gap-1 rounded-full bg-black/50 px-2.5 text-xs font-medium text-white hover:bg-black/70 focus-visible:outline-2 focus-visible:outline-white aria-pressed:bg-white aria-pressed:text-black"
+      >
+        <CircleDot className="size-3.5" aria-hidden />
+        {t("live")}
+      </button>
+    </div>
   );
 }
 

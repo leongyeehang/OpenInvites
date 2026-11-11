@@ -59,7 +59,7 @@ import { PollBar, PollFlow, PollWhen, type PollCandidate } from "./poll-flow";
 import { albumState, mayApprovePhoto, mayDeletePhoto, type AlbumViewer } from "@/album/album";
 import { albumOrderFor, formatTaken, shownDetails } from "@/album/details";
 import { ffmpegStatus } from "@/album/ffmpeg";
-import { photoUrl } from "@/album/files";
+import { motionUrl, photoUrl } from "@/album/files";
 import { copyName, effectiveVideoCaps, videoSizes, videoUrl } from "@/album/video";
 import { countPhotos, listPhotos } from "@/album/repository";
 import { albumViewer } from "@/album/viewer";
@@ -149,7 +149,11 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
     const base = { id: each.id, name: each.name, deletable: mayDeletePhoto(viewer, each), pending: each.status === "pending", approvable: each.status === "pending" && mayApprovePhoto(viewer) };
     const taken = event.albumKeepTakenAt ? each.takenAt : null;
     const details = { details: shownDetails(each, event), takenAt: taken && formatTaken(taken, event.timeZone, locale), takenAtIso: taken && taken.toISOString() };
-    if (each.kind === "photo") return { ...base, ...details, kind: "photo", thumb: photoUrl(each.id, "thumb"), large: photoUrl(each.id, "large"), width: each.width ?? 0, height: each.height ?? 0 };
+    // A live photo carries its motion (M8 ticket 08), and one whose motion is being made says so.
+    if (each.kind === "photo") {
+      const live = { motion: each.live ? motionUrl(each.id) : null, motionPending: each.motionPending };
+      return { ...base, ...details, ...live, kind: "photo", thumb: photoUrl(each.id, "thumb"), large: photoUrl(each.id, "large"), width: each.width ?? 0, height: each.height ?? 0 };
+    }
     // A video (M7 ticket 07): processing or failed shows as such; ready shows its files.
     if (each.status === "processing" || each.status === "failed") return { ...base, kind: "video", state: each.status, failure: each.failure };
     // Every size it plays at, the original first, each with its file (M8 ticket 06), and whether

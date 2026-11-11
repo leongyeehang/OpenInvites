@@ -1060,6 +1060,10 @@
       "sizeOriginalHdr": "{size} · <hdr>HDR</hdr> · 原片",
       "originalUnplayable": "原片：此浏览器无法播放。",
       "unplayable": "此浏览器无法播放这段视频，请下载后观看。",
+      "live": "实况",
+      "playLive": "播放实况照片",
+      "livePhotoNote": "在 iPhone 上，实况照片会作为照片添加。若要保留其动态，请在“照片”中对它选择“存储为视频”，再添加该视频。",
+      "livePhotoNoteNoVideos": "在 iPhone 上，实况照片会作为照片添加，不含其动态。",
       "details": {
         "fps": "{fps} 帧/秒",
         "hdr": "HDR",

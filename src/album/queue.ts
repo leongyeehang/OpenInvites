@@ -3,8 +3,8 @@ import { hostname } from "node:os";
 import { processesVideosHere, videoRole } from "@/instance/env";
 import { markVideoWorkerSeen } from "@/instance/repository";
 import { getStorage } from "@/storage/storage";
-import { claimJob, crashedOut, dropJob, failJob, processorOf, type ClaimedJob } from "./jobs";
-import { processSizes, processVideo } from "./processing";
+import { claimJob, crashedOut, dropJob, exhausted, failJob, processorOf, retryJob, type ClaimedJob } from "./jobs";
+import { giveUpMotion, processMotion, processSizes, processVideo } from "./processing";
 import { sentKey } from "./video";
 
 // The processing queue's loop (M7 ticket 06): one clip at a time per container, taken under a
@@ -12,8 +12,8 @@ import { sentKey } from "./video";
 // off the process's global object, since the instrumentation hook that starts it and the finish
 // route that kicks it are bundled apart but run in one process: a kick while a run is going sets
 // `again`, and the run goes round once more. A kick is never awaited by a request. A claimed job
-// processes a clip or makes one of a ready item's sizes, by its work (M8 ticket 03; jobs.ts,
-// processorOf).
+// processes a clip, makes one of a ready item's sizes, or makes a live photo's motion, by its work
+// (M8 tickets 03 and 08; jobs.ts, processorOf).
 
 const SHARED = Symbol.for("openinvites.videoQueue");
 
@@ -68,9 +68,8 @@ export async function kickVideoQueue(): Promise<void> {
           case "sizes":
             await makeSize(job);
             break;
-          case undefined:
-            console.error(`Videos: item ${job.photoId} had a ${job.work} job, which nothing here processes yet, so it was dropped.`);
-            await dropJob(job);
+          case "motion":
+            await makeMotion(job);
             break;
           default:
             throw new Error(`no processor ${processor satisfies never}`);
@@ -113,5 +112,24 @@ async function makeSize(job: ClaimedJob): Promise<void> {
   } catch (error) {
     console.error(`Videos: making a size of item ${job.photoId} failed, so it was dropped:`, error);
     await dropJob(job);
+  }
+}
+
+// A live photo's motion (M8 ticket 08): a try that throws is given back for another under a new
+// lease; the last, or one the processor did not survive, gives the motion up (the job and the clip
+// as sent go), and the photo stays a still. Never failJob, which is a clip's: the photo's status is
+// never touched.
+async function makeMotion(job: ClaimedJob): Promise<void> {
+  try {
+    if (crashedOut(job)) throw new Error(`claimed ${job.attempts} times and never given back; the processor did not survive it`);
+    await processMotion(job);
+  } catch (error) {
+    if (!crashedOut(job) && !exhausted(job)) {
+      const retried = await retryJob(job, error instanceof Error ? error.message : String(error));
+      console.error(`Videos: making the motion of live photo ${job.photoId} failed on try ${job.attempts}, ${retried ? "so it will be tried again" : "after its job had moved on, so nothing was retried"}:`, error);
+      return;
+    }
+    console.error(`Videos: making the motion of live photo ${job.photoId} failed on its last try, so it was dropped and the photo stays a still:`, error);
+    await giveUpMotion(job);
   }
 }

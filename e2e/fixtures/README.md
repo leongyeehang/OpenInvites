@@ -90,6 +90,37 @@ ExposureTime `1/120`, FNumber `1.8`, ISO `80`, FocalLength `6.9 mm` and a GPSPos
 `com.apple.quicktime.creationdate` `2026-01-10T16:20:00+0800`, `com.apple.quicktime.make` `Apple`,
 `com.apple.quicktime.model` `iPhone 15 Pro`, and `location` and `location-eng` `+35.6895+139.6917/`.
 
+The ninth was added in M8 ticket 08, with ffmpeg 8.1.3 and Node 22 in the same throwaway
+container, made without a phone: `motion-photo.jpg` is an Android motion photo in Google's
+container format, a still with a two-second clip joined after it and named in its XMP:
+
+```sh
+docker run --rm -v "$PWD/e2e/fixtures:/out" node:22-alpine sh -c '
+  apk add --no-cache ffmpeg && cd /tmp &&
+  # A 640x480 frame of testsrc2, and two seconds of it as H.264 with no sound.
+  ffmpeg -y -f lavfi -i testsrc2=size=640x480 -frames:v 1 -q:v 3 still.jpg &&
+  ffmpeg -y -f lavfi -i testsrc2=size=640x480:rate=30 -t 2 -c:v libx264 -preset veryfast -pix_fmt yuv420p -an motion.mp4 &&
+  # SOI, an APP1 segment with the XMP of a Google motion photo whose MotionPhoto item is the clip, the still from its byte 2, and the clip.
+  node -e "
+    const fs = require(\"fs\");
+    const still = fs.readFileSync(\"still.jpg\");
+    const clip = fs.readFileSync(\"motion.mp4\");
+    const q = String.fromCharCode(34);
+    const a = (name, value) => \" \" + name + \"=\" + q + value + q;
+    const item = (mime, semantic, length) => \"<rdf:li rdf:parseType=\" + q + \"Resource\" + q + \"><Container:Item\" + a(\"Item:Mime\", mime) + a(\"Item:Semantic\", semantic) + a(\"Item:Length\", length) + a(\"Item:Padding\", 0) + \"/></rdf:li>\";
+    const xmp = \"<x:xmpmeta\" + a(\"xmlns:x\", \"adobe:ns:meta/\") + \"><rdf:RDF\" + a(\"xmlns:rdf\", \"http://www.w3.org/1999/02/22-rdf-syntax-ns#\") + \"><rdf:Description\" + a(\"rdf:about\", \"\")
+      + a(\"xmlns:GCamera\", \"http://ns.google.com/photos/1.0/camera/\") + a(\"xmlns:Container\", \"http://ns.google.com/photos/1.0/container/\") + a(\"xmlns:Item\", \"http://ns.google.com/photos/1.0/container/item/\")
+      + a(\"GCamera:MotionPhoto\", 1) + a(\"GCamera:MotionPhotoVersion\", 1) + a(\"GCamera:MotionPhotoPresentationTimestampUs\", 1000000)
+      + \"><Container:Directory><rdf:Seq>\" + item(\"image/jpeg\", \"Primary\", 0) + item(\"video/mp4\", \"MotionPhoto\", clip.length) + \"</rdf:Seq></Container:Directory></rdf:Description></rdf:RDF></x:xmpmeta>\";
+    const body = Buffer.concat([Buffer.from(\"http://ns.adobe.com/xap/1.0/\0\"), Buffer.from(xmp)]);
+    const header = Buffer.from([0xff, 0xd8, 0xff, 0xe1, (body.length + 2) >> 8, (body.length + 2) & 255]);
+    fs.writeFileSync(\"/out/motion-photo.jpg\", Buffer.concat([header, body, still.subarray(2), clip]));
+    console.log(\"still\", still.length, \"clip\", clip.length);
+  "'
+```
+
+It printed `still 24699 clip 214956`; the photo is 240,493 bytes, its clip the last 214,956.
+
 What the tests rely on: `clip-h264.mp4` is H.264 at 640×480 and plays in headless Chrome;
 `clip-hevc.mov` reports a display-matrix rotation of 90 and holds the string `+35.6895+139.6917`
 twice (keys `location` and `location-eng`), and headless Chrome cannot decode it;
@@ -104,3 +135,6 @@ the HLG tags. Nothing here carries a Dolby Vision record: no encoder in the imag
 is `clip-h264.mp4`'s streams, 640×480 at 30 frames a second for 4 seconds, with the tags above,
 its location the string `+35.6895+139.6917/`. The test profile's `app` uses 64 KB upload parts
 (`UPLOAD_TEST_PART_BYTES`), so all but the long clip span several parts.
+`motion-photo.jpg` is a JPEG that `motionRange` (`src/album/motion.ts`) finds a 2-second H.264
+clip in, 640×480 with no sound, from byte 25,537 to the end; sharp reads it as a 640×480 JPEG,
+which the clip after its end does not disturb.

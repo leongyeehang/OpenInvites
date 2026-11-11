@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { copyArgs, posterArgs, rewrapArgs, toneMapFilter } from "./ffmpeg-args";
+import { copyArgs, motionArgs, posterArgs, rewrapArgs, toneMapFilter } from "./ffmpeg-args";
 
 // What ffmpeg is asked to do with a clip (M8 ticket 05): the arguments as they were in 0.7 for a
 // video in standard colour, and an HDR one's copies and poster tone-mapped to BT.709.
@@ -76,5 +76,23 @@ describe("posterArgs", () => {
     const hdr = posterArgs("in.mp4", 0, "frame.png", "pq");
     expect(after(hdr, "-vf")).toBe(toneMapFilter("pq", "still"));
     expect(after(hdr, "-ss")).toBe("0");
+  });
+});
+
+// M8 ticket 08: a live photo's motion, three silent seconds of H.264 at a short side of at most 720.
+describe("motionArgs", () => {
+  const SCALE = "scale=w='if(lt(iw,ih),min(720,iw),-2)':h='if(lt(iw,ih),-2,min(720,ih))'";
+
+  it("cuts the clip to three seconds, silent, at most 720 on its short side, with nothing of its metadata", () => {
+    expect(motionArgs("in.mp4", "out.mp4", undefined)).toEqual(
+      ["-y", "-i", "in.mp4", "-t", "3", "-map", "0:v:0", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-vf", SCALE, "-pix_fmt", "yuv420p", "-map_metadata", "-1", "-map_chapters", "-1", "-movflags", "+faststart", "out.mp4"],
+    );
+  });
+
+  it("tone-maps an HDR clip after scaling it, and tags it BT.709", () => {
+    const args = motionArgs("in.mp4", "out.mp4", "pq");
+    expect(after(args, "-vf")).toBe(`${SCALE},${toneMapFilter("pq", "video")}`);
+    expect(holdsRun(args, ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709"])).toBe(true);
+    expect(args.at(-1)).toBe("out.mp4");
   });
 });

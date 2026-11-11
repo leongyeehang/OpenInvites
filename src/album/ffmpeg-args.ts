@@ -1,3 +1,4 @@
+import { MOTION_MAX_SECONDS } from "./motion";
 import { TARGET_BITRATE, TARGET_SHORT_SIDE, type VideoQuality } from "./video";
 
 // What ffmpeg is asked to do with a clip (processing.ts runs it), kept apart so the lists can be
@@ -35,12 +36,27 @@ export function rewrapArgs(input: string, output: string, streams: { codec: stri
 // rate, AAC audio, upright (ffmpeg rotates what the phone's matrix says). An HDR original is
 // scaled first, at its own bit depth, then tone-mapped, and the copy is tagged BT.709 throughout.
 export function copyArgs(input: string, output: string, size: VideoQuality, hdr: "hlg" | "pq" | undefined): string[] {
-  const side = TARGET_SHORT_SIDE[size];
   const rate = TARGET_BITRATE[size];
-  const scale = `scale=w='if(lt(iw,ih),min(${side},iw),-2)':h='if(lt(iw,ih),-2,min(${side},ih))'`;
-  const filter = hdr ? `${scale},${toneMapFilter(hdr, "video")}` : scale;
-  const tags = hdr ? ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709"] : [];
+  const { filter, tags } = scaled(TARGET_SHORT_SIDE[size], hdr);
   return ["-y", "-i", input, "-map", "0:v:0", "-map", "0:a:0?", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-maxrate", String(rate), "-bufsize", String(rate * 2), "-vf", filter, "-pix_fmt", "yuv420p", ...tags, "-c:a", "aac", "-b:a", "128k", "-map_metadata", "-1", "-movflags", "+faststart", output];
+}
+
+// A live photo's motion (M8 ticket 08): its first MOTION_MAX_SECONDS, the video alone, as H.264 at a
+// short side of at most 720 and never larger than the clip's, metadata and chapters dropped, the
+// index in front; an HDR clip tone-mapped as a copy is.
+export function motionArgs(input: string, output: string, hdr: "hlg" | "pq" | undefined): string[] {
+  const { filter, tags } = scaled(TARGET_SHORT_SIDE["720p"], hdr);
+  return ["-y", "-i", input, "-t", String(MOTION_MAX_SECONDS), "-map", "0:v:0", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-vf", filter, "-pix_fmt", "yuv420p", ...tags, "-map_metadata", "-1", "-map_chapters", "-1", "-movflags", "+faststart", output];
+}
+
+// The filter that brings a clip to a short side of at most `side`, never up, upright, then
+// tone-maps an HDR one, with the BT.709 tags such a result carries.
+function scaled(side: number, hdr: "hlg" | "pq" | undefined): { filter: string; tags: string[] } {
+  const scale = `scale=w='if(lt(iw,ih),min(${side},iw),-2)':h='if(lt(iw,ih),-2,min(${side},ih))'`;
+  return {
+    filter: hdr ? `${scale},${toneMapFilter(hdr, "video")}` : scale,
+    tags: hdr ? ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709"] : [],
+  };
 }
 
 // One frame at `atSeconds`, upright, as PNG for the poster and thumbnail (processing.ts, stills);

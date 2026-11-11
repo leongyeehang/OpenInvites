@@ -1060,6 +1060,10 @@
       "sizeOriginalHdr": "{size} · <hdr>HDR</hdr> · 原片",
       "originalUnplayable": "原片：此瀏覽器無法播放。",
       "unplayable": "此瀏覽器無法播放這段影片，請下載後觀看。",
+      "live": "原況",
+      "playLive": "播放原況照片",
+      "livePhotoNote": "在 iPhone 上，原況照片會以照片形式新增。若要保留其動態，請在「照片」中對它選擇「儲存為影片」，再新增該影片。",
+      "livePhotoNoteNoVideos": "在 iPhone 上，原況照片會以照片形式新增，不含其動態。",
       "details": {
         "fps": "{fps} 幀/秒",
         "hdr": "HDR",

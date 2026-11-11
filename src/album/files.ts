@@ -60,12 +60,31 @@ export async function processPhoto(bytes: Uint8Array, maxBytes: number): Promise
   }
 }
 
+// A live photo's motion (M8 ticket 08): a few silent seconds of H.264 made by the video queue from
+// the clip the photo carried (motion.ts), served beside the photo's files; and that clip as sent,
+// kept only until the motion is made or given up, and never served.
+export const MOTION_FILE = { file: "motion.mp4", type: "video/mp4" } as const;
+export const MOTION_SENT = "motion-sent";
+
+export function motionKey(id: string): string {
+  return `${id}-${MOTION_FILE.file}`;
+}
+
+export function motionSentKey(id: string): string {
+  return `${id}-${MOTION_SENT}`;
+}
+
+export function motionUrl(id: string): string {
+  return `/uploads/${id}/${MOTION_FILE.file}`;
+}
+
 export async function storePhoto(id: string, files: Record<PhotoFile, Uint8Array>): Promise<void> {
   await Promise.all(NAMES.map((name) => getStorage().put(photoKey(id, name), files[name])));
 }
 
 // Removes items' files once their rows are gone: every photo name and, since M7 (ticket 05), every
-// video name, the file as sent included, since deleting a missing key is not an error on either
+// video name, the file as sent included, and a live photo's motion and its clip as sent (M8 ticket
+// 08), since deleting a missing key is not an error on either
 // backend and the caller need not know the item's kind. A file that will not go is left where no
 // page reaches it, and logged for the operator.
 export async function removeItemFiles(ids: string[]): Promise<void> {
@@ -73,6 +92,8 @@ export async function removeItemFiles(ids: string[]): Promise<void> {
     ...NAMES.map((name) => getStorage().delete(photoKey(id, name))),
     ...VIDEO_FILE_NAMES.map((name) => getStorage().delete(videoKey(id, name))),
     getStorage().delete(sentKey(id)),
+    getStorage().delete(motionKey(id)),
+    getStorage().delete(motionSentKey(id)),
   ]);
   for (const removal of await Promise.allSettled(removals)) {
     if (removal.status === "rejected") console.error("An item's file could not be removed:", removal.reason);
