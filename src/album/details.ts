@@ -34,12 +34,23 @@ export function frameRate(rate: string | undefined): number | undefined {
 }
 
 const positive = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value > 0;
-const words = (value: unknown): value is string => typeof value === "string" && value.length > 0;
 
-// An object of the keys named, each kept only when `valid` says so; nothing when none is.
-function only<T extends Record<string, unknown>>(raw: unknown, valid: { [K in keyof T]-?: (value: unknown) => boolean }): T | undefined {
+// What a field keeps of a value: itself when valid, nothing otherwise. Words are cleaned as they
+// were when written (exif.ts, plainText), so the read-back is as strict as the write.
+const number = (value: unknown) => (positive(value) ? value : undefined);
+const whole = (value: unknown) => (positive(value) && Number.isInteger(value) ? value : undefined);
+const words = (value: unknown) => (typeof value === "string" ? plainText(value) || undefined : undefined);
+
+// An object of the keys named, each kept as its field makes it, left out when the field gives
+// nothing; nothing when no key is kept.
+function only<T extends Record<string, unknown>>(raw: unknown, fields: { [K in keyof T]-?: (value: unknown) => T[K] | undefined }): T | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
-  const kept = Object.fromEntries(Object.entries(valid).flatMap(([key, ok]) => ((ok as (value: unknown) => boolean)((raw as Record<string, unknown>)[key]) ? [[key, (raw as Record<string, unknown>)[key]]] : [])));
+  const kept = Object.fromEntries(
+    Object.entries(fields).flatMap(([key, field]) => {
+      const value = (field as (value: unknown) => unknown)((raw as Record<string, unknown>)[key]);
+      return value === undefined ? [] : [[key, value]];
+    }),
+  );
   return Object.keys(kept).length > 0 ? (kept as T) : undefined;
 }
 
@@ -48,15 +59,15 @@ function only<T extends Record<string, unknown>>(raw: unknown, valid: { [K in ke
 export function readDetails(raw: unknown): ItemDetails {
   if (typeof raw !== "object" || raw === null) return {};
   const { hdr, fps, pixels, camera, exposure } = raw as Record<string, unknown>;
-  const size = only<{ width: number; height: number }>(pixels, { width: Number.isInteger, height: Number.isInteger });
+  const size = only<{ width: number; height: number }>(pixels, { width: whole, height: whole });
   const kept = {
     camera: only<NonNullable<ItemDetails["camera"]>>(camera, { make: words, model: words, lens: words }),
-    exposure: only<NonNullable<ItemDetails["exposure"]>>(exposure, { shutter: words, aperture: positive, iso: positive, focalLength: positive }),
+    exposure: only<NonNullable<ItemDetails["exposure"]>>(exposure, { shutter: words, aperture: number, iso: number, focalLength: number }),
   };
   return {
     ...(hdr === "hlg" || hdr === "pq" ? { hdr } : {}),
     ...(positive(fps) ? { fps } : {}),
-    ...(size && size.width > 0 && size.height > 0 && Object.keys(size).length === 2 ? { pixels: size } : {}),
+    ...(size && Object.keys(size).length === 2 ? { pixels: size } : {}),
     ...(kept.camera ? { camera: kept.camera } : {}),
     ...(kept.exposure ? { exposure: kept.exposure } : {}),
   };
@@ -123,7 +134,7 @@ export function photoDetails(facts: ExifFacts, timeZone: string, now: Date): { t
   const camera = only<NonNullable<ItemDetails["camera"]>>({ make: facts.make, model: facts.model, lens: facts.lens }, { make: words, model: words, lens: words });
   const exposure = only<NonNullable<ItemDetails["exposure"]>>(
     { shutter: facts.exposureTime !== undefined ? shutterOf(facts.exposureTime) : undefined, aperture: facts.fNumber, iso: facts.iso, focalLength: facts.focalLength },
-    { shutter: words, aperture: positive, iso: positive, focalLength: positive },
+    { shutter: words, aperture: number, iso: number, focalLength: number },
   );
   return {
     takenAt: facts.dateTime ? takenAtFrom(facts.dateTime, facts.offset, timeZone, now) : null,
@@ -173,17 +184,20 @@ export function videoDetails(tags: Record<string, string>, keep: KeepDetails, no
   return { takenAt, ...(camera ? { camera } : {}) };
 }
 
-// A shutter speed as photographers write it: "1/120" under a second, "2" or "1.5" from one.
+// A shutter speed as photographers write it: "1/120" under 0.3 s, and from there a decimal, "0.8"
+// or "1.5", since a fraction would round to "1/1" or "1/2".
 export function shutterOf(seconds: number): string {
-  if (seconds < 1) return `1/${Math.round(1 / seconds)}`;
+  if (seconds < 0.3) return `1/${Math.round(1 / seconds)}`;
   return String(Math.round(seconds * 10) / 10);
 }
 
-// The camera, named once: the model alone when it already names its maker, as "Canon EOS R5" does,
-// or when the maker is Apple, whose models (iPhone, iPad) are known by themselves; the lens after.
+// The camera, named once: the model alone when its first word is the maker's ("Canon EOS R5",
+// NIKON CORPORATION's "NIKON Z 6"), or when the maker is Apple, whose models (iPhone, iPad) are
+// known by themselves; the lens after.
 export function cameraLine(camera: NonNullable<ItemDetails["camera"]>): string {
   const { make, model, lens } = camera;
-  const named = !make ? model : !model ? make : make === "Apple" || model.toLowerCase().startsWith(make.toLowerCase()) ? model : `${make} ${model}`;
+  const firstWord = (text: string) => text.trim().split(/\s+/)[0].toLowerCase();
+  const named = !make ? model : !model ? make : make === "Apple" || firstWord(model) === firstWord(make) ? model : `${make} ${model}`;
   return [named, lens].filter(Boolean).join(" · ");
 }
 

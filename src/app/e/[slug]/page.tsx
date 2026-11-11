@@ -147,7 +147,8 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
   }
   const photos: ShownPhoto[] = (await listPhotos(event.id, photoScope(view, viewer), albumOrderFor(event))).map((each) => {
     const base = { id: each.id, name: each.name, deletable: mayDeletePhoto(viewer, each), pending: each.status === "pending", approvable: each.status === "pending" && mayApprovePhoto(viewer) };
-    const details = { details: shownDetails(each, event), takenAt: event.albumKeepTakenAt && each.takenAt ? formatTaken(each.takenAt, event.timeZone, locale) : null };
+    const taken = event.albumKeepTakenAt ? each.takenAt : null;
+    const details = { details: shownDetails(each, event), takenAt: taken && formatTaken(taken, event.timeZone, locale), takenAtIso: taken && taken.toISOString() };
     if (each.kind === "photo") return { ...base, ...details, kind: "photo", thumb: photoUrl(each.id, "thumb"), large: photoUrl(each.id, "large"), width: each.width ?? 0, height: each.height ?? 0 };
     // A video (M7 ticket 07): processing or failed shows as such; ready shows its files.
     if (each.status === "processing" || each.status === "failed") return { ...base, kind: "video", state: each.status, failure: each.failure };

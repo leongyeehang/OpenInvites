@@ -73,6 +73,15 @@ describe("readDetails, with the details a host may keep (ticket 07)", () => {
     expect(readDetails({ exposure: { iso: "80", aperture: -2, shutter: "1/60" } })).toEqual({ exposure: { shutter: "1/60" } });
     expect(readDetails({ location: "+35.6895+139.6917/" })).toEqual({});
   });
+
+  // Review of ticket 07: a string read back is cleaned as one written is, so a row written by hand
+  // never reaches a page longer or stranger than processing would have made it.
+  it("cleans the strings it keeps as processing does", () => {
+    expect(readDetails({ camera: { model: `\u202eiPhone 15 Pro\u200b${"x".repeat(100)}`, make: "\u0007\u200b" } })).toEqual({
+      camera: { model: `iPhone 15 Pro${"x".repeat(51)}` },
+    });
+    expect(readDetails({ exposure: { shutter: "\u20661/120\u2069" } })).toEqual({ exposure: { shutter: "1/120" } });
+  });
 });
 
 describe("keepDetailsOf", () => {
@@ -144,10 +153,19 @@ describe("videoDetails", () => {
 describe("shutterOf", () => {
   it("writes a fraction under a second and seconds from one", () => {
     expect(shutterOf(1 / 120)).toBe("1/120");
-    expect(shutterOf(0.5)).toBe("1/2");
+    expect(shutterOf(0.25)).toBe("1/4");
+    expect(shutterOf(1 / 1000)).toBe("1/1000");
     expect(shutterOf(1 / 3200)).toBe("1/3200");
     expect(shutterOf(2)).toBe("2");
     expect(shutterOf(1.5)).toBe("1.5");
+  });
+
+  // Review of ticket 07: from 0.3 s a fraction would round to "1/1" or "1/2", so a decimal is shown.
+  it("writes a decimal from 0.3 s up to a second", () => {
+    expect(shutterOf(0.8)).toBe("0.8");
+    expect(shutterOf(0.6)).toBe("0.6");
+    expect(shutterOf(0.5)).toBe("0.5");
+    expect(shutterOf(0.3)).toBe("0.3");
   });
 });
 
@@ -156,7 +174,10 @@ describe("cameraLine", () => {
     expect(cameraLine({ make: "Apple", model: "iPhone 15 Pro" })).toBe("iPhone 15 Pro");
     expect(cameraLine({ make: "Canon", model: "EOS R5" })).toBe("Canon EOS R5");
     expect(cameraLine({ make: "Canon", model: "Canon EOS R5" })).toBe("Canon EOS R5");
-    expect(cameraLine({ make: "NIKON CORPORATION", model: "NIKON Z 6" })).toBe("NIKON CORPORATION NIKON Z 6");
+    // The make's first word starting the model names the maker already.
+    expect(cameraLine({ make: "NIKON CORPORATION", model: "NIKON Z 6" })).toBe("NIKON Z 6");
+    expect(cameraLine({ make: "OLYMPUS IMAGING CORP.", model: "E-M1" })).toBe("OLYMPUS IMAGING CORP. E-M1");
+    expect(cameraLine({ make: "samsung", model: "SM-S918B" })).toBe("samsung SM-S918B");
     expect(cameraLine({ make: "Canon", model: "EOS R5", lens: "RF24-70mm F2.8 L IS USM" })).toBe("Canon EOS R5 · RF24-70mm F2.8 L IS USM");
     expect(cameraLine({ model: "Pixel 8" })).toBe("Pixel 8");
     expect(cameraLine({ make: "Google" })).toBe("Google");

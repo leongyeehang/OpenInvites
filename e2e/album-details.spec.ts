@@ -13,18 +13,27 @@ const PAST = { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOne
 const EXIF_PHOTO = "e2e/fixtures/photo-exif.jpg";
 const H264 = "e2e/fixtures/clip-h264.mp4";
 const TAGGED = "e2e/fixtures/clip-tagged.mov";
-const ZONE = "Asia/Singapore";
 const KEEP_TAKEN = "Keep when each photo and video was taken";
 const KEEP_CAMERA = "Keep the camera and its settings";
 const ORDER = "Order of the album";
 const CAMERA_LINE = "iPhone 15 Pro · iPhone 15 Pro back camera 6.86mm f/1.78 · f/1.8 · 1/120 s · ISO 80 · 6.9 mm";
+// clip-tagged.mov's location tag, a string in the clip. photo-exif.jpg keeps its location as GPS
+// rationals, which no page could carry as this string; the unit test that readExif never follows
+// the GPS pointer is the photo's guard.
 const LOCATION = "35.6895";
 
-// A capture time as the page writes it (album/details.ts, formatTaken), in the event's zone.
-const taken = (instant: string) => new Intl.DateTimeFormat("en", { timeZone: ZONE, dateStyle: "long", timeStyle: "short" }).format(new Date(instant));
-// photo-exif.jpg's 2026:01:10 16:42:05 at +08:00, and clip-tagged.mov's 16:20 at +0800.
-const PHOTO_TAKEN = taken("2026-01-10T08:42:05Z");
-const CLIP_TAKEN = taken("2026-01-10T08:20:00Z");
+// The capture times as instants, which the taken line's <time> carries: photo-exif.jpg's 2026:01:10
+// 16:42:05 at +08:00, and clip-tagged.mov's 16:20 at +0800. The words around them are the server's
+// Intl's, which the runner's need not match, so only "Taken" and the year are read from the text.
+const PHOTO_TAKEN = "2026-01-10T08:42:05.000Z";
+const CLIP_TAKEN = "2026-01-10T08:20:00.000Z";
+const TAKEN_TEXT = /^Taken .*2026/;
+
+// The taken line's instant, or none.
+async function expectTaken(viewer: Locator, instant: string) {
+  await expect(details(viewer).locator("time")).toHaveAttribute("datetime", instant);
+  await expect(details(viewer).locator("time")).toHaveText(TAKEN_TEXT);
+}
 
 async function plainPhoto(name: string, colour: string) {
   return { name, mimeType: "image/jpeg", buffer: await sharp({ create: { width: 1600, height: 1200, channels: 3, background: colour } }).jpeg().toBuffer() };
@@ -107,7 +116,6 @@ test("with the switches off, nothing of when, with what or where is shown", asyn
   await expect(viewer).not.toContainText("iPhone");
   const sent = await html(priya, host.link);
   expect(sent).not.toContain("iPhone 15 Pro");
-  expect(sent).not.toContain(LOCATION);
   await Promise.all([host.context.close(), priya.context().close()]);
 });
 
@@ -123,13 +131,13 @@ test("the host keeps both, guests see them, and turning one off hides it without
   await add(priya, TAGGED, 2);
 
   let viewer = await open(priya, /^(Photo|Video) \d by Priya Nair/, 1, 2);
-  await expect(details(viewer).locator("p")).toHaveText([/^640 × 480 · /, `Taken ${PHOTO_TAKEN}`, CAMERA_LINE]);
-  await expect(details(viewer)).toContainText("4:42");
+  await expect(details(viewer).locator("p")).toHaveText([/^640 × 480 · /, TAKEN_TEXT, CAMERA_LINE]);
+  await expectTaken(viewer, PHOTO_TAKEN);
   await expectNoSeriousViolations(priya, "the viewer with the details kept");
   await close(priya, viewer);
   viewer = await open(priya, /^(Photo|Video) \d by Priya Nair/, 2, 2);
-  await expect(details(viewer).locator("p")).toHaveText([/^480p · 30 fps · 0:04 · /, `Taken ${CLIP_TAKEN}`, "iPhone 15 Pro"]);
-  await expect(details(viewer)).toContainText("4:20");
+  await expect(details(viewer).locator("p")).toHaveText([/^480p · 30 fps · 0:04 · /, TAKEN_TEXT, "iPhone 15 Pro"]);
+  await expectTaken(viewer, CLIP_TAKEN);
   await close(priya, viewer);
   expect(await html(priya, host.link)).not.toContain(LOCATION);
 
@@ -139,7 +147,8 @@ test("the host keeps both, guests see them, and turning one off hides it without
   });
   await priya.reload();
   viewer = await open(priya, /^(Photo|Video) \d by Priya Nair/, 1, 2);
-  await expect(details(viewer).locator("p")).toHaveText([/^640 × 480 · /, `Taken ${PHOTO_TAKEN}`]);
+  await expect(details(viewer).locator("p")).toHaveText([/^640 × 480 · /, TAKEN_TEXT]);
+  await expectTaken(viewer, PHOTO_TAKEN);
   await close(priya, viewer);
   expect(await html(priya, host.link)).not.toContain("iPhone 15 Pro");
 
@@ -174,7 +183,7 @@ test("ordered by when taken", async ({ browser, request }) => {
   });
   await priya.reload();
   viewer = await open(priya, /^Photo \d by Priya Nair$/, 1, 2);
-  await expect(details(viewer)).toContainText(`Taken ${PHOTO_TAKEN}`);
+  await expectTaken(viewer, PHOTO_TAKEN);
   await close(priya, viewer);
 
   await editSettings(host.page, async (sheet) => {
@@ -201,7 +210,7 @@ test("capture time switched on after items were added", async ({ browser, reques
       .withExif({ IFD2: { DateTimeOriginal: "2026:01:09 11:11:11", OffsetTimeOriginal: "+08:00" } })
       .toBuffer(),
   };
-  const EARLY_TAKEN = taken("2026-01-09T03:11:11Z");
+  const EARLY_TAKEN = "2026-01-09T03:11:11.000Z";
   await add(priya, [early], 1);
 
   await editSettings(host.page, async (sheet) => {
@@ -213,7 +222,8 @@ test("capture time switched on after items were added", async ({ browser, reques
   // Under "When taken" the later photo, taken on 10 January, comes first; the earlier one, though
   // its camera says 9 January, has no time kept and sits by when it was added, after it.
   let viewer = await open(priya, /^Photo \d by Priya Nair$/, 1, 2);
-  await expect(details(viewer).locator("p")).toHaveText([/^640 × 480 · /, `Taken ${PHOTO_TAKEN}`]);
+  await expect(details(viewer).locator("p")).toHaveText([/^640 × 480 · /, TAKEN_TEXT]);
+  await expectTaken(viewer, PHOTO_TAKEN);
   await close(priya, viewer);
   viewer = await open(priya, /^Photo \d by Priya Nair$/, 2, 2);
   await expect(details(viewer).locator("p")).toHaveText([/^800 × 600 · /]);

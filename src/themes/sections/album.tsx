@@ -34,7 +34,9 @@ import { VideoPlayer, type ShownSize } from "./video-player";
 // 03), and whether this viewer may approve it. An item that opens carries its technical line, and
 // the capture time and camera the host keeps, written on the server (M8 ticket 07).
 type ShownBase = { id: string; name: string; deletable: boolean; pending: boolean; approvable: boolean };
-type ShownFacts = { details: ShownDetails; takenAt: string | null };
+// `takenAt` is the capture time as written for the viewer, `takenAtIso` the same instant for the
+// line's <time> element; both null while the host does not keep it.
+type ShownFacts = { details: ShownDetails; takenAt: string | null; takenAtIso: string | null };
 export type ShownPhoto = ShownBase &
   (
     | ({ kind: "photo"; thumb: string; large: string; width: number; height: number } & ShownFacts)
@@ -443,23 +445,23 @@ function Viewer({
 function ItemDetails({ photo }: { photo: Openable }) {
   const t = useTranslations("EventPage.album");
   const locale = useLocale();
-  const { details, takenAt } = photo;
+  const { details, takenAt, takenAtIso } = photo;
   const technical =
     details.kind === "photo"
       ? [`${details.width} × ${details.height}`]
       : [details.size, details.fps !== undefined && t("details.fps", { fps: details.fps }), details.hdr && t("details.hdr"), clockTime(details.durationMs)];
-  const lines = [
-    [...technical, details.bytes !== undefined && formatSize(details.bytes, locale)],
-    [takenAt && t("details.taken", { when: takenAt })],
-    [details.camera, details.exposure],
-  ]
-    .map((parts) => parts.filter(Boolean).join(" · "))
-    .filter(Boolean);
+  const line = (parts: (string | false | undefined)[]) => parts.filter(Boolean).join(" · ");
+  const facts = line([...technical, details.bytes !== undefined && formatSize(details.bytes, locale)]);
+  const camera = line([details.camera, details.exposure]);
   return (
     <div data-slot="item-details" className="px-4 pb-[max(env(safe-area-inset-bottom),1rem)] text-center text-xs text-white/70">
-      {lines.map((line) => (
-        <p key={line}>{line}</p>
-      ))}
+      <p>{facts}</p>
+      {takenAt && takenAtIso && (
+        <p>
+          <time dateTime={takenAtIso}>{t("details.taken", { when: takenAt })}</time>
+        </p>
+      )}
+      {camera && <p>{camera}</p>}
     </div>
   );
 }

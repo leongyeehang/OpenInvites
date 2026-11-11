@@ -41,10 +41,14 @@ const EXIF_TAGS: Record<number, { key: keyof ExifFacts; group: Group; kind: Kind
 // IFD0's pointer to the Exif IFD, the one pointer followed.
 const EXIF_POINTER = 0x8769;
 
-// Bytes per value of the TIFF types read: ASCII, SHORT, LONG, RATIONAL and SRATIONAL.
-const TYPE_SIZES: Record<number, number> = { 2: 1, 3: 2, 4: 4, 5: 8, 10: 8 };
+// Bytes per value of the TIFF types read: ASCII, SHORT, LONG, RATIONAL, SRATIONAL and IFD, which
+// some writers give the Exif IFD's pointer and which reads as a LONG.
+const TYPE_SIZES: Record<number, number> = { 2: 1, 3: 2, 4: 4, 5: 8, 10: 8, 13: 4 };
 
 const MAX_TEXT = 64;
+// The most bytes 64 characters take in UTF-8. A string's count is the uploader's own, bounded only
+// by the block, which may be as large as the file: no more than this is ever decoded.
+const MAX_TEXT_BYTES = MAX_TEXT * 4;
 const EXIF_HEADER = [0x45, 0x78, 0x69, 0x66, 0, 0];
 
 export function readExif(exif: Uint8Array, groups: KeepDetails): ExifFacts {
@@ -72,9 +76,9 @@ export function readExif(exif: Uint8Array, groups: KeepDetails): ExifFacts {
     const length = size * count;
     const at = length <= 4 ? slot + 8 : u32(slot + 8);
     if (!fits(at, length)) return undefined;
-    if (kind === "text") return type === 2 ? text(block.subarray(at, at + length)) : undefined;
+    if (kind === "text") return type === 2 ? text(block.subarray(at, at + Math.min(length, MAX_TEXT_BYTES))) : undefined;
     if (type === 3) return u16(at);
-    if (type === 4) return u32(at);
+    if (type === 4 || type === 13) return u32(at);
     if (type === 2) return undefined;
     const [top, bottom] = type === 5 ? [u32(at), u32(at + 4)] : [view.getInt32(at, little), view.getInt32(at + 4, little)];
     return bottom === 0 ? undefined : top / bottom;
@@ -115,10 +119,13 @@ export function readExif(exif: Uint8Array, groups: KeepDetails): ExifFacts {
   return facts;
 }
 
-// A string as people read it: NULs and control characters dropped, at most 64 characters. Video
-// tags are cleaned the same way (details.ts, videoDetails).
+// A string as people read it, at most 64 characters: NULs and control characters dropped, and the
+// bidi and zero-width characters that could reorder or hide what a page shows. Video tags and the
+// column read back are cleaned the same way (details.ts). Cut before it is spread, so a long value
+// costs no more than a short one.
 export function plainText(value: string): string {
-  return [...value.replace(/[\u0000-\u001f\u007f-\u009f]/g, "")].slice(0, MAX_TEXT).join("").trim();
+  const head = value.slice(0, MAX_TEXT_BYTES);
+  return [...head.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, "")].slice(0, MAX_TEXT).join("").trim();
 }
 
 // An ASCII value, read as UTF-8, which is what phones write there.

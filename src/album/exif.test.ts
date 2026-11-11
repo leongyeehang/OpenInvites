@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { readExif, type ExifFacts } from "./exif";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { plainText, readExif, type ExifFacts } from "./exif";
 
 // The album's own reader of a photo's EXIF block (M8 ticket 07): IFD0 and the Exif IFD by the
 // tags it names, each group only when the host keeps it, bounds-checked, and the GPS IFD never
@@ -139,6 +139,35 @@ describe("readExif", () => {
     expect(() => readExif(block, BOTH)).not.toThrow();
   });
 
+  // Review of ticket 07: an IFD pointer stored as TIFF's IFD type (13) is followed as a LONG is.
+  it("follows an Exif IFD pointer stored as type 13", () => {
+    const block = tiff(IFD0, EXIF);
+    new DataView(block.buffer, block.byteOffset).setUint16(8 + 2 + IFD0.length * 12 + 2, 13, true);
+    expect(readExif(block, BOTH)).toEqual(ALL);
+  });
+
+  // Review of ticket 07: a string's count is the uploader's own, bounded only by the block, which
+  // may be as large as the file; only as many bytes as the cap can use are ever decoded.
+  describe("a string whose count spans a block of megabytes", () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it("yields at most the cap, and the decoder is handed only the capped bytes", () => {
+      const small = tiff([{ tag: 0x010f, type: 2, values: "Apple" }], []);
+      const size = 4 * 1024 * 1024;
+      const block = new Uint8Array(size);
+      block.set(small);
+      const view = new DataView(block.buffer);
+      // The make's count and offset: from byte 64 to the end of the block, all "A".
+      view.setUint32(8 + 2 + 4, size - 64, true);
+      view.setUint32(8 + 2 + 8, 64, true);
+      block.fill(0x41, 64);
+      const decode = vi.spyOn(TextDecoder.prototype, "decode");
+      expect(readExif(block, BOTH).make).toBe("A".repeat(64));
+      expect(decode).toHaveBeenCalled();
+      for (const [input] of decode.mock.calls) expect((input as Uint8Array).byteLength).toBeLessThanOrEqual(256);
+    });
+  });
+
   it("cuts a string at 64 characters and drops NULs and control characters", () => {
     const long = `Canon\u0001\u0007 EOS${"x".repeat(80)}`;
     const facts = readExif(tiff([{ tag: 0x010f, type: 2, values: long }], []), BOTH);
@@ -146,5 +175,13 @@ describe("readExif", () => {
     expect(facts.make).toHaveLength(64);
     const nul = readExif(tiff([{ tag: 0x0110, type: 2, values: "EOS\0\0R5" }], []), BOTH);
     expect(nul.model).toBe("EOSR5");
+  });
+});
+
+describe("plainText", () => {
+  it("drops control, bidi and zero-width characters, and keeps 64 characters", () => {
+    expect(plainText("\u202eiPhone\u200b 15\u2066 Pro\ufeff\u200f")).toBe("iPhone 15 Pro");
+    expect(plainText("Cam\u0007era\u0000")).toBe("Camera");
+    expect(plainText("x".repeat(5_000_000))).toBe("x".repeat(64));
   });
 });
