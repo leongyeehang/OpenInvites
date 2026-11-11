@@ -29,11 +29,46 @@ function code(path: string): string {
 }
 
 // Every module a module loads when it runs: static imports and re-exports (not type-only ones),
-// side-effect imports, and dynamic import().
-function imports(source: string): string[] {
-  const statics = [...source.matchAll(/(?:^|[\n;])\s*(?:import|export)\s+(?!type\s)(?:[^'";]*?\sfrom\s+)?["']([^"']+)["']/g)];
-  const dynamics = [...source.matchAll(/\bimport\(\s*["']([^"']+)["']\s*\)/g)];
-  return [...statics, ...dynamics].map((match) => match[1]);
+// side-effect imports, and dynamic import(); each with the names it takes where it takes only
+// named bindings (`import { a, b as c }`), which a module's entry is followed by (`through`).
+type Import = { specifier: string; names?: string[] };
+
+// The bindings of a `{ … }` clause, type-only ones left out: each as the module that exports it
+// calls it, then as the importer does (`["b", "c"]` for `b as c`).
+const bindings = (clause: string) =>
+  clause
+    .split(",")
+    .map((each) => each.trim())
+    .filter((each) => each !== "" && !each.startsWith("type "))
+    .map((each) => each.split(/\s+as\s+/));
+
+function imports(source: string): Import[] {
+  const statics = [...source.matchAll(/(?:^|[\n;])\s*(?:import|export)\s+(?!type\s)([^'";]*?\sfrom\s+)?["']([^"']+)["']/g)].map(([, clause, specifier]) => {
+    const braces = clause?.trim().match(/^\{([^}]*)\}\s+from$/);
+    return { specifier, names: braces ? bindings(braces[1]).map(([name]) => name) : undefined };
+  });
+  const dynamics = [...source.matchAll(/\bimport\(\s*["']([^"']+)["']\s*\)/g)].map(([, specifier]) => ({ specifier }));
+  return [...statics, ...dynamics];
+}
+
+// A module's entry (ADR-0008, `src/voting/index.ts`) is nothing but re-exports, and the bundler
+// takes from it only the files whose exports are used: an import of some names from it leads to
+// the files that export those names (and to every `export *`, which may), not to the rest. Any
+// other file, or an import of the whole module, is the file itself.
+const REEXPORT = /export\s+(\*|\{[^}]*\})\s+from\s+["']([^"']+)["'];?/g;
+
+function through(path: string, names: string[] | undefined): string[] {
+  const source = code(path);
+  if (names === undefined || source.replace(REEXPORT, "").trim() !== "") return [path];
+  return [...source.matchAll(REEXPORT)].flatMap(([, clause, specifier]) => {
+    const next = resolved(path, specifier);
+    if (!next) return [];
+    if (clause === "*") return through(next, names);
+    const taken = bindings(clause.slice(1, -1))
+      .filter((each) => names.includes(each.at(-1)!))
+      .map(([name]) => name);
+    return taken.length > 0 ? through(next, taken) : [];
+  });
 }
 
 // The project's own module an import names, or undefined for a package.
@@ -76,9 +111,9 @@ function walk(entry: string): Found {
       if (lists.length !== uses) found.problems.push(`${where} passes <ClientMessages> namespaces that are not written out as a list`);
       for (const [, list] of lists) found.passed.push(...[...list.matchAll(/["']([^"']+)["']/g)].map((match) => match[1]));
     }
-    for (const specifier of imports(source)) {
+    for (const { specifier, names } of imports(source)) {
       const next = resolved(path, specifier);
-      if (next) visit(next, client);
+      if (next) for (const file of through(next, names)) visit(file, client);
     }
   };
   visit(entry, false);
@@ -119,5 +154,11 @@ describe("the messages each page sends to the browser", () => {
     // which carries the Voting block: none of that reaches the browser through an action.
     expect(walk(join(APP, "(host)/events/[id]/share/page.tsx")).used.has("Voting.block")).toBe(false);
     expect(walk(join(APP, "(editor)/events/[id]/page.tsx")).used.get("Voting.block")).toEqual(["voting/voting-block.tsx"]);
+  });
+
+  it("follows a module's entry only to the files whose exports are imported", () => {
+    // The event page imports albumVotingFor from the album vote's entry (M8 ticket 11), which also
+    // carries the Voting block: the page draws only the album's side of the vote.
+    expect(walk(join(APP, "e/[slug]/page.tsx")).used.has("Voting.block")).toBe(false);
   });
 });

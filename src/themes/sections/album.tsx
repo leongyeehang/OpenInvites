@@ -35,14 +35,15 @@ import { VideoPlayer, type ShownSize } from "./video-player";
 // a ready video with its thumbnail, poster, original (for Download), every size it plays at with
 // its file (M8 ticket 06), whether the original is HDR, its codec for the player and its length;
 // or a video still processing, or failed (by the reason its tile names, never the processor's
-// text), which only its uploader and the hosts see. Each with who added it, whether this viewer
-// may delete it, whether it waits for a host's approval (M6 ticket 03), and whether this viewer
-// may approve it. An item that opens carries its technical line, and the capture time and camera
-// the host keeps, written on the server (M8 ticket 07). A live photo carries its motion's file,
-// and a photo whose motion is being made says so (M8 ticket 08), to its uploader and the hosts
-// alone, whose pages refresh until it is made. Each has its caption, and whether this viewer may
-// write it (M8 ticket 09).
-type ShownBase = { id: string; name: string; deletable: boolean; pending: boolean; approvable: boolean; caption: string | null; captionEditable: boolean };
+// text), which only its uploader and the hosts see. Each with who added it, or null where this
+// viewer is not shown that (M8 ticket 11: left out on the server), whether this viewer may delete
+// it, whether it waits for a host's approval (M6 ticket 03), and whether this viewer may approve
+// it. An item that opens carries its technical line, and the capture time and camera the host
+// keeps, written on the server (M8 ticket 07). A live photo carries its motion's file, and a photo
+// whose motion is being made says so (M8 ticket 08), to its uploader and the hosts alone, whose
+// pages refresh until it is made. Each has its caption, and whether this viewer may write it (M8
+// ticket 09).
+type ShownBase = { id: string; name: string | null; deletable: boolean; pending: boolean; approvable: boolean; caption: string | null; captionEditable: boolean };
 // `takenAt` is the capture time as written for the viewer, `takenAtIso` the same instant for the
 // line's <time> element; both null while the host does not keep it.
 type ShownFacts = { details: ShownDetails; takenAt: string | null; takenAtIso: string | null };
@@ -75,12 +76,16 @@ type Line = { name: string; text: string; ok: boolean; id?: string };
 export type Keeps = "takenAt" | "camera" | "both" | undefined;
 
 // An item's accessible name, the `n`th of those that open: "Photo 3 by Priya Nair", marked when it
-// waits for approval, with its caption after it (M8 ticket 09). One rule for the tile's and the
-// viewer's pictures, and the player.
+// waits for approval, with its caption after it (M8 ticket 09); "Photo 3" where this viewer is not
+// shown who added it (M8 ticket 11). An item waiting is shown only to its uploader and the hosts,
+// who always have the name. One rule for the tile's and the viewer's pictures, and the player.
 function useItemLabel(): (photo: ShownPhoto, n: number) => string {
   const t = useTranslations("EventPage.album");
   return (photo, n) => {
-    const label = t(photo.kind === "video" ? (photo.pending ? "openVideoPending" : "openVideo") : photo.pending ? "openPending" : "open", { n, name: photo.name });
+    const label =
+      photo.name === null
+        ? t(photo.kind === "video" ? "openVideoUnnamed" : "openUnnamed", { n })
+        : t(photo.kind === "video" ? (photo.pending ? "openVideoPending" : "openVideo") : photo.pending ? "openPending" : "open", { n, name: photo.name });
     return photo.caption ? t("withCaption", { label, caption: photo.caption }) : label;
   };
 }
@@ -230,7 +235,9 @@ export function Album({ slug, photos, maxMegabytes, video, keeps }: { slug: stri
                   </div>
                 )}
                 {photo.pending && <p className="text-xs text-theme-text-muted">{t("pending")}</p>}
-                {!openable(photo) && photo.deletable && (
+                {/* Remove, Approve and Delete are for the hosts and the uploader, who always have
+                    the name (M8 ticket 11). */}
+                {!openable(photo) && photo.deletable && photo.name !== null && (
                   <DeletePhoto slug={slug} id={photo.id} focusOnceDeleted={() => document.getElementById(ALBUM_HEADING)?.focus()}>
                     <button
                       type="button"
@@ -242,7 +249,7 @@ export function Album({ slug, photos, maxMegabytes, video, keeps }: { slug: stri
                     </button>
                   </DeletePhoto>
                 )}
-                {photo.approvable && (
+                {photo.approvable && photo.name !== null && (
                   // Two round buttons in one row, which fit the narrowest column (the Thread's, about
                   // 80px at a phone's width): Approve, in the accent, and Delete. Approve has no word
                   // of its own, so its name is its tooltip too, and while it approves it is dimmed and
@@ -423,6 +430,9 @@ function Viewer({
     setEditing(false);
   }
   const go = (step: number) => index !== undefined && photos.length > 0 && onShow(photos[(index + step + photos.length) % photos.length].id);
+  // Who added it, where this viewer is shown that (M8 ticket 11), and whether it waits: nothing at
+  // all for an item of someone else's while names are hidden, and then no description either.
+  const description = photo && [photo.name !== null && t("by", { name: photo.name }), photo.pending && t("pending")].filter(Boolean).join(" · ");
 
   return (
     <Dialog.Root open={photo !== undefined} onOpenChange={(open) => !open && onShow(undefined)}>
@@ -430,6 +440,8 @@ function Viewer({
         <Dialog.Overlay className="fixed inset-0 z-70 bg-black/95" />
         <Dialog.Content
           data-slot="photo-viewer"
+          // None when there is nothing to say, as Radix asks of a dialog without a description.
+          {...(!description && { "aria-describedby": undefined })}
           onOpenAutoFocus={() => {
             deleted.current = false;
           }}
@@ -465,10 +477,7 @@ function Viewer({
               <header className="flex items-center gap-3 px-4 pt-[max(env(safe-area-inset-top),0.75rem)] pb-2">
                 <div className="min-w-0 flex-1">
                   <Dialog.Title className="text-sm font-medium">{t(photo.kind === "video" ? "viewerVideo" : "viewer", { n: index + 1, count: photos.length })}</Dialog.Title>
-                  <Dialog.Description className="text-xs text-white/70">
-                    {t("by", { name: photo.name })}
-                    {photo.pending && ` · ${t("pending")}`}
-                  </Dialog.Description>
+                  {description && <Dialog.Description className="text-xs text-white/70">{description}</Dialog.Description>}
                 </div>
                 {photo.approvable && (
                   <button

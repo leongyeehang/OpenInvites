@@ -49,6 +49,12 @@ export type VotingViewer =
   | { kind: "guest"; rsvpId: string; approval: Approval; status: SavedStatus; invited: boolean }
   | { kind: "visitor" };
 
+// The same viewer as the album knows them (album/album.ts, AlbumViewer), before the vote adds
+// whether a guest came through a personal invite link (repository.ts, withInvite).
+export type ViewerWithoutInvite =
+  | Exclude<VotingViewer, { kind: "guest" }>
+  | { kind: "guest"; rsvpId: string; approval: Approval; status: SavedStatus };
+
 // What the album shows a viewer (album/visibility.ts, AlbumView): everything, their own, or nothing.
 export type AlbumViewName = "open" | "own" | "locked";
 
@@ -222,6 +228,17 @@ export function namesShown(event: Pick<VotingEvent, "albumUploaderNames">, state
   if (event.albumUploaderNames === "always") return true;
   if (event.albumUploaderNames === "never") return false;
   return state !== "open";
+}
+
+// Whether the album shows this viewer who added each item (M8 ticket 11), decided per item on the
+// server before anything is sent. With Voting switched off for the site every name shows, as
+// before 0.8, whatever the event's setting: the setting lives in the Voting block, which is not
+// shown then, and a host could not see why names were missing (M8 plan). Otherwise as namesShown
+// says, with the vote as it stands now.
+export function nameShownTo(votingOn: boolean, event: VotingEvent, viewer: VotingViewer, now: Date): (item: Pick<VotableItem, "rsvpId" | "hostId">) => boolean {
+  if (!votingOn) return () => true;
+  const state = votingState(event, now);
+  return (item) => namesShown(event, state, viewer, item);
 }
 
 // A small string hash (FNV-1a, 32 bits, with a final mix so that near keys part well). Not for

@@ -13,6 +13,7 @@ import {
   mayVote,
   mayVoteFor,
   namesShown,
+  nameShownTo,
   openRound,
   places,
   ribbon,
@@ -344,6 +345,46 @@ describe("namesShown", () => {
     expect(namesShown(event({ albumUploaderNames: "afterVoting" }), "open", guest(), theirs)).toBe(false);
     expect(namesShown(event({ albumUploaderNames: "afterVoting" }), "closed", guest(), theirs)).toBe(true);
     expect(namesShown(event({ albumUploaderNames: "afterVoting" }), "off", guest(), theirs)).toBe(true);
+  });
+});
+
+describe("nameShownTo", () => {
+  const theirs = item({ rsvpId: "r2" });
+  const aCoHosts = item({ rsvpId: null, hostId: "h2" });
+
+  it("with Voting off for the site, shows every item's name as before 0.8, under never with the vote open too (plan)", () => {
+    const showsName = nameShownTo(false, event({ albumUploaderNames: "never", albumVoting: "open" }), guest(), NOW);
+    expect(showsName(theirs)).toBe(true);
+    expect(showsName(aCoHosts)).toBe(true);
+    expect(nameShownTo(false, event({ albumUploaderNames: "never" }), visitor, NOW)(theirs)).toBe(true);
+  });
+
+  it("with Voting on, agrees with namesShown under afterVoting for a vote open, open past its closing time, and closed", () => {
+    const cases: Partial<VotingEvent>[] = [
+      { albumVoting: "open" },
+      { albumVoting: "open", albumVotingClosesAt: new Date(NOW.getTime() - MINUTE) },
+      { albumVoting: "closed" },
+    ];
+    for (const changes of cases) {
+      const shown = event({ albumUploaderNames: "afterVoting", ...changes });
+      for (const viewer of [host, coHost, guest(), visitor]) {
+        for (const each of [theirs, aCoHosts, item({ rsvpId: "r1" })]) {
+          expect(nameShownTo(true, shown, viewer, NOW)(each)).toBe(namesShown(shown, votingState(shown, NOW), viewer, each));
+        }
+      }
+    }
+  });
+
+  it("with Voting on, hides names while the vote is open, and shows them once it reads closed by its time", () => {
+    expect(nameShownTo(true, event({ albumUploaderNames: "afterVoting" }), guest(), NOW)(theirs)).toBe(false);
+    expect(nameShownTo(true, event({ albumUploaderNames: "afterVoting" }), guest(), NOW)(aCoHosts)).toBe(false);
+    const pastItsTime = event({ albumUploaderNames: "afterVoting", albumVotingClosesAt: new Date(NOW.getTime() - MINUTE) });
+    expect(nameShownTo(true, pastItsTime, guest(), NOW)(theirs)).toBe(true);
+  });
+
+  it("shows a guest their own item's name under never", () => {
+    expect(nameShownTo(true, event({ albumUploaderNames: "never" }), guest(), NOW)(item({ rsvpId: "r1" }))).toBe(true);
+    expect(nameShownTo(true, event({ albumUploaderNames: "never" }), guest(), NOW)(theirs)).toBe(false);
   });
 });
 

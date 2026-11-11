@@ -2,6 +2,7 @@
 // file inside it. It carries the repository, so it is for server code alone; a client component
 // outside the module imports its types only.
 export * from "./voting";
-export { copyAwards, type Award } from "./repository";
+export { albumVotingFor, type AlbumVoting, type AlbumVotingInput } from "./album-voting";
+export { copyAwards, withInvite, type Award } from "./repository";
 export { closeVotingAction, reopenVotingAction, startVotingAction, turnOffVotingAction } from "./host-actions";
 export { VotingSettings } from "./voting-settings";

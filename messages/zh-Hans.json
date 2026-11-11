@@ -1053,6 +1053,8 @@
       "addVideos": "添加照片和视频",
       "openVideo": "{name} 的第 {n} 段视频",
       "openVideoPending": "{name} 的第 {n} 段视频，等待批准",
+      "openUnnamed": "第 {n} 张照片",
+      "openVideoUnnamed": "第 {n} 段视频",
       "viewerVideo": "第 {n} 段视频，共 {count} 项",
       "processing": "处理中",
       "failedTooLong": "无法处理：超过 {max}",
@@ -1786,7 +1788,14 @@
       "turnOffTitle": "关闭投票？",
       "turnOffText": "{count, plural, =0 {还没有人投票。} other {已投的 # 票都会删除。}}奖项和设置会保留。",
       "turnOffConfirm": "关闭",
-      "cancel": "算了"
+      "cancel": "算了",
+      "names": {
+        "title": "每项由谁添加",
+        "always": "始终显示",
+        "afterVoting": "投票结束后显示",
+        "never": "从不向宾客显示",
+        "hint": "主办人和添加者本人始终能看到是谁添加的。"
+      }
     }
   }
 }

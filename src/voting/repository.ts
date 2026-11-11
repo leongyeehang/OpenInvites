@@ -1,7 +1,7 @@
 import { and, asc, count, eq, gt, inArray } from "drizzle-orm";
 import { getDb, type Db } from "@/db/client";
-import { albumAward, albumVote, event } from "@/db/schema";
-import { albumOpenTo, votingState, type VotingEvent, type VotingViewer } from "./voting";
+import { albumAward, albumVote, event, rsvp } from "@/db/schema";
+import { albumOpenTo, votingState, type UploaderNames, type ViewerWithoutInvite, type VotingEvent, type VotingViewer } from "./voting";
 
 export type Award = typeof albumAward.$inferSelect;
 
@@ -26,6 +26,14 @@ export async function lockVoting(eventId: string, tx: Db): Promise<VotingEvent |
     .where(eq(event.id, eventId))
     .for("no key update");
   return locked;
+}
+
+// The viewer as the vote reads them (M8 ticket 11): a guest gains whether their RSVP came through a
+// personal invite link, which only the vote asks; anyone else is as they are.
+export async function withInvite(viewer: ViewerWithoutInvite, db: Db = getDb()): Promise<VotingViewer> {
+  if (viewer.kind !== "guest") return viewer;
+  const [found] = await db.select({ inviteId: rsvp.inviteId }).from(rsvp).where(eq(rsvp.id, viewer.rsvpId));
+  return { kind: "guest", rsvpId: viewer.rsvpId, approval: viewer.approval, status: viewer.status, invited: found?.inviteId != null };
 }
 
 // An event's awards, in the host's order.
@@ -118,6 +126,12 @@ export async function turnOffVoting(eventId: string): Promise<void> {
     await resetAwards(eventId, tx);
     await tx.update(event).set({ albumVoting: "off" }).where(eq(event.id, eventId));
   });
+}
+
+// The host's choice of whether guests see who added each item (M8 ticket 11), a setting kept
+// whatever the vote's state.
+export async function setUploaderNames(eventId: string, names: UploaderNames): Promise<void> {
+  await getDb().update(event).set({ albumUploaderNames: names }).where(eq(event.id, eventId));
 }
 
 // A duplicate's awards (events/actions.ts, duplicateEventAction): each award's name, scope and

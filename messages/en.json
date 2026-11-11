@@ -1053,6 +1053,8 @@
       "addVideos": "Add photos and videos",
       "openVideo": "Video {n} by {name}",
       "openVideoPending": "Video {n} by {name}, awaiting approval",
+      "openUnnamed": "Photo {n}",
+      "openVideoUnnamed": "Video {n}",
       "viewerVideo": "Video {n} of {count}",
       "processing": "Processing",
       "failedTooLong": "Couldn’t be processed: longer than {max}",
@@ -1786,7 +1788,14 @@
       "turnOffTitle": "Turn off voting?",
       "turnOffText": "{count, plural, =0 {Nobody has voted yet.} one {Its # vote is deleted.} other {Its # votes are deleted.}} The awards and settings stay.",
       "turnOffConfirm": "Turn it off",
-      "cancel": "Never mind"
+      "cancel": "Never mind",
+      "names": {
+        "title": "Who added each item",
+        "always": "Always shown",
+        "afterVoting": "Shown after voting closes",
+        "never": "Never shown to guests",
+        "hint": "Hosts and the person who added an item always see who did."
+      }
     }
   }
 }

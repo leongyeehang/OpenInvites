@@ -65,6 +65,7 @@ import { countPhotos, listPhotos } from "@/album/repository";
 import { albumViewer } from "@/album/viewer";
 import { albumView, photoScope } from "@/album/visibility";
 import { featureOn, siteFeatures } from "@/features";
+import { albumVotingFor } from "@/voting";
 import { instanceLimits } from "@/instance/repository";
 import type { ShownPhoto } from "@/themes/sections/album";
 import { AlbumSection, type AlbumShown } from "@/themes/sections/album-section";
@@ -135,7 +136,8 @@ async function pollCandidates(eventId: string, locale: string): Promise<PollCand
 // photos this viewer may see, each marked when it waits for approval, and approvable by a host.
 // An open item's technical line and the details the host keeps (M8 ticket 07) are written here, a
 // detail whose switch is off left out, so no page carries it; each item's caption, and whether this
-// viewer may change it (M8 ticket 09).
+// viewer may change it (M8 ticket 09). Who added each item is left out where this viewer may not
+// see it (M8 ticket 11): the album vote decides, per item, before anything is sent.
 async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: string, now: Date): Promise<AlbumShown | undefined> {
   const switches = await siteFeatures();
   const state = albumState(event, now, featureOn(switches, "album"));
@@ -146,12 +148,13 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
     const awaitingApproval = viewer.kind === "guest" && viewer.approval === "pending";
     return { view: "locked", count: await countPhotos(event.id, "approved"), visibility: event.albumVisibility, awaitingApproval };
   }
+  const voting = await albumVotingFor({ event, locale, viewer, view, now });
   const photos: ShownPhoto[] = (await listPhotos(event.id, photoScope(view, viewer), albumOrderFor(event))).map((each) => {
     // Its caption (M8 ticket 09) is the uploader's words, not a detail of the file: no switch of
     // the host's hides it.
     const base = {
       id: each.id,
-      name: each.name,
+      name: voting.showsName(each) ? each.name : null,
       deletable: mayDeletePhoto(viewer, each),
       pending: each.status === "pending",
       approvable: each.status === "pending" && mayApprovePhoto(viewer),
