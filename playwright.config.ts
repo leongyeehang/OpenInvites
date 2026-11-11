@@ -41,6 +41,11 @@ export default defineConfig({
     // machine running them speaks; e2e/locales.spec.ts asks for the other languages itself.
     locale: "en-US",
     trace: "on-first-retry",
+    // Chromium keeps its shared memory in /dev/shm, as it does outside Playwright. Playwright's
+    // default moves it to the temporary directory, for containers whose /dev/shm is tiny; the
+    // browsers here run on the machine itself, where /tmp may be a small tmpfs that other work
+    // fills, and a renderer that cannot get its shared memory crashes ("Target crashed").
+    launchOptions: { ignoreDefaultArgs: ["--disable-dev-shm-usage"] },
   },
   projects: [
     // The operator of `app` opens registration to everyone before the specs that sign up hosts.
