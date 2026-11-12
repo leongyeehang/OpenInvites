@@ -5,14 +5,29 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { AwardPicker } from "./award-picker";
-import { closeVotingAction, reopenVotingAction } from "./host-actions";
+import { closeTiebreakAction, closeVotingAction, keepSharedFirstAction, reopenVotingAction, startTiebreakAction } from "./host-actions";
 import { useChosen, useRefusal, useVote } from "./vote-star";
 import type { AwardScope, AwardStage } from "./voting";
 
-// One award as the head shows it: its name as displayed, what it is for, where it stands, this
-// viewer's vote in it (the item voted for, or none), the page's drawing (vote-star.tsx, ItemAward),
-// and for hosts the votes given so far.
-export type HeadAward = { award: string; name: string; scope: AwardScope; stage: AwardStage; voted: string | null; drawn: string; total?: number };
+// One award as the head shows it: its name as displayed, what it is for, where it stands and its
+// round, how many items share first (voting.ts, AwardStanding), this viewer's vote in it (the item
+// voted for, or none), the page's drawing (vote-star.tsx, ItemAward), and for hosts the votes given
+// so far and whether a tie-break is offered.
+export type HeadAward = {
+  award: string;
+  name: string;
+  scope: AwardScope;
+  stage: AwardStage;
+  round: number;
+  tied: number;
+  voted: string | null;
+  drawn: string;
+  total?: number;
+  offered?: boolean;
+};
+
+const HOSTS_BUTTON =
+  "inline-flex h-9 cursor-pointer items-center self-start rounded-full bg-theme-glass-strong px-4 text-sm font-medium hover:bg-theme-glass focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text disabled:cursor-wait disabled:opacity-60";
 
 // Above the album's grid while there is a vote (M8 ticket 12): the award picker where there are
 // two awards or more (ticket 13); whether voting is open or closed; for a viewer who may vote what
@@ -22,7 +37,11 @@ export type HeadAward = { award: string; name: string; scope: AwardScope; stage:
 // go through says so there, and the page is drawn again as the site holds it (review fix, ticket 13).
 // While voting, the time it closes by itself when the host set one (`closesAt`, written in the
 // event's zone), and for a guest the host does not let vote, why (`notAmong`) in place of what a
-// star does; for hosts, the way to tell guests voting is open (ticket 14).
+// star does; for hosts, the way to tell guests voting is open (ticket 14). During an award's
+// tie-break, its banner, with its round from round 3, what a star does in it and that its counts
+// stay hidden, and for hosts Close the tie-break beside Reopen voting, which ends it; on the
+// results, while first is shared, the hosts' offer of a tie-break, or of another round after one,
+// or of keeping first place shared (ticket 15).
 export function AlbumVotingHead({
   awards,
   initial,
@@ -47,7 +66,8 @@ export function AlbumVotingHead({
   const vote = useVote(chosen?.award ?? "", chosen?.voted ?? null, chosen?.drawn ?? "");
   const refused = useRefusal(chosen?.drawn ?? "");
   if (!chosen) return null;
-  const voting = chosen.stage === "voting" || chosen.stage === "tiebreak";
+  const tiebreak = chosen.stage === "tiebreak";
+  const voting = chosen.stage === "voting" || tiebreak;
   const run = (action: (eventId: string) => Promise<{ error?: "albumNotOpen" | "refused" }>) =>
     startTransition(async () => {
       setFailed(undefined);
@@ -60,6 +80,14 @@ export function AlbumVotingHead({
       if (error) setFailed(hosts(error === "albumNotOpen" ? "notYet" : "failed"));
       router.refresh();
     });
+  // A host's button in the box, disabled while a press is on its way.
+  const button = (label: string, action: (eventId: string) => Promise<{ error?: "albumNotOpen" | "refused" }>) => (
+    <button type="button" disabled={busy} onClick={() => run(action)} className={HOSTS_BUTTON}>
+      {label}
+    </button>
+  );
+  // After a tie-break, the offer is of another round among the items still level.
+  const held = chosen.round > 1;
 
   return (
     <div data-slot="album-voting" data-stage={chosen.stage} className="flex flex-col gap-2">
@@ -68,7 +96,13 @@ export function AlbumVotingHead({
         <>
           <p className="inline-flex items-center gap-2 text-sm font-medium">
             <span className="size-2 rounded-full bg-theme-accent" aria-hidden />
-            {t("open")}
+            {tiebreak ? t("tiebreak.banner", { award: chosen.name }) : t("open")}
+            {tiebreak && chosen.round >= 3 && (
+              <>
+                {" "}
+                <span className="font-normal text-theme-text-muted">· {t("tiebreak.round", { round: chosen.round })}</span>
+              </>
+            )}
             {chosen.stage === "voting" && closesAt && (
               <>
                 {" "}
@@ -79,9 +113,9 @@ export function AlbumVotingHead({
           {mayVote ? (
             <>
               <p role="status" className="text-sm">
-                {t(vote === null ? "tapToVote" : "yourVote", { award: chosen.name })}
+                {vote !== null ? t("yourVote", { award: chosen.name }) : tiebreak ? t("tiebreak.intro", { count: chosen.tied }) : t("tapToVote", { award: chosen.name })}
               </p>
-              <p className="text-xs text-theme-text-faint">{t("hint")}</p>
+              <p className="text-xs text-theme-text-faint">{t(tiebreak ? "tiebreak.hint" : "hint")}</p>
             </>
           ) : (
             notAmong && <p className="text-sm">{t(notAmong)}</p>
@@ -101,14 +135,19 @@ export function AlbumVotingHead({
             {t("hostsOnly")}
           </h3>
           {voting && chosen.total !== undefined && <p className="text-sm">{t("soFar", { count: chosen.total, award: chosen.name })}</p>}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => run(voting ? closeVotingAction : reopenVotingAction)}
-            className="inline-flex h-9 cursor-pointer items-center self-start rounded-full bg-theme-glass-strong px-4 text-sm font-medium hover:bg-theme-glass focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text disabled:cursor-wait disabled:opacity-60"
-          >
-            {hosts(voting ? "close" : "reopen")}
-          </button>
+          {chosen.offered && (
+            <>
+              <p className="text-sm">{t(held ? "tiebreak.stillLevel" : "tiebreak.shared", { count: chosen.tied, award: chosen.name })}</p>
+              <div className="flex flex-wrap gap-2">
+                {button(t(held ? "tiebreak.again" : "tiebreak.start"), (eventId) => startTiebreakAction(eventId, chosen.award))}
+                {button(t("tiebreak.keep"), (eventId) => keepSharedFirstAction(eventId, chosen.award))}
+              </div>
+            </>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {tiebreak && button(t("tiebreak.close"), (eventId) => closeTiebreakAction(eventId, chosen.award))}
+            {chosen.stage === "voting" ? button(hosts("close"), closeVotingAction) : button(hosts("reopen"), reopenVotingAction)}
+          </div>
           {chosen.stage === "voting" && (
             <Link href={`/events/${eventId}/announcements?draft=voting`} className="self-start text-sm underline underline-offset-4 hover:opacity-80">
               {hosts("announce")}

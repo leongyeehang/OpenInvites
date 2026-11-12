@@ -29,6 +29,10 @@ import { clientAddress, expect, test, type APIRequestContext, type Browser, type
 // going, or only guests invited personally) and may set a time at which voting closes by itself,
 // with nothing running then: the pages and the vote read it closed once it has come. Starting a
 // vote offers "Tell guests voting is open", the Announcements page with the message written.
+//
+// M8 ticket 15: once voting has closed, a first place shared can go to a tie-break among the tied
+// items, started and closed by the hosts from their box above the album; guests vote again among
+// those items only, with the counts hidden from them until it closes.
 
 const PAST = { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" };
 const AHEAD = { title: "Ada’s garden party", start: "2027-11-20T16:00", plusOnes: "0" };
@@ -981,4 +985,214 @@ test("the host tells guests voting is open with a message already written", asyn
   await expect(host.page.getByText(/^Voting is open in the album for Ada’s garden party\./)).toBeVisible();
   await expect(hostsBox(host.page).getByRole("link", { name: TELL_GUESTS })).toHaveAttribute("href", /^\/events\/[0-9a-f-]{36}\/announcements\?draft=voting$/);
   await host.context.close();
+});
+
+// Review fixes (ticket 15): the closing time field keeps a saved time that a partly erased value
+// would have cleared (a date and time with a part erased reads empty), and saves a time typed whole
+// when the sheet closes with the field still focused.
+test("a partly erased closing time keeps the saved one, and a time typed whole is saved when the sheet closes", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-vote-closing-field", { ...AHEAD, timeZone: "UTC" });
+  const closesIn = (sheet: Locator) => votingBlock(sheet).getByLabel("Close by itself at", { exact: true });
+  const sheet = await openSettings(host.page);
+  const closes = closesIn(sheet);
+  const saved = utcFromNow(2 * 24 * 60 * 60_000);
+  await savedAfter(host.page, async () => {
+    await closes.fill(saved);
+    await closes.press("Enter");
+  });
+  await expect(closes).toHaveValue(saved);
+
+  // A part erased: the field reads empty, and leaving it keeps the saved time and shows it again.
+  await closes.focus();
+  await closes.press("Backspace");
+  await expect(closes).toHaveValue("");
+  await whoMayVote(votingBlock(sheet)).focus();
+  await expect(closes).toHaveValue(saved);
+  await host.page.reload();
+  const again = await openSettings(host.page);
+  await expect(closesIn(again)).toHaveValue(saved);
+
+  // A time typed whole, and the sheet closed with Escape while the field has the focus.
+  const typed = utcFromNow(3 * 24 * 60 * 60_000);
+  await savedAfter(host.page, async () => {
+    await closesIn(again).fill(typed);
+    await expect(closesIn(again)).toBeFocused();
+    await host.page.keyboard.press("Escape");
+    await expect(again).toBeHidden();
+  });
+  await host.page.reload();
+  await expect(closesIn(await openSettings(host.page))).toHaveValue(typed);
+  await host.context.close();
+});
+
+// M8 ticket 15: a tie for first place can go to a tie-break among the tied items. The hosts start
+// it from their box above the album, guests vote again among the tied items only, with the counts
+// hidden, and closing it puts those items in order in the places they shared.
+
+const ribbonOf = (page: Page, name: string) => tile(page, name).locator('[data-slot="vote-ribbon"]');
+const pressed = (page: Page) => stars(page).and(album(page).locator('[aria-pressed="true"]'));
+
+// A press in the hosts' box, and the box drawn again with what it changed.
+async function hostsPress(page: Page, name: string, then: string) {
+  await hostsBox(page).getByRole("button", { name, exact: true }).click();
+  await expect(head(page)).toContainText(then);
+}
+
+test("a tie for first goes to a tie-break among the tied items, which puts them in order", async ({ browser, request }) => {
+  test.setTimeout(300_000);
+  const host = await createPublished(browser, request, "album-tiebreak", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await addPhotos(priya, [await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a")], 2);
+  const mei = await guestGoing(browser, host.link, "Mei Tan");
+  await addPhotos(mei, [await photo("lake.jpg", "#3a6bd0")], 3);
+  await startVoting(host.page);
+
+  // Ana and the host vote for Photo 1, Ben and Mei for Photo 2, Priya for Photo 3.
+  const ana = await guestGoing(browser, host.link, "Ana Ruiz");
+  await vote(ana, star(ana, "Photo 1"));
+  await expect(star(ana, "Photo 1")).toHaveAttribute("aria-pressed", "true");
+  const ben = await guestGoing(browser, host.link, "Ben Okafor");
+  await vote(ben, star(ben, "Photo 2"));
+  await mei.reload();
+  await vote(mei, star(mei, "Photo 2"));
+  await priya.reload();
+  await vote(priya, star(priya, "Photo 3"));
+  await host.page.goto(host.link);
+  await vote(host.page, star(host.page, "Photo 1 by Priya Nair"));
+  await expect(count(host.page, "Photo 1")).toHaveAccessibleName("2 votes");
+  await expect(count(host.page, "Photo 2")).toHaveAccessibleName("2 votes");
+
+  // Closed: Photos 1 and 2 share first, and the hosts are offered a tie-break.
+  await hostsPress(host.page, "Close voting", "Voting closed");
+  await expect(ribbonOf(host.page, "Photo 1")).toHaveText("1st");
+  await expect(ribbonOf(host.page, "Photo 2")).toHaveText("1st");
+  await expect(ribbonOf(host.page, "Photo 3")).toHaveText("3rd");
+  await expect(hostsBox(host.page)).toContainText("2 items share first place in Favourite.");
+  await expect(hostsBox(host.page).getByRole("button", { name: "Keep the shared first place" })).toBeVisible();
+  await expectNoSeriousViolations(host.page, "the hosts' box offering a tie-break");
+  await hostsPress(host.page, "Start a tie-break", "Tie-break · Favourite");
+  await expect(hostsBox(host.page).getByRole("button", { name: "Close the tie-break" })).toBeVisible();
+  await expect(hostsBox(host.page).getByRole("button", { name: "Start a tie-break" })).toHaveCount(0);
+
+  // Ana's page, drawn again by her comment without a reload, shows the two finalists alone, with
+  // no star pressed: her vote in the first round is not her vote in the tie-break.
+  const box = ana.getByLabel("Add a comment");
+  await box.fill("So close!");
+  await ana.getByRole("button", { name: "Post", exact: true }).click();
+  await expect(box).toHaveValue("", { timeout: 15_000 });
+  await expect(head(ana)).toContainText("Tie-break · Favourite");
+  await expect(items(ana)).toHaveCount(2);
+  await expect(stars(ana)).toHaveCount(2);
+  await expect(pressed(ana)).toHaveCount(0);
+  await expect(head(ana).getByRole("status")).toHaveText("These 2 shared first place. Vote again for one of them.");
+  await expect(head(ana)).toContainText("Counts stay hidden until the tie-break closes.");
+  await expect(album(ana).locator('[data-slot="vote-count"]')).toHaveCount(0);
+  expect(await (await ana.request.get(host.link)).text()).not.toContain("shownVotes");
+  await expectNoSeriousViolations(ana, "a guest's album during a tie-break");
+
+  // Ana and Ben vote for Photo 2, the host for Photo 1; the host sees the counts as they come.
+  await vote(ana, star(ana, "Photo 2 by Priya Nair"));
+  await expect(head(ana).getByRole("status")).toHaveText(YOUR_VOTE);
+  await ben.reload();
+  await vote(ben, star(ben, "Photo 2 by Priya Nair"));
+  await host.page.reload();
+  await vote(host.page, star(host.page, "Photo 1 by Priya Nair"));
+  await expect(count(host.page, "Photo 2")).toHaveAccessibleName("2 votes");
+  await expect(count(host.page, "Photo 1")).toHaveAccessibleName("1 vote");
+  await expect(hostsBox(host.page)).toContainText("3 votes so far in Favourite");
+
+  // Closed, the tie-break puts Photo 2 first and Photo 1 second; Photo 3 keeps its place.
+  await hostsPress(host.page, "Close the tie-break", "Voting closed");
+  await expect(ribbonOf(host.page, "Photo 2")).toHaveText("1st");
+  await expect(ribbonOf(host.page, "Photo 1")).toHaveText("2nd");
+  await expect(ribbonOf(host.page, "Photo 3")).toHaveText("3rd");
+  await expect(hostsBox(host.page)).not.toContainText("share first place");
+  await expect(count(host.page, "Photo 2")).toHaveAccessibleName("2 votes, 2 votes in the tie-break");
+  await expect(count(host.page, "Photo 3")).toHaveAccessibleName("1 vote");
+  await ana.reload();
+  await expect(ribbonOf(ana, "Photo 2")).toHaveText("1st");
+  await expect(ribbonOf(ana, "Photo 1")).toHaveText("2nd");
+  await album(ana).getByRole("button", { name: "Photo 2 by Priya Nair", exact: true }).click();
+  await expect(ana.getByRole("dialog").locator('[data-slot="vote-tiebreak"]')).toHaveText("2 votes in the tie-break");
+  await Promise.all([host.context.close(), priya.context().close(), mei.context().close(), ana.context().close(), ben.context().close()]);
+});
+
+test("still level, the host chooses another round or a shared first place", async ({ browser, request }) => {
+  test.setTimeout(240_000);
+  const host = await createPublished(browser, request, "album-tiebreak-level", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await addPhotos(priya, [await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a")], 2);
+  await startVoting(host.page);
+
+  // One vote each.
+  const ana = await guestGoing(browser, host.link, "Ana Ruiz");
+  await vote(ana, star(ana, "Photo 2"));
+  await host.page.goto(host.link);
+  await vote(host.page, star(host.page, "Photo 1 by Priya Nair"));
+  await hostsPress(host.page, "Close voting", "Voting closed");
+  await expect(hostsBox(host.page)).toContainText("2 items share first place in Favourite.");
+
+  // A tie-break of one vote each again.
+  await hostsPress(host.page, "Start a tie-break", "Tie-break · Favourite");
+  await vote(host.page, star(host.page, "Photo 1 by Priya Nair"));
+  await ana.reload();
+  await vote(ana, star(ana, "Photo 2 by Priya Nair"));
+  await hostsPress(host.page, "Close the tie-break", "Voting closed");
+  await expect(ribbonOf(host.page, "Photo 1")).toHaveText("1st");
+  await expect(ribbonOf(host.page, "Photo 2")).toHaveText("1st");
+  await expect(hostsBox(host.page)).toContainText("2 items still share first place in Favourite after the tie-break.");
+  await expect(hostsBox(host.page).getByRole("button", { name: "Start a tie-break" })).toHaveCount(0);
+  await expect(hostsBox(host.page).getByRole("button", { name: "Keep the shared first place" })).toBeVisible();
+
+  // Another round says which it is, and closed with no vote it is level again.
+  await hostsPress(host.page, "Start another round", "Tie-break · Favourite · round 3");
+  await ana.reload();
+  await expect(head(ana)).toContainText("Tie-break · Favourite · round 3");
+  await expect(pressed(ana)).toHaveCount(0);
+  await hostsPress(host.page, "Close the tie-break", "Voting closed");
+  await expect(hostsBox(host.page)).toContainText("2 items still share first place in Favourite after the tie-break.");
+
+  // Kept shared: both first, and nothing more offered.
+  await hostsBox(host.page).getByRole("button", { name: "Keep the shared first place" }).click();
+  await expect(hostsBox(host.page)).not.toContainText("share first place");
+  await expect(hostsBox(host.page).getByRole("button", { name: "Start another round" })).toHaveCount(0);
+  await expect(hostsBox(host.page).getByRole("button", { name: "Keep the shared first place" })).toHaveCount(0);
+  await expect(ribbonOf(host.page, "Photo 1")).toHaveText("1st");
+  await expect(ribbonOf(host.page, "Photo 2")).toHaveText("1st");
+  await ana.reload();
+  await expect(ribbonOf(ana, "Photo 1")).toHaveText("1st");
+  await expect(ribbonOf(ana, "Photo 2")).toHaveText("1st");
+  await Promise.all([host.context.close(), priya.context().close(), ana.context().close()]);
+});
+
+test("reopening the vote ends a tie-break", async ({ browser, request }) => {
+  test.setTimeout(240_000);
+  const host = await createPublished(browser, request, "album-tiebreak-reopen", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await addPhotos(priya, [await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a"), await photo("lake.jpg", "#3a6bd0")], 3);
+  await startVoting(host.page);
+  const ana = await guestGoing(browser, host.link, "Ana Ruiz");
+  await vote(ana, star(ana, "Photo 2"));
+  await host.page.goto(host.link);
+  await vote(host.page, star(host.page, "Photo 1 by Priya Nair"));
+  await hostsPress(host.page, "Close voting", "Voting closed");
+  await hostsPress(host.page, "Start a tie-break", "Tie-break · Favourite");
+  await ana.reload();
+  await expect(items(ana)).toHaveCount(2);
+  await vote(ana, star(ana, "Photo 1 by Priya Nair"));
+
+  // Reopened: the whole album with its stars, no tie-break, and the first round's votes kept.
+  await hostsPress(host.page, "Reopen voting", "Voting is open");
+  await expect(hostsBox(host.page).getByRole("button", { name: "Close the tie-break" })).toHaveCount(0);
+  await ana.reload();
+  await expect(items(ana)).toHaveCount(3);
+  await expect(stars(ana)).toHaveCount(3);
+  await expect(head(ana)).not.toContainText("Tie-break");
+  await expect(star(ana, "Photo 2")).toHaveAttribute("aria-pressed", "true");
+  await expect(head(ana).getByRole("status")).toHaveText(YOUR_VOTE);
+  await expect(count(host.page, "Photo 1")).toHaveAccessibleName("1 vote");
+  await expect(count(host.page, "Photo 2")).toHaveAccessibleName("1 vote");
+  await expect(hostsBox(host.page)).toContainText("2 votes so far in Favourite");
+  await Promise.all([host.context.close(), priya.context().close(), ana.context().close()]);
 });

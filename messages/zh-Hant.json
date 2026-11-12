@@ -1871,6 +1871,19 @@
         "voted": "「{award}」，已投票",
         "forPhotos": "這個獎項只評選照片。",
         "forVideos": "這個獎項只評選影片。"
+      },
+      "tiebreak": {
+        "banner": "決勝投票 · {award}",
+        "round": "第 {round} 輪",
+        "intro": "{count, plural, other {這 # 項並列第一。}}請從中再投一票。",
+        "hint": "決勝投票結束前不顯示票數。",
+        "shared": "{count, plural, other {「{award}」有 # 項並列第一。}}",
+        "stillLevel": "{count, plural, other {決勝投票後，「{award}」仍有 # 項並列第一。}}",
+        "start": "開始決勝投票",
+        "again": "再投一輪",
+        "keep": "保留並列第一",
+        "close": "結束決勝投票",
+        "inTiebreak": "{count, plural, other {決勝投票 # 票}}"
       }
     }
   },

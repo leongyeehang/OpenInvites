@@ -10,8 +10,10 @@ import { can } from "@/hosts/role";
 import { isUuid } from "@/lib/uuid";
 import {
   addAward,
+  closeTiebreak,
   closeVoting,
   countAwardVotes,
+  keepSharedFirst,
   moveAward,
   removeAward,
   renameAward,
@@ -20,6 +22,7 @@ import {
   setClosingTime,
   setUploaderNames,
   setWhoMayVote,
+  startTiebreak,
   startVoting,
   turnOffVoting,
 } from "./repository";
@@ -27,11 +30,12 @@ import { AWARD_SCOPES, closingTimeProblem, parseAwardName, UPLOADER_NAMES, WHO_M
 
 // The hosts' album vote actions (M8 ticket 10), from the Voting block in the editor's Settings:
 // start, close, reopen and turn off; whether guests see who added each item (ticket 11); the
-// awards (ticket 13); and who may vote and when voting closes by itself (ticket 14). Each is for the event's hosts, co-hosts included (hosts/role.ts), and each
-// refreshes the editor and the event's pages, which show the vote. None acts while the operator
-// has Voting switched off, or the Album it needs (M8 ticket 01). The guard and the refresh are the
-// album's (album/host-actions.ts), copied, since the module imports nothing of the album's (M8
-// plan, ruling 18).
+// awards (ticket 13); who may vote and when voting closes by itself (ticket 14); and, from the
+// hosts' box above the album, an award's tie-break (ticket 15). Each is for the event's hosts,
+// co-hosts included (hosts/role.ts), and each refreshes the editor and the event's pages, which
+// show the vote. None acts while the operator has Voting switched off, or the Album it needs (M8
+// ticket 01). The guard and the refresh are the album's (album/host-actions.ts), copied, since the
+// module imports nothing of the album's (M8 plan, ruling 18).
 //
 // A press the guard turns away, or one with a value outside its list, answers `refused`, so the
 // block says the press did not go through rather than showing it saved (review fix, ticket 13).
@@ -106,12 +110,45 @@ export async function setWhoMayVoteAction(eventId: string, voters: WhoMayVote): 
   return {};
 }
 
+// An award's tie-break (M8 ticket 15): started, or another round started, among the items sharing
+// first; closed; or first place kept shared. A press that finds the award no longer in the stage it
+// needs (a second press, or another host's first) changes nothing and is not reported: the page
+// drawn again shows the award as it stands.
+
+export async function startTiebreakAction(eventId: string, awardId: string): Promise<{ error?: "refused" }> {
+  if (!isAward(awardId)) return { error: "refused" };
+  const event = await hostVoting(eventId);
+  if (!event) return { error: "refused" };
+  await startTiebreak(event.id, awardId, new Date());
+  refresh(event);
+  return {};
+}
+
+export async function closeTiebreakAction(eventId: string, awardId: string): Promise<{ error?: "refused" }> {
+  if (!isAward(awardId)) return { error: "refused" };
+  const event = await hostVoting(eventId);
+  if (!event) return { error: "refused" };
+  await closeTiebreak(event.id, awardId);
+  refresh(event);
+  return {};
+}
+
+export async function keepSharedFirstAction(eventId: string, awardId: string): Promise<{ error?: "refused" }> {
+  if (!isAward(awardId)) return { error: "refused" };
+  const event = await hostVoting(eventId);
+  if (!event) return { error: "refused" };
+  await keepSharedFirst(event.id, awardId);
+  refresh(event);
+  return {};
+}
+
 // "2026-10-03T19:00", as a datetime-local field sends it.
 const WALL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 
 // A date and time typed in the event's zone, read as the event form reads one (events/form.ts,
 // parseWall): round-tripping catches what the pattern cannot, 30 February, 24:30, or a time the
-// clocks skip.
+// clocks skip. Restated rather than imported, since events/form.ts imports three of the album's
+// files, which the module keeps clear of (M8 plan, ruling 18; review item, ticket 15).
 function parseWall(wall: string, timeZone: string): Date | undefined {
   if (!WALL_TIME.test(wall)) return undefined;
   const instant = toInstant(wall, timeZone);

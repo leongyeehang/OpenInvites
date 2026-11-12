@@ -27,6 +27,7 @@ import {
   SUGGESTED_AWARDS,
   tally,
   tiebreakOffered,
+  tiebreakRounds,
   tiedForFirst,
   UPLOADER_NAMES,
   VOTING_STATES,
@@ -230,6 +231,18 @@ describe("mayVoteFor", () => {
     expect(mayVoteFor(tiebreak, item({ id: "p3" }), guest())).toBe(false);
   });
 
+  it("during a tie-break, refuses a finalist the viewer added (ticket 15)", () => {
+    const tiebreak = award({ round: 2, finalists: ["p1", "p2"], tiebreakOpen: true });
+    expect(mayVoteFor(tiebreak, item({ id: "p1", rsvpId: "r1" }), guest())).toBe(false);
+    expect(mayVoteFor(tiebreak, item({ id: "p2", rsvpId: null, hostId: "h1" }), host)).toBe(false);
+  });
+
+  it("during another round, takes only the finalists still level, not those an earlier round placed (ticket 15)", () => {
+    const third = award({ round: 3, finalists: ["p1", "p2", "p3", "p1", "p2"], tiebreakOpen: true });
+    expect(mayVoteFor(third, item({ id: "p2" }), guest())).toBe(true);
+    expect(mayVoteFor(third, item({ id: "p3" }), guest())).toBe(false);
+  });
+
   it("takes no visitor's vote", () => {
     expect(mayVoteFor(award(), item(), visitor)).toBe(false);
   });
@@ -248,6 +261,16 @@ describe("awardStage and openRound", () => {
     expect(openRound(event({ albumVoting: "closed" }), award({ round: 2, finalists: ["p1", "p2"], tiebreakOpen: true }), NOW)).toBe(2);
     expect(openRound(event({ albumVoting: "closed" }), award(), NOW)).toBeNull();
     expect(openRound(event({ albumVoting: "off" }), award(), NOW)).toBeNull();
+  });
+
+  it("answers for each award on its own: one in a tie-break and one with its results (ticket 15)", () => {
+    const closed = event({ albumVoting: "closed" });
+    const inTiebreak = award({ id: "a1", round: 2, finalists: ["p1", "p2"], tiebreakOpen: true });
+    const withResults = award({ id: "a2", position: 1 });
+    expect(awardStage(votingState(closed, NOW), inTiebreak)).toBe("tiebreak");
+    expect(awardStage(votingState(closed, NOW), withResults)).toBe("results");
+    expect(openRound(closed, inTiebreak, NOW)).toBe(2);
+    expect(openRound(closed, withResults, NOW)).toBeNull();
   });
 });
 
@@ -278,39 +301,91 @@ describe("tally and places", () => {
   });
 });
 
+describe("tiebreakRounds", () => {
+  it("parts the stored finalists into each round's, a round starting where an item comes again (ticket 15)", () => {
+    expect(tiebreakRounds([])).toEqual([]);
+    expect(tiebreakRounds(["a", "b", "c"])).toEqual([["a", "b", "c"]]);
+    expect(tiebreakRounds(["a", "b", "c", "b", "a", "a", "b"])).toEqual([
+      ["a", "b", "c"],
+      ["b", "a"],
+      ["a", "b"],
+    ]);
+  });
+});
+
 describe("finalPlaces", () => {
-  const before = placed({ a: 1, b: 1, c: 3 });
+  const first = counted({ a: 12, b: 12, c: 9 });
 
   it("orders the items that shared first by the tie-break, in the places they shared", () => {
-    expect(finalPlaces(before, counted({ b: 5, a: 3 }))).toEqual(placed({ a: 2, b: 1, c: 3 }));
+    expect(finalPlaces(first, [{ finalists: ["a", "b"], counts: counted({ b: 5, a: 3 }) }])).toEqual(placed({ a: 2, b: 1, c: 3 }));
   });
 
   it("leaves them sharing first when the tie-break is level too", () => {
-    expect(finalPlaces(before, counted({ a: 4, b: 4 }))).toEqual(placed({ a: 1, b: 1, c: 3 }));
+    expect(finalPlaces(first, [{ finalists: ["a", "b"], counts: counted({ a: 4, b: 4 }) }])).toEqual(placed({ a: 1, b: 1, c: 3 }));
   });
 
   it("puts an item the tie-break gave no vote after the others", () => {
-    expect(finalPlaces(before, counted({ b: 2 }))).toEqual(placed({ a: 2, b: 1, c: 3 }));
+    expect(finalPlaces(first, [{ finalists: ["a", "b"], counts: counted({ b: 2 }) }])).toEqual(placed({ a: 2, b: 1, c: 3 }));
   });
 
   it("orders three among the places they shared, and leaves the rest where they were", () => {
-    expect(finalPlaces(placed({ a: 1, b: 1, c: 1, d: 4 }), counted({ a: 3, b: 3, c: 1 }))).toEqual(placed({ a: 1, b: 1, c: 3, d: 4 }));
+    expect(finalPlaces(counted({ a: 5, b: 5, c: 5, d: 2 }), [{ finalists: ["a", "b", "c"], counts: counted({ a: 3, b: 3, c: 1 }) }])).toEqual(placed({ a: 1, b: 1, c: 3, d: 4 }));
+  });
+
+  it("is the first round's places with no round held", () => {
+    expect(finalPlaces(first, [])).toEqual(placed({ a: 1, b: 1, c: 3 }));
+  });
+
+  // Ruling (M8 ticket 15): the round held stands. Its finalists are those stored when it opened,
+  // not a tie worked out again from first-round counts a deleted reply has since changed.
+  it("keeps the order a closed tie-break gave though a finalist has since lost a first-round vote", () => {
+    const tiebreak = [{ finalists: ["a", "b"], counts: counted({ b: 2, a: 1 }) }];
+    expect(finalPlaces(counted({ a: 2, b: 2, c: 1 }), tiebreak)).toEqual(placed({ a: 2, b: 1, c: 3 }));
+    expect(finalPlaces(counted({ a: 2, b: 1, c: 1 }), tiebreak)).toEqual(placed({ a: 2, b: 1, c: 3 }));
+    expect(finalPlaces(counted({ a: 1, b: 2, c: 1 }), tiebreak)).toEqual(placed({ a: 2, b: 1, c: 3 }));
+  });
+
+  it("places another round's finalists first, and those the round before placed after them by its votes", () => {
+    const rounds = [
+      { finalists: ["a", "b", "c", "d"], counts: counted({ a: 4, b: 4, c: 2, d: 1 }) },
+      { finalists: ["a", "b"], counts: counted({ b: 2, a: 1 }) },
+    ];
+    expect(finalPlaces(counted({ a: 3, b: 3, c: 3, d: 3, e: 2 }), rounds)).toEqual(placed({ a: 2, b: 1, c: 3, d: 4, e: 5 }));
   });
 });
 
 describe("awardPlaces", () => {
   const given = [...votes(1, { a: 5, b: 5, c: 5, d: 1 }), ...votes(2, { a: 4, b: 4, c: 1 }), ...votes(3, { b: 2, a: 1 })];
+  const all = ["a", "b", "c", "d"];
+  // Round 2 among a, b and c, then round 3 among a and b, still level after it.
+  const twoRounds = ["a", "b", "c", "a", "b"];
 
   it("folds every round up to the award's own", () => {
-    expect(awardPlaces(award({ round: 3 }), given)).toEqual(placed({ a: 2, b: 1, c: 3, d: 4 }));
+    expect(awardPlaces(award({ round: 3, finalists: twoRounds }), given, all)).toEqual(placed({ a: 2, b: 1, c: 3, d: 4 }));
   });
 
-  it("leaves out the round whose tie-break is still open", () => {
-    expect(awardPlaces(award({ round: 3, finalists: ["a", "b"], tiebreakOpen: true }), given)).toEqual(placed({ a: 1, b: 1, c: 3, d: 4 }));
+  it("with round 3 open after a closed round 2, applies round 2 only (ticket 15)", () => {
+    expect(awardPlaces(award({ round: 3, finalists: twoRounds, tiebreakOpen: true }), given, all)).toEqual(placed({ a: 1, b: 1, c: 3, d: 4 }));
   });
 
   it("is the first round's places for an award that never had a tie-break", () => {
-    expect(awardPlaces(award(), given)).toEqual(placed({ a: 1, b: 1, c: 1, d: 4 }));
+    expect(awardPlaces(award(), given, all)).toEqual(placed({ a: 1, b: 1, c: 1, d: 4 }));
+  });
+
+  // M8 ticket 15: a finalist deleted, or its uploader's reply deleted (its votes go with it), during
+  // or after a tie-break: the places are those of the items still here.
+  it("places the items still here when a finalist has gone after its tie-break", () => {
+    const after = award({ round: 2, finalists: ["a", "b"] });
+    const left = [...votes(1, { a: 2, c: 1 }), ...votes(2, { a: 1 })];
+    expect(awardPlaces(after, left, ["a", "c"])).toEqual(placed({ a: 1, c: 2 }));
+  });
+
+  it("places the one finalist left first once its tie-break is closed, and the rest after it", () => {
+    const given = [...votes(1, { a: 2, c: 1 })];
+    const open = award({ round: 2, finalists: ["a", "b"], tiebreakOpen: true });
+    expect(openRound(event({ albumVoting: "closed" }), open, NOW)).toBe(2);
+    expect(awardPlaces({ ...open, tiebreakOpen: false }, given, ["a", "c"])).toEqual(placed({ a: 1, c: 2 }));
+    expect(tiedForFirst(awardPlaces({ ...open, tiebreakOpen: false }, given, ["a", "c"]))).toEqual([]);
   });
 });
 
@@ -325,6 +400,13 @@ describe("tiebreakOffered", () => {
     expect(tiebreakOffered("results", award({ sharedFirst: true }), shared)).toBe(false);
     expect(tiebreakOffered("tiebreak", award({ tiebreakOpen: true }), shared)).toBe(false);
     expect(tiebreakOffered("results", award(), placed({ a: 1, b: 2 }))).toBe(false);
+  });
+
+  it("after a tie-break, is offered among its finalists still level, and not for a tie it was not held among (ticket 15)", () => {
+    const held = award({ round: 2, finalists: ["a", "b"] });
+    expect(tiebreakOffered("results", held, shared)).toBe(true);
+    // Both finalists gone: the items now level at the top are not among them.
+    expect(tiebreakOffered("results", held, placed({ c: 1, d: 1 }))).toBe(false);
   });
 });
 
@@ -487,6 +569,82 @@ describe("albumVotes", () => {
     expect(photosOnly.items.has("p3")).toBe(false);
     const [again] = albumVotes(event(), "open", guest(), NOW, [favourite], onVideo, items);
     expect(again.voted).toBe("p3");
+  });
+});
+
+describe("albumVotes during and after a tie-break (ticket 15)", () => {
+  const p1 = item({ id: "p1", rsvpId: "r2" });
+  const p2 = item({ id: "p2", rsvpId: "r3" });
+  // The guest's own.
+  const p3 = item({ id: "p3", rsvpId: "r1" });
+  const p4 = item({ id: "p4", rsvpId: "r2" });
+  const items = [p1, p2, p3, p4];
+  const closed = event({ albumVoting: "closed" });
+  const cast = (photoId: string, by: string, round: number): CastVote => ({
+    awardId: "a1",
+    round,
+    photoId,
+    rsvpId: by.startsWith("r") ? by : null,
+    hostId: by.startsWith("h") ? by : null,
+  });
+  // First round: p1, p2 and p3 share first with 2 votes, p4 has 1. The guest voted for p1 then.
+  const firstRound = [cast("p1", "r1", 1), cast("p1", "r4", 1), cast("p2", "r5", 1), cast("p2", "r6", 1), cast("p3", "r2", 1), cast("p3", "h1", 1), cast("p4", "r7", 1)];
+  // The tie-break: the guest and r4 for p2, the host for p1.
+  const tiebreak = [cast("p2", "r1", 2), cast("p2", "r4", 2), cast("p1", "h1", 2)];
+  const given = [...firstRound, ...tiebreak];
+  const open = award({ id: "a1", round: 2, finalists: ["p3", "p2", "p1"], tiebreakOpen: true });
+  const closedTiebreak = { ...open, tiebreakOpen: false };
+
+  it("lists a guest the finalists alone, in the album's order, with a star on those not theirs and no count", () => {
+    const [standing] = albumVotes(closed, "open", guest(), NOW, [open], given, items);
+    expect(standing.stage).toBe("tiebreak");
+    expect(standing.ids).toEqual(["p1", "p2", "p3"]);
+    expect(standing.voted).toBe("p2");
+    expect(standing.tied).toBe(3);
+    expect(standing.offered).toBeUndefined();
+    expect(Object.fromEntries(standing.items)).toEqual({ p1: { may: true }, p2: { may: true }, p3: { may: false } });
+  });
+
+  it("starts a guest's new round with no vote, whatever they voted for in the first", () => {
+    expect(albumVotes(closed, "open", guest(), NOW, [open], firstRound, items)[0].voted).toBeNull();
+  });
+
+  it("shows a host the tie-break's counts as they come, and its votes so far", () => {
+    const [standing] = albumVotes(closed, "open", host, NOW, [open], given, items);
+    expect(standing.voted).toBe("p1");
+    expect(standing.total).toBe(3);
+    expect(standing.offered).toBe(false);
+    expect(Object.fromEntries(standing.items)).toEqual({ p1: { may: true, shownVotes: 1 }, p2: { may: true, shownVotes: 2 }, p3: { may: true, shownVotes: 0 } });
+  });
+
+  it("once closed, shows everyone the first round's counts, the places the tie-break gave, and each finalist's votes in it", () => {
+    const [standing] = albumVotes(closed, "open", guest(), NOW, [closedTiebreak], given, items);
+    expect(standing.stage).toBe("results");
+    expect(standing.ids).toEqual(["p1", "p2", "p3", "p4"]);
+    expect(Object.fromEntries(standing.items)).toEqual({
+      p1: { may: false, shownVotes: 2, place: 2, tiebreakVotes: 1 },
+      p2: { may: false, shownVotes: 2, place: 1, tiebreakVotes: 2 },
+      p3: { may: false, shownVotes: 2, place: 3, tiebreakVotes: 0 },
+      p4: { may: false, shownVotes: 1 },
+    });
+    expect(standing.tied).toBe(0);
+  });
+
+  it("offers the hosts a tie-break while first is shared, saying among how many, and again while it is still level", () => {
+    const [shared] = albumVotes(closed, "open", host, NOW, [award({ id: "a1" })], firstRound, items);
+    expect(shared.offered).toBe(true);
+    expect(shared.tied).toBe(3);
+    const level = [...firstRound, cast("p1", "r1", 2), cast("p2", "r4", 2)];
+    const [still] = albumVotes(closed, "open", host, NOW, [closedTiebreak], level, items);
+    expect(still.offered).toBe(true);
+    expect(still.tied).toBe(2);
+    expect(albumVotes(closed, "open", host, NOW, [closedTiebreak], given, items)[0].offered).toBe(false);
+  });
+
+  it("lists the finalists still here when one has been deleted during the tie-break", () => {
+    const [standing] = albumVotes(closed, "open", guest(), NOW, [open], given, [p2, p3, p4]);
+    expect(standing.ids).toEqual(["p2", "p3"]);
+    expect(standing.tied).toBe(2);
   });
 });
 

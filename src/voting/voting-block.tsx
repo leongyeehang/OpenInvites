@@ -282,9 +282,14 @@ type Run = (action: () => Promise<{ error?: Refusal }>, undo?: () => void) => Pr
 type Fresh = ReturnType<typeof useFreshVotes>;
 
 // The time voting closes by itself (M8 ticket 14), typed in the event's zone, which the hint names:
-// saved when the field is left or on Enter, once, and cleared by No closing time or by emptying the
-// field. A time that has passed, or what is not a date and time, is refused, and the refusal shows
-// under the field, which keeps what was typed for the host to put right.
+// saved when the field is left or on Enter, once, and cleared by No closing time alone. A time that
+// has passed, or what is not a date and time, is refused, and the refusal shows under the field,
+// which keeps what was typed for the host to put right.
+//
+// Review fixes (M8 ticket 15): a field read empty when left keeps the saved time and shows it
+// again, since a date and time partly erased reads empty too; and a time typed whole is saved when
+// the Settings sheet closes with the field still focused (Escape leaves it without a blur), not
+// as it is typed, which would send each part Chrome reports on its way (the minute's "4" of "45").
 function ClosingTime({ eventId, closing, run }: { eventId: string; closing: Closing; run: Run }) {
   const t = useTranslations("Voting.block.closes");
   const id = useId();
@@ -312,7 +317,17 @@ function ClosingTime({ eventId, closing, run }: { eventId: string; closing: Clos
       return answer;
     });
   };
-  const sendTyped = () => send(typed === "" ? null : typed);
+  // Nothing typed, or a partly erased time, both read empty: the saved time stays, shown again.
+  const sendTyped = () => (typed === "" ? setTyped(closing.wall ?? "") : send(typed));
+
+  // The sheet closing unmounts the field without a blur: what was typed whole is sent then, once.
+  const leaving = useRef(() => {});
+  useEffect(() => {
+    leaving.current = () => {
+      if (typed !== "") send(typed);
+    };
+  });
+  useEffect(() => () => leaving.current(), []);
 
   return (
     <Field>

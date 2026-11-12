@@ -63,8 +63,8 @@ export type VotableItem = { id: string; kind: "photo" | "video"; status: "pendin
 
 // An award as the rules read it: its name (null is the translated "Favourite"), what it takes
 // votes for, its place in the list, the round being or last voted in (1, or a tie-break's), the
-// items a tie-break is among, whether that tie-break is open, and whether the host settled on a
-// shared first.
+// items each tie-break round is among (tiebreakRounds), whether that tie-break is open, and
+// whether the host settled on a shared first.
 export type AwardRules = {
   id: string | null;
   name: string | null;
@@ -152,11 +152,31 @@ export function inScope(award: Pick<AwardRules, "scope">, item: Pick<VotableItem
 }
 
 // Whether this item takes this person's vote in this award: approved, in its scope, not their own
-// upload (a co-host's is not), and during a tie-break, one of the items tied.
+// upload (a co-host's is not), and during a tie-break, one of the items its round is among.
 export function mayVoteFor(award: AwardRules, item: VotableItem, viewer: VotingViewer): boolean {
   if (viewer.kind === "visitor" || item.status !== "approved" || !inScope(award, item)) return false;
   if (viewer.kind === "guest" ? item.rsvpId === viewer.rsvpId : item.hostId === viewer.hostId) return false;
-  return !award.tiebreakOpen || award.finalists.includes(item.id);
+  return !award.tiebreakOpen || roundFinalists(award).includes(item.id);
+}
+
+// The finalists of each tie-break round an award has held or is holding, in turn (M8 ticket 15).
+// The award stores them in one list, each round's after the one before it (repository.ts,
+// startTiebreak): another round is among some of the items of the round before, so a round's list
+// starts where an item of the list before comes again. The first list is round 2's.
+export function tiebreakRounds(finalists: string[]): string[][] {
+  const rounds: string[][] = [];
+  for (const id of finalists) {
+    const current = rounds.at(-1);
+    if (current && !current.includes(id)) current.push(id);
+    else rounds.push([id]);
+  }
+  return rounds;
+}
+
+// The items the award's own round is among: the tie-break's being voted in, or the last one held;
+// none in the first round.
+function roundFinalists(award: Pick<AwardRules, "round" | "finalists">): string[] {
+  return award.round > 1 ? (tiebreakRounds(award.finalists)[award.round - 2] ?? []) : [];
 }
 
 // Where an award stands while the event's vote is in this state.
@@ -200,30 +220,66 @@ export function tiedForFirst(placed: Places): string[] {
   return first.length > 1 ? first : [];
 }
 
-// The places once a tie-break is closed: the items that shared first are put in order among
-// themselves by its votes, in the places they shared (two that shared first become first and
-// second, or stay level if its votes are level); every other item keeps its place.
-export function finalPlaces(before: Places, tiebreak: Tally): Places {
-  const tied = tiedForFirst(before);
-  const after = new Map(before);
-  const votesOf = (id: string) => tiebreak.get(id) ?? 0;
-  for (const id of tied) after.set(id, 1 + tied.filter((other) => votesOf(other) > votesOf(id)).length);
-  return after;
+// A closed tie-break round as the places read it: the items it was held among, as stored when it
+// opened, and its votes.
+export type HeldRound = { finalists: string[]; counts: Tally };
+
+// The places once tie-break rounds have been held (M8 spec, "Tie-break"): the finalists of the
+// first round held take the places from first, put in order among themselves by its votes (two
+// that shared first become first and second, or stay level if its votes are level, and one it gave
+// no vote comes after the others). Where another round was held among those still level, they take
+// the first of those places in its order, and the rest follow them in the order the round before
+// gave. Every other item keeps its first-round place, worked out without the finalists.
+//
+// Ruling (M8 ticket 15): the finalists are those of the rounds actually held, never a tie worked
+// out again from first-round counts. A reply deleted after a tie-break takes its votes with it,
+// which could otherwise change who "was tied" and undo a result the hosts announced.
+export function finalPlaces(first: Tally, rounds: HeldRound[]): Places {
+  // How many rounds each finalist was held among: each round is among some of the round before's.
+  const held = new Map<string, number>();
+  rounds.forEach(({ finalists }, index) => {
+    for (const id of finalists) if ((held.get(id) ?? 0) === index) held.set(id, index + 1);
+  });
+  const voted = [...first].filter(([, count]) => count > 0).map(([id]) => id);
+  // Each item placed by the last round it was held in, and its votes there (the first round's for
+  // an item no tie-break was held among, which needs a vote to be placed at all).
+  const ranked = [...new Set([...held.keys(), ...voted])].map((id) => {
+    const heldIn = held.get(id) ?? 0;
+    return { id, heldIn, votes: (heldIn === 0 ? first : rounds[heldIn - 1].counts).get(id) ?? 0 };
+  });
+  const ahead = (other: (typeof ranked)[number], item: (typeof ranked)[number]) => other.heldIn > item.heldIn || (other.heldIn === item.heldIn && other.votes > item.votes);
+  return new Map(ranked.map((item) => [item.id, 1 + ranked.filter((other) => ahead(other, item)).length]));
 }
 
-// An award's places as they stand: the first round's, then each tie-break's in turn up to the
-// award's current round, which is left out while its tie-break is still being voted in.
-export function awardPlaces(award: AwardRules, votes: GivenVote[]): Places {
+// An award's places as they stand: the first round's, then each tie-break round's in turn up to
+// the award's current round, which is left out while its tie-break is still being voted in.
+// `present` are the items the award may place (placeable): a finalist deleted since, or whose
+// uploader's reply was deleted, is placed no more, and the places are those of the items still
+// here (M8 ticket 15).
+export function awardPlaces(award: AwardRules, votes: GivenVote[], present: string[]): Places {
   const last = award.tiebreakOpen ? award.round - 1 : award.round;
-  let placed = places(tally(votes, 1));
-  for (let round = 2; round <= last; round++) placed = finalPlaces(placed, tally(votes, round));
-  return placed;
+  const here = new Set(present);
+  const rounds = tiebreakRounds(award.finalists)
+    .slice(0, Math.max(0, last - 1))
+    .map((finalists, index): HeldRound => ({ finalists: finalists.filter((id) => here.has(id)), counts: tally(votes, index + 2) }));
+  return finalPlaces(tally(votes, 1), rounds);
+}
+
+// The items an award may place: approved, and in what it takes votes for, as countedVotes counts
+// their votes.
+export function placeable(award: Pick<AwardRules, "scope">, items: VotableItem[]): string[] {
+  return items.filter((item) => item.status === "approved" && inScope(award, item)).map((item) => item.id);
 }
 
 // Whether the host is offered a tie-break: on the results, while first is shared and the host has
-// not settled on sharing it.
-export function tiebreakOffered(stage: AwardStage, award: Pick<AwardRules, "sharedFirst">, placed: Places): boolean {
-  return stage === "results" && !award.sharedFirst && tiedForFirst(placed).length > 0;
+// not settled on sharing it. After a tie-break, another round is among the items of the last one
+// still level (M8 ticket 15): none is offered for a tie it was not held among, which only the
+// deletion of every one of its finalists leaves.
+export function tiebreakOffered(stage: AwardStage, award: Pick<AwardRules, "sharedFirst" | "round" | "finalists">, placed: Places): boolean {
+  const tied = tiedForFirst(placed);
+  if (stage !== "results" || award.sharedFirst || tied.length === 0) return false;
+  const last = roundFinalists(award);
+  return award.round === 1 || tied.every((id) => last.includes(id));
 }
 
 // Whether the counts are shown: to the hosts whenever there is a vote, and to guests once an
@@ -329,14 +385,27 @@ export function countedVotes<T extends GivenVote & { awardId: string }>(votes: T
 export type CastVote = GivenVote & { awardId: string; rsvpId: string | null; hostId: string | null };
 
 // What one item shows of one award: whether this viewer may vote for it now, its votes where this
-// viewer is shown them (the first round's, 0 included), and its ribbon once the award's results are
-// in. A key left out is not sent: a guest's page carries no count while voting is open (M8 spec).
-export type ItemStanding = { may: boolean; shownVotes?: number; place?: 1 | 2 | 3 };
+// viewer is shown them (the first round's, 0 included, or during a tie-break, for hosts, its
+// round's), its ribbon once the award's results are in, and then, for a finalist of the last
+// tie-break round, its votes there (M8 ticket 15). A key left out is not sent: a guest's page
+// carries no count while voting is open, nor during a tie-break (M8 spec).
+export type ItemStanding = { may: boolean; shownVotes?: number; place?: 1 | 2 | 3; tiebreakVotes?: number };
 
 // Where one award stands for this viewer (M8 ticket 12): its stage, the items it lists (those in
-// its scope, in the album's order), this viewer's vote in its current round, for a host the votes
-// given in that round so far, and what each item it lists shows.
-export type AwardStanding = { award: AwardRules; stage: AwardStage; ids: string[]; voted: string | null; total?: number; items: Map<string, ItemStanding> };
+// its scope, in the album's order; during a tie-break, its round's finalists still here), this
+// viewer's vote in its current round, for a host the votes given in that round so far, and what
+// each item it lists shows. How many items share first (ticket 15): during a tie-break, those it
+// is among; on the results, those a tie-break would be among. For a host, whether one is offered.
+export type AwardStanding = {
+  award: AwardRules;
+  stage: AwardStage;
+  ids: string[];
+  voted: string | null;
+  total?: number;
+  tied: number;
+  offered?: boolean;
+  items: Map<string, ItemStanding>;
+};
 
 // Each award as this viewer's album shows it, from the event's votes and the items this viewer
 // sees (`view`, the album's own answer). Only the votes countedVotes keeps count, so a vote for an
@@ -349,13 +418,19 @@ export function albumVotes(event: VotingEvent, view: AlbumViewName, viewer: Voti
   const counted = countedVotes(votes, awards, items);
   return awards.map((award) => {
     const stage = awardStage(state, award);
-    const listed = items.filter((item) => inScope(award, item));
+    const present = placeable(award, items);
+    // During a tie-break the award lists its round's finalists alone (M8 ticket 15).
+    const finalists = stage === "tiebreak" ? new Set(roundFinalists(award).filter((id) => present.includes(id))) : undefined;
+    const listed = items.filter((item) => inScope(award, item) && (!finalists || finalists.has(item.id)));
     const ids = listed.map((item) => item.id);
     const given = counted.filter((vote) => vote.awardId === award.id);
     const round = openRound(event, award, now);
-    const counts = tally(given, 1);
+    // The first round's counts, or during a tie-break its own round's, which only hosts are shown.
+    const counts = tally(given, stage === "tiebreak" ? award.round : 1);
     const shown = countsShown(stage, viewer);
-    const placed = stage === "results" ? awardPlaces(award, given) : undefined;
+    const placed = stage === "results" ? awardPlaces(award, given, present) : undefined;
+    // Each finalist's votes in the last tie-break round, once it is closed.
+    const lastRound = placed && award.round > 1 ? { finalists: roundFinalists(award), counts: tally(given, award.round) } : undefined;
     const standings = new Map(
       listed.map((item): [string, ItemStanding] => {
         const place = placed && ribbon(placed.get(item.id));
@@ -365,13 +440,16 @@ export function albumVotes(event: VotingEvent, view: AlbumViewName, viewer: Voti
             may: votesHere && round !== null && mayVoteFor(award, item, viewer),
             ...(shown && { shownVotes: counts.get(item.id) ?? 0 }),
             ...(place && { place }),
+            ...(lastRound?.finalists.includes(item.id) && { tiebreakVotes: lastRound.counts.get(item.id) ?? 0 }),
           },
         ];
       }),
     );
     const voted = given.find((vote) => vote.round === award.round && mine(vote))?.photoId ?? null;
     const total = viewer.kind === "host" ? given.filter((vote) => vote.round === award.round).length : undefined;
-    return { award, stage, ids, voted, ...(total !== undefined && { total }), items: standings };
+    const tied = finalists ? finalists.size : placed ? tiedForFirst(placed).length : 0;
+    const offered = viewer.kind === "host" ? placed !== undefined && tiebreakOffered(stage, award, placed) : undefined;
+    return { award, stage, ids, voted, ...(total !== undefined && { total }), tied, ...(offered !== undefined && { offered }), items: standings };
   });
 }
 

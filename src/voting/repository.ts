@@ -3,8 +3,14 @@ import { getDb, type Db } from "@/db/client";
 import { albumAward, albumVote, event, eventHost, photo, rsvp } from "@/db/schema";
 import {
   albumOpenTo,
+  awardPlaces,
+  awardStage,
+  countedVotes,
   MAX_AWARDS,
   movedAwards,
+  placeable,
+  tiebreakOffered,
+  tiedForFirst,
   votingState,
   type AwardScope,
   type CastVote,
@@ -195,6 +201,72 @@ export async function setVote(
   });
 }
 
+// The tie-break (M8 ticket 15), each step in one transaction under the event's lock, so that it
+// falls wholly before or after a vote given in the award, and each refused (false) unless the award
+// is in the stage it needs: a second press, or two hosts pressing at once, changes nothing.
+
+// One award of the event, as it stands now: its stage, and its places worked out as the album
+// works them out (voting.ts, albumVotes), from the votes that count, for the items still here.
+async function awardNow(eventId: string, awardId: string, locked: VotingEvent, now: Date, tx: Db) {
+  const [award] = await tx
+    .select()
+    .from(albumAward)
+    .where(and(eq(albumAward.id, awardId), eq(albumAward.eventId, eventId)));
+  if (!award) return undefined;
+  const votes = await listVotes(eventId, tx);
+  const items = await tx.select({ id: photo.id, kind: photo.kind, status: photo.status, rsvpId: photo.rsvpId, hostId: photo.hostId }).from(photo).where(eq(photo.eventId, eventId));
+  const given = countedVotes(
+    votes.filter((vote) => vote.awardId === award.id),
+    [award],
+    items,
+  );
+  return { award, stage: awardStage(votingState(locked, now), award), placed: awardPlaces(award, given, placeable(award, items)) };
+}
+
+// The host starts a tie-break among the items sharing first, or another round among those still
+// level after one, while tiebreakOffered holds: the award's round goes up by one, the round's
+// finalists are put after those of the rounds before (voting.ts, tiebreakRounds), so the places a
+// round held gave stay its own, and a shared first settled on before is unsettled.
+export async function startTiebreak(eventId: string, awardId: string, now: Date): Promise<boolean> {
+  return getDb().transaction(async (tx) => {
+    const locked = await lockVoting(eventId, tx);
+    const found = locked && (await awardNow(eventId, awardId, locked, now, tx));
+    if (!found || !tiebreakOffered(found.stage, found.award, found.placed)) return false;
+    const { award, placed } = found;
+    await tx
+      .update(albumAward)
+      .set({ round: award.round + 1, finalists: [...award.finalists, ...tiedForFirst(placed)], tiebreakOpen: true, sharedFirst: false })
+      .where(eq(albumAward.id, award.id));
+    return true;
+  });
+}
+
+// The host closes a tie-break: its votes put its finalists in order. A tie-break has no closing
+// time (M8 plan); it closes with one finalist left too, the others deleted meanwhile.
+export async function closeTiebreak(eventId: string, awardId: string): Promise<boolean> {
+  return getDb().transaction(async (tx) => {
+    const locked = await lockVoting(eventId, tx);
+    if (!locked) return false;
+    const closed = await tx
+      .update(albumAward)
+      .set({ tiebreakOpen: false })
+      .where(and(eq(albumAward.id, awardId), eq(albumAward.eventId, eventId), eq(albumAward.tiebreakOpen, true)))
+      .returning({ id: albumAward.id });
+    return closed.length > 0;
+  });
+}
+
+// The host keeps first place shared, while a tie-break is offered: none is offered after it.
+export async function keepSharedFirst(eventId: string, awardId: string): Promise<boolean> {
+  return getDb().transaction(async (tx) => {
+    const locked = await lockVoting(eventId, tx);
+    const found = locked && (await awardNow(eventId, awardId, locked, new Date(), tx));
+    if (!found || !tiebreakOffered(found.stage, found.award, found.placed)) return false;
+    await tx.update(albumAward).set({ sharedFirst: true }).where(eq(albumAward.id, found.award.id));
+    return true;
+  });
+}
+
 // The host's choice of whether guests see who added each item (M8 ticket 11), a setting kept
 // whatever the vote's state.
 export async function setUploaderNames(eventId: string, names: UploaderNames): Promise<void> {
@@ -203,6 +275,7 @@ export async function setUploaderNames(eventId: string, names: UploaderNames): P
 
 // Who may vote besides the hosts (M8 ticket 14), a setting kept whatever the vote's state. Votes
 // already given stay, counted: it governs who votes from then on (M8 plan, ruling 25).
+// No lockVoting: one update of the event's row waits on, and is waited on by, a vote's lock there.
 export async function setWhoMayVote(eventId: string, voters: WhoMayVote): Promise<void> {
   await getDb().update(event).set({ albumVoters: voters }).where(eq(event.id, eventId));
 }

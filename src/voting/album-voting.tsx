@@ -25,7 +25,8 @@ import {
 // viewer every item is also given its slot (ticket 12): the head above the grid, each item's star
 // and badges on its tile and in the viewer, and each award's list of items. The head says when
 // voting closes by itself, in the event's zone, and why a viewer who sees the album may not vote
-// (ticket 14).
+// (ticket 14). During an award's tie-break its list is the round's finalists, and each item's
+// standing what the round shows; once closed, a finalist's votes in it (ticket 15).
 export type AlbumVoting = { state: VotingState; showsName: (item: Pick<VotableItem, "rsvpId" | "hostId">) => boolean; slot?: AlbumSlot };
 
 // `items` are the items this viewer sees, in the album's order.
@@ -74,9 +75,12 @@ export async function albumVotingFor({ event, viewer, view, items, now }: AlbumV
         name: standing.award.name ?? t("favourite"),
         scope: standing.award.scope,
         stage: standing.stage,
+        round: standing.award.round,
+        tied: standing.tied,
         voted: standing.voted,
         drawn,
         ...(standing.total !== undefined && { total: standing.total }),
+        ...(standing.offered !== undefined && { offered: standing.offered }),
       }))}
       initial={initial}
       mayVote={votesHere}

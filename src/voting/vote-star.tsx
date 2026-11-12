@@ -105,9 +105,9 @@ const RIBBON = { 1: "bg-ribbon-first", 2: "bg-ribbon-second", 3: "bg-ribbon-thir
 // On a tile of the album, beside its thumbnail button (never inside it): the star at the bottom
 // right where this viewer may vote for the item, named by the thumbnail's label ("Vote for Photo
 // 2", without a video's length or the Live mark), since the album numbers its items only once an
-// award is chosen; its count at the top right where this viewer is shown it; its ribbon at the
-// top left once the results are in. The badges take no pointer events, so a press on them opens
-// the item.
+// award is chosen; its count at the top right where this viewer is shown it, whose accessible text
+// adds a finalist's votes in the last tie-break (M8 ticket 15); its ribbon at the top left once the
+// results are in. The badges take no pointer events, so a press on them opens the item.
 export function ItemVote({ slug, item, initial, awards }: { slug: string; item: string; initial: string; awards: ItemAward[] }) {
   const t = useTranslations("Voting.album");
   const id = useId();
@@ -127,7 +127,12 @@ export function ItemVote({ slug, item, initial, awards }: { slug: string; item: 
         </span>
       )}
       {vote.shownVotes !== undefined && (
-        <span role="img" aria-label={t("votes", { count: vote.shownVotes })} data-slot="vote-count" className={cn(BADGE, "top-1 right-1 bg-black/55 text-white")}>
+        <span
+          role="img"
+          aria-label={[t("votes", { count: vote.shownVotes }), ...(vote.tiebreakVotes !== undefined ? [t("tiebreak.inTiebreak", { count: vote.tiebreakVotes })] : [])].join(", ")}
+          data-slot="vote-count"
+          className={cn(BADGE, "top-1 right-1 bg-black/55 text-white")}
+        >
           <Star className="size-3 fill-current" aria-hidden />
           <span aria-hidden>{vote.shownVotes}</span>
         </span>
@@ -157,7 +162,8 @@ export function ItemVote({ slug, item, initial, awards }: { slug: string; item: 
 }
 
 // In the viewer's header, before Download: the same star as a labelled button, and the count and
-// the place as text. A refusal shows under the star.
+// the place as text, with a finalist's votes in the last tie-break beside the count (M8 ticket
+// 15). A refusal shows under the star.
 export function ViewerVote({ slug, item, kind, initial, awards }: { slug: string; item: string; kind: "photo" | "video"; initial: string; awards: ItemAward[] }) {
   const t = useTranslations("Voting.album");
   const vote = useChosen(awards, initial);
@@ -179,6 +185,11 @@ export function ViewerVote({ slug, item, kind, initial, awards }: { slug: string
         {vote.shownVotes !== undefined && (
           <span data-slot="vote-count" className="tabular-nums text-white/80">
             {t("votes", { count: vote.shownVotes })}
+          </span>
+        )}
+        {vote.tiebreakVotes !== undefined && (
+          <span data-slot="vote-tiebreak" className="tabular-nums text-white/80">
+            {t("tiebreak.inTiebreak", { count: vote.tiebreakVotes })}
           </span>
         )}
         {vote.may && (

@@ -1871,6 +1871,19 @@
         "voted": "{award}, voted",
         "forPhotos": "This award is for photos only.",
         "forVideos": "This award is for videos only."
+      },
+      "tiebreak": {
+        "banner": "Tie-break · {award}",
+        "round": "round {round}",
+        "intro": "{count, plural, other {These # shared first place.}} Vote again for one of them.",
+        "hint": "Counts stay hidden until the tie-break closes.",
+        "shared": "{count, plural, other {# items share first place in {award}.}}",
+        "stillLevel": "{count, plural, other {# items still share first place in {award} after the tie-break.}}",
+        "start": "Start a tie-break",
+        "again": "Start another round",
+        "keep": "Keep the shared first place",
+        "close": "Close the tie-break",
+        "inTiebreak": "{count, plural, one {# vote} other {# votes}} in the tie-break"
       }
     }
   },
