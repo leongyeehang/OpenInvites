@@ -492,8 +492,10 @@
   legibility.ts does not prove is pointed at strong glass instead, and a link-variant button is set
   in the accent ink, never the accent. A destructive button or badge fills with strong glass at
   rest and hovered, never with its ink's own tint, on which no ink can read under light text; a
-  hovered one is edged in the danger ink. The text tone is also there as data-tone, and under light
-  text the page is `dark` as well, so that shadcn's dark variants apply.
+  hovered one is edged in the danger ink. A default button keeps the whole accent hovered, where
+  shadcn would let 20% of what is behind it through, which no surface proves its words on, and is
+  edged in its words' colour instead (ticket 19). The text tone is also there as data-tone, and
+  under light text the page is `dark` as well, so that shadcn's dark variants apply.
 
   The scope is outside every layer, after .dark: shadcn's controls carry `outline-none`,
   `bg-transparent` and `dark:bg-input/30` as utilities, which beat every rule in an earlier layer
@@ -540,6 +542,12 @@
 }
 .site-page :is([data-slot="button"]:hover, a[data-slot="badge"]:hover)[data-variant="destructive"] {
   border-color: var(--theme-danger-ink);
+}
+.site-page [data-slot="button"][data-variant="default"] {
+  background-color: var(--primary);
+}
+.site-page [data-slot="button"][data-variant="default"]:hover {
+  border-color: var(--primary-foreground);
 }
 .site-page [data-slot="button"][data-variant="link"] {
   color: var(--theme-accent-ink);

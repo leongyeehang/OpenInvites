@@ -3,6 +3,7 @@ import { clientAddress, expect, test, type APIRequestContext, type Browser, type
 import { expectHomeIn, homeByKeyboard, openHome } from "./home";
 import { dismissOperatorWelcome, expectSignedInAs, latestMailTo, mailCountTo, MAILPIT, newHost, signUp, submitSignUp, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
+import { expectSiteLook } from "./site-look";
 import { expectStill } from "./still";
 
 // Home page, tickets 01 to 03 and 05: the operator's Home page card, and the home page it sets. Runs
@@ -297,6 +298,22 @@ test("Always the same poster shows that poster on every visit", async ({ page })
   for (let visit = 0; visit < 2; visit++) {
     await page.goto("/");
     expect(await posterSrc(page)).toContain("disco-ball");
+  }
+});
+
+// M8 ticket 19: the operator's choice of posters dresses the signed-out screens too, with the name
+// they saved above the cards.
+test("with Always the same poster, the signed-out screens wear it under the saved name", async ({ page }) => {
+  for (const [path, heading] of [
+    ["/sign-in", "Sign in"],
+    ["/sign-up", "Create your host account"],
+    ["/forgot-password", "Reset your password"],
+  ]) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+    await expectSiteLook(page, "disco-ball-copy");
+    await expect(page.locator('[data-slot="site-name"]')).toHaveText("Casa Ada");
+    await expect(page.getByRole("link", { name: "Casa Ada", exact: true })).toHaveAttribute("href", "/");
   }
 });
 

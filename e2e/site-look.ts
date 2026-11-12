@@ -21,3 +21,14 @@ export async function expectSiteLook(page: Page, copy: string) {
   await expect(page.getByRole("contentinfo")).toHaveCount(1);
   expect(await page.evaluate(() => document.getAnimations().map((animation) => animation.constructor.name)), "what moves").toEqual([]);
 }
+
+// Once the backdrop's picture has arrived and been decoded, so that pixels are read against it and
+// not against the colour under it.
+export async function backdropPainted(page: Page) {
+  await page.locator('[data-slot="backdrop"] [style*="url("]').evaluate(async (element) => {
+    const url = getComputedStyle(element).backgroundImage.match(/url\("?([^")]+)"?\)/)![1];
+    const picture = new Image();
+    picture.src = url;
+    await picture.decode();
+  });
+}
