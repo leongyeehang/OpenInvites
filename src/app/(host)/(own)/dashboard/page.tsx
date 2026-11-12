@@ -6,7 +6,7 @@ import { AlbumReminderNotice } from "@/album/album-reminder-notice";
 import type { AlbumTotals } from "@/album/album";
 import { albumTotalsByEvent } from "@/album/repository";
 import { requireHost } from "@/auth/session";
-import { glowEvent, shelve, showsYear, tileChip, tileNumber, whenKind, type ShelfEvent, type TileChip } from "@/dashboard/shelves";
+import { shelve, showsYear, tileChip, tileNumber, whenKind, type ShelfEvent, type TileChip } from "@/dashboard/shelves";
 import { eventsOwnedAtLimit } from "@/events/limit";
 import { listHostEvents } from "@/events/repository";
 import { featureOn, siteFeatures } from "@/features";
@@ -20,10 +20,11 @@ import { retentionFloorDays } from "@/retention/floor";
 import { deletionDate } from "@/retention/plan";
 import { NO_RSVPS } from "@/rsvps/counts";
 import { countRsvpsByEvent } from "@/rsvps/repository";
+import { Glass, Veil } from "@/themes/glass";
 import { PosterTile } from "@/themes/poster-tile";
 import { LONG_TITLE } from "@/themes/title-fonts";
 import { findGalleryPoster } from "@/themes/posters";
-import { resolveTheme, type ThemeUpload } from "@/themes/resolve";
+import type { ThemeUpload } from "@/themes/resolve";
 import type { Theme } from "@/themes/theme";
 import { findEventUploads } from "@/uploads/repository";
 import { themeUpload } from "@/uploads/uploads";
@@ -38,8 +39,10 @@ type Translate = Awaited<ReturnType<typeof getTranslations<"Host.dashboard">>>;
 
 // The dashboard as a shelf of invitations (dashboard spec, "What the dashboard shows"): the host's
 // next event first and large, with its replies and the ways to manage it, then every other event as
-// its poster under Coming up, Drafts and Past, on a glow taken from a poster. Which event goes where
-// is shelves.ts's to say; this page only draws it. A new operator is first welcomed on it, once.
+// its poster under Coming up, Drafts and Past. It sits in the host's frame, on the poster of their
+// next event (dashboard/host-look.ts), with the heading on the veil and Next up, the empty state and
+// each shelf a glass panel, never one inside another (M8 ticket 20). Which event goes where is
+// shelves.ts's to say; this page only draws it. A new operator is first welcomed on it, once.
 export default async function DashboardPage() {
   const host = await requireHost();
   const [t, locale, events, limits, welcome, atLimit, switches] = await Promise.all([
@@ -79,19 +82,17 @@ export default async function DashboardPage() {
     return upload ? themeUpload(upload) : null;
   };
   const first = events.length === 0 ? homeTheme(pickPoster(posterPool(await homePage()))) : null;
-  const glow = glowEvent(shelves);
   const tile = { t, locale, now };
 
   return (
     <div data-slot="dashboard" className="flex flex-col gap-8">
-      <Glow theme={glow?.theme ?? first} upload={glow ? pictureOf(glow) : null} />
       {welcome && <Welcome limits={limits} />}
-      <div className="flex flex-col gap-2">
+      <Veil className="flex flex-col gap-2">
         <h1 tabIndex={-1} className="text-3xl font-bold tracking-tight outline-none">
           {t("title")}
         </h1>
         {atLimit !== undefined && <p className="text-sm text-muted-foreground">{t("limitReached", { count: atLimit })}</p>}
-      </div>
+      </Veil>
       {reminders.length > 0 && <AlbumReminders reminders={reminders} t={t} />}
       {first && <FirstInvitation theme={first} t={t} />}
       {shelves.nextUp && <NextUp event={shelves.nextUp} upload={pictureOf(shelves.nextUp)} t={t} locale={locale} />}
@@ -102,19 +103,23 @@ export default async function DashboardPage() {
   );
 }
 
-// One card per album the host was reminded about: the event, what its album holds, Empty the album
-// and Keep it; gone once answered or emptied.
+// One glass panel per album the host was reminded about, under a heading on the veil: the event,
+// what its album holds, Empty the album and Keep it; gone once answered or emptied.
 function AlbumReminders({ reminders, t }: { reminders: { id: string; title: string; album: AlbumTotals }[]; t: Translate }) {
   return (
     <ClientMessages namespaces={["Events.album"]}>
       <section aria-labelledby="album-reminders-heading" className="flex flex-col gap-3">
-        <h2 id="album-reminders-heading" className="text-lg font-semibold tracking-tight">
-          {t("albumReminders.title")}
-        </h2>
+        <Veil>
+          <h2 id="album-reminders-heading" className="text-lg font-semibold tracking-tight">
+            {t("albumReminders.title")}
+          </h2>
+        </Veil>
         <ul className="flex flex-col gap-3">
           {reminders.map(({ id, title, album }) => (
             <li key={id}>
-              <AlbumReminderNotice eventId={id} album={album} title={title || t("untitled")} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10" />
+              <Glass className="p-4">
+                <AlbumReminderNotice eventId={id} album={album} title={title || t("untitled")} />
+              </Glass>
             </li>
           ))}
         </ul>
@@ -138,47 +143,24 @@ async function Welcome({ limits }: { limits: Limits }) {
   );
 }
 
-// Behind the top of the page, the blurred copy of a poster fading into the ground, as an event page
-// is painted with its poster's copy; a colour poster lends a faint wash of its gradient instead. It
-// is placed against the page itself, so it spans the screen under the header, and it never moves.
-// A dark copy is laid on faintly and a light one more strongly, so the header, the heading and the
-// shelves' grey labels keep 4.5:1 over it (the final review measured 2.3:1 under Disco at 60%).
-function Glow({ theme, upload }: { theme: Theme | null; upload: ThemeUpload | null }) {
-  if (!theme) return null;
-  const { background } = resolveTheme(theme, upload);
-  return (
-    <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[30rem] overflow-hidden [mask-image:linear-gradient(#000_25%,transparent)]">
-      {background.kind === "photo" ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={background.src}
-          alt=""
-          className="size-full scale-110 object-cover blur-3xl saturate-150"
-          style={{ opacity: Math.min(0.55, 0.12 + background.luminance * 0.45) }}
-        />
-      ) : (
-        <div className="size-full opacity-35" style={{ background: background.css }} />
-      )}
-    </div>
-  );
-}
-
 function FirstInvitation({ theme, t }: { theme: Theme; t: Translate }) {
   return (
-    <section aria-labelledby="first-heading" className="grid gap-5 rounded-3xl bg-card p-3 shadow-sm ring-1 ring-foreground/5 sm:grid-cols-[14rem_1fr] sm:items-center">
-      <PosterTile theme={theme} upload={null} sizes="14rem" priority className="max-sm:mx-auto max-sm:max-w-60" />
-      <div className="flex flex-col items-start gap-3 px-2 pb-3 sm:pb-0">
-        <h2 id="first-heading" className="text-2xl font-bold tracking-tight text-balance">
-          {t("firstTitle")}
-        </h2>
-        <p className="text-muted-foreground">{t("firstText")}</p>
-        <Link
-          href="/events/new"
-          className="mt-1 inline-flex h-10 items-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground outline-none hover:bg-primary/85 focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
-          {t("firstButton")}
-        </Link>
-      </div>
+    <section aria-labelledby="first-heading">
+      <Glass className="grid gap-5 p-3 sm:grid-cols-[14rem_1fr] sm:items-center">
+        <PosterTile theme={theme} upload={null} sizes="14rem" priority className="max-sm:mx-auto max-sm:max-w-60" />
+        <div className="flex flex-col items-start gap-3 px-2 pb-3 sm:pb-0">
+          <h2 id="first-heading" className="text-2xl font-bold tracking-tight text-balance">
+            {t("firstTitle")}
+          </h2>
+          <p className="text-muted-foreground">{t("firstText")}</p>
+          <Link
+            href="/events/new"
+            className="mt-1 inline-flex h-10 items-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground outline-none hover:inset-ring hover:inset-ring-primary-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            {t("firstButton")}
+          </Link>
+        </div>
+      </Glass>
     </section>
   );
 }
@@ -186,8 +168,9 @@ function FirstInvitation({ theme, t }: { theme: Theme; t: Translate }) {
 const button = "inline-flex h-10 flex-1 items-center justify-center rounded-full px-4 text-sm font-semibold outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
 
 // The next event: its poster, when it is, how its replies stand and what needs the host, and the
-// three pages a host goes to most. On a phone the poster is above; from md it is beside, and the
-// replies become large figures.
+// three pages a host goes to most, in one glass panel with its heading. On a phone the poster is
+// above; from md it is beside, and the replies become large figures. Its links keep their fills
+// hovered, which their words are proven on, and show the hover by an edge in their words' colour.
 function NextUp({ event, upload, t, locale }: { event: ShelfEvent; upload: ThemeUpload | null; t: Translate; locale: string }) {
   const { going, maybe, cant, waitlisted, pending, headcount } = event.counts;
   const figure = (key: "going" | "maybe" | "cant" | "waitlisted" | "toApprove", count: number, attention = false) => (
@@ -201,60 +184,63 @@ function NextUp({ event, upload, t, locale }: { event: ShelfEvent; upload: Theme
     </li>
   );
   return (
-    <section aria-labelledby="next-up-heading" className="flex flex-col gap-3">
-      <h2 id="next-up-heading" className="text-xs font-bold tracking-[0.08em] text-muted-foreground uppercase">
-        {t("nextUp")}
-      </h2>
-      <div className="grid gap-4 rounded-3xl bg-card p-2 shadow-lg shadow-foreground/5 ring-1 ring-foreground/5 md:grid-cols-[18rem_1fr] md:gap-7 md:p-3">
-        <Link href={`/events/${event.id}`} className="rounded-2xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-          <PosterTile
-            theme={event.theme}
-            upload={upload}
-            title={event.title || t("untitled")}
-            sizes="(min-width: 48rem) 18rem, calc(100vw - 3rem)"
-            priority
-            titleClassName={cn("line-clamp-4", (event.title || t("untitled")).length > LONG_TITLE ? "text-3xl md:text-4xl" : "text-4xl md:text-5xl")}
-          />
-        </Link>
-        <div className="flex min-w-0 flex-col gap-4 px-2 pb-2 md:py-3 md:pr-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-semibold md:text-lg">{whenKind(event) === "poll" ? t("datePoll") : isDated(event) ? formatWhen(event, locale) : t("noDate")}</p>
-            {event.role === "coHost" && <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold">{t("coHost")}</span>}
-          </div>
-          <ul className="flex flex-wrap gap-1.5 md:grid md:grid-cols-4 md:gap-2.5">
-            {figure("going", going)}
-            {figure("maybe", maybe)}
-            {figure("cant", cant)}
-            {waitlisted > 0 && figure("waitlisted", waitlisted)}
-            {pending > 0 && figure("toApprove", pending, true)}
-          </ul>
-          <p className="text-sm text-muted-foreground">
-            {event.capacity === null ? t("headcount", { count: headcount }) : t("headcountOf", { count: headcount, capacity: event.capacity })}
-          </p>
-          {event.deletion && (
-            <p className="w-fit rounded-full bg-destructive-soft px-2.5 py-1 text-xs font-semibold text-destructive">
-              {t("deletedOn", { date: formatDay(event.deletion, event.timeZone, locale) })}
+    <section aria-labelledby="next-up-heading">
+      <Glass className="flex flex-col gap-3 p-2 md:p-3">
+        <h2 id="next-up-heading" className="px-2 pt-2 text-xs font-bold tracking-[0.08em] text-muted-foreground uppercase">
+          {t("nextUp")}
+        </h2>
+        <div className="grid gap-4 md:grid-cols-[18rem_1fr] md:gap-7">
+          <Link href={`/events/${event.id}`} className="rounded-2xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+            <PosterTile
+              theme={event.theme}
+              upload={upload}
+              title={event.title || t("untitled")}
+              sizes="(min-width: 48rem) 18rem, calc(100vw - 3rem)"
+              priority
+              titleClassName={cn("line-clamp-4", (event.title || t("untitled")).length > LONG_TITLE ? "text-3xl md:text-4xl" : "text-4xl md:text-5xl")}
+            />
+          </Link>
+          <div className="flex min-w-0 flex-col gap-4 px-2 pb-2 md:py-3 md:pr-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-semibold md:text-lg">{whenKind(event) === "poll" ? t("datePoll") : isDated(event) ? formatWhen(event, locale) : t("noDate")}</p>
+              {event.role === "coHost" && <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold">{t("coHost")}</span>}
+            </div>
+            <ul className="flex flex-wrap gap-1.5 md:grid md:grid-cols-4 md:gap-2.5">
+              {figure("going", going)}
+              {figure("maybe", maybe)}
+              {figure("cant", cant)}
+              {waitlisted > 0 && figure("waitlisted", waitlisted)}
+              {pending > 0 && figure("toApprove", pending, true)}
+            </ul>
+            <p className="text-sm text-muted-foreground">
+              {event.capacity === null ? t("headcount", { count: headcount }) : t("headcountOf", { count: headcount, capacity: event.capacity })}
             </p>
-          )}
-          <div className="mt-auto flex gap-2">
-            <Link href={`/events/${event.id}/guests`} className={cn(button, "bg-primary text-primary-foreground hover:bg-primary/85")}>
-              {t("guests")}
-            </Link>
-            <Link href={`/events/${event.id}`} className={cn(button, "bg-secondary text-secondary-foreground hover:bg-muted")}>
-              {t("edit")}
-            </Link>
-            <Link href={`/events/${event.id}/share`} className={cn(button, "bg-secondary text-secondary-foreground hover:bg-muted")}>
-              {t("share")}
-            </Link>
+            {event.deletion && (
+              <p className="w-fit rounded-full bg-destructive-soft px-2.5 py-1 text-xs font-semibold text-destructive">
+                {t("deletedOn", { date: formatDay(event.deletion, event.timeZone, locale) })}
+              </p>
+            )}
+            <div className="mt-auto flex gap-2">
+              <Link href={`/events/${event.id}/guests`} className={cn(button, "bg-primary text-primary-foreground hover:inset-ring hover:inset-ring-primary-foreground")}>
+                {t("guests")}
+              </Link>
+              <Link href={`/events/${event.id}`} className={cn(button, "bg-secondary text-secondary-foreground hover:inset-ring hover:inset-ring-secondary-foreground")}>
+                {t("edit")}
+              </Link>
+              <Link href={`/events/${event.id}/share`} className={cn(button, "bg-secondary text-secondary-foreground hover:inset-ring hover:inset-ring-secondary-foreground")}>
+                {t("share")}
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
+      </Glass>
     </section>
   );
 }
 
-// A shelf of tiles, drawn only when it has events: two across on a phone and four from md, except
-// Past, which on a phone is one row that scrolls sideways inside itself, its posters faded.
+// A shelf of tiles in a glass panel with its heading, drawn only when it has events: two across on a
+// phone and four from md, except Past, which on a phone is one row that scrolls sideways inside its
+// panel, out to the panel's edges, its posters faded.
 function Shelf({
   id,
   heading,
@@ -277,47 +263,51 @@ function Shelf({
   if (events.length === 0) return null;
   const past = shelf === "past";
   return (
-    <section aria-labelledby={`${id}-heading`} className="flex min-w-0 flex-col gap-3">
-      <h2 id={`${id}-heading`} className="text-xs font-bold tracking-[0.08em] text-muted-foreground uppercase">
-        {heading}
-      </h2>
-      <ul
-        className={cn(
-          "grid grid-cols-2 gap-x-3 gap-y-5 md:grid-cols-4 md:gap-x-4",
-          past && "max-md:-mx-4 max-md:flex max-md:snap-x max-md:snap-mandatory max-md:overflow-x-auto max-md:scroll-px-4 max-md:-mt-1 max-md:px-4 max-md:pt-1 max-md:pb-2",
-        )}
-      >
-        {events.map((event) => (
-          <li key={event.id} className={cn("min-w-0", past && "max-md:w-32 max-md:shrink-0 max-md:snap-start")}>
-            <Link href={`/events/${event.id}`} className="group flex flex-col gap-1.5 rounded-2xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-              <PosterTile
-                theme={event.theme}
-                upload={pictureOf(event)}
-                title={event.title || t("untitled")}
-                sizes={past ? "(min-width: 48rem) 11rem, 8rem" : "(min-width: 48rem) 11rem, 45vw"}
-                chip={chipFor(tileChip(event), t)}
-                faded={past}
-                titleClassName={past ? "text-base" : undefined}
-                className="transition-transform group-hover:-translate-y-0.5"
-              />
-              <span className="text-sm font-semibold">
-                {whenKind(event) === "poll" ? t("datePoll") : isDated(event) ? formatWhenBrief(event, locale, { year: showsYear(event, now) }) : t("noDate")}
-              </span>
-              <TileNumber event={event} shelf={shelf} t={t} locale={locale} />
-            </Link>
-          </li>
-        ))}
-      </ul>
+    <section aria-labelledby={`${id}-heading`} className="min-w-0">
+      <Glass className="flex flex-col gap-3 p-4">
+        <h2 id={`${id}-heading`} className="text-xs font-bold tracking-[0.08em] text-muted-foreground uppercase">
+          {heading}
+        </h2>
+        <ul
+          className={cn(
+            "grid grid-cols-2 gap-x-3 gap-y-5 md:grid-cols-4 md:gap-x-4",
+            past && "max-md:-mx-4 max-md:flex max-md:snap-x max-md:snap-mandatory max-md:overflow-x-auto max-md:scroll-px-4 max-md:-mt-1 max-md:px-4 max-md:pt-1 max-md:pb-2",
+          )}
+        >
+          {events.map((event) => (
+            <li key={event.id} className={cn("min-w-0", past && "max-md:w-32 max-md:shrink-0 max-md:snap-start")}>
+              <Link href={`/events/${event.id}`} className="group flex flex-col gap-1.5 rounded-2xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+                <PosterTile
+                  theme={event.theme}
+                  upload={pictureOf(event)}
+                  title={event.title || t("untitled")}
+                  sizes={past ? "(min-width: 48rem) 11rem, 8rem" : "(min-width: 48rem) 11rem, 45vw"}
+                  chip={chipFor(tileChip(event), t)}
+                  faded={past}
+                  titleClassName={past ? "text-base" : undefined}
+                  className="transition-transform group-hover:-translate-y-0.5"
+                />
+                <span className="text-sm font-semibold">
+                  {whenKind(event) === "poll" ? t("datePoll") : isDated(event) ? formatWhenBrief(event, locale, { year: showsYear(event, now) }) : t("noDate")}
+                </span>
+                <TileNumber event={event} shelf={shelf} t={t} locale={locale} />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </Glass>
     </section>
   );
 }
 
+// A chip sits on a poster, whose picture is not known, so its colours are fixed and opaque, never
+// the glass the page's scope makes of the soft fills (globals.css, --chip).
 function chipFor(chip: TileChip | null, t: Translate): ReactNode {
   if (!chip) return null;
   const pill = "rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold shadow-sm";
-  if (chip.kind === "toApprove") return <span className={cn(pill, "bg-attention-soft text-attention")}>{t.rich("toApprove", { count: chip.count, n: (chunks) => chunks })}</span>;
+  if (chip.kind === "toApprove") return <span className={cn(pill, "bg-chip-attention text-chip-attention-ink")}>{t.rich("toApprove", { count: chip.count, n: (chunks) => chunks })}</span>;
   const label = chip.kind === "coHost" ? t("coHost") : chip.kind === "draft" ? t("draft") : t("cancelled");
-  return <span className={cn(pill, chip.kind === "cancelled" ? "bg-destructive-soft text-destructive" : "bg-card/90 text-foreground")}>{label}</span>;
+  return <span className={cn(pill, chip.kind === "cancelled" ? "bg-chip-danger text-chip-danger-ink" : "bg-chip text-chip-ink")}>{label}</span>;
 }
 
 function TileNumber({ event, shelf, t, locale }: { event: ShelfEvent; shelf: "comingUp" | "drafts" | "past"; t: Translate; locale: string }) {

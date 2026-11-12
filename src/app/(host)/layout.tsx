@@ -1,18 +1,10 @@
 import type { ReactNode } from "react";
 import { requireHost } from "@/auth/session";
-import { hostNeedsVerification } from "@/auth/verification";
-import { HostHeader } from "./host-header";
-import { VerificationBanner } from "./verification-banner";
 
-// The host area: the header on every page, and the dashboard alone wider, for its shelves. Pages call
-// requireHost() themselves too; this layout is for the header, not the guard.
+// The host area's guard: a signed-out visitor is sent to sign in. The frame is drawn by the layouts
+// below it, (own) for the host's own pages and events/[id] for an event's, which wear different
+// looks. Pages call requireHost() themselves too.
 export default async function HostLayout({ children }: { children: ReactNode }) {
-  const host = await requireHost();
-  return (
-    <>
-      <HostHeader host={host} />
-      {hostNeedsVerification(host) && <VerificationBanner email={host.email} />}
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8 has-data-[slot=dashboard]:max-w-5xl">{children}</main>
-    </>
-  );
+  await requireHost();
+  return children;
 }

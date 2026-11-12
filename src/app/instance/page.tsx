@@ -17,7 +17,9 @@ import { siteFeatures } from "@/features";
 import { clearAlbumAsOperatorAction, revokeHostInvitationAction } from "@/instance/actions";
 import { videoProcessingMode, type VideoProcessingMode } from "@/instance/env";
 import { HOST_INVITATION_DAYS, hostInvitationDaysLeft, hostInvitationState, type HostInvitationState } from "@/instance/host-invitation";
+import { posterPool } from "@/instance/home";
 import { homePage, instanceLimits, listHostInvitations, registrationMode, videoFourKCopy, videoProcessing, videoWorkerSeenAt, type HostInvitation } from "@/instance/repository";
+import { areaLook } from "@/instance/site-look";
 import { formatSize } from "@/lib/sizes";
 import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
@@ -25,12 +27,15 @@ import { countUnhandledReports } from "@/reports/repository";
 import { storageConfig } from "@/storage/config";
 import { unmeasuredCount } from "@/storage/measure";
 import { biggestAlbums, diskUse, freeDiskBytes, siteBytes, type BiggestAlbum } from "@/storage/usage";
-import { HostHeader } from "../(host)/host-header";
+import { Veil } from "@/themes/glass";
+import { HostFrame } from "../(host)/host-frame";
 import { FeaturesForm, HomePageForm, HostInvitationForm, LimitsForm, MissingSizesForm, RegistrationForm, StorageForm } from "./instance-forms";
 import { StrayFiles } from "./stray-files";
 
 // Outside the host area's layout, which sends a signed-out visitor to sign in: this page does
 // not exist for anyone but the operator, so everyone else gets the not-found page, title and all.
+// It is in the frame of every signed-in page all the same, wearing the site area's poster (M8
+// ticket 20).
 export async function generateMetadata(): Promise<Metadata> {
   await requireOperator();
   const t = await getTranslations("Instance");
@@ -53,173 +58,172 @@ export default async function InstancePage() {
   const now = new Date();
 
   return (
-    <>
-      <HostHeader host={host} />
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    <HostFrame host={host} look={areaLook(posterPool(home), "site")}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Veil>
           <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
-          <Button asChild variant="outline">
-            <Link href="/instance/reports">{t("reports.link", { count: unhandledReports })}</Link>
-          </Button>
-        </div>
-        <Card id="home-page">
-          <CardHeader>
-            <CardTitle>
-              <h2>{t("homePage.title")}</h2>
-            </CardTitle>
-            <CardDescription>{t("homePage.description")}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ClientMessages namespaces={["Instance.homePage", "Posters"]}>
-              <HomePageForm home={home} />
-            </ClientMessages>
-          </CardContent>
-        </Card>
-        <Card id="registration">
-          <CardHeader>
-            <CardTitle>
-              <h2>{t("registration.title")}</h2>
-            </CardTitle>
-            <CardDescription>{t("registration.description")}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ClientMessages namespaces={["Instance.registration"]}>
-              <RegistrationForm mode={mode} />
-            </ClientMessages>
-          </CardContent>
-        </Card>
-        <Card id="limits">
-          <CardHeader>
-            <CardTitle>
-              <h2>{t("limits.title")}</h2>
-            </CardTitle>
-            <CardDescription>{t("limits.description")}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ClientMessages namespaces={["Instance.limits"]}>
-              <LimitsForm limits={limits} />
-            </ClientMessages>
-          </CardContent>
-        </Card>
-        <Card id="features">
-          <CardHeader>
-            <CardTitle>
-              <h2>{t("features.title")}</h2>
-            </CardTitle>
-            <CardDescription>{t("features.description")}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ClientMessages namespaces={["Instance.features"]}>
-              <FeaturesForm switches={switches} videosAvailable={storage.ffmpeg.available} />
-            </ClientMessages>
-          </CardContent>
-        </Card>
-        <Card id="storage">
-          <CardHeader>
-            <CardTitle>
-              <h2>{t("storage.title")}</h2>
-            </CardTitle>
-            <CardDescription>{t("storage.description")}</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-6">
-            <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
-              <dt>{t("storage.albums")}</dt>
-              <dd>{formatSize(storage.use.albums, locale)}</dd>
-              {storage.use.reserved > 0 && (
-                <>
-                  <dt>{t("storage.reserved")}</dt>
-                  <dd>{formatSize(storage.use.reserved, locale)}</dd>
-                </>
-              )}
-              <dt>{t("storage.pictures")}</dt>
-              <dd>{formatSize(storage.use.pictures, locale)}</dd>
-              <dt className="font-medium">{t("storage.total")}</dt>
-              <dd className="font-medium">{formatSize(storage.use.albums + storage.use.pictures, locale)}</dd>
-              {storage.disk !== undefined && (
-                <>
-                  <dt>{t("storage.onDisk")}</dt>
-                  <dd>{formatSize(storage.disk, locale)}</dd>
-                </>
-              )}
-              {storage.free !== undefined && (
-                <>
-                  <dt>{t("storage.free")}</dt>
-                  <dd>{formatSize(storage.free, locale)}</dd>
-                </>
-              )}
-            </dl>
-            {storage.bucket && <p className="text-sm text-muted-foreground">{t("storage.bucketNote")}</p>}
-            <VideosLine status={storage.ffmpeg} />
-            {/* Whether HDR videos' copies come out in standard colour (M8 ticket 05). */}
-            {storage.ffmpeg.available && <p className="text-sm">{t(storage.ffmpeg.toneMapping ? "storage.hdrConverted" : "storage.hdrFlat")}</p>}
-            {storage.ffmpeg.available && <ProcessedByLine mode={storage.mode} seenAt={storage.workerSeenAt} now={now} />}
-            <div className="flex flex-col gap-2">
-              {/* Every video has its sizes only when none lacks one and none is being given them
-                  (media part review). */}
-              <div role="status" className="flex flex-col gap-1 text-sm">
-                {(storage.missing > 0 || storage.making === 0) && <p>{t("storage.missingSizes", { count: storage.missing })}</p>}
-                {storage.making > 0 && <p>{t("storage.sizesBeingMade", { count: storage.making })}</p>}
-              </div>
-              {storage.processing && storage.ffmpeg.available && (
-                <ClientMessages namespaces={["Instance.storage"]}>
-                  <MissingSizesForm count={storage.missing} />
-                </ClientMessages>
-              )}
-            </div>
-            {storage.unmeasured > 0 && (
-              <p role="status" className="text-sm text-muted-foreground">
-                {t("storage.measuring", { count: storage.unmeasured })}
-              </p>
+        </Veil>
+        <Button asChild variant="outline">
+          <Link href="/instance/reports">{t("reports.link", { count: unhandledReports })}</Link>
+        </Button>
+      </div>
+      <Card id="home-page">
+        <CardHeader>
+          <CardTitle>
+            <h2>{t("homePage.title")}</h2>
+          </CardTitle>
+          <CardDescription>{t("homePage.description")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ClientMessages namespaces={["Instance.homePage", "Posters"]}>
+            <HomePageForm home={home} />
+          </ClientMessages>
+        </CardContent>
+      </Card>
+      <Card id="registration">
+        <CardHeader>
+          <CardTitle>
+            <h2>{t("registration.title")}</h2>
+          </CardTitle>
+          <CardDescription>{t("registration.description")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ClientMessages namespaces={["Instance.registration"]}>
+            <RegistrationForm mode={mode} />
+          </ClientMessages>
+        </CardContent>
+      </Card>
+      <Card id="limits">
+        <CardHeader>
+          <CardTitle>
+            <h2>{t("limits.title")}</h2>
+          </CardTitle>
+          <CardDescription>{t("limits.description")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ClientMessages namespaces={["Instance.limits"]}>
+            <LimitsForm limits={limits} />
+          </ClientMessages>
+        </CardContent>
+      </Card>
+      <Card id="features">
+        <CardHeader>
+          <CardTitle>
+            <h2>{t("features.title")}</h2>
+          </CardTitle>
+          <CardDescription>{t("features.description")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ClientMessages namespaces={["Instance.features"]}>
+            <FeaturesForm switches={switches} videosAvailable={storage.ffmpeg.available} />
+          </ClientMessages>
+        </CardContent>
+      </Card>
+      <Card id="storage">
+        <CardHeader>
+          <CardTitle>
+            <h2>{t("storage.title")}</h2>
+          </CardTitle>
+          <CardDescription>{t("storage.description")}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
+            <dt>{t("storage.albums")}</dt>
+            <dd>{formatSize(storage.use.albums, locale)}</dd>
+            {storage.use.reserved > 0 && (
+              <>
+                <dt>{t("storage.reserved")}</dt>
+                <dd>{formatSize(storage.use.reserved, locale)}</dd>
+              </>
             )}
-            <section aria-labelledby="storage-biggest-heading" className="flex flex-col gap-3">
-              <h3 id="storage-biggest-heading" tabIndex={-1} className="font-medium outline-none">
-                {t("storage.biggest")}
-              </h3>
-              {storage.biggest.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t("storage.none")}</p>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {storage.biggest.map((album) => (
-                    <BiggestAlbumRow key={album.id} album={album} totals={storage.totals.get(album.id) ?? NO_ITEMS} locale={locale} />
-                  ))}
-                </ul>
-              )}
-            </section>
-            <ClientMessages namespaces={["Instance.storage"]}>
-              <StorageForm processing={storage.processing} fourK={storage.fourK} />
-              <StrayFiles />
-            </ClientMessages>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <h2>{t("invitations.title")}</h2>
-            </CardTitle>
-            <CardDescription>{t("invitations.description", { days: HOST_INVITATION_DAYS })}</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-6">
-            <ClientMessages namespaces={["Instance.invitations"]}>
-              <HostInvitationForm canSend={isMailConfigured()} />
-            </ClientMessages>
-            <section aria-labelledby="invitations-heading" className="flex flex-col gap-3">
-              <h3 id="invitations-heading" className="font-medium">
-                {t("invitations.listTitle")}
-              </h3>
-              {invitations.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t("invitations.empty")}</p>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {invitations.map((invitation) => (
-                    <InvitationRow key={invitation.id} invitation={invitation} state={hostInvitationState(invitation, now)} now={now} />
-                  ))}
-                </ul>
-              )}
-            </section>
-          </CardContent>
-        </Card>
-      </main>
-    </>
+            <dt>{t("storage.pictures")}</dt>
+            <dd>{formatSize(storage.use.pictures, locale)}</dd>
+            <dt className="font-medium">{t("storage.total")}</dt>
+            <dd className="font-medium">{formatSize(storage.use.albums + storage.use.pictures, locale)}</dd>
+            {storage.disk !== undefined && (
+              <>
+                <dt>{t("storage.onDisk")}</dt>
+                <dd>{formatSize(storage.disk, locale)}</dd>
+              </>
+            )}
+            {storage.free !== undefined && (
+              <>
+                <dt>{t("storage.free")}</dt>
+                <dd>{formatSize(storage.free, locale)}</dd>
+              </>
+            )}
+          </dl>
+          {storage.bucket && <p className="text-sm text-muted-foreground">{t("storage.bucketNote")}</p>}
+          <VideosLine status={storage.ffmpeg} />
+          {/* Whether HDR videos' copies come out in standard colour (M8 ticket 05). */}
+          {storage.ffmpeg.available && <p className="text-sm">{t(storage.ffmpeg.toneMapping ? "storage.hdrConverted" : "storage.hdrFlat")}</p>}
+          {storage.ffmpeg.available && <ProcessedByLine mode={storage.mode} seenAt={storage.workerSeenAt} now={now} />}
+          <div className="flex flex-col gap-2">
+            {/* Every video has its sizes only when none lacks one and none is being given them
+                (media part review). */}
+            <div role="status" className="flex flex-col gap-1 text-sm">
+              {(storage.missing > 0 || storage.making === 0) && <p>{t("storage.missingSizes", { count: storage.missing })}</p>}
+              {storage.making > 0 && <p>{t("storage.sizesBeingMade", { count: storage.making })}</p>}
+            </div>
+            {storage.processing && storage.ffmpeg.available && (
+              <ClientMessages namespaces={["Instance.storage"]}>
+                <MissingSizesForm count={storage.missing} />
+              </ClientMessages>
+            )}
+          </div>
+          {storage.unmeasured > 0 && (
+            <p role="status" className="text-sm text-muted-foreground">
+              {t("storage.measuring", { count: storage.unmeasured })}
+            </p>
+          )}
+          <section aria-labelledby="storage-biggest-heading" className="flex flex-col gap-3">
+            <h3 id="storage-biggest-heading" tabIndex={-1} className="font-medium outline-none">
+              {t("storage.biggest")}
+            </h3>
+            {storage.biggest.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("storage.none")}</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {storage.biggest.map((album) => (
+                  <BiggestAlbumRow key={album.id} album={album} totals={storage.totals.get(album.id) ?? NO_ITEMS} locale={locale} />
+                ))}
+              </ul>
+            )}
+          </section>
+          <ClientMessages namespaces={["Instance.storage"]}>
+            <StorageForm processing={storage.processing} fourK={storage.fourK} />
+            <StrayFiles />
+          </ClientMessages>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <h2>{t("invitations.title")}</h2>
+          </CardTitle>
+          <CardDescription>{t("invitations.description", { days: HOST_INVITATION_DAYS })}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6">
+          <ClientMessages namespaces={["Instance.invitations"]}>
+            <HostInvitationForm canSend={isMailConfigured()} />
+          </ClientMessages>
+          <section aria-labelledby="invitations-heading" className="flex flex-col gap-3">
+            <h3 id="invitations-heading" className="font-medium">
+              {t("invitations.listTitle")}
+            </h3>
+            {invitations.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("invitations.empty")}</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {invitations.map((invitation) => (
+                  <InvitationRow key={invitation.id} invitation={invitation} state={hostInvitationState(invitation, now)} now={now} />
+                ))}
+              </ul>
+            )}
+          </section>
+        </CardContent>
+      </Card>
+    </HostFrame>
   );
 }
 

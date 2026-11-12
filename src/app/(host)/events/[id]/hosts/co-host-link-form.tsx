@@ -43,7 +43,7 @@ function NewCoHostLink({ link, days }: { link: string; days: number }) {
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl bg-muted/50 p-4">
+    <div className="flex flex-col gap-3 rounded-xl bg-muted p-4">
       <p role="status" className="text-sm">
         {t("created", { days })}
       </p>

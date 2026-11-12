@@ -484,7 +484,7 @@ test("under reduced motion a guest's letter is still, in the Poster, the Broadsh
 });
 
 // The dashboard with an event on every shelf, still (dashboard, ticket 05): no tile lifts, nothing
-// fades in, and the glow behind it never moves.
+// fades in, and the poster behind it never moves.
 test("under reduced motion the dashboard with an event on every shelf is still", async ({ browser, request }) => {
   test.slow();
   const host = await hostWithShelves(browser, request, "still-shelves");

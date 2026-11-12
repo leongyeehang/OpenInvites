@@ -315,6 +315,10 @@ test("with Always the same poster, the signed-out screens wear it under the save
     await expect(page.locator('[data-slot="site-name"]')).toHaveText("Casa Ada");
     await expect(page.getByRole("link", { name: "Casa Ada", exact: true })).toHaveAttribute("href", "/");
   }
+  // Ticket 20: and Site settings, which wears the site area's poster from the same set.
+  await operator.goto("/instance");
+  await expect(operator.getByRole("heading", { level: 1, name: "Site settings" })).toBeVisible();
+  await expectSiteLook(operator, "disco-ball-copy");
 });
 
 test("Only the ones I pick shows none but those", async ({ page }) => {

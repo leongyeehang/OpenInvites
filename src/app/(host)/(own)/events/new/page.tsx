@@ -4,7 +4,8 @@ import { requireHost } from "@/auth/session";
 import { hostNeedsVerification } from "@/auth/verification";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientMessages } from "@/locale/client-messages";
-import { ResendVerificationForm } from "../../resend-verification-form";
+import { Glass, Veil } from "@/themes/glass";
+import { ResendVerificationForm } from "../../../resend-verification-form";
 import { StartEvent } from "./start-event";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -12,6 +13,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("title") };
 }
 
+// The heading on the veil, and the button that sends for the draft, with what it says while it
+// does, in a glass panel (M8 ticket 20); a host who must verify their email first is told so on a
+// card, which the page's scope makes glass.
 export default async function NewEventPage() {
   const [host, t] = await Promise.all([requireHost(), getTranslations("Events")]);
   if (hostNeedsVerification(host)) {
@@ -31,10 +35,14 @@ export default async function NewEventPage() {
   }
   return (
     <>
-      <h1 className="text-2xl font-semibold tracking-tight">{(await getTranslations("Editor.new"))("title")}</h1>
-      <ClientMessages namespaces={["Editor.new"]}>
-        <StartEvent />
-      </ClientMessages>
+      <Veil>
+        <h1 className="text-2xl font-semibold tracking-tight">{(await getTranslations("Editor.new"))("title")}</h1>
+      </Veil>
+      <Glass className="p-5">
+        <ClientMessages namespaces={["Editor.new"]}>
+          <StartEvent />
+        </ClientMessages>
+      </Glass>
     </>
   );
 }

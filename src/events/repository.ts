@@ -306,11 +306,12 @@ export async function removeEvents(which: SQL | undefined): Promise<void> {
   await Promise.all([removeRenditions(uploads), removeItemFiles(photos)]);
 }
 
-// The dashboard: the events a host owns and those they co-host, each with their role.
-export async function listHostEvents(hostId: string): Promise<HostEvent[]> {
+// The dashboard: the events a host owns and those they co-host, each with their role. Cached per
+// request, as the dashboard reads it and so does the look its frame wears (dashboard/host-look.ts).
+export const listHostEvents = cache(async (hostId: string): Promise<HostEvent[]> => {
   const events = await getDb().query.event.findMany({ where: hostedBy(hostId), orderBy: [asc(event.startsAt), desc(event.createdAt)] });
   return events.map((found) => ({ ...withTheme(found), role: roleOf(found, hostId) }));
-}
+});
 
 // The events this host owns, in any state; co-hosted events are not theirs. What the operator's
 // events-per-host limit counts.

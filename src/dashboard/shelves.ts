@@ -66,7 +66,8 @@ export function showsYear(event: ShelfEvent, now: Date): boolean {
   return year(event.startsAt) !== year(now);
 }
 
-// Whose poster lends the page its glow: Next up's, else the first event on the page.
+// Whose poster lends a host's pages their look (host-look.ts): Next up's, else the first event on
+// the page.
 export function glowEvent({ nextUp, comingUp, drafts, past }: Shelves): ShelfEvent | null {
   return nextUp ?? comingUp[0] ?? drafts[0] ?? past[0] ?? null;
 }

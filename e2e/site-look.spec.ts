@@ -1,8 +1,9 @@
 import { expectRingStandsOut, worstContrast } from "./contrast";
 import { createDraft, createPublished, editSettings, openMore, pickDesign } from "./events";
-import { latestMailTo, mailCountTo, newHost, PASSWORD, signUpVerified } from "./hosts";
+import { hostWithShelves } from "./dashboard";
+import { latestMailTo, mailCountTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { backdropPainted, expectSiteLook, SITE_POSTERS } from "./site-look";
-import { clientAddress, expect, test, type Browser, type Page } from "./test";
+import { clientAddress, expect, test, type Browser, type Locator, type Page } from "./test";
 
 // M8 ticket 18: every page that is not an event page sits on a still poster, in glass, and the
 // notice pages come first. The pages drawn without the database (too fast, privacy, terms, not
@@ -10,14 +11,44 @@ import { clientAddress, expect, test, type Browser, type Page } from "./test";
 // event's link wear the guest area's poster from the site's set, never the event's Theme, so they
 // read the same whatever the host chose. The shared `app` keeps the whole gallery as its set.
 // Ticket 19: the signed-out screens and the co-host link wear the welcome area's poster from the
-// site's set, with the site's name above their cards. Nothing on them moves, so motion is welcome here and still nothing runs. Each test runs at 390
-// pixels in the mobile project and at desktop width in the other.
+// site's set, with the site's name above their cards. Ticket 20: every signed-in page sits in one
+// frame, a glass header over a still poster: a host's own pages wear their next event's poster, or
+// the host area's, and Site settings and reports the site area's. Nothing on these pages moves, so
+// motion is welcome here and still nothing runs. Each test runs at 390 pixels in the mobile project
+// and at desktop width in the other.
 
 test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
 const STOP_LINK = /https?:\/\/\S+\/m\/[A-Za-z0-9]{24}/;
 const INVITE_ONLY = "Invite-only: only people on the invite list can open the invitation";
 const DISCO = "disco-ball-copy";
+const CAKE = "birthday-cake-copy";
+
+// What is no part of what is behind a button's words, painted with its fill while it is pictured
+// (ticket 19): its edge, its rounded corners, and the row of pixels its box shares with what is
+// round it, as a button can sit half a pixel off the grid.
+const EDGELESS = ["border-color", "background-clip", "border-radius", "box-shadow", "transition"];
+
+async function buttonWordsContrast(button: Locator) {
+  await button.evaluate((element) => {
+    const style = (element as HTMLElement).style;
+    const fill = getComputedStyle(element).backgroundColor;
+    Object.assign(style, { transition: "none", borderColor: "transparent", backgroundClip: "border-box", borderRadius: "0", boxShadow: `0 0 0 2px ${fill}` });
+  });
+  const ratio = await worstContrast(button);
+  await button.evaluate((element, names) => names.forEach((name) => (element as HTMLElement).style.removeProperty(name)), EDGELESS);
+  return ratio;
+}
+
+// A field's typed words, its own border left out of the picture (ticket 18): light under light
+// text, and no part of what is behind its words.
+async function typedContrast(field: Locator) {
+  await field.blur();
+  await field.evaluate((element) => ((element as HTMLElement).style.borderColor = "transparent"));
+  const ratio = await worstContrast(field);
+  await field.evaluate((element) => (element as HTMLElement).style.removeProperty("border-color"));
+  return ratio;
+}
 const CO_HOST_LINK = /^https?:\/\/\S+\/co-host\/[A-Za-z0-9_-]{32}$/;
 
 // A guest on a device of their own.
@@ -229,22 +260,13 @@ test("sign-in reads on its poster", async ({ page }) => {
   for (const control of [email, submit, forgot]) await expectRingStandsOut(page, control);
 
   // Hovered, a button keeps a fill its words are proven on: the accent, and strong glass for an
-  // outline button. What is no part of what is behind its words is painted with its fill while it
-  // is pictured: its edge, which shows the hover, its rounded corners, and the row of pixels its
-  // box shares with what is round it, as a button can sit half a pixel off the grid.
-  const EDGELESS = ["border-color", "background-clip", "border-radius", "box-shadow", "transition"];
+  // outline button. Its edge, which shows the hover, is left out of the picture (EDGELESS).
   for (const [button, what] of [
     [submit, "Sign in, hovered"],
     [page.getByRole("button", { name: "Send me the link" }), "Send me the link, hovered"],
   ] as const) {
     await button.hover();
-    await button.evaluate((element) => {
-      const style = (element as HTMLElement).style;
-      const fill = getComputedStyle(element).backgroundColor;
-      Object.assign(style, { transition: "none", borderColor: "transparent", backgroundClip: "border-box", borderRadius: "0", boxShadow: `0 0 0 2px ${fill}` });
-    });
-    expect(await worstContrast(button), what).toBeGreaterThanOrEqual(4.5);
-    await button.evaluate((element, names) => names.forEach((name) => (element as HTMLElement).style.removeProperty(name)), EDGELESS);
+    expect(await buttonWordsContrast(button), what).toBeGreaterThanOrEqual(4.5);
   }
 });
 
@@ -264,3 +286,132 @@ test("a signed-out screen's notices and refusals read on its poster", async ({ p
   await page.mouse.move(0, 0);
   expect(await worstContrast(refusal), "the refusal").toBeGreaterThanOrEqual(4.5);
 });
+
+// A host's own pages, each wearing `copy`. New event sends for its draft as soon as it is on
+// screen and opens the editor: its post is held unanswered, so that the page itself is looked at.
+async function expectOwnPagesWear(page: Page, copy: string) {
+  await page.goto("/dashboard");
+  await expect(page.getByRole("heading", { level: 1, name: "Your events" })).toBeVisible();
+  await expectSiteLook(page, copy);
+  await page.goto("/account");
+  await expect(page.getByRole("heading", { level: 1, name: "Account settings" })).toBeVisible();
+  await expectSiteLook(page, copy);
+  await page.route("**/events/new", async (route) => {
+    if (route.request().method() !== "POST") await route.continue();
+  });
+  await page.goto("/events/new");
+  await expect(page.getByRole("heading", { level: 1, name: "New event" })).toBeVisible();
+  // Its button fades to show it is busy, which is the page answering, not the page moving.
+  await expect(page.getByText("Starting your invitation…")).toBeVisible();
+  await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished)));
+  await expectSiteLook(page, copy);
+}
+
+test("a new host's dashboard, Account and New event wear the site's poster for hosts", async ({ page, request }) => {
+  test.slow();
+  await signUpVerified(page, request, "site-look-new-host");
+  await expectOwnPagesWear(page, SITE_POSTERS.host);
+});
+
+test("a host's own pages wear their next event's poster", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "site-look-next", { title: "Ada’s disco", start: "2027-03-06T19:00" });
+  await pickDesign(host.page, "Poster", "Poster", "Disco", "Gallery");
+  await expectOwnPagesWear(host.page, DISCO);
+  await host.context.close();
+});
+
+test("Site settings and reports wear the site's poster", async ({ page }) => {
+  await signIn(page, OPERATOR.email, PASSWORD);
+  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
+  for (const [path, heading] of [
+    ["/instance", "Site settings"],
+    ["/instance/reports", "Reports"],
+  ]) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+    await expectSiteLook(page, SITE_POSTERS.site);
+  }
+});
+
+test("the header is a bar of glass and the shelves are glass panels", async ({ browser, request }) => {
+  test.slow();
+  const { page, context } = await hostWithShelves(browser, request, "site-look-shelves");
+  const expectGlass = async (element: Locator, what: string) => {
+    const { filter, fill } = await element.evaluate((found) => ({ filter: getComputedStyle(found).backdropFilter, fill: getComputedStyle(found).backgroundColor }));
+    expect(filter, `${what}'s blur`).toContain("blur");
+    expect(fill, `${what}'s fill`).not.toBe("rgba(0, 0, 0, 0)");
+  };
+  await expectGlass(page.getByRole("banner"), "the header");
+  for (const name of ["Next up", "Coming up", "Drafts", "Past"]) {
+    await expectGlass(page.getByRole("region", { name, exact: true }).locator(":scope > div").first(), name);
+  }
+  // The chip on a poster keeps its own opaque colours, whatever the picture under it.
+  await page.waitForLoadState("networkidle");
+  const draft = page.getByRole("region", { name: "Drafts", exact: true }).getByText("Draft", { exact: true });
+  expect(await worstContrast(draft), "the Draft chip").toBeGreaterThanOrEqual(4.5);
+  await context.close();
+});
+
+// A guest's reply, on a device of their own, so that the guest list has a row.
+async function replyGoing(browser: Browser, link: string, name: string) {
+  const guest = await newGuest(browser);
+  await guest.goto(link);
+  await guest.getByRole("button", { name: "Going", exact: true }).click();
+  await guest.getByLabel("Your name").fill(name);
+  await guest.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(guest.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+  await guest.context().close();
+}
+
+// Cake under dark text and Disco under light text, a test each, as each makes a host of its own.
+for (const [poster, copy, tone] of [
+  ["Cake", CAKE, "dark"],
+  ["Disco", DISCO, "light"],
+] as const) {
+  test(`a host's pages read on a light poster and a dark one: ${poster}, under ${tone} text`, async ({ browser, request }) => {
+    test.slow();
+    const host = await createPublished(browser, request, `site-look-${tone}`, { title: `Ada’s ${poster.toLowerCase()} party`, start: "2027-03-06T19:00", plusOnes: "0" });
+    await pickDesign(host.page, "Poster", "Poster", poster, "Gallery");
+    const editor = host.page.url();
+    await replyGoing(browser, host.link, "Priya Nair");
+    const page = host.page;
+    const read = async (text: Locator, what: string) => expect(await worstContrast(text), `${what}, on ${poster}`).toBeGreaterThanOrEqual(4.5);
+
+    await page.goto("/dashboard");
+    await expectSiteLook(page, copy);
+    await expect(page.locator(".site-page")).toHaveAttribute("data-tone", tone);
+    await backdropPainted(page);
+    const nextUp = page.getByRole("region", { name: "Next up", exact: true });
+    await read(page.getByRole("banner").getByRole("link", { name: "OpenInvites", exact: true }), "the site's name");
+    await read(page.getByRole("heading", { level: 1, name: "Your events" }), "the title");
+    await read(nextUp.getByRole("heading", { name: "Next up" }), "Next up");
+    await read(nextUp.getByText("1 person expected"), "the headcount");
+
+    await page.goto("/account");
+    await expectSiteLook(page, copy);
+    await backdropPainted(page);
+    const displayName = page.locator('[data-slot="card"]').filter({ has: page.getByRole("heading", { level: 2, name: "Display name" }) });
+    await read(displayName.getByRole("heading", { level: 2, name: "Display name" }), "the card's title");
+    await read(displayName.getByText("Guests see it as “Hosted by”."), "the card's description");
+    expect(await typedContrast(page.getByLabel("Display name")), `the typed name, on ${poster}`).toBeGreaterThanOrEqual(4.5);
+    // A destructive button's words, in the danger ink on strong glass, and an outline button's
+    // hovered, its fill kept.
+    expect(await buttonWordsContrast(page.getByRole("button", { name: "Delete account" })), `Delete account, on ${poster}`).toBeGreaterThanOrEqual(4.5);
+    const signOut = page.getByRole("main").getByRole("button", { name: "Sign out" });
+    await signOut.hover();
+    expect(await buttonWordsContrast(signOut), `Sign out, hovered, on ${poster}`).toBeGreaterThanOrEqual(4.5);
+
+    // An event's guest list: one frame, in one glass panel until the event's own Theme dresses it.
+    await page.goto(`${editor}/guests`);
+    await expect(page.getByRole("heading", { level: 1, name: "Guest list" })).toBeVisible();
+    await expectSiteLook(page, copy);
+    await expect(page.getByRole("banner")).toHaveCount(1);
+    await expect(page.getByRole("main")).toHaveCount(1);
+    await expect(page.getByRole("contentinfo")).toHaveCount(1);
+    await backdropPainted(page);
+    await read(page.getByRole("heading", { level: 1, name: "Guest list" }), "the guest list's title");
+    await read(page.getByRole("region", { name: /^Going/ }).getByText("Priya Nair", { exact: true }), "a guest's row");
+    await host.context.close();
+  });
+}

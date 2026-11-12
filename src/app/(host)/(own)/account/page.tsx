@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { baseUrl } from "@/instance/env";
 import { ClientMessages } from "@/locale/client-messages";
+import { Veil } from "@/themes/glass";
 import { ChangeEmailForm, ChangePasswordForm, DeleteAccountDialog, DisplayNameForm } from "./account-forms";
 import { Passkeys } from "./passkeys";
 
@@ -34,7 +35,9 @@ export default async function AccountPage() {
       {/* Sign out is here as well as in the account menu, so a browser that has not run the menu's
           script (the initials are then a link to this page) can still sign out. */}
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        <Veil>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        </Veil>
         <form action={signOut}>
           <Button type="submit" variant="outline">
             {header("signOut")}

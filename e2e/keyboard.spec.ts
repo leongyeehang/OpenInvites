@@ -442,6 +442,18 @@ for (const colorScheme of ["light", "dark"] as const) {
     await page.goto(`${manage}/share`);
     await expectRingStandsOut(page, page.getByRole("link", { name: "Back to the event" }));
 
+    // The header's bar of glass, and a field and its button on Account (M8 ticket 20).
+    await page.goto("/dashboard");
+    await expectRingStandsOut(page, page.getByRole("banner").getByRole("link", { name: "New event" }));
+    // The 12px read beside the initials reach into the New event pill, 8px off: the ring is drawn
+    // on the bar between them, so the pill is hidden while the bar is read (until the next page).
+    await page.getByRole("banner").getByRole("link", { name: "New event" }).evaluate((element) => ((element as HTMLElement).style.visibility = "hidden"));
+    await expectRingStandsOut(page, page.getByRole("banner").getByRole("button", { name: "Account menu" }));
+    await page.goto("/account");
+    const displayName = page.locator('[data-slot="card"]').filter({ has: page.getByRole("heading", { level: 2, name: "Display name" }) });
+    await expectRingStandsOut(page, displayName.getByLabel("Display name"));
+    await expectRingStandsOut(page, displayName.getByRole("button", { name: "Save" }));
+
     // The design sheets, over the live copy of the invitation.
     await page.goto(manage);
     let drawer = await openDesign(page, "Poster", "Gallery");

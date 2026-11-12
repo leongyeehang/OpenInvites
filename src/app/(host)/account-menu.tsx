@@ -42,7 +42,7 @@ export function AccountMenu({
             role="button"
             aria-label={labels.menu}
             onClick={(event) => event.preventDefault()}
-            className="grid size-9 shrink-0 place-items-center rounded-full bg-card text-xs font-semibold text-foreground shadow-sm ring-1 ring-foreground/10 outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="grid size-9 shrink-0 place-items-center rounded-full text-xs font-semibold text-foreground ring-1 ring-theme-glass-border outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             <span aria-hidden>{initials}</span>
           </Link>
