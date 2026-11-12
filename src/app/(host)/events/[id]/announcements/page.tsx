@@ -17,9 +17,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { findHostEvent } from "@/events/repository";
+import { can } from "@/hosts/role";
 import { formatMoment, formatWhen, isDated } from "@/events/time";
 import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
+import { votingDraft } from "@/voting";
 import { AnnouncementForm } from "./announcement-form";
 import { eventUrl } from "@/events/slug";
 
@@ -34,11 +36,14 @@ export async function generateMetadata(): Promise<Metadata> {
 
 // The host's announcements for one event (spec, "Announcements"): the form that posts one, then
 // every one posted, newest first, with when it went and to whom, each of which can be taken down.
-// Times are in the event's own zone, as on the guest list.
-export default async function AnnouncementsPage({ params }: PageProps<"/events/[id]/announcements">) {
-  const [host, { id }, t, locale, format] = await Promise.all([
+// Times are in the event's own zone, as on the guest list. A draft another part of the app wrote
+// for the host, named by `?draft=` (the album vote's "Tell guests voting is open", M8 ticket 14),
+// starts the form, for the host to change and send.
+export default async function AnnouncementsPage({ params, searchParams }: PageProps<"/events/[id]/announcements">) {
+  const [host, { id }, { draft: named }, t, locale, format] = await Promise.all([
     requireHost(),
     params,
+    searchParams,
     getTranslations("Announcements"),
     getLocale(),
     getFormatter(),
@@ -56,6 +61,7 @@ export default async function AnnouncementsPage({ params }: PageProps<"/events/[
     location: event.location,
     url: eventUrl(event),
   });
+  const draft = can(event.role, "announcements") ? await votingDraft(event, typeof named === "string" ? named : undefined, locale) : undefined;
 
   return (
     <>
@@ -74,7 +80,7 @@ export default async function AnnouncementsPage({ params }: PageProps<"/events/[
       </div>
 
       <ClientMessages namespaces={["Announcements"]}>
-        <AnnouncementForm eventId={event.id} reminder={reminder} mail={mail} />
+        <AnnouncementForm eventId={event.id} reminder={reminder} mail={mail} draft={draft} />
       </ClientMessages>
 
       {announcements.length > 0 && (

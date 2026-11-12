@@ -13,6 +13,7 @@ import {
   type ViewerWithoutInvite,
   type VotingEvent,
   type VotingViewer,
+  type WhoMayVote,
 } from "./voting";
 
 export type Award = typeof albumAward.$inferSelect;
@@ -198,6 +199,29 @@ export async function setVote(
 // whatever the vote's state.
 export async function setUploaderNames(eventId: string, names: UploaderNames): Promise<void> {
   await getDb().update(event).set({ albumUploaderNames: names }).where(eq(event.id, eventId));
+}
+
+// Who may vote besides the hosts (M8 ticket 14), a setting kept whatever the vote's state. Votes
+// already given stay, counted: it governs who votes from then on (M8 plan, ruling 25).
+export async function setWhoMayVote(eventId: string, voters: WhoMayVote): Promise<void> {
+  await getDb().update(event).set({ albumVoters: voters }).where(eq(event.id, eventId));
+}
+
+// The time the vote closes by itself (M8 ticket 14), or none, under the event's lock, so that it
+// falls wholly before or after a vote given. Nothing runs at that time: the vote reads closed from
+// then on (voting.ts, votingState). A vote that already reads closed by its time is stored as
+// closed first, so a later time, or none, never reopens it unseen: reopening is Reopen voting's,
+// which also ends any tie-break.
+export async function setClosingTime(eventId: string, closesAt: Date | null, now: Date): Promise<void> {
+  await getDb().transaction(async (tx) => {
+    const locked = await lockVoting(eventId, tx);
+    if (!locked) return;
+    const closedByTime = locked.albumVoting === "open" && votingState(locked, now) === "closed";
+    await tx
+      .update(event)
+      .set({ albumVotingClosesAt: closesAt, ...(closedByTime && { albumVoting: "closed" as const }) })
+      .where(eq(event.id, eventId));
+  });
 }
 
 // The host's awards (M8 ticket 13), each change in one transaction under the event's lock, so that

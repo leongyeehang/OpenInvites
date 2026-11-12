@@ -3,6 +3,7 @@
 // outside the module imports its types only.
 export * from "./voting";
 export { albumVotingFor, type AlbumVoting, type AlbumVotingInput } from "./album-voting";
+export { votingDraft, type VotingDraftKind } from "./drafts";
 export { copyAwards, withInvite, type Award } from "./repository";
 export { closeVotingAction, reopenVotingAction, startVotingAction, turnOffVotingAction } from "./host-actions";
 export { VotingSettings } from "./voting-settings";

@@ -1,10 +1,10 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
-import { createPublished, editSettings, openMore, openSettings, savedAfter, saveStatus, setWhen } from "./events";
+import { createPublished, editSettings, openMore, openSettings, savedAfter, saveStatus, setWhen, utcFromNow } from "./events";
 import { signUpVerified } from "./hosts";
 import { exec } from "./instances";
 import { closeReply } from "./reply";
-import { clientAddress, expect, test, type APIRequestContext, type Browser, type Locator, type Page } from "./test";
+import { clientAddress, expect, test, type APIRequestContext, type Browser, type Locator, type Page, type Route } from "./test";
 
 // M8 ticket 10: the album vote, a module of its own (src/voting). The host starts it, closes it,
 // reopens it and turns it off from the Voting block in the editor's Settings, below the album's;
@@ -24,23 +24,31 @@ import { clientAddress, expect, test, type APIRequestContext, type Browser, type
 // M8 ticket 13: the host names the awards in the Voting block, up to eight, each for photos,
 // videos or both; guests pick an award above the album and have one vote in each. An award for
 // photos only or videos only shows only those items.
+//
+// M8 ticket 14: the host says who may vote (everyone who sees the album, only guests who are
+// going, or only guests invited personally) and may set a time at which voting closes by itself,
+// with nothing running then: the pages and the vote read it closed once it has come. Starting a
+// vote offers "Tell guests voting is open", the Announcements page with the message written.
 
 const PAST = { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" };
 const AHEAD = { title: "Ada’s garden party", start: "2027-11-20T16:00", plusOnes: "0" };
 
 const votingBlock = (sheet: Locator) => sheet.locator('[data-slot="voting-block"]');
 
-// A guest of their own who answers Going and comes back to the page.
-async function guestGoing(browser: Browser, link: string, name: string): Promise<Page> {
+// A guest of their own who answers, through the event link or their personal invite link, and
+// comes back to the page.
+async function guestAnswers(browser: Browser, link: string, name: string, status: "Going" | "Maybe"): Promise<Page> {
   const page = await (await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
   await page.goto(link);
-  await page.getByRole("button", { name: "Going" }).click();
+  await page.getByRole("button", { name: status, exact: true }).click();
   await page.getByLabel("Your name").fill(name);
   await page.getByRole("button", { name: "Send RSVP" }).click();
-  await expect(page.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(status === "Going" ? "You’re going!" : "You’re a maybe.")).toBeVisible({ timeout: 15_000 });
   await closeReply(page);
   return page;
 }
+
+const guestGoing = (browser: Browser, link: string, name: string) => guestAnswers(browser, link, name, "Going");
 
 const album = (page: Page) => page.locator('[data-slot="album"]');
 
@@ -441,10 +449,39 @@ test("turning voting off says how many votes go", async ({ browser, request }) =
 
   await host.page.reload();
   const block = votingBlock(await openSettings(host.page));
-  await block.getByRole("button", { name: "Turn off voting" }).click();
   const confirm = host.page.getByRole("alertdialog", { name: "Turn off voting?" });
+  const turnItOff = confirm.getByRole("button", { name: "Turn it off" });
+
+  // Review fix (ticket 14): while the count is being read, the confirmation gives no figure and
+  // cannot be confirmed; it can once the count is in.
+  let answer = () => {};
+  const held = new Promise<void>((resolve) => (answer = resolve));
+  await host.page.route("**/*", async (route) => {
+    if (isAction(route)) await held;
+    await route.fallback();
+  });
+  await block.getByRole("button", { name: "Turn off voting" }).click();
+  await expect(confirm).toContainText("Counting the votes…");
+  await expect(turnItOff).toBeDisabled();
+  answer();
+  await expect(turnItOff).toBeEnabled();
   await expect(confirm).toContainText("Its 2 votes are deleted.");
-  await savedAfter(host.page, () => confirm.getByRole("button", { name: "Turn it off" }).click());
+  await confirm.getByRole("button", { name: "Never mind" }).click();
+  await host.page.unrouteAll({ behavior: "wait" });
+
+  // A count that cannot be read is said so, and leaves only Never mind.
+  await host.page.route("**/*", (route) => (isAction(route) ? route.abort() : route.fallback()));
+  await block.getByRole("button", { name: "Turn off voting" }).click();
+  await expect(confirm).toContainText("The votes couldn’t be counted. Close this and try again.");
+  await expect(turnItOff).toBeDisabled();
+  await confirm.getByRole("button", { name: "Never mind" }).click();
+  await expect(confirm).toBeHidden();
+  await host.page.unrouteAll({ behavior: "wait" });
+
+  await block.getByRole("button", { name: "Turn off voting" }).click();
+  await expect(turnItOff).toBeEnabled();
+  await expect(confirm).toContainText("Its 2 votes are deleted.");
+  await savedAfter(host.page, () => turnItOff.click());
   await expect(block).toHaveAttribute("data-state", "off");
 
   // Started again, every count is 0.
@@ -454,6 +491,9 @@ test("turning voting off says how many votes go", async ({ browser, request }) =
   await expect(count(host.page, "Photo 2")).toHaveAccessibleName("0 votes");
   await Promise.all([host.context.close(), priya.context().close(), ana.context().close(), mei.context().close()]);
 });
+
+// A request to a server action, as a press in the editor sends one.
+const isAction = (route: Route) => route.request().method() === "POST" && route.request().headers()["next-action"] !== undefined;
 
 // The owner's co-host link from the event's Hosts page (co-hosts.spec.ts), accepted by `coHost`.
 async function addCoHost(owner: Page, editor: string, coHost: Page) {
@@ -635,6 +675,12 @@ test("a guest votes once in each award, and an award for videos only shows only 
   await expect(star(ana, "Video 1")).toHaveAttribute("aria-pressed", "true");
   await expect(pill(ana, "Crowd favourite, voted")).toBeVisible();
 
+  // A query naming no award shows the first award, pressed, with its list (review fix, ticket 14).
+  await ana.goto(`${host.link}?award=nonsense`);
+  await expect(pill(ana, "Crowd favourite, voted")).toHaveAttribute("aria-pressed", "true");
+  await expect(pill(ana, "Best video, voted")).toHaveAttribute("aria-pressed", "false");
+  await expect(items(ana)).toHaveCount(2);
+
   // The host's total names the chosen award.
   await host.page.goto(host.link);
   await expect(hostsBox(host.page)).toContainText("1 vote so far in Crowd favourite");
@@ -644,7 +690,7 @@ test("a guest votes once in each award, and an award for videos only shows only 
 });
 
 test("an award's scope changed keeps the votes for what it still shows", async ({ browser, request }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(300_000);
   const host = await createPublished(browser, request, "album-awards-scope", PAST);
   const editor = host.page.url();
   const priya = await photoAndVideo(browser, host.link);
@@ -679,6 +725,24 @@ test("an award's scope changed keeps the votes for what it still shows", async (
   await expect(album(host.page).locator('li[data-item="video"] [data-slot="vote-count"]')).toHaveAccessibleName("1 vote");
   await ana.reload();
   await expect(head(ana).getByRole("status")).toHaveText(YOUR_VOTE);
+
+  // Narrowed again, the vote for the video is not Ana's in Favourite: no star of hers is pressed,
+  // she votes again, and the new vote is the one counted (review fix, ticket 14).
+  await host.page.goto(editor);
+  const third = awardsBlock(await openSettings(host.page));
+  await savedAfter(host.page, async () => {
+    await third.getByLabel("What Favourite is for").selectOption("photos");
+  });
+  await ana.reload();
+  const photoStar = album(ana).locator('li[data-item="photo"] [data-slot="vote-star"]');
+  await expect(photoStar).toHaveAttribute("aria-pressed", "false");
+  await expect(stars(ana).and(album(ana).locator('[aria-pressed="true"]'))).toHaveCount(0);
+  await vote(ana, photoStar);
+  await expect(photoStar).toHaveAttribute("aria-pressed", "true");
+  await expect(head(ana).getByRole("status")).toHaveText(YOUR_VOTE);
+  await host.page.goto(host.link);
+  await expect(hostsBox(host.page)).toContainText("1 vote so far in Favourite");
+  await expect(count(host.page, "Photo 1")).toHaveAccessibleName("1 vote");
   await Promise.all([host.context.close(), priya.context().close(), ana.context().close()]);
 });
 
@@ -737,5 +801,184 @@ test("Reopen voting is refused once the album is shut again, and says so", async
   await expect(saveStatus(host.page)).toHaveAttribute("data-status", "failed");
   await expect(host.page.getByRole("alert").filter({ hasText: "Voting can start once the album opens, at the start of the event." })).toBeVisible();
   await expect(again).toHaveAttribute("data-state", "closed");
+  await host.context.close();
+});
+
+// M8 ticket 14: who may vote, the closing time, and the "Voting is open" draft.
+
+const whoMayVote = (block: Locator) => block.getByLabel("Who may vote", { exact: true });
+const TELL_GUESTS = "Tell guests voting is open";
+
+// The host makes an invite on the Invites page, which is open, and reads its link from its row
+// (invites.spec.ts).
+async function makeInvite(hostPage: Page, name: string): Promise<string> {
+  await hostPage.getByLabel("Name", { exact: true }).fill(name);
+  await hostPage.getByRole("button", { name: "Make link" }).click();
+  await expect(hostPage.getByRole("status").filter({ hasText: /^Made a link for / })).toHaveText(`Made a link for ${name}.`, { timeout: 15_000 });
+  const row = hostPage.getByRole("listitem").filter({ has: hostPage.getByText(name, { exact: true }) });
+  return (await row.getByText(/^https?:\/\/\S+\/i\/[A-Za-z0-9]{24}$/).textContent())!.trim();
+}
+
+test("only guests who are going vote when the host says so", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-vote-going", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await addPhotos(priya, [await photo("garden.jpg", "#2f6b3a")], 1);
+  const block = votingBlock(await openSettings(host.page));
+  await expect(whoMayVote(block)).toHaveValue("album");
+  await expect(whoMayVote(block)).toHaveAccessibleDescription("Hosts can always vote. Votes already given stay counted when you change this.");
+  await savedAfter(host.page, async () => {
+    await whoMayVote(block).selectOption("Only guests who are going");
+  });
+  await press(host.page, block, "Start voting", "open");
+
+  // Ana, Going, has a star.
+  const ana = await guestGoing(browser, host.link, "Ana Ruiz");
+  await expect(stars(ana)).toHaveCount(1);
+  await expect(head(ana).getByRole("status")).toHaveText(TAP_TO_VOTE);
+
+  // Ben, Maybe, sees the album and is told why he has no star.
+  const ben = await guestAnswers(browser, host.link, "Ben Okafor", "Maybe");
+  await expect(items(ben)).toHaveCount(1);
+  await expect(head(ben)).toContainText("Voting is open");
+  await expect(head(ben)).toContainText("Only guests who are going can vote.");
+  await expect(head(ben).getByRole("status")).toHaveCount(0);
+  await expect(stars(ben)).toHaveCount(0);
+
+  // The host still votes.
+  await host.page.goto(host.link);
+  await expect(head(host.page)).not.toContainText("Only guests");
+  await vote(host.page, star(host.page, "Photo 1 by Priya Nair"));
+  await expect(star(host.page, "Photo 1 by Priya Nair")).toHaveAttribute("aria-pressed", "true");
+  await expect(hostsBox(host.page)).toContainText("1 vote so far in Favourite");
+  await Promise.all([host.context.close(), priya.context().close(), ana.context().close(), ben.context().close()]);
+});
+
+test("only guests invited personally vote when the host says so", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-vote-invited", PAST);
+  const editor = host.page.url();
+  await host.page.goto(host.link);
+  await addPhotos(host.page, [await photo("toast.jpg", "#e0b040")], 1);
+  await host.page.goto(`${editor}/invites`);
+  const caraLink = await makeInvite(host.page, "Cara Diaz");
+  await host.page.goto(editor);
+  const block = votingBlock(await openSettings(host.page));
+  await savedAfter(host.page, async () => {
+    await whoMayVote(block).selectOption("Only guests invited personally");
+  });
+  await press(host.page, block, "Start voting", "open");
+
+  // Cara replies through her link, and has a star.
+  const cara = await guestAnswers(browser, caraLink, "Cara Diaz", "Going");
+  await expect(stars(cara)).toHaveCount(1);
+  await expect(head(cara).getByRole("status")).toHaveText(TAP_TO_VOTE);
+
+  // Ana replied through the event link: she sees the album, and no star.
+  const ana = await guestGoing(browser, host.link, "Ana Ruiz");
+  await expect(items(ana)).toHaveCount(1);
+  await expect(head(ana)).toContainText("Only guests the hosts invited personally can vote.");
+  await expect(stars(ana)).toHaveCount(0);
+  await Promise.all([host.context.close(), cara.context().close(), ana.context().close()]);
+});
+
+test("voting closes by itself at the time the host set", async ({ browser, request }) => {
+  // It waits up to two minutes for the time to come, which test.slow()'s 90 s cannot hold.
+  test.setTimeout(300_000);
+  const host = await createPublished(browser, request, "album-vote-closes", { ...PAST, timeZone: "UTC" });
+  const editor = host.page.url();
+  await host.page.goto(host.link);
+  await addPhotos(host.page, [await photo("toast.jpg", "#e0b040")], 1);
+  await host.page.goto(editor);
+  const block = await startVoting(host.page);
+  const ana = await guestGoing(browser, host.link, "Ana Ruiz");
+  await vote(ana, star(ana, "Photo 1"));
+  await expect(star(ana, "Photo 1")).toHaveAttribute("aria-pressed", "true");
+
+  const closes = block.getByLabel("Close by itself at", { exact: true });
+  await expect(closes).toHaveAccessibleDescription("Guests see this time. Times are in UTC.");
+  await expect(block.getByRole("button", { name: "No closing time" })).toBeDisabled();
+
+  // A time that has passed is refused, and said so under the field.
+  await closes.fill(utcFromNow(-60 * 60_000));
+  await closes.press("Enter");
+  await expect(block.getByRole("alert")).toHaveText("Choose a time that hasn’t passed.");
+  await expect(saveStatus(host.page)).toHaveAttribute("data-status", "failed");
+
+  // A time at least a minute ahead (the field takes whole minutes), in the event's zone, UTC.
+  const wall = utcFromNow(119_000);
+  await savedAfter(host.page, async () => {
+    await closes.fill(wall);
+    await closes.press("Enter");
+  });
+  await expect(block.getByRole("alert")).toHaveCount(0);
+  const time = new Intl.DateTimeFormat("en", { timeZone: "UTC", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).format(new Date(`${wall}:00Z`));
+  await expect(block).toContainText(`Voting is open · closes ${time}`);
+  await expect(closes).toHaveValue(wall);
+
+  // Ana sees when it closes, and leaves a second page open.
+  await ana.reload();
+  await expect(head(ana)).toContainText(`Voting is open · closes ${time}`);
+  const left = await ana.context().newPage();
+  await left.goto(host.link);
+  await expect(star(left, "Photo 1")).toHaveAttribute("aria-pressed", "true");
+
+  // Nothing runs at that time: a page drawn after it reads closed, with the counts and no star.
+  await expect(async () => {
+    await ana.reload();
+    await expect(head(ana)).toContainText("Voting closed", { timeout: 2_000 });
+  }).toPass({ intervals: [5_000], timeout: 120_000 });
+  await expect(stars(ana)).toHaveCount(0);
+  await expect(count(ana, "Photo 1")).toHaveAccessibleName("1 vote");
+  await expect(head(ana)).not.toContainText("closes");
+
+  // The page left open refuses a vote.
+  await vote(left, star(left, "Photo 1"));
+  await expect(head(left).getByRole("alert")).toHaveText("Voting has closed.");
+
+  await host.page.reload();
+  const again = votingBlock(await openSettings(host.page));
+  await expect(again).toHaveAttribute("data-state", "closed");
+  await expect(again).toContainText("Voting closed");
+  await expect(again.getByRole("button", { name: "Reopen voting" })).toBeVisible();
+  await Promise.all([host.context.close(), ana.context().close()]);
+});
+
+test("the host tells guests voting is open with a message already written", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-vote-announce", PAST);
+  const sheet = await openSettings(host.page);
+  const block = votingBlock(sheet);
+  await savedAfter(host.page, () => awardsBlock(sheet).getByRole("button", { name: "Best photo", exact: true }).click());
+  await savedAfter(host.page, async () => {
+    await whoMayVote(block).selectOption("Only guests who are going");
+  });
+  // Before the vote starts there is nothing to tell.
+  await expect(block.getByRole("link", { name: TELL_GUESTS })).toHaveCount(0);
+  await press(host.page, block, "Start voting", "open");
+
+  await block.getByRole("link", { name: TELL_GUESTS }).click();
+  await expect(host.page).toHaveURL(/\/events\/[0-9a-f-]{36}\/announcements\?draft=voting$/);
+  const message = host.page.getByLabel("Message");
+  await expect(message).toHaveValue(/^Voting is open in the album for Ada’s garden party\./);
+  const draft = await message.inputValue();
+  expect(draft).toContain("You have one vote in each award: Favourite and Best photo.");
+  expect(draft).toContain(host.link);
+  // Only guests who are going may vote, so Going alone is ticked.
+  const audience = (name: string) => host.page.getByRole("checkbox", { name, exact: true });
+  await expect(audience("Going")).toBeChecked();
+  for (const other of ["Maybe", "Can’t go", "Waitlist"]) await expect(audience(other)).not.toBeChecked();
+
+  // Nothing went by itself; Send posts it, and the form starts again as it always does.
+  await expect(host.page.getByRole("button", { name: /^Delete the announcement from / })).toHaveCount(0);
+  await host.page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(message).toHaveValue("", { timeout: 15_000 });
+  await expect(audience("Maybe")).toBeChecked();
+  await expect(host.page.getByRole("listitem").getByText(/^Voting is open in the album for/)).toBeVisible();
+
+  // The event page shows it, and the hosts' box above the album offers the same.
+  await host.page.goto(host.link);
+  await expect(host.page.getByText(/^Voting is open in the album for Ada’s garden party\./)).toBeVisible();
+  await expect(hostsBox(host.page).getByRole("link", { name: TELL_GUESTS })).toHaveAttribute("href", /^\/events\/[0-9a-f-]{36}\/announcements\?draft=voting$/);
   await host.context.close();
 });

@@ -14,13 +14,24 @@ import { SAVED_STATUSES, type SavedStatus } from "@/rsvps/form";
 
 // What the host says, and which guests are emailed it, by status, the waitlist among them
 // (unticked at first). "Send a reminder now" fills in a reminder, already written in the host's
-// language, which they may change and send like any other announcement. The fields are the form's
-// own state, so a refusal leaves them as they were; once the announcement is posted they start
-// again. Without mail the boxes are shown but cannot change.
-export function AnnouncementForm({ eventId, reminder, mail }: { eventId: string; reminder: string; mail: boolean }) {
+// language, which they may change and send like any other announcement. A draft the page was
+// opened with (`?draft=`, M8 ticket 14) is where the message and its audience start. The fields are
+// the form's own state, so a refusal leaves them as they were; once the announcement is posted they
+// start again, empty. Without mail the boxes are shown but cannot change.
+export function AnnouncementForm({
+  eventId,
+  reminder,
+  mail,
+  draft,
+}: {
+  eventId: string;
+  reminder: string;
+  mail: boolean;
+  draft?: { body: string; audience?: readonly SavedStatus[] };
+}) {
   const t = useTranslations("Announcements");
-  const [body, setBody] = useState("");
-  const [audience, setAudience] = useState<readonly SavedStatus[]>(DEFAULT_AUDIENCE);
+  const [body, setBody] = useState(draft?.body ?? "");
+  const [audience, setAudience] = useState<readonly SavedStatus[]>(draft?.audience ?? DEFAULT_AUDIENCE);
   const [state, send, sending] = useActionState(async (previous: FormState, formData: FormData) => {
     const outcome = await postAnnouncementAction(eventId, previous, formData);
     if (outcome?.success) {

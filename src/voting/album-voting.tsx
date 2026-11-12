@@ -1,4 +1,5 @@
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { formatMoment } from "@/events/time";
 import { featureOn, siteFeatures } from "@/features";
 import type { AlbumSlot } from "@/themes/sections/album";
 import { AlbumVotingHead } from "./album-voting-head";
@@ -22,7 +23,9 @@ import {
 // whether this viewer is shown who added each item. The album's one hook into the module, called
 // once per page by the event page's albumFor. While there is a vote, an album that shows this
 // viewer every item is also given its slot (ticket 12): the head above the grid, each item's star
-// and badges on its tile and in the viewer, and each award's list of items.
+// and badges on its tile and in the viewer, and each award's list of items. The head says when
+// voting closes by itself, in the event's zone, and why a viewer who sees the album may not vote
+// (ticket 14).
 export type AlbumVoting = { state: VotingState; showsName: (item: Pick<VotableItem, "rsvpId" | "hostId">) => boolean; slot?: AlbumSlot };
 
 // `items` are the items this viewer sees, in the album's order.
@@ -48,8 +51,12 @@ export async function albumVotingFor({ event, viewer, view, items, now }: AlbumV
   const showsName = nameShownTo(true, event, viewer, now);
   if (state === "off" || view !== "open") return { state, showsName };
 
-  const [voter, awards, votes, t] = await Promise.all([withInvite(viewer), listAwards(event.id), listVotes(event.id), getTranslations("Voting")]);
+  const [voter, awards, votes, t, locale] = await Promise.all([withInvite(viewer), listAwards(event.id), listVotes(event.id), getTranslations("Voting"), getLocale()]);
   const standings = albumVotes(event, view, voter, now, awardsOrDefault(awards), votes, items);
+  const votesHere = mayVote(event, view, voter, now);
+  // A guest who sees the whole album but is not among those the host lets vote is told why.
+  const notAmong = voter.kind === "guest" && !votesHere && event.albumVoters !== "album" ? (event.albumVoters === "going" ? "onlyGoing" : "onlyInvited") : undefined;
+  const closesAt = state === "open" && event.albumVotingClosesAt ? formatMoment(event.albumVotingClosesAt, event.timeZone, locale) : undefined;
   const initial = keyOf(standings[0]);
   // This drawing of the page, told apart from every other: a star's press is shown over it until
   // the next drawing, which carries the vote as the site holds it (vote-star.tsx).
@@ -72,7 +79,9 @@ export async function albumVotingFor({ event, viewer, view, items, now }: AlbumV
         ...(standing.total !== undefined && { total: standing.total }),
       }))}
       initial={initial}
-      mayVote={mayVote(event, view, voter, now)}
+      mayVote={votesHere}
+      {...(notAmong && { notAmong })}
+      {...(closesAt && { closesAt })}
       {...(voter.kind === "host" && { eventId: event.id })}
     />
   );

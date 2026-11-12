@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireHost } from "@/auth/session";
 import { findHostEvent, type HostEvent } from "@/events/repository";
 import { eventPaths } from "@/events/slug";
+import { toInstant, toWallTime } from "@/events/time";
 import { featureOn, siteFeatures } from "@/features";
 import { can } from "@/hosts/role";
 import { isUuid } from "@/lib/uuid";
@@ -16,15 +17,17 @@ import {
   renameAward,
   reopenVoting,
   setAwardScope,
+  setClosingTime,
   setUploaderNames,
+  setWhoMayVote,
   startVoting,
   turnOffVoting,
 } from "./repository";
-import { AWARD_SCOPES, parseAwardName, UPLOADER_NAMES, type AwardScope, type UploaderNames } from "./voting";
+import { AWARD_SCOPES, closingTimeProblem, parseAwardName, UPLOADER_NAMES, WHO_MAY_VOTE, type AwardScope, type UploaderNames, type WhoMayVote } from "./voting";
 
 // The hosts' album vote actions (M8 ticket 10), from the Voting block in the editor's Settings:
-// start, close, reopen and turn off; whether guests see who added each item (ticket 11); and the
-// awards (ticket 13). Each is for the event's hosts, co-hosts included (hosts/role.ts), and each
+// start, close, reopen and turn off; whether guests see who added each item (ticket 11); the
+// awards (ticket 13); and who may vote and when voting closes by itself (ticket 14). Each is for the event's hosts, co-hosts included (hosts/role.ts), and each
 // refreshes the editor and the event's pages, which show the vote. None acts while the operator
 // has Voting switched off, or the Album it needs (M8 ticket 01). The guard and the refresh are the
 // album's (album/host-actions.ts), copied, since the module imports nothing of the album's (M8
@@ -89,6 +92,45 @@ export async function setUploaderNamesAction(eventId: string, names: UploaderNam
   const event = await hostVoting(eventId);
   if (!event) return { error: "refused" };
   await setUploaderNames(event.id, names);
+  refresh(event);
+  return {};
+}
+
+// Who may vote besides the hosts (M8 ticket 14).
+export async function setWhoMayVoteAction(eventId: string, voters: WhoMayVote): Promise<{ error?: "refused" }> {
+  if (!WHO_MAY_VOTE.includes(voters)) return { error: "refused" };
+  const event = await hostVoting(eventId);
+  if (!event) return { error: "refused" };
+  await setWhoMayVote(event.id, voters);
+  refresh(event);
+  return {};
+}
+
+// "2026-10-03T19:00", as a datetime-local field sends it.
+const WALL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+
+// A date and time typed in the event's zone, read as the event form reads one (events/form.ts,
+// parseWall): round-tripping catches what the pattern cannot, 30 February, 24:30, or a time the
+// clocks skip.
+function parseWall(wall: string, timeZone: string): Date | undefined {
+  if (!WALL_TIME.test(wall)) return undefined;
+  const instant = toInstant(wall, timeZone);
+  return Number.isNaN(instant.getTime()) || toWallTime(instant, timeZone) !== wall ? undefined : instant;
+}
+
+// The time the vote closes by itself (M8 ticket 14), as the host typed it in the event's own zone
+// (M8 plan, ruling 26), or null for none: `invalid` for what is not a date and time, `past` for a
+// time that has come already.
+export async function setClosingTimeAction(eventId: string, wall: string | null): Promise<{ error?: "past" | "invalid" | "refused" }> {
+  if (wall !== null && typeof wall !== "string") return { error: "refused" };
+  const event = await hostVoting(eventId);
+  if (!event) return { error: "refused" };
+  const now = new Date();
+  const closesAt = wall === null ? null : parseWall(wall, event.timeZone);
+  if (closesAt === undefined) return { error: "invalid" };
+  const problem = closesAt && closingTimeProblem(closesAt, now);
+  if (problem) return { error: problem };
+  await setClosingTime(event.id, closesAt, now);
   refresh(event);
   return {};
 }

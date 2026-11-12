@@ -7,9 +7,11 @@ import {
   awardPlaces,
   awardsOrDefault,
   awardStage,
+  closingTimeProblem,
   countedVotes,
   countsShown,
   DEFAULT_AWARD,
+  draftAudience,
   finalPlaces,
   inScope,
   mayVote,
@@ -154,6 +156,19 @@ describe("mayVote", () => {
   it("under invited, lets a guest who replied through an invite vote, and no other", () => {
     expect(mayVote(event({ albumVoters: "invited" }), "open", guest("going", "approved", true), NOW)).toBe(true);
     expect(mayVote(event({ albumVoters: "invited" }), "open", guest("going", "approved", false), NOW)).toBe(false);
+  });
+
+  // "Invited personally" is a reply tied to an invite (M8 plan, ruling 24): withInvite reads it from
+  // rsvp.invite_id, which a reply through its link sets, as invitesNewReply does for every reply on
+  // an invite-only event, and which deleting the invite clears.
+  it("under invited, lets a guest whose reply came through an invite vote, or was tied to one on an invite-only event, and not once the invite is deleted (ticket 14)", () => {
+    const invitedOnly = event({ albumVoters: "invited" });
+    const throughLink = guest("going", "approved", true);
+    const onInviteOnlyList = guest("maybe", "approved", true);
+    const inviteDeleted = guest("going", "approved", false);
+    expect(mayVote(invitedOnly, "open", throughLink, NOW)).toBe(true);
+    expect(mayVote(invitedOnly, "open", onInviteOnlyList, NOW)).toBe(true);
+    expect(mayVote(invitedOnly, "open", inviteDeleted, NOW)).toBe(false);
   });
 
   it("refuses a guest shown only their own, and a visitor", () => {
@@ -590,6 +605,40 @@ describe("countedVotes", () => {
 
   it("drops a vote for an item no longer there or not approved, and one in an award not given", () => {
     expect(countedVotes([cast("a2", "p9"), cast("a2", "p2"), cast("a9", "p1")], [photos, both], items)).toEqual([]);
+  });
+});
+
+describe("closingTimeProblem", () => {
+  it("refuses a time that has come or passed, and takes one still ahead", () => {
+    expect(closingTimeProblem(NOW, NOW)).toBe("past");
+    expect(closingTimeProblem(new Date(NOW.getTime() - MINUTE), NOW)).toBe("past");
+    expect(closingTimeProblem(new Date(NOW.getTime() + MINUTE), NOW)).toBeUndefined();
+  });
+});
+
+describe("draftAudience", () => {
+  it("ticks Going alone when only guests who are going may vote, and leaves the form's own otherwise", () => {
+    expect(draftAudience("going")).toEqual(["going"]);
+    expect(draftAudience("album")).toBeUndefined();
+    expect(draftAudience("invited")).toBeUndefined();
+  });
+});
+
+// The rule, for ticket 16's docs: a vote stays until its voter takes it back, the item or the reply
+// is deleted, or voting is turned off (M8 plan, ruling 25). Changing a reply is none of those.
+describe("a vote given while Going, once the reply changes to Maybe under only guests who are going", () => {
+  const onlyGoing = event({ albumVoters: "going" });
+  const items = [item({ id: "p1", rsvpId: "r2" })];
+  const favourite = award({ id: "a1" });
+  const given: CastVote[] = [{ awardId: "a1", round: 1, photoId: "p1", rsvpId: "r1", hostId: null }];
+
+  it("is still counted, and the guest can no longer move it", () => {
+    expect(mayVote(onlyGoing, "open", guest("going"), NOW)).toBe(true);
+    expect(mayVote(onlyGoing, "open", guest("maybe"), NOW)).toBe(false);
+    expect(countedVotes(given, [favourite], items)).toEqual(given);
+    const [standing] = albumVotes(onlyGoing, "open", host, NOW, [favourite], given, items);
+    expect(standing.items.get("p1")?.shownVotes).toBe(1);
+    expect(albumVotes(onlyGoing, "open", guest("maybe"), NOW, [favourite], given, items)[0].items.get("p1")).toEqual({ may: false });
   });
 });
 

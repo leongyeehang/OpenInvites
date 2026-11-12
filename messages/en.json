@@ -1796,7 +1796,25 @@
         "never": "Never shown to guests",
         "hint": "Hosts and the person who added an item always see who did."
       },
+      "who": {
+        "title": "Who may vote",
+        "album": "Everyone who sees the album",
+        "going": "Only guests who are going",
+        "invited": "Only guests invited personally",
+        "hint": "Hosts can always vote. Votes already given stay counted when you change this."
+      },
+      "closes": {
+        "label": "Close by itself at",
+        "hint": "Guests see this time. Times are in {zone}.",
+        "none": "No closing time",
+        "openUntil": "Voting is open · closes {time}",
+        "past": "Choose a time that hasn’t passed.",
+        "invalid": "That isn’t a date and time."
+      },
+      "announce": "Tell guests voting is open",
       "failed": "That change didn’t go through. Reload the page and try again.",
+      "counting": "Counting the votes…",
+      "countFailed": "The votes couldn’t be counted. Close this and try again.",
       "awards": {
         "title": "Awards",
         "hint": "Each person gets one vote in every award.",
@@ -1829,6 +1847,9 @@
     "album": {
       "open": "Voting is open",
       "closed": "Voting closed",
+      "closesAt": "closes {time}",
+      "onlyGoing": "Only guests who are going can vote.",
+      "onlyInvited": "Only guests the hosts invited personally can vote.",
       "hint": "Counts stay hidden until voting closes.",
       "tapToVote": "Tap a star to vote in {award}.",
       "yourVote": "Your vote in {award} is in. Tap another star to move it, or yours to take it back.",
@@ -1852,5 +1873,8 @@
         "forVideos": "This award is for videos only."
       }
     }
+  },
+  "VotingDrafts": {
+    "voting": "Voting is open in the album for {title}. You have one vote in each award: {awards}.{closes, select, yes { Voting closes {time}.} other {}}\n\nOpen the album to vote:\n{url}"
   }
 }

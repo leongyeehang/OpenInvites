@@ -2,6 +2,7 @@
 
 import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import {
   AlertDialog,
@@ -27,35 +28,77 @@ import {
   renameAwardAction,
   reopenVotingAction,
   setAwardScopeAction,
+  setClosingTimeAction,
   setUploaderNamesAction,
+  setWhoMayVoteAction,
   startVotingAction,
   turnOffVotingAction,
 } from "./host-actions";
-import { AWARD_SCOPES, MAX_AWARD_NAME, MAX_AWARDS, movedAwards, SUGGESTED_AWARDS, UPLOADER_NAMES, type AwardScope, type UploaderNames, type VotingState } from "./voting";
+import {
+  AWARD_SCOPES,
+  MAX_AWARD_NAME,
+  MAX_AWARDS,
+  movedAwards,
+  SUGGESTED_AWARDS,
+  UPLOADER_NAMES,
+  WHO_MAY_VOTE,
+  type AwardScope,
+  type UploaderNames,
+  type VotingState,
+  type WhoMayVote,
+} from "./voting";
 
 // One award as the block shows it (voting-settings.tsx): its id, none for Favourite before it is
-// made; its name as shown, the translated "Favourite" for none; what it is for; and how many votes
-// it holds, which removing it deletes.
-export type BlockAward = { id: string | null; name: string; scope: AwardScope; votes: number };
+// made; its name as shown, the translated "Favourite" for none; and what it is for.
+export type BlockAward = { id: string | null; name: string; scope: AwardScope };
+
+// The time voting closes by itself (M8 ticket 14), in the event's zone: as a datetime-local field
+// holds it ("2026-10-03T19:00") and as the host reads it, or null for none; and the zone's name.
+export type Closing = { wall: string | null; shown: string | null; timeZone: string };
 
 // What an action answers when the press did not go through: refused by the site, or never answered.
-type Refusal = "albumNotOpen" | "full" | "nameTooLong" | "last" | "refused" | "failed";
+type Refusal = "albumNotOpen" | "full" | "nameTooLong" | "last" | "past" | "invalid" | "refused" | "failed";
 
 // The key a row goes by: Favourite before it is made has no id, and is then the only award.
 const keyOf = (award: BlockAward) => award.id ?? "";
 
-// The votes each award holds, read again as a confirmation that deletes them opens (review fix, M8
-// ticket 13), since the figure the page was drawn with may be old by the time the host presses:
-// the page's figure until the new one comes, and after it if the read fails.
+// The votes each award holds, read as a confirmation that deletes them opens (review fix, M8
+// ticket 13), since the figure the page was drawn with may be old by the time the host presses.
+// Until the read answers, the confirmation gives no figure and cannot be confirmed; if it fails,
+// it says so, and only Never mind is left (review fix, ticket 14). An answer to an earlier opening
+// is ignored.
+type FreshVotes = { state: "reading" } | { state: "failed" } | { state: "read"; votes: Record<string, number> };
+
 function useFreshVotes(eventId: string) {
-  const [fresh, setFresh] = useState<Record<string, number> | null>(null);
+  const [fresh, setFresh] = useState<FreshVotes>({ state: "reading" });
+  const latest = useRef(0);
   const read = (open: boolean) => {
     if (!open) return;
-    setFresh(null);
-    awardVotesAction(eventId).then(setFresh, () => setFresh(null));
+    const mine = ++latest.current;
+    const answered = (next: FreshVotes) => {
+      if (mine === latest.current) setFresh(next);
+    };
+    setFresh({ state: "reading" });
+    awardVotesAction(eventId).then(
+      (votes) => answered(votes ? { state: "read", votes } : { state: "failed" }),
+      () => answered({ state: "failed" }),
+    );
   };
-  const votesOf = (award: BlockAward) => (fresh && award.id !== null ? (fresh[award.id] ?? 0) : award.votes);
-  return { read, votesOf };
+  // The votes of one award, or of every award, once read. Favourite before it is made holds none.
+  const votesOf = (award?: BlockAward): number | undefined => {
+    if (fresh.state !== "read") return undefined;
+    if (!award) return Object.values(fresh.votes).reduce((sum, votes) => sum + votes, 0);
+    return award.id === null ? 0 : (fresh.votes[award.id] ?? 0);
+  };
+  return { read, ready: fresh.state === "read", failed: fresh.state === "failed", votesOf };
+}
+
+// A confirmation's text: what it deletes, once the count is read (`votes`), or that it is being
+// read, or that it could not be.
+function CountText({ fresh, votes, text }: { fresh: Fresh; votes: number | undefined; text: (count: number) => string }) {
+  const t = useTranslations("Voting.block");
+  if (votes !== undefined) return text(votes);
+  return t(fresh.failed ? "countFailed" : "counting");
 }
 
 // The album vote's block in the editor's Settings (M8 ticket 10), below the album's own and, like
@@ -64,17 +107,37 @@ function useFreshVotes(eventId: string) {
 // on its own through the editor's save status, and the page, refreshed by the action, draws the
 // block in its new state; a press the site refuses, or that never reaches it, is reported there
 // and undone on the screen, never shown as saved (review fix, ticket 13). Whatever the state, the
-// awards (ticket 13) and whether guests see who added each item (ticket 11), saved the same way.
-export function VotingBlock({ eventId, state, albumOpen, awards, names }: { eventId: string; state: VotingState; albumOpen: boolean; awards: BlockAward[]; names: UploaderNames }) {
+// awards (ticket 13), whether guests see who added each item (ticket 11), who may vote and the time
+// voting closes by itself (ticket 14), saved the same way. While open, the way to tell guests: the
+// Announcements page with the message written (ticket 14).
+export function VotingBlock({
+  eventId,
+  state,
+  albumOpen,
+  awards,
+  names,
+  voters,
+  closing,
+}: {
+  eventId: string;
+  state: VotingState;
+  albumOpen: boolean;
+  awards: BlockAward[];
+  names: UploaderNames;
+  voters: WhoMayVote;
+  closing: Closing;
+}) {
   const t = useTranslations("Voting.block");
   const { save } = useEditor();
   const id = useId();
   const [confirming, setConfirming] = useState(false);
   const [shownNames, setShownNames] = useState(names);
+  const [shownVoters, setShownVoters] = useState(voters);
   const fresh = useFreshVotes(eventId);
   const refusal = (error: Refusal) => {
     if (error === "albumNotOpen") return t("notYet");
     if (error === "full" || error === "nameTooLong") return t(`awards.${error}`);
+    if (error === "past" || error === "invalid") return t(`closes.${error}`);
     return t("failed");
   };
   // A press saved through the editor's status: `undo` puts the screen back when it did not go through.
@@ -98,7 +161,14 @@ export function VotingBlock({ eventId, state, albumOpen, awards, names }: { even
       () => setShownNames(before),
     );
   };
-  const turnOffCount = awards.reduce((sum, award) => sum + fresh.votesOf(award), 0);
+  const chooseVoters = (value: WhoMayVote) => {
+    const before = shownVoters;
+    setShownVoters(value);
+    void run(
+      () => setWhoMayVoteAction(eventId, value),
+      () => setShownVoters(before),
+    );
+  };
   return (
     <FieldSet className="mt-6 gap-3" data-slot="voting-block" data-state={state}>
       <FieldLegend variant="label">{t("title")}</FieldLegend>
@@ -120,7 +190,7 @@ export function VotingBlock({ eventId, state, albumOpen, awards, names }: { even
         </>
       ) : (
         <>
-          <p className="text-sm">{state === "open" ? t("open") : t("closed")}</p>
+          <p className="text-sm">{state === "closed" ? t("closed") : closing.shown ? t("closes.openUntil", { time: closing.shown }) : t("open")}</p>
           <div className="flex flex-wrap gap-2">
             {state === "open" ? (
               <Button type="button" variant="outline" onClick={() => void run(() => closeVotingAction(eventId))}>
@@ -152,11 +222,13 @@ export function VotingBlock({ eventId, state, albumOpen, awards, names }: { even
                 >
                   <AlertDialogHeader>
                     <AlertDialogTitle>{t("turnOffTitle")}</AlertDialogTitle>
-                    <AlertDialogDescription>{t("turnOffText", { count: turnOffCount })}</AlertDialogDescription>
+                    <AlertDialogDescription>
+                      <CountText fresh={fresh} votes={fresh.votesOf()} text={(count) => t("turnOffText", { count })} />
+                    </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter className="pt-4">
                     <AlertDialogCancel type="button">{t("cancel")}</AlertDialogCancel>
-                    <Button type="submit" variant="destructive">
+                    <Button type="submit" variant="destructive" disabled={!fresh.ready}>
                       {t("turnOffConfirm")}
                     </Button>
                   </AlertDialogFooter>
@@ -164,8 +236,25 @@ export function VotingBlock({ eventId, state, albumOpen, awards, names }: { even
               </AlertDialogContent>
             </AlertDialog>
           </div>
+          {state === "open" && (
+            <Link href={`/events/${eventId}/announcements?draft=voting`} className="self-start text-sm underline underline-offset-4 hover:opacity-80">
+              {t("announce")}
+            </Link>
+          )}
         </>
       )}
+      <Field className="mt-3">
+        <FieldLabel htmlFor={`${id}-voters`}>{t("who.title")}</FieldLabel>
+        <NativeSelect id={`${id}-voters`} value={shownVoters} aria-describedby={`${id}-voters-hint`} onChange={(picked) => chooseVoters(picked.target.value as WhoMayVote)}>
+          {WHO_MAY_VOTE.map((value) => (
+            <NativeSelectOption key={value} value={value}>
+              {t(`who.${value}`)}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
+        <FieldDescription id={`${id}-voters-hint`}>{t("who.hint")}</FieldDescription>
+      </Field>
+      <ClosingTime eventId={eventId} closing={closing} run={run} />
       <Awards eventId={eventId} awards={awards} run={run} fresh={fresh} />
       <FieldSet className="mt-3 gap-2" aria-describedby={`${id}-names-hint`}>
         <FieldLegend variant="label">{t("names.title")}</FieldLegend>
@@ -191,6 +280,80 @@ export function VotingBlock({ eventId, state, albumOpen, awards, names }: { even
 
 type Run = (action: () => Promise<{ error?: Refusal }>, undo?: () => void) => Promise<boolean>;
 type Fresh = ReturnType<typeof useFreshVotes>;
+
+// The time voting closes by itself (M8 ticket 14), typed in the event's zone, which the hint names:
+// saved when the field is left or on Enter, once, and cleared by No closing time or by emptying the
+// field. A time that has passed, or what is not a date and time, is refused, and the refusal shows
+// under the field, which keeps what was typed for the host to put right.
+function ClosingTime({ eventId, closing, run }: { eventId: string; closing: Closing; run: Run }) {
+  const t = useTranslations("Voting.block.closes");
+  const id = useId();
+  const [typed, setTyped] = useState(closing.wall ?? "");
+  const [problem, setProblem] = useState<"past" | "invalid">();
+  const [drawn, setDrawn] = useState(closing.wall);
+  if (drawn !== closing.wall) {
+    setDrawn(closing.wall);
+    setTyped(closing.wall ?? "");
+    setProblem(undefined);
+  }
+  // The time last sent and the page's time it was sent over, so that Enter and the leaving after it
+  // send it once.
+  const sent = useRef<{ wall: string | null; over: string | null }>(undefined);
+
+  const send = (wall: string | null) => {
+    if (wall === closing.wall) return setProblem(undefined);
+    if (sent.current && sent.current.wall === wall && sent.current.over === closing.wall) return;
+    sent.current = { wall, over: closing.wall };
+    setProblem(undefined);
+    void run(async () => {
+      const answer = await setClosingTimeAction(eventId, wall);
+      if (answer.error === "past" || answer.error === "invalid") setProblem(answer.error);
+      if (answer.error) sent.current = undefined;
+      return answer;
+    });
+  };
+  const sendTyped = () => send(typed === "" ? null : typed);
+
+  return (
+    <Field>
+      <FieldLabel htmlFor={`${id}-closes`}>{t("label")}</FieldLabel>
+      <div className="flex flex-wrap gap-2">
+        <Input
+          id={`${id}-closes`}
+          type="datetime-local"
+          value={typed}
+          aria-describedby={problem ? `${id}-problem ${id}-hint` : `${id}-hint`}
+          aria-invalid={problem !== undefined || undefined}
+          className="w-auto"
+          onChange={(changed) => setTyped(changed.target.value)}
+          onBlur={sendTyped}
+          onKeyDown={(key) => {
+            if (key.key !== "Enter") return;
+            key.preventDefault();
+            sendTyped();
+          }}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          disabled={closing.wall === null && typed === ""}
+          onClick={() => {
+            setTyped("");
+            send(null);
+          }}
+        >
+          {t("none")}
+        </Button>
+      </div>
+      {problem && (
+        <p id={`${id}-problem`} role="alert" className="text-sm text-destructive">
+          {t(problem)}
+        </p>
+      )}
+      <FieldDescription id={`${id}-hint`}>{t("hint", { zone: closing.timeZone })}</FieldDescription>
+    </Field>
+  );
+}
 
 // The awards (M8 ticket 13): one row per award, in the host's order, then a chip per suggestion no
 // award is named yet, in the editor's language, and a field for an award of the host's own. Moving
@@ -428,11 +591,13 @@ function AwardRow({
             >
               <AlertDialogHeader>
                 <AlertDialogTitle>{t("awards.removeTitle", { award: award.name })}</AlertDialogTitle>
-                <AlertDialogDescription>{t("awards.removeText", { count: fresh.votesOf(award) })}</AlertDialogDescription>
+                <AlertDialogDescription>
+                  <CountText fresh={fresh} votes={fresh.votesOf(award)} text={(count) => t("awards.removeText", { count })} />
+                </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter className="pt-4">
                 <AlertDialogCancel type="button">{t("cancel")}</AlertDialogCancel>
-                <Button type="submit" variant="destructive">
+                <Button type="submit" variant="destructive" disabled={!fresh.ready}>
                   {t("awards.removeConfirm")}
                 </Button>
               </AlertDialogFooter>

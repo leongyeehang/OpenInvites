@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { AwardPicker } from "./award-picker";
@@ -19,7 +20,24 @@ export type HeadAward = { award: string; name: string; scope: AwardScope; stage:
 // hosts (`eventId` is given to them alone), a box of their own with the chosen award's votes so far
 // and Close voting, or Reopen voting once it is closed (ticket 10's actions); a press that does not
 // go through says so there, and the page is drawn again as the site holds it (review fix, ticket 13).
-export function AlbumVotingHead({ awards, initial, mayVote, eventId }: { awards: HeadAward[]; initial: string; mayVote: boolean; eventId?: string }) {
+// While voting, the time it closes by itself when the host set one (`closesAt`, written in the
+// event's zone), and for a guest the host does not let vote, why (`notAmong`) in place of what a
+// star does; for hosts, the way to tell guests voting is open (ticket 14).
+export function AlbumVotingHead({
+  awards,
+  initial,
+  mayVote,
+  closesAt,
+  notAmong,
+  eventId,
+}: {
+  awards: HeadAward[];
+  initial: string;
+  mayVote: boolean;
+  closesAt?: string;
+  notAmong?: "onlyGoing" | "onlyInvited";
+  eventId?: string;
+}) {
   const t = useTranslations("Voting.album");
   const hosts = useTranslations("Voting.block");
   const router = useRouter();
@@ -51,14 +69,22 @@ export function AlbumVotingHead({ awards, initial, mayVote, eventId }: { awards:
           <p className="inline-flex items-center gap-2 text-sm font-medium">
             <span className="size-2 rounded-full bg-theme-accent" aria-hidden />
             {t("open")}
+            {chosen.stage === "voting" && closesAt && (
+              <>
+                {" "}
+                <span className="font-normal text-theme-text-muted">· {t("closesAt", { time: closesAt })}</span>
+              </>
+            )}
           </p>
-          {mayVote && (
+          {mayVote ? (
             <>
               <p role="status" className="text-sm">
                 {t(vote === null ? "tapToVote" : "yourVote", { award: chosen.name })}
               </p>
               <p className="text-xs text-theme-text-faint">{t("hint")}</p>
             </>
+          ) : (
+            notAmong && <p className="text-sm">{t(notAmong)}</p>
           )}
         </>
       ) : (
@@ -83,6 +109,11 @@ export function AlbumVotingHead({ awards, initial, mayVote, eventId }: { awards:
           >
             {hosts(voting ? "close" : "reopen")}
           </button>
+          {chosen.stage === "voting" && (
+            <Link href={`/events/${eventId}/announcements?draft=voting`} className="self-start text-sm underline underline-offset-4 hover:opacity-80">
+              {hosts("announce")}
+            </Link>
+          )}
           {failed && (
             <p role="alert" className="text-sm font-medium">
               {failed}

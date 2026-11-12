@@ -97,6 +97,19 @@ export function votingState(event: Pick<VotingEvent, "albumVoting" | "albumVotin
   return event.albumVotingClosesAt !== null && event.albumVotingClosesAt <= now ? "closed" : "open";
 }
 
+// Why a closing time the host sets is refused (M8 ticket 14): one that has come already would
+// close the vote the moment it is saved, so it is refused when it is set (M8 plan, ruling 26).
+export function closingTimeProblem(closesAt: Date, now: Date): "past" | undefined {
+  return closesAt <= now ? "past" : undefined;
+}
+
+// Whom the "Voting is open" draft is emailed to at first (M8 ticket 14): Going alone when only
+// guests who are going may vote; otherwise the Announcements form's own default, since "invited
+// personally" has no status to tick.
+export function draftAudience(voters: WhoMayVote): SavedStatus[] | undefined {
+  return voters === "going" ? ["going"] : undefined;
+}
+
 // Whether the album is open, from the event's start while it is published (album/album.ts,
 // albumState, with the Album switched on, which the callers check).
 function albumOpen(event: Pick<VotingEvent, "state" | "startsAt">, now: Date): boolean {
