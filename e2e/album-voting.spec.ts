@@ -91,6 +91,8 @@ async function press(page: Page, block: Locator, name: string, state: "off" | "o
 }
 
 test("the host starts, closes, reopens and turns off the album vote from Settings", async ({ browser, request }) => {
+  // About 20 s alone, so the default 30 s ran out once beside the other voting tests.
+  test.slow();
   const host = await createPublished(browser, request, "album-voting", PAST);
   const sheet = await openSettings(host.page);
   const block = votingBlock(sheet);
@@ -385,6 +387,39 @@ test("a vote from a page left open after the host closes voting is refused", asy
 
   await vote(ana, star(ana, "Photo 1"));
   await expect(head(ana).getByRole("alert")).toHaveText("Voting has closed.");
+  await expect(star(ana, "Photo 1")).toHaveAttribute("aria-pressed", "false");
+  await Promise.all([host.context.close(), ana.context().close()]);
+});
+
+// Review fix: a star shows the page's vote once the page is drawn again, so a vote the site no
+// longer holds is never shown, though the guest pressed nothing since.
+test("a vote taken away by the host is not shown once the guest's page is drawn again, without a reload", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-vote-gone", PAST);
+  const editor = host.page.url();
+  await host.page.goto(host.link);
+  await addPhotos(host.page, [await photo("toast.jpg", "#e0b040")], 1);
+  await host.page.goto(editor);
+  const block = await startVoting(host.page);
+
+  const ana = await guestGoing(browser, host.link, "Ana Ruiz");
+  await vote(ana, star(ana, "Photo 1"));
+  await expect(head(ana).getByRole("status")).toHaveText(YOUR_VOTE);
+
+  // The host turns voting off, which deletes the vote, and starts it again.
+  await block.getByRole("button", { name: "Turn off voting" }).click();
+  const confirm = host.page.getByRole("alertdialog", { name: "Turn off voting?" });
+  await savedAfter(host.page, () => confirm.getByRole("button", { name: "Turn it off" }).click());
+  await expect(block).toHaveAttribute("data-state", "off");
+  await press(host.page, block, "Start voting", "open");
+
+  // Ana's page is drawn again by her comment, and shows no vote.
+  const box = ana.getByLabel("Add a comment");
+  await box.fill("Lovely toast!");
+  await ana.getByRole("button", { name: "Post", exact: true }).click();
+  await expect(box).toHaveValue("", { timeout: 15_000 });
+  await expect(ana.getByRole("listitem").filter({ hasText: "Lovely toast!" })).toBeVisible();
+  await expect(head(ana).getByRole("status")).toHaveText(TAP_TO_VOTE);
   await expect(star(ana, "Photo 1")).toHaveAttribute("aria-pressed", "false");
   await Promise.all([host.context.close(), ana.context().close()]);
 });

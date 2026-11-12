@@ -8,8 +8,9 @@ import { useChosen, useRefusal, useVote } from "./vote-star";
 import type { AwardStage } from "./voting";
 
 // One award as the head shows it: its name as displayed, where it stands, this viewer's vote in it
-// (the item voted for, or none), and for hosts the votes given so far.
-export type HeadAward = { award: string; name: string; stage: AwardStage; voted: string | null; total?: number };
+// (the item voted for, or none), the page's drawing (vote-star.tsx, ItemAward), and for hosts the
+// votes given so far.
+export type HeadAward = { award: string; name: string; stage: AwardStage; voted: string | null; drawn: string; total?: number };
 
 // Above the album's grid while there is a vote (M8 ticket 12): whether voting is open or closed,
 // for a viewer who may vote what a star does and whether theirs is in, and the refusal of a tile's
@@ -21,8 +22,8 @@ export function AlbumVotingHead({ awards, initial, mayVote, eventId }: { awards:
   const router = useRouter();
   const [busy, startTransition] = useTransition();
   const chosen = useChosen(awards, initial);
-  const vote = useVote(chosen?.award ?? "", chosen?.voted ?? null);
-  const refused = useRefusal();
+  const vote = useVote(chosen?.award ?? "", chosen?.voted ?? null, chosen?.drawn ?? "");
+  const refused = useRefusal(chosen?.drawn ?? "");
   if (!chosen) return null;
   const voting = chosen.stage === "voting" || chosen.stage === "tiebreak";
   const run = (action: (eventId: string) => Promise<void>) =>

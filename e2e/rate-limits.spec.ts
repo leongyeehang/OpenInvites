@@ -199,8 +199,8 @@ test("a guest pressing star after star is told to slow down", async ({ browser, 
     buffer: await sharp({ create: { width: 1200, height: 900, channels: 3, background } }).jpeg().toBuffer(),
   });
   await host.page.goto(host.link);
-  await album(host.page).getByLabel(/^Add photos/).setInputFiles([await photo("toast.jpg", "#e0b040"), await photo("cake.jpg", "#c0506a")]);
-  await expect(album(host.page).locator("li[data-item]")).toHaveCount(2, { timeout: 20_000 });
+  await album(host.page).getByLabel(/^Add photos/).setInputFiles([await photo("toast.jpg", "#e0b040"), await photo("cake.jpg", "#c0506a"), await photo("lake.jpg", "#3a6bd0")]);
+  await expect(album(host.page).locator("li[data-item]")).toHaveCount(3, { timeout: 20_000 });
   await host.page.goto(editor);
   const block = (await openSettings(host.page)).locator('[data-slot="voting-block"]');
   await savedAfter(host.page, () => block.getByRole("button", { name: "Start voting" }).click());
@@ -220,15 +220,16 @@ test("a guest pressing star after star is told to slow down", async ({ browser, 
     await answered;
   };
 
-  // Each press answers, moving the vote from one photo to the other, up to the limit.
-  for (let pressed = 0; pressed < VOTE_LIMIT; pressed++) {
-    await press(star(1 + (pressed % 2)));
-    await expect(star(1 + (pressed % 2))).toHaveAttribute("aria-pressed", "true");
-  }
+  // Each press answers, moving the vote between the first two photos, and the last of the limit to
+  // the third, which no other press names: once reloaded, the site is seen to hold it.
+  for (let pressed = 1; pressed < VOTE_LIMIT; pressed++) await press(star(1 + (pressed % 2)));
+  await press(star(3));
+  await guest.reload();
+  await expect(star(3)).toHaveAttribute("aria-pressed", "true");
   // One more is one too many: the vote stays where it was, and the album says why.
   await press(star(1));
   await expect(album(guest).locator('[data-slot="album-voting"]').getByRole("alert")).toHaveText(TOO_FAST);
   await expect(star(1)).toHaveAttribute("aria-pressed", "false");
-  await expect(star(2)).toHaveAttribute("aria-pressed", "true");
+  await expect(star(3)).toHaveAttribute("aria-pressed", "true");
   await Promise.all([host.context.close(), guest.context().close()]);
 });

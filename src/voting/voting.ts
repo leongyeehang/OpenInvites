@@ -314,3 +314,16 @@ export function albumVotes(event: VotingEvent, view: AlbumViewName, viewer: Voti
     return { award, stage, ids, voted, ...(total !== undefined && { total }), items: standings };
   });
 }
+
+// A press of a star not yet confirmed by the page (M8 ticket 12): the item chosen, or none, the
+// drawing of the page it is shown over (each drawing of the album carries a token of its own), and
+// how many presses are still on their way.
+export type PendingVote = { choice: string | null; drawn: string; sending: number };
+
+// The vote a star and the head show: the pending choice while a press is on its way, and after
+// its answer while the page is still the drawing it was shown over; once a new drawing arrives,
+// the page's own vote, whatever it is (review fix: an item deleted, or voting turned off and on,
+// takes the vote away without a press).
+export function voteShown(pending: PendingVote | undefined, voted: string | null, drawn: string): string | null {
+  return pending && (pending.sending > 0 || pending.drawn === drawn) ? pending.choice : voted;
+}

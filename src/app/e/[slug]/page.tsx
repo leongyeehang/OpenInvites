@@ -152,7 +152,7 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
   }
   const listed = await listPhotos(event.id, photoScope(view, viewer), albumOrderFor(event));
   const items = listed.map(({ id, kind, status, rsvpId, hostId }) => ({ id, kind, status, rsvpId, hostId }));
-  const voting = await albumVotingFor({ event, locale, viewer, view, items, now });
+  const voting = await albumVotingFor({ event, viewer, view, items, now });
   const photos: ShownPhoto[] = listed.map((each) => {
     const named = voting.showsName(each);
     // Its caption (M8 ticket 09) is the uploader's words, not a detail of the file: no switch of

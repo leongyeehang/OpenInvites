@@ -1813,7 +1813,8 @@
       "errors": {
         "tooFast": "You’re going too fast. Try again shortly.",
         "closed": "Voting has closed.",
-        "notAllowed": "You can’t vote for this one."
+        "notAllowed": "You can’t vote for this one.",
+        "failed": "Your vote didn’t go through. Try again."
       }
     }
   }

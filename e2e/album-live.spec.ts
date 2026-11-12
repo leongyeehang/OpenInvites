@@ -1,5 +1,5 @@
 import { expectNoSeriousViolations } from "./axe";
-import { createPublished, editSettings } from "./events";
+import { createPublished, editSettings, openSettings, savedAfter } from "./events";
 import { closeReply } from "./reply";
 import { expectStill } from "./still";
 import { clientAddress, expect, test, type Browser, type BrowserContextOptions, type Locator, type Page } from "./test";
@@ -137,6 +137,13 @@ test("a motion photo is added as a live photo, wears the Live mark and plays whe
   await expect(motion).toBeHidden();
   expect(await paused(motion)).toBe(true);
   await priya.mouse.up();
+
+  // In the album vote (M8 ticket 12), its star is named by its label alone, without the Live mark.
+  const block = (await openSettings(host.page)).locator('[data-slot="voting-block"]');
+  await savedAfter(host.page, () => block.getByRole("button", { name: "Start voting" }).click());
+  await expect(block).toHaveAttribute("data-state", "open");
+  await host.page.goto(host.link);
+  await expect(album(host.page).getByRole("button", { name: "Vote for Photo 1 by Priya Nair", exact: true })).toBeVisible();
   await Promise.all([host.context.close(), priya.context().close()]);
 });
 

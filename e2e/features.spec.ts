@@ -251,9 +251,9 @@ test("Voting switched off during an open vote: a page left open has its vote ref
   await savedAfter(operator, () => names.getByLabel("Never shown to guests").check());
 
   const ana = await guestGoing(browser, videoEvent, "Ana Ruiz");
-  // A video's thumbnail is named with its length after its label ("Video 1 0:04"), and its star by
-  // the thumbnail.
-  const star = album(ana).getByRole("button", { name: /^Vote for Video 1 / });
+  // A video's thumbnail is named with its length after its label ("Video 1 0:04"); its star by the
+  // label alone.
+  const star = album(ana).getByRole("button", { name: "Vote for Video 1", exact: true });
   const unnamed = album(ana).getByRole("button", { name: /^Video 1 \d/ });
   const answered = () => ana.waitForResponse((response) => response.request().method() === "POST" && response.request().headers()["next-action"] !== undefined);
   let answer = answered();

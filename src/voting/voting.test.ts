@@ -34,6 +34,7 @@ import {
   type VotableItem,
   type VotingEvent,
   type VotingViewer,
+  voteShown,
 } from "./voting";
 
 // The album vote's rules (M8 ticket 10): who may vote and for what, the places, the tie-break's
@@ -456,6 +457,32 @@ describe("albumVotes", () => {
     expect(standing.total).toBe(0);
     expect(standing.items.get("p1")).toEqual({ may: true, shownVotes: 0 });
     expect(albumVotes(event(), "open", guest(), NOW, [favourite], others, items)[0].voted).toBeNull();
+  });
+});
+
+describe("voteShown", () => {
+  // A press of p2 made on the drawing "t1", over the page's vote p1.
+  const pending = (sending: number) => ({ choice: "p2", drawn: "t1", sending });
+
+  it("shows the page's vote when nothing was pressed", () => {
+    expect(voteShown(undefined, "p1", "t1")).toBe("p1");
+  });
+
+  it("shows the choice while its send is on its way, even over a new drawing", () => {
+    expect(voteShown(pending(1), "p1", "t1")).toBe("p2");
+    expect(voteShown(pending(1), "p1", "t2")).toBe("p2");
+  });
+
+  it("shows the choice after the answer while the page is the drawing it was pressed on", () => {
+    expect(voteShown(pending(0), "p1", "t1")).toBe("p2");
+  });
+
+  it("shows the page's vote once a new drawing arrives, whatever it holds", () => {
+    expect(voteShown(pending(0), "p2", "t2")).toBe("p2");
+    expect(voteShown(pending(0), null, "t2")).toBeNull();
+    // The vote from before the press, which the server holds again (the item deleted, voting
+    // turned off and on): the page's word, not the choice.
+    expect(voteShown(pending(0), "p1", "t2")).toBe("p1");
   });
 });
 

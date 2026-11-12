@@ -3,29 +3,30 @@
 import { Star } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
-import { useId, useState, useSyncExternalStore, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { cn } from "@/lib/utils";
 import { setVoteAction } from "./actions";
-import type { ItemStanding } from "./voting";
+import { voteShown, type ItemStanding, type PendingVote } from "./voting";
 
-// Why a vote was refused (actions.ts, setVoteAction).
-export type VoteRefusal = "tooFast" | "closed" | "notAllowed";
+// Why a vote was refused (actions.ts, setVoteAction), or that it never reached the site (a dropped
+// connection, a failure there).
+export type VoteRefusal = "tooFast" | "closed" | "notAllowed" | "failed";
 
 // One item's standing in one award, as its star and badges draw it: the award, this viewer's vote
-// in it (the item voted for, or none), and the item's own standing (voting.ts, ItemStanding).
-export type ItemAward = ItemStanding & { award: string; voted: string | null };
+// in it (the item voted for, or none), the drawing of the page it comes from (a token each drawing
+// has of its own), and the item's own standing (voting.ts, ItemStanding).
+export type ItemAward = ItemStanding & { award: string; voted: string | null; drawn: string };
 
-// The viewer's choice in each award, shared by every star of the album and the head (M8 ticket
+// The viewer's presses in each award, shared by every star of the album and the head (M8 ticket
 // 12): a press moves the vote at once, un-pressing the old star, before the page comes back with
-// it. The last choice is shown while any press is on its way, and after, while the page still
-// shows a vote from before it: the one shown when the presses began, or one an earlier press made,
-// which a page coming back between two presses carries. Once the page comes back with the last
-// choice, or anything else, the page's own word is shown again. Written only in event handlers; on
-// the server, and in the first drawing, the page's vote alone. A refused press is forgotten, and
-// the refusal of a tile's star is kept for the head's alert.
-type Choice = { choice: string | null; before: (string | null)[]; sending: number };
-const choices = new Map<string, Choice>();
-let lastRefusal: VoteRefusal | undefined;
+// it. What shows is voteShown's (voting.ts): the choice while a press is on its way and, after,
+// while the page is still the drawing it was shown over; once a new drawing arrives, the page's
+// own word, so a vote taken away without a press (its item deleted, voting turned off and on) is
+// never shown. An entry a new drawing has overtaken is ignored, and replaced at the next press.
+// Written only in event handlers; on the server, and in the first drawing, the page's vote alone.
+// The refusal of a tile's star is kept, with its drawing, for the head's alert.
+const pending = new Map<string, PendingVote>();
+let lastRefusal: { refusal: VoteRefusal; drawn: string } | undefined;
 const listeners = new Set<() => void>();
 
 function subscribe(listener: () => void): () => void {
@@ -34,23 +35,22 @@ function subscribe(listener: () => void): () => void {
 }
 const changed = () => listeners.forEach((listener) => listener());
 
-// The item this viewer's vote in `award` is for, as shown now: `voted` is the page's.
-export function useVote(award: string, voted: string | null): string | null {
+// The item this viewer's vote in `award` is for, as shown now: `voted` is the page's, `drawn` the
+// page's drawing.
+export function useVote(award: string, voted: string | null, drawn: string): string | null {
   return useSyncExternalStore(
     subscribe,
-    () => {
-      const made = choices.get(award);
-      return made && (made.sending > 0 || made.before.includes(voted)) ? made.choice : voted;
-    },
+    () => voteShown(pending.get(award), voted, drawn),
     () => voted,
   );
 }
 
-// The refusal of the last press of a tile's star, for the head's alert.
-export function useRefusal(): VoteRefusal | undefined {
+// The refusal of the last press of a tile's star, for the head's alert, while the page is the
+// drawing it was refused on.
+export function useRefusal(drawn: string): VoteRefusal | undefined {
   return useSyncExternalStore(
     subscribe,
-    () => lastRefusal,
+    () => (lastRefusal?.drawn === drawn ? lastRefusal.refusal : undefined),
     () => undefined,
   );
 }
@@ -63,25 +63,42 @@ export function useChosen<T extends { award: string }>(awards: T[], initial: str
 }
 
 // A press of a star: the vote moved to this item, or taken back when it is already this item's.
-// The action runs in a transition, and the page it redraws confirms the vote.
-function usePress(slug: string, onRefused: (refusal: VoteRefusal | undefined) => void) {
+// The action runs in a transition, and the page it redraws confirms the vote. Once the answer is
+// in, the choice is held over the drawing then shown, so a page that came back between two quick
+// presses does not flash the first; a refusal, or an answer that never came, forgets the choice.
+// `refused` is told of the refusal with the drawing it happened on, or of none at each press.
+function usePress(slug: string, drawn: string, refused: (refusal: { refusal: VoteRefusal; drawn: string } | undefined) => void) {
   const [, startTransition] = useTransition();
+  // The drawing shown now, read when an answer comes in.
+  const shownDrawing = useRef(drawn);
+  useEffect(() => {
+    shownDrawing.current = drawn;
+  }, [drawn]);
   return (vote: ItemAward, item: string, shown: string | null) => {
     const choice = shown === item ? null : item;
-    const made = choices.get(vote.award);
-    const before = made && made.sending > 0 ? [...made.before, made.choice] : [vote.voted];
-    choices.set(vote.award, { choice, before, sending: (made?.sending ?? 0) + 1 });
-    onRefused(undefined);
+    const sending = pending.get(vote.award)?.sending ?? 0;
+    pending.set(vote.award, { choice, drawn: vote.drawn, sending: sending + 1 });
+    lastRefusal = undefined;
+    refused(undefined);
     changed();
     startTransition(async () => {
-      const { error } = await setVoteAction(slug, vote.award, choice);
-      const now = choices.get(vote.award);
-      if (now) now.sending = Math.max(0, now.sending - 1);
-      if (error) {
-        choices.delete(vote.award);
-        onRefused(error);
+      let refusal: VoteRefusal | undefined;
+      try {
+        refusal = (await setVoteAction(slug, vote.award, choice)).error;
+      } catch {
+        refusal = "failed";
+      } finally {
+        const now = pending.get(vote.award);
+        if (now) {
+          now.sending = Math.max(0, now.sending - 1);
+          now.drawn = shownDrawing.current;
+        }
+        if (refusal) {
+          pending.delete(vote.award);
+          refused({ refusal, drawn: shownDrawing.current });
+        }
+        changed();
       }
-      changed();
     });
   };
 }
@@ -90,17 +107,19 @@ const BADGE = "pointer-events-none absolute inline-flex items-center gap-0.5 rou
 const RIBBON = { 1: "bg-ribbon-first", 2: "bg-ribbon-second", 3: "bg-ribbon-third" } as const;
 
 // On a tile of the album, beside its thumbnail button (never inside it): the star at the bottom
-// right where this viewer may vote for the item, named by the thumbnail ("Vote for Photo 2"),
-// since the album numbers its items only once an award is chosen; its count at the top right where
+// right where this viewer may vote for the item, named by the thumbnail's label ("Vote for Photo
+// 2", without a video's length or the Live mark), since the album numbers its items only once an
+// award is chosen; its count at the top right where
 // this viewer is shown it; its ribbon at the top left once the results are in. The badges take no
 // pointer events, so a press on them opens the item.
 export function ItemVote({ slug, item, initial, awards }: { slug: string; item: string; initial: string; awards: ItemAward[] }) {
   const t = useTranslations("Voting.album");
   const id = useId();
   const vote = useChosen(awards, initial);
-  const shown = useVote(vote?.award ?? "", vote?.voted ?? null);
-  const press = usePress(slug, (refusal) => {
-    lastRefusal = refusal;
+  const drawn = vote?.drawn ?? "";
+  const shown = useVote(vote?.award ?? "", vote?.voted ?? null, drawn);
+  const press = usePress(slug, drawn, (refused) => {
+    lastRefusal = refused;
   });
   if (!vote) return null;
   const mine = shown === item;
@@ -126,7 +145,7 @@ export function ItemVote({ slug, item, initial, awards }: { slug: string; item: 
             type="button"
             data-slot="vote-star"
             aria-pressed={mine}
-            aria-labelledby={`${id} album-item-${item}`}
+            aria-labelledby={`${id} album-item-${item}-label`}
             onClick={() => press(vote, item, shown)}
             className={cn(
               "absolute right-1 bottom-1 inline-flex size-9 cursor-pointer items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text",
@@ -146,9 +165,11 @@ export function ItemVote({ slug, item, initial, awards }: { slug: string; item: 
 export function ViewerVote({ slug, item, kind, initial, awards }: { slug: string; item: string; kind: "photo" | "video"; initial: string; awards: ItemAward[] }) {
   const t = useTranslations("Voting.album");
   const vote = useChosen(awards, initial);
-  const shown = useVote(vote?.award ?? "", vote?.voted ?? null);
-  const [refused, setRefused] = useState<VoteRefusal>();
-  const press = usePress(slug, setRefused);
+  const drawn = vote?.drawn ?? "";
+  const shown = useVote(vote?.award ?? "", vote?.voted ?? null, drawn);
+  // Shown while the page is the drawing it was refused on.
+  const [refused, setRefused] = useState<{ refusal: VoteRefusal; drawn: string }>();
+  const press = usePress(slug, drawn, setRefused);
   if (!vote || (!vote.may && vote.shownVotes === undefined && !vote.place)) return null;
   const mine = shown === item;
   return (
@@ -181,9 +202,9 @@ export function ViewerVote({ slug, item, kind, initial, awards }: { slug: string
           </button>
         )}
       </div>
-      {refused && (
+      {refused?.drawn === drawn && (
         <p role="alert" className="text-xs font-medium">
-          {t(`errors.${refused}`)}
+          {t(`errors.${refused.refusal}`)}
         </p>
       )}
     </div>

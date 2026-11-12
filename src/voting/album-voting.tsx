@@ -28,7 +28,6 @@ export type AlbumVoting = { state: VotingState; showsName: (item: Pick<VotableIt
 // `items` are the items this viewer sees, in the album's order.
 export type AlbumVotingInput = {
   event: VotingEvent & { id: string; slug: string; timeZone: string };
-  locale: string;
   viewer: ViewerWithoutInvite;
   view: AlbumViewName;
   items: VotableItem[];
@@ -52,11 +51,14 @@ export async function albumVotingFor({ event, viewer, view, items, now }: AlbumV
   const [voter, awards, votes, t] = await Promise.all([withInvite(viewer), listAwards(event.id), listVotes(event.id), getTranslations("Voting")]);
   const standings = albumVotes(event, view, voter, now, awardsOrDefault(awards), votes, items);
   const initial = keyOf(standings[0]);
+  // This drawing of the page, told apart from every other: a star's press is shown over it until
+  // the next drawing, which carries the vote as the site holds it (vote-star.tsx).
+  const drawn = crypto.randomUUID();
   // Each item's standing in every award that lists it.
   const awardsOf = (item: VotableItem): ItemAward[] =>
     standings.flatMap((standing) => {
       const shown = standing.items.get(item.id);
-      return shown ? [{ award: keyOf(standing), voted: standing.voted, ...shown }] : [];
+      return shown ? [{ award: keyOf(standing), voted: standing.voted, drawn, ...shown }] : [];
     });
   const head = (
     <AlbumVotingHead
@@ -65,6 +67,7 @@ export async function albumVotingFor({ event, viewer, view, items, now }: AlbumV
         name: standing.award.name ?? t("favourite"),
         stage: standing.stage,
         voted: standing.voted,
+        drawn,
         ...(standing.total !== undefined && { total: standing.total }),
       }))}
       initial={initial}

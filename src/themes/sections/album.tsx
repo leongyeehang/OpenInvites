@@ -248,8 +248,10 @@ export function Album({
                       }}
                       className="relative block aspect-square w-full cursor-pointer overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
                     >
+                      {/* Its id names the item alone, without a video's length or the Live mark,
+                          for what a slot labels by it (M8 ticket 12). */}
                       {/* eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized */}
-                      <img src={photo.thumb} alt={label(photo, n)} loading="lazy" className="size-full object-cover" />
+                      <img id={`album-item-${photo.id}-label`} src={photo.thumb} alt={label(photo, n)} loading="lazy" className="size-full object-cover" />
                       {photo.kind === "video" && (
                         <span className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 text-[11px] font-medium text-white">
                           <Film className="size-3" aria-hidden />
