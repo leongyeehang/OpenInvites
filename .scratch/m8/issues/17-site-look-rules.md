@@ -4,7 +4,7 @@
 
 **Blocked by:** nothing
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Stories:** 297, 298, 300, 301
 
@@ -22,7 +22,7 @@
 - Produces, in `src/themes/legibility.ts`: `export const DANGER: Rgb` (`#dc2626`), `export const ATTENTION: Rgb` (`#d97706`), `export const INK_TINT = 0.3`; `ToneTokens` gains `dangerInk: Rgb` and `attentionInk: Rgb`; `export type PageKind = "event" | "site"`; `export function SITE_SURFACES({ glass, glassStrong }: Pick<ToneTokens, "glass" | "glassStrong">)` returning `nested: { layers: [glass, glass], carries: "every strength" }`, `nestedInset: { layers: [glass, glass, glassStrong], carries: "every strength" }`, `onBar: { layers: [glassStrong, glassStrong], carries: "full strength" }`; `toneTokens(tone, backdrop, accent, use = "background", page: PageKind = "event")`.
 - Produces, in `src/themes/resolve.ts`: `resolveTheme(theme: Theme, upload: ThemeUpload | null = null, page: PageKind = "event"): ResolvedTheme`; `themeVariables` adds `"--theme-danger-ink"` and `"--theme-attention-ink"` (hex, through `css`).
 
-- [ ] Write `src/instance/site-look.test.ts` and watch it fail:
+- [x] Write `src/instance/site-look.test.ts` and watch it fail:
   - `DBLESS_POOL` equals `GALLERY_POSTERS.map((p) => p.id)` and has 20 ids.
   - `sitePoster(DBLESS_POOL, area)`: `welcome` "bokeh", `guest` "cocktails", `fallback` "cake", `site` "rose", `host` "string-lights" (five different posters).
   - `sitePoster(["disco", "balloons", "aurora"], area)`: `welcome` "disco", `guest` "disco", `fallback` "balloons", `site` "aurora", `host` "aurora".
@@ -30,15 +30,15 @@
   - `siteTheme("disco")` equals `homeTheme("disco")`; `areaLook(DBLESS_POOL, "welcome")` equals `{ theme: homeTheme("bokeh"), upload: null }`.
   - `eventLook(theme, upload)` with a theme whose effect is "sparkles": the same theme with `effect: "none"`, and the same upload object.
   - `hostLookOf`: a pick wins over a glow (`{ pick: "aurora", glow: eventLook(theme, upload), pool: DBLESS_POOL }` gives `{ theme: siteTheme("aurora"), upload: null }`); with no pick the glow is returned as given; with neither, `areaLook(DBLESS_POOL, "host")`, whose theme is `homeTheme("string-lights")`.
-- [ ] Write `src/instance/site-look.ts`. The hash is fixed so the tests above hold: over the area name's code points, from 0, `h = (h × 31 + code point) mod 2³²`; the poster is `pool[h mod pool.length]`.
-- [ ] Extend `src/themes/legibility.test.ts` and watch it fail:
+- [x] Write `src/instance/site-look.ts`. The hash is fixed so the tests above hold: over the area name's code points, from 0, `h = (h × 31 + code point) mod 2³²`; the poster is `pool[h mod pool.length]`.
+- [x] Extend `src/themes/legibility.test.ts` and watch it fail:
   - `expectEveryTextReads` also checks `tokens.dangerInk` and `tokens.attentionInk` on every surface of `SURFACES(tokens)`, each at AA alone and with its own colour at `INK_TINT` laid over the surface (shadcn's destructive button and badge fill with their own colour at 10% to 30%), so every existing describe (colours, uploads, gallery posters, posters) covers them.
   - New describe "a site page": for every gallery poster in both tones with its accent and every swatch (`use "poster"`), every colour in both tones with every accent, and the grey sweeps of "an upload" and "a poster", `toneTokens(…, "site")` reads at AA on `SURFACES` and `SITE_SURFACES` for text, muted, faint (every-strength surfaces), both inks (alone and on their tint) and the focus ring at 3:1.
   - "site surfaces leave the event page alone": for Golden hour (`BACKGROUNDS[0]`) light tone with `#ffc36b`, `toneTokens(…)` and `toneTokens(…, "background", "event")` are equal, and the site's glass alpha is at least the event's.
   - "the inks keep their colour": on every gallery poster and every colour, both tones, the danger ink's red channel is its largest, and the attention ink's channels fall from red to green to blue.
-- [ ] In `legibility.ts`: the two constants, `SITE_SURFACES`, the `page` argument (the glass tint, the muted and faint strengths and the focus ring are solved over `SURFACES` plus `SITE_SURFACES` when `page === "site"`; the sheet and the title on the poster are unchanged), and `dangerInk` and `attentionInk`, each its base colour moved towards the tone's text (as `inkAt` moves the accent, `:252`) only as far as reading on every surface of the page, alone and under its own tint, needs.
-- [ ] `src/themes/resolve.test.ts`: `themeVariables` carries `--theme-danger-ink` and `--theme-attention-ink` as `#rrggbb`; `resolveTheme(theme, null, "site").tokens` equals `toneTokens(tone, background, accent, use, "site")` for a gallery theme. Watch fail, then pass the `page` argument through `resolveTheme` (`:102`) and add the two variables.
-- [ ] Checks: `pnpm lint`, `pnpm typecheck`, `pnpm test`. No browser spec changes here. Comments entry; commit `Site look: every area has its poster, and danger and attention read on every backdrop`.
+- [x] In `legibility.ts`: the two constants, `SITE_SURFACES`, the `page` argument (the glass tint, the muted and faint strengths and the focus ring are solved over `SURFACES` plus `SITE_SURFACES` when `page === "site"`; the sheet and the title on the poster are unchanged), and `dangerInk` and `attentionInk`, each its base colour moved towards the tone's text (as `inkAt` moves the accent, `:252`) only as far as reading on every surface of the page, alone and under its own tint, needs.
+- [x] `src/themes/resolve.test.ts`: `themeVariables` carries `--theme-danger-ink` and `--theme-attention-ink` as `#rrggbb`; `resolveTheme(theme, null, "site").tokens` equals `toneTokens(tone, background, accent, use, "site")` for a gallery theme. Watch fail, then pass the `page` argument through `resolveTheme` (`:102`) and add the two variables.
+- [x] Checks: `pnpm lint`, `pnpm typecheck`, `pnpm test`. No browser spec changes here. Comments entry; commit `Site look: every area has its poster, and danger and attention read on every backdrop`.
 
 ## Notes for the implementer
 
@@ -50,3 +50,50 @@
 - Nothing here changes what a page paints, so `pnpm measure:backgrounds` and `pnpm posters` are not needed.
 
 ## Comments
+
+### 2026-11-11: landed (Opus 5.5)
+
+**How it landed.** `src/instance/site-look.ts` is as Produces says, with the fixed hash; every
+poster the ticket expects holds. `legibility.ts` gains `DANGER`, `ATTENTION`, `PageKind`,
+`SITE_SURFACES`, the `page` argument, `dangerInk` and `attentionInk`. `resolveTheme` takes the
+`page` argument through and `themeVariables` carries `--theme-danger-ink` and
+`--theme-attention-ink`. The event page's solve is untouched: every "settled look" test and every
+other existing test passes unchanged, and `toneTokens(…)` equals `toneTokens(…, "background",
+"event")`.
+
+**What differs from the ticket, and why (ruled by the controller after a BLOCKED report):**
+- **`INK_TINT` is not produced, and the inks are proven alone.** No ink can read at AA on its own
+  30% tint over the event page's surfaces. The glass is tinted only until 80% text reaches 4.6:1,
+  and 30% of the ink pulls the surface towards the ink, so even the text itself fails on it as ink.
+  Measured over the grey sweeps of "an upload" and "a poster": no ink works in 54 of 72 cases, for
+  danger and for attention, on every light-tone surface and on dark/page. Tinting a site page's glass
+  until one would read needs light-tone glass alpha 0.80 to 0.96, with the ink pure white.
+  `expectEveryTextReads` therefore checks both inks alone at AA on every `SURFACES` surface. "A site
+  page" checks them alone on `SURFACES` and `SITE_SURFACES`.
+- **The ticket's two (plan) notes on the inks were wrong.** The 30% tint note is answered above.
+  "Mid tones, so the ink moves only a little" does not hold. On the gallery posters under light text,
+  the danger ink is `#f9d8d8` (about 82% of the way to white; `#fae1e1` on Aurora) and the attention
+  ink (245, 220, 190). Under dark text, the danger ink runs from `#bf2328` (Cake) to `#58172d`.
+  The attention ink reaches (68, 39, 39) on seven posters: candles, candlelight, disco,
+  sunset-drive, cocktails, seaside and string-lights. Any colour that reads on the light tone's
+  glass needs a luminance of about 0.6, so these are what AA asks for.
+- **"The inks keep their colour" has an allowance.** The danger ink's red channel is its largest.
+  The attention ink's red is its largest too, and its green may sit below its blue by at most 1:
+  under dark text it moves towards the blue-heavy `#1a1030`, and green and blue meet (above). The
+  test asserts this on event and site pages alike.
+
+**For ticket 18:** inside the `.site-page` scope the destructive button and badge must fill with
+`--destructive-soft` (strong glass), never `bg-destructive/10–30`. The danger ink is proven only
+on the surfaces `SURFACES` and `SITE_SURFACES` name, not on its own tint. The same holds for any
+attention fill (`--attention-soft`).
+
+**Things to know.** On most backdrops a site page solves the same as an event page. Site glass is
+tinted further only where glass on glass needs it: on the gallery, Candlelight, Aurora, Bokeh and
+Streamers under light text (Aurora's glass alpha goes from 0.244 to 0.289). `resolve.test.ts` pins
+Aurora as the case where `"site"` differs.
+
+**Evidence.** RED: `site-look.test.ts` failed to import `./site-look`. `legibility.test.ts`: 70
+failed of 90 (`SITE_SURFACES is not a function`, `dangerInk` undefined). `resolve.test.ts`: 2 failed
+(`--theme-danger-ink` undefined; site tokens unequal). GREEN: 9, 90 and 25 passed. `pnpm lint` and
+`pnpm typecheck` are clean, and `pnpm test` passes 119 files and 1379 tests. No browser spec
+changes, and no Docker run, as the ticket says.

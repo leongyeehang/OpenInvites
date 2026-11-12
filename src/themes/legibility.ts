@@ -3,9 +3,10 @@ import type { Background } from "./backgrounds";
 // Every combination of knobs must read (spec, story 44). This is the rule that makes it so: from
 // the backdrop at its most extreme, the text tone and the accent, it works out how strongly the
 // glass is tinted, how far secondary text may fade, and which colours go on the accent and stand
-// for it as text, so that all text meets WCAG 2 AA (4.5:1), and which colour rings a control that
-// has the keyboard's focus, so that it stands out at 3:1 (non-text contrast). Colours are sRGB
-// channels 0 to 255 with an alpha of 0 to 1, blended the way a browser blends them.
+// for it, for danger and for attention as text, so that all text meets WCAG 2 AA (4.5:1), and which
+// colour rings a control that has the keyboard's focus, so that it stands out at 3:1 (non-text
+// contrast). Colours are sRGB channels 0 to 255 with an alpha of 0 to 1, blended the way a browser
+// blends them.
 
 export type Rgb = readonly [number, number, number];
 export type Rgba = readonly [number, number, number, number];
@@ -92,6 +93,12 @@ export const TONES = {
   },
 } as const;
 
+// What danger and attention are set in before reading moves them: Tailwind's red-600 and amber-600
+// (M8 spec, "Glass", "Legibility"). Error messages, a destructive button's label and a warning
+// read in their inks (`dangerInk`, `attentionInk` below).
+export const DANGER = hexToRgb("#dc2626");
+export const ATTENTION = hexToRgb("#d97706");
+
 // The second of the two soft blobs that drift over a gradient backdrop; the first is the accent.
 export const GLOW = hexToRgb("#ff5c8a");
 
@@ -124,6 +131,12 @@ export type ToneTokens = {
   onAccent: Rgb;
   // The accent where it is set as text, moved towards the tone's text until it reads.
   accentInk: Rgb;
+  // Danger and attention where they are set as text, each moved towards the tone's text until it
+  // reads on every surface of the page. They are proven alone: a soft fill behind one is strong
+  // glass on a site page (ticket 18), never the ink's own tint, which no red or amber could read
+  // on under light text.
+  dangerInk: Rgb;
+  attentionInk: Rgb;
   // The ring round a control that has the keyboard's focus: the accent, moved towards the tone's
   // text until it stands out from every surface a control sits on. The RSVP buttons, which sit on
   // the backdrop itself, are ringed inside instead, in their own label's colour, which reads on
@@ -161,6 +174,23 @@ export function SURFACES({ glass, glassStrong, veil }: Pick<ToneTokens, "glass" 
     // "Remove my RSVP", the asterisk on a required question. Anything bigger that wants the
     // accent (the countdown, avatars, the chosen answer) is filled with it and set in onAccent.
     accentOnCard: { layers: [glass], carries: "accent" },
+  } satisfies Record<string, Surface>;
+}
+
+// What a page is: an event page, or any other page of the site (a site page), which wears a
+// still backdrop and stacks surfaces an event page does not (SITE_SURFACES).
+export type PageKind = "event" | "site";
+
+// The surfaces only a site page stacks, as the site page's scope and the header stack them
+// (ticket 18, globals.css). Keep this in step with that markup when a new surface appears.
+export function SITE_SURFACES({ glass, glassStrong }: Pick<ToneTokens, "glass" | "glassStrong">) {
+  return {
+    // A card holding a row, a panel or an alert: glass on glass.
+    nested: { layers: [glass, glass], carries: "every strength" },
+    // A field in such a card.
+    nestedInset: { layers: [glass, glass, glassStrong], carries: "every strength" },
+    // A control on the header's bar, hovered.
+    onBar: { layers: [glassStrong, glassStrong], carries: "full strength" },
   } satisfies Record<string, Surface>;
 }
 
@@ -210,7 +240,9 @@ function least(from: number, reads: (value: number) => boolean): number {
   return 1;
 }
 
-export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string, use: BackdropUse = "background"): ToneTokens {
+// A site page is solved over SURFACES and SITE_SURFACES together, an event page over SURFACES alone,
+// so that every measured and pinned value of the event page stays as it was.
+export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string, use: BackdropUse = "background", page: PageKind = "event"): ToneTokens {
   const t = TONES[tone];
   const behind = worstBackdrop(tone, backdrop);
   const on = (layers: Rgba[]) => layers.reduce<Rgb>((colour, layer) => over(layer, colour), behind);
@@ -227,12 +259,16 @@ export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string, use: 
   // ends up at worst.
   const fits = ({ layers, carries }: Surface) => reads(text, layers) && (carries !== "every strength" || reads(secondary, layers));
 
+  // Every surface of the page, a site page's own among them.
+  const surfacesOf = (layers: Pick<ToneTokens, "glass" | "glassStrong" | "veil">): Record<string, Surface> =>
+    page === "site" ? { ...SURFACES(layers), ...SITE_SURFACES(layers) } : SURFACES(layers);
+
   // The glass is tinted as little as the page's hardest point allows. What sits on the veil waits
   // for the veil, which is solved next.
   const onVeil = ["page", "fieldOnPage"];
   const glassAt = (tint: number) => ({ glass: frosted(t.shade, tint, t.frost), glassStrong: frosted(t.shade, tint, t.frostStrong) });
   const tint = least(0, (value) =>
-    Object.entries(SURFACES({ ...glassAt(value), veil: [...t.shade, 0] })).every(([name, surface]) => onVeil.includes(name) || fits(surface)),
+    Object.entries(surfacesOf({ ...glassAt(value), veil: [...t.shade, 0] })).every(([name, surface]) => onVeil.includes(name) || fits(surface)),
   );
   const { glass, glassStrong } = glassAt(tint);
   // The veil is solved on its own: on most backdrops bare text reads with none. A field on it is
@@ -261,7 +297,15 @@ export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string, use: 
       focusRing: inkAt(least(0, (amount) => surfaces.every(({ layers }) => reads(inkAt(amount), layers, RING_TARGET)))),
     };
   };
-  const page = strengthsOn(Object.values(SURFACES({ glass, glassStrong, veil })));
+  const onPage = Object.values(surfacesOf({ glass, glassStrong, veil }));
+  const strengths = strengthsOn(onPage);
+
+  // Danger and attention, each moved towards the text as the accent ink is, only as far as reading
+  // on every surface of the page needs: text in either can go wherever text can.
+  const inkOf = (base: Rgb) => {
+    const at = (amount: number) => over([...text, amount], base).map(Math.round) as unknown as Rgb;
+    return at(least(0, (amount) => onPage.every(({ layers }) => reads(at(amount), layers))));
+  };
 
   // The sheet is tinted with the tone's shade as little as reading over anything allows. Its
   // secondary text and accent ink are its own, so the page keeps its lighter ones.
@@ -276,16 +320,18 @@ export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string, use: 
   return {
     base: t.base,
     text,
-    textMuted: page.textMuted,
-    textFaint: page.textFaint,
+    textMuted: strengths.textMuted,
+    textFaint: strengths.textFaint,
     glass,
     glassStrong,
     glassBorder: t.glassBorder,
     veil,
     scrim: use === "poster" ? t.posterScrim : t.scrim,
     onAccent: onAccent(accentRgb),
-    accentInk: page.accentInk,
-    focusRing: page.focusRing,
+    accentInk: strengths.accentInk,
+    dangerInk: inkOf(DANGER),
+    attentionInk: inkOf(ATTENTION),
+    focusRing: strengths.focusRing,
     sheet: { tint: sheetTint, ...strengthsOn(sheetAt(sheetTint[3])) },
     titleOnPoster: { scrim: titleScrim, textMuted: onTitle.textMuted, textFaint: onTitle.textFaint },
   };
