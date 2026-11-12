@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import { postAnnouncementAction } from "@/announcements/actions";
 import { DEFAULT_AUDIENCE, MAX_BODY } from "@/announcements/announcement";
 import { FormOutcome } from "@/components/form-outcome";
@@ -17,7 +17,12 @@ import { SAVED_STATUSES, type SavedStatus } from "@/rsvps/form";
 // language, which they may change and send like any other announcement. A draft the page was
 // opened with (`?draft=`, M8 ticket 14) is where the message and its audience start. The fields are
 // the form's own state, so a refusal leaves them as they were; once the announcement is posted they
-// start again, empty. Without mail the boxes are shown but cannot change.
+// start again, empty, with the usual audience. Without mail the boxes are shown but cannot change.
+//
+// The form is sent from its submit event, not through its `action`: React resets a form after an
+// action passed that way, sent or refused, and each checkbox (Radix) answers the reset by setting
+// itself back to the value it was first drawn with, the draft's, which raced the audience set here
+// and undid a refusal's (flake fix, M8 ticket 14).
 export function AnnouncementForm({
   eventId,
   reminder,
@@ -34,15 +39,24 @@ export function AnnouncementForm({
   const [audience, setAudience] = useState<readonly SavedStatus[]>(draft?.audience ?? DEFAULT_AUDIENCE);
   const [state, send, sending] = useActionState(async (previous: FormState, formData: FormData) => {
     const outcome = await postAnnouncementAction(eventId, previous, formData);
-    if (outcome?.success) {
-      setBody("");
-      setAudience(DEFAULT_AUDIENCE);
-    }
+    // Within the action's transition, so the fields start again as the posted announcement shows
+    // (Next.js guide, "interactive apps": updates after an await leave the transition otherwise).
+    if (outcome?.success)
+      startTransition(() => {
+        setBody("");
+        setAudience(DEFAULT_AUDIENCE);
+      });
     return outcome;
   }, undefined);
 
   return (
-    <form action={send}>
+    <form
+      onSubmit={(submitted) => {
+        submitted.preventDefault();
+        const data = new FormData(submitted.currentTarget);
+        startTransition(() => send(data));
+      }}
+    >
       <FieldGroup>
         <Field>
           <FieldLabel htmlFor="announcement-body">{t("message")}</FieldLabel>
