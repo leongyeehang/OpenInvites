@@ -49,6 +49,10 @@ describe("sitePoster", () => {
     expect(posters).toEqual({ welcome: "disco", guest: "disco", fallback: "balloons", site: "aurora", host: "aurora" });
   });
 
+  it("falls back to the whole gallery when given an empty pool, rather than to no poster", () => {
+    for (const area of AREAS) expect(sitePoster([], area), area).toBe(sitePoster(DBLESS_POOL, area));
+  });
+
   it("gives every area the one poster of a pool of one, and the same poster on every visit", () => {
     for (const area of AREAS) expect(sitePoster(["seaside"], area), area).toBe("seaside");
     for (const area of AREAS) expect(sitePoster(DBLESS_POOL, area), area).toBe(sitePoster(DBLESS_POOL, area));
@@ -67,6 +71,8 @@ describe("an event's management pages", () => {
     const look = eventLook(theme, upload);
     expect(look.theme).toEqual({ ...theme, effect: "none" });
     expect(look.upload).toBe(upload);
+    // The event's own theme is left as it was: its page still draws the effect.
+    expect(theme.effect).toBe("sparkles");
   });
 });
 

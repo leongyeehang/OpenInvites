@@ -45,6 +45,7 @@ import { CommentForm } from "./comment-form";
 import { RetiredLink } from "./retired-link";
 import { DraftNotice } from "./draft-notice";
 import { LockedPage } from "./locked-page";
+import { NotReady } from "./not-ready";
 import { GuestList } from "./guest-list";
 import { RsvpFlow } from "./rsvp-flow";
 import { ThreadComposer } from "./thread-composer";
@@ -316,15 +317,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // (invites/gate.ts), and whose comments and album these are.
   const isDraft = event.state === "draft";
   const { isHost, page, invite: standsFor } = await gateFor(found);
-  if (page === "notReady") {
-    const t = await getTranslations("EventPage");
-    return (
-      <main className="mx-auto flex min-h-svh w-full max-w-xl flex-col justify-center gap-3 px-4 py-12">
-        <h1 className="text-3xl font-semibold tracking-tight">{t("notReadyTitle")}</h1>
-        <p className="text-muted-foreground">{t("notReady")}</p>
-      </main>
-    );
-  }
+  if (page === "notReady") return <NotReady />;
   // Nothing of the event but its host's name, and a way in for the invited (M6 spec, "The locked
   // page"): the email of the invite whose link this device opened is filled in.
   if (page === "locked") return <LockedPage slug={event.slug} host={event.hostName} email={standsFor?.email ?? null} mail={isMailConfigured()} />;

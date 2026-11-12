@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { createDraft, createPublished, openDesign, openMore, pickDesign, publishInEditor, toEditor } from "./events";
-import { worstContrast } from "./dashboard";
+import { worstContrast } from "./contrast";
 import { signUpVerified } from "./hosts";
 import { clientAddress, expect, test, type Page } from "./test";
 

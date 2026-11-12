@@ -19,13 +19,15 @@ export type SiteArea = "welcome" | "guest" | "fallback" | "site" | "host";
 // which must not cost a query that may fail (src/app/layout.tsx, src/proxy.ts).
 export const DBLESS_POOL: readonly GalleryPosterId[] = posterPool(DEFAULT_HOME_PAGE);
 
-// The area's poster from a pool, which is never empty: the same for the same pool and area, and
-// different areas mostly apart. A string hash of the area's name (h × 31 + code point, kept to 32
-// bits) picks it, so it needs no state and no randomness.
+// The area's poster from a pool: the same for the same pool and area, and different areas mostly
+// apart. A string hash of the area's name (h × 31 + code point, kept to 32 bits) picks it, so it
+// needs no state and no randomness. `posterPool` never gives an empty pool; one that is empty all
+// the same is the whole gallery, so a page always has a poster.
 export function sitePoster(pool: readonly GalleryPosterId[], area: SiteArea): GalleryPosterId {
+  const from = pool.length > 0 ? pool : DBLESS_POOL;
   let hash = 0;
   for (const character of area) hash = (hash * 31 + character.codePointAt(0)!) % 2 ** 32;
-  return pool[hash % pool.length];
+  return from[hash % from.length];
 }
 
 // A gallery poster as a site page wears it: as the home page does, with no effect.

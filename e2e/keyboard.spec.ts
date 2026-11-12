@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import { closeDesign, createDraft, createPublished, type DraftFields, openDesign, openSettings, savedAfter, saveStatus, toEditor } from "./events";
+import { expectRingStandsOut } from "./contrast";
 import { hostWithShelves, SHELVES } from "./dashboard";
 import { expectVisibleFocus, tabTo } from "./focus";
 import { homeByKeyboard, openHome } from "./home";
@@ -264,8 +265,9 @@ test("a guest gives the phone number the host asked for by keyboard alone, on th
 });
 
 // Ticket 02 (M3): a guest reports an event page by keyboard alone, from the link in its footer to
-// the thanks and back to the page. The report page is a plain page, as the host's are: its form's
-// controls show their focus as the host's pages do, read as their ring's contrast is (below).
+// the thanks and back to the page. The report page wears the site's backdrop, never the event's
+// Theme (M8 ticket 18): its form's controls are ringed in the focus ring solved for that backdrop,
+// read as their ring's contrast is (e2e/contrast.ts).
 test("a guest reports an event page by keyboard alone", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "keyboard-report", { title: "Ada’s birthday", start: "2027-03-06T19:00" });
@@ -293,7 +295,7 @@ test("a guest reports an event page by keyboard alone", async ({ page, browser, 
   await host.context.close();
 });
 
-// Tab until `target` has the focus, on a plain page, whose rings expectRingStandsOut reads instead.
+// Tab until `target` has the focus, on the report page, whose rings expectRingStandsOut reads instead.
 async function tabUntil(page: Page, target: Locator) {
   for (let presses = 0; presses < 30; presses++) {
     await page.keyboard.press("Tab");
@@ -457,51 +459,6 @@ for (const colorScheme of ["light", "dark"] as const) {
     drawer = await openDesign(page, "Theme");
     await expectRingStandsOut(page, drawer.getByRole("group", { name: "Layout" }).getByRole("radio").first());
   });
-}
-
-// Focuses the control as the keyboard does (the last thing done was a key, so it shows its focus
-// as it does for Tab), and reads the strip beside it (or beside the tile it sits in) with the focus
-// and without.
-async function expectRingStandsOut(page: Page, control: Locator) {
-  const shown = control.locator("xpath=ancestor-or-self::label[1]").or(control).first();
-  await page.keyboard.press("Shift");
-  await control.focus();
-  expect(await control.evaluate((element) => element.matches(":focus-visible")), `${control} shows its focus`).toBe(true);
-  const focused = await stripBeside(page, shown);
-  await control.blur();
-  const unfocused = await stripBeside(page, shown);
-  const beyond = unfocused[0];
-  const standsOut = Math.max(...focused.map((pixel, at) => Math.min(contrast(pixel, unfocused[at]), contrast(pixel, beyond))));
-  expect(standsOut, `the ring round ${control}`).toBeGreaterThanOrEqual(3);
-}
-
-// The 12px to the left of an element, at half its height, as it is on screen, once whatever is
-// fading in or out has finished.
-async function stripBeside(page: Page, element: Locator) {
-  await page.evaluate(() =>
-    Promise.all(
-      document
-        .getAnimations()
-        .filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity)
-        .map((animation) => animation.finished.catch(() => undefined)),
-    ),
-  );
-  await element.scrollIntoViewIfNeeded();
-  const box = (await element.boundingBox())!;
-  const clip = { x: Math.floor(box.x) - 12, y: Math.floor(box.y + box.height / 2), width: 12, height: 1 };
-  const { data, info } = await sharp(await page.screenshot({ clip })).raw().toBuffer({ resolveWithObject: true });
-  return Array.from({ length: info.width }, (_, at) => [0, 1, 2].map((channel) => data[at * info.channels + channel]));
-}
-
-// WCAG 2's contrast ratio, from sRGB channels 0 to 255.
-function contrast(a: number[], b: number[]) {
-  const luminance = (rgb: number[]) =>
-    rgb
-      .map((channel) => channel / 255)
-      .map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
-      .reduce((sum, c, at) => sum + c * [0.2126, 0.7152, 0.0722][at], 0);
-  const [lighter, darker] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (lighter + 0.05) / (darker + 0.05);
 }
 
 // The dashboard by keyboard (dashboard, ticket 05): from the header's New event and account menu to

@@ -205,6 +205,12 @@ describe("resolveTheme", () => {
     expect(variables["--theme-danger-ink"]).toBe(css(resolved.tokens.dangerInk));
     expect(variables["--theme-attention-ink"]).toBe(css(resolved.tokens.attentionInk));
     for (const name of ["--theme-danger-ink", "--theme-attention-ink"]) expect(variables[name], name).toMatch(/^#[0-9a-f]{6}$/);
+    // A site page's too (ticket 18), on a poster whose glass a site page tints further.
+    const site = resolveTheme(onGallery("aurora"), null, "site");
+    const onSite = themeVariables(site);
+    expect(onSite["--theme-danger-ink"]).toBe(css(site.tokens.dangerInk));
+    expect(onSite["--theme-attention-ink"]).toBe(css(site.tokens.attentionInk));
+    for (const name of ["--theme-danger-ink", "--theme-attention-ink"]) expect(onSite[name], name).toMatch(/^#[0-9a-f]{6}$/);
   });
 
   it("solves a site page with the surfaces only a site page stacks, and an event page without them", () => {

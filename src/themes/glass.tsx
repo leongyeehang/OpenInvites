@@ -15,3 +15,9 @@ export function Glass({ strong = false, className, ...props }: ComponentProps<"d
     />
   );
 }
+
+// What a heading outside a panel sits on, set straight on the page (legibility.ts, SURFACES.page):
+// the veil, often nothing at all, that keeps bare text readable on any backdrop.
+export function Veil({ className, ...props }: ComponentProps<"div">) {
+  return <div className={cn("w-fit max-w-full rounded-2xl bg-theme-veil px-3 py-2 backdrop-blur-xl", className)} {...props} />;
+}

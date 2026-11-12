@@ -281,11 +281,14 @@ export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string, use: 
     }),
   ];
 
+  // A colour moved `amount` of the way towards the tone's text, in whole channels: how the accent
+  // ink, the focus ring and the danger and attention inks are each found. At 1 it is the text, which
+  // reads on every surface, so each always gets there.
+  const towardsText = (base: Rgb, amount: number) => over([...text, amount], base).map(Math.round) as unknown as Rgb;
+
   // How far secondary text may fade on a set of surfaces, and how far the accent ink must move
   // towards the text to read on them, and the focus ring to stand out from every one of them (a
-  // control can sit on any surface text can). The text itself reads on all of them, so both
-  // always get there.
-  const inkAt = (amount: number) => over([...text, amount], accentRgb).map(Math.round) as unknown as Rgb;
+  // control can sit on any surface text can).
   const strengthsOn = (surfaces: Surface[]) => {
     const everyStrength = surfaces.filter((surface) => surface.carries === "every strength");
     const fadedReads = (alpha: number) => everyStrength.every(({ layers }) => reads([...text, alpha], layers));
@@ -293,8 +296,8 @@ export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string, use: 
     return {
       textMuted: [...text, least(t.muted, fadedReads)] as Rgba,
       textFaint: [...text, least(t.faint, fadedReads)] as Rgba,
-      accentInk: inkAt(least(0, (amount) => accentSurfaces.every(({ layers }) => reads(inkAt(amount), layers)))),
-      focusRing: inkAt(least(0, (amount) => surfaces.every(({ layers }) => reads(inkAt(amount), layers, RING_TARGET)))),
+      accentInk: towardsText(accentRgb, least(0, (amount) => accentSurfaces.every(({ layers }) => reads(towardsText(accentRgb, amount), layers)))),
+      focusRing: towardsText(accentRgb, least(0, (amount) => surfaces.every(({ layers }) => reads(towardsText(accentRgb, amount), layers, RING_TARGET)))),
     };
   };
   const onPage = Object.values(surfacesOf({ glass, glassStrong, veil }));
@@ -302,10 +305,7 @@ export function toneTokens(tone: Tone, backdrop: Backdrop, accent: string, use: 
 
   // Danger and attention, each moved towards the text as the accent ink is, only as far as reading
   // on every surface of the page needs: text in either can go wherever text can.
-  const inkOf = (base: Rgb) => {
-    const at = (amount: number) => over([...text, amount], base).map(Math.round) as unknown as Rgb;
-    return at(least(0, (amount) => onPage.every(({ layers }) => reads(at(amount), layers))));
-  };
+  const inkOf = (base: Rgb) => towardsText(base, least(0, (amount) => onPage.every(({ layers }) => reads(towardsText(base, amount), layers))));
 
   // The sheet is tinted with the tone's shade as little as reading over anything allows. Its
   // secondary text and accent ink are its own, so the page keeps its lighter ones.
