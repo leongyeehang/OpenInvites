@@ -151,7 +151,17 @@ async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: strin
     return { view: "locked", count: await countPhotos(event.id, "approved"), visibility: event.albumVisibility, awaitingApproval };
   }
   const listed = await listPhotos(event.id, photoScope(view, viewer), albumOrderFor(event));
-  const items = listed.map(({ id, kind, status, rsvpId, hostId }) => ({ id, kind, status, rsvpId, hostId }));
+  // Each with its thumbnail and who added it, for the vote's Winners strip (M8 ticket 16), which
+  // passes a name on only where this viewer is shown it.
+  const items = listed.map(({ id, kind, status, rsvpId, hostId, name }) => ({
+    id,
+    kind,
+    status,
+    rsvpId,
+    hostId,
+    name,
+    thumb: kind === "photo" ? photoUrl(id, "thumb") : status === "processing" || status === "failed" ? null : videoUrl(id, "thumb"),
+  }));
   const voting = await albumVotingFor({ event, viewer, view, items, now });
   const photos: ShownPhoto[] = listed.map((each) => {
     const named = voting.showsName(each);

@@ -535,3 +535,49 @@ test("a guest whose browser asks for zh-TW opens a video's sizes, a live photo a
   await expect(viewer.getByRole("button", { name: "新增說明" })).toBeVisible();
   await Promise.all([host.context.close(), context.close()]);
 });
+
+// M8 ticket 16: the album vote in Traditional Chinese: a host whose browser asks for zh-TW reads the
+// Voting block's title and Start voting; a guest whose browser asks for it reads the head, a star's
+// name and the award picker.
+test("a host and a guest whose browsers ask for zh-TW start and read the album vote in Traditional Chinese", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "locale-voting", { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" });
+  const editor = host.page.url();
+  await host.page.goto(host.link);
+  const photo = await sharp({ create: { width: 1200, height: 900, channels: 3, background: "#2f6b3a" } }).jpeg().toBuffer();
+  await host.page.locator('[data-slot="album"]').getByLabel(/^Add photos/).setInputFiles([{ name: "garden.jpg", mimeType: "image/jpeg", buffer: photo }]);
+  await expect(host.page.locator('[data-slot="album"] li[data-item]')).toHaveCount(1, { timeout: 20_000 });
+
+  // The host, in Traditional Chinese: the Voting block, an award suggested, and Start voting.
+  const hostContext = await browser.newContext({ locale: "zh-TW", storageState: await host.context.storageState() });
+  const page = await hostContext.newPage();
+  await page.goto(editor);
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
+  await page.getByRole("navigation", { name: "設計邀請" }).getByRole("button", { name: "設定" }).click();
+  const block = page.getByRole("dialog", { name: "設定" }).getByRole("group", { name: "投票", exact: true });
+  await expect(block).toHaveAttribute("data-slot", "voting-block");
+  await savedAfter(page, () => block.getByRole("group", { name: "獎項", exact: true }).getByRole("button", { name: "最佳照片", exact: true }).click());
+  await savedAfter(page, () => block.getByRole("button", { name: "開始投票" }).click());
+  await expect(block).toContainText("投票進行中");
+
+  // A guest, in Traditional Chinese: the head, a star's name and the picker.
+  const context = await browser.newContext({ locale: "zh-TW", extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
+  const guest = await context.newPage();
+  await guest.goto(host.link);
+  await expect(guest.locator("html")).toHaveAttribute("lang", "zh-Hant");
+  await guest.getByRole("button", { name: "參加", exact: true }).click();
+  await guest.getByLabel("你的名字").fill("Priya Nair");
+  await guest.getByRole("button", { name: "送出回覆" }).click();
+  await expect(guest.getByText("期待你的到來！")).toBeVisible({ timeout: 15_000 });
+  await guest.getByRole("dialog", { name: "你的回覆" }).getByRole("button", { name: "關閉" }).click();
+  const head = guest.locator('[data-slot="album-voting"]');
+  await expect(head).toContainText("投票進行中");
+  await expect(head.getByRole("status")).toHaveText("點星星，為「最愛」投票。");
+  await expect(head).toContainText("投票結束前不顯示票數。");
+  await expect(guest.locator('[data-slot="album"]').getByRole("button", { name: "投票給 第 1 張照片", exact: true })).toBeVisible();
+  const picker = head.getByRole("group", { name: "獎項", exact: true });
+  await expect(picker.getByRole("button", { name: "最愛", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await picker.getByRole("button", { name: "最佳照片", exact: true }).click();
+  await expect(head.getByText("這個獎項只評選照片。")).toBeVisible();
+  await Promise.all([context.close(), hostContext.close(), host.context.close()]);
+});

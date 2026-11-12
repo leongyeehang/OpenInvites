@@ -8,11 +8,13 @@ import { AwardPicker } from "./award-picker";
 import { closeTiebreakAction, closeVotingAction, keepSharedFirstAction, reopenVotingAction, startTiebreakAction } from "./host-actions";
 import { useChosen, useRefusal, useVote } from "./vote-star";
 import type { AwardScope, AwardStage } from "./voting";
+import { WinnersStrip, type StripWinner } from "./winners-strip";
 
 // One award as the head shows it: its name as displayed, what it is for, where it stands and its
 // round, how many items share first (voting.ts, AwardStanding), this viewer's vote in it (the item
 // voted for, or none), the page's drawing (vote-star.tsx, ItemAward), and for hosts the votes given
-// so far and whether a tie-break is offered.
+// so far, whether a tie-break is offered, and whether the last one's items are all gone; on the
+// results, its winners (ticket 16).
 export type HeadAward = {
   award: string;
   name: string;
@@ -24,7 +26,12 @@ export type HeadAward = {
   drawn: string;
   total?: number;
   offered?: boolean;
+  finalistsGone?: boolean;
+  winners?: StripWinner[];
 };
+
+// A link in the hosts' box, ringed when it has the focus (keyboard pass, M8 ticket 16).
+const HOSTS_LINK = "self-start rounded-sm text-sm underline underline-offset-4 hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text";
 
 const HOSTS_BUTTON =
   "inline-flex h-9 cursor-pointer items-center self-start rounded-full bg-theme-glass-strong px-4 text-sm font-medium hover:bg-theme-glass focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text disabled:cursor-wait disabled:opacity-60";
@@ -41,7 +48,10 @@ const HOSTS_BUTTON =
 // tie-break, its banner, with its round from round 3, what a star does in it and that its counts
 // stay hidden, and for hosts Close the tie-break beside Reopen voting, which ends it; on the
 // results, while first is shared, the hosts' offer of a tie-break, or of another round after one,
-// or of keeping first place shared (ticket 15).
+// or of keeping first place shared, and where a tie-break's items are all gone, a line saying so
+// (review fix, ticket 15). On the results, the Winners strip heads the album, and the hosts may
+// send the winners to guests with a message already written, while no award is in a tie-break
+// (ticket 16).
 export function AlbumVotingHead({
   awards,
   initial,
@@ -124,6 +134,7 @@ export function AlbumVotingHead({
       ) : (
         <p className="text-sm font-medium">{t("closed")}</p>
       )}
+      {chosen.stage === "results" && chosen.winners && <WinnersStrip award={chosen.name} winners={chosen.winners} />}
       {refused && (
         <p role="alert" className="text-sm font-medium">
           {t(`errors.${refused}`)}
@@ -135,6 +146,7 @@ export function AlbumVotingHead({
             {t("hostsOnly")}
           </h3>
           {voting && chosen.total !== undefined && <p className="text-sm">{t("soFar", { count: chosen.total, award: chosen.name })}</p>}
+          {chosen.finalistsGone && <p className="text-sm">{t("tiebreak.gone")}</p>}
           {chosen.offered && (
             <>
               <p className="text-sm">{t(held ? "tiebreak.stillLevel" : "tiebreak.shared", { count: chosen.tied, award: chosen.name })}</p>
@@ -149,8 +161,13 @@ export function AlbumVotingHead({
             {chosen.stage === "voting" ? button(hosts("close"), closeVotingAction) : button(hosts("reopen"), reopenVotingAction)}
           </div>
           {chosen.stage === "voting" && (
-            <Link href={`/events/${eventId}/announcements?draft=voting`} className="self-start text-sm underline underline-offset-4 hover:opacity-80">
+            <Link href={`/events/${eventId}/announcements?draft=voting`} className={HOSTS_LINK}>
               {hosts("announce")}
+            </Link>
+          )}
+          {chosen.stage === "results" && awards.every((award) => award.stage !== "tiebreak") && (
+            <Link href={`/events/${eventId}/announcements?draft=winners`} className={HOSTS_LINK}>
+              {t("winners.send")}
             </Link>
           )}
           {failed && (

@@ -1883,11 +1883,24 @@
         "again": "Start another round",
         "keep": "Keep the shared first place",
         "close": "Close the tie-break",
-        "inTiebreak": "{count, plural, one {# vote} other {# votes}} in the tie-break"
+        "inTiebreak": "{count, plural, one {# vote} other {# votes}} in the tie-break",
+        "countWith": "{votes}, {tiebreak}",
+        "gone": "The tie-break’s items are gone. Reopen voting to vote again."
+      },
+      "winners": {
+        "title": "Winners · {award}",
+        "none": "Nobody voted in {award}.",
+        "send": "Send the winners to guests",
+        "alt": "{place}: {label}"
       }
     }
   },
   "VotingDrafts": {
-    "voting": "Voting is open in the album for {title}. You have one vote in each award: {awards}.{closes, select, yes { Voting closes {time}.} other {}}\n\nOpen the album to vote:\n{url}"
+    "voting": "Voting is open in the album for {title}. You have one vote in each award: {awards}.{closes, select, yes { Voting closes {time}.} other {}}\n\nOpen the album to vote:\n{url}",
+    "winners": "The votes are in for {title}.\n\n{lines}\n\nSee every count in the album:\n{url}",
+    "line": "{award}: {winners}, {count, plural, one {# vote} other {# votes}}{shared, select, yes { each} other {}}.",
+    "item": "{kind, select, video {a video} other {a photo}}{named, select, yes { by {name}} other {}}",
+    "noVotes": "{award}: nobody voted.",
+    "more": "{count, plural, other {# more}}"
   }
 }

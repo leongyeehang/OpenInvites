@@ -1818,8 +1818,8 @@
       "awards": {
         "title": "奖项",
         "hint": "每人在每个奖项中各有一票。",
-        "name": "「{award}」的名称",
-        "scope": "「{award}」评选什么",
+        "name": "“{award}”的名称",
+        "scope": "“{award}”评选什么",
         "scopes": {
           "all": "照片和视频",
           "photos": "照片",
@@ -1833,11 +1833,11 @@
         },
         "own": "自定奖项",
         "add": "添加",
-        "moveUp": "上移「{award}」",
-        "moveDown": "下移「{award}」",
-        "moved": "「{award}」现在是第 {place} 个，共 {count} 个。",
-        "remove": "删除「{award}」",
-        "removeTitle": "删除「{award}」？",
+        "moveUp": "上移“{award}”",
+        "moveDown": "下移“{award}”",
+        "moved": "“{award}”现在是第 {place} 个，共 {count} 个。",
+        "remove": "删除“{award}”",
+        "removeTitle": "删除“{award}”？",
         "removeText": "{count, plural, =0 {还没有人在这个奖项中投票。} other {其中的 # 票会被删除。}}",
         "removeConfirm": "删除",
         "full": "一个活动最多可以有八个奖项。",
@@ -1851,15 +1851,15 @@
       "onlyGoing": "只有会来的宾客可以投票。",
       "onlyInvited": "只有主办人个人邀请的宾客可以投票。",
       "hint": "投票结束前不显示票数。",
-      "tapToVote": "点星星，为「{award}」投票。",
-      "yourVote": "你已为「{award}」投票。点另一颗星星可改投，点你投的那颗可收回。",
+      "tapToVote": "点星星，为“{award}”投票。",
+      "yourVote": "你已为“{award}”投票。点另一颗星星可改投，点你投的那颗可收回。",
       "voteFor": "投票给",
       "voteThis": "{kind, select, video {投票给这段视频} other {投票给这张照片}}",
       "votes": "{count, plural, other {# 票}}",
       "place": "{place, selectordinal, other {第 # 名}}",
       "placeLabel": "{place, selectordinal, other {第 # 名}}",
       "hostsOnly": "仅主办人可见",
-      "soFar": "「{award}」目前共 {count, plural, other {# 票}}",
+      "soFar": "“{award}”目前共 {count, plural, other {# 票}}",
       "errors": {
         "tooFast": "操作太频繁了，请稍后再试。",
         "closed": "投票已结束。",
@@ -1868,7 +1868,7 @@
       },
       "picker": {
         "label": "奖项",
-        "voted": "「{award}」，已投票",
+        "voted": "“{award}”，已投票",
         "forPhotos": "这个奖项只评选照片。",
         "forVideos": "这个奖项只评选视频。"
       },
@@ -1877,17 +1877,30 @@
         "round": "第 {round} 轮",
         "intro": "{count, plural, other {这 # 项并列第一。}}请从中再投一票。",
         "hint": "决胜投票结束前不显示票数。",
-        "shared": "{count, plural, other {「{award}」有 # 项并列第一。}}",
-        "stillLevel": "{count, plural, other {决胜投票后，「{award}」仍有 # 项并列第一。}}",
+        "shared": "{count, plural, other {“{award}”有 # 项并列第一。}}",
+        "stillLevel": "{count, plural, other {决胜投票后，“{award}”仍有 # 项并列第一。}}",
         "start": "开始决胜投票",
         "again": "再投一轮",
         "keep": "保留并列第一",
         "close": "结束决胜投票",
-        "inTiebreak": "{count, plural, other {决胜投票 # 票}}"
+        "inTiebreak": "{count, plural, other {决胜投票 # 票}}",
+        "countWith": "{votes}，{tiebreak}",
+        "gone": "决胜投票中的各项都已删除。要再次投票，请重新开放投票。"
+      },
+      "winners": {
+        "title": "获奖作品 · {award}",
+        "none": "没有人在“{award}”中投票。",
+        "send": "把获奖结果告诉宾客",
+        "alt": "{place}：{label}"
       }
     }
   },
   "VotingDrafts": {
-    "voting": "“{title}”的相册投票开始了。每个奖项你都有一票：{awards}。{closes, select, yes {投票将于 {time} 结束。} other {}}\n\n打开相册投票：\n{url}"
+    "voting": "“{title}”的相册投票开始了。每个奖项你都有一票：{awards}。{closes, select, yes {投票将于 {time} 结束。} other {}}\n\n打开相册投票：\n{url}",
+    "winners": "“{title}”的投票结果出炉了。\n\n{lines}\n\n在相册里查看全部票数：\n{url}",
+    "line": "{award}：{winners}，{shared, select, yes {各 } other {}}{count, plural, other {# 票}}。",
+    "item": "{named, select, yes {{name} 的} other {}}{kind, select, video {一段视频} other {一张照片}}",
+    "noVotes": "{award}：没有人投票。",
+    "more": "{count, plural, other {另外 # 个奖项}}"
   }
 }

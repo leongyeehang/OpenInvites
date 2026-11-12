@@ -886,9 +886,12 @@ export const commentReaction = pgTable(
 // The album vote (M8 ticket 10; src/voting), continued: an event's awards, and the votes given in
 // them. An award has a name of at most 40 characters as char_length counts them, null for the
 // translated "Favourite"; what it takes votes for; its place in the list; the round being or last
-// voted in, 1 or a tie-break's, with the items that tie-break is among; whether that tie-break is
-// open; and whether the host settled on a shared first. An event has none until a host starts a
-// vote or changes an award (voting/repository.ts, ensureAwards). It goes with the event.
+// voted in, 1 or a tie-break's; `finalists`, every tie-break round's finalists held so far in turn,
+// one list after another, which voting.ts's tiebreakRounds splits back into rounds, added to only
+// by voting/repository.ts's startTiebreak and emptied when the vote is reopened or turned off (M8
+// ticket 15); whether the last tie-break is open; and whether the host settled on a shared first.
+// An event has none until a host starts a vote or changes an award (voting/repository.ts,
+// ensureAwards). It goes with the event.
 export const albumAward = pgTable(
   "album_award",
   {

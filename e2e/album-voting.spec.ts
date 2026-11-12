@@ -33,6 +33,12 @@ import { clientAddress, expect, test, type APIRequestContext, type Browser, type
 // M8 ticket 15: once voting has closed, a first place shared can go to a tie-break among the tied
 // items, started and closed by the hosts from their box above the album; guests vote again among
 // those items only, with the counts hidden from them until it closes.
+//
+// M8 ticket 16: once voting closes, a Winners strip heads the album with the chosen award's top
+// three, and the hosts may send the winners to guests with a message already written. While an
+// award is voted in, each guest sees the album in an order of their own, stable across visits:
+// their numbers follow it, so these tests find an item by its thumbnail's address where a guest
+// votes in more than one item.
 
 const PAST = { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" };
 const AHEAD = { title: "Ada’s garden party", start: "2027-11-20T16:00", plusOnes: "0" };
@@ -115,6 +121,7 @@ test("the host starts, closes, reopens and turns off the album vote from Setting
   await expect(sheet.getByRole("group", { name: "Voting", exact: true })).toHaveAttribute("data-slot", "voting-block");
   await expect(block).toHaveAttribute("data-state", "off");
   await expect(block).toContainText("Guests pick their favourite photos and videos. Each person has one vote in each award.");
+  await expectNoSeriousViolations(host.page, "the Settings sheet with the vote off, its award rows shown");
 
   await press(host.page, block, "Start voting", "open");
   await expect(block).toContainText("Voting is open");
@@ -122,6 +129,7 @@ test("the host starts, closes, reopens and turns off the album vote from Setting
 
   await press(host.page, block, "Close voting", "closed");
   await expect(block).toContainText("Voting closed");
+  await expectNoSeriousViolations(host.page, "the Settings sheet with the vote closed");
 
   await press(host.page, block, "Reopen voting", "open");
   await expect(block).toContainText("Voting is open");
@@ -130,6 +138,7 @@ test("the host starts, closes, reopens and turns off the album vote from Setting
   await block.getByRole("button", { name: "Turn off voting" }).click();
   const confirm = host.page.getByRole("alertdialog", { name: "Turn off voting?" });
   await expect(confirm).toContainText("Nobody has voted yet. The awards and settings stay.");
+  await expectNoSeriousViolations(host.page, "the Turn off voting confirmation");
   await confirm.getByRole("button", { name: "Never mind" }).click();
   await expect(confirm).toBeHidden();
   await expect(block).toHaveAttribute("data-state", "open");
@@ -240,9 +249,12 @@ test("Never keeps names from guests whatever the vote, and Always shows them whi
   await savedAfter(host.page, () => names.getByLabel("Never shown to guests").check());
   await ana.reload();
   await expect(album(ana).getByRole("button", { name: "Photo 1", exact: true })).toBeVisible();
-  // Left out on the server, as while voting is open.
+  // Left out on the server, as while voting is open; each text holds what the page shows, so the
+  // checks cannot pass on an empty or redirected answer.
+  const thumb = await album(ana).getByRole("button", { name: "Photo 1", exact: true }).locator("img").getAttribute("src");
   const anas = await sent(ana, host.link);
   expect(anas.html).toContain("Ana Ruiz");
+  expect(anas.refreshed).toContain(thumb);
   for (const text of [anas.html, anas.refreshed]) {
     expect(text).not.toContain(UPLOADER);
     expect(text).not.toContain(theirs);
@@ -271,6 +283,11 @@ const star = (page: Page, name: string) => album(page).getByRole("button", { nam
 // An item's tile, by the start of its thumbnail's name ("Photo 3", "Photo 3 by Mei Tan").
 const tile = (page: Page, name: string) => album(page).locator("li[data-item]").filter({ has: page.getByRole("button", { name: new RegExp(`^${name}( by |$)`) }) });
 const count = (page: Page, name: string) => tile(page, name).locator('[data-slot="vote-count"]');
+// The album's thumbnails' addresses in the order this page lists them, and an item's tile and star
+// by its thumbnail's address: an item's own, whatever number a guest's order gives it (ticket 16).
+const order = (page: Page) => album(page).locator("li[data-item] img").evaluateAll((pictures) => pictures.map((picture) => picture.getAttribute("src")!));
+const tileOf = (page: Page, src: string) => album(page).locator("li[data-item]").filter({ has: page.locator(`img[src="${src}"]`) });
+const starOf = (page: Page, src: string) => tileOf(page, src).locator('[data-slot="vote-star"]');
 
 const TAP_TO_VOTE = "Tap a star to vote in Favourite.";
 const YOUR_VOTE = "Your vote in Favourite is in. Tap another star to move it, or yours to take it back.";
@@ -298,6 +315,8 @@ test("a guest votes, moves the vote and takes it back, and sees counts only once
   await addPhotos(priya, [await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a")], 2);
   const mei = await guestGoing(browser, host.link, "Mei Tan");
   await addPhotos(mei, [await photo("lake.jpg", "#3a6bd0")], 3);
+  // The items in the order added, which the album keeps before the vote and once it closes.
+  const [first, second, third] = await order(mei);
   await startVoting(host.page);
 
   // Ana, Going, is told what a star does, and every item has one.
@@ -309,30 +328,33 @@ test("a guest votes, moves the vote and takes it back, and sees counts only once
   await expect(album(ana).locator('[data-slot="vote-count"]')).toHaveCount(0);
   await expectNoSeriousViolations(ana, "a guest's album while voting is open");
 
-  await vote(ana, star(ana, "Photo 1"));
-  await expect(star(ana, "Photo 1")).toHaveAttribute("aria-pressed", "true");
+  await vote(ana, starOf(ana, first));
+  await expect(starOf(ana, first)).toHaveAttribute("aria-pressed", "true");
   await expect(head(ana).getByRole("status")).toHaveText(YOUR_VOTE);
   // Another star moves the vote.
-  await vote(ana, star(ana, "Photo 2"));
-  await expect(star(ana, "Photo 1")).toHaveAttribute("aria-pressed", "false");
-  await expect(star(ana, "Photo 2")).toHaveAttribute("aria-pressed", "true");
+  await vote(ana, starOf(ana, second));
+  await expect(starOf(ana, first)).toHaveAttribute("aria-pressed", "false");
+  await expect(starOf(ana, second)).toHaveAttribute("aria-pressed", "true");
   await ana.reload();
-  await expect(star(ana, "Photo 1")).toHaveAttribute("aria-pressed", "false");
-  await expect(star(ana, "Photo 2")).toHaveAttribute("aria-pressed", "true");
+  await expect(starOf(ana, first)).toHaveAttribute("aria-pressed", "false");
+  await expect(starOf(ana, second)).toHaveAttribute("aria-pressed", "true");
   // The same star again takes it back.
-  await vote(ana, star(ana, "Photo 2"));
+  await vote(ana, starOf(ana, second));
   await expect(stars(ana).and(album(ana).locator('[aria-pressed="true"]'))).toHaveCount(0);
   await expect(head(ana).getByRole("status")).toHaveText(TAP_TO_VOTE);
-  await vote(ana, star(ana, "Photo 3"));
-  await expect(star(ana, "Photo 3")).toHaveAttribute("aria-pressed", "true");
+  await vote(ana, starOf(ana, third));
+  await expect(starOf(ana, third)).toHaveAttribute("aria-pressed", "true");
 
   // Nobody votes for their own: Priya's page has one star, on Mei's photo.
   await priya.reload();
   await expect(stars(priya)).toHaveCount(1);
-  await expect(star(priya, "Photo 3")).toBeVisible();
+  await expect(starOf(priya, third)).toBeVisible();
 
-  // The counts are left out of a guest's page, and sent to the host's, who sees them live.
-  expect(await (await ana.request.get(host.link)).text()).not.toContain("shownVotes");
+  // The counts are left out of a guest's page, and sent to the host's, who sees them live. The
+  // guest's page is checked to hold the head, so the check cannot pass on an empty answer.
+  const anas = await (await ana.request.get(host.link)).text();
+  expect(anas).toContain("Counts stay hidden until voting closes.");
+  expect(anas).not.toContain("shownVotes");
   expect(await (await host.page.request.get(host.link)).text()).toContain("shownVotes");
   await host.page.goto(host.link);
   await expect(count(host.page, "Photo 3")).toHaveAccessibleName("1 vote");
@@ -659,6 +681,13 @@ test("a guest votes once in each award, and an award for videos only shows only 
   await vote(ana, star(ana, "Video 1"));
   await expect(star(ana, "Video 1")).toHaveAttribute("aria-pressed", "true");
   await expect(pill(ana, "Best video, voted")).toHaveAttribute("aria-pressed", "true");
+  // The viewer's star on the video (a guest's video has no captions track: M7 ticket 11).
+  await album(ana).getByRole("button", { name: /^Video 1 \d/ }).click();
+  const viewer = ana.getByRole("dialog", { name: "Video 1 of 1" });
+  await expect(viewer.getByRole("button", { name: "Vote for this video" })).toHaveAttribute("aria-pressed", "true");
+  await expectNoSeriousViolations(ana, "the viewer with a video's star", { except: ["video-caption"] });
+  await ana.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
 
   // Back on the first award: both items, nothing voted yet, and a vote there too.
   await pill(ana, "Crowd favourite").click();
@@ -1046,18 +1075,19 @@ test("a tie for first goes to a tie-break among the tied items, which puts them 
   await addPhotos(priya, [await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a")], 2);
   const mei = await guestGoing(browser, host.link, "Mei Tan");
   await addPhotos(mei, [await photo("lake.jpg", "#3a6bd0")], 3);
+  const [first, second, third] = await order(mei);
   await startVoting(host.page);
 
   // Ana and the host vote for Photo 1, Ben and Mei for Photo 2, Priya for Photo 3.
   const ana = await guestGoing(browser, host.link, "Ana Ruiz");
-  await vote(ana, star(ana, "Photo 1"));
-  await expect(star(ana, "Photo 1")).toHaveAttribute("aria-pressed", "true");
+  await vote(ana, starOf(ana, first));
+  await expect(starOf(ana, first)).toHaveAttribute("aria-pressed", "true");
   const ben = await guestGoing(browser, host.link, "Ben Okafor");
-  await vote(ben, star(ben, "Photo 2"));
+  await vote(ben, starOf(ben, second));
   await mei.reload();
-  await vote(mei, star(mei, "Photo 2"));
+  await vote(mei, starOf(mei, second));
   await priya.reload();
-  await vote(priya, star(priya, "Photo 3"));
+  await vote(priya, starOf(priya, third));
   await host.page.goto(host.link);
   await vote(host.page, star(host.page, "Photo 1 by Priya Nair"));
   await expect(count(host.page, "Photo 1")).toHaveAccessibleName("2 votes");
@@ -1088,14 +1118,17 @@ test("a tie for first goes to a tie-break among the tied items, which puts them 
   await expect(head(ana).getByRole("status")).toHaveText("These 2 shared first place. Vote again for one of them.");
   await expect(head(ana)).toContainText("Counts stay hidden until the tie-break closes.");
   await expect(album(ana).locator('[data-slot="vote-count"]')).toHaveCount(0);
-  expect(await (await ana.request.get(host.link)).text()).not.toContain("shownVotes");
+  // Checked to hold the banner, so the check cannot pass on an empty or redirected answer.
+  const anas = await (await ana.request.get(host.link)).text();
+  expect(anas).toContain("Tie-break · Favourite");
+  expect(anas).not.toContain("shownVotes");
   await expectNoSeriousViolations(ana, "a guest's album during a tie-break");
 
   // Ana and Ben vote for Photo 2, the host for Photo 1; the host sees the counts as they come.
-  await vote(ana, star(ana, "Photo 2 by Priya Nair"));
+  await vote(ana, starOf(ana, second));
   await expect(head(ana).getByRole("status")).toHaveText(YOUR_VOTE);
   await ben.reload();
-  await vote(ben, star(ben, "Photo 2 by Priya Nair"));
+  await vote(ben, starOf(ben, second));
   await host.page.reload();
   await vote(host.page, star(host.page, "Photo 1 by Priya Nair"));
   await expect(count(host.page, "Photo 2")).toHaveAccessibleName("2 votes");
@@ -1123,11 +1156,12 @@ test("still level, the host chooses another round or a shared first place", asyn
   const host = await createPublished(browser, request, "album-tiebreak-level", PAST);
   const priya = await guestGoing(browser, host.link, "Priya Nair");
   await addPhotos(priya, [await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a")], 2);
+  const [, second] = await order(priya);
   await startVoting(host.page);
 
   // One vote each.
   const ana = await guestGoing(browser, host.link, "Ana Ruiz");
-  await vote(ana, star(ana, "Photo 2"));
+  await vote(ana, starOf(ana, second));
   await host.page.goto(host.link);
   await vote(host.page, star(host.page, "Photo 1 by Priya Nair"));
   await hostsPress(host.page, "Close voting", "Voting closed");
@@ -1137,7 +1171,7 @@ test("still level, the host chooses another round or a shared first place", asyn
   await hostsPress(host.page, "Start a tie-break", "Tie-break · Favourite");
   await vote(host.page, star(host.page, "Photo 1 by Priya Nair"));
   await ana.reload();
-  await vote(ana, star(ana, "Photo 2 by Priya Nair"));
+  await vote(ana, starOf(ana, second));
   await hostsPress(host.page, "Close the tie-break", "Voting closed");
   await expect(ribbonOf(host.page, "Photo 1")).toHaveText("1st");
   await expect(ribbonOf(host.page, "Photo 2")).toHaveText("1st");
@@ -1171,16 +1205,17 @@ test("reopening the vote ends a tie-break", async ({ browser, request }) => {
   const host = await createPublished(browser, request, "album-tiebreak-reopen", PAST);
   const priya = await guestGoing(browser, host.link, "Priya Nair");
   await addPhotos(priya, [await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a"), await photo("lake.jpg", "#3a6bd0")], 3);
+  const [first, second] = await order(priya);
   await startVoting(host.page);
   const ana = await guestGoing(browser, host.link, "Ana Ruiz");
-  await vote(ana, star(ana, "Photo 2"));
+  await vote(ana, starOf(ana, second));
   await host.page.goto(host.link);
   await vote(host.page, star(host.page, "Photo 1 by Priya Nair"));
   await hostsPress(host.page, "Close voting", "Voting closed");
   await hostsPress(host.page, "Start a tie-break", "Tie-break · Favourite");
   await ana.reload();
   await expect(items(ana)).toHaveCount(2);
-  await vote(ana, star(ana, "Photo 1 by Priya Nair"));
+  await vote(ana, starOf(ana, first));
 
   // Reopened: the whole album with its stars, no tie-break, and the first round's votes kept.
   await hostsPress(host.page, "Reopen voting", "Voting is open");
@@ -1189,10 +1224,234 @@ test("reopening the vote ends a tie-break", async ({ browser, request }) => {
   await expect(items(ana)).toHaveCount(3);
   await expect(stars(ana)).toHaveCount(3);
   await expect(head(ana)).not.toContainText("Tie-break");
-  await expect(star(ana, "Photo 2")).toHaveAttribute("aria-pressed", "true");
+  await expect(starOf(ana, second)).toHaveAttribute("aria-pressed", "true");
   await expect(head(ana).getByRole("status")).toHaveText(YOUR_VOTE);
   await expect(count(host.page, "Photo 1")).toHaveAccessibleName("1 vote");
   await expect(count(host.page, "Photo 2")).toHaveAccessibleName("1 vote");
   await expect(hostsBox(host.page)).toContainText("2 votes so far in Favourite");
   await Promise.all([host.context.close(), priya.context().close(), ana.context().close()]);
+});
+
+// Review fix (ticket 14), in ticket 16: a guest who may no longer vote is refused by the vote
+// itself, not only shown no star once their page is drawn again.
+test("a guest the host no longer lets vote is refused by the vote itself, from a page left open", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-vote-stale", PAST);
+  const editor = host.page.url();
+  await host.page.goto(host.link);
+  await addPhotos(host.page, [await photo("toast.jpg", "#e0b040")], 1);
+  await host.page.goto(editor);
+  const block = await startVoting(host.page);
+  const ana = await guestGoing(browser, host.link, "Ana Ruiz");
+  await expect(star(ana, "Photo 1")).toHaveAttribute("aria-pressed", "false");
+
+  // Only guests invited personally may vote now; Ana replied through the event link. Her page, left
+  // open, still has its star, and its press is refused.
+  await savedAfter(host.page, async () => {
+    await whoMayVote(block).selectOption("Only guests invited personally");
+  });
+  await vote(ana, star(ana, "Photo 1"));
+  await expect(head(ana).getByRole("alert")).toHaveText("You can’t vote for this one.");
+  await expect(star(ana, "Photo 1")).toHaveAttribute("aria-pressed", "false");
+  await expectNoSeriousViolations(ana, "a guest's album with a refusal shown");
+
+  // Nothing was stored: the host's count is unchanged.
+  await host.page.goto(host.link);
+  await expect(count(host.page, "Photo 1")).toHaveAccessibleName("0 votes");
+  await expect(hostsBox(host.page)).toContainText("0 votes so far in Favourite");
+  await Promise.all([host.context.close(), ana.context().close()]);
+});
+
+// M8 ticket 16: the Winners strip, the winners announcement, and each guest's own order.
+
+const strip = (page: Page) => album(page).locator('[data-slot="winners-strip"]');
+const SEND_WINNERS = "Send the winners to guests";
+
+// A guest's page as its HTML is sent, without the RSVP form's example name ("e.g. Priya Nair"),
+// which every page carries.
+const htmlWithoutExample = async (page: Page, link: string) => (await (await page.request.get(link)).text()).replaceAll("e.g. Priya Nair", "");
+
+test("once voting closes, a Winners strip heads the album with each award's top three", async ({ browser, request }) => {
+  test.setTimeout(240_000);
+  const host = await createPublished(browser, request, "album-winners", PAST);
+  const editor = host.page.url();
+  // The album is the only place on the page an uploader's name could be.
+  await editSettings(host.page, async (sheet) => {
+    await sheet.getByLabel("Who can see the guest list").selectOption("hidden");
+    await sheet.getByLabel("Comments", { exact: true }).uncheck();
+  });
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await addPhotos(priya, [await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a")], 2);
+  const [first, second] = await order(priya);
+  const sheet = await openSettings(host.page);
+  await savedAfter(host.page, () => awardsBlock(sheet).getByRole("button", { name: "Best video", exact: true }).click());
+  await press(host.page, votingBlock(sheet), "Start voting", "open");
+
+  // Photo 1 has two votes, Ana's and the host's, and Photo 2 one, Ben's. No strip while voting.
+  const ana = await guestGoing(browser, host.link, "Ana Ruiz");
+  await vote(ana, starOf(ana, first));
+  await expect(strip(ana)).toHaveCount(0);
+  const ben = await guestGoing(browser, host.link, "Ben Okafor");
+  await vote(ben, starOf(ben, second));
+  await host.page.goto(host.link);
+  await vote(host.page, star(host.page, "Photo 1 by Priya Nair"));
+  await hostsPress(host.page, "Close voting", "Voting closed");
+
+  // Closed: the strip heads Ana's album, first place first, each with its picture and votes.
+  await ana.reload();
+  await expect(strip(ana).getByRole("heading", { name: "Winners · Favourite" })).toBeVisible();
+  await expect(strip(ana)).toHaveText(/1st.*2 votes.*2nd.*1 vote/);
+  await expect(strip(ana).getByRole("img", { name: "1st: Photo 1 by Priya Nair", exact: true })).toHaveAttribute("src", first);
+  await expect(strip(ana).getByRole("img", { name: "2nd: Photo 2 by Priya Nair", exact: true })).toHaveAttribute("src", second);
+  // Not interactive: the grid's tiles open the viewer.
+  await expect(strip(ana).getByRole("button")).toHaveCount(0);
+  await expectNoSeriousViolations(ana, "a guest's closed album with the Winners strip");
+
+  // The second award, which nobody voted in.
+  await pill(ana, "Best video").click();
+  await expect(strip(ana).getByRole("heading", { name: "Winners · Best video" })).toBeVisible();
+  await expect(strip(ana)).toContainText("Nobody voted in Best video.");
+  await expect(strip(ana).getByRole("img")).toHaveCount(0);
+
+  // Under Never shown to guests, the strip names nobody, and the page carries no name.
+  await host.page.goto(editor);
+  const names = votingBlock(await openSettings(host.page)).getByRole("group", { name: "Who added each item" });
+  await savedAfter(host.page, () => names.getByLabel("Never shown to guests").check());
+  await ana.goto(host.link);
+  await expect(strip(ana).getByRole("img", { name: "1st: Photo 1", exact: true })).toHaveAttribute("src", first);
+  const anas = await htmlWithoutExample(ana, host.link);
+  expect(anas).toContain("Winners · Favourite");
+  expect(anas).not.toContain("Priya Nair");
+  // The host's page still names her, so the check above can fail.
+  expect(await htmlWithoutExample(host.page, host.link)).toContain("Priya Nair");
+  await Promise.all([host.context.close(), priya.context().close(), ana.context().close(), ben.context().close()]);
+});
+
+test("the host sends the winners with a message already written", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-winners-send", PAST);
+  const editor = host.page.url();
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await addPhotos(priya, [await photo("garden.jpg", "#2f6b3a")], 1);
+  await startVoting(host.page);
+  const ana = await guestGoing(browser, host.link, "Ana Ruiz");
+  await vote(ana, star(ana, "Photo 1"));
+  await host.page.goto(host.link);
+  await vote(host.page, star(host.page, "Photo 1 by Priya Nair"));
+  // While voting is open there are no winners to send.
+  await expect(hostsBox(host.page).getByRole("link", { name: SEND_WINNERS })).toHaveCount(0);
+  await hostsPress(host.page, "Close voting", "Voting closed");
+
+  await hostsBox(host.page).getByRole("link", { name: SEND_WINNERS }).click();
+  await expect(host.page).toHaveURL(/\/events\/[0-9a-f-]{36}\/announcements\?draft=winners$/);
+  const message = host.page.getByLabel("Message");
+  await expect(message).toHaveValue(/^The votes are in for Ada’s garden party\./);
+  const draft = await message.inputValue();
+  expect(draft).toContain("Favourite: a photo by Priya Nair, 2 votes.");
+  expect(draft).toContain(host.link);
+  // Emailed to the form's usual audience.
+  const audience = (name: string) => host.page.getByRole("checkbox", { name, exact: true });
+  await expect(audience("Going")).toBeChecked();
+  await expect(audience("Maybe")).toBeChecked();
+  await expectNoSeriousViolations(host.page, "the Announcements page with the winners draft");
+
+  // Nothing went by itself; Send posts it.
+  await expect(host.page.getByRole("button", { name: /^Delete the announcement from / })).toHaveCount(0);
+  await host.page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(message).toHaveValue("", { timeout: 15_000 });
+  await expect(host.page.getByRole("listitem").getByText(/^The votes are in for/)).toBeVisible();
+
+  // Under Never shown to guests the draft names nobody, though the host sees every name.
+  await host.page.goto(editor);
+  const names = votingBlock(await openSettings(host.page)).getByRole("group", { name: "Who added each item" });
+  await savedAfter(host.page, () => names.getByLabel("Never shown to guests").check());
+  await host.page.goto(`${editor}/announcements?draft=winners`);
+  await expect(message).toHaveValue(/Favourite: a photo, 2 votes\./);
+  await Promise.all([host.context.close(), priya.context().close(), ana.context().close()]);
+});
+
+test("a guest votes in an order of their own that holds across visits, and hosts keep the usual order", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-vote-order", PAST);
+  const editor = host.page.url();
+  await host.page.goto(host.link);
+  const colours = ["#e0b040", "#c0506a", "#3a6bd0", "#2f6b3a", "#8a4fd0", "#d07a3a"];
+  await addPhotos(host.page, await Promise.all(colours.map((colour, at) => photo(`photo-${at + 1}.jpg`, colour))), colours.length);
+  const added = await order(host.page);
+  await host.page.goto(editor);
+  await startVoting(host.page);
+
+  // The host's thumbnails are in the order added.
+  await host.page.goto(host.link);
+  await expect(head(host.page)).toContainText("Voting is open");
+  expect(await order(host.page)).toEqual(added);
+
+  // Ana's are in an order of her own, the same after a reload, and her numbers follow it.
+  const ana = await guestGoing(browser, host.link, "Ana Ruiz");
+  await expect(stars(ana)).toHaveCount(colours.length);
+  const anas = await order(ana);
+  expect([...anas].sort()).toEqual([...added].sort());
+  await expect(tileOf(ana, anas[0]).getByRole("button", { name: "Photo 1", exact: true })).toBeVisible();
+  await expect(tileOf(ana, anas[5]).getByRole("button", { name: "Photo 6", exact: true })).toBeVisible();
+  await ana.reload();
+  await expect(stars(ana)).toHaveCount(colours.length);
+  expect(await order(ana)).toEqual(anas);
+
+  // After voting, and opened again: the same.
+  await vote(ana, starOf(ana, anas[2]));
+  await ana.goto(host.link);
+  await expect(starOf(ana, anas[2])).toHaveAttribute("aria-pressed", "true");
+  expect(await order(ana)).toEqual(anas);
+
+  // Closed, Ana's album is in the host's order; reopened, in hers again.
+  await hostsPress(host.page, "Close voting", "Voting closed");
+  await ana.reload();
+  await expect(head(ana)).toContainText("Voting closed");
+  expect(await order(ana)).toEqual(added);
+  await hostsPress(host.page, "Reopen voting", "Voting is open");
+  await ana.reload();
+  await expect(starOf(ana, anas[2])).toHaveAttribute("aria-pressed", "true");
+  expect(await order(ana)).toEqual(anas);
+  await Promise.all([host.context.close(), ana.context().close()]);
+});
+
+// Review Focus 8: a winner deleted after voting closes. The places are those of the items still
+// here (ticket 15), so the strip and the ribbons follow, and no other count changes.
+test("a winner deleted after voting closes", async ({ browser, request }) => {
+  test.setTimeout(240_000);
+  const host = await createPublished(browser, request, "album-winner-deleted", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await addPhotos(priya, [await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a"), await photo("lake.jpg", "#3a6bd0")], 3);
+  const [first, second, third] = await order(priya);
+  await startVoting(host.page);
+
+  // Photo 1 has two votes, Ana's and the host's; Photo 2 one, Ben's; Photo 3 none.
+  const ana = await guestGoing(browser, host.link, "Ana Ruiz");
+  await vote(ana, starOf(ana, first));
+  const ben = await guestGoing(browser, host.link, "Ben Okafor");
+  await vote(ben, starOf(ben, second));
+  await host.page.goto(host.link);
+  await vote(host.page, star(host.page, "Photo 1 by Priya Nair"));
+  await hostsPress(host.page, "Close voting", "Voting closed");
+  await expect(strip(host.page).getByRole("img", { name: "1st: Photo 1 by Priya Nair", exact: true })).toHaveAttribute("src", first);
+  await expect(strip(host.page).getByRole("img", { name: "2nd: Photo 2 by Priya Nair", exact: true })).toHaveAttribute("src", second);
+
+  // The host deletes the item in first place, from the viewer.
+  await album(host.page).getByRole("button", { name: "Photo 1 by Priya Nair", exact: true }).click();
+  await host.page.getByRole("dialog", { name: "Photo 1 of 3" }).getByRole("button", { name: "Delete" }).click();
+  await host.page.getByRole("alertdialog").getByRole("button", { name: "Delete it" }).click();
+  await expect(items(host.page)).toHaveCount(2, { timeout: 15_000 });
+
+  // The former second is first, in the strip and on its tile; the counts are as they were.
+  for (const page of [host.page, ana]) {
+    if (page === ana) await ana.reload();
+    await expect(strip(page).getByRole("img")).toHaveCount(1);
+    await expect(strip(page).getByRole("img", { name: "1st: Photo 1 by Priya Nair", exact: true })).toHaveAttribute("src", second);
+    await expect(strip(page)).toHaveText(/1st.*1 vote/);
+    await expect(tileOf(page, second).locator('[data-slot="vote-ribbon"]')).toHaveText("1st");
+    await expect(album(page).locator('[data-slot="vote-ribbon"]')).toHaveCount(1);
+    await expect(tileOf(page, second).locator('[data-slot="vote-count"]')).toHaveAccessibleName("1 vote");
+    await expect(tileOf(page, third).locator('[data-slot="vote-count"]')).toHaveAccessibleName("0 votes");
+  }
+  await Promise.all([host.context.close(), priya.context().close(), ana.context().close(), ben.context().close()]);
 });

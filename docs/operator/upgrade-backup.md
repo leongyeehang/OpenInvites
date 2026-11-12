@@ -39,13 +39,13 @@ Restore the backup you took instead.
 
 0.8 gives an album's videos several sizes and a player that picks among them, keeps an Android
 motion photo's few seconds as a live photo, lets a host keep when and with what each item was
-taken, and lets whoever adds an item caption it. Eight migrations, `0054` to `0061`, run as the app
-starts. They add tables, columns and enum values, carry each video's lighter copy and each event's
-choice of it over to the new sizes, and then drop the column that held it (`photo.copy`); nothing
-else is back-filled, and no existing event changes until its host chooses. A video's copies made
-by 0.7 stay as they were made: an HDR video's look flat, as they did in 0.7, and a video from
-before 0.8 gains standard-colour HDR copies and its frame rate only when **Make missing sizes**
-makes it a size.
+taken, lets whoever adds an item caption it, and lets hosts run a vote on their album. Nine
+migrations, `0054` to `0062`, run as the app starts. They add tables, columns and enum values,
+carry each video's lighter copy and each event's choice of it over to the new sizes, and then drop
+the column that held it (`photo.copy`); nothing else is back-filled, and no existing event changes
+until its host chooses. A video's copies made by 0.7 stay as they were made: an HDR video's look
+flat, as they did in 0.7, and a video from before 0.8 gains standard-colour HDR copies and its
+frame rate only when **Make missing sizes** makes it a size.
 
 - **Stop the worker container before updating, and start it with the app on 0.8.** A site that
   processes videos in a second container (`VIDEO_PROCESSING=worker`, see
@@ -71,8 +71,16 @@ makes it a size.
 - **Live photos and captions start from now.** No photo added before 0.8 kept its motion, so none
   becomes live; a motion photo added from now on does, while Videos is on and ffmpeg is usable.
   No item has a caption until someone writes one, which counts against `RATE_LIMIT_COMMENT`.
+- **Voting is off for every event, and names show as before.** The voting migration (`0062`) adds
+  the awards and votes tables and four columns to each event, with every existing event's vote
+  off, everyone who sees its album allowed to vote, and who added each item shown once voting
+  closes, which for an event that never votes is always, as in 0.7. Nothing changes on an album
+  until its host starts a vote from the Voting block in its Settings. Each press of a star counts
+  against `RATE_LIMIT_VOTE`, 120 in ten minutes by default, since a party often shares one
+  address; set it only to change that (see [configuration.md](configuration.md#rate-limits)).
 
-No new environment variable is required, and `compose.yaml` gains no service.
+No new environment variable is required (`RATE_LIMIT_VOTE` is optional), and `compose.yaml` gains
+no service.
 
 ### Upgrading to 0.7
 

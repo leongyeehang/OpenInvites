@@ -8,16 +8,21 @@ import { ItemVote, ViewerVote, type ItemAward } from "./vote-star";
 import {
   albumVotes,
   awardsOrDefault,
+  itemNumber,
   mayVote,
   nameShownTo,
+  orderFor,
   votingState,
+  winnersOf,
   type AlbumViewName,
   type AwardStanding,
+  type Places,
   type ViewerWithoutInvite,
   type VotableItem,
   type VotingEvent,
   type VotingState,
 } from "./voting";
+import type { StripWinner } from "./winners-strip";
 
 // What the album vote gives the album's drawing on the server (M8 ticket 11): the vote's state, and
 // whether this viewer is shown who added each item. The album's one hook into the module, called
@@ -26,15 +31,22 @@ import {
 // and badges on its tile and in the viewer, and each award's list of items. The head says when
 // voting closes by itself, in the event's zone, and why a viewer who sees the album may not vote
 // (ticket 14). During an award's tie-break its list is the round's finalists, and each item's
-// standing what the round shows; once closed, a finalist's votes in it (ticket 15).
+// standing what the round shows; once closed, a finalist's votes in it (ticket 15). While an award
+// is voted in, a guest's list is in an order of their own (ticket 16); once its results are in,
+// the head shows its winners, each with its picture and its label.
 export type AlbumVoting = { state: VotingState; showsName: (item: Pick<VotableItem, "rsvpId" | "hostId">) => boolean; slot?: AlbumSlot };
+
+// One item as the album hands it to the vote (ticket 16): its thumbnail's address, built by the
+// album, or null while a video is processing or failed; and who added it, which the hook passes on
+// only where showsName does, before anything is sent.
+export type AlbumVotingItem = VotableItem & { thumb: string | null; name: string };
 
 // `items` are the items this viewer sees, in the album's order.
 export type AlbumVotingInput = {
   event: VotingEvent & { id: string; slug: string; timeZone: string };
   viewer: ViewerWithoutInvite;
   view: AlbumViewName;
-  items: VotableItem[];
+  items: AlbumVotingItem[];
   now: Date;
 };
 
@@ -52,8 +64,17 @@ export async function albumVotingFor({ event, viewer, view, items, now }: AlbumV
   const showsName = nameShownTo(true, event, viewer, now);
   if (state === "off" || view !== "open") return { state, showsName };
 
-  const [voter, awards, votes, t, locale] = await Promise.all([withInvite(viewer), listAwards(event.id), listVotes(event.id), getTranslations("Voting"), getLocale()]);
-  const standings = albumVotes(event, view, voter, now, awardsOrDefault(awards), votes, items);
+  const [voter, awards, votes, t, labels, locale] = await Promise.all([
+    withInvite(viewer),
+    listAwards(event.id),
+    listVotes(event.id),
+    getTranslations("Voting"),
+    getTranslations("EventPage.album"),
+    getLocale(),
+  ]);
+  // Each award's list in this viewer's order (orderFor), by the award's own stage, so a guest's
+  // shuffle covers the open vote and a tie-break's finalists alike.
+  const standings = albumVotes(event, view, voter, now, awardsOrDefault(awards), votes, items).map((standing) => ({ ...standing, ids: orderFor(standing.stage, voter, standing.ids) }));
   const votesHere = mayVote(event, view, voter, now);
   // A guest who sees the whole album but is not among those the host lets vote is told why.
   const notAmong = voter.kind === "guest" && !votesHere && event.albumVoters !== "album" ? (event.albumVoters === "going" ? "onlyGoing" : "onlyInvited") : undefined;
@@ -62,6 +83,26 @@ export async function albumVotingFor({ event, viewer, view, items, now }: AlbumV
   // This drawing of the page, told apart from every other: a star's press is shown over it until
   // the next drawing, which carries the vote as the site holds it (vote-star.tsx).
   const drawn = crypto.randomUUID();
+  const byId = new Map(items.map((item) => [item.id, item]));
+  // An award's winners on its results, for the strip: each item placed first to third (its ribbon)
+  // with its first round's votes, in the award's list's order; labelled as the album labels its
+  // thumbnail in that list, with who added it only where this viewer is shown that.
+  const winnersIn = (standing: AwardStanding): StripWinner[] => {
+    const placed: Places = new Map(
+      standing.ids.flatMap((id): [string, number][] => {
+        const place = standing.items.get(id)?.place;
+        return place ? [[id, place]] : [];
+      }),
+    );
+    const counts = new Map(standing.ids.map((id) => [id, standing.items.get(id)?.shownVotes ?? 0]));
+    return winnersOf(placed, counts).map((winner) => {
+      const item = byId.get(winner.id)!;
+      const n = itemNumber(standing.ids, items, winner.id);
+      const video = item.kind === "video";
+      const label = showsName(item) ? labels(video ? "openVideo" : "open", { n, name: item.name }) : labels(video ? "openVideoUnnamed" : "openUnnamed", { n });
+      return { ...winner, thumb: item.thumb, alt: t("album.winners.alt", { place: t("album.place", { place: winner.place }), label }) };
+    });
+  };
   // Each item's standing in every award that lists it.
   const awardsOf = (item: VotableItem): ItemAward[] =>
     standings.flatMap((standing) => {
@@ -81,6 +122,8 @@ export async function albumVotingFor({ event, viewer, view, items, now }: AlbumV
         drawn,
         ...(standing.total !== undefined && { total: standing.total }),
         ...(standing.offered !== undefined && { offered: standing.offered }),
+        ...(standing.finalistsGone && { finalistsGone: true }),
+        ...(standing.stage === "results" && { winners: winnersIn(standing) }),
       }))}
       initial={initial}
       mayVote={votesHere}

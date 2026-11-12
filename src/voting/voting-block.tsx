@@ -237,7 +237,10 @@ export function VotingBlock({
             </AlertDialog>
           </div>
           {state === "open" && (
-            <Link href={`/events/${eventId}/announcements?draft=voting`} className="self-start text-sm underline underline-offset-4 hover:opacity-80">
+            <Link
+              href={`/events/${eventId}/announcements?draft=voting`}
+              className="self-start rounded-sm text-sm underline underline-offset-4 hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
               {t("announce")}
             </Link>
           )}
@@ -304,15 +307,21 @@ function ClosingTime({ eventId, closing, run }: { eventId: string; closing: Clos
   // The time last sent and the page's time it was sent over, so that Enter and the leaving after it
   // send it once.
   const sent = useRef<{ wall: string | null; over: string | null }>(undefined);
+  // The time last refused as past or not a time, while its refusal shows.
+  const refused = useRef<string | null>(null);
 
   const send = (wall: string | null) => {
     if (wall === closing.wall) return setProblem(undefined);
     if (sent.current && sent.current.wall === wall && sent.current.over === closing.wall) return;
     sent.current = { wall, over: closing.wall };
     setProblem(undefined);
+    refused.current = null;
     void run(async () => {
       const answer = await setClosingTimeAction(eventId, wall);
-      if (answer.error === "past" || answer.error === "invalid") setProblem(answer.error);
+      if (answer.error === "past" || answer.error === "invalid") {
+        setProblem(answer.error);
+        refused.current = wall;
+      }
       if (answer.error) sent.current = undefined;
       return answer;
     });
@@ -321,10 +330,12 @@ function ClosingTime({ eventId, closing, run }: { eventId: string; closing: Clos
   const sendTyped = () => (typed === "" ? setTyped(closing.wall ?? "") : send(typed));
 
   // The sheet closing unmounts the field without a blur: what was typed whole is sent then, once.
+  // Not a time already refused (review fix, M8 ticket 15): sent again it would be refused again,
+  // and a refusal there cannot be shown, since the field it would show under is gone.
   const leaving = useRef(() => {});
   useEffect(() => {
     leaving.current = () => {
-      if (typed !== "") send(typed);
+      if (typed !== "" && !(problem && typed === refused.current)) send(typed);
     };
   });
   useEffect(() => () => leaving.current(), []);

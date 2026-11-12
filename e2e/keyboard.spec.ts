@@ -611,13 +611,13 @@ test("a host lists a schedule in its sheet by keyboard alone: adds items, fills 
 });
 
 // Tab until `target` has the focus, through date and time fields, each of which Chrome steps through
-// a part at a time (month, day, year; hour, minute, AM or PM). Every other stop shows its focus;
-// those fields are read where they are first reached, as reading a ring takes the focus away and
-// gives it back at the field's first part. Shift+Tab goes back the same way.
+// a part at a time (month, day, year; hour, minute, AM or PM; a date and time's both). Every other
+// stop shows its focus; those fields are read where they are first reached, as reading a ring takes
+// the focus away and gives it back at the field's first part. Shift+Tab goes back the same way.
 async function tabThroughFields(page: Page, target: Locator, key: "Tab" | "Shift+Tab" = "Tab") {
   for (let presses = 0; presses < 40; presses++) {
     await page.keyboard.press(key);
-    const inParts = await page.evaluate(() => ["date", "time"].includes((document.activeElement as HTMLInputElement | null)?.type ?? ""));
+    const inParts = await page.evaluate(() => ["date", "time", "datetime-local"].includes((document.activeElement as HTMLInputElement | null)?.type ?? ""));
     if (!inParts) await expectVisibleFocus(page, `Tab ${presses + 1} towards ${target}`);
     if (await target.evaluate((element) => element === document.activeElement)) return;
   }
@@ -824,4 +824,111 @@ test("a host shares, sends, sends again and writes the letter of an invite, and 
   await expectVisibleFocus(page);
   await expect.poll(() => mailCountTo(request, kaiEmail), { timeout: 30_000 }).toBe(1);
   await host.context.close();
+});
+
+// M8 ticket 16: the album vote by keyboard alone. In the Voting block the host starts voting, moves
+// an award up (the focus stays on the moved row's button) and turns voting off through its
+// confirmation; a guest reaches a star by Tab, votes with Space, moves the vote with Enter and takes
+// it back, the focus staying on the star; picks an award in the picker; and reaches the viewer's
+// star.
+test("the album vote by keyboard alone: the host's Voting block, a guest's stars, the award picker and the viewer's star", async ({ browser, request }) => {
+  test.setTimeout(240_000);
+  const host = await createPublished(browser, request, "keyboard-voting", { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" });
+  const editor = host.page.url();
+  const album = (on: Page) => on.locator('[data-slot="album"]');
+  const picture = async (name: string, background: string) => ({
+    name,
+    mimeType: "image/jpeg",
+    buffer: await sharp({ create: { width: 1200, height: 900, channels: 3, background } }).jpeg().toBuffer(),
+  });
+  await host.page.goto(host.link);
+  await album(host.page).getByLabel(/^Add photos/).setInputFiles([await picture("garden.jpg", "#2f6b3a"), await picture("cake.jpg", "#c0506a")]);
+  await expect(album(host.page).locator("li[data-item]")).toHaveCount(2, { timeout: 20_000 });
+  await host.page.goto(editor);
+
+  // The block, walked from its own fields (the sheet's other groups have tests of their own): Start
+  // voting, back from Who may vote, then a second award moved up, by keyboard.
+  const page = host.page;
+  const block = (await openSettings(page)).locator('[data-slot="voting-block"]');
+  await savedAfter(page, () => block.getByRole("button", { name: "Best photo", exact: true }).click());
+  const whoMayVote = block.getByLabel("Who may vote", { exact: true });
+  await whoMayVote.focus();
+  await tabThroughFields(page, block.getByRole("button", { name: "Start voting" }), "Shift+Tab");
+  await savedAfter(page, () => page.keyboard.press("Enter"));
+  await expect(block).toHaveAttribute("data-state", "open");
+  // Start voting gives way to Close voting; the walk goes on from Who may vote, through the
+  // closing time, to the awards.
+  await whoMayVote.focus();
+  await tabThroughFields(page, block.getByRole("button", { name: "Move Best photo up" }));
+  await savedAfter(page, () => page.keyboard.press("Enter"));
+  // First now, it cannot go further up: the focus is on its other move button.
+  await expect(block.getByRole("button", { name: "Move Best photo down" })).toBeFocused();
+  await expectVisibleFocus(page);
+
+  // A guest, at an address of their own: their numbers follow their own order.
+  const guest = await (await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
+  await guest.goto(host.link);
+  await guest.getByRole("button", { name: "Going" }).click();
+  await guest.getByLabel("Your name").fill("Ana Ruiz");
+  await guest.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(guest.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+  await guest.getByRole("dialog", { name: "Your RSVP" }).getByRole("button", { name: "Close" }).click();
+  const star = (n: number) => album(guest).getByRole("button", { name: `Vote for Photo ${n}`, exact: true });
+  const answered = () => guest.waitForResponse((response) => response.request().method() === "POST" && response.request().headers()["next-action"] !== undefined);
+
+  // Space gives the vote, Enter on another star moves it, Enter again takes it back.
+  await tabTo(guest, star(1));
+  let answer = answered();
+  await guest.keyboard.press("Space");
+  await answer;
+  await expect(star(1)).toHaveAttribute("aria-pressed", "true");
+  await expect(star(1)).toBeFocused();
+  await expectVisibleFocus(guest);
+  await tabTo(guest, star(2));
+  answer = answered();
+  await guest.keyboard.press("Enter");
+  await answer;
+  await expect(star(2)).toHaveAttribute("aria-pressed", "true");
+  await expect(star(1)).toHaveAttribute("aria-pressed", "false");
+  await expect(star(2)).toBeFocused();
+  await expectVisibleFocus(guest);
+  answer = answered();
+  await guest.keyboard.press("Enter");
+  await answer;
+  await expect(star(2)).toHaveAttribute("aria-pressed", "false");
+  await expect(star(2)).toBeFocused();
+  await expectVisibleFocus(guest);
+
+  // The picker, above the grid: Favourite, back by Shift+Tab, and Enter.
+  const picker = album(guest).getByRole("group", { name: "Awards", exact: true });
+  await tabThroughFields(guest, picker.getByRole("button", { name: "Favourite", exact: true }), "Shift+Tab");
+  await guest.keyboard.press("Enter");
+  await expect(picker.getByRole("button", { name: "Favourite", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expectVisibleFocus(guest);
+
+  // The viewer's star, by Tab.
+  await tabTo(guest, album(guest).getByRole("button", { name: "Photo 1", exact: true }));
+  await guest.keyboard.press("Enter");
+  const viewer = guest.getByRole("dialog", { name: "Photo 1 of 2" });
+  await expect(viewer).toBeVisible();
+  await tabTo(guest, viewer.getByRole("button", { name: "Vote for this photo" }));
+  answer = answered();
+  await guest.keyboard.press("Enter");
+  await answer;
+  await expect(viewer.getByRole("button", { name: "Vote for this photo" })).toHaveAttribute("aria-pressed", "true");
+  await guest.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+
+  // Turn off voting's confirmation, back from Who may vote by Tab and Enter, once the votes are
+  // counted.
+  await whoMayVote.focus();
+  await tabThroughFields(page, block.getByRole("button", { name: "Turn off voting" }), "Shift+Tab");
+  await page.keyboard.press("Enter");
+  const confirm = page.getByRole("alertdialog", { name: "Turn off voting?" });
+  await expect(confirm.getByRole("button", { name: "Turn it off" })).toBeEnabled();
+  await tabTo(page, confirm.getByRole("button", { name: "Turn it off" }));
+  await savedAfter(page, () => page.keyboard.press("Enter"));
+  await expect(confirm).toBeHidden();
+  await expect(block).toHaveAttribute("data-state", "off");
+  await Promise.all([guest.context().close(), host.context.close()]);
 });

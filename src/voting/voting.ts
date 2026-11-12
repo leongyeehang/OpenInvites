@@ -282,6 +282,14 @@ export function tiebreakOffered(stage: AwardStage, award: Pick<AwardRules, "shar
   return award.round === 1 || tied.every((id) => last.includes(id));
 }
 
+// Whether the hosts are told that a tie-break's items are gone (review fix, M8 ticket 15): on the
+// results, after a tie-break, while the items now level at the top were not among its last round,
+// which only the deletion of every one of that round's finalists leaves. No other round is offered
+// then (tiebreakOffered), and Reopen voting starts afresh.
+export function finalistsGone(stage: AwardStage, award: Pick<AwardRules, "sharedFirst" | "round" | "finalists">, placed: Places): boolean {
+  return stage === "results" && !award.sharedFirst && award.round > 1 && tiedForFirst(placed).length > 0 && !tiebreakOffered(stage, award, placed);
+}
+
 // Whether the counts are shown: to the hosts whenever there is a vote, and to guests once an
 // award's results are in. It takes the award's stage, since a tie-break hides its counts from
 // guests while the event's vote is closed.
@@ -328,6 +336,41 @@ function hash(text: string): number {
 export function shuffledFor(viewerKey: string, ids: string[]): string[] {
   const keyed = ids.map((id) => ({ id, key: hash(`${viewerKey}:${id}`) }));
   return keyed.sort((a, b) => a.key - b.key || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)).map(({ id }) => id);
+}
+
+// The order this viewer's album lists an award's items in (M8 ticket 16): a guest's own while the
+// award is voted in, a tie-break's included, so an early upload has no advantage (shuffledFor,
+// keyed by their reply, so it is the same on every device that holds it); a host's, and everyone's
+// once the results are in, the album's own.
+export function orderFor(stage: AwardStage, viewer: VotingViewer, ids: string[]): string[] {
+  return viewer.kind === "guest" && (stage === "voting" || stage === "tiebreak") ? shuffledFor(viewer.rsvpId, ids) : ids;
+}
+
+// One of an award's winners (M8 ticket 16): an item in first to third place, with its votes.
+export type Winner = { id: string; place: 1 | 2 | 3; votes: number };
+
+// An award's winners, as the Winners strip shows them: the items in first to third place, more on
+// ties, by place, a shared place by the higher count first, and otherwise in the order `placed`
+// gives them (the sort keeps it).
+export function winnersOf(placed: Places, votes: Tally): Winner[] {
+  return [...placed]
+    .flatMap(([id, place]): Winner[] => {
+      const shown = ribbon(place);
+      return shown ? [{ id, place: shown, votes: votes.get(id) ?? 0 }] : [];
+    })
+    .sort((a, b) => a.place - b.place || b.votes - a.votes);
+}
+
+// The number the album gives an item in the list `ids` (M8 ticket 16): one more than the items
+// before it that open in the viewer, which a video still processing, or one that failed, does not
+// (themes/sections/album.tsx numbers what opens); a photo waiting for approval opens.
+export function itemNumber(ids: string[], items: VotableItem[], id: string): number {
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const opens = (each: string) => {
+    const item = byId.get(each);
+    return item !== undefined && item.status !== "processing" && item.status !== "failed";
+  };
+  return 1 + ids.slice(0, Math.max(0, ids.indexOf(id))).filter(opens).length;
 }
 
 // An event's awards, or Favourite alone while it has none (M8 plan, ruling 19).
@@ -393,9 +436,11 @@ export type ItemStanding = { may: boolean; shownVotes?: number; place?: 1 | 2 | 
 
 // Where one award stands for this viewer (M8 ticket 12): its stage, the items it lists (those in
 // its scope, in the album's order; during a tie-break, its round's finalists still here), this
-// viewer's vote in its current round, for a host the votes given in that round so far, and what
-// each item it lists shows. How many items share first (ticket 15): during a tie-break, those it
-// is among; on the results, those a tie-break would be among. For a host, whether one is offered.
+// viewer's vote in its current round (on the results, in the last round they voted in: review fix,
+// ticket 15), for a host the votes given in that round so far, and what each item it lists shows.
+// How many items share first (ticket 15): during a tie-break, those it is among; on the results,
+// those a tie-break would be among. For a host, whether one is offered, and whether the last
+// round's finalists are all gone (finalistsGone).
 export type AwardStanding = {
   award: AwardRules;
   stage: AwardStage;
@@ -404,6 +449,7 @@ export type AwardStanding = {
   total?: number;
   tied: number;
   offered?: boolean;
+  finalistsGone?: boolean;
   items: Map<string, ItemStanding>;
 };
 
@@ -445,11 +491,15 @@ export function albumVotes(event: VotingEvent, view: AlbumViewName, viewer: Voti
         ];
       }),
     );
-    const voted = given.find((vote) => vote.round === award.round && mine(vote))?.photoId ?? null;
+    // On the results nobody votes, and the vote shown (the picker's check) is the viewer's in the
+    // last round they voted in, so a guest who sat out a tie-break still reads as having voted in
+    // the award (review fix, ticket 15). Otherwise it is theirs in the award's current round.
+    const theirs = given.filter(mine);
+    const voted = (stage === "results" ? theirs.reduce<CastVote | undefined>((last, vote) => (last && last.round >= vote.round ? last : vote), undefined) : theirs.find((vote) => vote.round === award.round))?.photoId ?? null;
     const total = viewer.kind === "host" ? given.filter((vote) => vote.round === award.round).length : undefined;
     const tied = finalists ? finalists.size : placed ? tiedForFirst(placed).length : 0;
-    const offered = viewer.kind === "host" ? placed !== undefined && tiebreakOffered(stage, award, placed) : undefined;
-    return { award, stage, ids, voted, ...(total !== undefined && { total }), tied, ...(offered !== undefined && { offered }), items: standings };
+    const hosts = viewer.kind === "host" ? { offered: placed !== undefined && tiebreakOffered(stage, award, placed), finalistsGone: placed !== undefined && finalistsGone(stage, award, placed) } : {};
+    return { award, stage, ids, voted, ...(total !== undefined && { total }), tied, ...hosts, items: standings };
   });
 }
 

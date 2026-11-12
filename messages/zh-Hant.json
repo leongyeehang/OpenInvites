@@ -1883,11 +1883,24 @@
         "again": "再投一輪",
         "keep": "保留並列第一",
         "close": "結束決勝投票",
-        "inTiebreak": "{count, plural, other {決勝投票 # 票}}"
+        "inTiebreak": "{count, plural, other {決勝投票 # 票}}",
+        "countWith": "{votes}，{tiebreak}",
+        "gone": "決勝投票中的各項都已刪除。要再次投票，請重新開放投票。"
+      },
+      "winners": {
+        "title": "得獎作品 · {award}",
+        "none": "沒有人在「{award}」中投票。",
+        "send": "把得獎結果告訴賓客",
+        "alt": "{place}：{label}"
       }
     }
   },
   "VotingDrafts": {
-    "voting": "「{title}」的相簿投票開始了。每個獎項你都有一票：{awards}。{closes, select, yes {投票將於 {time} 結束。} other {}}\n\n打開相簿投票：\n{url}"
+    "voting": "「{title}」的相簿投票開始了。每個獎項你都有一票：{awards}。{closes, select, yes {投票將於 {time} 結束。} other {}}\n\n打開相簿投票：\n{url}",
+    "winners": "「{title}」的投票結果出爐了。\n\n{lines}\n\n在相簿裡查看全部票數：\n{url}",
+    "line": "{award}：{winners}，{shared, select, yes {各 } other {}}{count, plural, other {# 票}}。",
+    "item": "{named, select, yes {{name} 的} other {}}{kind, select, video {一段影片} other {一張照片}}",
+    "noVotes": "{award}：沒有人投票。",
+    "more": "{count, plural, other {另外 # 個獎項}}"
   }
 }

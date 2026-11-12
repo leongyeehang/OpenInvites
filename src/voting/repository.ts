@@ -1,6 +1,6 @@
-import { and, asc, count, eq, exists, gt, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, count, eq, exists, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import { getDb, type Db } from "@/db/client";
-import { albumAward, albumVote, event, eventHost, photo, rsvp } from "@/db/schema";
+import { albumAward, albumVote, event, eventHost, photo, rsvp, user } from "@/db/schema";
 import {
   albumOpenTo,
   awardPlaces,
@@ -58,6 +58,20 @@ export async function withInvite(viewer: ViewerWithoutInvite, db: Db = getDb()):
 // An event's awards, in the host's order.
 export async function listAwards(eventId: string, db: Db = getDb()): Promise<Award[]> {
   return db.select().from(albumAward).where(eq(albumAward.eventId, eventId)).orderBy(asc(albumAward.position), asc(albumAward.id));
+}
+
+// An event's items as the vote reads them, each with the name of whoever added it, as the album's
+// listPhotos reads it (the reply's name, or the host's display name), in the order they were
+// added: for the winners draft (M8 ticket 16), which reads the photo rows itself, since the module
+// imports nothing of the album's (M8 plan, ruling 18).
+export async function listNamedItems(eventId: string): Promise<(VotableItem & { name: string })[]> {
+  return getDb()
+    .select({ id: photo.id, kind: photo.kind, status: photo.status, rsvpId: photo.rsvpId, hostId: photo.hostId, name: sql<string>`coalesce(${rsvp.name}, ${user.name})` })
+    .from(photo)
+    .leftJoin(rsvp, eq(rsvp.id, photo.rsvpId))
+    .leftJoin(user, eq(user.id, photo.hostId))
+    .where(eq(photo.eventId, eventId))
+    .orderBy(asc(photo.createdAt), asc(photo.id));
 }
 
 // Every vote given in an event's awards, in every round. A host's vote counts only while they host

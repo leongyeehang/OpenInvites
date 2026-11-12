@@ -12,14 +12,17 @@ import {
   countsShown,
   DEFAULT_AWARD,
   draftAudience,
+  finalistsGone,
   finalPlaces,
   inScope,
+  itemNumber,
   mayVote,
   mayVoteFor,
   movedAwards,
   namesShown,
   nameShownTo,
   openRound,
+  orderFor,
   parseAwardName,
   places,
   ribbon,
@@ -43,6 +46,7 @@ import {
   type VotingViewer,
   voteAnswered,
   voteShown,
+  winnersOf,
 } from "./voting";
 
 // The album vote's rules (M8 ticket 10): who may vote and for what, the places, the tie-break's
@@ -410,6 +414,24 @@ describe("tiebreakOffered", () => {
   });
 });
 
+// Review fix (ticket 15), in ticket 16: the hosts are told when a tie-break's items are all gone
+// and the items now at the top are level, rather than shown nothing.
+describe("finalistsGone", () => {
+  const held = award({ round: 2, finalists: ["a", "b"] });
+
+  it("is said on the results once every finalist of the last round has gone and the items now first are level", () => {
+    expect(finalistsGone("results", held, placed({ c: 1, d: 1 }))).toBe(true);
+  });
+
+  it("is not said while another round is offered, with one first, before any tie-break, once first is kept shared, or during one", () => {
+    expect(finalistsGone("results", held, placed({ a: 1, b: 1 }))).toBe(false);
+    expect(finalistsGone("results", held, placed({ c: 1, d: 2 }))).toBe(false);
+    expect(finalistsGone("results", award(), placed({ c: 1, d: 1 }))).toBe(false);
+    expect(finalistsGone("results", { ...held, sharedFirst: true }, placed({ c: 1, d: 1 }))).toBe(false);
+    expect(finalistsGone("tiebreak", award({ round: 2, finalists: ["a", "b"], tiebreakOpen: true }), placed({ c: 1, d: 1 }))).toBe(false);
+  });
+});
+
 describe("countsShown", () => {
   it("shows a host the counts whenever there is a vote", () => {
     expect(countsShown("voting", host)).toBe(true);
@@ -645,6 +667,83 @@ describe("albumVotes during and after a tie-break (ticket 15)", () => {
     const [standing] = albumVotes(closed, "open", guest(), NOW, [open], given, [p2, p3, p4]);
     expect(standing.ids).toEqual(["p2", "p3"]);
     expect(standing.tied).toBe(2);
+  });
+
+  // Review fix (ticket 15), in ticket 16: on the results the picker's check says the viewer voted
+  // in the award in any round, though they gave no vote in the tie-break.
+  it("on the results, gives a viewer who voted in the first round but not in the tie-break their first round's vote", () => {
+    const withoutTheGuest = given.filter((vote) => !(vote.rsvpId === "r1" && vote.round === 2));
+    expect(albumVotes(closed, "open", guest(), NOW, [closedTiebreak], withoutTheGuest, items)[0].voted).toBe("p1");
+    expect(albumVotes(closed, "open", guest(), NOW, [closedTiebreak], given, items)[0].voted).toBe("p2");
+    // During the tie-break their vote is still theirs in its round alone.
+    expect(albumVotes(closed, "open", guest(), NOW, [open], withoutTheGuest, items)[0].voted).toBeNull();
+  });
+
+  it("tells the hosts alone when the last round's finalists have all gone and the items now first are level", () => {
+    // Every finalist (p1, p2, p3) gone after the tie-break: p4 and p5, one vote each, lead level.
+    const p5 = item({ id: "p5", rsvpId: "r3" });
+    const level = [...given, cast("p5", "r8", 1)];
+    expect(albumVotes(closed, "open", host, NOW, [closedTiebreak], level, [p4, p5])[0]).toMatchObject({ offered: false, finalistsGone: true, tied: 2 });
+    expect(albumVotes(closed, "open", guest(), NOW, [closedTiebreak], level, [p4, p5])[0].finalistsGone).toBeUndefined();
+    expect(albumVotes(closed, "open", host, NOW, [closedTiebreak], given, items)[0].finalistsGone).toBe(false);
+  });
+});
+
+describe("orderFor", () => {
+  const ids = ["p1", "p2", "p3", "p4", "p5", "p6"];
+
+  it("gives a guest their own shuffled order while the award is voted in, a tie-break's included", () => {
+    expect(orderFor("voting", guest(), ids)).toEqual(shuffledFor("r1", ids));
+    expect(orderFor("tiebreak", guest(), ids)).toEqual(shuffledFor("r1", ids));
+  });
+
+  it("gives a host, and a guest on the results or with no vote, the ids unchanged", () => {
+    expect(orderFor("voting", host, ids)).toEqual(ids);
+    expect(orderFor("tiebreak", host, ids)).toEqual(ids);
+    expect(orderFor("results", guest(), ids)).toEqual(ids);
+    expect(orderFor("off", guest(), ids)).toEqual(ids);
+  });
+});
+
+describe("winnersOf", () => {
+  it("gives the items in first to third place, with their places and votes", () => {
+    expect(winnersOf(placed({ a: 1, b: 1, c: 3, d: 4 }), counted({ a: 12, b: 12, c: 9, d: 5 }))).toEqual([
+      { id: "a", place: 1, votes: 12 },
+      { id: "b", place: 1, votes: 12 },
+      { id: "c", place: 3, votes: 9 },
+    ]);
+  });
+
+  it("lists a shared place by the higher count first, and otherwise in the order given", () => {
+    // After a tie-break kept shared, first-round counts can differ.
+    expect(winnersOf(placed({ c: 2, a: 1, b: 1, d: 1 }), counted({ a: 3, b: 5, c: 2, d: 3 })).map(({ id }) => id)).toEqual(["b", "a", "d", "c"]);
+  });
+
+  it("gives none where nothing is placed", () => {
+    expect(winnersOf(placed({}), counted({}))).toEqual([]);
+  });
+});
+
+describe("itemNumber", () => {
+  const items = [
+    item({ id: "p1" }),
+    item({ id: "v1", kind: "video", status: "processing" }),
+    item({ id: "p2", status: "pending" }),
+    item({ id: "v2", kind: "video", status: "failed" }),
+    item({ id: "p3" }),
+  ];
+  const ids = items.map(({ id }) => id);
+
+  it("numbers an item one more than the items before it that open in the viewer", () => {
+    expect(itemNumber(ids, items, "p1")).toBe(1);
+    // The video still processing before it is not counted.
+    expect(itemNumber(ids, items, "p2")).toBe(2);
+    // The pending photo is, and the failed video is not.
+    expect(itemNumber(ids, items, "p3")).toBe(3);
+  });
+
+  it("follows the list it is given", () => {
+    expect(itemNumber(["p3", "p1"], items, "p1")).toBe(2);
   });
 });
 

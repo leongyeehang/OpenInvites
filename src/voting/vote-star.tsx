@@ -100,14 +100,16 @@ function usePress(slug: string, drawn: string, refused: (refusal: { refusal: Vot
 }
 
 const BADGE = "pointer-events-none absolute inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums";
-const RIBBON = { 1: "bg-ribbon-first", 2: "bg-ribbon-second", 3: "bg-ribbon-third" } as const;
+// Each ribbon's colour, by place: on tiles, in the viewer and in the Winners strip.
+export const RIBBON = { 1: "bg-ribbon-first", 2: "bg-ribbon-second", 3: "bg-ribbon-third" } as const;
 
 // On a tile of the album, beside its thumbnail button (never inside it): the star at the bottom
 // right where this viewer may vote for the item, named by the thumbnail's label ("Vote for Photo
 // 2", without a video's length or the Live mark), since the album numbers its items only once an
 // award is chosen; its count at the top right where this viewer is shown it, whose accessible text
-// adds a finalist's votes in the last tie-break (M8 ticket 15); its ribbon at the top left once the
-// results are in. The badges take no pointer events, so a press on them opens the item.
+// adds a finalist's votes in the last tie-break, joined by a message of its own (M8 ticket 15); its
+// ribbon at the top left once the results are in. The badges take no pointer events, so a press on
+// them opens the item.
 export function ItemVote({ slug, item, initial, awards }: { slug: string; item: string; initial: string; awards: ItemAward[] }) {
   const t = useTranslations("Voting.album");
   const id = useId();
@@ -129,7 +131,11 @@ export function ItemVote({ slug, item, initial, awards }: { slug: string; item: 
       {vote.shownVotes !== undefined && (
         <span
           role="img"
-          aria-label={[t("votes", { count: vote.shownVotes }), ...(vote.tiebreakVotes !== undefined ? [t("tiebreak.inTiebreak", { count: vote.tiebreakVotes })] : [])].join(", ")}
+          aria-label={
+            vote.tiebreakVotes === undefined
+              ? t("votes", { count: vote.shownVotes })
+              : t("tiebreak.countWith", { votes: t("votes", { count: vote.shownVotes }), tiebreak: t("tiebreak.inTiebreak", { count: vote.tiebreakVotes }) })
+          }
           data-slot="vote-count"
           className={cn(BADGE, "top-1 right-1 bg-black/55 text-white")}
         >

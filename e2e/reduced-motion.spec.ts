@@ -493,3 +493,46 @@ test("under reduced motion the dashboard with an event on every shelf is still",
   await expectStill(host.page, "the dashboard, a tile hovered");
   await host.context.close();
 });
+
+// M8 ticket 16: the album vote under reduced motion: a guest's album while voting is open, with its
+// head and stars, a vote given, and the closed album with the Winners strip heading it.
+test("under reduced motion the album vote is still, while open and once closed with the Winners strip", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "still-voting", { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" });
+  const editor = host.page.url();
+  const album = (page: Page) => page.locator('[data-slot="album"]');
+  const photo = async (name: string, background: string) => ({
+    name,
+    mimeType: "image/jpeg",
+    buffer: await sharp({ create: { width: 1200, height: 900, channels: 3, background } }).jpeg().toBuffer(),
+  });
+  await host.page.goto(host.link);
+  await album(host.page).getByLabel(/^Add photos/).setInputFiles([await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a")]);
+  await expect(album(host.page).locator("li[data-item]")).toHaveCount(2, { timeout: 20_000 });
+  await host.page.goto(editor);
+  const block = (await openSettings(host.page)).locator('[data-slot="voting-block"]');
+  await savedAfter(host.page, () => block.getByRole("button", { name: "Start voting" }).click());
+  await expect(block).toHaveAttribute("data-state", "open");
+
+  const guest = await stillGuest(browser);
+  await guest.goto(host.link);
+  await guest.getByRole("button", { name: "Going" }).click();
+  await guest.getByLabel("Your name").fill("Ana Ruiz");
+  await guest.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(guest.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+  await guest.getByRole("dialog", { name: "Your RSVP" }).getByRole("button", { name: "Close" }).click();
+  await expect(album(guest).locator('[data-slot="vote-star"]')).toHaveCount(2);
+  await expectStill(guest, "a guest's album while voting is open");
+  const star = album(guest).getByRole("button", { name: "Vote for Photo 1", exact: true });
+  const answered = guest.waitForResponse((response) => response.request().method() === "POST" && response.request().headers()["next-action"] !== undefined);
+  await star.click();
+  await answered;
+  await expect(star).toHaveAttribute("aria-pressed", "true");
+  await expectStill(guest, "a guest's album with a vote given");
+
+  await savedAfter(host.page, () => block.getByRole("button", { name: "Close voting" }).click());
+  await guest.reload();
+  await expect(album(guest).locator('[data-slot="winners-strip"]')).toContainText("1 vote");
+  await expectStill(guest, "the closed album with the Winners strip");
+  await Promise.all([guest.context().close(), host.context.close()]);
+});
