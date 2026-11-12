@@ -2,38 +2,50 @@
 
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
+import { AwardPicker } from "./award-picker";
 import { closeVotingAction, reopenVotingAction } from "./host-actions";
 import { useChosen, useRefusal, useVote } from "./vote-star";
-import type { AwardStage } from "./voting";
+import type { AwardScope, AwardStage } from "./voting";
 
-// One award as the head shows it: its name as displayed, where it stands, this viewer's vote in it
-// (the item voted for, or none), the page's drawing (vote-star.tsx, ItemAward), and for hosts the
-// votes given so far.
-export type HeadAward = { award: string; name: string; stage: AwardStage; voted: string | null; drawn: string; total?: number };
+// One award as the head shows it: its name as displayed, what it is for, where it stands, this
+// viewer's vote in it (the item voted for, or none), the page's drawing (vote-star.tsx, ItemAward),
+// and for hosts the votes given so far.
+export type HeadAward = { award: string; name: string; scope: AwardScope; stage: AwardStage; voted: string | null; drawn: string; total?: number };
 
-// Above the album's grid while there is a vote (M8 ticket 12): whether voting is open or closed,
-// for a viewer who may vote what a star does and whether theirs is in, and the refusal of a tile's
-// star. For hosts (`eventId` is given to them alone), a box of their own with the votes so far and
-// Close voting, or Reopen voting once it is closed (ticket 10's actions).
+// Above the album's grid while there is a vote (M8 ticket 12): the award picker where there are
+// two awards or more (ticket 13); whether voting is open or closed; for a viewer who may vote what
+// a star does in the chosen award and whether theirs is in; and the refusal of a tile's star. For
+// hosts (`eventId` is given to them alone), a box of their own with the chosen award's votes so far
+// and Close voting, or Reopen voting once it is closed (ticket 10's actions); a press that does not
+// go through says so there, and the page is drawn again as the site holds it (review fix, ticket 13).
 export function AlbumVotingHead({ awards, initial, mayVote, eventId }: { awards: HeadAward[]; initial: string; mayVote: boolean; eventId?: string }) {
   const t = useTranslations("Voting.album");
   const hosts = useTranslations("Voting.block");
   const router = useRouter();
   const [busy, startTransition] = useTransition();
+  const [failed, setFailed] = useState<string>();
   const chosen = useChosen(awards, initial);
   const vote = useVote(chosen?.award ?? "", chosen?.voted ?? null, chosen?.drawn ?? "");
   const refused = useRefusal(chosen?.drawn ?? "");
   if (!chosen) return null;
   const voting = chosen.stage === "voting" || chosen.stage === "tiebreak";
-  const run = (action: (eventId: string) => Promise<void>) =>
+  const run = (action: (eventId: string) => Promise<{ error?: "albumNotOpen" | "refused" }>) =>
     startTransition(async () => {
-      await action(eventId!);
+      setFailed(undefined);
+      let error: "albumNotOpen" | "refused" | "failed" | undefined;
+      try {
+        error = (await action(eventId!)).error;
+      } catch {
+        error = "failed";
+      }
+      if (error) setFailed(hosts(error === "albumNotOpen" ? "notYet" : "failed"));
       router.refresh();
     });
 
   return (
     <div data-slot="album-voting" data-stage={chosen.stage} className="flex flex-col gap-2">
+      {awards.length > 1 && <AwardPicker awards={awards} chosen={chosen} />}
       {voting ? (
         <>
           <p className="inline-flex items-center gap-2 text-sm font-medium">
@@ -71,6 +83,11 @@ export function AlbumVotingHead({ awards, initial, mayVote, eventId }: { awards:
           >
             {hosts(voting ? "close" : "reopen")}
           </button>
+          {failed && (
+            <p role="alert" className="text-sm font-medium">
+              {failed}
+            </p>
+          )}
         </section>
       )}
     </div>

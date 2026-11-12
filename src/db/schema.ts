@@ -907,9 +907,9 @@ export const albumAward = pgTable(
   (table) => [index("album_award_event_id_idx").on(table.eventId), check("album_award_name_length", sql`char_length(${table.name}) <= 40`)],
 );
 
-// A vote in an award's round for one album item, by a guest through their RSVP or by a host, as a
-// reaction is given: each voter has one vote in each round of each award, which a second tap
-// moves. It goes with the award, the item, the RSVP and the host's account.
+// A vote in an award's round for one album item, given by a guest through their RSVP or by a host,
+// as a reaction is given: whoever gives it has one vote in each round of each award, which a
+// second tap moves. It goes with the award, the item, the RSVP and the host's account.
 export const albumVote = pgTable(
   "album_vote",
   {

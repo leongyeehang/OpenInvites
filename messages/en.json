@@ -1795,6 +1795,35 @@
         "afterVoting": "Shown after voting closes",
         "never": "Never shown to guests",
         "hint": "Hosts and the person who added an item always see who did."
+      },
+      "failed": "That change didn’t go through. Reload the page and try again.",
+      "awards": {
+        "title": "Awards",
+        "hint": "Each person gets one vote in every award.",
+        "name": "Name of {award}",
+        "scope": "What {award} is for",
+        "scopes": {
+          "all": "Photos and videos",
+          "photos": "Photos",
+          "videos": "Videos"
+        },
+        "suggestions": {
+          "bestPhoto": "Best photo",
+          "bestVideo": "Best video",
+          "funniest": "Funniest",
+          "groupShot": "Best group shot"
+        },
+        "own": "Your own award",
+        "add": "Add",
+        "moveUp": "Move {award} up",
+        "moveDown": "Move {award} down",
+        "moved": "{award} is now {place} of {count}.",
+        "remove": "Remove {award}",
+        "removeTitle": "Remove {award}?",
+        "removeText": "{count, plural, =0 {Nobody has voted in it yet.} one {Its # vote is deleted.} other {Its # votes are deleted.}}",
+        "removeConfirm": "Remove it",
+        "full": "An event can have up to eight awards.",
+        "nameTooLong": "Award names can be up to 40 characters."
       }
     },
     "album": {
@@ -1815,6 +1844,12 @@
         "closed": "Voting has closed.",
         "notAllowed": "You can’t vote for this one.",
         "failed": "Your vote didn’t go through. Try again."
+      },
+      "picker": {
+        "label": "Awards",
+        "voted": "{award}, voted",
+        "forPhotos": "This award is for photos only.",
+        "forVideos": "This award is for videos only."
       }
     }
   }

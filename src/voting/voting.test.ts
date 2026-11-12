@@ -7,18 +7,22 @@ import {
   awardPlaces,
   awardsOrDefault,
   awardStage,
+  countedVotes,
   countsShown,
   DEFAULT_AWARD,
   finalPlaces,
   inScope,
   mayVote,
   mayVoteFor,
+  movedAwards,
   namesShown,
   nameShownTo,
   openRound,
+  parseAwardName,
   places,
   ribbon,
   shuffledFor,
+  SUGGESTED_AWARDS,
   tally,
   tiebreakOffered,
   tiedForFirst,
@@ -34,6 +38,7 @@ import {
   type VotableItem,
   type VotingEvent,
   type VotingViewer,
+  voteAnswered,
   voteShown,
 } from "./voting";
 
@@ -458,6 +463,16 @@ describe("albumVotes", () => {
     expect(standing.items.get("p1")).toEqual({ may: true, shownVotes: 0 });
     expect(albumVotes(event(), "open", guest(), NOW, [favourite], others, items)[0].voted).toBeNull();
   });
+
+  it("counts nothing for a vote an award no longer shows, nor as its voter's, and counts it again once shown (ticket 13)", () => {
+    const onVideo = [cast("p3", { rsvpId: "r1" }), cast("p1", { rsvpId: "r3" })];
+    const [photosOnly] = albumVotes(event({ albumVoting: "closed" }), "open", guest(), NOW, [award({ id: "a1", scope: "photos" })], onVideo, items);
+    expect(photosOnly.voted).toBeNull();
+    expect(photosOnly.items.get("p1")).toEqual({ may: false, shownVotes: 1, place: 1 });
+    expect(photosOnly.items.has("p3")).toBe(false);
+    const [again] = albumVotes(event(), "open", guest(), NOW, [favourite], onVideo, items);
+    expect(again.voted).toBe("p3");
+  });
 });
 
 describe("voteShown", () => {
@@ -512,6 +527,91 @@ describe("awardsOrDefault", () => {
     expect(awardsOrDefault([])).toEqual([DEFAULT_AWARD]);
     const given = [award({ id: "a1", name: "Funniest", position: 0 }), award({ id: "a2", name: null, scope: "videos", position: 1 })];
     expect(awardsOrDefault(given)).toEqual(given);
+  });
+});
+
+// M8 ticket 13: the host names the awards.
+
+describe("parseAwardName", () => {
+  it("trims a name", () => {
+    expect(parseAwardName("  Best dressed  ")).toEqual({ ok: true, name: "Best dressed" });
+  });
+
+  it("gives null, the Favourite's translated name, for nothing or only spaces", () => {
+    expect(parseAwardName("")).toEqual({ ok: true, name: null });
+    expect(parseAwardName("   ")).toEqual({ ok: true, name: null });
+  });
+
+  it("takes 40 characters and refuses 41, counted by code point", () => {
+    expect(parseAwardName("a".repeat(40))).toEqual({ ok: true, name: "a".repeat(40) });
+    expect(parseAwardName("a".repeat(41))).toEqual({ ok: false, error: "nameTooLong" });
+    // Forty emoji are eighty UTF-16 units, and forty characters as the database counts them.
+    expect(parseAwardName("🎉".repeat(40))).toEqual({ ok: true, name: "🎉".repeat(40) });
+    expect(parseAwardName("🎉".repeat(41))).toEqual({ ok: false, error: "nameTooLong" });
+  });
+});
+
+describe("movedAwards", () => {
+  const ids = ["a1", "a2", "a3"];
+
+  it("moves the second up to first", () => {
+    expect(movedAwards(ids, "a2", -1)).toEqual(["a2", "a1", "a3"]);
+    expect(movedAwards(ids, "a2", 1)).toEqual(["a1", "a3", "a2"]);
+  });
+
+  it("changes nothing up from the first, down from the last, or for an id not there", () => {
+    expect(movedAwards(ids, "a1", -1)).toEqual(ids);
+    expect(movedAwards(ids, "a3", 1)).toEqual(ids);
+    expect(movedAwards(ids, "a9", 1)).toEqual(ids);
+  });
+});
+
+describe("SUGGESTED_AWARDS", () => {
+  it("are Best photo for photos, Best video for videos, Funniest for both and Best group shot for photos", () => {
+    expect(SUGGESTED_AWARDS).toEqual([
+      { key: "bestPhoto", scope: "photos" },
+      { key: "bestVideo", scope: "videos" },
+      { key: "funniest", scope: "all" },
+      { key: "groupShot", scope: "photos" },
+    ]);
+  });
+});
+
+describe("countedVotes", () => {
+  const photos = award({ id: "a1", scope: "photos" });
+  const both = award({ id: "a2", scope: "all", position: 1 });
+  const items = [item({ id: "p1" }), item({ id: "v1", kind: "video" }), item({ id: "p2", status: "pending" })];
+  const cast = (awardId: string, photoId: string) => ({ awardId, photoId, round: 1, rsvpId: "r1" });
+
+  it("drops a vote for an item outside its award's scope, and keeps the rest (plan)", () => {
+    const given = [cast("a1", "p1"), cast("a1", "v1"), cast("a2", "p1"), cast("a2", "v1")];
+    expect(countedVotes(given, [photos, both], items)).toEqual([cast("a1", "p1"), cast("a2", "p1"), cast("a2", "v1")]);
+  });
+
+  it("drops a vote for an item no longer there or not approved, and one in an award not given", () => {
+    expect(countedVotes([cast("a2", "p9"), cast("a2", "p2"), cast("a9", "p1")], [photos, both], items)).toEqual([]);
+  });
+});
+
+describe("voteAnswered", () => {
+  // Two presses on their way, made over the drawing "t1"; the second chose p2.
+  const twoOnTheirWay = { choice: "p2", drawn: "t1", sending: 2 };
+
+  it("counts the answer, and holds the choice over the drawing shown now", () => {
+    expect(voteAnswered(twoOnTheirWay, false, "t2")).toEqual({ choice: "p2", drawn: "t2", sending: 1 });
+    expect(voteAnswered({ choice: "p2", drawn: "t1", sending: 1 }, false, "t2")).toEqual({ choice: "p2", drawn: "t2", sending: 0 });
+  });
+
+  it("keeps a later press's choice when an earlier press is refused", () => {
+    expect(voteAnswered(twoOnTheirWay, true, "t1")).toEqual({ choice: "p2", drawn: "t1", sending: 1 });
+  });
+
+  it("forgets the choice when the last press on its way is refused", () => {
+    expect(voteAnswered({ choice: "p2", drawn: "t1", sending: 1 }, true, "t1")).toBeUndefined();
+  });
+
+  it("is nothing for nothing", () => {
+    expect(voteAnswered(undefined, false, "t1")).toBeUndefined();
   });
 });
 

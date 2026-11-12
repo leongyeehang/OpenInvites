@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
-import { createPublished, editSettings, openMore, openSettings, savedAfter } from "./events";
+import { createPublished, editSettings, openMore, openSettings, savedAfter, saveStatus, setWhen } from "./events";
 import { signUpVerified } from "./hosts";
 import { exec } from "./instances";
 import { closeReply } from "./reply";
@@ -20,6 +20,10 @@ import { clientAddress, expect, test, type APIRequestContext, type Browser, type
 // on theirs takes it back. Guests see no count until voting closes, hosts see them live and close
 // or reopen voting from a box of their own; once closed, every item shows its count and the top
 // three wear ribbons. One address per test: at most three upload asks and ten votes a minute.
+//
+// M8 ticket 13: the host names the awards in the Voting block, up to eight, each for photos,
+// videos or both; guests pick an award above the album and have one vote in each. An award for
+// photos only or videos only shows only those items.
 
 const PAST = { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" };
 const AHEAD = { title: "Ada’s garden party", start: "2027-11-20T16:00", plusOnes: "0" };
@@ -498,4 +502,240 @@ test("a co-host's vote is counted only while they host the event, and again once
   await owner.page.goto(owner.link);
   await expect(count(owner.page, "Photo 1")).toHaveAccessibleName("1 vote");
   await Promise.all([owner.context.close(), priya.context().close(), coHost.page.context().close()]);
+});
+
+// M8 ticket 13: the host names the awards, each for photos, videos or both, and guests vote in
+// each; an award for photos only or videos only shows only those items.
+
+const awardsBlock = (sheet: Locator) => votingBlock(sheet).getByRole("group", { name: "Awards", exact: true });
+// The awards' names in the block, in their order.
+const awardNames = (awards: Locator) => () => awards.getByRole("textbox", { name: /^Name of / }).evaluateAll((fields) => fields.map((field) => (field as HTMLInputElement).value));
+const picker = (page: Page) => head(page).getByRole("group", { name: "Awards", exact: true });
+const pill = (page: Page, name: string) => picker(page).getByRole("button", { name, exact: true });
+const items = (page: Page) => album(page).locator("li[data-item]");
+const H264 = "e2e/fixtures/clip-h264.mp4";
+
+// The host renames an award in the block, finished with Enter.
+async function renameAward(page: Page, awards: Locator, from: string, to: string) {
+  await savedAfter(page, async () => {
+    const field = awards.getByLabel(`Name of ${from}`, { exact: true });
+    await field.fill(to);
+    await field.press("Enter");
+  });
+  await expect(awards.getByLabel(`Name of ${to}`, { exact: true })).toHaveValue(to);
+}
+
+// Priya, Going, adds a photo and then a video, and waits for the video to be ready (as
+// album-video.spec.ts does).
+async function photoAndVideo(browser: Browser, link: string): Promise<Page> {
+  const priya = await guestGoing(browser, link, "Priya Nair");
+  await addPhotos(priya, [await photo("garden.jpg", "#2f6b3a")], 1);
+  await album(priya).getByLabel(/^Add photos/).setInputFiles(H264);
+  await expect(album(priya).locator('li[data-item="video"][data-state="ready"]')).toBeVisible({ timeout: 60_000 });
+  return priya;
+}
+
+test("the host adds, renames, orders and removes awards in Settings", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-awards", AHEAD);
+  const sheet = await openSettings(host.page);
+  const awards = awardsBlock(sheet);
+  await expect(awards).toHaveAccessibleDescription("Each person gets one vote in every award.");
+  await expect.poll(awardNames(awards)).toEqual(["Favourite"]);
+  await expect(awards.getByLabel("What Favourite is for")).toHaveValue("all");
+
+  // A suggestion adds itself with what it is for, and its chip goes.
+  await savedAfter(host.page, () => awards.getByRole("button", { name: "Best photo", exact: true }).click());
+  await expect.poll(awardNames(awards)).toEqual(["Favourite", "Best photo"]);
+  await expect(awards.getByLabel("What Best photo is for")).toHaveValue("photos");
+  await expect(awards.getByRole("button", { name: "Best photo", exact: true })).toHaveCount(0);
+
+  await awards.getByLabel("Your own award").fill("Best dressed");
+  await savedAfter(host.page, () => awards.getByRole("button", { name: "Add", exact: true }).click());
+  await expect.poll(awardNames(awards)).toEqual(["Favourite", "Best photo", "Best dressed"]);
+  await expect(awards.getByLabel("Your own award")).toHaveValue("");
+  await expect(awards.getByLabel("What Best dressed is for")).toHaveValue("all");
+
+  await renameAward(host.page, awards, "Favourite", "Crowd favourite");
+
+  // Moving says where the award is now, and keeps the focus on its button.
+  await expect(awards.getByRole("button", { name: "Move Crowd favourite up" })).toBeDisabled();
+  await expect(awards.getByRole("button", { name: "Move Best dressed down" })).toBeDisabled();
+  await savedAfter(host.page, () => awards.getByRole("button", { name: "Move Best dressed up" }).click());
+  await expect(awards.getByRole("status")).toHaveText("Best dressed is now 2 of 3.");
+  await expect.poll(awardNames(awards)).toEqual(["Crowd favourite", "Best dressed", "Best photo"]);
+  await expect(awards.getByRole("button", { name: "Move Best dressed up" })).toBeFocused();
+
+  // Removing asks first, with what goes with it.
+  await awards.getByRole("button", { name: "Remove Best photo" }).click();
+  const confirm = host.page.getByRole("alertdialog", { name: "Remove Best photo?" });
+  await expect(confirm).toContainText("Nobody has voted in it yet.");
+  await expectNoSeriousViolations(host.page, "the Voting block with an award's removal to confirm");
+  await savedAfter(host.page, () => confirm.getByRole("button", { name: "Remove it" }).click());
+  await expect(confirm).toBeHidden();
+  await expect.poll(awardNames(awards)).toEqual(["Crowd favourite", "Best dressed"]);
+  await expect(awards.getByRole("button", { name: "Best photo", exact: true })).toBeVisible();
+
+  // The awards are the event's: there after a reload. The last one cannot be removed.
+  await host.page.reload();
+  const again = awardsBlock(await openSettings(host.page));
+  await expect.poll(awardNames(again)).toEqual(["Crowd favourite", "Best dressed"]);
+  await again.getByRole("button", { name: "Remove Best dressed" }).click();
+  await savedAfter(host.page, () => host.page.getByRole("alertdialog", { name: "Remove Best dressed?" }).getByRole("button", { name: "Remove it" }).click());
+  await expect.poll(awardNames(again)).toEqual(["Crowd favourite"]);
+  await expect(again.getByRole("button", { name: "Remove Crowd favourite" })).toBeDisabled();
+  await host.context.close();
+});
+
+test("a guest votes once in each award, and an award for videos only shows only the videos", async ({ browser, request }) => {
+  test.setTimeout(240_000);
+  const host = await createPublished(browser, request, "album-awards-vote", PAST);
+  const priya = await photoAndVideo(browser, host.link);
+  const sheet = await openSettings(host.page);
+  const awards = awardsBlock(sheet);
+  await renameAward(host.page, awards, "Favourite", "Crowd favourite");
+  await savedAfter(host.page, () => awards.getByRole("button", { name: "Best video", exact: true }).click());
+  await press(host.page, votingBlock(sheet), "Start voting", "open");
+
+  // Ana sees the first award chosen, with both items.
+  const ana = await guestGoing(browser, host.link, "Ana Ruiz");
+  await expect(pill(ana, "Crowd favourite")).toHaveAttribute("aria-pressed", "true");
+  await expect(pill(ana, "Best video")).toHaveAttribute("aria-pressed", "false");
+  await expect(items(ana)).toHaveCount(2);
+  await expect(head(ana)).not.toContainText("This award is for");
+  await expectNoSeriousViolations(ana, "the album with the award picker");
+
+  // Best video: the album shows the video alone, numbered in its own list, and says why.
+  await pill(ana, "Best video").click();
+  await expect(ana).toHaveURL(/[?&]award=[0-9a-f-]{36}/);
+  await expect(items(ana)).toHaveCount(1);
+  await expect(star(ana, "Video 1")).toBeVisible();
+  await expect(head(ana)).toContainText("This award is for videos only.");
+  await expect(head(ana).getByRole("status")).toHaveText("Tap a star to vote in Best video.");
+  await vote(ana, star(ana, "Video 1"));
+  await expect(star(ana, "Video 1")).toHaveAttribute("aria-pressed", "true");
+  await expect(pill(ana, "Best video, voted")).toHaveAttribute("aria-pressed", "true");
+
+  // Back on the first award: both items, nothing voted yet, and a vote there too.
+  await pill(ana, "Crowd favourite").click();
+  await expect(items(ana)).toHaveCount(2);
+  await expect(stars(ana).and(album(ana).locator('[aria-pressed="true"]'))).toHaveCount(0);
+  const photoStar = album(ana).locator('li[data-item="photo"] [data-slot="vote-star"]');
+  await vote(ana, photoStar);
+  await expect(photoStar).toHaveAttribute("aria-pressed", "true");
+  await expect(pill(ana, "Crowd favourite, voted")).toHaveAttribute("aria-pressed", "true");
+  await expect(pill(ana, "Best video, voted")).toHaveAttribute("aria-pressed", "false");
+
+  // A reload keeps the award the URL names, and both votes.
+  await pill(ana, "Best video, voted").click();
+  await expect(items(ana)).toHaveCount(1);
+  await ana.reload();
+  await expect(pill(ana, "Best video, voted")).toHaveAttribute("aria-pressed", "true");
+  await expect(items(ana)).toHaveCount(1);
+  await expect(star(ana, "Video 1")).toHaveAttribute("aria-pressed", "true");
+  await expect(pill(ana, "Crowd favourite, voted")).toBeVisible();
+
+  // The host's total names the chosen award.
+  await host.page.goto(host.link);
+  await expect(hostsBox(host.page)).toContainText("1 vote so far in Crowd favourite");
+  await pill(host.page, "Best video").click();
+  await expect(hostsBox(host.page)).toContainText("1 vote so far in Best video");
+  await Promise.all([host.context.close(), priya.context().close(), ana.context().close()]);
+});
+
+test("an award's scope changed keeps the votes for what it still shows", async ({ browser, request }) => {
+  test.setTimeout(240_000);
+  const host = await createPublished(browser, request, "album-awards-scope", PAST);
+  const editor = host.page.url();
+  const priya = await photoAndVideo(browser, host.link);
+  await startVoting(host.page);
+  const ana = await guestGoing(browser, host.link, "Ana Ruiz");
+  const videoStar = album(ana).locator('li[data-item="video"] [data-slot="vote-star"]');
+  await vote(ana, videoStar);
+  await expect(videoStar).toHaveAttribute("aria-pressed", "true");
+
+  // For photos only, the award shows the photo alone, and Ana's vote is not hers there.
+  await host.page.goto(editor);
+  const awards = awardsBlock(await openSettings(host.page));
+  await savedAfter(host.page, async () => {
+    await awards.getByLabel("What Favourite is for").selectOption("photos");
+  });
+  await host.page.goto(host.link);
+  await expect(items(host.page)).toHaveCount(1);
+  await expect(album(host.page).locator('li[data-item="photo"]')).toHaveCount(1);
+  await expect(hostsBox(host.page)).toContainText("0 votes so far in Favourite");
+  await ana.reload();
+  await expect(head(ana).getByRole("status")).toHaveText(TAP_TO_VOTE);
+
+  // Photos and videos again: the vote is back.
+  await host.page.goto(editor);
+  const again = awardsBlock(await openSettings(host.page));
+  await expect(again.getByLabel("What Favourite is for")).toHaveValue("photos");
+  await savedAfter(host.page, async () => {
+    await again.getByLabel("What Favourite is for").selectOption("all");
+  });
+  await host.page.goto(host.link);
+  await expect(items(host.page)).toHaveCount(2);
+  await expect(album(host.page).locator('li[data-item="video"] [data-slot="vote-count"]')).toHaveAccessibleName("1 vote");
+  await ana.reload();
+  await expect(head(ana).getByRole("status")).toHaveText(YOUR_VOTE);
+  await Promise.all([host.context.close(), priya.context().close(), ana.context().close()]);
+});
+
+test("removing an award with votes says how many go, and turning voting off counts a vote given since the editor opened", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-awards-remove", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await addPhotos(priya, [await photo("garden.jpg", "#2f6b3a")], 1);
+  const sheet = await openSettings(host.page);
+  const awards = awardsBlock(sheet);
+  await savedAfter(host.page, () => awards.getByRole("button", { name: "Best photo", exact: true }).click());
+  await press(host.page, votingBlock(sheet), "Start voting", "open");
+
+  // Ana votes in both awards while the host's editor stays open.
+  const ana = await guestGoing(browser, host.link, "Ana Ruiz");
+  await vote(ana, star(ana, "Photo 1"));
+  await pill(ana, "Best photo").click();
+  await expect(star(ana, "Photo 1")).toHaveAttribute("aria-pressed", "false");
+  await vote(ana, star(ana, "Photo 1"));
+  await expect(pill(ana, "Best photo, voted")).toBeVisible();
+
+  // Review fix: the counts are read as each confirmation opens.
+  await votingBlock(sheet).getByRole("button", { name: "Turn off voting" }).click();
+  const turnOff = host.page.getByRole("alertdialog", { name: "Turn off voting?" });
+  await expect(turnOff).toContainText("Its 2 votes are deleted.");
+  await turnOff.getByRole("button", { name: "Never mind" }).click();
+  await expect(turnOff).toBeHidden();
+
+  await awards.getByRole("button", { name: "Remove Best photo" }).click();
+  const confirm = host.page.getByRole("alertdialog", { name: "Remove Best photo?" });
+  await expect(confirm).toContainText("Its 1 vote is deleted.");
+  await savedAfter(host.page, () => confirm.getByRole("button", { name: "Remove it" }).click());
+  await expect.poll(awardNames(awards)).toEqual(["Favourite"]);
+
+  // Its vote went with it; the other award's stays.
+  await votingBlock(sheet).getByRole("button", { name: "Turn off voting" }).click();
+  await expect(turnOff).toContainText("Its 1 vote is deleted.");
+  await turnOff.getByRole("button", { name: "Never mind" }).click();
+  await ana.reload();
+  await expect(picker(ana)).toHaveCount(0);
+  await expect(head(ana).getByRole("status")).toHaveText(YOUR_VOTE);
+  await Promise.all([host.context.close(), priya.context().close(), ana.context().close()]);
+});
+
+// Review fix: reopening needs the album open, as starting does, and a refused press says so.
+test("Reopen voting is refused once the album is shut again, and says so", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-vote-reopen", PAST);
+  const block = await startVoting(host.page);
+  await press(host.page, block, "Close voting", "closed");
+  await host.page.keyboard.press("Escape");
+  await setWhen(host.page, { start: AHEAD.start });
+
+  const again = votingBlock(await openSettings(host.page));
+  await again.getByRole("button", { name: "Reopen voting" }).click();
+  await expect(saveStatus(host.page)).toHaveAttribute("data-status", "failed");
+  await expect(host.page.getByRole("alert").filter({ hasText: "Voting can start once the album opens, at the start of the event." })).toBeVisible();
+  await expect(again).toHaveAttribute("data-state", "closed");
+  await host.context.close();
 });

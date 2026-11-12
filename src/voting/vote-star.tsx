@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useId, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { cn } from "@/lib/utils";
 import { setVoteAction } from "./actions";
-import { voteShown, type ItemStanding, type PendingVote } from "./voting";
+import { voteAnswered, voteShown, type ItemStanding, type PendingVote } from "./voting";
 
 // Why a vote was refused (actions.ts, setVoteAction), or that it never reached the site (a dropped
 // connection, a failure there).
@@ -65,8 +65,9 @@ export function useChosen<T extends { award: string }>(awards: T[], initial: str
 // A press of a star: the vote moved to this item, or taken back when it is already this item's.
 // The action runs in a transition, and the page it redraws confirms the vote. Once the answer is
 // in, the choice is held over the drawing then shown, so a page that came back between two quick
-// presses does not flash the first; a refusal, or an answer that never came, forgets the choice.
-// `refused` is told of the refusal with the drawing it happened on, or of none at each press.
+// presses does not flash the first; a refusal, or an answer that never came, forgets the choice
+// once no later press is on its way (voting.ts, voteAnswered). `refused` is told of the refusal
+// with the drawing it happened on, or of none at each press.
 function usePress(slug: string, drawn: string, refused: (refusal: { refusal: VoteRefusal; drawn: string } | undefined) => void) {
   const [, startTransition] = useTransition();
   // The drawing shown now, read when an answer comes in.
@@ -88,15 +89,10 @@ function usePress(slug: string, drawn: string, refused: (refusal: { refusal: Vot
       } catch {
         refusal = "failed";
       } finally {
-        const now = pending.get(vote.award);
-        if (now) {
-          now.sending = Math.max(0, now.sending - 1);
-          now.drawn = shownDrawing.current;
-        }
-        if (refusal) {
-          pending.delete(vote.award);
-          refused({ refusal, drawn: shownDrawing.current });
-        }
+        const answered = voteAnswered(pending.get(vote.award), refusal !== undefined, shownDrawing.current);
+        if (answered) pending.set(vote.award, answered);
+        else pending.delete(vote.award);
+        if (refusal) refused({ refusal, drawn: shownDrawing.current });
         changed();
       }
     });
@@ -109,9 +105,9 @@ const RIBBON = { 1: "bg-ribbon-first", 2: "bg-ribbon-second", 3: "bg-ribbon-thir
 // On a tile of the album, beside its thumbnail button (never inside it): the star at the bottom
 // right where this viewer may vote for the item, named by the thumbnail's label ("Vote for Photo
 // 2", without a video's length or the Live mark), since the album numbers its items only once an
-// award is chosen; its count at the top right where
-// this viewer is shown it; its ribbon at the top left once the results are in. The badges take no
-// pointer events, so a press on them opens the item.
+// award is chosen; its count at the top right where this viewer is shown it; its ribbon at the
+// top left once the results are in. The badges take no pointer events, so a press on them opens
+// the item.
 export function ItemVote({ slug, item, initial, awards }: { slug: string; item: string; initial: string; awards: ItemAward[] }) {
   const t = useTranslations("Voting.album");
   const id = useId();

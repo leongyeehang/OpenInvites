@@ -1795,6 +1795,35 @@
         "afterVoting": "投票结束后显示",
         "never": "从不向宾客显示",
         "hint": "主办人和添加者本人始终能看到是谁添加的。"
+      },
+      "failed": "这项更改没有成功。请重新加载页面后再试。",
+      "awards": {
+        "title": "奖项",
+        "hint": "每人在每个奖项中各有一票。",
+        "name": "「{award}」的名称",
+        "scope": "「{award}」评选什么",
+        "scopes": {
+          "all": "照片和视频",
+          "photos": "照片",
+          "videos": "视频"
+        },
+        "suggestions": {
+          "bestPhoto": "最佳照片",
+          "bestVideo": "最佳视频",
+          "funniest": "最搞笑",
+          "groupShot": "最佳合照"
+        },
+        "own": "自定奖项",
+        "add": "添加",
+        "moveUp": "上移「{award}」",
+        "moveDown": "下移「{award}」",
+        "moved": "「{award}」现在是第 {place} 个，共 {count} 个。",
+        "remove": "删除「{award}」",
+        "removeTitle": "删除「{award}」？",
+        "removeText": "{count, plural, =0 {还没有人在这个奖项中投票。} other {其中的 # 票会被删除。}}",
+        "removeConfirm": "删除",
+        "full": "一个活动最多可以有八个奖项。",
+        "nameTooLong": "奖项名称最多 40 个字。"
       }
     },
     "album": {
@@ -1815,6 +1844,12 @@
         "closed": "投票已结束。",
         "notAllowed": "你不能为这一项投票。",
         "failed": "投票没有成功，请再试一次。"
+      },
+      "picker": {
+        "label": "奖项",
+        "voted": "「{award}」，已投票",
+        "forPhotos": "这个奖项只评选照片。",
+        "forVideos": "这个奖项只评选视频。"
       }
     }
   }

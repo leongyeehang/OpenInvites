@@ -1,6 +1,6 @@
 import { expect, test } from "./test";
 import sharp from "sharp";
-import { createPublished, eventLinkIn, openDesign, openMore, type DraftFields } from "./events";
+import { createPublished, eventLinkIn, openDesign, openMore, openSettings, savedAfter, type DraftFields } from "./events";
 
 // Ticket 09: a host duplicates an event into a new draft with its details, look, questions,
 // settings and picture; replies stay with the event they were made to.
@@ -88,5 +88,34 @@ test("a notice names only an event the host can open", async ({ browser, request
   await host.page.goto(`${host.page.url()}?from=0194f0a0-0000-7000-8000-000000000001`);
   await expect(host.page.getByRole("textbox", { name: "Event title" })).toHaveText("Ada’s garden party");
   await expect(host.page.getByText(/Duplicated from/)).toHaveCount(0);
+  await host.context.close();
+});
+
+// M8 ticket 13: the copy keeps the awards, in their order, each with its name and what it is for;
+// its vote starts off though the source's is open.
+test("a duplicate keeps the awards and their order, and its vote is off", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "duplicate-awards", { title: "Ada’s garden party", start: "2026-01-10T16:00" });
+  const sheet = await openSettings(host.page);
+  const voting = sheet.locator('[data-slot="voting-block"]');
+  const awards = voting.getByRole("group", { name: "Awards", exact: true });
+  await savedAfter(host.page, () => awards.getByRole("button", { name: "Best video", exact: true }).click());
+  await awards.getByLabel("Your own award").fill("Best dressed");
+  await savedAfter(host.page, () => awards.getByRole("button", { name: "Add", exact: true }).click());
+  await savedAfter(host.page, () => awards.getByRole("button", { name: "Move Best dressed up" }).click());
+  await savedAfter(host.page, () => voting.getByRole("button", { name: "Start voting" }).click());
+  await expect(voting).toHaveAttribute("data-state", "open");
+  await host.page.keyboard.press("Escape");
+
+  await openMore(host.page);
+  await host.page.getByRole("button", { name: "Duplicate" }).click();
+  await expect(host.page).toHaveURL(/\/events\/[0-9a-f-]{36}\?from=[0-9a-f-]{36}$/, { timeout: 15_000 });
+  const copy = (await openSettings(host.page)).locator('[data-slot="voting-block"]');
+  await expect(copy).toHaveAttribute("data-state", "off");
+  const copied = copy.getByRole("group", { name: "Awards", exact: true });
+  const names = () => copied.getByRole("textbox", { name: /^Name of / }).evaluateAll((fields) => fields.map((field) => (field as HTMLInputElement).value));
+  await expect.poll(names).toEqual(["Favourite", "Best dressed", "Best video"]);
+  await expect(copied.getByLabel("What Best dressed is for")).toHaveValue("all");
+  await expect(copied.getByLabel("What Best video is for")).toHaveValue("videos");
   await host.context.close();
 });

@@ -266,6 +266,51 @@ export function awardsOrDefault(awards: AwardRules[]): AwardRules[] {
   return awards.length > 0 ? awards : [DEFAULT_AWARD];
 }
 
+// The awards the Voting block suggests (M8 ticket 13), each added with what it is for. A
+// suggestion is stored as words in the language of the host who chose it, as a name they type is
+// (M8 plan), so only the key is here; the block translates it.
+export const SUGGESTED_AWARDS: readonly { key: "bestPhoto" | "bestVideo" | "funniest" | "groupShot"; scope: AwardScope }[] = [
+  { key: "bestPhoto", scope: "photos" },
+  { key: "bestVideo", scope: "videos" },
+  { key: "funniest", scope: "all" },
+  { key: "groupShot", scope: "photos" },
+];
+
+// An award's name as the host typed it, trimmed: null for nothing, which shows as the translated
+// "Favourite", and refused past MAX_AWARD_NAME characters, counted by code point as the database's
+// char_length counts them.
+export function parseAwardName(posted: string): { ok: true; name: string | null } | { ok: false; error: "nameTooLong" } {
+  const name = posted.trim();
+  if ([...name].length > MAX_AWARD_NAME) return { ok: false, error: "nameTooLong" };
+  return { ok: true, name: name === "" ? null : name };
+}
+
+// The awards' ids in their order once `id` is moved one place up (-1) or down (1): unchanged at
+// either end, or for an id not among them.
+export function movedAwards(ids: string[], id: string, by: -1 | 1): string[] {
+  const from = ids.indexOf(id);
+  const to = from + by;
+  if (from < 0 || to < 0 || to >= ids.length) return [...ids];
+  const moved = [...ids];
+  [moved[from], moved[to]] = [moved[to], moved[from]];
+  return moved;
+}
+
+// The votes that count (M8 ticket 13): each in one of these awards, for an item still here and
+// approved, in its award's scope. A vote for an item its award no longer takes, since the host
+// changed what the award is for, is kept but counts for nothing and is not its voter's; changing
+// the scope back counts it again (M8 plan). The one place that decides it, for the tallies, the
+// places, the viewer's own vote and the hosts' totals alike.
+export function countedVotes<T extends GivenVote & { awardId: string }>(votes: T[], awards: AwardRules[], items: VotableItem[]): T[] {
+  const itemsById = new Map(items.map((item) => [item.id, item]));
+  const awardsById = new Map(awards.map((award) => [award.id, award]));
+  return votes.filter((vote) => {
+    const award = awardsById.get(vote.awardId);
+    const item = itemsById.get(vote.photoId);
+    return award !== undefined && item !== undefined && item.status === "approved" && inScope(award, item);
+  });
+}
+
 // A vote as the album reads it (repository.ts, listVotes): in which award and round, for which
 // item, and by whom, a guest through their RSVP or a host.
 export type CastVote = GivenVote & { awardId: string; rsvpId: string | null; hostId: string | null };
@@ -281,17 +326,19 @@ export type ItemStanding = { may: boolean; shownVotes?: number; place?: 1 | 2 | 
 export type AwardStanding = { award: AwardRules; stage: AwardStage; ids: string[]; voted: string | null; total?: number; items: Map<string, ItemStanding> };
 
 // Each award as this viewer's album shows it, from the event's votes and the items this viewer
-// sees (`view`, the album's own answer). Only an award's votes for the items it lists count, so a
-// vote for an item it no longer shows is kept but not counted (M8 plan, ruling 23).
+// sees (`view`, the album's own answer). Only the votes countedVotes keeps count, so a vote for an
+// item an award no longer shows is kept but not counted, nor shown as its voter's, who may vote
+// again (M8 plan, ruling 23; ticket 13).
 export function albumVotes(event: VotingEvent, view: AlbumViewName, viewer: VotingViewer, now: Date, awards: AwardRules[], votes: CastVote[], items: VotableItem[]): AwardStanding[] {
   const state = votingState(event, now);
   const votesHere = mayVote(event, view, viewer, now);
   const mine = (vote: CastVote) => (viewer.kind === "guest" ? vote.rsvpId === viewer.rsvpId : viewer.kind === "host" && vote.hostId === viewer.hostId);
+  const counted = countedVotes(votes, awards, items);
   return awards.map((award) => {
     const stage = awardStage(state, award);
     const listed = items.filter((item) => inScope(award, item));
     const ids = listed.map((item) => item.id);
-    const given = votes.filter((vote) => vote.awardId === award.id && ids.includes(vote.photoId));
+    const given = counted.filter((vote) => vote.awardId === award.id);
     const round = openRound(event, award, now);
     const counts = tally(given, 1);
     const shown = countsShown(stage, viewer);
@@ -326,4 +373,13 @@ export type PendingVote = { choice: string | null; drawn: string; sending: numbe
 // takes the vote away without a press).
 export function voteShown(pending: PendingVote | undefined, voted: string | null, drawn: string): string | null {
   return pending && (pending.sending > 0 || pending.drawn === drawn) ? pending.choice : voted;
+}
+
+// A press's answer come in, over the drawing shown now: one press fewer on its way, and the choice
+// held over that drawing. A refusal, or an answer that never came, forgets the choice only once no
+// press is on its way: a later press's choice stays until its own answer (review fix, M8 ticket 13).
+export function voteAnswered(pending: PendingVote | undefined, refused: boolean, drawn: string): PendingVote | undefined {
+  if (!pending) return undefined;
+  const sending = Math.max(0, pending.sending - 1);
+  return refused && sending === 0 ? undefined : { choice: pending.choice, drawn, sending };
 }

@@ -65,6 +65,7 @@ export async function albumVotingFor({ event, viewer, view, items, now }: AlbumV
       awards={standings.map((standing) => ({
         award: keyOf(standing),
         name: standing.award.name ?? t("favourite"),
+        scope: standing.award.scope,
         stage: standing.stage,
         voted: standing.voted,
         drawn,
