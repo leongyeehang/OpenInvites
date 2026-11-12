@@ -86,5 +86,37 @@ describe("winnersDraftText", () => {
     expect(text).toContain(`${AWARDS[0]}: a photo by ${name} and a video by ${name}, 12 votes each.`);
     expect(text).not.toContain(AWARDS[7]);
     expect(text.endsWith(`See every count in the album:\n${URL}`)).toBe(true);
+    // Review fix (ticket 16): the lines left out are counted on a last line of their own.
+    const shown = AWARDS.filter((award) => text.includes(`${award}:`)).length;
+    expect(shown).toBeLessThan(8);
+    expect(text).toContain(`\nAnd ${8 - shown} more awards.\n\nSee every count in the album:\n${URL}`);
+  });
+
+  it("says one more award in the singular, in English and in each Chinese script", async () => {
+    const name = "Priya ".padEnd(80, "n");
+    const lines: WinnersLine[] = AWARDS.slice(0, 2).map((award) => ({ award, winners: [{ kind: "photo", name }], votes: 3 }));
+    const title = "Ada’s garden party ".repeat(90).trim();
+    for (const [locale, more] of [
+      ["en", "And 1 more award."],
+      ["zh-Hans", "另外还有 1 个奖项。"],
+      ["zh-Hant", "另外還有 1 個獎項。"],
+    ] as const) {
+      const text = winnersDraftText(await translatorFor(locale), locale, { title, lines, url: URL });
+      expect(text.length).toBeLessThanOrEqual(MAX_BODY);
+      expect(text).toContain(AWARDS[0]);
+      expect(text).not.toContain(AWARDS[1]);
+      expect(text).toContain(more);
+    }
+  });
+
+  it("never leaves an empty block between the title and the link: with no line that fits, it says how many awards there are", async () => {
+    const t = await translatorFor("en");
+    const lines: WinnersLine[] = AWARDS.slice(0, 3).map((award) => ({ award, winners: [{ kind: "photo", name: "Priya ".padEnd(80, "n") }], votes: 3 }));
+    const title = "Ada’s garden party ".repeat(95).trim();
+    const text = winnersDraftText(t, "en", { title, lines, url: URL });
+    expect(text.length).toBeLessThanOrEqual(MAX_BODY);
+    expect(text).not.toContain(AWARDS[0]);
+    expect(text).not.toMatch(/\n\n\n/);
+    expect(text).toContain("\n\nAnd 3 more awards.\n\n");
   });
 });

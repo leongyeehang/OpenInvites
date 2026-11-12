@@ -19,6 +19,7 @@ import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/co
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { useEditor } from "@/editor/status";
+import { CountText, useFresh } from "./fresh-count";
 import {
   addAwardAction,
   awardVotesAction,
@@ -26,7 +27,6 @@ import {
   moveAwardAction,
   removeAwardAction,
   renameAwardAction,
-  reopenVotingAction,
   setAwardScopeAction,
   setClosingTimeAction,
   setUploaderNamesAction,
@@ -34,6 +34,7 @@ import {
   startVotingAction,
   turnOffVotingAction,
 } from "./host-actions";
+import { ReopenVoting } from "./reopen-voting";
 import {
   AWARD_SCOPES,
   MAX_AWARD_NAME,
@@ -57,53 +58,28 @@ export type BlockAward = { id: string | null; name: string; scope: AwardScope };
 export type Closing = { wall: string | null; shown: string | null; timeZone: string };
 
 // What an action answers when the press did not go through: refused by the site, or never answered.
-type Refusal = "albumNotOpen" | "full" | "nameTooLong" | "last" | "past" | "invalid" | "refused" | "failed";
+type Refusal = "albumNotOpen" | "tiebreak" | "full" | "nameTooLong" | "last" | "past" | "invalid" | "refused" | "failed";
 
 // The key a row goes by: Favourite before it is made has no id, and is then the only award.
 const keyOf = (award: BlockAward) => award.id ?? "";
 
-// The votes each award holds, read as a confirmation that deletes them opens (review fix, M8
-// ticket 13), since the figure the page was drawn with may be old by the time the host presses.
-// Until the read answers, the confirmation gives no figure and cannot be confirmed; if it fails,
-// it says so, and only Never mind is left (review fix, ticket 14). An answer to an earlier opening
-// is ignored.
-type FreshVotes = { state: "reading" } | { state: "failed" } | { state: "read"; votes: Record<string, number> };
-
+// The votes each award holds, read as a confirmation that deletes them opens (fresh-count.tsx):
+// those of one award, or of every award. Favourite before it is made holds none.
 function useFreshVotes(eventId: string) {
-  const [fresh, setFresh] = useState<FreshVotes>({ state: "reading" });
-  const latest = useRef(0);
-  const read = (open: boolean) => {
-    if (!open) return;
-    const mine = ++latest.current;
-    const answered = (next: FreshVotes) => {
-      if (mine === latest.current) setFresh(next);
-    };
-    setFresh({ state: "reading" });
-    awardVotesAction(eventId).then(
-      (votes) => answered(votes ? { state: "read", votes } : { state: "failed" }),
-      () => answered({ state: "failed" }),
-    );
-  };
-  // The votes of one award, or of every award, once read. Favourite before it is made holds none.
+  const fresh = useFresh(() => awardVotesAction(eventId));
   const votesOf = (award?: BlockAward): number | undefined => {
-    if (fresh.state !== "read") return undefined;
-    if (!award) return Object.values(fresh.votes).reduce((sum, votes) => sum + votes, 0);
-    return award.id === null ? 0 : (fresh.votes[award.id] ?? 0);
+    if (fresh.value === undefined) return undefined;
+    if (!award) return Object.values(fresh.value).reduce((sum, votes) => sum + votes, 0);
+    return award.id === null ? 0 : (fresh.value[award.id] ?? 0);
   };
-  return { read, ready: fresh.state === "read", failed: fresh.state === "failed", votesOf };
-}
-
-// A confirmation's text: what it deletes, once the count is read (`votes`), or that it is being
-// read, or that it could not be.
-function CountText({ fresh, votes, text }: { fresh: Fresh; votes: number | undefined; text: (count: number) => string }) {
-  const t = useTranslations("Voting.block");
-  if (votes !== undefined) return text(votes);
-  return t(fresh.failed ? "countFailed" : "counting");
+  return { read: fresh.read, ready: fresh.ready, failed: fresh.failed, votesOf };
 }
 
 // The album vote's block in the editor's Settings (M8 ticket 10), below the album's own and, like
-// it, outside the sheet's form: Start voting, once the album is open; then Close voting or Reopen
-// voting, and Turn off voting, confirmed with the number of votes it deletes. Each press is saved
+// it, outside the sheet's form, named "Album voting" so that it cannot be taken for the date poll
+// (the voting part's review): Start voting, once the album is open; then Close voting or Reopen
+// voting, which asks first while a tie-break has been held (`tiebreak`; reopen-voting.tsx), and
+// Turn off voting, confirmed with the number of votes it deletes. Each press is saved
 // on its own through the editor's save status, and the page, refreshed by the action, draws the
 // block in its new state; a press the site refuses, or that never reaches it, is reported there
 // and undone on the screen, never shown as saved (review fix, ticket 13). Whatever the state, the
@@ -113,6 +89,7 @@ function CountText({ fresh, votes, text }: { fresh: Fresh; votes: number | undef
 export function VotingBlock({
   eventId,
   state,
+  tiebreak,
   albumOpen,
   awards,
   names,
@@ -121,6 +98,7 @@ export function VotingBlock({
 }: {
   eventId: string;
   state: VotingState;
+  tiebreak: boolean;
   albumOpen: boolean;
   awards: BlockAward[];
   names: UploaderNames;
@@ -136,6 +114,7 @@ export function VotingBlock({
   const fresh = useFreshVotes(eventId);
   const refusal = (error: Refusal) => {
     if (error === "albumNotOpen") return t("notYet");
+    if (error === "tiebreak") return t("reopenStale");
     if (error === "full" || error === "nameTooLong") return t(`awards.${error}`);
     if (error === "past" || error === "invalid") return t(`closes.${error}`);
     return t("failed");
@@ -197,9 +176,16 @@ export function VotingBlock({
                 {t("close")}
               </Button>
             ) : (
-              <Button type="button" variant="outline" onClick={() => void run(() => reopenVotingAction(eventId))}>
-                {t("reopen")}
-              </Button>
+              <ReopenVoting
+                eventId={eventId}
+                tiebreak={tiebreak}
+                run={run}
+                button={(press) => (
+                  <Button type="button" variant="outline" onClick={press}>
+                    {t("reopen")}
+                  </Button>
+                )}
+              />
             )}
             <AlertDialog
               open={confirming}
@@ -223,7 +209,7 @@ export function VotingBlock({
                   <AlertDialogHeader>
                     <AlertDialogTitle>{t("turnOffTitle")}</AlertDialogTitle>
                     <AlertDialogDescription>
-                      <CountText fresh={fresh} votes={fresh.votesOf()} text={(count) => t("turnOffText", { count })} />
+                      <CountText failed={fresh.failed} count={fresh.votesOf()} text={(count) => t("turnOffText", { count })} />
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter className="pt-4">
@@ -255,7 +241,11 @@ export function VotingBlock({
             </NativeSelectOption>
           ))}
         </NativeSelect>
-        <FieldDescription id={`${id}-voters-hint`}>{t("who.hint")}</FieldDescription>
+        <FieldDescription id={`${id}-voters-hint`}>
+          {t("who.hint")}
+          {/* An invite is no status the Announcements form can tick (the voting part's review). */}
+          {shownVoters === "invited" && <> {t("who.invitedHint")}</>}
+        </FieldDescription>
       </Field>
       <ClosingTime eventId={eventId} closing={closing} run={run} />
       <Awards eventId={eventId} awards={awards} run={run} fresh={fresh} />
@@ -618,7 +608,7 @@ function AwardRow({
               <AlertDialogHeader>
                 <AlertDialogTitle>{t("awards.removeTitle", { award: award.name })}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  <CountText fresh={fresh} votes={fresh.votesOf(award)} text={(count) => t("awards.removeText", { count })} />
+                  <CountText failed={fresh.failed} count={fresh.votesOf(award)} text={(count) => t("awards.removeText", { count })} />
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter className="pt-4">

@@ -1776,7 +1776,7 @@
   "Voting": {
     "favourite": "最愛",
     "block": {
-      "title": "投票",
+      "title": "相簿投票",
       "intro": "賓客選出最喜歡的照片和影片。每人在每個獎項中各有一票。",
       "start": "開始投票",
       "notYet": "活動開始、相簿開放後，才能開始投票。",
@@ -1784,10 +1784,14 @@
       "closed": "投票已結束",
       "close": "結束投票",
       "reopen": "重新開放投票",
-      "turnOff": "關閉投票",
-      "turnOffTitle": "關閉投票？",
+      "reopenTitle": "重新開放投票？",
+      "reopenText": "{count, plural, =0 {決勝投票會結束，目前還沒有人在其中投票。} other {決勝投票會結束，其中的 # 票會被刪除。}}決勝投票之前的票會保留。",
+      "reopenConfirm": "重新開放",
+      "reopenStale": "這個頁面開啟後，決勝投票已經開始。請再按一次「重新開放投票」，看看會刪除什麼。",
+      "turnOff": "停用投票",
+      "turnOffTitle": "停用投票？",
       "turnOffText": "{count, plural, =0 {還沒有人投票。} other {已投的 # 票都會刪除。}}獎項和設定會保留。",
-      "turnOffConfirm": "關閉",
+      "turnOffConfirm": "停用",
       "cancel": "算了",
       "names": {
         "title": "每項由誰新增",
@@ -1799,9 +1803,10 @@
       "who": {
         "title": "誰可以投票",
         "album": "看得到相簿的所有人",
-        "going": "僅限會來的賓客",
-        "invited": "僅限個人邀請的賓客",
-        "hint": "主辦人一律可以投票。變更此項後，已投的票仍然計數。"
+        "going": "僅限回覆參加的賓客",
+        "invited": "僅限有專屬邀請的賓客",
+        "hint": "主辦人一律可以投票。變更此項後，已投的票仍然計數。",
+        "invitedHint": "「告訴賓客投票已開始」依回覆狀態寄電子郵件，不依專屬邀請：請取消勾選不該收到的賓客。"
       },
       "closes": {
         "label": "自動結束時間",
@@ -1848,8 +1853,8 @@
       "open": "投票進行中",
       "closed": "投票已結束",
       "closesAt": "{time} 結束",
-      "onlyGoing": "只有會來的賓客可以投票。",
-      "onlyInvited": "只有主辦人個人邀請的賓客可以投票。",
+      "onlyGoing": "只有回覆參加的賓客可以投票。",
+      "onlyInvited": "只有收到專屬邀請的賓客可以投票。",
       "hint": "投票結束前不顯示票數。",
       "tapToVote": "點星星，為「{award}」投票。",
       "yourVote": "你已為「{award}」投票。點另一顆星星可改投，點你投的那顆可收回。",
@@ -1870,12 +1875,14 @@
         "label": "獎項",
         "voted": "「{award}」，已投票",
         "forPhotos": "這個獎項只評選照片。",
-        "forVideos": "這個獎項只評選影片。"
+        "forVideos": "這個獎項只評選影片。",
+        "whole": "整個相簿",
+        "rest": "要查看相簿裡的其他內容，請選擇「整個相簿」。"
       },
       "tiebreak": {
         "banner": "決勝投票 · {award}",
         "round": "第 {round} 輪",
-        "intro": "{count, plural, other {這 # 項並列第一。}}請從中再投一票。",
+        "intro": "{count, plural, =0 {並列第一的各項都已刪除。} =1 {並列第一的只剩這一項了。} other {這 # 項並列第一。請從中再投一票。}}",
         "hint": "決勝投票結束前不顯示票數。",
         "shared": "{count, plural, other {「{award}」有 # 項並列第一。}}",
         "stillLevel": "{count, plural, other {決勝投票後，「{award}」仍有 # 項並列第一。}}",
@@ -1901,6 +1908,7 @@
     "line": "{award}：{winners}，{shared, select, yes {各 } other {}}{count, plural, other {# 票}}。",
     "item": "{named, select, yes {{name} 的} other {}}{kind, select, video {一段影片} other {一張照片}}",
     "noVotes": "{award}：沒有人投票。",
-    "more": "{count, plural, other {另外 # 個獎項}}"
+    "more": "{count, plural, other {另外 # 個獎項}}",
+    "moreAwards": "{count, plural, other {另外還有 # 個獎項。}}"
   }
 }

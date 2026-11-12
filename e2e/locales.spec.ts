@@ -554,7 +554,7 @@ test("a host and a guest whose browsers ask for zh-TW start and read the album v
   await page.goto(editor);
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
   await page.getByRole("navigation", { name: "設計邀請" }).getByRole("button", { name: "設定" }).click();
-  const block = page.getByRole("dialog", { name: "設定" }).getByRole("group", { name: "投票", exact: true });
+  const block = page.getByRole("dialog", { name: "設定" }).getByRole("group", { name: "相簿投票", exact: true });
   await expect(block).toHaveAttribute("data-slot", "voting-block");
   await savedAfter(page, () => block.getByRole("group", { name: "獎項", exact: true }).getByRole("button", { name: "最佳照片", exact: true }).click());
   await savedAfter(page, () => block.getByRole("button", { name: "開始投票" }).click());

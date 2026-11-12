@@ -19,10 +19,18 @@ import { SAVED_STATUSES, type SavedStatus } from "@/rsvps/form";
 // the form's own state, so a refusal leaves them as they were; once the announcement is posted they
 // start again, empty, with the usual audience. Without mail the boxes are shown but cannot change.
 //
-// The form is sent from its submit event, not through its `action`: React resets a form after an
-// action passed that way, sent or refused, and each checkbox (Radix) answers the reset by setting
-// itself back to the value it was first drawn with, the draft's, which raced the audience set here
-// and undid a refusal's (flake fix, M8 ticket 14).
+// The form is sent from its submit event: React resets a form after an action it runs itself, sent
+// or refused, and each checkbox (Radix) answers the reset by setting itself back to the value it
+// was first drawn with, the draft's, which raced the audience set here and undid a refusal's (flake
+// fix, M8 ticket 14). The handler stops the submit event, and React then runs no action of its own
+// and resets nothing (react-dom's form actions: a submit whose default was prevented starts no
+// action). The form still has its `action`, so that a press before the page is hydrated is held
+// by React and sent once it is, rather than the browser submitting the message into the address
+// (the voting part's review, finding 3). That replay runs `action` itself, so it resets the form;
+// only the boxes can then show the draft's audience again, and the message has gone.
+//
+// Once posted, the address loses `?draft=`, without a new history entry, so a reload does not write
+// the message into the form again (the voting part's review).
 export function AnnouncementForm({
   eventId,
   reminder,
@@ -41,16 +49,24 @@ export function AnnouncementForm({
     const outcome = await postAnnouncementAction(eventId, previous, formData);
     // Within the action's transition, so the fields start again as the posted announcement shows
     // (Next.js guide, "interactive apps": updates after an await leave the transition otherwise).
-    if (outcome?.success)
+    if (outcome?.success) {
       startTransition(() => {
         setBody("");
         setAudience(DEFAULT_AUDIENCE);
       });
+      const query = new URLSearchParams(window.location.search);
+      if (query.has("draft")) {
+        query.delete("draft");
+        const rest = query.toString();
+        window.history.replaceState(null, "", `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`);
+      }
+    }
     return outcome;
   }, undefined);
 
   return (
     <form
+      action={send}
       onSubmit={(submitted) => {
         submitted.preventDefault();
         const data = new FormData(submitted.currentTarget);

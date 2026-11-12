@@ -5,9 +5,11 @@ import {
   albumVotes,
   AWARD_SCOPES,
   awardPlaces,
+  awardNamed,
   awardsOrDefault,
   awardStage,
   closingTimeProblem,
+  countedPlaces,
   countedVotes,
   countsShown,
   DEFAULT_AWARD,
@@ -29,6 +31,7 @@ import {
   shuffledFor,
   SUGGESTED_AWARDS,
   tally,
+  tiebreakHeld,
   tiebreakOffered,
   tiebreakRounds,
   tiedForFirst,
@@ -46,6 +49,9 @@ import {
   type VotingViewer,
   voteAnswered,
   voteShown,
+  WHOLE_ALBUM,
+  wholeAlbumOffered,
+  wholeAlbumOrder,
   winnersOf,
 } from "./voting";
 
@@ -865,6 +871,19 @@ describe("countedVotes", () => {
   });
 });
 
+// The voting part's review, finding 11: one place says how an award's votes count and place.
+describe("countedPlaces", () => {
+  const cast = (photoId: string, rsvpId: string, awardId = "a1", round = 1): CastVote => ({ awardId, round, photoId, rsvpId, hostId: null });
+
+  it("keeps this award's counted votes and places them among the items it may place", () => {
+    const items = [item({ id: "p1" }), item({ id: "p2" }), item({ id: "p3", status: "pending" }), item({ id: "v1", kind: "video" })];
+    const votes = [cast("p1", "r1"), cast("p1", "r2"), cast("p2", "r3"), cast("p3", "r4"), cast("v1", "r5"), cast("p2", "r6", "a2"), cast("p9", "r7")];
+    const { counted, placed } = countedPlaces(award({ scope: "photos" }), votes, items);
+    expect(counted.map(({ rsvpId }) => rsvpId)).toEqual(["r1", "r2", "r3"]);
+    expect(placed).toEqual(new Map([["p1", 1], ["p2", 2]]));
+  });
+});
+
 describe("closingTimeProblem", () => {
   it("refuses a time that has come or passed, and takes one still ahead", () => {
     expect(closingTimeProblem(NOW, NOW)).toBe("past");
@@ -875,9 +894,109 @@ describe("closingTimeProblem", () => {
 
 describe("draftAudience", () => {
   it("ticks Going alone when only guests who are going may vote, and leaves the form's own otherwise", () => {
-    expect(draftAudience("going")).toEqual(["going"]);
-    expect(draftAudience("album")).toBeUndefined();
-    expect(draftAudience("invited")).toBeUndefined();
+    expect(draftAudience({ albumVoters: "going", albumVisibility: "replied" })).toEqual(["going"]);
+    expect(draftAudience({ albumVoters: "album", albumVisibility: "replied" })).toBeUndefined();
+    expect(draftAudience({ albumVoters: "invited", albumVisibility: "replied" })).toBeUndefined();
+  });
+
+  // The voting part's review, finding 7: Maybe guests cannot see an album shown only to those going.
+  it("ticks Going alone too when the album itself shows only to guests who are going, whoever may vote", () => {
+    expect(draftAudience({ albumVoters: "album", albumVisibility: "going" })).toEqual(["going"]);
+    expect(draftAudience({ albumVoters: "invited", albumVisibility: "going" })).toEqual(["going"]);
+    expect(draftAudience({ albumVoters: "album", albumVisibility: "hosts" })).toBeUndefined();
+  });
+});
+
+// The voting part's review, finding 1: reopening ends a tie-break and deletes its votes, so it asks
+// first while any award has held one.
+describe("tiebreakHeld", () => {
+  it("is false while every award is in its first round", () => {
+    expect(tiebreakHeld([award(), award({ id: "a2", position: 1 })])).toBe(false);
+    expect(tiebreakHeld([])).toBe(false);
+  });
+
+  it("is true once any award has started a tie-break, open or closed", () => {
+    expect(tiebreakHeld([award(), award({ id: "a2", position: 1, round: 2, finalists: ["p1", "p2"], tiebreakOpen: true })])).toBe(true);
+    expect(tiebreakHeld([award({ round: 2, finalists: ["p1", "p2"] })])).toBe(true);
+    expect(tiebreakHeld([award({ round: 3, finalists: ["p1", "p2", "p1", "p2"], sharedFirst: true })])).toBe(true);
+  });
+});
+
+// The voting part's review, finding 2: Whole album, offered whenever no award's list is the whole
+// of the viewer's album.
+describe("wholeAlbumOffered", () => {
+  const p1 = item({ id: "p1", rsvpId: "r2" });
+  const p2 = item({ id: "p2", rsvpId: "r3" });
+  const p3 = item({ id: "p3", rsvpId: "r4" });
+  const v1 = item({ id: "v1", kind: "video", rsvpId: "r2" });
+  const idsOf = (items: VotableItem[]) => items.map(({ id }) => id);
+  // Each award's list as this viewer's album gives it.
+  const lists = (awards: AwardRules[], items: VotableItem[], at = event(), viewer = guest()) => albumVotes(at, "open", viewer, NOW, awards, [], items).map(({ ids }) => ids);
+
+  it("is not offered with one award for photos and videos", () => {
+    expect(wholeAlbumOffered(lists([award()], [p1, v1]), idsOf([p1, v1]))).toBe(false);
+  });
+
+  it("is offered with one award for photos only and a video in the album", () => {
+    expect(wholeAlbumOffered(lists([award({ scope: "photos" })], [p1, v1]), idsOf([p1, v1]))).toBe(true);
+  });
+
+  it("is offered with the one award in a tie-break", () => {
+    const tiebreak = award({ round: 2, finalists: ["p1", "p2"], tiebreakOpen: true });
+    const items = [p1, p2, p3];
+    expect(lists([tiebreak], items, event({ albumVoting: "closed" }))).toEqual([["p1", "p2"]]);
+    expect(wholeAlbumOffered(lists([tiebreak], items, event({ albumVoting: "closed" })), idsOf(items))).toBe(true);
+  });
+
+  it("is not offered with two awards, one of them for everything and not in a tie-break", () => {
+    const awards = [award({ scope: "photos" }), award({ id: "a2", scope: "all", position: 1 })];
+    expect(wholeAlbumOffered(lists(awards, [p1, v1]), idsOf([p1, v1]))).toBe(false);
+  });
+
+  it("is offered to a host whose album holds a pending item no list has", () => {
+    expect(wholeAlbumOffered([["p1", "p2"]], ["p1", "p2", "p4"])).toBe(true);
+  });
+
+  it("is not offered for an empty album, and its key is no award's id", () => {
+    expect(wholeAlbumOffered([[]], [])).toBe(false);
+    expect(WHOLE_ALBUM).not.toMatch(/^[0-9a-f-]{36}$/);
+  });
+});
+
+describe("wholeAlbumOrder", () => {
+  const ids = ["p1", "p2", "p3", "p4", "p5", "p6"];
+
+  it("is a guest's own order while any award is voted in, as each award's list is", () => {
+    expect(wholeAlbumOrder(["voting", "voting"], guest(), ids)).toEqual(shuffledFor("r1", ids));
+    expect(wholeAlbumOrder(["results", "tiebreak"], guest(), ids)).toEqual(shuffledFor("r1", ids));
+  });
+
+  it("is the album's own for a host, and for a guest once every award has its results", () => {
+    expect(wholeAlbumOrder(["voting"], host, ids)).toEqual(ids);
+    expect(wholeAlbumOrder(["results", "results"], guest(), ids)).toEqual(ids);
+  });
+});
+
+// The voting part's review, finding 6: a tab drawn before any award existed names Favourite with
+// null; once the first award is another, or Favourite has a name, that is refused.
+describe("awardNamed", () => {
+  const favourite = award({ id: "a1", name: null });
+  const bestPhoto = award({ id: "a2", name: "Best photo", position: 1 });
+
+  it("names an award by its id, and none for an id not among them", () => {
+    expect(awardNamed([favourite, bestPhoto], "a2")).toBe(bestPhoto);
+    expect(awardNamed([favourite, bestPhoto], "a9")).toBeUndefined();
+  });
+
+  it("takes null for the first award while it is still the unnamed default, as made just now", () => {
+    expect(awardNamed([favourite], null)).toBe(favourite);
+    expect(awardNamed([favourite, bestPhoto], null)).toBe(favourite);
+  });
+
+  it("refuses null once another award is first, or the first has been named", () => {
+    expect(awardNamed([{ ...bestPhoto, position: 0 }, { ...favourite, position: 1 }], null)).toBeUndefined();
+    expect(awardNamed([award({ id: "a1", name: "Crowd favourite" })], null)).toBeUndefined();
+    expect(awardNamed([], null)).toBeUndefined();
   });
 });
 

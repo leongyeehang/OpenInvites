@@ -37,7 +37,9 @@ export type WinnersLine = { award: string; winners: { kind: "photo" | "video"; n
 // The winners (ticket 16): a line per award, in the awards' order, naming its first place by kind
 // and uploader, never by number, since numbers follow the list a viewer sees and the message
 // outlives the vote (M8 plan, ruling 28); then the event link. Lines that do not fit are left out
-// from the end: every count is in the album, which the message sends guests to.
+// from the end, and a last line says how many awards are left out (review fix, ticket 16), so the
+// message never has an empty block between its title and its link: every count is in the album,
+// which the message sends guests to.
 export function winnersDraftText(t: Translator, locale: string, draft: { title: string; lines: WinnersLine[]; url: string }): string {
   const list = new Intl.ListFormat(locale, { type: "conjunction" });
   const line = ({ award, winners, votes }: WinnersLine) =>
@@ -49,5 +51,6 @@ export function winnersDraftText(t: Translator, locale: string, draft: { title: 
           count: votes,
           shared: winners.length > 1 ? "yes" : "no",
         });
-  return fitted((shown) => t("VotingDrafts.winners", { title: draft.title, lines: draft.lines.slice(0, shown).map(line).join("\n"), url: draft.url }), draft.lines.length);
+  const left = (shown: number) => (shown < draft.lines.length ? [t("VotingDrafts.moreAwards", { count: draft.lines.length - shown })] : []);
+  return fitted((shown) => t("VotingDrafts.winners", { title: draft.title, lines: [...draft.lines.slice(0, shown).map(line), ...left(shown)].join("\n"), url: draft.url }), draft.lines.length);
 }

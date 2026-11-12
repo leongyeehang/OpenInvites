@@ -30,24 +30,30 @@ async function voterOf(eventId: string): Promise<ViewerWithoutInvite> {
 // vote is checked again under the event's lock (repository.ts, setVote): refused as closed when no
 // round is open, and as not allowed when this viewer may not vote, or not for this item. Unlike
 // the album's own actions, the album's view is checked here too.
-export async function setVoteAction(slug: string, awardId: string, photoId: string | null): Promise<{ error?: "tooFast" | "closed" | "notAllowed" }> {
+//
+// A press says which round its page was drawn in (`round`), and is refused as closed in any other
+// (the voting part's review, finding 5): a page left open across Close voting and a tie-break, or
+// across Reopen voting, would otherwise give a vote in a round the guest did not choose, or replace
+// their first-round vote. The page is then drawn again, showing the round open now.
+export async function setVoteAction(slug: string, awardId: string, photoId: string | null, round: number): Promise<{ error?: "tooFast" | "closed" | "notAllowed" }> {
   if (!(await consume("vote", await headers())).allowed) return { error: "tooFast" };
   const event = await findEventBySlug(slug);
-  if (!event || !isUuid(awardId) || (photoId !== null && !isUuid(photoId))) return { error: "closed" };
+  if (!event || !isUuid(awardId) || (photoId !== null && !isUuid(photoId)) || !Number.isInteger(round)) return { error: "closed" };
   if ((await gateFor(event)).page !== "invitation" || !featureOn(await siteFeatures(), "voting")) return { error: "closed" };
   const viewer = await withInvite(await voterOf(event.id));
   if (viewer.kind === "visitor") return { error: "notAllowed" };
 
   const now = new Date();
   let refusal: "closed" | "notAllowed" = "closed";
+  let otherRound = false;
   const given = await setVote(event.id, awardId, viewer.kind === "host" ? { hostId: viewer.hostId } : { rsvpId: viewer.rsvpId }, photoId, (locked, award, item) => {
-    const round = openRound(locked, award, now);
+    const open = openRound(locked, award, now);
+    otherRound = open !== null && open !== round;
     const allowed = albumOpenTo(locked, viewer, now) && mayVote(locked, "open", viewer, now) && (photoId === null || (item !== undefined && mayVoteFor(award, item, viewer)));
-    if (round !== null && allowed) return round;
-    refusal = round === null ? "closed" : "notAllowed";
+    if (open !== null && !otherRound && allowed) return open;
+    refusal = open === null || otherRound ? "closed" : "notAllowed";
     return null;
   });
-  if (!given) return { error: refusal };
-  for (const path of eventPaths(event)) revalidatePath(path);
-  return {};
+  if (given || otherRound) for (const path of eventPaths(event)) revalidatePath(path);
+  return given ? {} : { error: refusal };
 }

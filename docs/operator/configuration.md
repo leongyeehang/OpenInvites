@@ -172,24 +172,31 @@ upgraded site included.
 - **Videos**: albums take videos as well as photos. Off, albums take photos only; the videos
   they hold still play, and a clip already sent is still processed. Videos need the album, and a
   usable ffmpeg: without one they stay off whatever the switch says.
-- **Voting**: hosts may run a vote on their album's photos and videos, from the Voting block in an
-  event's Settings: up to eight awards, each for photos, videos or both, with one vote per person
-  in each; who may vote (everyone who sees the album, only guests who are going, or only guests
-  invited personally); an optional closing time; and whether guests see who added each item
-  (always, once voting closes, or never). Guests see no count, and while the host chooses no name,
-  until voting closes; each guest sees the album in an order of their own while it is open. Once
-  it closes, every item shows its count, the top three wear ribbons, a Winners strip heads the
-  album, and the host can send the winners to guests as an announcement already written; a first
-  place shared can go to a tie-break among the tied items. Off, no event shows a vote, nothing is
-  deleted (the votes, the awards and each event's choices are kept for when it is back on), and
-  every album shows who added each item, as before 0.8, whatever its event's choice. Voting needs
-  the album.
+- **Voting**: hosts may run a vote on their album's photos and videos, from the Album voting block
+  in an event's Settings: up to eight awards, each for photos, videos or both, with one vote per
+  person in each; who may vote (everyone who sees the album, only guests who are going, or only
+  guests invited personally); an optional closing time, which guests see with its time zone named;
+  and whether guests see who added each item (always, once voting closes, or never). Until voting
+  closes, guests see no count, and they see who added an item only where the host chose to show
+  that always; under never, not even after it closes. Each guest sees the album in an order of
+  their own while it is open. An award for photos or videos alone, or one in a tie-break, lists
+  only its own items; the picker above the album then offers Whole album too, which shows every
+  item without stars, so nothing is out of reach. Once voting closes, every item shows its count,
+  the top three wear ribbons, a Winners strip heads the album, and the host can send the winners
+  to guests as an announcement already written; a first place shared can go to a tie-break among
+  the tied items. Reopening voting ends any tie-break and deletes its votes, after asking with
+  their number; the first round's votes stay. Off, no event shows a vote, nothing is deleted (the
+  votes, the awards and each event's choices are kept for when it is back on), and every album
+  shows who added each item, as before 0.8, whatever its event's choice. Voting needs the album.
 
-  A vote stays until its voter takes it back, its item or the voter's reply is deleted, or the
-  host turns voting off: changing who may vote leaves the votes already given counted. A vote
-  belongs to a reply, so a person who replies twice under two names has two sets of votes.
+  A vote stays until whoever gave it takes it back, its item or that person's reply is deleted,
+  its award is removed, or the host turns voting off; reopening voting after a tie-break deletes
+  the tie-break's votes alone. Changing who may vote leaves the votes already given counted. A
+  vote belongs to a reply, so a person who replies twice under two names has two sets of votes.
   Hosts who mind can approve each guest before they are on the list, or let only guests invited
-  personally vote, whose personal invite links tie each reply to one person.
+  personally vote, whose personal invite links tie each reply to one person. A reply made to vote
+  again is undone by removing it from the guest list, which removes its votes with it; declining
+  it does not, since a declined reply's votes stay counted.
 
 A feature that needs another is off while that one is. Nothing is deleted by switching a feature
 off: switching it back on brings back what it held, and an event's own settings for it (who sees

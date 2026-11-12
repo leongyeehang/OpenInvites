@@ -17,7 +17,8 @@ event's zone, and guests see that time.
 video, Funniest and Best group shot are a press away) and for photos, videos or both. Everyone has
 one vote in each award, given, moved and taken back with a star on each item, in the album and in
 the viewer; nobody votes for their own. An award picker above the album chooses which award the
-album shows.
+album shows, and wherever an award leaves items out (one for photos alone, or one in a tie-break)
+it offers Whole album too, so every item stays in reach.
 
 **Fair while it is open.** Guests see no count until voting closes, and the host chooses whether
 guests see who added each item always, once voting closes (the default) or never; what a guest may
@@ -30,7 +31,8 @@ Winners strip heads the album with each award's first to third places. The host 
 to guests from the album with a message already written, naming each award's first place by kind
 and by who added it where guests may see that, to edit before it goes. A first place shared can
 go to a tie-break among the tied items, with its counts hidden from guests until the host closes
-it, or stay shared.
+it, or stay shared. Reopening voting ends a tie-break and deletes its votes, so it asks first,
+saying how many go.
 
 **The host tells guests.** Starting a vote offers "Tell guests voting is open", the Announcements
 page with the message written.
@@ -52,6 +54,7 @@ against the new, optional `RATE_LIMIT_VOTE` (120 in ten minutes). See
 
 - **One vote per person rather than per reply.** A person who replies twice under two names has two
   sets of votes; approving each guest, or letting only guests invited personally vote, is the
-  host's remedy.
+  host's remedy, and removing a reply from the guest list removes its votes (declining it does
+  not).
 - **More than eight awards, votes for second and third choices, and a vote on anything but the
   album.**

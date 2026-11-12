@@ -5,7 +5,7 @@ import { VIDEO_MB, VIDEO_MINUTES } from "@/instance/limits";
 import { richTextToPlain, type RichText } from "@/rich-text/rich-text";
 import { CONTACT_FIELDS, type ContactField } from "@/rsvps/form";
 import { GUEST_LIST_VISIBILITIES, type GuestListVisibility } from "@/rsvps/visibility";
-import { isTimeZone, toInstant, toWallTime } from "./time";
+import { isTimeZone, parseWallTime } from "./time";
 
 // What a host fills in, once trusted. Times are instants; the form's wall-clock values are
 // converted with the event's zone below.
@@ -107,17 +107,8 @@ export type EventFormError =
 
 export type ParsedEventForm = { ok: true; input: EventInput } | { ok: false; error: EventFormError };
 
-const WALL_TIME = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/;
-
-function parseWall(value: string, allDay: boolean, timeZone: string): Date | undefined {
-  if (!WALL_TIME.test(value)) return undefined;
-  // An all-day event keeps only the date, whatever the input sent.
-  const wall = allDay ? value.slice(0, 10) : value;
-  const instant = toInstant(wall, timeZone);
-  // Round-tripping catches what the pattern cannot: 30 February, 24:30, or a time the clocks skip.
-  if (Number.isNaN(instant.getTime()) || toWallTime(instant, timeZone, { dateOnly: allDay }) !== wall) return undefined;
-  return instant;
-}
+// An all-day event keeps only the date, whatever the input sent (time.ts, parseWallTime).
+const parseWall = (value: string, allDay: boolean, timeZone: string): Date | undefined => parseWallTime(value, timeZone, { dateOnly: allDay });
 
 // The rules of the event form (ticket 05): a title, a start, an end after the start, a real zone.
 export function parseEventForm(fields: EventFormFields): ParsedEventForm {

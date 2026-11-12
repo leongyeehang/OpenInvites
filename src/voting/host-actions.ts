@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireHost } from "@/auth/session";
 import { findHostEvent, type HostEvent } from "@/events/repository";
 import { eventPaths } from "@/events/slug";
-import { toInstant, toWallTime } from "@/events/time";
+import { parseWallTime } from "@/events/time";
 import { featureOn, siteFeatures } from "@/features";
 import { can } from "@/hosts/role";
 import { isUuid } from "@/lib/uuid";
@@ -13,6 +13,7 @@ import {
   closeTiebreak,
   closeVoting,
   countAwardVotes,
+  countTiebreakVotes,
   keepSharedFirst,
   moveAward,
   removeAward,
@@ -73,11 +74,14 @@ export async function closeVotingAction(eventId: string): Promise<{ error?: "ref
   return {};
 }
 
-// Refused while the album is not open, as starting is (review fix, M8 ticket 13).
-export async function reopenVotingAction(eventId: string): Promise<{ error?: "albumNotOpen" | "refused" }> {
+// Refused while the album is not open, as starting is (review fix, M8 ticket 13); and while a
+// tie-break has been held, unless `confirmed`: the host pressed Reopen it in the confirmation that
+// gave the number of its votes, rather than Reopen voting on a page drawn before it began (the
+// voting part's review, finding 1). The page is refreshed either way, so a refused one asks next.
+export async function reopenVotingAction(eventId: string, confirmed: boolean): Promise<{ error?: "albumNotOpen" | "tiebreak" | "refused" }> {
   const event = await hostVoting(eventId);
   if (!event) return { error: "refused" };
-  const reopened = await reopenVoting(event.id, new Date());
+  const reopened = await reopenVoting(event.id, new Date(), confirmed === true);
   refresh(event);
   return reopened;
 }
@@ -142,28 +146,16 @@ export async function keepSharedFirstAction(eventId: string, awardId: string): P
   return {};
 }
 
-// "2026-10-03T19:00", as a datetime-local field sends it.
-const WALL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
-
-// A date and time typed in the event's zone, read as the event form reads one (events/form.ts,
-// parseWall): round-tripping catches what the pattern cannot, 30 February, 24:30, or a time the
-// clocks skip. Restated rather than imported, since events/form.ts imports three of the album's
-// files, which the module keeps clear of (M8 plan, ruling 18; review item, ticket 15).
-function parseWall(wall: string, timeZone: string): Date | undefined {
-  if (!WALL_TIME.test(wall)) return undefined;
-  const instant = toInstant(wall, timeZone);
-  return Number.isNaN(instant.getTime()) || toWallTime(instant, timeZone) !== wall ? undefined : instant;
-}
-
 // The time the vote closes by itself (M8 ticket 14), as the host typed it in the event's own zone
-// (M8 plan, ruling 26), or null for none: `invalid` for what is not a date and time, `past` for a
-// time that has come already.
+// (M8 plan, ruling 26), read as the event form reads its times (events/time.ts, parseWallTime,
+// which imports nothing of the album's), or null for none: `invalid` for what is not a date and
+// time, a date alone included, `past` for a time that has come already.
 export async function setClosingTimeAction(eventId: string, wall: string | null): Promise<{ error?: "past" | "invalid" | "refused" }> {
   if (wall !== null && typeof wall !== "string") return { error: "refused" };
   const event = await hostVoting(eventId);
   if (!event) return { error: "refused" };
   const now = new Date();
-  const closesAt = wall === null ? null : parseWall(wall, event.timeZone);
+  const closesAt = wall === null ? null : parseWallTime(wall, event.timeZone);
   if (closesAt === undefined) return { error: "invalid" };
   const problem = closesAt && closingTimeProblem(closesAt, now);
   if (problem) return { error: problem };
@@ -181,7 +173,17 @@ export async function awardVotesAction(eventId: string): Promise<Record<string, 
   return Object.fromEntries(await countAwardVotes(event.id));
 }
 
-// The awards (M8 ticket 13). A name goes through parseAwardName; nothing typed is Favourite.
+// How many votes the event's tie-breaks hold, read as the Reopen voting confirmation opens (the
+// voting part's review, finding 1). Null when refused.
+export async function tiebreakVotesAction(eventId: string): Promise<number | null> {
+  const event = await hostVoting(eventId);
+  if (!event) return null;
+  return countTiebreakVotes(event.id);
+}
+
+// The awards (M8 ticket 13). A name goes through parseAwardName; nothing typed is Favourite. A
+// rename or a scope for an award no longer there, or for Favourite before it was made once another
+// award is first, is refused (voting.ts, awardNamed).
 export async function addAwardAction(eventId: string, name: string, scope: AwardScope): Promise<{ error?: "full" | "nameTooLong" | "refused" }> {
   if (typeof name !== "string" || !isScope(scope)) return { error: "refused" };
   const parsed = parseAwardName(name);
@@ -199,18 +201,18 @@ export async function renameAwardAction(eventId: string, awardId: string | null,
   if (!parsed.ok) return { error: parsed.error };
   const event = await hostVoting(eventId);
   if (!event) return { error: "refused" };
-  await renameAward(event.id, awardId, parsed.name);
+  const renamed = await renameAward(event.id, awardId, parsed.name);
   refresh(event);
-  return {};
+  return renamed ? {} : { error: "refused" };
 }
 
 export async function setAwardScopeAction(eventId: string, awardId: string | null, scope: AwardScope): Promise<{ error?: "refused" }> {
   if (!isScope(scope) || !isAward(awardId, true)) return { error: "refused" };
   const event = await hostVoting(eventId);
   if (!event) return { error: "refused" };
-  await setAwardScope(event.id, awardId, scope);
+  const scoped = await setAwardScope(event.id, awardId, scope);
   refresh(event);
-  return {};
+  return scoped ? {} : { error: "refused" };
 }
 
 export async function moveAwardAction(eventId: string, awardId: string, by: -1 | 1): Promise<{ error?: "refused" }> {

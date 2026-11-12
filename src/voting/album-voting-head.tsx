@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { AwardPicker } from "./award-picker";
-import { closeTiebreakAction, closeVotingAction, keepSharedFirstAction, reopenVotingAction, startTiebreakAction } from "./host-actions";
-import { useChosen, useRefusal, useVote } from "./vote-star";
-import type { AwardScope, AwardStage } from "./voting";
+import { closeTiebreakAction, closeVotingAction, keepSharedFirstAction, startTiebreakAction } from "./host-actions";
+import { ReopenVoting, type ReopenRefusal } from "./reopen-voting";
+import { useChosen, useRefusal, useVote, useWholeAlbum } from "./vote-star";
+import { tiebreakHeld, type AwardScope, type AwardStage } from "./voting";
 import { WinnersStrip, type StripWinner } from "./winners-strip";
 
 // One award as the head shows it: its name as displayed, what it is for, where it stands and its
@@ -52,9 +53,16 @@ const HOSTS_BUTTON =
 // (review fix, ticket 15). On the results, the Winners strip heads the album, and the hosts may
 // send the winners to guests with a message already written, while no award is in a tie-break
 // (ticket 16).
+//
+// The voting part's review: Reopen voting asks first while a tie-break has been held, since it
+// ends it and deletes its votes (reopen-voting.tsx). Where Whole album is offered (`whole`), the
+// picker is drawn from one award, with it among the awards; chosen, the head keeps the vote's state
+// line and the hosts' controls for the whole vote, and nothing of one award; and under an award in
+// a tie-break a line says where the rest of the album is.
 export function AlbumVotingHead({
   awards,
   initial,
+  whole,
   mayVote,
   closesAt,
   notAmong,
@@ -62,6 +70,7 @@ export function AlbumVotingHead({
 }: {
   awards: HeadAward[];
   initial: string;
+  whole: boolean;
   mayVote: boolean;
   closesAt?: string;
   notAmong?: "onlyGoing" | "onlyInvited";
@@ -72,36 +81,98 @@ export function AlbumVotingHead({
   const router = useRouter();
   const [busy, startTransition] = useTransition();
   const [failed, setFailed] = useState<string>();
-  const chosen = useChosen(awards, initial);
+  const wholeChosen = useWholeAlbum(whole);
+  const chosen = useChosen(awards, initial, whole);
   const vote = useVote(chosen?.award ?? "", chosen?.voted ?? null, chosen?.drawn ?? "");
   const refused = useRefusal(chosen?.drawn ?? "");
-  if (!chosen) return null;
-  const tiebreak = chosen.stage === "tiebreak";
-  const voting = chosen.stage === "voting" || tiebreak;
-  const run = (action: (eventId: string) => Promise<{ error?: "albumNotOpen" | "refused" }>) =>
+  if (!chosen && !wholeChosen) return null;
+  const run = (action: () => Promise<{ error?: ReopenRefusal }>) =>
     startTransition(async () => {
       setFailed(undefined);
-      let error: "albumNotOpen" | "refused" | "failed" | undefined;
+      let error: ReopenRefusal | "failed" | undefined;
       try {
-        error = (await action(eventId!)).error;
+        error = (await action()).error;
       } catch {
         error = "failed";
       }
-      if (error) setFailed(hosts(error === "albumNotOpen" ? "notYet" : "failed"));
+      if (error) setFailed(hosts(error === "albumNotOpen" ? "notYet" : error === "tiebreak" ? "reopenStale" : "failed"));
       router.refresh();
     });
   // A host's button in the box, disabled while a press is on its way.
-  const button = (label: string, action: (eventId: string) => Promise<{ error?: "albumNotOpen" | "refused" }>) => (
-    <button type="button" disabled={busy} onClick={() => run(action)} className={HOSTS_BUTTON}>
+  const button = (label: string, press?: () => void) => (
+    <button type="button" disabled={busy} onClick={press} className={HOSTS_BUTTON}>
       {label}
     </button>
   );
+  // The event's vote is open while every award is voted in, and closed otherwise.
+  const open = awards.some((award) => award.stage === "voting");
+  // Reopen voting, asking first while a tie-break has been held.
+  const reopen = <ReopenVoting eventId={eventId!} tiebreak={tiebreakHeld(awards)} run={run} button={(press) => button(hosts("reopen"), press)} />;
+  const picker = (awards.length > 1 || whole) && <AwardPicker awards={awards} chosen={chosen} whole={whole} />;
+  // The links to the Announcements page with a message written: that voting is open, and once no
+  // award is in a tie-break, the winners.
+  const announce = open && (
+    <Link href={`/events/${eventId}/announcements?draft=voting`} className={HOSTS_LINK}>
+      {hosts("announce")}
+    </Link>
+  );
+  const sendWinners = !open && awards.every((award) => award.stage !== "tiebreak") && (
+    <Link href={`/events/${eventId}/announcements?draft=winners`} className={HOSTS_LINK}>
+      {t("winners.send")}
+    </Link>
+  );
+  const failure = failed && (
+    <p role="alert" className="text-sm font-medium">
+      {failed}
+    </p>
+  );
+
+  // Whole album: the vote's state, and the hosts' controls for the whole vote.
+  if (!chosen) {
+    return (
+      <div data-slot="album-voting" data-stage="whole" className="flex flex-col gap-2">
+        {picker}
+        {open ? (
+          <>
+            <p className="inline-flex items-center gap-2 text-sm font-medium">
+              <span className="size-2 rounded-full bg-theme-accent" aria-hidden />
+              {t("open")}
+              {closesAt && (
+                <>
+                  {" "}
+                  <span className="font-normal text-theme-text-muted">· {t("closesAt", { time: closesAt })}</span>
+                </>
+              )}
+            </p>
+            {!mayVote && notAmong && <p className="text-sm">{t(notAmong)}</p>}
+          </>
+        ) : (
+          <p className="text-sm font-medium">{t("closed")}</p>
+        )}
+        {eventId && (
+          <section data-slot="voting-hosts" aria-labelledby="voting-hosts-title" className="flex flex-col gap-2 rounded-xl border border-dashed border-theme-glass-border p-3">
+            <h3 id="voting-hosts-title" className="text-xs font-medium tracking-label text-theme-text-muted uppercase">
+              {t("hostsOnly")}
+            </h3>
+            <div className="flex flex-wrap gap-2">{open ? button(hosts("close"), () => run(() => closeVotingAction(eventId))) : reopen}</div>
+            {announce}
+            {sendWinners}
+            {failure}
+          </section>
+        )}
+      </div>
+    );
+  }
+
+  const tiebreak = chosen.stage === "tiebreak";
+  const voting = chosen.stage === "voting" || tiebreak;
   // After a tie-break, the offer is of another round among the items still level.
   const held = chosen.round > 1;
 
   return (
     <div data-slot="album-voting" data-stage={chosen.stage} className="flex flex-col gap-2">
-      {awards.length > 1 && <AwardPicker awards={awards} chosen={chosen} />}
+      {picker}
+      {tiebreak && whole && <p className="text-xs text-theme-text-muted">{t("picker.rest")}</p>}
       {voting ? (
         <>
           <p className="inline-flex items-center gap-2 text-sm font-medium">
@@ -151,30 +222,18 @@ export function AlbumVotingHead({
             <>
               <p className="text-sm">{t(held ? "tiebreak.stillLevel" : "tiebreak.shared", { count: chosen.tied, award: chosen.name })}</p>
               <div className="flex flex-wrap gap-2">
-                {button(t(held ? "tiebreak.again" : "tiebreak.start"), (eventId) => startTiebreakAction(eventId, chosen.award))}
-                {button(t("tiebreak.keep"), (eventId) => keepSharedFirstAction(eventId, chosen.award))}
+                {button(t(held ? "tiebreak.again" : "tiebreak.start"), () => run(() => startTiebreakAction(eventId, chosen.award)))}
+                {button(t("tiebreak.keep"), () => run(() => keepSharedFirstAction(eventId, chosen.award)))}
               </div>
             </>
           )}
           <div className="flex flex-wrap gap-2">
-            {tiebreak && button(t("tiebreak.close"), (eventId) => closeTiebreakAction(eventId, chosen.award))}
-            {chosen.stage === "voting" ? button(hosts("close"), closeVotingAction) : button(hosts("reopen"), reopenVotingAction)}
+            {tiebreak && button(t("tiebreak.close"), () => run(() => closeTiebreakAction(eventId, chosen.award)))}
+            {chosen.stage === "voting" ? button(hosts("close"), () => run(() => closeVotingAction(eventId))) : reopen}
           </div>
-          {chosen.stage === "voting" && (
-            <Link href={`/events/${eventId}/announcements?draft=voting`} className={HOSTS_LINK}>
-              {hosts("announce")}
-            </Link>
-          )}
-          {chosen.stage === "results" && awards.every((award) => award.stage !== "tiebreak") && (
-            <Link href={`/events/${eventId}/announcements?draft=winners`} className={HOSTS_LINK}>
-              {t("winners.send")}
-            </Link>
-          )}
-          {failed && (
-            <p role="alert" className="text-sm font-medium">
-              {failed}
-            </p>
-          )}
+          {chosen.stage === "voting" && announce}
+          {chosen.stage === "results" && sendWinners}
+          {failure}
         </section>
       )}
     </div>

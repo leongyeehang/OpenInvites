@@ -6,16 +6,18 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useId, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { cn } from "@/lib/utils";
 import { setVoteAction } from "./actions";
-import { voteAnswered, voteShown, type ItemStanding, type PendingVote } from "./voting";
+import { voteAnswered, voteShown, WHOLE_ALBUM, type ItemStanding, type PendingVote } from "./voting";
 
 // Why a vote was refused (actions.ts, setVoteAction), or that it never reached the site (a dropped
 // connection, a failure there).
 export type VoteRefusal = "tooFast" | "closed" | "notAllowed" | "failed";
 
 // One item's standing in one award, as its star and badges draw it: the award, this viewer's vote
-// in it (the item voted for, or none), the drawing of the page it comes from (a token each drawing
-// has of its own), and the item's own standing (voting.ts, ItemStanding).
-export type ItemAward = ItemStanding & { award: string; voted: string | null; drawn: string };
+// in it (the item voted for, or none), the round a vote given on this page goes to, none on the
+// results (a press sends it, and is refused in any other: the voting part's review, finding 5),
+// the drawing of the page it comes from (a token each drawing has of its own), and the item's own
+// standing (voting.ts, ItemStanding).
+export type ItemAward = ItemStanding & { award: string; voted: string | null; round: number | null; drawn: string };
 
 // The viewer's presses in each award, shared by every star of the album and the head (M8 ticket
 // 12): a press moves the vote at once, un-pressing the old star, before the page comes back with
@@ -55,10 +57,18 @@ export function useRefusal(drawn: string): VoteRefusal | undefined {
   );
 }
 
-// The award the album shows (`?award=`, M8 plan ruling 22): the one the page's query names among
-// those given, or the first.
-export function useChosen<T extends { award: string }>(awards: T[], initial: string): T | undefined {
+// Whether the album shows Whole album (`?award=all`), where the picker offers it (`offered`; the
+// voting part's review, finding 2): every item, and no award's star, count or ribbon.
+export function useWholeAlbum(offered: boolean): boolean {
   const named = useSearchParams().get("award");
+  return offered && named === WHOLE_ALBUM;
+}
+
+// The award the album shows (`?award=`, M8 plan ruling 22): the one the page's query names among
+// those given, or the first; none while it shows Whole album.
+export function useChosen<T extends { award: string }>(awards: T[], initial: string, whole: boolean): T | undefined {
+  const named = useSearchParams().get("award");
+  if (whole && named === WHOLE_ALBUM) return undefined;
   return awards.find((each) => each.award === named) ?? awards.find((each) => each.award === initial);
 }
 
@@ -85,7 +95,7 @@ function usePress(slug: string, drawn: string, refused: (refusal: { refusal: Vot
     startTransition(async () => {
       let refusal: VoteRefusal | undefined;
       try {
-        refusal = (await setVoteAction(slug, vote.award, choice)).error;
+        refusal = (await setVoteAction(slug, vote.award, choice, vote.round ?? 0)).error;
       } catch {
         refusal = "failed";
       } finally {
@@ -109,11 +119,11 @@ export const RIBBON = { 1: "bg-ribbon-first", 2: "bg-ribbon-second", 3: "bg-ribb
 // award is chosen; its count at the top right where this viewer is shown it, whose accessible text
 // adds a finalist's votes in the last tie-break, joined by a message of its own (M8 ticket 15); its
 // ribbon at the top left once the results are in. The badges take no pointer events, so a press on
-// them opens the item.
-export function ItemVote({ slug, item, initial, awards }: { slug: string; item: string; initial: string; awards: ItemAward[] }) {
+// them opens the item. Nothing under Whole album (`whole`, where it is offered).
+export function ItemVote({ slug, item, initial, whole, awards }: { slug: string; item: string; initial: string; whole: boolean; awards: ItemAward[] }) {
   const t = useTranslations("Voting.album");
   const id = useId();
-  const vote = useChosen(awards, initial);
+  const vote = useChosen(awards, initial, whole);
   const drawn = vote?.drawn ?? "";
   const shown = useVote(vote?.award ?? "", vote?.voted ?? null, drawn);
   const press = usePress(slug, drawn, (refused) => {
@@ -169,10 +179,10 @@ export function ItemVote({ slug, item, initial, awards }: { slug: string; item: 
 
 // In the viewer's header, before Download: the same star as a labelled button, and the count and
 // the place as text, with a finalist's votes in the last tie-break beside the count (M8 ticket
-// 15). A refusal shows under the star.
-export function ViewerVote({ slug, item, kind, initial, awards }: { slug: string; item: string; kind: "photo" | "video"; initial: string; awards: ItemAward[] }) {
+// 15). A refusal shows under the star. Nothing under Whole album.
+export function ViewerVote({ slug, item, kind, initial, whole, awards }: { slug: string; item: string; kind: "photo" | "video"; initial: string; whole: boolean; awards: ItemAward[] }) {
   const t = useTranslations("Voting.album");
-  const vote = useChosen(awards, initial);
+  const vote = useChosen(awards, initial, whole);
   const drawn = vote?.drawn ?? "";
   const shown = useVote(vote?.award ?? "", vote?.voted ?? null, drawn);
   // Shown while the page is the drawing it was refused on.

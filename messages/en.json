@@ -1776,7 +1776,7 @@
   "Voting": {
     "favourite": "Favourite",
     "block": {
-      "title": "Voting",
+      "title": "Album voting",
       "intro": "Guests pick their favourite photos and videos. Each person has one vote in each award.",
       "start": "Start voting",
       "notYet": "Voting can start once the album opens, at the start of the event.",
@@ -1784,6 +1784,10 @@
       "closed": "Voting closed",
       "close": "Close voting",
       "reopen": "Reopen voting",
+      "reopenTitle": "Reopen voting?",
+      "reopenText": "{count, plural, =0 {The tie-break ends. Nobody has voted in it yet.} one {The tie-break ends, and its # vote is deleted.} other {The tie-break ends, and its # votes are deleted.}} Votes from before the tie-break stay.",
+      "reopenConfirm": "Reopen it",
+      "reopenStale": "Since this page opened, a tie-break has started. Press Reopen voting again to see what it deletes.",
       "turnOff": "Turn off voting",
       "turnOffTitle": "Turn off voting?",
       "turnOffText": "{count, plural, =0 {Nobody has voted yet.} one {Its # vote is deleted.} other {Its # votes are deleted.}} The awards and settings stay.",
@@ -1801,7 +1805,8 @@
         "album": "Everyone who sees the album",
         "going": "Only guests who are going",
         "invited": "Only guests invited personally",
-        "hint": "Hosts can always vote. Votes already given stay counted when you change this."
+        "hint": "Hosts can always vote. Votes already given stay counted when you change this.",
+        "invitedHint": "“Tell guests voting is open” emails guests by their reply, not their invite: untick anyone who shouldn’t get it."
       },
       "closes": {
         "label": "Close by itself at",
@@ -1870,12 +1875,14 @@
         "label": "Awards",
         "voted": "{award}, voted",
         "forPhotos": "This award is for photos only.",
-        "forVideos": "This award is for videos only."
+        "forVideos": "This award is for videos only.",
+        "whole": "Whole album",
+        "rest": "To see the rest of the album, choose Whole album."
       },
       "tiebreak": {
         "banner": "Tie-break · {award}",
         "round": "round {round}",
-        "intro": "{count, plural, other {These # shared first place.}} Vote again for one of them.",
+        "intro": "{count, plural, =0 {The items that shared first place are gone.} =1 {Only this one is left of those that shared first place.} other {These # shared first place. Vote again for one of them.}}",
         "hint": "Counts stay hidden until the tie-break closes.",
         "shared": "{count, plural, other {# items share first place in {award}.}}",
         "stillLevel": "{count, plural, other {# items still share first place in {award} after the tie-break.}}",
@@ -1901,6 +1908,7 @@
     "line": "{award}: {winners}, {count, plural, one {# vote} other {# votes}}{shared, select, yes { each} other {}}.",
     "item": "{kind, select, video {a video} other {a photo}}{named, select, yes { by {name}} other {}}",
     "noVotes": "{award}: nobody voted.",
-    "more": "{count, plural, other {# more}}"
+    "more": "{count, plural, other {# more}}",
+    "moreAwards": "{count, plural, one {And # more award.} other {And # more awards.}}"
   }
 }

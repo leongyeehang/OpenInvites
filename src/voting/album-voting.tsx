@@ -11,8 +11,12 @@ import {
   itemNumber,
   mayVote,
   nameShownTo,
+  openRound,
   orderFor,
   votingState,
+  WHOLE_ALBUM,
+  wholeAlbumOffered,
+  wholeAlbumOrder,
   winnersOf,
   type AlbumViewName,
   type AwardStanding,
@@ -33,7 +37,10 @@ import type { StripWinner } from "./winners-strip";
 // (ticket 14). During an award's tie-break its list is the round's finalists, and each item's
 // standing what the round shows; once closed, a finalist's votes in it (ticket 15). While an award
 // is voted in, a guest's list is in an order of their own (ticket 16); once its results are in,
-// the head shows its winners, each with its picture and its label.
+// the head shows its winners, each with its picture and its label. Whenever no award's list is the
+// whole of this viewer's album, one more list, Whole album, holds every item, with no star, count
+// or ribbon, so that nothing an award leaves out is out of reach; and the closing time names its
+// zone (the voting part's review).
 export type AlbumVoting = { state: VotingState; showsName: (item: Pick<VotableItem, "rsvpId" | "hostId">) => boolean; slot?: AlbumSlot };
 
 // One item as the album hands it to the vote (ticket 16): its thumbnail's address, built by the
@@ -78,8 +85,14 @@ export async function albumVotingFor({ event, viewer, view, items, now }: AlbumV
   const votesHere = mayVote(event, view, voter, now);
   // A guest who sees the whole album but is not among those the host lets vote is told why.
   const notAmong = voter.kind === "guest" && !votesHere && event.albumVoters !== "album" ? (event.albumVoters === "going" ? "onlyGoing" : "onlyInvited") : undefined;
-  const closesAt = state === "open" && event.albumVotingClosesAt ? formatMoment(event.albumVotingClosesAt, event.timeZone, locale) : undefined;
+  const closesAt = state === "open" && event.albumVotingClosesAt ? formatMoment(event.albumVotingClosesAt, event.timeZone, locale, { zone: true }) : undefined;
   const initial = keyOf(standings[0]);
+  // Whole album, where it is offered, in the order each award's list takes.
+  const albumIds = items.map(({ id }) => id);
+  const whole = wholeAlbumOffered(
+    standings.map(({ ids }) => ids),
+    albumIds,
+  );
   // This drawing of the page, told apart from every other: a star's press is shown over it until
   // the next drawing, which carries the vote as the site holds it (vote-star.tsx).
   const drawn = crypto.randomUUID();
@@ -100,14 +113,16 @@ export async function albumVotingFor({ event, viewer, view, items, now }: AlbumV
       const n = itemNumber(standing.ids, items, winner.id);
       const video = item.kind === "video";
       const label = showsName(item) ? labels(video ? "openVideo" : "open", { n, name: item.name }) : labels(video ? "openVideoUnnamed" : "openUnnamed", { n });
-      return { ...winner, thumb: item.thumb, alt: t("album.winners.alt", { place: t("album.place", { place: winner.place }), label }) };
+      // A finalist's votes in the last tie-break, which decided its place (the voting part's review).
+      const tiebreakVotes = standing.items.get(winner.id)?.tiebreakVotes;
+      return { ...winner, ...(tiebreakVotes !== undefined && { tiebreakVotes }), thumb: item.thumb, alt: t("album.winners.alt", { place: t("album.place", { place: winner.place }), label }) };
     });
   };
   // Each item's standing in every award that lists it.
   const awardsOf = (item: VotableItem): ItemAward[] =>
     standings.flatMap((standing) => {
       const shown = standing.items.get(item.id);
-      return shown ? [{ award: keyOf(standing), voted: standing.voted, drawn, ...shown }] : [];
+      return shown ? [{ award: keyOf(standing), voted: standing.voted, round: openRound(event, standing.award, now), drawn, ...shown }] : [];
     });
   const head = (
     <AlbumVotingHead
@@ -126,6 +141,7 @@ export async function albumVotingFor({ event, viewer, view, items, now }: AlbumV
         ...(standing.stage === "results" && { winners: winnersIn(standing) }),
       }))}
       initial={initial}
+      whole={whole}
       mayVote={votesHere}
       {...(notAmong && { notAmong })}
       {...(closesAt && { closesAt })}
@@ -137,9 +153,22 @@ export async function albumVotingFor({ event, viewer, view, items, now }: AlbumV
     showsName,
     slot: {
       head,
-      tile: Object.fromEntries(items.map((item) => [item.id, <ItemVote key={item.id} slug={event.slug} item={item.id} initial={initial} awards={awardsOf(item)} />])),
-      viewer: Object.fromEntries(items.map((item) => [item.id, <ViewerVote key={item.id} slug={event.slug} item={item.id} kind={item.kind} initial={initial} awards={awardsOf(item)} />])),
-      lists: { param: "award", initial, ids: Object.fromEntries(standings.map((standing) => [keyOf(standing), standing.ids])) },
+      tile: Object.fromEntries(items.map((item) => [item.id, <ItemVote key={item.id} slug={event.slug} item={item.id} initial={initial} whole={whole} awards={awardsOf(item)} />])),
+      viewer: Object.fromEntries(items.map((item) => [item.id, <ViewerVote key={item.id} slug={event.slug} item={item.id} kind={item.kind} initial={initial} whole={whole} awards={awardsOf(item)} />])),
+      lists: {
+        param: "award",
+        initial,
+        ids: {
+          ...Object.fromEntries(standings.map((standing) => [keyOf(standing), standing.ids])),
+          ...(whole && {
+            [WHOLE_ALBUM]: wholeAlbumOrder(
+              standings.map(({ stage }) => stage),
+              voter,
+              albumIds,
+            ),
+          }),
+        },
+      },
     },
   };
 }

@@ -6,17 +6,20 @@ import { cn } from "@/lib/utils";
 import { RIBBON } from "./vote-star";
 import type { Winner } from "./voting";
 
-// A winner as the strip draws it: its place and first round's votes (voting.ts, winnersOf), its
-// thumbnail's address, null while it has none to show, and its picture's text, "1st: Photo 2 by
-// Priya Nair", with the name only where this viewer is shown it (album-voting.tsx, which leaves it
-// out on the server).
-export type StripWinner = Winner & { thumb: string | null; alt: string };
+// A winner as the strip draws it: its place and first round's votes (voting.ts, winnersOf), a
+// finalist's votes in the last tie-break (the voting part's review), its thumbnail's address, null
+// while it has none to show, and its picture's text, "1st: Photo 2 by Priya Nair", with the name
+// only where this viewer is shown it (album-voting.tsx, which leaves it out on the server).
+export type StripWinner = Winner & { tiebreakVotes?: number; thumb: string | null; alt: string };
 
 // The Winners strip (M8 ticket 16), at the head of the album once the chosen award's results are
-// in: its first to third places, more on ties, each with its picture, its ribbon and its votes, in
-// a row that scrolls sideways when it holds more than three (with no snapping, so nothing moves by
-// itself), which the keyboard can then reach to scroll; or, where nobody voted in the award, says
-// so. Not interactive: the grid's tiles open the viewer.
+// in: its first to third places, more on ties, each with its picture, its ribbon and its votes,
+// with a finalist's votes in the tie-break after them, in the words the tile's count uses, so that
+// two ribbons over the same count say what parted them (the voting part's review), in a row that
+// scrolls sideways when it holds more than three (with no snapping, so nothing moves by itself),
+// which the keyboard can then reach to scroll; or, where nobody voted in the award, says so. Not
+// interactive: the grid's tiles open the viewer. The section is named by its heading; its list,
+// inside it, is not named again.
 export function WinnersStrip({ award, winners }: { award: string; winners: StripWinner[] }) {
   const t = useTranslations("Voting.album");
   const id = useId();
@@ -29,7 +32,6 @@ export function WinnersStrip({ award, winners }: { award: string; winners: Strip
         <p className="text-sm text-theme-text-muted">{t("winners.none", { award })}</p>
       ) : (
         <ul
-          aria-labelledby={id}
           tabIndex={winners.length > 3 ? 0 : undefined}
           className="flex gap-2 overflow-x-auto rounded-xl pb-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
         >
@@ -53,7 +55,11 @@ export function WinnersStrip({ award, winners }: { award: string; winners: Strip
                     {t("place", { place: winner.place })}
                   </span>
                 </div>
-                <figcaption className="text-xs text-theme-text-muted tabular-nums">{t("votes", { count: winner.votes })}</figcaption>
+                <figcaption className="text-xs text-theme-text-muted tabular-nums">
+                  {winner.tiebreakVotes === undefined
+                    ? t("votes", { count: winner.votes })
+                    : t("tiebreak.countWith", { votes: t("votes", { count: winner.votes }), tiebreak: t("tiebreak.inTiebreak", { count: winner.tiebreakVotes }) })}
+                </figcaption>
               </figure>
             </li>
           ))}

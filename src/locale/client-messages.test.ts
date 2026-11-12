@@ -153,14 +153,15 @@ describe("the messages each page sends to the browser", () => {
     // The share page imports events/actions.ts, whose Duplicate imports the album vote's entry,
     // which carries the Voting block: none of that reaches the browser through an action.
     expect(walk(join(APP, "(host)/events/[id]/share/page.tsx")).used.has("Voting.block")).toBe(false);
-    expect(walk(join(APP, "(editor)/events/[id]/page.tsx")).used.get("Voting.block")).toEqual(["voting/voting-block.tsx"]);
+    expect(walk(join(APP, "(editor)/events/[id]/page.tsx")).used.get("Voting.block")).toEqual(["voting/voting-block.tsx", "voting/fresh-count.tsx", "voting/reopen-voting.tsx"]);
   });
 
   it("follows a module's entry only to the files whose exports are imported", () => {
     // The event page imports albumVotingFor from the album vote's entry (M8 ticket 11), which also
     // carries the Voting block: the page draws only the album's side of the vote, whose head reads
-    // the block's Close voting and Reopen voting too (ticket 12).
+    // the block's Close voting and Reopen voting too (ticket 12), with Reopen voting's confirmation
+    // (the voting part's review), never the block itself.
     const used = walk(join(APP, "e/[slug]/page.tsx")).used;
-    expect(used.get("Voting.block")).toEqual(["voting/album-voting-head.tsx"]);
+    expect(used.get("Voting.block")).toEqual(["voting/album-voting-head.tsx", "voting/reopen-voting.tsx", "voting/fresh-count.tsx"]);
   });
 });

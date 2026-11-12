@@ -104,10 +104,12 @@ export function closingTimeProblem(closesAt: Date, now: Date): "past" | undefine
 }
 
 // Whom the "Voting is open" draft is emailed to at first (M8 ticket 14): Going alone when only
-// guests who are going may vote; otherwise the Announcements form's own default, since "invited
-// personally" has no status to tick.
-export function draftAudience(voters: WhoMayVote): SavedStatus[] | undefined {
-  return voters === "going" ? ["going"] : undefined;
+// guests who are going may vote, or when the album itself shows only to them, since a Maybe guest
+// told to open the album could not see it (the voting part's review, finding 7); otherwise the
+// Announcements form's own default, since "invited personally" has no status to tick (the Voting
+// block says so).
+export function draftAudience(event: Pick<VotingEvent, "albumVoters" | "albumVisibility">): SavedStatus[] | undefined {
+  return event.albumVoters === "going" || event.albumVisibility === "going" ? ["going"] : undefined;
 }
 
 // Whether the album is open, from the event's start while it is published (album/album.ts,
@@ -271,6 +273,13 @@ export function placeable(award: Pick<AwardRules, "scope">, items: VotableItem[]
   return items.filter((item) => item.status === "approved" && inScope(award, item)).map((item) => item.id);
 }
 
+// Whether any award has held a tie-break, open or closed (the voting part's review, finding 1):
+// reopening the vote then ends it and deletes its votes, so the host is asked first, and a press
+// not asked is refused (repository.ts, reopenVoting).
+export function tiebreakHeld(awards: Pick<AwardRules, "round">[]): boolean {
+  return awards.some((award) => award.round > 1);
+}
+
 // Whether the host is offered a tie-break: on the results, while first is shared and the host has
 // not settled on sharing it. After a tie-break, another round is among the items of the last one
 // still level (M8 ticket 15): none is offered for a tie it was not held among, which only the
@@ -346,6 +355,29 @@ export function orderFor(stage: AwardStage, viewer: VotingViewer, ids: string[])
   return viewer.kind === "guest" && (stage === "voting" || stage === "tiebreak") ? shuffledFor(viewer.rsvpId, ids) : ids;
 }
 
+// "Whole album" in the album's award picker (the voting part's review, finding 2): every item the
+// viewer's album has, with no star, count or ribbon, under a key in the page's query (`?award=all`)
+// that no award's id, a UUID, can be.
+export const WHOLE_ALBUM = "all";
+
+// Whether the picker offers Whole album: whenever no award's list is the whole of the viewer's
+// album (`album`, its ids), so that what an award leaves out (a tie-break's other items, the videos
+// of an award for photos only, a pending item) is never out of reach, for hosts approving and
+// deleting as for guests.
+export function wholeAlbumOffered(lists: string[][], album: string[]): boolean {
+  return !lists.some((list) => {
+    const listed = new Set(list);
+    return album.every((id) => listed.has(id));
+  });
+}
+
+// The order Whole album lists the album in: the order each award's list takes (orderFor), a guest's
+// own while any award is voted in, a tie-break's included, so it keeps the shuffle's fairness; the
+// album's own otherwise.
+export function wholeAlbumOrder(stages: AwardStage[], viewer: VotingViewer, ids: string[]): string[] {
+  return orderFor(stages.find((stage) => stage === "voting" || stage === "tiebreak") ?? "results", viewer, ids);
+}
+
 // One of an award's winners (M8 ticket 16): an item in first to third place, with its votes.
 export type Winner = { id: string; place: 1 | 2 | 3; votes: number };
 
@@ -371,6 +403,16 @@ export function itemNumber(ids: string[], items: VotableItem[], id: string): num
     return item !== undefined && item.status !== "processing" && item.status !== "failed";
   };
   return 1 + ids.slice(0, Math.max(0, ids.indexOf(id))).filter(opens).length;
+}
+
+// The award a host's change names among the event's, by its id; or for null, Favourite before it
+// was made, which the Voting block shows while the event has no award, only while the first award
+// is still that unnamed one (as it is when made just now). A tab drawn before any award existed,
+// used after another tab named Favourite or put another award first, is refused rather than
+// renaming or re-scoping that other award (the voting part's review, finding 6).
+export function awardNamed<T extends Pick<AwardRules, "id" | "name">>(awards: T[], awardId: string | null): T | undefined {
+  if (awardId !== null) return awards.find((award) => award.id === awardId);
+  return awards[0]?.name === null ? awards[0] : undefined;
 }
 
 // An event's awards, or Favourite alone while it has none (M8 plan, ruling 19).
@@ -423,6 +465,18 @@ export function countedVotes<T extends GivenVote & { awardId: string }>(votes: T
   });
 }
 
+// One award's counted votes and its places among the items it may place (placeable): the one
+// place the album, the hosts' tie-break steps and the winners draft get them from (the voting
+// part's review, finding 11), so that they cannot disagree.
+export function countedPlaces<T extends GivenVote & { awardId: string }>(award: AwardRules, votes: T[], items: VotableItem[]): { counted: T[]; placed: Places } {
+  const counted = countedVotes(
+    votes.filter((vote) => vote.awardId === award.id),
+    [award],
+    items,
+  );
+  return { counted, placed: awardPlaces(award, counted, placeable(award, items)) };
+}
+
 // A vote as the album reads it (repository.ts, listVotes): in which award and round, for which
 // item, and by whom, a guest through their RSVP or a host.
 export type CastVote = GivenVote & { awardId: string; rsvpId: string | null; hostId: string | null };
@@ -461,7 +515,6 @@ export function albumVotes(event: VotingEvent, view: AlbumViewName, viewer: Voti
   const state = votingState(event, now);
   const votesHere = mayVote(event, view, viewer, now);
   const mine = (vote: CastVote) => (viewer.kind === "guest" ? vote.rsvpId === viewer.rsvpId : viewer.kind === "host" && vote.hostId === viewer.hostId);
-  const counted = countedVotes(votes, awards, items);
   return awards.map((award) => {
     const stage = awardStage(state, award);
     const present = placeable(award, items);
@@ -469,12 +522,12 @@ export function albumVotes(event: VotingEvent, view: AlbumViewName, viewer: Voti
     const finalists = stage === "tiebreak" ? new Set(roundFinalists(award).filter((id) => present.includes(id))) : undefined;
     const listed = items.filter((item) => inScope(award, item) && (!finalists || finalists.has(item.id)));
     const ids = listed.map((item) => item.id);
-    const given = counted.filter((vote) => vote.awardId === award.id);
+    const { counted: given, placed: allPlaced } = countedPlaces(award, votes, items);
     const round = openRound(event, award, now);
     // The first round's counts, or during a tie-break its own round's, which only hosts are shown.
     const counts = tally(given, stage === "tiebreak" ? award.round : 1);
     const shown = countsShown(stage, viewer);
-    const placed = stage === "results" ? awardPlaces(award, given, present) : undefined;
+    const placed = stage === "results" ? allPlaced : undefined;
     // Each finalist's votes in the last tie-break round, once it is closed.
     const lastRound = placed && award.round > 1 ? { finalists: roundFinalists(award), counts: tally(given, award.round) } : undefined;
     const standings = new Map(

@@ -3,12 +3,12 @@ import { getDb, type Db } from "@/db/client";
 import { albumAward, albumVote, event, eventHost, photo, rsvp, user } from "@/db/schema";
 import {
   albumOpenTo,
-  awardPlaces,
+  awardNamed,
   awardStage,
-  countedVotes,
+  countedPlaces,
   MAX_AWARDS,
   movedAwards,
-  placeable,
+  tiebreakHeld,
   tiebreakOffered,
   tiedForFirst,
   votingState,
@@ -107,6 +107,18 @@ export async function countAwardVotes(eventId: string): Promise<Map<string, numb
   return new Map(rows.map(({ awardId, votes }) => [awardId, votes]));
 }
 
+// How many votes the event's tie-breaks hold, every round after the first in every award (the
+// voting part's review, finding 1): what reopening the vote deletes, read as its confirmation
+// opens. A read alone, so it takes no lock.
+export async function countTiebreakVotes(eventId: string): Promise<number> {
+  const [row] = await getDb()
+    .select({ votes: count() })
+    .from(albumVote)
+    .innerJoin(albumAward, eq(albumAward.id, albumVote.awardId))
+    .where(and(eq(albumAward.eventId, eventId), gt(albumVote.round, 1)));
+  return row?.votes ?? 0;
+}
+
 // An event's awards, with Favourite made first when it has none (M8 plan, ruling 19): it is made
 // when a vote first needs it, under the event's lock, which the caller holds.
 export async function ensureAwards(eventId: string, tx: Db): Promise<Award[]> {
@@ -153,12 +165,16 @@ export async function closeVoting(eventId: string): Promise<void> {
 // The host reopens a closed vote, closed by them or by its time. Its first round's votes stay; any
 // tie-break ends and its votes go, since the first round's places may change once guests vote
 // again (M8 plan, ruling 20). Like starting, it needs the album open (review fix, M8 ticket 13):
-// whether it was refused for that. A vote not closed is left as it is.
-export async function reopenVoting(eventId: string, now: Date): Promise<{ error?: "albumNotOpen" }> {
+// whether it was refused for that. While any award has held a tie-break, it goes ahead only when
+// `confirmed`, the host having been asked with the number of votes it deletes; otherwise it is
+// refused as `tiebreak`, so a page drawn before the tie-break began cannot do it in one press (the
+// voting part's review, finding 1). A vote not closed is left as it is.
+export async function reopenVoting(eventId: string, now: Date, confirmed: boolean): Promise<{ error?: "albumNotOpen" | "tiebreak" }> {
   return getDb().transaction(async (tx) => {
     const locked = await lockVoting(eventId, tx);
     if (!locked || !albumOpenTo(locked, A_HOST, now)) return { error: "albumNotOpen" };
     if (votingState(locked, now) !== "closed") return {};
+    if (!confirmed && tiebreakHeld(await listAwards(eventId, tx))) return { error: "tiebreak" };
     await tx.delete(albumVote).where(and(inArray(albumVote.awardId, awardsOf(eventId, tx)), gt(albumVote.round, 1)));
     await resetAwards(eventId, tx);
     await tx.update(event).set({ albumVoting: "open", albumVotingClosesAt: closesAtWhenOpened(locked, now) }).where(eq(event.id, eventId));
@@ -220,7 +236,7 @@ export async function setVote(
 // is in the stage it needs: a second press, or two hosts pressing at once, changes nothing.
 
 // One award of the event, as it stands now: its stage, and its places worked out as the album
-// works them out (voting.ts, albumVotes), from the votes that count, for the items still here.
+// works them out (voting.ts, countedPlaces), from the votes that count, for the items still here.
 async function awardNow(eventId: string, awardId: string, locked: VotingEvent, now: Date, tx: Db) {
   const [award] = await tx
     .select()
@@ -229,12 +245,7 @@ async function awardNow(eventId: string, awardId: string, locked: VotingEvent, n
   if (!award) return undefined;
   const votes = await listVotes(eventId, tx);
   const items = await tx.select({ id: photo.id, kind: photo.kind, status: photo.status, rsvpId: photo.rsvpId, hostId: photo.hostId }).from(photo).where(eq(photo.eventId, eventId));
-  const given = countedVotes(
-    votes.filter((vote) => vote.awardId === award.id),
-    [award],
-    items,
-  );
-  return { award, stage: awardStage(votingState(locked, now), award), placed: awardPlaces(award, given, placeable(award, items)) };
+  return { award, stage: awardStage(votingState(locked, now), award), placed: countedPlaces(award, votes, items).placed };
 }
 
 // The host starts a tie-break among the items sharing first, or another round among those still
@@ -314,7 +325,8 @@ export async function setClosingTime(eventId: string, closesAt: Date | null, now
 // The host's awards (M8 ticket 13), each change in one transaction under the event's lock, so that
 // it falls wholly before or after a vote given in the award. An event with no award has Favourite
 // made first (ensureAwards), which an `awardId` of null names: the award the Voting block shows
-// before any is made.
+// before any is made, honoured only while the first award is still that one (voting.ts,
+// awardNamed). A change whose award is not found is refused (false).
 
 // Every award at the place its index in `ordered` gives, 0 up: what moving and removing leave.
 async function placeAwards(ordered: Award[], tx: Db): Promise<void> {
@@ -322,9 +334,6 @@ async function placeAwards(ordered: Award[], tx: Db): Promise<void> {
     if (award.position !== position) await tx.update(albumAward).set({ position }).where(eq(albumAward.id, award.id));
   }
 }
-
-// The award an id names among the event's, or Favourite for null, which is first.
-const named = (awards: Award[], awardId: string | null) => (awardId === null ? awards[0] : awards.find((award) => award.id === awardId));
 
 // A new award, last; refused once the event has MAX_AWARDS.
 export async function addAward(eventId: string, name: string | null, scope: AwardScope): Promise<"added" | "full"> {
@@ -339,21 +348,23 @@ export async function addAward(eventId: string, name: string | null, scope: Awar
 }
 
 // An award's name, null for the translated "Favourite".
-export async function renameAward(eventId: string, awardId: string | null, name: string | null): Promise<void> {
-  await getDb().transaction(async (tx) => {
+export async function renameAward(eventId: string, awardId: string | null, name: string | null): Promise<boolean> {
+  return getDb().transaction(async (tx) => {
     await lockVoting(eventId, tx);
-    const award = named(await ensureAwards(eventId, tx), awardId);
+    const award = awardNamed(await ensureAwards(eventId, tx), awardId);
     if (award) await tx.update(albumAward).set({ name }).where(eq(albumAward.id, award.id));
+    return award !== undefined;
   });
 }
 
 // What an award takes votes for. Its votes for items it no longer takes are kept (voting.ts,
 // countedVotes), so that a slip of the select costs nobody their vote (M8 plan).
-export async function setAwardScope(eventId: string, awardId: string | null, scope: AwardScope): Promise<void> {
-  await getDb().transaction(async (tx) => {
+export async function setAwardScope(eventId: string, awardId: string | null, scope: AwardScope): Promise<boolean> {
+  return getDb().transaction(async (tx) => {
     await lockVoting(eventId, tx);
-    const award = named(await ensureAwards(eventId, tx), awardId);
+    const award = awardNamed(await ensureAwards(eventId, tx), awardId);
     if (award) await tx.update(albumAward).set({ scope }).where(eq(albumAward.id, award.id));
+    return award !== undefined;
   });
 }
 
