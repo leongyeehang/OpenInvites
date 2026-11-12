@@ -57,8 +57,9 @@ const HOSTS_BUTTON =
 // The voting part's review: Reopen voting asks first while a tie-break has been held, since it
 // ends it and deletes its votes (reopen-voting.tsx). Where Whole album is offered (`whole`), the
 // picker is drawn from one award, with it among the awards; chosen, the head keeps the vote's state
-// line and the hosts' controls for the whole vote, and nothing of one award; and under an award in
-// a tie-break a line says where the rest of the album is.
+// line (naming the first award in a tie-break, where one is open) and the hosts' controls for the
+// whole vote, and nothing else of one award; and under an award in a tie-break a line says where
+// the rest of the album is.
 export function AlbumVotingHead({
   awards,
   initial,
@@ -104,8 +105,10 @@ export function AlbumVotingHead({
       {label}
     </button>
   );
-  // The event's vote is open while every award is voted in, and closed otherwise.
+  // The event's vote is open while every award is voted in, and closed otherwise; while it is
+  // closed, the first award in a tie-break, if any.
   const open = awards.some((award) => award.stage === "voting");
+  const inTiebreak = awards.find((award) => award.stage === "tiebreak");
   // Reopen voting, asking first while a tie-break has been held.
   const reopen = <ReopenVoting eventId={eventId!} tiebreak={tiebreakHeld(awards)} run={run} button={(press) => button(hosts("reopen"), press)} />;
   const picker = (awards.length > 1 || whole) && <AwardPicker awards={awards} chosen={chosen} whole={whole} />;
@@ -146,6 +149,13 @@ export function AlbumVotingHead({
             </p>
             {!mayVote && notAmong && <p className="text-sm">{t(notAmong)}</p>}
           </>
+        ) : inTiebreak ? (
+          // The event's vote is closed, but a tie-break is open: it is named, not "Voting closed"
+          // (re-review follow-up).
+          <p className="inline-flex items-center gap-2 text-sm font-medium">
+            <span className="size-2 rounded-full bg-theme-accent" aria-hidden />
+            {t("tiebreak.banner", { award: inTiebreak.name })}
+          </p>
         ) : (
           <p className="text-sm font-medium">{t("closed")}</p>
         )}

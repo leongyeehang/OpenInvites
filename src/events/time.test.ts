@@ -43,6 +43,16 @@ describe("parseWallTime", () => {
     expect(parseWallTime("2027-03-14T03:30", "America/New_York")?.toISOString()).toBe("2027-03-14T07:30:00.000Z");
   });
 
+  // Re-review follow-up: a wall time the clocks skip resolves forward, by the offset before the
+  // change, for callers that do not refuse it; parseWallTime refuses one with a time.
+  it("reads a skipped time forward, and accepts a day whose midnight is skipped as its first hour", () => {
+    expect(toInstant("2027-03-14T02:30", "America/New_York").toISOString()).toBe("2027-03-14T07:30:00.000Z");
+    const day = parseWallTime("2026-09-06", "America/Santiago", { dateOnly: true });
+    expect(day?.toISOString()).toBe("2026-09-06T04:00:00.000Z");
+    expect(toWallTime(day!, "America/Santiago")).toBe("2026-09-06T01:00");
+    expect(parseWallTime("2026-09-06T00:30", "America/Santiago")).toBeUndefined();
+  });
+
   it("takes the first of an hour that comes twice", () => {
     expect(parseWallTime("2027-11-07T01:30", "America/New_York")?.toISOString()).toBe("2027-11-07T05:30:00.000Z");
     expect(parseWallTime("2027-10-31T01:30", "Europe/London")?.toISOString()).toBe("2027-10-31T00:30:00.000Z");

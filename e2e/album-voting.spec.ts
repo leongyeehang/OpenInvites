@@ -1426,17 +1426,21 @@ test("during a tie-break in the only award, Whole album holds the rest, where ho
   await addPhotos(priya, [await photo("toast.jpg", "#e0b040"), await photo("dance.jpg", "#8a4fd0")], 5);
   await expect(album(priya).getByText("Awaiting approval", { exact: true })).toHaveCount(2);
   await expect(album(priya).locator('[data-slot="vote-star"], [data-slot="vote-count"], [data-slot="vote-ribbon"]')).toHaveCount(0);
+  // The head names the open tie-break, not "Voting closed".
+  await expect(head(priya)).toContainText("Tie-break · Favourite");
+  await expect(head(priya)).not.toContainText("Voting closed");
 
   // The host's Whole album: every item, no star, count or ribbon, and the hosts' box with what
   // concerns the whole vote alone.
   await host.page.reload();
   await expect(items(host.page)).toHaveCount(2);
+  await expect(hostsBox(host.page)).toContainText("0 votes so far in Favourite");
   await pill(host.page, "Whole album").click();
   await expect(host.page).toHaveURL(/[?&]award=all(&|$)/);
   await expect(items(host.page)).toHaveCount(5);
   await expect(album(host.page).locator('[data-slot="vote-star"], [data-slot="vote-count"], [data-slot="vote-ribbon"]')).toHaveCount(0);
-  await expect(head(host.page)).toContainText("Voting closed");
-  await expect(head(host.page)).not.toContainText("Tie-break");
+  await expect(head(host.page)).toContainText("Tie-break · Favourite");
+  await expect(head(host.page)).not.toContainText("Voting closed");
   await expect(hostsBox(host.page).getByRole("button", { name: "Reopen voting" })).toBeVisible();
   await expect(hostsBox(host.page).getByRole("button", { name: "Close the tie-break" })).toHaveCount(0);
   await expect(hostsBox(host.page)).not.toContainText("so far");
