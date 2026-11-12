@@ -363,6 +363,20 @@ describe("a site page", () => {
     expect(site.glass[3]).toBeGreaterThanOrEqual(event.glass[3]);
     expect(site.glassStrong[3]).toBeGreaterThanOrEqual(event.glassStrong[3]);
   });
+
+  // The posters and colours on which a site page's glass is tinted furthest under light text, pinned
+  // as tickets 17 to 19 settled them: a surface added to SITE_SURFACES for one panel would make
+  // every site page's glass heavier (ticket 20's review found one moving 92 of 506 solves).
+  it("a site page's glass is settled", () => {
+    const glassOf = (id: string) => {
+      const poster = GALLERY_POSTERS.find((each) => each.id === id);
+      if (poster) return toneTokens("light", poster, poster.accent, "poster", "site").glass[3];
+      const colour = BACKGROUNDS.find((each) => each.id === id)!;
+      return toneTokens("light", colour, colour.accent, "background", "site").glass[3];
+    };
+    const settled = { aurora: 0.289, candlelight: 0.316, bokeh: 0.334, streamers: 0.325, midnight: 0.298, slate: 0.307, ink: 0.316 };
+    expect(Object.fromEntries(Object.keys(settled).map((id) => [id, glassOf(id)]))).toEqual(settled);
+  });
 });
 
 // The danger ink stays red and the attention ink amber, on an event page and a site page alike,

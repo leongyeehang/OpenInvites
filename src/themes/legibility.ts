@@ -189,9 +189,6 @@ export function SITE_SURFACES({ glass, glassStrong }: Pick<ToneTokens, "glass" |
     nested: { layers: [glass, glass], carries: "every strength" },
     // A field in such a card.
     nestedInset: { layers: [glass, glass, glassStrong], carries: "every strength" },
-    // A field in a panel of strong glass on glass: the new link to copy, in its card on Site
-    // settings and in an event's hosts page's panel (ticket 20).
-    fieldOnInset: { layers: [glass, glassStrong, glassStrong], carries: "every strength" },
     // A control on the header's bar, hovered.
     onBar: { layers: [glassStrong, glassStrong], carries: "full strength" },
   } satisfies Record<string, Surface>;

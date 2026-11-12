@@ -36,7 +36,9 @@ export async function worstContrast(text: Locator): Promise<number> {
 
 // Focuses the control as the keyboard does (the last thing done was a key, so it shows its focus
 // as it does for Tab), and reads the strip beside it (or beside the tile it sits in) with the focus
-// and without.
+// and without. The strip reaches 12px out to the control's left, so it assumes nothing filled sits
+// within those 12px: a neighbour there is read as the page beyond the ring (keyboard.spec.ts hides
+// the New event pill while it reads the ring round the header's initials).
 export async function expectRingStandsOut(page: Page, control: Locator) {
   const shown = control.locator("xpath=ancestor-or-self::label[1]").or(control).first();
   await page.keyboard.press("Shift");

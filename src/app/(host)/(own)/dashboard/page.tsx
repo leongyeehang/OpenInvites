@@ -6,13 +6,14 @@ import { AlbumReminderNotice } from "@/album/album-reminder-notice";
 import type { AlbumTotals } from "@/album/album";
 import { albumTotalsByEvent } from "@/album/repository";
 import { requireHost } from "@/auth/session";
+import { hostLook } from "@/dashboard/host-look";
 import { shelve, showsYear, tileChip, tileNumber, whenKind, type ShelfEvent, type TileChip } from "@/dashboard/shelves";
 import { eventsOwnedAtLimit } from "@/events/limit";
 import { listHostEvents } from "@/events/repository";
 import { featureOn, siteFeatures } from "@/features";
 import { formatDay, formatWhen, formatWhenBrief, isDated } from "@/events/time";
 import type { Limits } from "@/instance/limits";
-import { homeTheme, pickPoster, posterPool } from "@/instance/home";
+import { pickPoster, posterPool } from "@/instance/home";
 import { homePage, instanceLimits, operatorToWelcome, registrationMode } from "@/instance/repository";
 import { cn } from "@/lib/utils";
 import { ClientMessages } from "@/locale/client-messages";
@@ -81,7 +82,8 @@ export default async function DashboardPage() {
     const upload = uploads.get(event.id);
     return upload ? themeUpload(upload) : null;
   };
-  const first = events.length === 0 ? homeTheme(pickPoster(posterPool(await homePage()))) : null;
+  // With no events yet, the first invitation's tile wears the poster the page is on (hostLook).
+  const first = events.length === 0 ? (await hostLook(host.id)).theme : null;
   const tile = { t, locale, now };
 
   return (

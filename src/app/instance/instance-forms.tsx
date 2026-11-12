@@ -435,8 +435,8 @@ export function HostInvitationForm({ canSend }: { canSend: boolean }) {
   );
 }
 
-// The new invitation's link to copy, on a panel of strong glass in its card, where the field's
-// words are proven to read (legibility.ts, SITE_SURFACES.fieldOnInset).
+// The new invitation's link to copy, in a panel drawn by its edge alone, so that the field sits
+// on the card's glass as every other field does (legibility.ts, SURFACES.inset).
 function NewHostInvitation({ link, sentTo, notSent }: { link: string; sentTo?: string; notSent?: string }) {
   const t = useTranslations("Instance.invitations");
   const [copied, setCopied] = useState(false);
@@ -454,7 +454,7 @@ function NewHostInvitation({ link, sentTo, notSent }: { link: string; sentTo?: s
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl bg-muted p-4">
+    <div className="flex flex-col gap-3 rounded-xl border border-theme-glass-border p-4">
       <p role="status" className="text-sm">
         {t("created")}
       </p>

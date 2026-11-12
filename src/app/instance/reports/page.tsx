@@ -36,7 +36,8 @@ export async function generateMetadata(): Promise<Metadata> {
 // The reports inbox (spec, "Report an event"): every report, what is not handled first, then the
 // newest. Outside the host area's layout, like /instance, since it is the operator's alone, and in
 // the same frame, wearing the site area's poster (M8 ticket 20): the heading and the words under it
-// on the veil, each report a glass panel.
+// on the veil, and the reports in one glass panel, divided by its edge's colour. One panel, not one
+// per report: an inbox can hold hundreds, and each panel is a blur to paint.
 export default async function ReportsPage() {
   const host = await requireOperator();
   const [t, reports, home] = await Promise.all([getTranslations("Instance.reports"), listReports(), homePage()]);
@@ -57,11 +58,13 @@ export default async function ReportsPage() {
           <p className="text-sm text-muted-foreground">{t("empty")}</p>
         </Glass>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {reports.map((each) => (
-            <ReportRow key={each.id} report={each} />
-          ))}
-        </ul>
+        <Glass>
+          <ul className="flex flex-col divide-y divide-theme-glass-border">
+            {reports.map((each) => (
+              <ReportRow key={each.id} report={each} />
+            ))}
+          </ul>
+        </Glass>
       )}
     </HostFrame>
   );
@@ -76,67 +79,65 @@ async function ReportRow({ report }: { report: ReportListed }) {
   // refuses a time zone's name beside dateStyle and timeStyle.
   const sent = format.dateTime(report.createdAt, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC", timeZoneName: "short" });
   return (
-    <li>
-      <Glass className="flex flex-col gap-3 p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="font-medium break-words">
-            {eventExists ? (
-              <Link href={eventPath({ slug: report.eventSlug!, customSlug: report.eventCustomSlug })} className="underline underline-offset-4">
-                {report.eventTitle}
-              </Link>
-            ) : (
-              report.eventTitle
-            )}
-          </h2>
-          {!eventExists && <Badge variant="outline">{t("eventDeleted")}</Badge>}
-          {handled && <Badge variant="secondary">{t("handled")}</Badge>}
-        </div>
-        <p className="break-words whitespace-pre-wrap">{report.reason}</p>
-        <p className="text-sm break-all text-muted-foreground">
-          {report.contact ? (
-            <>
-              {t("contact")}:{" "}
-              <a href={`mailto:${report.contact}`} className="underline underline-offset-4">
-                {report.contact}
-              </a>
-            </>
+    <li className="flex flex-col gap-3 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="font-medium break-words">
+          {eventExists ? (
+            <Link href={eventPath({ slug: report.eventSlug!, customSlug: report.eventCustomSlug })} className="underline underline-offset-4">
+              {report.eventTitle}
+            </Link>
           ) : (
-            t("noContact")
+            report.eventTitle
           )}
-          {" · "}
-          <time dateTime={report.createdAt.toISOString()}>{t("sent", { time: sent })}</time>
-        </p>
-        {!handled && report.eventId && (
-          <div className="flex flex-wrap gap-2">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm">
-                  {t("deleteEvent")}
-                </Button>
-              </AlertDialogTrigger>
-              <DeleteDialogContent focusAfter={HEADING}>
-                <form action={deleteReportedEventAction.bind(null, report.eventId)}>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>{t("deleteTitle", { title: report.eventTitle })}</AlertDialogTitle>
-                    <AlertDialogDescription>{t("deleteText")}</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter className="pt-4">
-                    <AlertDialogCancel type="button">{t("keep")}</AlertDialogCancel>
-                    <Button type="submit" variant="destructive">
-                      {t("deleteConfirm")}
-                    </Button>
-                  </AlertDialogFooter>
-                </form>
-              </DeleteDialogContent>
-            </AlertDialog>
-            <form action={markReportHandledAction.bind(null, report.id)}>
-              <Button type="submit" variant="outline" size="sm">
-                {t("markHandled")}
-              </Button>
-            </form>
-          </div>
+        </h2>
+        {!eventExists && <Badge variant="outline">{t("eventDeleted")}</Badge>}
+        {handled && <Badge variant="secondary">{t("handled")}</Badge>}
+      </div>
+      <p className="break-words whitespace-pre-wrap">{report.reason}</p>
+      <p className="text-sm break-all text-muted-foreground">
+        {report.contact ? (
+          <>
+            {t("contact")}:{" "}
+            <a href={`mailto:${report.contact}`} className="underline underline-offset-4">
+              {report.contact}
+            </a>
+          </>
+        ) : (
+          t("noContact")
         )}
-      </Glass>
+        {" · "}
+        <time dateTime={report.createdAt.toISOString()}>{t("sent", { time: sent })}</time>
+      </p>
+      {!handled && report.eventId && (
+        <div className="flex flex-wrap gap-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm">
+                {t("deleteEvent")}
+              </Button>
+            </AlertDialogTrigger>
+            <DeleteDialogContent focusAfter={HEADING}>
+              <form action={deleteReportedEventAction.bind(null, report.eventId)}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t("deleteTitle", { title: report.eventTitle })}</AlertDialogTitle>
+                  <AlertDialogDescription>{t("deleteText")}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="pt-4">
+                  <AlertDialogCancel type="button">{t("keep")}</AlertDialogCancel>
+                  <Button type="submit" variant="destructive">
+                    {t("deleteConfirm")}
+                  </Button>
+                </AlertDialogFooter>
+              </form>
+            </DeleteDialogContent>
+          </AlertDialog>
+          <form action={markReportHandledAction.bind(null, report.id)}>
+            <Button type="submit" variant="outline" size="sm">
+              {t("markHandled")}
+            </Button>
+          </form>
+        </div>
+      )}
     </li>
   );
 }

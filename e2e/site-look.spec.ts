@@ -310,6 +310,10 @@ async function expectOwnPagesWear(page: Page, copy: string) {
 test("a new host's dashboard, Account and New event wear the site's poster for hosts", async ({ page, request }) => {
   test.slow();
   await signUpVerified(page, request, "site-look-new-host");
+  // The first invitation's tile shows the poster the page is on.
+  await page.goto("/dashboard");
+  const tile = page.getByRole("region", { name: "Make your first invitation" }).locator("img");
+  await expect(tile).toHaveAttribute("src", new RegExp(`^/posters/${SITE_POSTERS.host.replace(/-copy$/, "")}\\.`));
   await expectOwnPagesWear(page, SITE_POSTERS.host);
 });
 
