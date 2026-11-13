@@ -4,7 +4,7 @@ import { expectRingStandsOut } from "./contrast";
 import { hostWithShelves, SHELVES } from "./dashboard";
 import { expectVisibleFocus, tabTo } from "./focus";
 import { homeByKeyboard, openHome } from "./home";
-import { latestMailTo, mailCountTo, newHost, PASSWORD, signUpVerified } from "./hosts";
+import { latestMailTo, mailCountTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { clientAddress, expect, test, type Locator, type Page } from "./test";
 
 // Ticket 20: a guest can answer, and a host can design their invitation, with the keyboard alone.
@@ -472,6 +472,58 @@ for (const colorScheme of ["light", "dark"] as const) {
     await expectRingStandsOut(page, drawer.getByRole("group", { name: "Layout" }).getByRole("radio").first());
   });
 }
+
+// M8 ticket 23: every page outside an event page shows its focus on its poster. By Tab from the
+// top of the page, the first five stops are each marked, then each is ringed in turn and its ring
+// read against the poster and the glass round it (e2e/contrast.ts). The ring round the header's
+// initials is read with the New event pill hidden, as the 12px strip beside them reaches it.
+async function firstFiveStopsRinged(page: Page, where: string) {
+  await expect(page.locator(".site-page")).toHaveCount(1);
+  for (let stop = 1; stop <= 5; stop++) {
+    await page.keyboard.press("Tab");
+    const marked = await page.evaluate((at) => {
+      const focused = document.activeElement;
+      if (!focused || focused === document.body) return false;
+      focused.setAttribute("data-stop", String(at));
+      return true;
+    }, stop);
+    expect(marked, `${where}: Tab ${stop} reaches a control`).toBe(true);
+  }
+  // By its address, as hidden it has no role to be found by.
+  const pill = page.getByRole("banner").locator('a[href="/events/new"]');
+  for (let stop = 1; stop <= 5; stop++) {
+    const control = page.locator(`[data-stop="${stop}"]`);
+    const initials = await control.evaluate((element) => element.getAttribute("aria-label") === "Account menu");
+    if (initials) await pill.evaluate((element) => ((element as HTMLElement).style.visibility = "hidden"));
+    await test.step(`${where}: the ring at stop ${stop}`, () => expectRingStandsOut(page, control));
+    if (initials) await pill.evaluate((element) => (element as HTMLElement).style.removeProperty("visibility"));
+  }
+}
+
+test("every site page shows its focus on its poster", async ({ page, browser, request }) => {
+  test.slow();
+  await page.goto("/sign-in");
+  await firstFiveStopsRinged(page, "sign-in");
+  // The site's name above the card is where Tab starts.
+  await expect(page.locator('[data-stop="1"]')).toHaveAttribute("data-slot", "site-name");
+  await page.goto("/forgot-password");
+  await firstFiveStopsRinged(page, "forgot-password");
+
+  const host = await createPublished(browser, request, "keyboard-site-pages", EVENT);
+  const editor = host.page.url();
+  await host.page.goto("/account");
+  await firstFiveStopsRinged(host.page, "account");
+  await host.page.goto(`${editor}/invites`);
+  await firstFiveStopsRinged(host.page, "invites");
+  await host.context.close();
+
+  const operator = await (await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
+  await signIn(operator, OPERATOR.email, PASSWORD);
+  await expect(operator).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
+  await operator.goto("/instance");
+  await firstFiveStopsRinged(operator, "instance");
+  await operator.context().close();
+});
 
 // The dashboard by keyboard (dashboard, ticket 05): from the header's New event and account menu to
 // Next up's poster and its three buttons, then a tile on every shelf, in that order, each ringed.

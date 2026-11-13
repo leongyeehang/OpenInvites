@@ -147,6 +147,15 @@ settings, sets it. Changes show on the next visit.
   - **Show "Run by" with my display name**: off by default. When on, "Run by" and your display name
     stand under the welcome line, as "Hosted by" does on an event page.
 
+The posters chosen here dress more than the home page. Sign-in and the other signed-out screens
+(signing up, the password reset, the sign-in link, the co-host link), the notice pages a guest meets
+(the locked page of an invite-only event, the report form, a link the host has reset, an invitation
+not ready yet, and the page that stops email about an event), and Site settings with its reports
+each wear one of them, held still behind glass: the same poster for each of those areas on every
+visit, and the areas mostly apart. A new host's own pages wear one of them too, until they have an
+event or pick a poster in Account. The pages drawn without the database (not found, too fast, the
+privacy policy and the terms of use) wear one poster of the whole gallery, whatever is chosen here.
+
 The bar follows the registration mode: with **Open**, **Create an account** and **Sign in**; with
 **Invitation only**, **Sign in** alone, and the card tells would-be hosts that they join with an
 invitation from whoever runs the site. A host who is signed in and opens the address goes straight

@@ -36,26 +36,31 @@ export default async function AccountPage() {
   return (
     <ClientMessages namespaces={["Account.displayName", "Account.email", "Account.password", "Account.passkeys", "Account.backdrop", "Posters", "Account.delete"]}>
       {/* Sign out is here as well as in the account menu, so a browser that has not run the menu's
-          script (the initials are then a link to this page) can still sign out. */}
+          script (the initials are then a link to this page) can still sign out. It sits on the veil,
+          as the heading does: its focus ring, drawn outside it, would otherwise fall on the bare
+          backdrop, which nothing solves it against (1.7:1 at the top of a golden-hour gradient, M8
+          ticket 23). */}
       <div className="flex items-center justify-between gap-4">
         <Veil>
           <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         </Veil>
-        <form action={signOut}>
-          <Button type="submit" variant="outline">
-            {header("signOut")}
-          </Button>
-        </form>
+        <Veil>
+          <form action={signOut}>
+            <Button type="submit" variant="outline">
+              {header("signOut")}
+            </Button>
+          </form>
+        </Veil>
       </div>
       <Card>
         <CardHeader>
           <CardTitle>
-            <h2>{t("displayName.title")}</h2>
+            <h2 id="display-name-title">{t("displayName.title")}</h2>
           </CardTitle>
           <CardDescription>{t("displayName.description")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <DisplayNameForm name={host.name} />
+          <DisplayNameForm name={host.name} describedBy="display-name-title" />
         </CardContent>
       </Card>
       <Card>
@@ -92,16 +97,17 @@ export default async function AccountPage() {
           </CardContent>
         )}
       </Card>
-      {/* The picture behind the host's own pages (M8 ticket 22). */}
+      {/* The picture behind the host's own pages (M8 ticket 22). Its Save and Display name's are
+          each described by their card's title, so that a screen reader tells them apart. */}
       <Card id="backdrop">
         <CardHeader>
           <CardTitle>
-            <h2>{t("backdrop.title")}</h2>
+            <h2 id="backdrop-title">{t("backdrop.title")}</h2>
           </CardTitle>
           <CardDescription>{t("backdrop.description")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <BackdropForm pick={pick} />
+          <BackdropForm pick={pick} describedBy="backdrop-title" />
         </CardContent>
       </Card>
       <Card className="border-destructive/40">

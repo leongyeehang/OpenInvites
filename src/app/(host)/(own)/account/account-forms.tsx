@@ -18,7 +18,9 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
-export function DisplayNameForm({ name }: { name: string }) {
+// Its Save is described by the card's title (`describedBy`), as the Backdrop card's is: both say
+// Save, and a screen reader then says which.
+export function DisplayNameForm({ name, describedBy }: { name: string; describedBy: string }) {
   const t = useTranslations("Account.displayName");
   const [state, action, pending] = useActionState(updateDisplayName, undefined);
   return (
@@ -29,7 +31,7 @@ export function DisplayNameForm({ name }: { name: string }) {
           <Input id="display-name" name="name" defaultValue={name} autoComplete="nickname" required maxLength={80} />
         </Field>
         <FormOutcome state={state} />
-        <Button type="submit" disabled={pending} className="self-start">
+        <Button type="submit" disabled={pending} className="self-start" aria-describedby={describedBy}>
           {t("submit")}
         </Button>
       </FieldGroup>

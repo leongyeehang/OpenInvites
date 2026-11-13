@@ -1,11 +1,11 @@
 import sharp from "sharp";
-import { expectRingStandsOut, worstContrast } from "./contrast";
+import { expectHoverEdgeStandsOut, expectMarkStandsOut, expectRingStandsOut, worstContrast } from "./contrast";
 import { closeDesign, createDraft, createPublished, editSettings, openDesign, openMore, pickDesign, publishInEditor } from "./events";
 import { hostWithShelves } from "./dashboard";
 import { latestMailTo, mailCountTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { tabTo } from "./focus";
 import { backdropPainted, expectSiteLook, SITE_POSTERS } from "./site-look";
-import { clientAddress, expect, test, type Browser, type Locator, type Page } from "./test";
+import { clientAddress, expect, expectNotFoundAsSent, test, type Browser, type Locator, type Page } from "./test";
 
 // M8 ticket 18: every page that is not an event page sits on a still poster, in glass, and the
 // notice pages come first. The pages drawn without the database (too fast, privacy, terms, not
@@ -18,7 +18,8 @@ import { clientAddress, expect, test, type Browser, type Locator, type Page } fr
 // the host area's, and Site settings and reports the site area's. Ticket 21: the pages where a host
 // manages one event wear that event's own Theme, held still, with the heading in its title face.
 // Ticket 22: a poster a host picks in Account's Backdrop card dresses their own pages instead.
-// Nothing on these pages moves, so motion is welcome here and still nothing runs. Each test runs at
+// Ticket 23: every area read in both text tones, a long list to its last row, forced colours, and
+// what a former co-host is sent. Nothing on these pages moves, so motion is welcome here and still nothing runs. Each test runs at
 // 390 pixels in the mobile project and at desktop width in the other.
 
 test.use({ contextOptions: { reducedMotion: "no-preference" } });
@@ -272,6 +273,8 @@ test("sign-in reads on its poster", async ({ page }) => {
     await button.hover();
     expect(await buttonWordsContrast(button), what).toBeGreaterThanOrEqual(4.5);
   }
+  // The edge that shows a default button hovered, in its words' colour on the accent (ticket 19).
+  await expectHoverEdgeStandsOut(page, submit);
 });
 
 test("a signed-out screen's notices and refusals read on its poster", async ({ page }) => {
@@ -688,6 +691,22 @@ for (const [poster, copy, tone] of [
     await expect(tick("Aurora")).toBeVisible();
     await expect(tick("Rings")).toBeHidden();
     await read(card.getByText("Aurora", { exact: true }), "the chosen poster's name");
+    // The tick, a graphic, on its disc of the accent (WCAG 1.4.11: 3:1), and the ring round the
+    // chosen poster against the card, with no focus anywhere.
+    await page.mouse.move(0, 0);
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    expect(await worstContrast(tick("Aurora")), `the chosen poster's tick, on ${poster}`).toBeGreaterThanOrEqual(3);
+    const blurred = () => page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await expectMarkStandsOut(page, card.locator("label").filter({ has: page.getByRole("radio", { name: "Aurora", exact: true }) }), `the ring round the chosen poster, on ${poster}`, {
+      on: async () => {
+        await card.getByText("Aurora", { exact: true }).click();
+        await blurred();
+      },
+      off: async () => {
+        await card.getByText("Automatic", { exact: true }).click();
+        await blurred();
+      },
+    });
 
     // By keyboard, from the top of the page: Tab reaches Automatic, the arrow keys move along the
     // posters to Aurora, Tab reaches Save and Enter saves. Opened afresh, not reloaded, so that the
@@ -723,4 +742,154 @@ test("the invite-only notice reads under light text", async ({ browser, request 
   const notice = page.getByText("Invite-only is on: only these people can open the invitation.");
   expect(await worstContrast(notice), "the invite-only notice").toBeGreaterThanOrEqual(4.5);
   await host.context.close();
+});
+
+// M8 ticket 23: a guest list as long as a party's, read to its last row, on the busiest picture a
+// host can give (the bands above). Thirty guests reply, each from an address of their own (the
+// shared `app` takes five replies a minute from one), a few at a time.
+test("a long guest list reads to its last row on a busy picture", async ({ browser, request }) => {
+  test.setTimeout(240_000);
+  const host = await createPublished(browser, request, "site-look-long-list", { title: "Ada’s long table", start: "2027-03-06T19:00", plusOnes: "0" });
+  const page = host.page;
+  const editor = page.url();
+  const upload = await openDesign(page, "Poster", "Upload");
+  await upload.getByLabel("Upload your photo or poster").setInputFiles(await bands());
+  await expect(upload.getByLabel("Describe your picture")).toBeVisible({ timeout: 20_000 });
+  await closeDesign(page, "Poster");
+  const names = Array.from({ length: 30 }, (_, at) => `Guest ${String(at + 1).padStart(2, "0")}`);
+  for (let at = 0; at < names.length; at += 5) await Promise.all(names.slice(at, at + 5).map((name) => replyGoing(browser, host.link, name)));
+
+  await page.goto(`${editor}/guests`);
+  const going = page.getByRole("region", { name: /^Going/ });
+  await expect(going.getByRole("listitem")).toHaveCount(30);
+  await expect(page.locator('[data-slot="backdrop"] [style*="/uploads/"]')).toHaveCount(1);
+  await backdropPainted(page);
+  const tone = await page.locator(".site-page").getAttribute("data-tone");
+  const read = async (text: Locator, what: string) => expect(await worstContrast(text), `${what}, under ${tone} text`).toBeGreaterThanOrEqual(4.5);
+  // The site's name in the header at the top, then the last row, scrolled to.
+  await read(page.getByRole("banner").getByRole("link", { name: "OpenInvites", exact: true }), "the site's name");
+  const last = going.getByRole("listitem").last();
+  await last.scrollIntoViewIfNeeded();
+  await read(last.getByText(/^Guest \d\d$/), "the last guest's name");
+  await read(last.getByText(/^Replied /), "the last guest's reply time");
+  await host.context.close();
+});
+
+// M8 ticket 23: each area of the site in its tone, the title, a muted line and the ring round its
+// first control: the signed-out screens (Bokeh, light text), the pages drawn without the database
+// (Cake, dark text), Site settings (Rose, light text) and a host's Account with the Backdrop set to
+// Cake, then Disco. Privacy holds no control in its main, so the footer's first link is read there.
+test("every area reads in both text tones", async ({ page, browser, request }) => {
+  test.slow();
+  const reads = async (where: Page, copy: string, tone: "light" | "dark", title: Locator, muted: Locator, control: Locator) => {
+    await expectSiteLook(where, copy);
+    await expect(where.locator(".site-page")).toHaveAttribute("data-tone", tone);
+    await backdropPainted(where);
+    expect(await worstContrast(title), `the title, on ${copy}`).toBeGreaterThanOrEqual(4.5);
+    expect(await worstContrast(muted), `a muted line, on ${copy}`).toBeGreaterThanOrEqual(4.5);
+    await expectRingStandsOut(where, control);
+  };
+  const privacyLink = (where: Page) => where.getByRole("contentinfo").getByRole("link", { name: "Privacy policy" });
+
+  await page.goto("/sign-in");
+  await reads(page, SITE_POSTERS.welcome, "light", page.getByRole("heading", { level: 1, name: "Sign in" }), privacyLink(page), page.getByLabel("Email", { exact: true }));
+  await page.goto("/privacy");
+  await reads(page, SITE_POSTERS.fallback, "dark", page.getByRole("heading", { level: 1, name: "Privacy policy" }), privacyLink(page), privacyLink(page));
+
+  const operator = await (await browser.newContext({ reducedMotion: "no-preference" })).newPage();
+  await signIn(operator, OPERATOR.email, PASSWORD);
+  await expect(operator).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
+  await operator.goto("/instance");
+  await reads(
+    operator,
+    SITE_POSTERS.site,
+    "light",
+    operator.getByRole("heading", { level: 1, name: "Site settings" }),
+    operator.getByText("What visitors see at this site’s address."),
+    operator.getByLabel("Name", { exact: true }),
+  );
+  await operator.context().close();
+
+  const host = await (await browser.newContext({ reducedMotion: "no-preference", extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
+  await signUpVerified(host, request, "site-look-areas");
+  for (const [poster, copy, tone] of [
+    ["Cake", CAKE, "dark"],
+    ["Disco", DISCO, "light"],
+  ] as const) {
+    await host.goto("/account");
+    await saveBackdrop(host, poster);
+    await host.goto("/account");
+    const displayName = host.locator('[data-slot="card"]').filter({ has: host.getByRole("heading", { level: 2, name: "Display name" }) });
+    await reads(host, copy, tone, host.getByRole("heading", { level: 1, name: "Account settings" }), displayName.getByText("Guests see it as “Hosted by”."), host.getByLabel("Display name"));
+  }
+  await host.context().close();
+});
+
+// M8 ticket 23 (review focus): under forced colours, as Windows' contrast themes draw a page, the
+// glass and the poster give way to the system's colours, and every heading, label and button still
+// has a colour of its own against what is behind it, and a focused field its outline.
+test("forced colours keep every word apart from what is behind it", async ({ page, request }) => {
+  await page.emulateMedia({ forcedColors: "active" });
+  const apart = (where: Page) =>
+    where.evaluate(() =>
+      [...document.querySelectorAll("main :is(h1, h2, h3, label, button)")]
+        .filter((element) => (element as HTMLElement).offsetParent !== null && element.textContent!.trim() !== "")
+        .flatMap((element) => {
+          let behind = "rgba(0, 0, 0, 0)";
+          for (let at: Element | null = element; at && /rgba\(.*, 0\)$|transparent/.test(behind); at = at.parentElement) behind = getComputedStyle(at).backgroundColor;
+          const colour = getComputedStyle(element).color;
+          return colour === behind ? [`${element.tagName.toLowerCase()} “${element.textContent!.trim().slice(0, 40)}”: ${colour} on ${behind}`] : [];
+        }),
+    );
+  const outline = (where: Page) => where.evaluate(() => parseFloat(getComputedStyle(document.activeElement!).outlineWidth));
+
+  await page.goto("/sign-in");
+  await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
+  expect(await apart(page), "words that would vanish on sign-in").toEqual([]);
+  await page.keyboard.press("Shift");
+  await page.getByLabel("Email", { exact: true }).focus();
+  expect(await outline(page), "the focused email field's outline").toBeGreaterThanOrEqual(2);
+
+  await signUpVerified(page, request, "site-look-forced");
+  await page.goto("/account");
+  await expect(page.getByRole("heading", { level: 1, name: "Account settings" })).toBeVisible();
+  expect(await apart(page), "words that would vanish on Account").toEqual([]);
+  await page.keyboard.press("Shift");
+  await page.getByLabel("Display name").focus();
+  expect(await outline(page), "the focused display name's outline").toBeGreaterThanOrEqual(2);
+});
+
+// M8 ticket 23: a co-host who is removed is sent the not-found page for the event's pages, and it
+// carries nothing of the event's look: not its poster's copy, nor its title face's file. While they
+// were a co-host the same request carried both, so their absence is the removal's doing.
+test("a former co-host learns nothing of an event's look", async ({ browser, request }) => {
+  test.slow();
+  const owner = await createPublished(browser, request, "site-look-former-owner", { title: "Ada’s disco", start: "2027-03-06T19:00" });
+  // Disco wears Syne, the display face.
+  await pickDesign(owner.page, "Poster", "Poster", "Disco", "Gallery");
+  const editor = owner.page.url();
+  const link = await makeCoHostLink(owner.page);
+  const coHost = await (await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
+  await signUpVerified(coHost, request, "site-look-former-co-host");
+  await coHost.goto(link);
+  await coHost.getByRole("button", { name: "Accept" }).click();
+  await expect(coHost).toHaveURL(editor, { timeout: 15_000 });
+  const guests = `${editor}/guests`;
+  const before = await (await coHost.request.get(guests)).text();
+  expect(before, "the poster's copy, to a co-host").toContain(DISCO);
+  expect(before, "the title face's file, to a co-host").toContain("/fonts/syne-800.");
+
+  await owner.page.goto(`${editor}/hosts`);
+  const row = owner.page.getByRole("listitem").filter({ has: owner.page.getByText("Co-host", { exact: true }) });
+  await row.getByRole("button", { name: "Remove" }).click();
+  await owner.page.getByRole("alertdialog").getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(row).toHaveCount(0, { timeout: 15_000 });
+
+  const response = await coHost.request.get(guests);
+  await expectNotFoundAsSent(response);
+  const after = await response.text();
+  expect(after, "the poster's copy, to a former co-host").not.toContain("disco-ball");
+  expect(after, "the title face's file, to a former co-host").not.toContain("syne-800");
+  await coHost.context().close();
+  await owner.context.close();
 });

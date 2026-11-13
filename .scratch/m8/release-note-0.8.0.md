@@ -1,8 +1,8 @@
 # OpenInvites 0.8.0
 
 The GitHub release note for tag v0.8.0, begun 2026-11-11 by M8 ticket 16 in the shape of the 0.7.0
-note, with the Voting section. The media part (tickets 01 to 09), the glass part and the sections
-part add their own sections, and the Upgrading paragraph is completed with them. For the
+note, with the Voting section; ticket 23 added the glass part's. The media part (tickets 01 to 09)
+and the sections part add their own sections, and the Upgrading paragraph is completed with them. For the
 maintainer to paste when the release is published (docs/releasing.md).
 
 ## Voting in the album
@@ -43,12 +43,45 @@ Traditional Chinese, and still under reduced motion. The operator switches Votin
 whole site on the Features card: nothing is deleted, and every album then shows who added each
 item, as before 0.8.
 
+## Poster and glass on every page
+
+**Every page wears a poster.** The pages outside an invitation now look like the invitations the
+site sends: a gallery poster blurred behind them, with the words in frosted glass on it. Sign-in and
+the other signed-out screens, the co-host link, the notice pages a guest meets (an invite-only
+event's locked page, the report form, a link the host has reset, an invitation not ready yet, and
+the page that stops email) and Site settings with its reports each wear one of the posters chosen
+for the home page, the same on every visit. The pages drawn without the database (not found, too
+fast, the privacy policy and the terms of use) wear one of the whole gallery. Above the sign-in
+card, the site's name leads home.
+
+**A host's pages wear their events.** The dashboard, Account and New event wear the host's next
+event's poster, or the site's until they have one, under a header of glass. An event's guest list,
+invites, sharing, hosts and announcements pages wear that event's own poster, colour or picture,
+with each page's heading in its title font, and every list is one panel of glass.
+
+**The Backdrop card.** In Account, a host can pick any gallery poster to wear behind their own
+pages instead, or leave it on Automatic; an event's own pages keep that event's.
+
+**Nothing moves.** These pages are still, whether or not the device asks for less motion: no
+drifting colour, no sparkles, no entrances.
+
+**Every word proven to read.** The glass is solved for each poster so that text reads at WCAG AA
+on it, in both text tones and on a host's busiest picture, and each page's words and focus rings
+are measured on screen as well: on a light poster and a dark one, down to the last row of a long
+guest list. Every page is checked at a phone's width and a desktop's, by keyboard, and in English,
+Simplified and Traditional Chinese.
+
 ## Upgrading
 
 The voting migration, `0062`, adds the awards and votes tables and four columns to each event,
 with every existing event's vote off and names shown as they were. A press of a star counts
 against the new, optional `RATE_LIMIT_VOTE` (120 in ten minutes). See
 `docs/operator/upgrade-backup.md`, "Upgrading to 0.8".
+
+The posters chosen on Site settings' Home page card now dress the signed-out pages, the notice
+pages and Site settings too, so a site that keeps one poster for its home page shows that one
+there as well. Migration `0063` adds the `host_look` table, which holds the poster a host picks in
+the Backdrop card; it starts empty, and every host is on Automatic.
 
 ## Left out, and why
 

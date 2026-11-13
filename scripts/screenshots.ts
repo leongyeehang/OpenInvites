@@ -69,6 +69,15 @@ const GUESTS = [
 
 test("README screenshots", async ({ browser }) => {
   mkdirSync(OUT, { recursive: true });
+  // Sign-in on a phone, as every signed-out screen looks (M8 ticket 23): one of the site's posters,
+  // held still behind glass, with the site's name above the card. Taken first, while the home page
+  // keeps its usual set of posters.
+  const visitor = await (await someone(browser, PHONE)).newPage();
+  await visitor.goto("/sign-in");
+  await expect(visitor.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
+  await save(visitor, "sign-in");
+  await visitor.context().close();
+
   const host = await (await someone(browser, DESKTOP)).newPage();
   await host.goto("/sign-up");
   await submitSignUp(host, HOST);
@@ -210,13 +219,21 @@ async function reply(browser: Browser, link: string, guest: (typeof GUESTS)[numb
   await context.close();
 }
 
-// What the screen shows once its pictures and fonts are in and anything rising has risen, with
-// the pointer off anything it would light up.
+// What the screen shows once its pictures, its backdrop's picture and fonts are in and anything
+// rising has risen, with the pointer off anything it would light up.
 async function save(page: Page, name: string) {
   await page.mouse.move(0, 0);
   await page.evaluate(async () => {
     await document.fonts.ready;
     await Promise.all([...document.images].map((image) => image.decode().catch(() => undefined)));
+    // The backdrop's picture is a CSS background, not an image of the page's (M8 ticket 18).
+    const backdrop = document.querySelector('[data-slot="backdrop"] [style*="url("]');
+    const url = backdrop && getComputedStyle(backdrop).backgroundImage.match(/url\("?([^")]+)"?\)/)?.[1];
+    if (url) {
+      const picture = new Image();
+      picture.src = url;
+      await picture.decode().catch(() => undefined);
+    }
   });
   const png = await page.screenshot({ animations: "disabled" });
   const file = `${OUT}/${name}.webp`;

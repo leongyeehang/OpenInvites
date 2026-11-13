@@ -4,7 +4,7 @@ export const RENDITIONS = {
   // The full-page background, large enough for a wide screen, in a format every browser shows.
   background: { file: "background.webp", type: "image/webp" },
   // The same background cut to what a phone held upright shows of it (portraitCut): the page's
-  // backdrop on a portrait screen (themes/themed-page.tsx).
+  // backdrop on a portrait screen (themes/backdrop.tsx).
   backgroundPortrait: { file: "background-portrait.webp", type: "image/webp" },
   // The picture as the invitation itself (poster mode), at its own proportions, sized for the
   // poster card (POSTER_BOX).
@@ -33,7 +33,7 @@ export const POSTER_BOX: Size = { width: 1200, height: 2400 };
 // The same box at 720: the card on a desktop at 1x (544 pixels at most) and on a phone at about
 // 2x (a 390-pixel phone's card is 358 wide, 716 at 2x; Lighthouse's phone, 380 at 1.75x, is 665).
 export const SMALL_POSTER_BOX: Size = { width: 720, height: 1440 };
-// The copy is blurred by 64 CSS pixels (themed-page.tsx), which leaves nothing finer than about
+// The copy is blurred by 64 CSS pixels (backdrop.tsx), which leaves nothing finer than about
 // 30: over the largest screen and its margins, 2176 pixels across, 192 pixels of picture are
 // already finer than that.
 export const POSTER_COPY_BOX: Size = { width: 192, height: 192 };
@@ -46,7 +46,7 @@ export function fitInside(size: Size, box: Size): Size {
 
 // A portrait screen is at most 2:3 wide to tall: every phone held upright, with or without the
 // browser's bars (about 9:21 to 3:5). The page chooses the cut below for screens up to it
-// (themes/themed-page.tsx, max-aspect-ratio: 2/3).
+// (themes/backdrop.tsx, max-aspect-ratio: 2/3).
 const PORTRAIT = 2 / 3;
 
 // What a portrait screen shows of a picture that covers it from the centre, as the page's

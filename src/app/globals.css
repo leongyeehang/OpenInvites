@@ -500,9 +500,9 @@
   rest and hovered, never with its ink's own tint, on which no ink can read under light text; a
   hovered one is edged in the danger ink. A default button keeps the whole accent hovered, where
   shadcn would let 20% of what is behind it through, which no surface proves its words on, and is
-  edged in its words' colour instead (ticket 19). An outline button, whose own hover fill never
-  shows over the strong glass, is edged in the tone's text when hovered, and a ghost button fills
-  with strong glass, never shadcn's half of it (ticket 20). The text tone is also there as
+  edged inside its fill in its words' colour instead (tickets 19 and 23). An outline button, whose
+  own hover fill never shows over the strong glass, is edged in the tone's text when hovered, and a
+  ghost button fills with strong glass, never shadcn's half of it (ticket 20). The text tone is also there as
   data-tone, and under light text the page is `dark` as well, so that shadcn's dark variants apply.
 
   The scope is outside every layer, after .dark: shadcn's controls carry `outline-none`,
@@ -554,8 +554,11 @@
 .site-page [data-slot="button"][data-variant="default"] {
   background-color: var(--primary);
 }
+/* Inside the fill, not in the border: the border is clipped out of the fill and shows the glass
+   behind, which under light text is as dark as the words' colour, so an edge there never showed
+   (M8 ticket 23). */
 .site-page [data-slot="button"][data-variant="default"]:hover {
-  border-color: var(--primary-foreground);
+  box-shadow: inset 0 0 0 1px var(--primary-foreground);
 }
 .site-page [data-slot="button"][data-variant="outline"]:hover {
   border-color: var(--theme-text);

@@ -17,6 +17,15 @@ import { expect, test, type Page } from "@playwright/test";
 // as passing. The event page's contrast is legibility.ts's rule, which solves every surface
 // against the backdrop at its most extreme and is unit-tested for every combination the drawer
 // offers.
+// A page outside an event page (`.site-page`, M8 ticket 18) is all text over a backdrop fixed to the
+// screen, a poster's blurred copy, so axe leaves its contrast undecided: on Account it reported 62
+// pieces of text incomplete and measured 5, opaque fills whose pairs legibility.ts proves anyway
+// (the accent and the words on it). Reading it a view at a time, as below, only to be told so took
+// a host's pages most of a minute at two workers (M8 ticket 23). So inside `.site-page` the rule
+// is left out, and nothing it proved is lost: legibility.test.ts solves every surface of a site
+// page against its backdrop, and the pixel checks (e2e/contrast.ts, site-look.spec.ts) read the
+// words and rings on screen. What is portalled outside the scope (a dialog, a menu) is opaque and
+// keeps the rule. An event page keeps it everywhere, read as below.
 // `except` names rules the page cannot satisfy by its nature, set aside for that page alone: a
 // guest's video has no captions track (M7 ticket 11, the album's viewer), and no page can make one.
 export async function expectNoSeriousViolations(page: Page, where: string, { except = [] }: { except?: string[] } = {}) {
@@ -64,13 +73,16 @@ async function readPage(page: Page, except: string[]) {
   const measured = new Set<string>();
   // The page as it stood when contrast first failed on text in sight, for a failure seen only on CI.
   let scene = "";
-  const fixedBackdrop = await page.evaluate(() =>
-    [...document.querySelectorAll("body *")].some((element) => {
-      const rect = element.getBoundingClientRect();
-      const { clientWidth, clientHeight } = document.documentElement;
-      return getComputedStyle(element).position === "fixed" && rect.width >= clientWidth && rect.height >= clientHeight;
-    }),
-  );
+  const sitePage = (await page.locator(".site-page").count()) > 0;
+  const fixedBackdrop =
+    !sitePage &&
+    (await page.evaluate(() =>
+      [...document.querySelectorAll("body *")].some((element) => {
+        const rect = element.getBoundingClientRect();
+        const { clientWidth, clientHeight } = document.documentElement;
+        return getComputedStyle(element).position === "fixed" && rect.width >= clientWidth && rect.height >= clientHeight;
+      }),
+    ));
 
   const note = (id: string, target: string) => {
     const targets = incomplete.get(id) ?? new Set<string>();
@@ -81,7 +93,7 @@ async function readPage(page: Page, except: string[]) {
   // All the rules, once, from the top.
   const from = await page.evaluate(() => window.scrollY);
   await page.evaluate(() => window.scrollTo(0, 0));
-  const whole = await new AxeBuilder({ page }).disableRules(except).analyze();
+  const whole = await new AxeBuilder({ page }).disableRules(sitePage ? [...except, CONTRAST] : except).analyze();
   for (const { id, impact, help, nodes } of whole.violations) {
     if (id !== CONTRAST || !fixedBackdrop) violations.push({ id, impact, help, targets: nodes.map((node) => node.target.join(" ") + measuredAs(node, 0)) });
   }
@@ -90,6 +102,14 @@ async function readPage(page: Page, except: string[]) {
   }
   for (const rule of [...whole.passes, ...whole.violations].filter(({ id }) => id === CONTRAST && !fixedBackdrop)) {
     for (const { target } of rule.nodes) measured.add(target.join(" "));
+  }
+
+  // A site page's contrast, outside its scope alone: what is portalled over it.
+  if (sitePage && !except.includes(CONTRAST)) {
+    const outside = await new AxeBuilder({ page }).withRules([CONTRAST]).exclude(".site-page").analyze();
+    for (const { id, impact, help, nodes } of outside.violations) violations.push({ id, impact, help, targets: nodes.map((node) => node.target.join(" ") + measuredAs(node, 0)) });
+    for (const { nodes } of outside.incomplete) for (const { target } of nodes) note(CONTRAST, target.join(" "));
+    for (const { nodes } of outside.passes) for (const { target } of nodes) measured.add(target.join(" "));
   }
 
   if (fixedBackdrop) {

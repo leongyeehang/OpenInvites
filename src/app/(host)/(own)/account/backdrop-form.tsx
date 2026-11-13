@@ -11,8 +11,9 @@ import type { GalleryPosterId } from "@/themes/posters";
 
 // The Backdrop card (M8 ticket 22): Automatic, or one gallery poster from its card picture drawn
 // large, all one radio group. Chosen, then saved with Save, so that someone moving through twenty
-// posters with the arrow keys posts once; saved, the frame round the page wears it at once.
-export function BackdropForm({ pick }: { pick: GalleryPosterId | null }) {
+// posters with the arrow keys posts once; saved, the frame round the page wears it at once. Its Save
+// is described by the card's title (`describedBy`), so that it is told from Display name's.
+export function BackdropForm({ pick, describedBy }: { pick: GalleryPosterId | null; describedBy: string }) {
   const t = useTranslations("Account.backdrop");
   const [state, action, pending] = useActionState(setHostLookAction, undefined);
   const [chosen, setChosen] = useState<GalleryPosterId | null>(pick);
@@ -39,7 +40,7 @@ export function BackdropForm({ pick }: { pick: GalleryPosterId | null }) {
           <PosterChoices mode="one" ids={chosen ? [chosen] : []} onToggle={setChosen} onPick={setChosen} name="poster" idPrefix="backdrop" size="large" />
         </FieldSet>
         <FormOutcome state={state} />
-        <Button type="submit" disabled={pending} className="self-start">
+        <Button type="submit" disabled={pending} className="self-start" aria-describedby={describedBy}>
           {t("submit")}
         </Button>
       </FieldGroup>

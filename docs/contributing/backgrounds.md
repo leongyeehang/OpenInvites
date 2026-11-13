@@ -74,7 +74,15 @@ A measurement no more than one step of a channel away from what is stored (or 0.
 
 ## When the backdrop changes
 
-A change to what the page paints behind the invitation changes every colour's measurements: the `Backdrop` in [`src/themes/themed-page.tsx`](../../src/themes/themed-page.tsx) (the blobs, the fade at the foot, the grain), the tones' base colours and scrims in `legibility.ts` (`TONES`), or the glass's blur. Run `pnpm measure:backgrounds` with no `-g` (under twenty minutes for all nine) and put in every value it calls different. A change to what is painted behind a picture poster needs `pnpm posters` too ([posters.md](posters.md)).
+A change to what the page paints behind the invitation changes every colour's measurements: the `Backdrop` in [`src/themes/backdrop.tsx`](../../src/themes/backdrop.tsx) (the blobs, the fade at the foot, the grain), the tones' base colours and scrims in `legibility.ts` (`TONES`), or the glass's blur. Run `pnpm measure:backgrounds` with no `-g` (under twenty minutes for all nine) and put in every value it calls different. A change to what is painted behind a picture poster needs `pnpm posters` too ([posters.md](posters.md)).
+
+## Every other page
+
+A page that is not an event page wears a poster too, held still. It wraps itself in `SitePage` ([`src/themes/site-page.tsx`](../../src/themes/site-page.tsx)) with a look from [`src/instance/site-look.ts`](../../src/instance/site-look.ts): `areaLook` for an area of the site (the signed-out screens, the notices a guest meets, the pages drawn without the database, Site settings and reports), a host's own look for their pages, or `eventLook` for an event's management pages. `SitePage` paints the look as the event page paints its theme, solved for a site page, on the `Backdrop` with `still`, and adds the footer.
+
+No text sits on the bare backdrop. A heading outside a panel sits on `Veil` and everything else in glass (`Glass`, both in [`src/themes/glass.tsx`](../../src/themes/glass.tsx)). The `.site-page` scope at the end of [`globals.css`](../../src/app/globals.css) points shadcn's tokens at the glass, so a `Card`, an `Alert`, a field or a button inside it is glass without a change of its own; a list in a panel is one panel, its rows divided by the glass's edge.
+
+`legibility.ts` proves text only on the surfaces `SURFACES` and `SITE_SURFACES` list. A page that stacks one they do not (glass on glass, a part-transparent fill on a panel) must add it there and to [`legibility.test.ts`](../../src/themes/legibility.test.ts), whose test "a site page's glass is settled" shows what the new surface moves. `still` changes nothing that is measured: the backdrop at rest is the one measured above, and only its drift and its effect are left out.
 
 ## Before you send it
 

@@ -36,7 +36,7 @@ const LARGEST_SCREEN = { width: 1920, height: 1080 };
 // Measured at a quarter of that size, where the blur is 6 pixels: the same light and dark, from
 // a sixteenth of the pixels.
 const MEASURE_AT = 1 / 4;
-// The blurred copy behind a poster (themed-page.tsx): its own small rendition, blurred by 64 CSS
+// The blurred copy behind a poster (backdrop.tsx): its own small rendition, blurred by 64 CSS
 // pixels over a box 8rem larger than the screen on every side, so its soft edges fall outside it.
 // Text set straight on the page meets it under this blur alone, and the glass blurs it further.
 const POSTER_COPY_BLUR = 64;

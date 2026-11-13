@@ -9,6 +9,9 @@ import { GALLERY_POSTERS, OCCASIONS, type GalleryPosterId } from "./posters";
 // checkboxes to pick several, radios to pick the one. Site settings draws them small, for its
 // home page's set; Account's Backdrop card (M8 ticket 22) draws them large, two across and four
 // from `sm`, each chosen one ringed and ticked, so that it is told apart by more than its colour.
+// The ring is in the focus ring's colour, which legibility.ts solves to stand out at 3:1 from
+// every surface; the accent itself can fall short of that against the glass (2.3:1 on Cake, M8
+// ticket 23).
 // The inputs post as `name`, and `idPrefix` keeps the occasions' ids apart from another picker's.
 export function PosterChoices({
   mode,
@@ -42,7 +45,7 @@ export function PosterChoices({
               const label = names(`names.${poster.id}`);
               return (
                 <li key={poster.id}>
-                  <label className="relative block cursor-pointer overflow-hidden rounded-lg ring-1 ring-foreground/10 has-[:checked]:ring-2 has-[:checked]:ring-primary has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring">
+                  <label className="relative block cursor-pointer overflow-hidden rounded-lg ring-1 ring-foreground/10 has-[:checked]:ring-2 has-[:checked]:ring-ring has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring">
                     <input
                       type={mode === "one" ? "radio" : "checkbox"}
                       name={name}

@@ -126,50 +126,32 @@ for (const poster of ["Balloons", "Disco"] as const) {
   });
 }
 
-test("a host's own pages: the dashboard, the editor and its sheets, the share screen and the guest list", async ({ page, browser, request }) => {
-  // Fifteen reads by axe, the editor's Settings sheet alone up to 35 s beside another test: before
-  // M8 ticket 21 it took 77 to 89 s of the 90 a slow test is given, at two workers. This budget is a
-  // stopgap: axe reads contrast slowly over a fixed backdrop at two workers, and M8 ticket 23 is to
-  // put it back.
-  test.setTimeout(180_000);
+test("a host's own pages: the dashboard, the account page and its menu, New event, the share screen and the guest list", async ({ page, browser, request }) => {
+  test.slow();
   await signUpVerified(page, request, "a11y-host");
   await page.goto("/dashboard");
   await expectNoSeriousViolations(page, "the dashboard, empty");
   // The frame of every signed-in page (dashboard, ticket 02): another host page on the host
-  // ground, and the account menu open.
+  // ground, and the account menu open. Account's Backdrop card is on Automatic.
   await page.goto("/account");
   await expectNoSeriousViolations(page, "the account page");
   await openAccountMenu(page);
   await expectNoSeriousViolations(page, "the account menu, open");
   await page.keyboard.press("Escape");
 
-  // The editor (M4 ticket 05): a blank invitation, and each of its sheets open.
+  // New event as it stands before it opens the editor: it sends for its draft as soon as it is on
+  // screen, and that post is held unanswered (M8 ticket 20).
+  await page.route("**/events/new", async (route) => {
+    if (route.request().method() !== "POST") await route.continue();
+  });
   await page.goto("/events/new");
-  await expect(page.getByRole("textbox", { name: "Event title" })).toBeVisible({ timeout: 20_000 });
-  await expectNoSeriousViolations(page, "the editor, a blank invitation");
-  const sheets: [opener: Locator, name: string][] = [
-    [page.getByRole("button", { name: /^When:/ }), "When"],
-    [page.getByRole("button", { name: /^Where:/ }), "Where"],
-    [page.getByRole("button", { name: /^About:/ }), "About"],
-    [page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Settings" }), "Settings"],
-    [page.getByRole("button", { name: "More" }), "More"],
-  ];
-  for (const [opener, name] of sheets) {
-    await opener.click();
-    await expect(page.getByRole("dialog", { name })).toBeVisible();
-    if (name === "Settings") await page.getByRole("button", { name: "Add a question" }).click();
-    await expectNoSeriousViolations(page, `the editor's ${name} sheet`);
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog", { name })).toBeHidden();
-  }
-  await page.getByRole("button", { name: "Publish" }).click();
-  await expect(page.getByText("Add a title first.")).toBeVisible();
-  await expectNoSeriousViolations(page, "the editor, publishing refused");
+  await expect(page.getByText("Starting your invitation…")).toBeVisible();
+  await expectNoSeriousViolations(page, "New event, starting the invitation");
+  await page.unrouteAll({ behavior: "ignoreErrors" });
 
   const link = await createDraft(page, EVENT);
   await publishInEditor(page);
   const manage = page.url();
-  await expectNoSeriousViolations(page, "the editor, published");
 
   await page.goto("/dashboard");
   await expectNoSeriousViolations(page, "the dashboard, with an event");
@@ -199,6 +181,40 @@ test("a host's own pages: the dashboard, the editor and its sheets, the share sc
   await expectNoSeriousViolations(page, "the guest list, editing a guest");
 });
 
+// The editor (M4 ticket 05): a blank invitation, each of its sheets open, publishing refused, and
+// published. A test of its own, apart from the host's other pages above, as axe reads each sheet
+// over the event page's fixed backdrop a view at a time, the Settings sheet alone up to 35 s beside
+// another test (M8 tickets 21 and 23).
+test("the editor and its sheets: a blank invitation, each sheet open, publishing refused, and published", async ({ page, request }) => {
+  test.slow();
+  await signUpVerified(page, request, "a11y-editor");
+  await page.goto("/events/new");
+  await expect(page.getByRole("textbox", { name: "Event title" })).toBeVisible({ timeout: 20_000 });
+  await expectNoSeriousViolations(page, "the editor, a blank invitation");
+  const sheets: [opener: Locator, name: string][] = [
+    [page.getByRole("button", { name: /^When:/ }), "When"],
+    [page.getByRole("button", { name: /^Where:/ }), "Where"],
+    [page.getByRole("button", { name: /^About:/ }), "About"],
+    [page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Settings" }), "Settings"],
+    [page.getByRole("button", { name: "More" }), "More"],
+  ];
+  for (const [opener, name] of sheets) {
+    await opener.click();
+    await expect(page.getByRole("dialog", { name })).toBeVisible();
+    if (name === "Settings") await page.getByRole("button", { name: "Add a question" }).click();
+    await expectNoSeriousViolations(page, `the editor's ${name} sheet`);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name })).toBeHidden();
+  }
+  await page.getByRole("button", { name: "Publish" }).click();
+  await expect(page.getByText("Add a title first.")).toBeVisible();
+  await expectNoSeriousViolations(page, "the editor, publishing refused");
+
+  await createDraft(page, EVENT);
+  await publishInEditor(page);
+  await expectNoSeriousViolations(page, "the editor, published");
+});
+
 // M8 ticket 22: Account with its Backdrop card, a poster chosen and saved, so that the card's chosen
 // state and the confirmation are read too.
 test("the account page with the Backdrop card, a poster chosen", async ({ page, request }) => {
@@ -210,6 +226,12 @@ test("the account page with the Backdrop card, a poster chosen", async ({ page, 
   await card.getByRole("button", { name: "Save", exact: true }).click();
   await expect(card.getByText("Backdrop saved.")).toBeVisible({ timeout: 15_000 });
   await expectNoSeriousViolations(page, "the account page, a backdrop chosen");
+  // Account's two Saves, Display name's and the Backdrop card's, are told apart for a screen reader,
+  // each described by its card's title (M8 ticket 23).
+  const saves = page.getByRole("main").getByRole("button", { name: "Save", exact: true });
+  await expect(saves).toHaveCount(2);
+  await expect(saves.first()).toHaveAccessibleDescription("Display name");
+  await expect(card.getByRole("button", { name: "Save", exact: true })).toHaveAccessibleDescription("Backdrop");
 });
 
 // The dashboard with an event on every shelf (dashboard, ticket 05): Next up with a reply to approve,
@@ -243,6 +265,64 @@ test("the instance settings page, and its Limits card refusing a value and with 
   await page.getByLabel("Keep forever").check();
   await expect(page.getByLabel("Keep events for")).toBeDisabled();
   await expectNoSeriousViolations(page, "the Limits card, Keep forever ticked");
+});
+
+// M8 ticket 23: Site settings with a confirmation open, Clear the album on the Storage card, not
+// confirmed. A photo in an album of the test's own first, so that the card lists one to clear.
+test("Site settings with a confirmation open: clearing one of the biggest albums, not confirmed", async ({ page, browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "a11y-album", { title: "Ada’s picnic", start: "2026-01-10T19:00" });
+  await host.page.goto(host.link);
+  const album = host.page.locator('[data-slot="album"]');
+  const photo = await sharp({ create: { width: 800, height: 600, channels: 3, background: "#2f6b3a" } }).jpeg().toBuffer();
+  await album.getByLabel(/^Add photos/).setInputFiles({ name: "one.jpg", mimeType: "image/jpeg", buffer: photo });
+  await expect(album.getByRole("button", { name: /^Photo 1 by / })).toBeVisible({ timeout: 30_000 });
+  await host.context.close();
+
+  await signIn(page, OPERATOR.email, PASSWORD);
+  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
+  await page.goto("/instance");
+  await page.locator("#storage").getByRole("button", { name: "Clear the album" }).first().click();
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog.getByRole("button", { name: "Delete them" })).toBeVisible();
+  await expectNoSeriousViolations(page, "Site settings, clearing an album to be confirmed");
+  await dialog.getByRole("button", { name: "Never mind" }).click();
+  await expect(dialog).toBeHidden();
+});
+
+// M8 ticket 23: the five pages where a host manages one event (ticket 21), on a gallery poster's
+// picture rather than a colour, each wearing it.
+test("an event's pages on a picture poster: its guest list, invites, share, hosts and announcements", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "a11y-event-pages", SIMPLE);
+  await pickDesign(host.page, "Poster", "Poster", "Disco", "Gallery");
+  const manage = host.page.url();
+  for (const [path, heading] of [
+    ["guests", "Guest list"],
+    ["invites", "Invites"],
+    ["share", "Share this event"],
+    ["hosts", "Hosts"],
+    ["announcements", "Announcements"],
+  ] as const) {
+    await host.page.goto(`${manage}/${path}`);
+    await expect(host.page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+    await expect(host.page.locator('[data-slot="backdrop"] [style*="disco-ball-copy"]')).toHaveCount(1);
+    await expectNoSeriousViolations(host.page, `the event's ${path} page, on the Disco poster`);
+  }
+  await host.context.close();
+});
+
+// M8 ticket 23: the notice a guest meets on a link the host has reset (M8 ticket 18).
+test("the page a link the host has reset leads to", async ({ page, browser, request }) => {
+  const host = await createPublished(browser, request, "a11y-retired", SIMPLE);
+  await host.page.goto(`${host.page.url()}/share`);
+  await host.page.getByRole("button", { name: "Reset the link" }).click();
+  await host.page.getByRole("button", { name: "Reset it" }).click();
+  await expect(host.page.getByText(host.link, { exact: true })).toHaveCount(0, { timeout: 15_000 });
+  await page.goto(host.link);
+  await expect(page.getByRole("heading", { level: 1, name: "This link is no longer valid" })).toBeVisible();
+  await expectNoSeriousViolations(page, "a link the host has reset");
+  await host.context.close();
 });
 
 test("the editor's design sheets, each open, in both text tones", async ({ browser, request }) => {

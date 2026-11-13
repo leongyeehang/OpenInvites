@@ -41,20 +41,58 @@ export async function worstContrast(text: Locator): Promise<number> {
 // the New event pill while it reads the ring round the header's initials).
 export async function expectRingStandsOut(page: Page, control: Locator) {
   const shown = control.locator("xpath=ancestor-or-self::label[1]").or(control).first();
-  await page.keyboard.press("Shift");
-  await control.focus();
-  expect(await control.evaluate((element) => element.matches(":focus-visible")), `${control} shows its focus`).toBe(true);
-  const focused = await stripBeside(page, shown);
-  await control.blur();
-  const unfocused = await stripBeside(page, shown);
-  const beyond = unfocused[0];
-  const standsOut = Math.max(...focused.map((pixel, at) => Math.min(contrast(pixel, unfocused[at]), contrast(pixel, beyond))));
-  expect(standsOut, `the ring round ${control}`).toBeGreaterThanOrEqual(3);
+  await expectMarkStandsOut(page, shown, `the ring round ${control}`, {
+    on: async () => {
+      await page.keyboard.press("Shift");
+      await control.focus();
+      expect(await control.evaluate((element) => element.matches(":focus-visible")), `${control} shows its focus`).toBe(true);
+    },
+    off: () => control.blur(),
+  });
+}
+
+// A mark drawn round `shown` by `on` and taken away by `off` (a focus ring, the ring round a chosen
+// poster), read in the 12px strip to its left with the mark and without (M8 ticket 23): somewhere
+// along the strip the mark stands out at 3:1 or more both from what was there without it and from
+// the page beyond.
+export async function expectMarkStandsOut(page: Page, shown: Locator, what: string, { on, off }: { on: () => Promise<void>; off: () => Promise<void> }) {
+  await on();
+  const marked = await stripBeside(page, shown);
+  await off();
+  const unmarked = await stripBeside(page, shown);
+  const beyond = unmarked[0];
+  const standsOut = Math.max(...marked.map((pixel, at) => Math.min(contrast(pixel, unmarked[at]), contrast(pixel, beyond))));
+  expect(standsOut, what).toBeGreaterThanOrEqual(3);
+}
+
+// A button's edge drawn when it is hovered (a default button on a site page keeps its whole fill
+// and is edged inside it in its words' colour instead, tickets 19 and 23), read across its left
+// edge, from 2px outside it to 4px inside, hovered and not: somewhere there the edge stands out at
+// 3:1 or more both from what was there unhovered and from the fill inside it.
+export async function expectHoverEdgeStandsOut(page: Page, button: Locator) {
+  await button.hover();
+  const hovered = await stripAcrossLeftEdge(page, button);
+  await page.mouse.move(0, 0);
+  const rest = await stripAcrossLeftEdge(page, button);
+  const fill = rest[rest.length - 1];
+  const standsOut = Math.max(...hovered.map((pixel, at) => Math.min(contrast(pixel, rest[at]), contrast(pixel, fill))));
+  expect(standsOut, `the hovered edge of ${button}`).toBeGreaterThanOrEqual(3);
 }
 
 // The 12px to the left of an element, at half its height, as it is on screen, once whatever is
 // fading in or out has finished.
 async function stripBeside(page: Page, element: Locator) {
+  return stripAt(page, element, -12, 12);
+}
+
+// The 6px across an element's left edge, 2px outside it to 4px inside, at half its height.
+async function stripAcrossLeftEdge(page: Page, element: Locator) {
+  return stripAt(page, element, -2, 6);
+}
+
+// `width` pixels of one row at half an element's height, from `from` pixels right of its left edge,
+// as it is on screen once whatever is fading in or out has finished.
+async function stripAt(page: Page, element: Locator, from: number, width: number) {
   await page.evaluate(() =>
     Promise.all(
       document
@@ -65,7 +103,7 @@ async function stripBeside(page: Page, element: Locator) {
   );
   await element.scrollIntoViewIfNeeded();
   const box = (await element.boundingBox())!;
-  const clip = { x: Math.floor(box.x) - 12, y: Math.floor(box.y + box.height / 2), width: 12, height: 1 };
+  const clip = { x: Math.floor(box.x) + from, y: Math.floor(box.y + box.height / 2), width, height: 1 };
   const { data, info } = await sharp(await page.screenshot({ clip })).raw().toBuffer({ resolveWithObject: true });
   return Array.from({ length: info.width }, (_, at) => [0, 1, 2].map((channel) => data[at * info.channels + channel]));
 }

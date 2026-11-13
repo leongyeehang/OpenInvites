@@ -13,7 +13,7 @@ test.use({ contextOptions: { reducedMotion: "reduce" } });
 
 test("under reduced motion nothing moves, on any page, whatever a person does", async ({ page, browser, request }) => {
   test.setTimeout(240_000);
-  for (const path of ["/", "/sign-up", "/sign-in", "/privacy", "/terms", "/too-fast", "/e/abcdefghij"]) {
+  for (const path of ["/", "/sign-up", "/sign-in", "/forgot-password", "/privacy", "/terms", "/too-fast", "/e/abcdefghij", "/no-such-page"]) {
     await page.goto(path);
     await expectStill(page, path);
   }
@@ -24,6 +24,8 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await signUpVerified(host, request, "still");
   await host.goto("/dashboard");
   await expectStill(host, "the dashboard");
+  await host.goto("/account");
+  await expectStill(host, "the account page");
   // The editor, and its Settings sheet opened with a question added.
   await host.goto("/events/new");
   await expect(host.getByRole("textbox", { name: "Event title" })).toBeVisible({ timeout: 20_000 });
@@ -173,6 +175,11 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await expectStill(host, "the guest list");
   await host.goto(`${manage}/share`);
   await expectStill(host, "the share screen");
+  // The event's other pages (M8 ticket 21), on its poster.
+  for (const path of ["invites", "hosts", "announcements"]) {
+    await host.goto(`${manage}/${path}`);
+    await expectStill(host, `the ${path} page`);
+  }
 
   // Called off: the page with its notice.
   await host.goto(manage);
@@ -190,6 +197,8 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
   await page.goto("/instance");
   await expectStill(page, "the instance settings");
+  await page.goto("/instance/reports");
+  await expectStill(page, "the reports page");
 });
 
 // A guest of their own, at an address of their own, whose device asks for reduced motion.

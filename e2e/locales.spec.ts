@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { clientAddress, expect, test, type Browser, type Page } from "./test";
-import { createPublished, editSettings, HOUR, itemFromNow, savedAfter, setSchedule, utcFromNow } from "./events";
+import { createPublished, editSettings, HOUR, itemFromNow, openMore, savedAfter, setSchedule, utcFromNow } from "./events";
 import { hostWithShelves } from "./dashboard";
 import { expectHomeIn, openHome } from "./home";
 import { latestMailTo, linkIn, mailCountTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
@@ -311,6 +311,63 @@ test("a host reads the Backdrop card in Traditional Chinese", async ({ page, req
   const card = page.locator("#backdrop");
   await expect(card.getByRole("heading", { level: 2, name: "頁面底圖" })).toBeVisible();
   await expect(card.getByRole("radio", { name: "自動", exact: true })).toBeChecked();
+  // Its Save, described by the card's title (M8 ticket 23).
+  await expect(card.getByRole("button", { name: "儲存", exact: true })).toHaveAccessibleDescription("頁面底圖");
+});
+
+// M8 ticket 23: the signed-out screens and the notice pages, on their posters, in Traditional
+// Chinese: sign-in's card and the site's name above it, and an invite-only event's locked page.
+test("a visitor whose browser asks for zh-TW reads sign-in and the locked page in Traditional Chinese", async ({ browser, request }) => {
+  test.slow();
+  const page = await guestWithBrowserIn(browser, "zh-TW,zh;q=0.9");
+  await page.goto("/sign-in");
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
+  await expect(page.getByRole("heading", { level: 1, name: "登入" })).toBeVisible();
+  await expect(page.getByLabel("電子郵件", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "登入", exact: true })).toBeVisible();
+  await expect(page.locator('[data-slot="site-name"]')).toHaveText("OpenInvites");
+
+  const host = await createPublished(browser, request, "locale-locked", EVENT);
+  await editSettings(host.page, (sheet) =>
+    sheet.getByRole("group", { name: "Guests", exact: true }).getByLabel("Invite-only: only people on the invite list can open the invitation", { exact: true }).check(),
+  );
+  await page.goto(host.link);
+  await expect(page.getByRole("heading", { level: 1, name: "一份私人邀請" })).toBeVisible();
+  await expect(page.locator(".site-page")).toHaveCount(1);
+  await page.context().close();
+  await host.context.close();
+});
+
+// M8 ticket 23: the pages a guest meets on their own, in Simplified Chinese: too fast, and the page
+// that stops email about an event, from the email cancelling it.
+test("a guest whose browser asks for zh-CN reads too fast and the stop-mail page in Simplified Chinese", async ({ browser, request }) => {
+  test.slow();
+  const page = await guestWithBrowserIn(browser, "zh-CN,zh;q=0.9");
+  await page.goto("/too-fast");
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hans");
+  await expect(page.getByRole("heading", { level: 1, name: "操作太频繁了" })).toBeVisible();
+
+  const host = await createPublished(browser, request, "locale-stop-mail", { ...EVENT, plusOnes: "0", askEmail: true });
+  const email = newHost("locale-stop-mail-guest").email;
+  const guest = await (await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
+  await guest.goto(host.link);
+  await guest.getByRole("button", { name: "Going", exact: true }).click();
+  await guest.getByLabel("Your name").fill("Priya Nair");
+  await guest.getByLabel("Email").fill(email);
+  await guest.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(guest.getByText(`We’ll reach you at ${email}.`)).toBeVisible({ timeout: 15_000 });
+  await guest.context().close();
+  await openMore(host.page);
+  await host.page.getByRole("button", { name: "Cancel event" }).click();
+  await host.page.getByRole("button", { name: "Cancel the event" }).click();
+  await expect(host.page.getByText("Cancelled", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => mailCountTo(request, email), { timeout: 30_000, message: `an email to ${email}` }).toBe(1);
+
+  await page.goto((await latestMailTo(request, email)).match(/https?:\/\/\S+\/m\/[A-Za-z0-9]{24}/)![0]);
+  await expect(page.getByRole("button", { name: "不再接收这个活动的邮件" })).toBeVisible();
+  await expect(page.locator(".site-page")).toHaveCount(1);
+  await page.context().close();
+  await host.context.close();
 });
 
 // The interface says 本站 where it said 实例 (dashboard, ticket 04): the operator's account menu

@@ -118,17 +118,19 @@ async function OwnersView({ event }: { event: HostEvent }) {
       </Glass>
 
       <section aria-labelledby={LINKS_HEADING}>
-        <Glass className="flex flex-col gap-3 p-4 md:p-5">
-          <h2 id={LINKS_HEADING} tabIndex={-1} className="text-lg font-medium outline-none">
+        {/* As every list in a panel on these pages: its rows reach the panel's edges, divided by the
+            glass's edge, and a line parts it from what is above and below it in the panel. */}
+        <Glass className="flex flex-col">
+          <h2 id={LINKS_HEADING} tabIndex={-1} className="px-4 pt-4 pb-3 text-lg font-medium outline-none">
             {t("links")}
           </h2>
           {pending.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("linksEmpty")}</p>
+            <p className="px-4 text-sm text-muted-foreground">{t("linksEmpty")}</p>
           ) : (
             // Times in the event's own zone, as everywhere else on the host's pages.
             <ul className="flex flex-col divide-y divide-theme-glass-border border-y border-theme-glass-border">
               {pending.map((link) => (
-                <li key={link.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <li key={link.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
                   <span className="text-sm text-muted-foreground">
                     {t("linkDates", {
                       made: formatMoment(link.createdAt, event.timeZone, locale),
@@ -144,13 +146,15 @@ async function OwnersView({ event }: { event: HostEvent }) {
               ))}
             </ul>
           )}
-          {roomForCoHost(coHosts.length) ? (
-            <ClientMessages namespaces={["Hosts"]}>
-              <CoHostLinkForm eventId={event.id} days={CO_HOST_LINK_DAYS} />
-            </ClientMessages>
-          ) : (
-            <p className="text-sm">{t("full", { max: MAX_CO_HOSTS })}</p>
-          )}
+          <div className="flex flex-col gap-3 p-4">
+            {roomForCoHost(coHosts.length) ? (
+              <ClientMessages namespaces={["Hosts"]}>
+                <CoHostLinkForm eventId={event.id} days={CO_HOST_LINK_DAYS} />
+              </ClientMessages>
+            ) : (
+              <p className="text-sm">{t("full", { max: MAX_CO_HOSTS })}</p>
+            )}
+          </div>
         </Glass>
       </section>
     </>
