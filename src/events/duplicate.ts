@@ -12,7 +12,8 @@ import type { Event, NewEvent } from "./repository";
 // "Invite-only events"). When to be reminded about the album travels with the settings, though
 // not that the source's hosts were (M7 ticket 09). So do who may vote in the album and whether
 // guests see who added each item, though not the vote: the copy starts with voting off, and its
-// awards are copied after it is made (M8 ticket 10). The theme is copied whole: its poster names
+// awards are copied after it is made (M8 ticket 10). So do the page's sections as the host arranged
+// them, and whether its album is on (M8 ticket 25). The theme is copied whole: its poster names
 // the event's own picture, not the source's, and the copy gets a picture of its own
 // (uploads/copy.ts). The title says it is a copy, in the words of the host who duplicates it.
 export function duplicateInput(
@@ -59,6 +60,8 @@ export function duplicateInput(
       albumReminderDays: source.albumReminderDays,
       albumVoters: source.albumVoters,
       albumUploaderNames: source.albumUploaderNames,
+      sections: source.sections,
+      albumEnabled: source.albumEnabled,
       locale,
     },
     questions: questions.map(({ type, prompt, options, required }, position) => ({ type, prompt, options, required, position })),

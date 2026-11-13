@@ -19,6 +19,7 @@ import {
   type Shown,
   type Switches,
 } from "./arrangement";
+import { REGISTRY } from "./registry";
 
 const keys = (sections: Section[]) => sections.map(sectionKey);
 const POSTER = ["letter", "details", "schedule", "guests", "announcements", "comments", "album", "countdown"];
@@ -96,6 +97,8 @@ describe("each layout's default order", () => {
       expect(byKind.album).toMatchObject({ style: "grid" });
       expect(byKind.comments).toMatchObject({ style: "list" });
       expect(byKind.guests).toMatchObject({ style: "names" });
+      // The registry says which style is first; the default reads it there (ticket 25).
+      for (const kind of ["album", "comments", "guests"] as const) expect(byKind[kind]).toMatchObject({ style: REGISTRY[kind].styles[0] });
       expect("on" in byKind.letter || "style" in byKind.letter).toBe(false);
     }
   });
@@ -248,7 +251,29 @@ describe("parseArrangement", () => {
       { label: "y".repeat(40), url: "https://example.com/registry" },
       ...sevenLinks.slice(0, 5).map((link) => ({ ...link, url: `${link.url}` })),
     ]);
-    expect(sections.filter((each) => each.kind === "note" || each.kind === "links")).toHaveLength(10);
+    // The first ten written sections in the stored order: the Note, the Links, then eight of the ten
+    // Notes after them.
+    expect(keys(sections.filter((each) => each.kind === "note" || each.kind === "links"))).toEqual([
+      "note:aaaaaaaa",
+      "links:bbbbbbbb",
+      ...Array.from({ length: 8 }, (_, n) => `note:cccccc${n}0`),
+    ]);
+  });
+
+  // Ticket 25: what is past a limit is not read at all, so a stored value padded with thousands of
+  // links or sections costs no more to read than one at the limit.
+  it("stops reading a Links section's links at six kept, and written sections at ten kept", () => {
+    const read: string[] = [];
+    const watched = (name: string, value: object) => new Proxy(value, { get: (target, field) => (read.push(`${name}.${String(field)}`), Reflect.get(target, field)) });
+    const linksRead = Array.from({ length: 8 }, (_, n) => watched(`link${n}`, { label: `Link ${n}`, url: `https://example.com/${n}` }));
+    const notes = Array.from({ length: 11 }, (_, n) => watched(`note${n}`, { kind: "note", id: `dddddd${n}0`, on: true, collapsed: false, heading: null, body: body(`${n}`) }));
+    const sections = parseArrangement({ sections: [{ kind: "links", id: "bbbbbbbb", on: true, collapsed: false, heading: null, links: linksRead }, ...notes] })!.sections;
+    const block = sections.find((each) => each.kind === "links")!;
+    expect(block.kind === "links" && block.links).toHaveLength(6);
+    expect(read.filter((each) => each.startsWith("link6.") || each.startsWith("link7."))).toEqual([]);
+    expect(sections.filter((each) => each.kind === "note")).toHaveLength(9);
+    // Only its kind is read, which says it is a written section and so past the limit.
+    expect(read.filter((each) => /^note(9|10)\./.test(each) && each !== "note9.kind" && each !== "note10.kind")).toEqual([]);
   });
 });
 
@@ -268,6 +293,14 @@ describe("links a guest may follow", () => {
     expect(safeLinkUrl(`https://example.com/${"x".repeat(2_000)}`)).toBeUndefined();
     expect(safeLinkUrl(`https://example.com/${"x".repeat(1_980)}`)).toBeDefined();
     for (const value of ["", "   ", 42, null, "https://", "not an address at all"]) expect(safeLinkUrl(value), String(value)).toBeUndefined();
+  });
+
+  // Ticket 25: an address with a name or password before its host reads as the name's site to a
+  // person and goes to the host's.
+  it("refuses an address that carries a name or a password", () => {
+    for (const value of ["https://bank.example@evil.example/", "https://ada:secret@example.com/list", "http://:pw@example.com/", "bank.example@evil.example"]) {
+      expect(safeLinkUrl(value), value).toBeUndefined();
+    }
   });
 
   it("names a link's site without its www", () => {
@@ -302,6 +335,14 @@ describe("parseArrangementChange", () => {
     expect(parsed({ type: "rename", key: "album", heading: null })).toEqual({ ok: true, change: { type: "rename", key: "album", heading: null } });
     expect(parsed({ type: "rename", key: "album", heading: "x".repeat(41) })).toEqual({ ok: false, error: "headingTooLong" });
     expect(parsed({ type: "addNote", after: null, heading: "x".repeat(41) })).toEqual({ ok: false, error: "headingTooLong" });
+  });
+
+  // Ticket 25: a heading that is not words at all is unreadable, not too long.
+  it("refuses a heading that is neither words nor none as unreadable", () => {
+    for (const heading of [42, true, {}, ["x"]]) {
+      expect(parsed({ type: "rename", key: "album", heading }), JSON.stringify(heading)).toEqual({ ok: false, error: "unreadable" });
+      expect(parsed({ type: "addNote", after: null, heading }), JSON.stringify(heading)).toEqual({ ok: false, error: "unreadable" });
+    }
   });
 
   it("counts a heading by character, so 40 Chinese characters or 40 emoji fit and a 41st does not", () => {

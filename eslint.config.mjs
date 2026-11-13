@@ -20,6 +20,22 @@ const reachingInto = (depth) => (name) => ({
 });
 const filesAt = (folder, depth) => [`${folder}/${"*/".repeat(depth)}*.{ts,tsx}`];
 
+// The alias alone, at any depth: a file deeper than DEPTHS gets no relative rule, but is still held
+// to "@/<module>" (ticket 25). The per-depth blocks after these repeat the alias with the relative
+// paths, and replace these where they apply.
+const reachingByAlias = (name) => ({ regex: `^@/${name}/`, message: `Import ${name} through "@/${name}" (ADR-0008).` });
+const aliasBoundaries = [
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: MODULES.map((name) => `src/${name}/**`),
+    rules: { "no-restricted-imports": ["error", { patterns: MODULES.map(reachingByAlias) }] },
+  },
+  ...MODULES.map((module) => ({
+    files: [`src/${module}/**/*.{ts,tsx}`],
+    rules: { "no-restricted-imports": ["error", { patterns: MODULES.filter((name) => name !== module).map(reachingByAlias) }] },
+  })),
+];
+
 // Per depth, one block for the app outside the modules, and one per module with the other two: a
 // later block's options for the same rule replace an earlier one's, so the module blocks cannot
 // add to it.
@@ -40,6 +56,7 @@ const moduleBoundaries = Array.from({ length: DEPTHS }, (_, depth) => [
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  ...aliasBoundaries,
   ...moduleBoundaries,
   // Override default ignores of eslint-config-next.
   globalIgnores([

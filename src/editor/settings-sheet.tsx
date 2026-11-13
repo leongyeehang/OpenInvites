@@ -1,6 +1,6 @@
 "use client";
 
-import { ImageIcon, Palette, SlidersHorizontal, Sparkles, Type } from "lucide-react";
+import { ImageIcon, Palette, Rows3, SlidersHorizontal, Sparkles, Type } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -30,13 +30,15 @@ const GUEST_LIST_LABELS = { always: "guestListAlways", afterReply: "guestListAft
 const DEBOUNCE = 600;
 
 // The editor's toolbar (M4 spec, "The toolbar"), fixed to the foot of the screen: Poster, Title,
-// Theme and Effect, each a design sheet over a live copy of the invitation, and Settings. Each
-// button says whether its sheet is open, and has the focus back when it closes.
+// Theme, Effect and Arrange (M8 ticket 25), each a design sheet over a live copy of the
+// invitation, and Settings. Each button says whether its sheet is open, and has the focus back
+// when it closes.
 const TOOLS = [
   { sheet: "poster", icon: ImageIcon },
   { sheet: "title", icon: Type },
   { sheet: "theme", icon: Palette },
   { sheet: "effect", icon: Sparkles },
+  { sheet: "arrange", icon: Rows3 },
   { sheet: "settings", icon: SlidersHorizontal },
 ] as const;
 
@@ -48,7 +50,7 @@ export function EditorToolbar({ sheets }: { sheets: ReactNode }) {
     <>
       <nav
         aria-label={t("toolbar")}
-        className="dark fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 mx-auto grid max-w-[26rem] grid-cols-5 gap-1 rounded-[1.6rem] border bg-popover/90 p-1.5 text-popover-foreground shadow-xl backdrop-blur-xl transition-transform duration-300 ease-out motion-reduce:transition-none editor-sheet-open:lg:translate-x-[min(0px,calc(50vw-40rem))]"
+        className="dark fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 mx-auto grid max-w-[26rem] grid-cols-6 gap-1 rounded-[1.6rem] border bg-popover/90 p-1.5 text-popover-foreground shadow-xl backdrop-blur-xl transition-transform duration-300 ease-out motion-reduce:transition-none editor-sheet-open:lg:translate-x-[min(0px,calc(50vw-40rem))]"
       >
         {TOOLS.map(({ sheet: name, icon: Icon }) => (
           <button

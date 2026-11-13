@@ -58,6 +58,8 @@ const source: Event = {
   albumVotingClosesAt: new Date("2027-05-09T12:00:00Z"),
   albumVoters: "invited",
   albumUploaderNames: "never",
+  sections: { sections: [{ kind: "album", collapsed: false, heading: "Photos", style: "grid" }] },
+  albumEnabled: false,
   createdAt: new Date("2026-12-01T00:00:00Z"),
   updatedAt: new Date("2026-12-02T00:00:00Z"),
 };
@@ -141,6 +143,12 @@ describe("duplicateInput", () => {
   // the copy starts with voting off (its awards are copied by duplicateEventAction).
   it("copies who may vote and whether guests see who added each item", () => {
     expect(copy.event).toMatchObject({ albumVoters: "invited", albumUploaderNames: "never" });
+  });
+
+  // M8 ticket 25: the page's arrangement and the album's own switch (spec, "A duplicated event
+  // copies its sections").
+  it("copies the sections as arranged and whether the album is on", () => {
+    expect(copy.event).toMatchObject({ sections: source.sections, albumEnabled: false });
   });
 
   it("copies nothing that belongs to the source alone", () => {

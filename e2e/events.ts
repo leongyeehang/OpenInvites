@@ -283,3 +283,26 @@ export async function expectReplies(card: Locator, going: number, maybe: number,
   await expect(card.getByText(`${maybe} maybe`, { exact: true })).toBeVisible();
   await expect(card.getByText(`${cant} can’t go`, { exact: true })).toBeVisible();
 }
+
+// The Arrange sheet (M8 ticket 25), from the toolbar: one row per section of the page, in order.
+export async function openArrange(page: Page) {
+  await page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Arrange" }).click();
+  const sheet = page.getByRole("dialog", { name: "Arrange" });
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
+// One change in the Arrange sheet, saved, and the sheet closed again.
+export async function arrange(page: Page, change: (sheet: Locator) => Promise<void>) {
+  const sheet = await openArrange(page);
+  await savedAfter(page, () => change(sheet));
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+}
+
+// The sections of an event page, or of the editor's invitation, in the order they are drawn: each
+// one's `data-section`, a section drawn as several pieces in a row counted once.
+export async function sectionOrder(page: Page): Promise<string[]> {
+  const keys = await page.locator("[data-section]").evaluateAll((elements) => elements.map((element) => element.getAttribute("data-section") ?? ""));
+  return keys.filter((key, index) => key !== keys[index - 1]);
+}

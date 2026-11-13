@@ -35,6 +35,7 @@ export async function lockVoting(eventId: string, tx: Db): Promise<VotingEvent |
     .select({
       state: event.state,
       startsAt: event.startsAt,
+      albumEnabled: event.albumEnabled,
       albumVisibility: event.albumVisibility,
       albumVoting: event.albumVoting,
       albumVotingClosesAt: event.albumVotingClosesAt,

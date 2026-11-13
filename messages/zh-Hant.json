@@ -1104,6 +1104,11 @@
       "now": "進行中",
       "ended": "已結束",
       "inZone": "時間均依 {zone} 時區顯示。"
+    },
+    "sections": {
+      "countdown": "倒數",
+      "note": "備註",
+      "links": "連結"
     }
   },
   "Design": {
@@ -1213,7 +1218,8 @@
       "poster": "海報",
       "title": "標題",
       "theme": "主題",
-      "effect": "特效"
+      "effect": "特效",
+      "arrange": "排列"
     },
     "tabs": {
       "gallery": "圖庫",
@@ -1366,6 +1372,47 @@
       "pickConfirm": "選定",
       "pickKeep": "再等等",
       "editCandidates": "修改日期"
+    },
+    "arrange": {
+      "intro": "為頁面上的各個區塊排好順序，關掉賓客用不著的區塊。",
+      "list": "區塊",
+      "fixed": "海報、標題、主辦人和回覆按鈕的位置不變。",
+      "alwaysOn": "一律顯示",
+      "moveUp": "將{name}上移",
+      "moveDown": "將{name}下移",
+      "position": "{name}，第 {position} 個，共 {count} 個",
+      "kinds": {
+        "letter": "專屬信件",
+        "details": "詳情",
+        "schedule": "日程",
+        "guests": "誰會來",
+        "announcements": "公告",
+        "comments": "留言",
+        "album": "相簿",
+        "countdown": "倒數",
+        "note": "備註",
+        "links": "連結"
+      },
+      "preview": {
+        "letter": "你親自邀請的每位賓客會在這裡讀到你寫給他們的信。",
+        "schedule": "你的日程，依每位賓客所在的時區顯示。",
+        "guests": "誰會來，只給你允許查看的賓客看。",
+        "announcements": "你在「公告」中發出的內容會顯示在這裡。",
+        "comments": "已回覆的賓客在這裡交流。",
+        "album": "活動的照片和影片，從活動開始時起。"
+      },
+      "errors": {
+        "unreadable": "無法讀取這項變更，請再試一次。",
+        "unknownSection": "這個區塊已不在頁面上。請重新載入以查看目前的頁面。",
+        "notOffered": "這個區塊不能這樣變更。",
+        "tooManySections": "一個頁面最多可有 10 個備註和連結區塊。",
+        "headingTooLong": "標題請不超過 40 個字。",
+        "noteTooLong": "備註請不超過 2,000 個字。",
+        "tooManyLinks": "一個連結區塊最多可放 6 個連結。",
+        "labelTooLong": "連結名稱請不超過 40 個字。",
+        "urlTooLong": "這個網址太長了。",
+        "urlInvalid": "連結須以 http:// 或 https:// 開頭。"
+      }
     }
   },
   "Guests": {

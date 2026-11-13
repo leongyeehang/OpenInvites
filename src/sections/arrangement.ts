@@ -123,8 +123,8 @@ const isBuiltIn = (kind: SectionKind): kind is BuiltInKind => kind !== "note" &&
 const isWritten = (section: Section) => section.kind === "note" || section.kind === "links";
 
 // A built-in section as no host has changed it: on where its switch is the arrangement's (the
-// countdown excepted, which is off until the host wants it), in its first style, and collapsed
-// only for the Thread's comments, which today's Thread folds away.
+// countdown excepted, which is off until the host wants it), in its first style, which the
+// registry names, and collapsed only for the Thread's comments, which today's Thread folds away.
 function builtIn(kind: BuiltInKind, layout: Layout): Section {
   const common: Common = { collapsed: kind === "comments" && layout === "thread", heading: null };
   switch (kind) {
@@ -134,11 +134,9 @@ function builtIn(kind: BuiltInKind, layout: Layout): Section {
     case "countdown":
       return { kind, on: false, ...common };
     case "guests":
-      return { kind, style: "names", ...common };
     case "comments":
-      return { kind, style: "list", ...common };
     case "album":
-      return { kind, style: "grid", ...common };
+      return { kind, style: REGISTRY[kind].styles[0], ...common } as Section;
     default:
       return { kind, ...common };
   }
@@ -165,6 +163,9 @@ function readLinkUrl(value: unknown): { ok: true; url: string } | { ok: false; e
   try {
     const url = new URL(candidate);
     if ((url.protocol !== "http:" && url.protocol !== "https:") || !url.hostname) return { ok: false, error: "urlInvalid" };
+    // A name or password before the host ("https://bank.example@evil.example/") reads as one site
+    // to a person and goes to another.
+    if (url.username !== "" || url.password !== "") return { ok: false, error: "urlInvalid" };
     return url.href.length > SECTION_LIMITS.url ? { ok: false, error: "urlTooLong" } : { ok: true, url: url.href };
   } catch {
     return { ok: false, error: "urlInvalid" };
@@ -193,15 +194,17 @@ const storedHeading = (value: unknown): string | null => {
   return heading === "" ? null : heading;
 };
 
+// The first six links it would follow; nothing after them is read.
 function storedLinks(value: unknown): SectionLink[] {
   const links: SectionLink[] = [];
   for (const each of Array.isArray(value) ? value : []) {
+    if (links.length === SECTION_LIMITS.links) break;
     const raw = asRecord(each);
     const url = safeLinkUrl(raw?.url);
     if (!raw || !url) continue;
     links.push({ label: clipped(tidy(typeof raw.label === "string" ? raw.label : ""), SECTION_LIMITS.label), url });
   }
-  return links.slice(0, SECTION_LIMITS.links);
+  return links;
 }
 
 // One stored entry read back, or undefined to drop it. What the registry does not offer a kind is
@@ -237,10 +240,14 @@ export function parseArrangement(stored: unknown): Arrangement {
 
   const sections: Section[] = [];
   const seen = new Set<string>();
+  let written = 0;
   for (const entry of entries) {
+    // Once ten written sections are kept, another is dropped by its kind alone, its content unread.
+    const kind = asRecord(entry)?.kind;
+    if ((kind === "note" || kind === "links") && written >= SECTION_LIMITS.custom) continue;
     const section = storedSection(entry);
     if (!section || seen.has(sectionKey(section))) continue;
-    if (isWritten(section) && sections.filter(isWritten).length >= SECTION_LIMITS.custom) continue;
+    if (isWritten(section)) written += 1;
     seen.add(sectionKey(section));
     sections.push(section);
   }
@@ -258,12 +265,13 @@ type Parsed = { ok: true; change: ArrangementChange } | { ok: false; error: Arra
 
 const unreadable: Parsed = { ok: false, error: "unreadable" };
 
-// A heading as the host typed it: spaces tidied, none when nothing is left, refused over 40.
-function postedHeading(value: unknown): { ok: true; heading: string | null } | { ok: false } {
+// A heading as the host typed it: spaces tidied, none when nothing is left, refused over 40, and
+// unreadable when it is not words at all.
+function postedHeading(value: unknown): { ok: true; heading: string | null } | { ok: false; error: "unreadable" | "headingTooLong" } {
   if (value === null || value === undefined) return { ok: true, heading: null };
-  if (typeof value !== "string") return { ok: false };
+  if (typeof value !== "string") return { ok: false, error: "unreadable" };
   const heading = tidy(value);
-  if (characters(heading) > SECTION_LIMITS.heading) return { ok: false };
+  if (characters(heading) > SECTION_LIMITS.heading) return { ok: false, error: "headingTooLong" };
   return { ok: true, heading: heading === "" ? null : heading };
 }
 
@@ -302,7 +310,7 @@ export function parseArrangementChange(posted: unknown, makeId: () => string): P
     case "rename": {
       if (!key) return unreadable;
       const heading = postedHeading(raw.heading);
-      return heading.ok ? { ok: true, change: { type: "rename", key, heading: heading.heading } } : { ok: false, error: "headingTooLong" };
+      return heading.ok ? { ok: true, change: { type: "rename", key, heading: heading.heading } } : heading;
     }
     case "audience":
       return raw.visibility === "always" || raw.visibility === "afterReply" ? { ok: true, change: { type: "audience", visibility: raw.visibility } } : unreadable;
@@ -310,7 +318,7 @@ export function parseArrangementChange(posted: unknown, makeId: () => string): P
     case "addLinks": {
       if (raw.after !== undefined && raw.after !== null && typeof raw.after !== "string") return unreadable;
       const heading = postedHeading(raw.heading);
-      if (!heading.ok) return { ok: false, error: "headingTooLong" };
+      if (!heading.ok) return heading;
       return { ok: true, change: { type: raw.type, id: makeId(), after: typeof raw.after === "string" ? raw.after : null, heading: heading.heading } };
     }
     case "editNote": {

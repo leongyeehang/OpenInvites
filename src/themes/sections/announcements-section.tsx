@@ -1,6 +1,8 @@
 import { getLocale } from "next-intl/server";
 import type { Announcement } from "@/announcements/repository";
 import { formatMoment } from "@/events/time";
+import type { SectionDrawing } from "@/sections";
+import type { SectionPage } from "./drawings";
 
 // One of the host's announcements as the event page shows it.
 export type ShownAnnouncement = Pick<Announcement, "id" | "body" | "createdAt">;
@@ -23,3 +25,10 @@ export async function AnnouncementsSection({ announcements, timeZone }: { announ
     </ol>
   );
 }
+
+// The announcements as a section (M8 ticket 25): there once the host has sent one.
+export const announcementsDrawing: SectionDrawing<{ announcements: ShownAnnouncement[]; timeZone: string }, SectionPage> = {
+  load: async ({ announcements, event }) => (announcements.length > 0 ? { announcements, timeZone: event.timeZone } : undefined),
+  shown: ({ announcements }) => ({ count: announcements.length }),
+  body: (data) => <AnnouncementsSection {...data} />,
+};

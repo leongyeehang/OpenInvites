@@ -4,9 +4,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireHost } from "@/auth/session";
 import { PageFooter } from "@/components/page-footer";
+import { ArrangeSheet } from "@/editor/arrange-sheet";
 import { DesignSheets } from "@/editor/design-sheets";
 import { EditorDetails, type EditableDetails } from "@/editor/details";
 import { EditableTitle } from "@/editor/editable-title";
+import { previewSections } from "@/editor/section-previews";
 import { SettingsSheet, EditorToolbar } from "@/editor/settings-sheet";
 import { EditorProvider } from "@/editor/status";
 import { EditorTopBar } from "@/editor/top-bar";
@@ -36,6 +38,7 @@ import { formatOption } from "@/polls/format";
 import { leading, pollState, tally } from "@/polls/poll";
 import { loadPoll } from "@/polls/repository";
 import { listSchedule } from "@/schedule/repository";
+import { parseArrangement, type Switches } from "@/sections";
 import { VotingSettings } from "@/voting";
 
 // The poll as the When sheet shows it: each candidate as typed and as read, with its votes by name.
@@ -69,7 +72,8 @@ export async function generateMetadata({ params }: PageProps<"/events/[id]">): P
 // it, in the Poster layout, with the title typed on the poster and When, Where and About filled in
 // from small sheets, each saved as it is made. Above it, close, the save status, Preview, Publish
 // or Share, and More, where the 0.4 manage page's links went; below it, the toolbar, with Poster,
-// Title, Theme, Effect and Settings. Its co-hosts get the same, less what is the owner's alone (hosts/role.ts).
+// Title, Theme, Effect, Arrange and Settings. Its co-hosts get the same, less what is the owner's
+// alone (hosts/role.ts).
 export default async function EditorPage({ params, searchParams }: PageProps<"/events/[id]">) {
   const [host, { id }, { from, sheet }, locale, t] = await Promise.all([requireHost(), params, searchParams, getLocale(), getTranslations("Events.manage")]);
   const event = await findHostEvent(host.id, id);
@@ -128,11 +132,18 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
   // host has not answered it (M7 ticket 09): Empty the album, or Keep it. None while the album is
   // switched off.
   const reminded = features.album && event.albumRemindedAt !== null && event.albumReminderDays !== null && album.photos + album.videos > 0;
+  // The page's sections as the host has arranged them (M8 ticket 25), and the switches Arrange
+  // turns with them, which are the event's columns.
+  const arrangement = parseArrangement(event.sections);
+  const sectionSwitches: Switches = {
+    lettersEnabled: event.lettersEnabled,
+    commentsEnabled: event.commentsEnabled,
+    guestListVisibility: event.guestListVisibility,
+    albumEnabled: event.albumEnabled,
+  };
 
-  // The Poster layout brings the comments' reactions and the album with it, which read
-  // EventPage.comments and EventPage.album, though the editor shows neither.
   return (
-    <ClientMessages namespaces={["Editor", "Design", "Posters", "Events.form", "Events.manage", "Events.album", "EventPage.comments", "EventPage.album", "Voting"]}>
+    <ClientMessages namespaces={["Editor", "Design", "Posters", "Events.form", "Events.manage", "Events.album", "Voting"]}>
       {/* The invite list's link to the settings opens the editor with them open (M6 ticket 08). */}
       <EditorProvider sheet={sheet === "settings" ? "settings" : null}>
         <ThemedPage
@@ -169,6 +180,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
                 sheets={
                   <>
                     <DesignSheets eventId={event.id} title={event.title} maxUploadBytes={limits.maxPhotoMb * MEGABYTE} />
+                    <ArrangeSheet eventId={event.id} layout={event.theme.layout} arrangement={arrangement} switches={sectionSwitches} offered={{ album: features.album }} />
                     <SettingsSheet
                       eventId={event.id}
                       settings={event}
@@ -191,13 +203,12 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
           <PosterLayout
             event={{ ...event, hostName: hosts[0]?.name ?? "" }}
             hosts={hosts.map((each) => each.name)}
-            announcements={[]}
+            sections={await previewSections(arrangement, event.theme.layout, sectionSwitches, <EditorDetails details={details} timeZones={timeZones()} />)}
             edit={{
               title: {
                 full: <EditableTitle eventId={event.id} title={event.title} compact={false} />,
                 compact: <EditableTitle eventId={event.id} title={event.title} compact />,
               },
-              details: <EditorDetails details={details} timeZones={timeZones()} />,
               foot: (
                 <p className="px-2 pt-2 text-sm text-theme-text-muted">
                   {editor("guestsAlsoSee")}{" "}

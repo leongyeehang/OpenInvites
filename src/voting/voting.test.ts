@@ -65,6 +65,7 @@ const MINUTE = 60_000;
 const event = (changes: Partial<VotingEvent> = {}): VotingEvent => ({
   state: "published",
   startsAt: START,
+  albumEnabled: true,
   albumVisibility: "replied",
   albumVoting: "open",
   albumVotingClosesAt: null,
@@ -123,6 +124,13 @@ describe("albumOpenTo", () => {
     expect(albumOpenTo(event({ state: "draft" }), host, NOW)).toBe(false);
     expect(albumOpenTo(event({ state: "cancelled" }), host, NOW)).toBe(false);
     expect(albumOpenTo(event({ startsAt: null }), host, NOW)).toBe(false);
+  });
+
+  // M8 ticket 25: the host's own switch for the event's album; nobody votes in an album switched off.
+  it("is shut to everyone once the host has switched the album off", () => {
+    expect(albumOpenTo(event({ albumEnabled: false }), host, NOW)).toBe(false);
+    expect(albumOpenTo(event({ albumEnabled: false }), guest("going"), NOW)).toBe(false);
+    expect(mayVote(event({ albumEnabled: false }), "open", host, NOW)).toBe(false);
   });
 
   it("opens to an approved guest under replied, whatever they said", () => {

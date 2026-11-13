@@ -52,6 +52,19 @@ describe("the module boundaries", () => {
     expect(await imports("../../features/repository", "src/app/(host)/events/x.tsx")).toBe(false);
   }, 60_000);
 
+  // The relative rule is written per depth, to depth 11; the alias needs no depth, so a file
+  // deeper than that is still held to it (ticket 25), inside a module and out.
+  it("refuses a module's files by the alias at any depth", async () => {
+    const internal = 'import { x } from "SOURCE";\nexport { x };\n';
+    const deep = `src/app/${"a/".repeat(14)}x.ts`;
+    expect(await restricted(internal.replace("SOURCE", "@/voting/rules"), deep)).toBe(true);
+    expect(await restricted(internal.replace("SOURCE", "@/sections/arrangement"), deep)).toBe(true);
+    expect(await restricted(internal.replace("SOURCE", "@/voting"), deep)).toBe(false);
+    const deepInVoting = `src/voting/${"a/".repeat(14)}x.ts`;
+    expect(await restricted(internal.replace("SOURCE", "@/features/features"), deepInVoting)).toBe(true);
+    expect(await restricted(internal.replace("SOURCE", "@/voting/rules"), deepInVoting)).toBe(false);
+  }, 60_000);
+
   it("keeps the album's outside dependents at the number ADR-0008 records", () => {
     const sources = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

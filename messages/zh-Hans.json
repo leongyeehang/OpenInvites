@@ -1104,6 +1104,11 @@
       "now": "进行中",
       "ended": "已结束",
       "inZone": "时间均按 {zone} 时区显示。"
+    },
+    "sections": {
+      "countdown": "倒计时",
+      "note": "备注",
+      "links": "链接"
     }
   },
   "Design": {
@@ -1213,7 +1218,8 @@
       "poster": "海报",
       "title": "标题",
       "theme": "主题",
-      "effect": "特效"
+      "effect": "特效",
+      "arrange": "排列"
     },
     "tabs": {
       "gallery": "图库",
@@ -1366,6 +1372,47 @@
       "pickConfirm": "选定",
       "pickKeep": "再等等",
       "editCandidates": "修改日期"
+    },
+    "arrange": {
+      "intro": "为页面上的各个板块排好顺序，关掉宾客用不着的板块。",
+      "list": "板块",
+      "fixed": "海报、标题、主办人和回复按钮的位置不变。",
+      "alwaysOn": "始终显示",
+      "moveUp": "将{name}上移",
+      "moveDown": "将{name}下移",
+      "position": "{name}，第 {position} 个，共 {count} 个",
+      "kinds": {
+        "letter": "专属信件",
+        "details": "详情",
+        "schedule": "日程",
+        "guests": "谁会来",
+        "announcements": "公告",
+        "comments": "留言",
+        "album": "相册",
+        "countdown": "倒计时",
+        "note": "备注",
+        "links": "链接"
+      },
+      "preview": {
+        "letter": "你亲自邀请的每位宾客会在这里读到你写给他们的信。",
+        "schedule": "你的日程，按每位宾客所在的时区显示。",
+        "guests": "谁会来，只给你允许查看的宾客看。",
+        "announcements": "你在“公告”中发出的内容会显示在这里。",
+        "comments": "已回复的宾客在这里交流。",
+        "album": "活动的照片和视频，从活动开始时起。"
+      },
+      "errors": {
+        "unreadable": "无法读取这项更改，请重试。",
+        "unknownSection": "这个板块已不在页面上。请重新加载以查看当前页面。",
+        "notOffered": "这个板块不能这样更改。",
+        "tooManySections": "一个页面最多可有 10 个备注和链接板块。",
+        "headingTooLong": "标题请不超过 40 个字。",
+        "noteTooLong": "备注请不超过 2,000 个字。",
+        "tooManyLinks": "一个链接板块最多可放 6 个链接。",
+        "labelTooLong": "链接名称请不超过 40 个字。",
+        "urlTooLong": "这个网址太长了。",
+        "urlInvalid": "链接须以 http:// 或 https:// 开头。"
+      }
     }
   },
   "Guests": {

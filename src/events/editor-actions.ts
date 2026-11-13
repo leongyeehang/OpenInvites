@@ -1,7 +1,7 @@
 "use server";
 
 import { getLocale, getTranslations } from "next-intl/server";
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { requireHost } from "@/auth/session";
@@ -18,12 +18,13 @@ import { parseQuestions } from "@/questions/question";
 import { saveQuestions } from "@/questions/repository";
 import { EMPTY_RICH_TEXT, parseRichText, richTextToPlain } from "@/rich-text/rich-text";
 import { DEFAULT_GUEST_LIST_VISIBILITY } from "@/rsvps/visibility";
+import { parseArrangementChange, sectionId } from "@/sections";
 import { saveSchedule } from "@/schedule/repository";
 import { parseSchedule, parseScheduleRefresh } from "@/schedule/schedule";
 import { keptSettings, parseEventSettings, parseWhen, type SettingsFields, type WhenFields } from "./form";
 import { eventsOwnedAtLimit } from "./limit";
 import { missingToPublish } from "./publish";
-import { createEvent, findHostEvent, publishEvent, updateEvent, type Event, type EventChanges } from "./repository";
+import { changeEventArrangement, createEvent, findHostEvent, publishEvent, updateEvent, type Event, type EventChanges } from "./repository";
 import { eventPaths, eventUrl } from "./slug";
 import { formatWhen, isTimeZone } from "./time";
 
@@ -277,6 +278,30 @@ export async function saveSettingsAction(id: string, formData: FormData): Promis
   const saved = await save(found.host.id, found.event, settings.settings);
   if (saved.saved) await saveQuestions(found.event.id, questions.questions);
   return saved;
+}
+
+// One change from the Arrange sheet (M8 ticket 25): a section moved, switched, or (later tickets)
+// renamed, collapsed, styled, added or written. Every co-host may, as every co-host designs the
+// page. Nothing posted is trusted beyond what parseArrangementChange reads, and the change is
+// applied under the event's row lock to the page as it stands (events/repository.ts). A Note or
+// Links added answers with its key, made here, so the sheet can open it. The page is then drawn
+// again, so the editor's invitation and every guest's page follow.
+export type ArrangeResult = { saved: true; key?: string } | { saved: false; error: string };
+
+export async function arrangeAction(eventId: string, posted: unknown): Promise<ArrangeResult> {
+  const host = await requireHost();
+  const event = await findHostEvent(host.id, eventId);
+  if (!event || !can(event.role, "design")) return { saved: false, error: (await getTranslations("Events"))("errors.notFound") };
+  const t = await getTranslations("Editor.arrange");
+  const parsed = parseArrangementChange(posted, sectionId);
+  if (!parsed.ok) return { saved: false, error: t(`errors.${parsed.error}`) };
+  const changed = await changeEventArrangement(host.id, event.id, parsed.change);
+  if (!changed) return { saved: false, error: (await getTranslations("Events"))("errors.notFound") };
+  if (!changed.ok) return { saved: false, error: t(`errors.${changed.error}`) };
+  for (const path of eventPaths(event)) revalidatePath(path);
+  refresh();
+  const { change } = parsed;
+  return change.type === "addNote" || change.type === "addLinks" ? { saved: true, key: `${change.type === "addNote" ? "note" : "links"}:${change.id}` } : { saved: true };
 }
 
 // Publishing needs a title and a date (M4 spec, "The editor"): which is missing is said, and the

@@ -352,6 +352,14 @@ export const event = pgTable(
     albumVotingClosesAt: timestamp("album_voting_closes_at", { withTimezone: true }),
     albumVoters: albumVoters("album_voters").notNull().default("album"),
     albumUploaderNames: albumUploaderNames("album_uploader_names").notNull().default("afterVoting"),
+    // How the host arranged the event page's sections (M8 ticket 25; src/sections): their order and,
+    // per section, what the Arrange sheet changed. Read only through parseArrangement, which takes
+    // the empty default, and anything it cannot read, as never arranged: each layout's own order.
+    sections: jsonb("sections").$type<unknown>().notNull().default(sql`'{}'::jsonb`),
+    // Whether the event has an album, the host's switch in Arrange (M8 spec, "One switch, one
+    // truth"): off, guests see none and its actions refuse (album/album.ts, albumState), and
+    // nothing in it is deleted. On for every event, as the album was before.
+    albumEnabled: boolean("album_enabled").notNull().default(true),
     ...timestamps,
   },
   (table) => [

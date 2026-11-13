@@ -10,7 +10,8 @@ import { albumViewer } from "./viewer";
 // What every album route checks before anything else (M7 ticket 06; the one post route did the
 // same): only the instance's own pages may send one, since the cookies would otherwise ride along
 // from anywhere; the event exists and its album is open, which it never is while the operator has
-// the Album switched off (M8 ticket 01); on an invite-only event the device is in
+// the Album switched off (M8 ticket 01) or the host has the event's (M8 ticket 25), so a page
+// opened before either is refused; on an invite-only event the device is in
 // (invites/gate.ts); and the viewer may add. Routes answer a refusal with its JSON, so the page
 // can say why.
 

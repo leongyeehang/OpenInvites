@@ -5,18 +5,14 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { listAnnouncements } from "@/announcements/repository";
 import { getSession } from "@/auth/session";
-import { mayDelete } from "@/comments/comment";
-import { reactionsByComment, type Reactor } from "@/comments/reactions";
-import { countComments, listComments, listReactions } from "@/comments/repository";
-import { commentsView, takesComments, type CommentsShown, type CommentViewer } from "@/comments/visibility";
 import { PageFooter } from "@/components/page-footer";
 import { TooFast } from "@/components/too-fast";
 import { acceptsRsvps } from "@/events/access";
 import { hostsOf, isHostOf } from "@/events/hosts";
-import { findEventBySlug, findRetiredSlug, recordView, type EventWithHost } from "@/events/repository";
+import { findEventBySlug, findRetiredSlug, recordView } from "@/events/repository";
 import { countsAsView } from "@/events/views";
 import { eventPath, eventUrl, isSlug } from "@/events/slug";
-import { formatDay, isDated, type EventTime } from "@/events/time";
+import { isDated, type EventTime } from "@/events/time";
 import { deviceInvite, findInviteOnThisDevice } from "@/invites/device";
 import { gateFor } from "@/invites/gate";
 import { letterFor } from "@/invites/invite";
@@ -46,7 +42,6 @@ import { RetiredLink } from "./retired-link";
 import { DraftNotice } from "./draft-notice";
 import { LockedPage } from "./locked-page";
 import { NotReady } from "./not-ready";
-import { GuestList } from "./guest-list";
 import { RsvpFlow } from "./rsvp-flow";
 import { ThreadComposer } from "./thread-composer";
 import type { RsvpFlowProps } from "./use-rsvp-flow";
@@ -57,55 +52,14 @@ import { mayVote, pollState, tally } from "@/polls/poll";
 import { loadPoll } from "@/polls/repository";
 import { findVoterOnThisDevice } from "@/polls/voter";
 import { PollBar, PollFlow, PollWhen, type PollCandidate } from "./poll-flow";
-import { albumState, mayApprovePhoto, mayCaption, mayDeletePhoto, seesProcessing, type AlbumViewer } from "@/album/album";
-import { albumOrderFor, formatTaken, keepDetailsOf, keptNotice, shownDetails } from "@/album/details";
-import { ffmpegStatus } from "@/album/ffmpeg";
-import { motionUrl, photoUrl } from "@/album/files";
-import { copyName, effectiveVideoCaps, shownFailure, videoSizes, videoUrl } from "@/album/video";
-import { countPhotos, listPhotos } from "@/album/repository";
-import { albumViewer } from "@/album/viewer";
-import { albumView, photoScope } from "@/album/visibility";
-import { featureOn, siteFeatures } from "@/features";
-import { albumVotingFor } from "@/voting";
-import { instanceLimits } from "@/instance/repository";
-import type { ShownPhoto } from "@/themes/sections/album";
+import type { CommentsShown, CommentViewer } from "@/comments/visibility";
+import { parseArrangement } from "@/sections";
 import { AlbumSection, type AlbumShown } from "@/themes/sections/album-section";
-import { scheduleInstants } from "@/schedule/clock";
-import { listSchedule } from "@/schedule/repository";
+import { loadSections, readySections, type SectionPage } from "@/themes/sections/drawings";
 import { ScheduleSection, type ScheduleShown } from "@/themes/sections/schedule-section";
 
 // Event pages are never indexed (ADR-0004). The header carries the same signal (next.config.ts).
 const noindex: Metadata["robots"] = { index: false, follow: false };
-
-// What the comments section shows this viewer, or nothing when the host has turned comments off:
-// to the hosts and to a guest whose reply the host has approved, the comments themselves; to anyone
-// else only how many there are, so not one of them is sent to that browser, and to a guest whose
-// reply is not approved, why.
-// Each comment carries its reactions, and whether this viewer gave each: `reactor` is who they react
-// as, if they may (M4 ticket 04). Whoever may post may react.
-async function commentsFor(event: EventWithHost, viewer: CommentViewer, reactor: Reactor | undefined): Promise<CommentsShown | undefined> {
-  if (!event.commentsEnabled) return undefined;
-  if (commentsView(viewer) === "locked") {
-    return { view: "locked", count: await countComments(event.id), approval: viewer.kind === "guest" ? viewer.approval : undefined };
-  }
-  const [comments, reactions] = await Promise.all([listComments(event.id), listReactions(event.id)]);
-  const grouped = reactionsByComment(reactions, reactor);
-  const canPost = takesComments(event, viewer);
-  return {
-    view: "open",
-    canPost,
-    canReact: canPost,
-    comments: comments.map(({ id, name, hostId, body, createdAt, rsvpId }) => ({
-      reactions: grouped.get(id) ?? [],
-      id,
-      name,
-      byHost: hostId !== null,
-      body,
-      createdAt,
-      deletable: mayDelete(viewer, { rsvpId }),
-    })),
-  };
-}
 
 // One of this page's own server actions (a guest's RSVP, a comment) that changed
 // something (revalidated, refreshed, or set a cookie) is answered with the page it was posted to,
@@ -129,128 +83,6 @@ async function pollCandidates(eventId: string, locale: string): Promise<PollCand
   const { options, voters, votes } = await loadPoll(eventId);
   const tallies = tally(options, votes, voters);
   return options.map((option, index) => ({ id: option.id, label: formatOption(option, locale), yes: tallies[index].yes.length }));
-}
-
-// What the album shows this viewer (album/album.ts, album/visibility.ts), or nothing where there is
-// no album, which every event is while the operator has the Album switched off (M8 ticket 01).
-// Locked, it says how many photos it shows, which counts approved photos only; otherwise the
-// photos this viewer may see, each marked when it waits for approval, and approvable by a host.
-// An open item's technical line and the details the host keeps (M8 ticket 07) are written here, a
-// detail whose switch is off left out, so no page carries it; each item's caption, and whether this
-// viewer may change it (M8 ticket 09). Who added each item is left out where this viewer may not
-// see it (M8 ticket 11): the album vote decides, per item, before anything is sent, and the
-// camera that took it goes with the name (ticket 12). While there is a vote, the open album carries
-// what the vote draws in it (ticket 12).
-async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale: string, now: Date): Promise<AlbumShown | undefined> {
-  const switches = await siteFeatures();
-  const state = albumState(event, now, featureOn(switches, "album"));
-  if (state === "none" || !event.startsAt) return undefined;
-  if (state === "notYet") return { view: "notYet", opensOn: formatDay(event.startsAt, event.timeZone, locale) };
-  const view = albumView(event, viewer);
-  if (view === "locked" || viewer.kind === "visitor") {
-    const awaitingApproval = viewer.kind === "guest" && viewer.approval === "pending";
-    return { view: "locked", count: await countPhotos(event.id, "approved"), visibility: event.albumVisibility, awaitingApproval };
-  }
-  const listed = await listPhotos(event.id, photoScope(view, viewer), albumOrderFor(event));
-  // Each with its thumbnail and who added it, for the vote's Winners strip (M8 ticket 16), which
-  // passes a name on only where this viewer is shown it.
-  const items = listed.map(({ id, kind, status, rsvpId, hostId, name }) => ({
-    id,
-    kind,
-    status,
-    rsvpId,
-    hostId,
-    name,
-    thumb: kind === "photo" ? photoUrl(id, "thumb") : status === "processing" || status === "failed" ? null : videoUrl(id, "thumb"),
-  }));
-  const voting = await albumVotingFor({ event, viewer, view, items, now });
-  const photos: ShownPhoto[] = listed.map((each) => {
-    const named = voting.showsName(each);
-    // Its caption (M8 ticket 09) is the uploader's words, not a detail of the file: no switch of
-    // the host's hides it.
-    const base = {
-      id: each.id,
-      name: named ? each.name : null,
-      deletable: mayDeletePhoto(viewer, each),
-      pending: each.status === "pending",
-      approvable: each.status === "pending" && mayApprovePhoto(viewer),
-      caption: each.caption,
-      captionEditable: mayCaption(viewer, each),
-    };
-    const taken = event.albumKeepTakenAt ? each.takenAt : null;
-    const details = { details: shownDetails(each, event, named), takenAt: taken && formatTaken(taken, event.timeZone, locale), takenAtIso: taken && taken.toISOString() };
-    // A live photo carries its motion (M8 ticket 08), and one whose motion is being made says so
-    // to its uploader and the hosts alone, whose pages refresh until it is made (media part review).
-    if (each.kind === "photo") {
-      const live = { motion: each.live ? motionUrl(each.id) : null, motionPending: each.motionPending && seesProcessing(viewer, each) };
-      return { ...base, ...details, ...live, kind: "photo", thumb: photoUrl(each.id, "thumb"), large: photoUrl(each.id, "large"), width: each.width ?? 0, height: each.height ?? 0 };
-    }
-    // A video (M7 ticket 07): processing or failed shows as such, a failure by the reason the tile
-    // names and never the processor's text; ready shows its files.
-    if (each.status === "processing" || each.status === "failed") return { ...base, kind: "video", state: each.status, failure: shownFailure(each.failure) };
-    // Every size it plays at, the original first, each with its file (M8 ticket 06), and whether
-    // the original is HDR, for its badge.
-    const sizes = videoSizes(each).map((size) => ({ ...size, src: videoUrl(each.id, size.name === "original" ? "original" : copyName(size.name)) }));
-    return {
-      ...base,
-      ...details,
-      kind: "video",
-      state: "ready",
-      thumb: videoUrl(each.id, "thumb"),
-      poster: videoUrl(each.id, "poster"),
-      original: videoUrl(each.id, "original"),
-      sizes,
-      hdr: each.details.hdr !== undefined,
-      codec: each.codec ?? "",
-      durationMs: each.durationMs ?? 0,
-      width: each.width ?? 0,
-      height: each.height ?? 0,
-    };
-  });
-  // Largest photo on Site settings (M7 ticket 01), for the album's hint and its refusals, and the
-  // video caps the browser checks a clip against before sending it (ticket 07), which take no
-  // video while the operator has Videos switched off (M8 ticket 01).
-  const limits = await instanceLimits();
-  const maxMegabytes = limits.maxPhotoMb;
-  const video = effectiveVideoCaps(event, {
-    maxVideoMb: limits.maxVideoMb,
-    maxVideoMinutes: limits.maxVideoMinutes,
-    videosAvailable: ffmpegStatus().available,
-    videosOn: featureOn(switches, "videos"),
-  });
-  // What the host keeps of each item added, said where it is added (media part review).
-  const keeps = keptNotice(keepDetailsOf(event));
-  // A guest who may add but not see is shown their own, and why: the album is for those Going, or
-  // the hosts keep it.
-  if (view === "own") return { view: "own", why: event.albumVisibility === "going" ? "going" : "hosts", photos, maxMegabytes, video, keeps };
-  return { view: "open", photos, maxMegabytes, video, keeps, ...(voting.slot && { slot: voting.slot }) };
-}
-
-// The schedule (M6 ticket 02), or nothing when the host has listed none, the event has no date
-// to follow, or it is cancelled: the notice that it is off takes the day's plan's place, and a
-// cancelled day is not worth re-reading every minute. A client component is sent all it is
-// handed, so only plain fields: the items, each with its time written in the event's zone, the day
-// headings, how guests' pages keep fresh, the event's time alone, and the time the page is drawn
-// at, which the browser's first drawing must agree with. The times and days are written here,
-// once, so the browser shows the server's words.
-async function scheduleFor(event: EventWithHost, now: Date, locale: string): Promise<ScheduleShown | undefined> {
-  if (!isDated(event) || event.state === "cancelled") return undefined;
-  const items = await listSchedule(event.id);
-  if (items.length === 0) return undefined;
-  const { startsAt, endsAt, allDay, timeZone } = event;
-  const instants = scheduleInstants(items, timeZone);
-  const clock = new Intl.DateTimeFormat(locale, { timeZone, hour: "numeric", minute: "2-digit" });
-  const days = new Intl.DateTimeFormat(locale, { timeZone, weekday: "long", day: "numeric", month: "long" });
-  return {
-    items: items.map((item, index) => {
-      const { start, end } = instants[index];
-      return { ...item, when: end ? clock.formatRange(start, end) : clock.format(start) };
-    }),
-    headings: Object.fromEntries(items.map((item, index) => [item.day, days.format(instants[index].start)])),
-    refresh: event.scheduleRefresh,
-    time: { startsAt, endsAt, allDay, timeZone },
-    now,
-  };
 }
 
 // The vote's sheet around the page, only while guests vote on the date.
@@ -358,21 +190,17 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
       ? { kind: "guest", rsvpId: mine.rsvp.id, approval: mine.rsvp.approval }
       : { kind: "visitor" };
   // What this event asks, what this guest has already said, so coming back prefills, the host's
-  // own picture if there is one, what the host has announced, which every viewer reads, and the
-  // comments as this viewer may see them.
+  // own picture if there is one, and what the host has announced, which every viewer reads.
   // Whether the event is full is said beside the reply controls whatever the guest list shows, so
-  // the headcount is counted apart from it; and a guest on the waitlist is told their place. The
-  // host's schedule, which every viewer reads.
-  const [questions, answers, upload, announcements, hosts, comments, headcount, waitlistPosition, schedule] = await Promise.all([
+  // the headcount is counted apart from it; and a guest on the waitlist is told their place.
+  const [questions, answers, upload, announcements, hosts, headcount, waitlistPosition] = await Promise.all([
     listQuestions(event.id),
     mine ? findAnswers(mine.rsvp.id) : Promise.resolve({}),
     findEventUpload(event.id),
     listAnnouncements(event.id),
     hostsOf(event.id),
-    commentsFor(event, viewer, isHost ? { hostId: (await getSession())!.user.id } : mine ? { rsvpId: mine.rsvp.id } : undefined),
     event.capacity === null ? Promise.resolve(0) : countHeadcount(event.id),
     mine ? findWaitlistPosition(mine.rsvp) : Promise.resolve(null),
-    scheduleFor(event, now, locale),
   ]);
 
   // Guests are sent the host's picture only while it is the poster: one the host put aside stays
@@ -390,11 +218,6 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   const polling = pollState(event) === "open";
   const voter = await findVoterOnThisDevice(event.id);
   const candidates = polling ? await pollCandidates(event.id, locale) : [];
-  // The photo album (M4 ticket 11): from the start, to the hosts and to the guests the host chose
-  // (M6 ticket 03).
-  const album = await albumFor(event, await albumViewer(event.id), locale, now);
-  const albumNode = album && <AlbumSection album={album} slug={event.slug} />;
-  const scheduleNode = schedule && <ScheduleSection {...schedule} />;
   // The same rule the file itself follows: there is nothing to put in a calendar until an event
   // is published, and nothing worth keeping there once it is called off.
   const calendar =
@@ -431,6 +254,43 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   };
   // A guest whose reply is not approved is told why the list is locked for them.
   const guestList = view === "hidden" ? undefined : { view, guests, counts: countRsvps(guests.map(asTally)), approval: mine?.rsvp.approval };
+
+  // The page's sections (M8 ticket 25; themes/sections/drawings.ts), each loaded by its own drawing
+  // from what the page has worked out: the schedule (M6 ticket 02), the comments as this viewer may
+  // see them, with who they react as, and the photo album (M4 ticket 11), from the start, to the
+  // hosts and to the guests the host chose (M6 ticket 03).
+  const sectionPage: SectionPage = {
+    event,
+    layout,
+    locale,
+    now,
+    isHost,
+    letter,
+    guestList,
+    announcements,
+    commentViewer: viewer,
+    reactor: isHost ? { hostId: (await getSession())!.user.id } : mine ? { rsvpId: mine.rsvp.id } : undefined,
+    commentForm: <CommentForm slug={event.slug} />,
+    details: {
+      underWhen: time && (
+        <>
+          <ViewerTime event={time} locale={locale} />
+          <Countdown event={time} />
+        </>
+      ),
+      underWhere: event.location ? <MapLink location={event.location} /> : undefined,
+      calendar,
+      poll: polling ? <PollWhen candidates={candidates} /> : undefined,
+    },
+  };
+  const loaded = await loadSections(sectionPage);
+  // The Broadsheet and the Thread keep their own order until they too draw the host's (M8 ticket
+  // 27), from the same loaded sections.
+  const comments = (loaded.comments as { comments: CommentsShown } | undefined)?.comments;
+  const album = loaded.album as { album: AlbumShown; slug: string } | undefined;
+  const schedule = loaded.schedule as ScheduleShown | undefined;
+  const albumNode = album && <AlbumSection {...album} />;
+  const scheduleNode = schedule && <ScheduleSection {...schedule} />;
 
   // The client components below read their messages in the browser.
   return (
@@ -491,26 +351,10 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             <PosterLayout
               event={event}
               hosts={hosts.map((host) => host.name)}
-              announcements={announcements}
-              comments={comments}
-              commentForm={<CommentForm slug={event.slug} />}
-              album={albumNode}
-              schedule={scheduleNode}
-              letter={letter}
               notice={notice}
               rsvp={polling ? <PollBar /> : <RsvpFlow {...flow} />}
-              poll={polling ? { label: (await getTranslations("EventPage"))("poll.toBeDecided"), when: <PollWhen candidates={candidates} /> } : undefined}
-              underWhen={
-                time && (
-                  <>
-                    <ViewerTime event={time} locale={locale} />
-                    <Countdown event={time} />
-                  </>
-                )
-              }
-              underWhere={event.location ? <MapLink location={event.location} /> : undefined}
-              calendar={calendar}
-              guestList={guestList && <GuestList {...guestList} />}
+              poll={polling ? { label: (await getTranslations("EventPage"))("poll.toBeDecided") } : undefined}
+              sections={await readySections(sectionPage, loaded, parseArrangement(event.sections))}
             />
           </PollFrame>
         )}

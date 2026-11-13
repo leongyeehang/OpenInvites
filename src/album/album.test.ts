@@ -1,26 +1,42 @@
 import { describe, expect, it } from "vitest";
 import { MIN_FREE_BYTES } from "@/lib/sizes";
-import { albumRoom, albumState, MAX_CAPTION, mayAddPhotos, mayApprovePhoto, mayCaption, mayDeletePhoto, parseCaption, seesProcessing, shownIndex, storageRoom } from "./album";
+import { albumRoom, albumState, albumSwitchedOn, MAX_CAPTION, mayAddPhotos, mayApprovePhoto, mayCaption, mayDeletePhoto, parseCaption, seesProcessing, shownIndex, storageRoom } from "./album";
 
 const START = new Date("2027-05-08T11:00:00Z");
 
 describe("albumState", () => {
   it("opens at the event's start, and not before", () => {
-    expect(albumState({ state: "published", startsAt: START }, new Date("2027-05-08T10:59:59Z"), true)).toBe("notYet");
-    expect(albumState({ state: "published", startsAt: START }, START, true)).toBe("open");
-    expect(albumState({ state: "published", startsAt: START }, new Date("2028-01-01T00:00:00Z"), true)).toBe("open");
+    expect(albumState({ state: "published", startsAt: START, albumEnabled: true }, new Date("2027-05-08T10:59:59Z"), true)).toBe("notYet");
+    expect(albumState({ state: "published", startsAt: START, albumEnabled: true }, START, true)).toBe("open");
+    expect(albumState({ state: "published", startsAt: START, albumEnabled: true }, new Date("2028-01-01T00:00:00Z"), true)).toBe("open");
   });
 
   it("is none for a draft, a cancelled event, or one with no date yet", () => {
-    expect(albumState({ state: "draft", startsAt: START }, START, true)).toBe("none");
-    expect(albumState({ state: "cancelled", startsAt: START }, START, true)).toBe("none");
-    expect(albumState({ state: "published", startsAt: null }, START, true)).toBe("none");
+    expect(albumState({ state: "draft", startsAt: START, albumEnabled: true }, START, true)).toBe("none");
+    expect(albumState({ state: "cancelled", startsAt: START, albumEnabled: true }, START, true)).toBe("none");
+    expect(albumState({ state: "published", startsAt: null, albumEnabled: true }, START, true)).toBe("none");
   });
 
   // M8 ticket 01: the operator's Album switch.
   it("is none for every event while the operator has the album switched off", () => {
-    expect(albumState({ state: "published", startsAt: START }, START, false)).toBe("none");
-    expect(albumState({ state: "published", startsAt: START }, new Date("2027-05-08T10:59:59Z"), false)).toBe("none");
+    expect(albumState({ state: "published", startsAt: START, albumEnabled: true }, START, false)).toBe("none");
+    expect(albumState({ state: "published", startsAt: START, albumEnabled: true }, new Date("2027-05-08T10:59:59Z"), false)).toBe("none");
+  });
+
+  // M8 ticket 25: the host's own switch for the event's album, beside the operator's.
+  it("is none for an event whose host has switched its album off, with the site's album on", () => {
+    expect(albumState({ state: "published", startsAt: START, albumEnabled: false }, START, true)).toBe("none");
+    expect(albumState({ state: "published", startsAt: START, albumEnabled: false }, new Date("2028-01-01T00:00:00Z"), true)).toBe("none");
+  });
+});
+
+// M8 ticket 25: the one rule every album action asks before anything else.
+describe("albumSwitchedOn", () => {
+  it("is on only while both the operator and the event's host have the album on", () => {
+    expect(albumSwitchedOn({ albumEnabled: true }, true)).toBe(true);
+    expect(albumSwitchedOn({ albumEnabled: false }, true)).toBe(false);
+    expect(albumSwitchedOn({ albumEnabled: true }, false)).toBe(false);
+    expect(albumSwitchedOn({ albumEnabled: false }, false)).toBe(false);
   });
 });
 

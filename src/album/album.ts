@@ -22,12 +22,19 @@ export const ALBUM_REMINDER_CHOICES = [30, 90, 180, 365] as const;
 
 export type AlbumState = "none" | "notYet" | "open";
 
+// Whether the event has an album at all: the operator has the Album switched on for the site (M8
+// ticket 01), which the caller reads, and the host has it on for the event (M8 ticket 25, Arrange).
+// Off either way, guests see no album and every album action refuses; nothing in it is deleted.
+export function albumSwitchedOn(event: { albumEnabled: boolean }, albumOn: boolean): boolean {
+  return albumOn && event.albumEnabled;
+}
+
 // The album opens at the event's start, which for an all-day event is its day's first moment in
 // the event's zone, as it is kept (events/time.ts, toInstant), and stays open until retention
-// deletes the event. A draft, a cancelled event, or one with no date yet has no album; nor has any
-// event while the operator has the Album switched off (M8 ticket 01), which the caller reads.
-export function albumState(event: { state: EventState; startsAt: Date | null }, now: Date, albumOn: boolean): AlbumState {
-  if (!albumOn || event.state !== "published" || !event.startsAt) return "none";
+// deletes the event. A draft, a cancelled event, or one with no date yet has no album; nor has an
+// event whose album is switched off, by the operator or by its host (albumSwitchedOn).
+export function albumState(event: { state: EventState; startsAt: Date | null; albumEnabled: boolean }, now: Date, albumOn: boolean): AlbumState {
+  if (!albumSwitchedOn(event, albumOn) || event.state !== "published" || !event.startsAt) return "none";
   return now >= event.startsAt ? "open" : "notYet";
 }
 

@@ -53,6 +53,7 @@ for (const size of [
     for (const [opener, name] of [
       [toolbar.getByRole("button", { name: "Poster" }), "Poster"],
       [toolbar.getByRole("button", { name: "Theme" }), "Theme"],
+      [toolbar.getByRole("button", { name: "Arrange" }), "Arrange"],
       [toolbar.getByRole("button", { name: "Settings" }), "Settings"],
       [page.getByRole("button", { name: /^When:/ }), "When"],
       [page.getByRole("button", { name: "More" }), "More"],

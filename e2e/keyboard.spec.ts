@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { closeDesign, createDraft, createPublished, type DraftFields, openDesign, openSettings, savedAfter, saveStatus, toEditor } from "./events";
+import { closeDesign, createDraft, createPublished, type DraftFields, openArrange, openDesign, openSettings, savedAfter, saveStatus, toEditor } from "./events";
 import { expectRingStandsOut } from "./contrast";
 import { hostWithShelves, SHELVES } from "./dashboard";
 import { expectVisibleFocus, tabTo } from "./focus";
@@ -470,6 +470,11 @@ for (const colorScheme of ["light", "dark"] as const) {
     await closeDesign(page, "Poster");
     drawer = await openDesign(page, "Theme");
     await expectRingStandsOut(page, drawer.getByRole("group", { name: "Layout" }).getByRole("radio").first());
+    await closeDesign(page, "Theme");
+    // Arrange (M8 ticket 25): a row's Move button and its switch.
+    const arrangeSheet = await openArrange(page);
+    await expectRingStandsOut(page, arrangeSheet.getByRole("button", { name: "Move Album up" }));
+    await expectRingStandsOut(page, arrangeSheet.getByRole("switch", { name: "Schedule" }));
   });
 }
 

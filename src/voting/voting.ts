@@ -34,6 +34,7 @@ export const MAX_AWARD_NAME = 40;
 export type VotingEvent = {
   state: "draft" | "published" | "cancelled";
   startsAt: Date | null;
+  albumEnabled: boolean;
   albumVisibility: "replied" | "going" | "hosts";
   albumVoting: VotingState;
   albumVotingClosesAt: Date | null;
@@ -112,10 +113,10 @@ export function draftAudience(event: Pick<VotingEvent, "albumVoters" | "albumVis
   return event.albumVoters === "going" || event.albumVisibility === "going" ? ["going"] : undefined;
 }
 
-// Whether the album is open, from the event's start while it is published (album/album.ts,
-// albumState, with the Album switched on, which the callers check).
-function albumOpen(event: Pick<VotingEvent, "state" | "startsAt">, now: Date): boolean {
-  return event.state === "published" && event.startsAt !== null && now >= event.startsAt;
+// Whether the album is open, from the event's start while it is published and its host has it on
+// (album/album.ts, albumState, with the Album switched on for the site, which the callers check).
+function albumOpen(event: Pick<VotingEvent, "state" | "startsAt" | "albumEnabled">, now: Date): boolean {
+  return event.albumEnabled && event.state === "published" && event.startsAt !== null && now >= event.startsAt;
 }
 
 // What the album shows this viewer (album/visibility.ts, albumView), restated so that the module

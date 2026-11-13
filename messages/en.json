@@ -1104,6 +1104,11 @@
       "now": "Now",
       "ended": "Ended",
       "inZone": "Times are in {zone}."
+    },
+    "sections": {
+      "countdown": "Countdown",
+      "note": "Note",
+      "links": "Links"
     }
   },
   "Design": {
@@ -1213,7 +1218,8 @@
       "poster": "Poster",
       "title": "Title",
       "theme": "Theme",
-      "effect": "Effect"
+      "effect": "Effect",
+      "arrange": "Arrange"
     },
     "tabs": {
       "gallery": "Gallery",
@@ -1366,6 +1372,47 @@
       "pickConfirm": "Pick it",
       "pickKeep": "Not yet",
       "editCandidates": "Change the dates"
+    },
+    "arrange": {
+      "intro": "Put your page’s sections in order and switch off what guests don’t need.",
+      "list": "Sections",
+      "fixed": "The poster, the title, who’s hosting and the reply buttons stay where they are.",
+      "alwaysOn": "Always shown",
+      "moveUp": "Move {name} up",
+      "moveDown": "Move {name} down",
+      "position": "{name}, {position} of {count}",
+      "kinds": {
+        "letter": "Personal letter",
+        "details": "Details",
+        "schedule": "Schedule",
+        "guests": "Who’s coming",
+        "announcements": "Announcements",
+        "comments": "Comments",
+        "album": "Album",
+        "countdown": "Countdown",
+        "note": "Note",
+        "links": "Links"
+      },
+      "preview": {
+        "letter": "Each guest you invite personally reads your letter to them here.",
+        "schedule": "Your schedule, following each guest’s clock.",
+        "guests": "Who’s coming, for the guests you let see it.",
+        "announcements": "What you send from Announcements appears here.",
+        "comments": "Guests who have replied talk here.",
+        "album": "Photos and videos from the event, from its start."
+      },
+      "errors": {
+        "unreadable": "That change couldn’t be read. Try again.",
+        "unknownSection": "That section is no longer on the page. Reload to see it as it is.",
+        "notOffered": "That section can’t be changed that way.",
+        "tooManySections": "A page holds up to 10 notes and links.",
+        "headingTooLong": "Keep headings to 40 characters.",
+        "noteTooLong": "Keep a note to 2,000 characters.",
+        "tooManyLinks": "A Links section holds up to 6 links.",
+        "labelTooLong": "Keep a link’s label to 40 characters.",
+        "urlTooLong": "That address is too long.",
+        "urlInvalid": "Links start with http:// or https://."
+      }
     }
   },
   "Guests": {
