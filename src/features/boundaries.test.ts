@@ -31,6 +31,27 @@ describe("the module boundaries", () => {
     expect(await restricted('import { x } from "@/features/features";\nexport { x };\n', "src/voting/x.ts")).toBe(true);
   }, 60_000);
 
+  // A relative path reaches a module only from the depth that climbs back to src/ (ticket 24): a
+  // file directly in src/ reaches src/sections by "./sections/…", and a file one folder further
+  // down than src/themes/ reaches the themes' own src/themes/sections by "../sections/…".
+  it("judges a relative path by where the importing file is", async () => {
+    const internal = 'import { x } from "SOURCE";\nexport { x };\n';
+    const imports = (source: string, file: string) => restricted(internal.replace("SOURCE", source), file);
+    expect(await imports("@/sections/arrangement", "src/app/x.ts")).toBe(true);
+    expect(await imports("@/sections", "src/app/x.ts")).toBe(false);
+    expect(await imports("./sections/arrangement", "src/instrumentation.ts")).toBe(true);
+    expect(await imports("./voting/rules", "src/proxy.ts")).toBe(true);
+    expect(await imports("./sections", "src/proxy.ts")).toBe(false);
+    expect(await imports("../sections/album", "src/themes/effects/x.tsx")).toBe(false);
+    expect(await imports("../sections/album-section", "src/themes/sections/x.tsx")).toBe(false);
+    expect(await imports("./sections/album-section", "src/themes/poster-layout.tsx")).toBe(false);
+    // From src/themes/ itself, "../sections/" is src/sections, the module.
+    expect(await imports("../sections/arrangement", "src/themes/poster-layout.tsx")).toBe(true);
+    expect(await imports("../../sections/arrangement", "src/themes/effects/x.tsx")).toBe(true);
+    expect(await imports("../../../features/repository", "src/app/(host)/events/x.tsx")).toBe(true);
+    expect(await imports("../../features/repository", "src/app/(host)/events/x.tsx")).toBe(false);
+  }, 60_000);
+
   it("keeps the album's outside dependents at the number ADR-0008 records", () => {
     const sources = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

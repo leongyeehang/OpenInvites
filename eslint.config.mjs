@@ -6,21 +6,36 @@ import nextTs from "eslint-config-next/typescript";
 // module imports its other files, by the alias or by a relative path; inside, its own files are
 // free, and another module's are not.
 const MODULES = ["features", "voting", "sections"];
-const reachingInto = (name) => ({ regex: `^(@/|(\\.\\./)+)${name}/`, message: `Import ${name} through "@/${name}" (ADR-0008).` });
 
-// One block for the app outside the modules, and one per module with the other two: a later
-// block's options for the same rule replace an earlier one's, so the module blocks cannot add to it.
-const moduleBoundaries = [
+// A relative path reaches src/<name>/ only by climbing exactly as many folders as the importing
+// file sits below src/: "./" from src/ itself, "../" from one folder down, and so on. So the rule
+// is written once per depth (M8 ticket 24): a pattern that took any number of "../" would also
+// catch an unrelated folder of the same name, such as src/themes/sections/ from
+// src/themes/effects/. The deepest file in src/ is 7 folders down today; DEPTHS leaves room.
+const DEPTHS = 12;
+const climbing = (depth) => (depth === 0 ? "\\./" : `(\\.\\./){${depth}}`);
+const reachingInto = (depth) => (name) => ({
+  regex: `^(@/|${climbing(depth)})${name}/`,
+  message: `Import ${name} through "@/${name}" (ADR-0008).`,
+});
+const filesAt = (folder, depth) => [`${folder}/${"*/".repeat(depth)}*.{ts,tsx}`];
+
+// Per depth, one block for the app outside the modules, and one per module with the other two: a
+// later block's options for the same rule replace an earlier one's, so the module blocks cannot
+// add to it.
+const moduleBoundaries = Array.from({ length: DEPTHS }, (_, depth) => [
   {
-    files: ["src/**/*.{ts,tsx}"],
+    files: filesAt("src", depth),
     ignores: MODULES.map((name) => `src/${name}/**`),
-    rules: { "no-restricted-imports": ["error", { patterns: MODULES.map(reachingInto) }] },
+    rules: { "no-restricted-imports": ["error", { patterns: MODULES.map(reachingInto(depth)) }] },
   },
-  ...MODULES.map((module) => ({
-    files: [`src/${module}/**/*.{ts,tsx}`],
-    rules: { "no-restricted-imports": ["error", { patterns: MODULES.filter((name) => name !== module).map(reachingInto) }] },
-  })),
-];
+  ...(depth === 0
+    ? []
+    : MODULES.map((module) => ({
+        files: filesAt(`src/${module}`, depth - 1),
+        rules: { "no-restricted-imports": ["error", { patterns: MODULES.filter((name) => name !== module).map(reachingInto(depth)) }] },
+      }))),
+]).flat();
 
 const eslintConfig = defineConfig([
   ...nextVitals,
