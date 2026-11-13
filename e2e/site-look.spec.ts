@@ -3,6 +3,7 @@ import { expectRingStandsOut, worstContrast } from "./contrast";
 import { closeDesign, createDraft, createPublished, editSettings, openDesign, openMore, pickDesign, publishInEditor } from "./events";
 import { hostWithShelves } from "./dashboard";
 import { latestMailTo, mailCountTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
+import { tabTo } from "./focus";
 import { backdropPainted, expectSiteLook, SITE_POSTERS } from "./site-look";
 import { clientAddress, expect, test, type Browser, type Locator, type Page } from "./test";
 
@@ -16,6 +17,7 @@ import { clientAddress, expect, test, type Browser, type Locator, type Page } fr
 // frame, a glass header over a still poster: a host's own pages wear their next event's poster, or
 // the host area's, and Site settings and reports the site area's. Ticket 21: the pages where a host
 // manages one event wear that event's own Theme, held still, with the heading in its title face.
+// Ticket 22: a poster a host picks in Account's Backdrop card dresses their own pages instead.
 // Nothing on these pages moves, so motion is welcome here and still nothing runs. Each test runs at
 // 390 pixels in the mobile project and at desktop width in the other.
 
@@ -561,5 +563,164 @@ test("a poster changed in the editor shows on the guests page at once", async ({
   await (await openMore(page)).getByRole("link", { name: "Guest list", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Guest list" })).toBeVisible();
   await expectSiteLook(page, CAKE);
+  await host.context.close();
+});
+
+// Ticket 22: a host picks, in Account's Backdrop card, the poster behind their own pages: the
+// dashboard, Account and New event. An event's own pages keep that event's poster, and Automatic
+// is their next event's poster, else the site's for hosts.
+const AURORA = "aurora-copy";
+
+function backdropCard(page: Page) {
+  return page.locator("#backdrop");
+}
+
+// The Backdrop card's form sent, and its answer arrived.
+async function sendBackdrop(page: Page) {
+  const answered = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/account");
+  await backdropCard(page).getByRole("button", { name: "Save", exact: true }).click();
+  await answered;
+}
+
+// Chooses Automatic or a poster by the words on it, and saves.
+async function saveBackdrop(page: Page, choice: string) {
+  const card = backdropCard(page);
+  await card.getByText(choice, { exact: true }).click();
+  await expect(card.getByRole("radio", { name: choice, exact: true })).toBeChecked();
+  await sendBackdrop(page);
+  await expect(card.getByText("Backdrop saved.")).toBeVisible({ timeout: 15_000 });
+}
+
+test("a host's pick dresses their own pages and not an event's", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "site-look-pick", { title: "Ada’s disco", start: "2027-03-06T19:00" });
+  await pickDesign(host.page, "Poster", "Poster", "Disco", "Gallery");
+  const editor = host.page.url();
+  const page = host.page;
+
+  await page.goto("/account");
+  await expectSiteLook(page, DISCO);
+  await expect(backdropCard(page).getByRole("radio", { name: "Automatic", exact: true })).toBeChecked();
+  await saveBackdrop(page, "Aurora");
+  // The frame round the page wears it in the same response.
+  await expectSiteLook(page, AURORA);
+  await expectOwnPagesWear(page, AURORA);
+
+  // The event's own pages keep the event's poster.
+  await page.goto(`${editor}/guests`);
+  await expect(page.getByRole("heading", { level: 1, name: "Guest list" })).toBeVisible();
+  await expectSiteLook(page, DISCO);
+
+  await page.goto("/account");
+  await expect(backdropCard(page).getByRole("radio", { name: "Aurora", exact: true })).toBeChecked();
+
+  // A value that is no gallery poster is refused and nothing is stored: the form says which poster
+  // and nothing else, so a tampered one is all a host could send. It is tampered with once chosen,
+  // as drawing the choice puts the poster's own value back.
+  await backdropCard(page).getByText("Cake", { exact: true }).click();
+  await backdropCard(page)
+    .getByRole("radio", { name: "Cake", exact: true })
+    .evaluate((input) => ((input as HTMLInputElement).value = "disco-ball"));
+  await sendBackdrop(page);
+  await expect(backdropCard(page).getByText("Choose Automatic or one of the gallery’s posters.")).toBeVisible({ timeout: 15_000 });
+  await page.goto("/account");
+  await expect(backdropCard(page).getByRole("radio", { name: "Aurora", exact: true })).toBeChecked();
+  await expectSiteLook(page, AURORA);
+
+  // Another host's pages are their own: no events and no pick, the site's poster for hosts.
+  const other = await (await browser.newContext({ reducedMotion: "no-preference", extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
+  await signUpVerified(other, request, "site-look-pick-other");
+  await other.goto("/dashboard");
+  await expect(other.getByRole("heading", { level: 1, name: "Your events" })).toBeVisible();
+  await expectSiteLook(other, SITE_POSTERS.host);
+  await other.goto("/account");
+  await expect(backdropCard(other).getByRole("radio", { name: "Automatic", exact: true })).toBeChecked();
+  await other.context().close();
+  await host.context.close();
+});
+
+test("Automatic brings back the next event's poster", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "site-look-automatic", { title: "Ada’s disco", start: "2027-03-06T19:00" });
+  await pickDesign(host.page, "Poster", "Poster", "Disco", "Gallery");
+  const page = host.page;
+  await page.goto("/account");
+  await saveBackdrop(page, "Aurora");
+  await expectSiteLook(page, AURORA);
+
+  await saveBackdrop(page, "Automatic");
+  await expectSiteLook(page, DISCO);
+  await page.goto("/dashboard");
+  await expect(page.getByRole("heading", { level: 1, name: "Your events" })).toBeVisible();
+  await expectSiteLook(page, DISCO);
+  await host.context.close();
+});
+
+// The card's words on the glass under light text (Disco) and dark text (Cake), its rings, and a
+// walk through it by keyboard: a test each, as each makes a host of its own.
+for (const [poster, copy, tone] of [
+  ["Disco", DISCO, "light"],
+  ["Cake", CAKE, "dark"],
+] as const) {
+  test(`the Backdrop card by keyboard, and its words: ${poster}, under ${tone} text`, async ({ browser, request }) => {
+    test.slow();
+    const host = await createPublished(browser, request, `site-look-backdrop-${tone}`, { title: `Ada’s ${poster.toLowerCase()} party`, start: "2027-03-06T19:00" });
+    await pickDesign(host.page, "Poster", "Poster", poster, "Gallery");
+    const page = host.page;
+    await page.goto("/account");
+    await expectSiteLook(page, copy);
+    await expect(page.locator(".site-page")).toHaveAttribute("data-tone", tone);
+    const card = backdropCard(page);
+    const automatic = card.getByRole("radio", { name: "Automatic", exact: true });
+    const aurora = card.getByRole("radio", { name: "Aurora", exact: true });
+    const save = card.getByRole("button", { name: "Save", exact: true });
+
+    await backdropPainted(page);
+    const read = async (text: Locator, what: string) => expect(await worstContrast(text), `${what}, on ${poster}`).toBeGreaterThanOrEqual(4.5);
+    await read(card.getByText("Automatic", { exact: true }), "Automatic");
+    await read(card.getByText("Your next event’s poster, or one of this site’s."), "Automatic's hint");
+    await read(card.getByText("Aurora", { exact: true }), "a poster's name");
+    for (const control of [automatic, aurora, save]) await expectRingStandsOut(page, control);
+
+    // The chosen one is ringed and ticked, not told by its colour alone.
+    await card.getByText("Aurora", { exact: true }).click();
+    const tick = (name: string) => card.locator("label").filter({ has: page.getByRole("radio", { name, exact: true }) }).locator("svg");
+    await expect(tick("Aurora")).toBeVisible();
+    await expect(tick("Rings")).toBeHidden();
+    await read(card.getByText("Aurora", { exact: true }), "the chosen poster's name");
+
+    // By keyboard, from the top of the page: Tab reaches Automatic, the arrow keys move along the
+    // posters to Aurora, Tab reaches Save and Enter saves. Opened afresh, not reloaded, so that the
+    // browser does not put back the choice left unsaved.
+    await page.goto("/account");
+    await expect(automatic).toBeChecked();
+    await tabTo(page, automatic);
+    for (let presses = 0; presses < 20 && !(await aurora.evaluate((input) => input === document.activeElement)); presses++) await page.keyboard.press("ArrowRight");
+    await expect(aurora).toBeFocused();
+    await expect(aurora).toBeChecked();
+    await page.keyboard.press("Tab");
+    await expect(save).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(card.getByText("Backdrop saved.")).toBeVisible({ timeout: 15_000 });
+    await expectSiteLook(page, AURORA);
+    await host.context.close();
+  });
+}
+
+// Ticket 21's review: the invite-only notice on an event's Invites page, its title in the attention
+// ink on strong glass, reads on an event whose Theme takes light text.
+test("the invite-only notice reads under light text", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "site-look-invite-only", { title: "Ada’s disco", start: "2027-03-06T19:00" });
+  await pickDesign(host.page, "Poster", "Poster", "Disco", "Gallery");
+  const editor = host.page.url();
+  await editSettings(host.page, (sheet) => sheet.getByRole("group", { name: "Guests", exact: true }).getByLabel(INVITE_ONLY, { exact: true }).check());
+  const page = host.page;
+  await page.goto(`${editor}/invites`);
+  await expectSiteLook(page, DISCO);
+  await expect(page.locator(".site-page")).toHaveAttribute("data-tone", "light");
+  await backdropPainted(page);
+  const notice = page.getByText("Invite-only is on: only these people can open the invitation.");
+  expect(await worstContrast(notice), "the invite-only notice").toBeGreaterThanOrEqual(4.5);
   await host.context.close();
 });

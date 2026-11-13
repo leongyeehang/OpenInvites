@@ -1,4 +1,4 @@
-import type { GalleryPosterId } from "../themes/posters";
+import { findGalleryPoster, type GalleryPosterId } from "../themes/posters";
 import type { ThemeUpload } from "../themes/resolve";
 import type { Theme } from "../themes/theme";
 import { DEFAULT_HOME_PAGE, homeTheme, posterPool } from "./home";
@@ -54,4 +54,18 @@ export function eventLook(theme: Theme, upload: ThemeUpload | null): SiteLook {
 export function hostLookOf({ pick, glow, pool }: { pick: GalleryPosterId | null; glow: SiteLook | null; pool: readonly GalleryPosterId[] }): SiteLook {
   if (pick !== null) return { theme: siteTheme(pick), upload: null };
   return glow ?? areaLook(pool, "host");
+}
+
+// What the Backdrop card in Account posts (M8 ticket 22): Automatic, or the id of one gallery
+// poster, exactly. Anything else is refused, so that nothing outside the gallery is stored.
+export function parseBackdropChoice(value: string): { ok: true; poster: GalleryPosterId | null } | { ok: false } {
+  if (value === "auto") return { ok: true, poster: null };
+  const poster = findGalleryPoster(value);
+  return poster ? { ok: true, poster: poster.id } : { ok: false };
+}
+
+// A host's stored pick as it is read: a poster that has since left the gallery reads as Automatic,
+// as an event whose gallery poster is gone falls back (resolveTheme).
+export function storedPick(value: string | null): GalleryPosterId | null {
+  return value === null ? null : (findGalleryPoster(value)?.id ?? null);
 }

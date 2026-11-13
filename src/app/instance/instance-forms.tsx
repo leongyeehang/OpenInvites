@@ -13,7 +13,8 @@ import { createHostInvitationAction, queueMissingSizesAction, setFeaturesAction,
 import { DEFAULT_HOME_PAGE, DEFAULT_INSTANCE_NAME, HOME_POSTER_MODES, type HomePage } from "@/instance/home";
 import { DEFAULT_LIMITS, LIMIT_MAX, LIMIT_MIN, PHOTO_MB, REMINDER_DAYS, STORAGE_GB, VIDEO_MB, VIDEO_MINUTES, type Limits } from "@/instance/limits";
 import { REGISTRATION_MODES, type RegistrationMode } from "@/instance/registration";
-import { GALLERY_POSTERS, OCCASIONS, type GalleryPosterId } from "@/themes/posters";
+import { PosterChoices } from "@/themes/poster-choices";
+import type { GalleryPosterId } from "@/themes/posters";
 import { DEFAULT_RETENTION_DAYS, RETENTION_MAX_DAYS, RETENTION_MIN_DAYS } from "@/retention/plan";
 
 // The name, the welcome line and, under More options, the posters and who runs the site. The fields
@@ -110,7 +111,7 @@ export function HomePageForm({ home }: { home: HomePage }) {
                 </Field>
               ))}
               {posters !== "all" && (
-                <PosterChoices mode={posters} ids={ids} onToggle={toggle} onPick={(id) => setIds([id])} />
+                <PosterChoices mode={posters} ids={ids} onToggle={toggle} onPick={(id) => setIds([id])} name="posterIds" idPrefix="home" />
               )}
               {error("posters") && <FieldError>{error("posters")}</FieldError>}
             </FieldSet>
@@ -131,57 +132,6 @@ export function HomePageForm({ home }: { home: HomePage }) {
         </Button>
       </FieldGroup>
     </form>
-  );
-}
-
-// The gallery as thumbnails, grouped by occasion as the editor's Poster sheet groups it: checkboxes
-// to pick several, radios to pick the one.
-function PosterChoices({
-  mode,
-  ids,
-  onToggle,
-  onPick,
-}: {
-  mode: "picked" | "one";
-  ids: GalleryPosterId[];
-  onToggle: (id: GalleryPosterId, on: boolean) => void;
-  onPick: (id: GalleryPosterId) => void;
-}) {
-  const names = useTranslations("Posters");
-  return (
-    <div className="flex flex-col gap-4">
-      {OCCASIONS.map((occasion) => (
-        <section key={occasion} aria-labelledby={`home-occasion-${occasion}`} className="flex flex-col gap-2">
-          <h3 id={`home-occasion-${occasion}`} className="text-xs font-medium text-muted-foreground">
-            {names(`occasions.${occasion}`)}
-          </h3>
-          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-            {GALLERY_POSTERS.filter((poster) => poster.occasion === occasion).map((poster) => {
-              const checked = ids.includes(poster.id);
-              const label = names(`names.${poster.id}`);
-              return (
-                <li key={poster.id}>
-                  <label className="relative block cursor-pointer overflow-hidden rounded-lg ring-1 ring-foreground/10 has-[:checked]:ring-2 has-[:checked]:ring-primary has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring">
-                    <input
-                      type={mode === "one" ? "radio" : "checkbox"}
-                      name="posterIds"
-                      value={poster.id}
-                      checked={checked}
-                      onChange={(event) => (mode === "one" ? onPick(poster.id) : onToggle(poster.id, event.target.checked))}
-                      aria-label={label}
-                      className="peer sr-only"
-                    />
-                    {/* eslint-disable-next-line @next/next/no-img-element -- the card is already made to size */}
-                    <img src={poster.card} alt="" loading="lazy" className="aspect-[4/5] w-full object-cover" />
-                    <span className="block truncate px-1.5 py-1 text-xs">{label}</span>
-                  </label>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
-    </div>
   );
 }
 

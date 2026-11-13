@@ -128,7 +128,9 @@ for (const poster of ["Balloons", "Disco"] as const) {
 
 test("a host's own pages: the dashboard, the editor and its sheets, the share screen and the guest list", async ({ page, browser, request }) => {
   // Fifteen reads by axe, the editor's Settings sheet alone up to 35 s beside another test: before
-  // M8 ticket 21 it took 77 to 89 s of the 90 a slow test is given, at two workers.
+  // M8 ticket 21 it took 77 to 89 s of the 90 a slow test is given, at two workers. This budget is a
+  // stopgap: axe reads contrast slowly over a fixed backdrop at two workers, and M8 ticket 23 is to
+  // put it back.
   test.setTimeout(180_000);
   await signUpVerified(page, request, "a11y-host");
   await page.goto("/dashboard");
@@ -195,6 +197,19 @@ test("a host's own pages: the dashboard, the editor and its sheets, the share sc
   await expectNoSeriousViolations(page, "the guest list");
   await page.getByRole("button", { name: "Edit" }).click();
   await expectNoSeriousViolations(page, "the guest list, editing a guest");
+});
+
+// M8 ticket 22: Account with its Backdrop card, a poster chosen and saved, so that the card's chosen
+// state and the confirmation are read too.
+test("the account page with the Backdrop card, a poster chosen", async ({ page, request }) => {
+  await signUpVerified(page, request, "a11y-backdrop");
+  await page.goto("/account");
+  const card = page.locator("#backdrop");
+  await card.getByText("Aurora", { exact: true }).click();
+  await expect(card.getByRole("radio", { name: "Aurora", exact: true })).toBeChecked();
+  await card.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(card.getByText("Backdrop saved.")).toBeVisible({ timeout: 15_000 });
+  await expectNoSeriousViolations(page, "the account page, a backdrop chosen");
 });
 
 // The dashboard with an event on every shelf (dashboard, ticket 05): Next up with a reply to approve,

@@ -81,7 +81,8 @@ test("a host changes their display name and sees it in the header", async ({ pag
   await expect(page).toHaveURL(/\/account$/);
 
   await page.getByLabel("Display name").fill("Grace Hopper");
-  await page.getByRole("button", { name: "Save" }).click();
+  // Its own card's Save: the Backdrop card has one too (M8 ticket 22).
+  await page.locator('[data-slot="card"]').filter({ has: page.getByLabel("Display name") }).getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Display name saved.")).toBeVisible();
   await expect((await openAccountMenu(page)).getByText("Grace Hopper")).toBeVisible();
   await page.keyboard.press("Escape");
@@ -189,6 +190,11 @@ test("a host deletes their account after confirming with their password", async 
   const host = newHost("delete");
   await signUp(page, host);
   await page.goto("/account");
+  // A backdrop saved first (M8 ticket 22): its row goes with the account and holds nothing up.
+  const backdrop = page.locator("#backdrop");
+  await backdrop.getByText("Aurora", { exact: true }).click();
+  await backdrop.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(backdrop.getByText("Backdrop saved.")).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Delete account" }).click();
 
   const dialog = page.getByRole("alertdialog");

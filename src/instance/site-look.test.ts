@@ -3,7 +3,7 @@ import { GALLERY_POSTERS } from "@/themes/posters";
 import type { ThemeUpload } from "@/themes/resolve";
 import { DEFAULT_THEME, type Theme } from "@/themes/theme";
 import { homeTheme } from "./home";
-import { areaLook, DBLESS_POOL, eventLook, hostLookOf, siteTheme, sitePoster, type SiteArea } from "./site-look";
+import { areaLook, DBLESS_POOL, eventLook, hostLookOf, parseBackdropChoice, siteTheme, sitePoster, storedPick, type SiteArea } from "./site-look";
 
 const AREAS: SiteArea[] = ["welcome", "guest", "fallback", "site", "host"];
 
@@ -90,5 +90,27 @@ describe("the host's own pages", () => {
     const look = hostLookOf({ pick: null, glow: null, pool: DBLESS_POOL });
     expect(look).toEqual(areaLook(DBLESS_POOL, "host"));
     expect(look.theme).toEqual(homeTheme("string-lights"));
+  });
+});
+
+describe("the host's Backdrop choice", () => {
+  it("reads Automatic as no pick, and a gallery poster as itself", () => {
+    expect(parseBackdropChoice("auto")).toEqual({ ok: true, poster: null });
+    expect(parseBackdropChoice("disco")).toEqual({ ok: true, poster: "disco" });
+  });
+
+  it("refuses anything else: a poster's file name, nothing, and Automatic in another case", () => {
+    for (const value of ["disco-ball", "", "AUTO"]) expect(parseBackdropChoice(value), value).toEqual({ ok: false });
+  });
+});
+
+describe("a stored pick", () => {
+  it("is no pick when none is stored, and the poster when it is in the gallery", () => {
+    expect(storedPick(null)).toBeNull();
+    expect(storedPick("aurora")).toBe("aurora");
+  });
+
+  it("reads as Automatic when its poster has left the gallery", () => {
+    expect(storedPick("retired-poster")).toBeNull();
   });
 });

@@ -256,6 +256,15 @@
       "keep": "Keep it",
       "removed": "Passkey removed."
     },
+    "backdrop": {
+      "title": "Backdrop",
+      "description": "The picture behind your dashboard, this page and New event. Each event’s own pages wear that event’s poster.",
+      "automatic": "Automatic",
+      "automaticHint": "Your next event’s poster, or one of this site’s.",
+      "submit": "Save",
+      "saved": "Backdrop saved.",
+      "unknown": "Choose Automatic or one of the gallery’s posters."
+    },
     "delete": {
       "title": "Delete account",
       "description": "Removes your account, your events, and every guest’s data. This cannot be undone.",

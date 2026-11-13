@@ -6,8 +6,11 @@ import { notFound, redirect } from "next/navigation";
 import { getSession, requireHost } from "@/auth/session";
 import { hostNeedsVerification } from "@/auth/verification";
 import { findHostEvent } from "@/events/repository";
+import { parseBackdropChoice } from "@/instance/site-look";
+import type { FormState } from "@/lib/form-state";
 import { isUuid } from "@/lib/uuid";
 import { coHostLinkUrl, generateCoHostLinkToken, hashCoHostLinkToken, MAX_CO_HOSTS, roomForCoHost } from "./co-host-link";
+import { setHostLook } from "./look";
 import { acceptCoHostLink, countCoHosts, createCoHostLink, removeCoHost, revokeCoHostLink } from "./repository";
 import { can } from "./role";
 
@@ -66,4 +69,16 @@ export async function acceptCoHostLinkAction(token: string): Promise<{ error?: s
   if (!accepted) notFound();
   if (accepted.outcome === "accepted" || accepted.outcome === "coHost") redirect(`/events/${accepted.eventId}`);
   return { error: t(accepted.outcome, { max: MAX_CO_HOSTS }) };
+}
+
+// The Backdrop card in Account (M8 ticket 22): the signed-in host's own pick, and only theirs; the
+// form says which poster and nothing else. The whole layout is drawn again, so that the frame
+// round the page wears the new look in the same response.
+export async function setHostLookAction(_: FormState, formData: FormData): Promise<FormState> {
+  const [host, t] = await Promise.all([requireHost(), getTranslations("Account.backdrop")]);
+  const choice = parseBackdropChoice(String(formData.get("poster") ?? ""));
+  if (!choice.ok) return { error: t("unknown") };
+  await setHostLook(host.id, choice.poster);
+  revalidatePath("/", "layout");
+  return { success: t("saved") };
 }

@@ -110,6 +110,18 @@ export const passkey = pgTable(
   (table) => [index("passkey_user_id_idx").on(table.userId)],
 );
 
+// The poster a host picked in Account's Backdrop card to wear behind their own pages (M8 ticket 22,
+// hosts/look.ts): a gallery poster's id, or null for Automatic, their next event's poster or one of
+// the site's. A row of its own rather than a column on `user`, whose shape is Better Auth's; it goes
+// with the account.
+export const hostLook = pgTable("host_look", {
+  hostId: uuid("host_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  poster: text("poster"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const registrationMode = pgEnum("registration_mode", REGISTRATION_MODES);
 
 // The instance's own settings, which its operator edits on the instance settings page (spec,

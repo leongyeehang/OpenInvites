@@ -3,7 +3,7 @@ import { clientAddress, expect, test, type Browser, type Page } from "./test";
 import { createPublished, editSettings, HOUR, itemFromNow, savedAfter, setSchedule, utcFromNow } from "./events";
 import { hostWithShelves } from "./dashboard";
 import { expectHomeIn, openHome } from "./home";
-import { latestMailTo, linkIn, mailCountTo, newHost, OPERATOR, PASSWORD, signIn } from "./hosts";
+import { latestMailTo, linkIn, mailCountTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { replyBar } from "./reply";
 
 // Ticket 20: the core guest flow (open the invitation, answer Going with a plus-one, see the
@@ -300,6 +300,17 @@ test("a host makes a personal invite link in Traditional Chinese", async ({ brow
   await dialog.getByRole("button", { name: "刪除專屬邀請" }).click();
   await expect(page.getByText("還沒有專屬邀請。")).toBeVisible({ timeout: 15_000 });
   await host.context.close();
+});
+
+// M8 ticket 22: the Backdrop card in Account, in Traditional Chinese.
+test("a host reads the Backdrop card in Traditional Chinese", async ({ page, request }) => {
+  await signUpVerified(page, request, "locale-backdrop");
+  await page.goto("/account");
+  await page.getByRole("contentinfo").getByRole("form", { name: "Language" }).getByRole("button", { name: "繁體中文" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
+  const card = page.locator("#backdrop");
+  await expect(card.getByRole("heading", { level: 2, name: "頁面底圖" })).toBeVisible();
+  await expect(card.getByRole("radio", { name: "自動", exact: true })).toBeChecked();
 });
 
 // The interface says 本站 where it said 实例 (dashboard, ticket 04): the operator's account menu

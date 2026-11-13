@@ -4,12 +4,14 @@ import { signOut } from "@/auth/actions";
 import { passkeysAvailable } from "@/auth/passkeys";
 import { listPasskeys } from "@/auth/passkey-store";
 import { requireHost } from "@/auth/session";
+import { findHostLook } from "@/hosts/look";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { baseUrl } from "@/instance/env";
 import { ClientMessages } from "@/locale/client-messages";
 import { Veil } from "@/themes/glass";
 import { ChangeEmailForm, ChangePasswordForm, DeleteAccountDialog, DisplayNameForm } from "./account-forms";
+import { BackdropForm } from "./backdrop-form";
 import { Passkeys } from "./passkeys";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -30,8 +32,9 @@ export default async function AccountPage() {
         lastUsed: lastUsedAt && day.format(lastUsedAt),
       }))
     : [];
+  const pick = await findHostLook(host.id);
   return (
-    <ClientMessages namespaces={["Account.displayName", "Account.email", "Account.password", "Account.passkeys", "Account.delete"]}>
+    <ClientMessages namespaces={["Account.displayName", "Account.email", "Account.password", "Account.passkeys", "Account.backdrop", "Posters", "Account.delete"]}>
       {/* Sign out is here as well as in the account menu, so a browser that has not run the menu's
           script (the initials are then a link to this page) can still sign out. */}
       <div className="flex items-center justify-between gap-4">
@@ -88,6 +91,18 @@ export default async function AccountPage() {
             <Passkeys passkeys={passkeys} />
           </CardContent>
         )}
+      </Card>
+      {/* The picture behind the host's own pages (M8 ticket 22). */}
+      <Card id="backdrop">
+        <CardHeader>
+          <CardTitle>
+            <h2>{t("backdrop.title")}</h2>
+          </CardTitle>
+          <CardDescription>{t("backdrop.description")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <BackdropForm pick={pick} />
+        </CardContent>
       </Card>
       <Card className="border-destructive/40">
         <CardHeader>
