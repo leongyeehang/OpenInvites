@@ -127,7 +127,9 @@ for (const poster of ["Balloons", "Disco"] as const) {
 }
 
 test("a host's own pages: the dashboard, the editor and its sheets, the share screen and the guest list", async ({ page, browser, request }) => {
-  test.slow();
+  // Fifteen reads by axe, the editor's Settings sheet alone up to 35 s beside another test: before
+  // M8 ticket 21 it took 77 to 89 s of the 90 a slow test is given, at two workers.
+  test.setTimeout(180_000);
   await signUpVerified(page, request, "a11y-host");
   await page.goto("/dashboard");
   await expectNoSeriousViolations(page, "the dashboard, empty");

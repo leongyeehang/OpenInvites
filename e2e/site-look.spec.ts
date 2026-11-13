@@ -1,5 +1,6 @@
+import sharp from "sharp";
 import { expectRingStandsOut, worstContrast } from "./contrast";
-import { createDraft, createPublished, editSettings, openMore, pickDesign } from "./events";
+import { closeDesign, createDraft, createPublished, editSettings, openDesign, openMore, pickDesign, publishInEditor } from "./events";
 import { hostWithShelves } from "./dashboard";
 import { latestMailTo, mailCountTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { backdropPainted, expectSiteLook, SITE_POSTERS } from "./site-look";
@@ -13,9 +14,10 @@ import { clientAddress, expect, test, type Browser, type Locator, type Page } fr
 // Ticket 19: the signed-out screens and the co-host link wear the welcome area's poster from the
 // site's set, with the site's name above their cards. Ticket 20: every signed-in page sits in one
 // frame, a glass header over a still poster: a host's own pages wear their next event's poster, or
-// the host area's, and Site settings and reports the site area's. Nothing on these pages moves, so
-// motion is welcome here and still nothing runs. Each test runs at 390 pixels in the mobile project
-// and at desktop width in the other.
+// the host area's, and Site settings and reports the site area's. Ticket 21: the pages where a host
+// manages one event wear that event's own Theme, held still, with the heading in its title face.
+// Nothing on these pages moves, so motion is welcome here and still nothing runs. Each test runs at
+// 390 pixels in the mobile project and at desktop width in the other.
 
 test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
@@ -406,7 +408,7 @@ for (const [poster, copy, tone] of [
     await signOut.hover();
     expect(await buttonWordsContrast(signOut), `Sign out, hovered, on ${poster}`).toBeGreaterThanOrEqual(4.5);
 
-    // An event's guest list: one frame, in one glass panel until the event's own Theme dresses it.
+    // The event's guest list, on the event's own poster: one frame, and a guest's row on glass.
     await page.goto(`${editor}/guests`);
     await expect(page.getByRole("heading", { level: 1, name: "Guest list" })).toBeVisible();
     await expectSiteLook(page, copy);
@@ -419,3 +421,145 @@ for (const [poster, copy, tone] of [
     await host.context.close();
   });
 }
+
+// The five pages where a host manages one event, each by the heading it opens with (ticket 21).
+const EVENT_PAGES = [
+  ["guests", "Guest list"],
+  ["invites", "Invites"],
+  ["share", "Share this event"],
+  ["hosts", "Hosts"],
+  ["announcements", "Announcements"],
+] as const;
+
+test("an event's pages wear its poster, still, with its title font", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "site-look-event-pages", { title: "Ada’s disco", start: "2027-03-06T19:00" });
+  // Disco's look brings sparkles, which the event page draws and these pages do not, and Syne.
+  await pickDesign(host.page, "Poster", "Poster", "Disco", "Gallery");
+  const editor = host.page.url();
+  const page = host.page;
+  for (const [path, heading] of EVENT_PAGES) {
+    await page.goto(`${editor}/${path}`);
+    const title = page.getByRole("heading", { level: 1, name: heading });
+    await expect(title).toBeVisible();
+    await expectSiteLook(page, DISCO);
+    await expect(page.getByRole("banner")).toHaveCount(1);
+    await expect(page.getByRole("main")).toHaveCount(1);
+    // Its picture, its scrim and its fade: no effect is drawn.
+    await expect(page.locator('[data-slot="backdrop"] > *'), `${path}'s backdrop`).toHaveCount(3);
+    expect(await title.evaluate((element) => getComputedStyle(element).fontFamily), `${path}'s title face`).toMatch(/Syne/);
+  }
+  await host.context.close();
+});
+
+test("the dashboard keeps the host's poster beside an event's own", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "site-look-two-events", { title: "Ada’s birthday", start: "2027-03-06T19:00" });
+  await pickDesign(host.page, "Poster", "Poster", "Cake", "Gallery");
+  await createDraft(host.page, { title: "Ada’s disco", start: "2027-05-08T21:00" });
+  await publishInEditor(host.page);
+  await pickDesign(host.page, "Poster", "Poster", "Disco", "Gallery");
+  const later = host.page.url();
+
+  await host.page.goto(`${later}/guests`);
+  await expect(host.page.getByRole("heading", { level: 1, name: "Guest list" })).toBeVisible();
+  await expectSiteLook(host.page, DISCO);
+  await host.page.goto("/dashboard");
+  await expect(host.page.getByRole("heading", { level: 1, name: "Your events" })).toBeVisible();
+  await expectSiteLook(host.page, CAKE);
+  await host.context.close();
+});
+
+test("a colour poster's blobs stand still", async ({ browser, request }) => {
+  const host = await createPublished(browser, request, "site-look-colour", { title: "Ada’s dusk", start: "2027-03-06T19:00" });
+  await pickDesign(host.page, "Poster", "Colours", "Dusk", "Colour");
+  const page = host.page;
+  await page.goto(`${page.url()}/share`);
+  await expect(page.getByRole("heading", { level: 1, name: "Share this event" })).toBeVisible();
+  await expect(page.locator(".site-page")).toHaveCount(1);
+  await expect(page.locator('[data-slot="backdrop"] [style*="linear-gradient"]')).toHaveCount(1);
+  await expect
+    .poll(() => page.evaluate(() => document.getAnimations().map((animation) => animation.constructor.name)), { message: "what moves" })
+    .toEqual([]);
+  await host.context.close();
+});
+
+// A picture of black and white bands, 60 pixels tall: the backdrop's blurred copy of it is as busy
+// as a host's picture gets.
+async function bands() {
+  const [width, height] = [1200, 1500];
+  const pixels = Buffer.alloc(width * height * 3);
+  for (let row = 0; row < height; row++) pixels.fill(Math.floor(row / 60) % 2 === 0 ? 0 : 255, row * width * 3, (row + 1) * width * 3);
+  return { name: "bands.jpg", mimeType: "image/jpeg", buffer: await sharp(pixels, { raw: { width, height, channels: 3 } }).jpeg().toBuffer() };
+}
+
+test("a guest list reads on a busy picture in both tones", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "site-look-bands", { title: "Ada’s stripes", start: "2027-03-06T19:00", plusOnes: "0" });
+  const page = host.page;
+  const editor = page.url();
+  const upload = await openDesign(page, "Poster", "Upload");
+  await upload.getByLabel("Upload your photo or poster").setInputFiles(await bands());
+  await expect(upload.getByLabel("Describe your picture")).toBeVisible({ timeout: 20_000 });
+  await closeDesign(page, "Poster");
+  await replyGoing(browser, host.link, "Priya Nair");
+
+  // The text tone is the page's darkness in the Theme sheet: light text on the Dark page.
+  for (const tone of ["light", "dark"] as const) {
+    await page.goto(editor);
+    await pickDesign(page, "Theme", "Page", tone === "light" ? "Dark" : "Light");
+    await page.goto(`${editor}/guests`);
+    const title = page.getByRole("heading", { level: 1, name: "Guest list" });
+    await expect(title).toBeVisible();
+    await expect(page.locator('[data-slot="backdrop"] [style*="/uploads/"]')).toHaveCount(1);
+    await expect(page.locator(".site-page")).toHaveAttribute("data-tone", tone);
+    await backdropPainted(page);
+    const going = page.getByRole("region", { name: /^Going/ });
+    const read = async (text: Locator, what: string) => expect(await worstContrast(text), `${what}, under ${tone} text`).toBeGreaterThanOrEqual(4.5);
+    await read(title, "the title");
+    await read(going.getByText("Priya Nair", { exact: true }), "the guest's name");
+    await read(going.getByText(/^Replied /), "the reply's time");
+    await expectRingStandsOut(page, page.getByRole("link", { name: "Back to the event" }));
+    await expectRingStandsOut(page, going.getByRole("button").first());
+  }
+  await host.context.close();
+});
+
+test("an event deleted while its guests page is open", async ({ browser, request }) => {
+  const host = await createPublished(browser, request, "site-look-deleted", { title: "Ada’s birthday", start: "2027-03-06T19:00" });
+  const editor = host.page.url();
+  const guests = await host.context.newPage();
+  await guests.goto(`${editor}/guests`);
+  await expect(guests.getByRole("heading", { level: 1, name: "Guest list" })).toBeVisible();
+
+  // In the editor's tab, the event is deleted.
+  await openMore(host.page);
+  await host.page.getByRole("button", { name: "Delete event" }).click();
+  await host.page.getByRole("button", { name: "Delete it" }).click();
+  await expect(host.page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
+
+  // The open page goes on to Invites as a link does, within the frame it is drawn in.
+  await guests.evaluate((to) => (window as unknown as { next: { router: { push: (href: string) => void } } }).next.router.push(to), `${new URL(editor).pathname}/invites`);
+  await expect(guests.getByRole("heading", { level: 1, name: "Page not found" })).toBeVisible({ timeout: 15_000 });
+  await expect(guests.locator('[data-slot="backdrop"]')).toHaveCount(1);
+  await expect(guests.getByRole("contentinfo")).toHaveCount(1);
+  await host.context.close();
+});
+
+test("a poster changed in the editor shows on the guests page at once", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "site-look-repostered", { title: "Ada’s disco", start: "2027-03-06T19:00" });
+  const page = host.page;
+  await pickDesign(page, "Poster", "Poster", "Disco", "Gallery");
+  const editor = page.url();
+  await page.goto(`${editor}/guests`);
+  await expectSiteLook(page, DISCO);
+
+  // Back in the editor, another poster, and on to Guests by the editor's own link, with no reload.
+  await page.goto(editor);
+  await pickDesign(page, "Poster", "Poster", "Cake", "Gallery");
+  await (await openMore(page)).getByRole("link", { name: "Guest list", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Guest list" })).toBeVisible();
+  await expectSiteLook(page, CAKE);
+  await host.context.close();
+});

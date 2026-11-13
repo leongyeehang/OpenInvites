@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -18,6 +19,8 @@ import { resetLinkAction } from "@/events/actions";
 import { findHostEvent } from "@/events/repository";
 import { ClientMessages } from "@/locale/client-messages";
 import { qrSvg } from "@/sharing/qr";
+import { Glass, Veil } from "@/themes/glass";
+import { ManageHeading } from "../manage-heading";
 import { CustomLinkForm } from "./custom-link-form";
 import { ShareActions } from "./share-actions";
 import { eventUrl } from "@/events/slug";
@@ -28,7 +31,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 // Everything a host needs to get the link into someone's hands: the link itself, their phone's
-// share sheet, a code to hold up at the door, and the way to start again if it leaks.
+// share sheet, a code to hold up at the door, and the way to start again if it leaks. On the
+// event's poster (layout.tsx), the heading sits on the veil and each part in a glass panel (M8
+// ticket 21).
 export default async function SharePage({ params }: PageProps<"/events/[id]/share">) {
   const [host, { id }, t] = await Promise.all([requireHost(), params, getTranslations("Events")]);
   const event = await findHostEvent(host.id, id);
@@ -37,46 +42,40 @@ export default async function SharePage({ params }: PageProps<"/events/[id]/shar
 
   return (
     <>
-      <div className="flex flex-col gap-1">
-        <Link href={`/events/${event.id}`} className="text-sm text-muted-foreground hover:underline">
+      <Veil className="flex flex-col gap-1">
+        <Link href={`/events/${event.id}`} className="w-fit text-sm text-muted-foreground hover:underline">
           {t("share.backToEvent")}
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("share.title")}</h1>
-      </div>
+        <ManageHeading font={event.theme.font}>{t("share.title")}</ManageHeading>
+      </Veil>
 
-      <p className="break-all font-mono text-sm">{link}</p>
-      <ClientMessages namespaces={["Events.share"]}>
-        <ShareActions link={link} title={event.title} />
-      </ClientMessages>
+      <Glass className="flex flex-col gap-3 p-4 md:p-5">
+        <p className="break-all font-mono text-sm">{link}</p>
+        <ClientMessages namespaces={["Events.share"]}>
+          <ShareActions link={link} title={event.title} />
+        </ClientMessages>
+      </Glass>
 
-      <section aria-labelledby="qr-heading" className="flex flex-col gap-3">
-        <h2 id="qr-heading" className="text-lg font-medium">
-          {t("share.qr")}
-        </h2>
+      <SharePanel id="qr-heading" heading={t("share.qr")}>
         <p className="text-sm text-muted-foreground">{t("share.qrHint")}</p>
-        {/* Its name carries the link it encodes, for anyone who cannot scan it. */}
+        {/* Its name carries the link it encodes, for anyone who cannot scan it. The white tile is
+            the code's own, which a scanner needs, whatever the poster. */}
         <div
           role="img"
           aria-label={t("share.qrLabel", { link })}
           className="w-48 max-w-full rounded-xl bg-white p-3 ring-1 ring-foreground/10 [&>svg]:h-auto [&>svg]:w-full"
           dangerouslySetInnerHTML={{ __html: qrSvg(link) }}
         />
-      </section>
+      </SharePanel>
 
-      <section aria-labelledby="custom-link-heading" className="flex flex-col gap-3">
-        <h2 id="custom-link-heading" className="text-lg font-medium">
-          {t("share.customLink.title")}
-        </h2>
+      <SharePanel id="custom-link-heading" heading={t("share.customLink.title")}>
         <p className="text-sm text-muted-foreground">{t("share.customLink.guessable")}</p>
         <ClientMessages namespaces={["Events.share.customLink"]}>
           <CustomLinkForm eventId={event.id} prefix={eventUrl({ slug: "", customSlug: null })} custom={event.customSlug} link={event.customSlug ? link : null} randomLink={eventUrl({ slug: event.slug, customSlug: null })} />
         </ClientMessages>
-      </section>
+      </SharePanel>
 
-      <section aria-labelledby="reset-heading" className="flex flex-col gap-3">
-        <h2 id="reset-heading" className="text-lg font-medium">
-          {t("share.reset")}
-        </h2>
+      <SharePanel id="reset-heading" heading={t("share.reset")}>
         <p className="text-sm text-muted-foreground">{t("share.resetHint")}</p>
         <p className="text-sm text-muted-foreground">{t("share.customLink.resetRetires")}</p>
         <AlertDialog>
@@ -100,7 +99,21 @@ export default async function SharePage({ params }: PageProps<"/events/[id]/shar
             </form>
           </AlertDialogContent>
         </AlertDialog>
-      </section>
+      </SharePanel>
     </>
+  );
+}
+
+// One part of the page, its heading and what it holds, in a glass panel of its own.
+function SharePanel({ id, heading, children }: { id: string; heading: string; children: ReactNode }) {
+  return (
+    <section aria-labelledby={id}>
+      <Glass className="flex flex-col gap-3 p-4 md:p-5">
+        <h2 id={id} className="text-lg font-medium">
+          {heading}
+        </h2>
+        {children}
+      </Glass>
+    </section>
   );
 }

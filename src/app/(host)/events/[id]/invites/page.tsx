@@ -25,6 +25,8 @@ import { listInvites, type ListedInvite } from "@/invites/repository";
 import { ClientMessages } from "@/locale/client-messages";
 import { translatorFor } from "@/locale/messages";
 import { isMailConfigured } from "@/mail/config";
+import { Glass, Veil } from "@/themes/glass";
+import { ManageHeading } from "../manage-heading";
 import { CopyInviteLink } from "./copy-invite-link";
 import { InviteForm, PasteInvites } from "./invite-form";
 import { LetterField } from "./letter-field";
@@ -50,7 +52,9 @@ export async function generateMetadata(): Promise<Metadata> {
 // email who has not stopped mail, or to all of them not yet sent at once (M6 spec, "The invitation
 // email"). On an invite-only event, a banner says so, and each row whose link alone lets its holder
 // in says that; on a site without mail, the banner says that only those without an email can get
-// in, as no code can reach the others (M6 ticket 08).
+// in, as no code can reach the others (M6 ticket 08). On the event's poster (layout.tsx), the
+// heading and the line under it sit on the veil, the forms in one glass panel and the invites in
+// another (M8 ticket 21).
 export default async function InvitesPage({ params }: PageProps<"/events/[id]/invites">) {
   const [host, { id }, t, locale] = await Promise.all([requireHost(), params, getTranslations("Invites"), getLocale()]);
   const event = await findHostEvent(host.id, id);
@@ -67,15 +71,15 @@ export default async function InvitesPage({ params }: PageProps<"/events/[id]/in
 
   return (
     <>
-      <div className="flex flex-col gap-1">
-        <Link href={`/events/${event.id}`} className="text-sm text-muted-foreground hover:underline">
+      <Veil className="flex flex-col gap-1">
+        <Link href={`/events/${event.id}`} className="w-fit text-sm text-muted-foreground hover:underline">
           {t("backToEvent")}
         </Link>
-        <h1 id={HEADING} tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
+        <ManageHeading font={event.theme.font} id={HEADING}>
           {t("title")}
-        </h1>
-      </div>
-      <p className="text-muted-foreground">{t("explainer")}</p>
+        </ManageHeading>
+        <p className="text-muted-foreground">{t("explainer")}</p>
+      </Veil>
       {event.inviteOnly && (
         <Alert role="note" className="rounded-2xl border-0 bg-attention-soft px-4 py-3 *:data-[slot=alert-title]:text-attention">
           <AlertTitle>{t("inviteOnlyBanner")}</AlertTitle>
@@ -90,27 +94,42 @@ export default async function InvitesPage({ params }: PageProps<"/events/[id]/in
       )}
 
       <ClientMessages namespaces={["Invites"]}>
-        <LettersSwitch eventId={event.id} on={event.lettersEnabled} />
-        {roomForInvite(invites.length) ? (
-          <>
-            <InviteForm eventId={event.id} letters={event.lettersEnabled} maxLetter={MAX_LETTER} />
-            <PasteInvites eventId={event.id} />
-          </>
-        ) : (
-          <p className="text-sm">{t("full", { max: MAX_INVITES })}</p>
-        )}
-        {sending && anyMailable && <SendUnsentInvites eventId={event.id} count={invites.filter(awaitsInvitation).length} />}
-        {mail && !sending && anyMailable && <p className="text-sm text-muted-foreground">{t("sendWhenPublished")}</p>}
+        <Glass className="flex flex-col gap-8 p-4 md:p-5">
+          <LettersSwitch eventId={event.id} on={event.lettersEnabled} />
+          {roomForInvite(invites.length) ? (
+            <>
+              <InviteForm eventId={event.id} letters={event.lettersEnabled} maxLetter={MAX_LETTER} />
+              <PasteInvites eventId={event.id} />
+            </>
+          ) : (
+            <p className="text-sm">{t("full", { max: MAX_INVITES })}</p>
+          )}
+        </Glass>
         {invites.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("empty")}</p>
+          <Glass className="p-4">
+            <p className="text-sm text-muted-foreground">{t("empty")}</p>
+          </Glass>
         ) : (
-          <ul className="flex flex-col gap-3">
-            {invites.map((each) => (
-              <li key={each.id} className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-                <InviteRow event={event} invite={each} sending={sending} shared={shared} locale={locale} />
-              </li>
-            ))}
-          </ul>
+          // One panel holding every invite, divided by the glass's edge, not one per invite: a list
+          // can be long, and each panel is a blur to paint.
+          <Glass className="flex flex-col">
+            {mail && anyMailable && (
+              <div className="border-b border-theme-glass-border p-4">
+                {sending ? (
+                  <SendUnsentInvites eventId={event.id} count={invites.filter(awaitsInvitation).length} />
+                ) : (
+                  <p className="text-sm text-muted-foreground">{t("sendWhenPublished")}</p>
+                )}
+              </div>
+            )}
+            <ul className="flex flex-col divide-y divide-theme-glass-border">
+              {invites.map((each) => (
+                <li key={each.id} className="p-4">
+                  <InviteRow event={event} invite={each} sending={sending} shared={shared} locale={locale} />
+                </li>
+              ))}
+            </ul>
+          </Glass>
         )}
       </ClientMessages>
     </>

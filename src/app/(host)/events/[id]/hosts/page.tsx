@@ -24,6 +24,8 @@ import { CO_HOST_LINK_DAYS, coHostLinkState, MAX_CO_HOSTS, roomForCoHost } from 
 import { listCoHostLinks } from "@/hosts/repository";
 import { can } from "@/hosts/role";
 import { ClientMessages } from "@/locale/client-messages";
+import { Glass, Veil } from "@/themes/glass";
+import { ManageHeading } from "../manage-heading";
 import { CoHostLinkForm } from "./co-host-link-form";
 import { RevokeLinkForm } from "./revoke-link-form";
 
@@ -39,23 +41,27 @@ export async function generateMetadata(): Promise<Metadata> {
 
 // Who hosts the event (spec, "Co-hosts"): for its owner, the hosts with a way to remove each
 // co-host, the co-host links still waiting to be used, and the way to make another. A co-host
-// finds here only the way to leave.
+// finds here only the way to leave. On the event's poster (layout.tsx), the heading and the line
+// under it sit on the veil, the rest in glass panels (M8 ticket 21).
 export default async function HostsPage({ params }: PageProps<"/events/[id]/hosts">) {
   const [host, { id }, t] = await Promise.all([requireHost(), params, getTranslations("Hosts")]);
   const event = await findHostEvent(host.id, id);
   if (!event) notFound();
 
+  const owns = can(event.role, "manageCoHosts");
+
   return (
     <>
-      <div className="flex flex-col gap-1">
-        <Link href={`/events/${event.id}`} className="text-sm text-muted-foreground hover:underline">
+      <Veil className="flex flex-col gap-1">
+        <Link href={`/events/${event.id}`} className="w-fit text-sm text-muted-foreground hover:underline">
           {t("backToEvent")}
         </Link>
-        <h1 id={HEADING} tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
+        <ManageHeading font={event.theme.font} id={HEADING}>
           {t("title")}
-        </h1>
-      </div>
-      {can(event.role, "manageCoHosts") ? <OwnersView event={event} /> : <LeaveEvent event={event} />}
+        </ManageHeading>
+        <p className="text-muted-foreground">{owns ? t("explainer") : t("coHostIntro")}</p>
+      </Veil>
+      {owns ? <OwnersView event={event} /> : <LeaveEvent event={event} />}
     </>
   );
 }
@@ -70,78 +76,82 @@ async function OwnersView({ event }: { event: HostEvent }) {
   const now = new Date();
   const pending = links.filter((link) => coHostLinkState(link, now) === "pending");
 
+  // The hosts in one glass panel and the links in another, each divided by the glass's edge.
   return (
     <>
-      <p className="text-muted-foreground">{t("explainer")}</p>
-      <ul className="flex flex-col gap-2">
-        <li className="flex flex-wrap items-center gap-2 rounded-xl p-3 ring-1 ring-foreground/10">
-          <span className="font-medium break-all">{owner.name}</span>
-          <Badge>{t("host")}</Badge>
-        </li>
-        {coHosts.map((coHost) => (
-          <li key={coHost.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl p-3 ring-1 ring-foreground/10">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium break-all">{coHost.name}</span>
-              <Badge variant="secondary">{t("coHost")}</Badge>
-            </div>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  {t("remove")}
-                </Button>
-              </AlertDialogTrigger>
-              <DeleteDialogContent focusAfter={HEADING}>
-                <form action={removeCoHostAction.bind(null, event.id, coHost.id)}>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>{t("removeTitle", { name: coHost.name })}</AlertDialogTitle>
-                    <AlertDialogDescription>{t("removeText")}</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter className="pt-4">
-                    <AlertDialogCancel type="button">{t("keep")}</AlertDialogCancel>
-                    <Button type="submit" variant="destructive">
-                      {t("removeConfirm")}
-                    </Button>
-                  </AlertDialogFooter>
-                </form>
-              </DeleteDialogContent>
-            </AlertDialog>
+      <Glass>
+        <ul className="flex flex-col divide-y divide-theme-glass-border">
+          <li className="flex flex-wrap items-center gap-2 p-4">
+            <span className="font-medium break-all">{owner.name}</span>
+            <Badge>{t("host")}</Badge>
           </li>
-        ))}
-      </ul>
-
-      <section aria-labelledby={LINKS_HEADING} className="flex flex-col gap-3">
-        <h2 id={LINKS_HEADING} tabIndex={-1} className="text-lg font-medium outline-none">
-          {t("links")}
-        </h2>
-        {pending.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("linksEmpty")}</p>
-        ) : (
-          // Times in the event's own zone, as everywhere else on the host's pages.
-          <ul className="flex flex-col gap-2">
-            {pending.map((link) => (
-              <li key={link.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl p-3 ring-1 ring-foreground/10">
-                <span className="text-sm text-muted-foreground">
-                  {t("linkDates", {
-                    made: formatMoment(link.createdAt, event.timeZone, locale),
-                    expires: formatMoment(link.expiresAt, event.timeZone, locale),
-                  })}
-                </span>
-                <RevokeLinkForm revoke={revokeCoHostLinkAction.bind(null, event.id, link.id)} focusAfter={LINKS_HEADING}>
-                  <Button type="submit" variant="outline" size="sm">
-                    {t("revoke")}
+          {coHosts.map((coHost) => (
+            <li key={coHost.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium break-all">{coHost.name}</span>
+                <Badge variant="secondary">{t("coHost")}</Badge>
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    {t("remove")}
                   </Button>
-                </RevokeLinkForm>
-              </li>
-            ))}
-          </ul>
-        )}
-        {roomForCoHost(coHosts.length) ? (
-          <ClientMessages namespaces={["Hosts"]}>
-            <CoHostLinkForm eventId={event.id} days={CO_HOST_LINK_DAYS} />
-          </ClientMessages>
-        ) : (
-          <p className="text-sm">{t("full", { max: MAX_CO_HOSTS })}</p>
-        )}
+                </AlertDialogTrigger>
+                <DeleteDialogContent focusAfter={HEADING}>
+                  <form action={removeCoHostAction.bind(null, event.id, coHost.id)}>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{t("removeTitle", { name: coHost.name })}</AlertDialogTitle>
+                      <AlertDialogDescription>{t("removeText")}</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="pt-4">
+                      <AlertDialogCancel type="button">{t("keep")}</AlertDialogCancel>
+                      <Button type="submit" variant="destructive">
+                        {t("removeConfirm")}
+                      </Button>
+                    </AlertDialogFooter>
+                  </form>
+                </DeleteDialogContent>
+              </AlertDialog>
+            </li>
+          ))}
+        </ul>
+      </Glass>
+
+      <section aria-labelledby={LINKS_HEADING}>
+        <Glass className="flex flex-col gap-3 p-4 md:p-5">
+          <h2 id={LINKS_HEADING} tabIndex={-1} className="text-lg font-medium outline-none">
+            {t("links")}
+          </h2>
+          {pending.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("linksEmpty")}</p>
+          ) : (
+            // Times in the event's own zone, as everywhere else on the host's pages.
+            <ul className="flex flex-col divide-y divide-theme-glass-border border-y border-theme-glass-border">
+              {pending.map((link) => (
+                <li key={link.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                  <span className="text-sm text-muted-foreground">
+                    {t("linkDates", {
+                      made: formatMoment(link.createdAt, event.timeZone, locale),
+                      expires: formatMoment(link.expiresAt, event.timeZone, locale),
+                    })}
+                  </span>
+                  <RevokeLinkForm revoke={revokeCoHostLinkAction.bind(null, event.id, link.id)} focusAfter={LINKS_HEADING}>
+                    <Button type="submit" variant="outline" size="sm">
+                      {t("revoke")}
+                    </Button>
+                  </RevokeLinkForm>
+                </li>
+              ))}
+            </ul>
+          )}
+          {roomForCoHost(coHosts.length) ? (
+            <ClientMessages namespaces={["Hosts"]}>
+              <CoHostLinkForm eventId={event.id} days={CO_HOST_LINK_DAYS} />
+            </ClientMessages>
+          ) : (
+            <p className="text-sm">{t("full", { max: MAX_CO_HOSTS })}</p>
+          )}
+        </Glass>
       </section>
     </>
   );
@@ -149,12 +159,12 @@ async function OwnersView({ event }: { event: HostEvent }) {
 
 async function LeaveEvent({ event }: { event: HostEvent }) {
   const t = await getTranslations("Hosts");
+  // Leave alone, in a glass panel of its own: the line that says what it does is on the veil above.
   return (
-    <>
-      <p className="text-muted-foreground">{t("coHostIntro")}</p>
+    <Glass className="p-4">
       <AlertDialog>
         <AlertDialogTrigger asChild>
-          <Button variant="destructive" className="self-start">
+          <Button variant="destructive">
             {t("leave")}
           </Button>
         </AlertDialogTrigger>
@@ -173,6 +183,6 @@ async function LeaveEvent({ event }: { event: HostEvent }) {
           </form>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </Glass>
   );
 }

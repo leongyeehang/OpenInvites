@@ -21,7 +21,9 @@ import { can } from "@/hosts/role";
 import { formatMoment, formatWhen, isDated } from "@/events/time";
 import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
+import { Glass, Veil } from "@/themes/glass";
 import { votingDraft } from "@/voting";
+import { ManageHeading } from "../manage-heading";
 import { AnnouncementForm } from "./announcement-form";
 import { eventUrl } from "@/events/slug";
 
@@ -38,7 +40,9 @@ export async function generateMetadata(): Promise<Metadata> {
 // every one posted, newest first, with when it went and to whom, each of which can be taken down.
 // Times are in the event's own zone, as on the guest list. A draft another part of the app wrote
 // for the host, named by `?draft=` (the album vote's "Tell guests voting is open", M8 ticket 14),
-// starts the form, for the host to change and send.
+// starts the form, for the host to change and send. On the event's poster (layout.tsx), the heading
+// and the lines under it sit on the veil, the form in a glass panel and the announcements in
+// another (M8 ticket 21).
 export default async function AnnouncementsPage({ params, searchParams }: PageProps<"/events/[id]/announcements">) {
   const [host, { id }, { draft: named }, t, locale, format] = await Promise.all([
     requireHost(),
@@ -65,65 +69,70 @@ export default async function AnnouncementsPage({ params, searchParams }: PagePr
 
   return (
     <>
-      <div className="flex flex-col gap-1">
-        <Link href={`/events/${event.id}`} className="text-sm text-muted-foreground hover:underline">
+      <Veil className="flex flex-col gap-1">
+        <Link href={`/events/${event.id}`} className="w-fit text-sm text-muted-foreground hover:underline">
           {t("backToEvent")}
         </Link>
-        <h1 id={HEADING} tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
+        <ManageHeading font={event.theme.font} id={HEADING}>
           {t("title")}
-        </h1>
-      </div>
-      <div className="flex flex-col gap-2 text-muted-foreground">
-        <p>{t("explainer")}</p>
-        {event.emailField === "none" && <p>{t("askEmailHint")}</p>}
-        {!mail && <p>{t("noMail")}</p>}
-      </div>
+        </ManageHeading>
+        <div className="flex flex-col gap-2 text-muted-foreground">
+          <p>{t("explainer")}</p>
+          {event.emailField === "none" && <p>{t("askEmailHint")}</p>}
+          {!mail && <p>{t("noMail")}</p>}
+        </div>
+      </Veil>
 
-      <ClientMessages namespaces={["Announcements"]}>
-        <AnnouncementForm eventId={event.id} reminder={reminder} mail={mail} draft={draft} />
-      </ClientMessages>
+      <Glass className="p-4 md:p-5">
+        <ClientMessages namespaces={["Announcements"]}>
+          <AnnouncementForm eventId={event.id} reminder={reminder} mail={mail} draft={draft} />
+        </ClientMessages>
+      </Glass>
 
       {announcements.length > 0 && (
-        <ul className="flex flex-col gap-3">
-          {announcements.map((each) => {
-            const when = formatMoment(each.createdAt, event.timeZone, locale);
-            return (
-              <li key={each.id} className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                  <p className="text-sm text-muted-foreground">
-                    <time dateTime={each.createdAt.toISOString()}>{when}</time>
-                    {/* Without mail nothing was sent to anyone; the page says so above. */}
-                    {mail && <> · {t("sentTo", { audience: format.list(each.audience.map((status) => t(`status.${status}`))) })}</>}
-                  </p>
-                  {/* Taking one down cannot be undone, so it is confirmed. Its button says when it
-                      was posted, as every announcement has one. */}
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="sm" aria-label={t("deleteLabel", { time: when })}>
-                        {t("delete")}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <DeleteDialogContent focusAfter={HEADING}>
-                      <form action={deleteAnnouncementAction.bind(null, event.id, each.id)}>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
-                          <AlertDialogDescription>{t("deleteText")}</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter className="pt-4">
-                          <AlertDialogCancel type="button">{t("keep")}</AlertDialogCancel>
-                          <Button type="submit" variant="destructive">
-                            {t("deleteConfirm")}
-                          </Button>
-                        </AlertDialogFooter>
-                      </form>
-                    </DeleteDialogContent>
-                  </AlertDialog>
-                </div>
-                <p className="mt-2 break-words whitespace-pre-wrap">{each.body}</p>
-              </li>
-            );
-          })}
-        </ul>
+        // One panel holding every announcement, divided by the glass's edge, not one each.
+        <Glass>
+          <ul className="flex flex-col divide-y divide-theme-glass-border">
+            {announcements.map((each) => {
+              const when = formatMoment(each.createdAt, event.timeZone, locale);
+              return (
+                <li key={each.id} className="p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <p className="text-sm text-muted-foreground">
+                      <time dateTime={each.createdAt.toISOString()}>{when}</time>
+                      {/* Without mail nothing was sent to anyone; the page says so above. */}
+                      {mail && <> · {t("sentTo", { audience: format.list(each.audience.map((status) => t(`status.${status}`))) })}</>}
+                    </p>
+                    {/* Taking one down cannot be undone, so it is confirmed. Its button says when it
+                        was posted, as every announcement has one. */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="sm" aria-label={t("deleteLabel", { time: when })}>
+                          {t("delete")}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <DeleteDialogContent focusAfter={HEADING}>
+                        <form action={deleteAnnouncementAction.bind(null, event.id, each.id)}>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
+                            <AlertDialogDescription>{t("deleteText")}</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter className="pt-4">
+                            <AlertDialogCancel type="button">{t("keep")}</AlertDialogCancel>
+                            <Button type="submit" variant="destructive">
+                              {t("deleteConfirm")}
+                            </Button>
+                          </AlertDialogFooter>
+                        </form>
+                      </DeleteDialogContent>
+                    </AlertDialog>
+                  </div>
+                  <p className="mt-2 break-words whitespace-pre-wrap">{each.body}</p>
+                </li>
+              );
+            })}
+          </ul>
+        </Glass>
       )}
     </>
   );

@@ -28,6 +28,7 @@ import type { HostGuest } from "@/rsvps/repository";
 // it, the form that changes it on their behalf. A guest on the waitlist is shown with their place
 // in it and their party as "+N", and can be moved to Going. A reply waiting for the host's
 // approval says what it answered and can be approved or declined; a declined one can be approved.
+// It is a row of its section's glass panel (page.tsx), which draws its edge and padding.
 export function GuestRow({
   eventId,
   guest,
@@ -55,7 +56,7 @@ export function GuestRow({
   const named = guest.plusOneNames.filter(Boolean);
 
   return (
-    <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+    <div>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <div className="min-w-0">
           <p className="font-medium">
