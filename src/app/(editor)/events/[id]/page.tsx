@@ -203,7 +203,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
           <PosterLayout
             event={{ ...event, hostName: hosts[0]?.name ?? "" }}
             hosts={hosts.map((each) => each.name)}
-            sections={await previewSections(arrangement, event.theme.layout, sectionSwitches, <EditorDetails details={details} timeZones={timeZones()} />)}
+            sections={await previewSections(arrangement, event.theme.layout, sectionSwitches, <EditorDetails details={details} timeZones={timeZones()} />, { album: features.album })}
             edit={{
               title: {
                 full: <EditableTitle eventId={event.id} title={event.title} compact={false} />,

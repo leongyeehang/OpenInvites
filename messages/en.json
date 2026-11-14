@@ -1381,6 +1381,7 @@
       "moveUp": "Move {name} up",
       "moveDown": "Move {name} down",
       "position": "{name}, {position} of {count}",
+      "openHint": "Opens the Arrange sheet.",
       "kinds": {
         "letter": "Personal letter",
         "details": "Details",

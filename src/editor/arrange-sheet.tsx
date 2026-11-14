@@ -180,17 +180,26 @@ function MoveButton({ label, end, onPress, ref, children }: { label: string; end
 }
 
 // A placeholder section on the editor's invitation (editor/section-previews.tsx): what guests will
-// see there, as a button that opens Arrange.
+// see there, as a button that opens Arrange, which its description says.
 export function OpenArrange({ children }: { children: ReactNode }) {
+  const t = useTranslations("Editor.arrange");
   const { openSheet } = useEditor();
+  const hint = useId();
   return (
-    <button
-      type="button"
-      onClick={() => openSheet("arrange")}
-      className="-m-2 flex w-[calc(100%+1rem)] cursor-pointer items-center justify-between gap-3 rounded-xl p-2 text-left text-sm text-theme-text-muted transition-colors hover:bg-theme-glass-strong focus-visible:outline-2 focus-visible:outline-theme-focus-ring motion-reduce:transition-none"
-    >
-      {children}
-      <ChevronRight aria-hidden className="size-4 shrink-0 text-theme-text-faint" />
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={() => openSheet("arrange")}
+        aria-describedby={hint}
+        className="-m-2 flex w-[calc(100%+1rem)] cursor-pointer items-center justify-between gap-3 rounded-xl p-2 text-left text-sm text-theme-text-muted transition-colors hover:bg-theme-glass-strong focus-visible:outline-2 focus-visible:outline-theme-focus-ring motion-reduce:transition-none"
+      >
+        {children}
+        <ChevronRight aria-hidden className="size-4 shrink-0 text-theme-text-faint" />
+      </button>
+      {/* Outside the button, so that it describes it without being read as its name. */}
+      <span id={hint} className="sr-only">
+        {t("openHint")}
+      </span>
+    </>
   );
 }

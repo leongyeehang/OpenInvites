@@ -1,8 +1,9 @@
 import { getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
-import { placedSections, REGISTRY, type Arrangement, type BuiltInKind, type ReadySection, type Shown, type Switches } from "@/sections";
+import { placedSections, REGISTRY, type Arrangement, type ReadySection, type Switches } from "@/sections";
 import type { Layout } from "@/themes/theme";
 import { OpenArrange } from "./arrange-sheet";
+import { previewedSections } from "./previewed";
 
 // The sections on the editor's invitation (M8 spec, "The editor shows the sections"; ticket 25):
 // in the order guests see them in the event's layout, though the editor itself is always the
@@ -15,19 +16,15 @@ import { OpenArrange } from "./arrange-sheet";
 const PREVIEWS = ["letter", "schedule", "guests", "announcements", "comments", "album"] as const;
 type Previewed = (typeof PREVIEWS)[number];
 
-export async function previewSections(arrangement: Arrangement, layout: Layout, switches: Switches, details: ReactNode): Promise<ReadySection[]> {
+export async function previewSections(
+  arrangement: Arrangement,
+  layout: Layout,
+  switches: Switches,
+  details: ReactNode,
+  offered: { album: boolean },
+): Promise<ReadySection[]> {
   const [arrange, page] = await Promise.all([getTranslations("Editor.arrange"), getTranslations("EventPage")]);
-  // A section whose switch is a column is on as its column says; the rest as the arrangement does.
-  const on: Record<Previewed | "details", boolean> = {
-    letter: switches.lettersEnabled,
-    details: true,
-    schedule: true,
-    guests: switches.guestListVisibility !== "hidden",
-    announcements: true,
-    comments: switches.commentsEnabled,
-    album: switches.albumEnabled,
-  };
-  const shown: Partial<Record<BuiltInKind, Shown>> = Object.fromEntries(Object.entries(on).flatMap(([kind, isOn]) => (isOn ? [[kind, { count: null }]] : [])));
+  const shown = previewedSections(switches, offered);
   return placedSections(arrangement, layout, shown).flatMap((placed): ReadySection[] => {
     const entry = REGISTRY[placed.kind];
     const base = { placed, icon: entry.icon, wide: entry.wide };

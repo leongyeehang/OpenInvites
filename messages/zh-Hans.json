@@ -1381,6 +1381,7 @@
       "moveUp": "将{name}上移",
       "moveDown": "将{name}下移",
       "position": "{name}，第 {position} 个，共 {count} 个",
+      "openHint": "打开“排列”面板。",
       "kinds": {
         "letter": "专属信件",
         "details": "详情",

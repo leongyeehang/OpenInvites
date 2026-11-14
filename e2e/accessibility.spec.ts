@@ -182,34 +182,47 @@ test("a host's own pages: the dashboard, the account page and its menu, New even
 });
 
 // The editor (M4 ticket 05): a blank invitation, each of its sheets open, publishing refused, and
-// published. A test of its own, apart from the host's other pages above, as axe reads each sheet
+// published. Tests of their own, apart from the host's other pages above, as axe reads each sheet
 // over the event page's fixed backdrop a view at a time, the Settings sheet alone up to 35 s beside
-// another test (M8 tickets 21 and 23).
-test("the editor and its sheets: a blank invitation, each sheet open, publishing refused, and published", async ({ page, request }) => {
+// another test (M8 tickets 21 and 23); one sheet a test, each with a host of its own, so that each
+// stays well inside its time beside another test (review of M8 ticket 25).
+test("the editor: a blank invitation, and publishing it refused", async ({ page, request }) => {
   test.slow();
   await signUpVerified(page, request, "a11y-editor");
   await page.goto("/events/new");
   await expect(page.getByRole("textbox", { name: "Event title" })).toBeVisible({ timeout: 20_000 });
   await expectNoSeriousViolations(page, "the editor, a blank invitation");
-  const sheets: [opener: Locator, name: string][] = [
-    [page.getByRole("button", { name: /^When:/ }), "When"],
-    [page.getByRole("button", { name: /^Where:/ }), "Where"],
-    [page.getByRole("button", { name: /^About:/ }), "About"],
-    [page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Settings" }), "Settings"],
-    [page.getByRole("button", { name: "More" }), "More"],
-  ];
-  for (const [opener, name] of sheets) {
-    await opener.click();
+  await page.getByRole("button", { name: "Publish" }).click();
+  await expect(page.getByText("Add a title first.")).toBeVisible();
+  await expectNoSeriousViolations(page, "the editor, publishing refused");
+});
+
+const EDITOR_SHEETS: [name: string, opener: (page: Page) => Locator][] = [
+  ["When", (page) => page.getByRole("button", { name: /^When:/ })],
+  ["Where", (page) => page.getByRole("button", { name: /^Where:/ })],
+  ["About", (page) => page.getByRole("button", { name: /^About:/ })],
+  ["Settings", (page) => page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Settings" })],
+  ["More", (page) => page.getByRole("button", { name: "More" })],
+];
+
+for (const [name, opener] of EDITOR_SHEETS) {
+  test(`the editor's ${name} sheet, on a blank invitation`, async ({ page, request }) => {
+    test.slow();
+    await signUpVerified(page, request, `a11y-editor-${name.toLowerCase()}`);
+    await page.goto("/events/new");
+    await expect(page.getByRole("textbox", { name: "Event title" })).toBeVisible({ timeout: 20_000 });
+    await opener(page).click();
     await expect(page.getByRole("dialog", { name })).toBeVisible();
     if (name === "Settings") await page.getByRole("button", { name: "Add a question" }).click();
     await expectNoSeriousViolations(page, `the editor's ${name} sheet`);
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog", { name })).toBeHidden();
-  }
-  await page.getByRole("button", { name: "Publish" }).click();
-  await expect(page.getByText("Add a title first.")).toBeVisible();
-  await expectNoSeriousViolations(page, "the editor, publishing refused");
+  });
+}
 
+test("the editor, published", async ({ page, request }) => {
+  test.slow();
+  await signUpVerified(page, request, "a11y-editor-published");
   await createDraft(page, EVENT);
   await publishInEditor(page);
   await expectNoSeriousViolations(page, "the editor, published");
@@ -325,20 +338,25 @@ test("the page a link the host has reset leads to", async ({ page, browser, requ
   await host.context.close();
 });
 
-test("the editor's design sheets, each open, in both text tones", async ({ browser, request }) => {
-  test.slow();
-  // Bottom sheets over a live copy in the mobile project, side panels in the desktop one.
-  const host = await createPublished(browser, request, "a11y-drawer", EVENT);
-  for (const tone of ["Light", "Dark"] as const) {
-    await chooseTone(host.page, request, host.link, tone);
-    for (const [sheet, tab] of [["Poster", "Gallery"], ["Poster", "Emoji"], ["Poster", "Colour"], ["Poster", "Upload"], ["Title"], ["Theme"], ["Effect"]] as const) {
+// Bottom sheets over a live copy in the mobile project, side panels in the desktop one: each
+// design sheet, and each of the Poster's tabs, in each text tone, a test each with an event of its
+// own, so that each stays well inside its time beside another test (review of M8 ticket 25).
+const DESIGN_SHEETS = [["Poster", "Gallery"], ["Poster", "Emoji"], ["Poster", "Colour"], ["Poster", "Upload"], ["Title"], ["Theme"], ["Effect"]] as const;
+
+for (const tone of ["Light", "Dark"] as const) {
+  for (const [sheet, tab] of DESIGN_SHEETS) {
+    const where = `the ${sheet} sheet${tab ? `, ${tab}` : ""}, ${tone.toLowerCase()} tone`;
+    test(`the editor's design sheets: ${where}`, async ({ browser, request }) => {
+      test.slow();
+      const host = await createPublished(browser, request, `a11y-drawer-${sheet}${tab ?? ""}-${tone}`.toLowerCase(), EVENT);
+      await chooseTone(host.page, request, host.link, tone);
       await openDesign(host.page, sheet, tab);
-      await expectNoSeriousViolations(host.page, `the ${sheet} sheet${tab ? `, ${tab}` : ""}, ${tone.toLowerCase()} tone`);
+      await expectNoSeriousViolations(host.page, where);
       await closeDesign(host.page, sheet);
-    }
+      await host.context.close();
+    });
   }
-  await host.context.close();
-});
+}
 
 test("the event page with the host's picture as the poster, in both text tones, described", async ({ page, browser, request }) => {
   test.setTimeout(180_000);

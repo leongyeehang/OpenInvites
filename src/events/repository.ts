@@ -183,7 +183,9 @@ export async function changeEventArrangement(
       })
       .from(event)
       .where(and(eq(event.id, id), hostedBy(hostId)))
-      .for("update");
+      // No key column is written, so replies, comments, photos and votes that reference the event
+      // are not held up meanwhile, as the album's and the vote's locks leave them.
+      .for("no key update");
     if (!row) return undefined;
     const applied = applyArrangementChange(parseArrangement(row.sections), parseTheme(row.theme).layout, change);
     if (!applied.ok) return applied;

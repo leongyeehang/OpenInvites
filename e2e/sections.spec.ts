@@ -43,6 +43,14 @@ test("the host moves the Album above the Comments", async ({ browser, request })
   test.slow();
   const { host, guest, close } = await eventWithSchedule(browser, request, "sections-move");
 
+  // The editor's album placeholder says what guests will see there, and that it opens Arrange.
+  const placeholder = host.page.getByRole("button", { name: "Photos and videos from the event, from its start." });
+  await expect(placeholder).toHaveAccessibleDescription("Opens the Arrange sheet.");
+  await placeholder.click();
+  await expect(host.page.getByRole("dialog", { name: "Arrange" })).toBeVisible();
+  await host.page.keyboard.press("Escape");
+  await expect(host.page.getByRole("dialog", { name: "Arrange" })).toBeHidden();
+
   await arrange(host.page, async (sheet) => {
     const up = sheet.getByRole("button", { name: "Move Album up" });
     await up.click();

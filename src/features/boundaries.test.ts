@@ -10,10 +10,12 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
-// How many files outside src/album import its internals on 2026-11-11, as ADR-0008 records. A
-// change that must add one moves the code into src/album instead, or raises this with a ruling
-// recorded in the ADR as well.
-const ALBUM_DEPENDENTS = 25;
+// How many files outside src/album import its internals: 25 on 2026-11-11, as ADR-0008 first
+// recorded, and 24 since the event page's album moved into its section's drawing (M8 ticket 25).
+// Held exactly, so that it only ever goes down on purpose: a change that removes an importer
+// lowers this, and the ADR's figure with it; a change that would add one moves the code into
+// src/album instead. Never raise it.
+const ALBUM_DEPENDENTS = 24;
 const IMPORTS_ALBUM = /["'](@|\.\.?)\/(\.\.\/)*album\//;
 
 describe("the module boundaries", () => {
@@ -75,6 +77,9 @@ describe("the module boundaries", () => {
     const dependents = sources(join(ROOT, "src"))
       .filter((path) => !relative(ROOT, path).startsWith(join("src", "album") + "/"))
       .filter((path) => IMPORTS_ALBUM.test(readFileSync(path, "utf8")));
-    expect(dependents.length).toBeLessThanOrEqual(ALBUM_DEPENDENTS);
+    expect(
+      dependents.length,
+      `Files outside src/album that import its internals. Fewer: lower ALBUM_DEPENDENTS, and ADR-0008's figure, to ${dependents.length}. More: move the code into src/album; never raise the number.`,
+    ).toBe(ALBUM_DEPENDENTS);
   });
 });
