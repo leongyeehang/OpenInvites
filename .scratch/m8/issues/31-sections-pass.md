@@ -496,3 +496,13 @@ five minors, and the rehearsal's corrections to the upgrade document.
 
 Evidence: in `.superpowers/sdd/m8-plan/last-fix-report.md` (RED and GREEN for each item, the probe
 logs and traces under `test-results/`, and every check).
+
+**2026-11-16: Going back checks the backup first.** The re-review of 6005ec1 found that "Going back
+to an older release" (`docs/operator/upgrade-backup.md`) emptied the database before anything had
+looked at the dump it then loads, so an empty or cut-off dump left an operator with no site at all.
+The steps now check both backup files and read the dump with `pg_restore --list` before anything is
+removed (tried against a good, an empty and a cut-off dump: exit 0, 1, 1), tell the operator to stop
+and stay on the newer release if that fails, and keep a dump of the site as it is so that going back
+can be undone. Also: a worker container is stopped with the app for a matching pair of backups;
+`pg_restore --clean` "fails part-way", not "stops"; files added to `uploads` after the backup stay in
+the volume. Docs only.

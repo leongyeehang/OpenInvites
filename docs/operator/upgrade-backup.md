@@ -332,6 +332,9 @@ docker compose run --rm --no-deps -T --entrypoint tar app -C /app -czf - uploads
 docker compose start app
 ```
 
+If you run a worker container, stop and start it with the app (`docker compose stop app worker`,
+`docker compose start app worker`): it writes pictures and the database too.
+
 Either way, check that neither file is empty (`ls -l backups`) before you rely on it.
 
 Keep the files somewhere other than this machine. To run it every night, put those commands in a
@@ -369,40 +372,55 @@ restored database as it starts, as in an upgrade.
 
 An older release cannot use a database a newer one has migrated, and loading the backup over it
 does not work either: the newer release's tables point at the older ones, so `pg_restore --clean`
-cannot drop them and stops part-way, leaving a database neither release can use. Empty the
-database first, on the same machine:
+cannot drop them and fails part-way, leaving a database neither release can use. The database is
+emptied first, on the same machine. That removes the site as it is now, so the backup is checked
+before anything else:
 
 1. Stop the app (`docker compose stop app worker` if you run a worker container):
    ```sh
    docker compose stop app
    ```
-2. Set `OPENINVITES_IMAGE` in `.env` back to the release the backup was taken on (ending in
+2. Check the backup you are going back to, while nothing has been removed. Both files must be
+   there and not empty, and the dump must be one `pg_restore` can read:
+   ```sh
+   ls -l backups
+   docker compose exec -T db pg_restore --list < backups/openinvites-2026-09-24.dump > /dev/null && echo "The dump can be read."
+   ```
+   If the dump is missing or empty, or an error is printed in place of that line, stop here.
+   Without a good dump there is no way back, and the next step would leave you with no site at
+   all: start the app again (`docker compose start app`) and stay on the newer release. Then keep
+   a dump of the site as it is now, so that going back can itself be undone:
+   ```sh
+   docker compose exec -T db pg_dump -U openinvites -d openinvites --format=custom > backups/openinvites-before-going-back.dump
+   ```
+3. Set `OPENINVITES_IMAGE` in `.env` back to the release the backup was taken on (ending in
    `:0.7.0`, say), with that release's deployment files if the upgrade changed them, and fetch it:
    ```sh
    docker compose pull
    ```
-3. Empty the database, with only the database running:
+4. Empty the database, with only the database running:
    ```sh
    docker compose up -d --wait db
    docker compose exec -T db sh -c 'dropdb -U openinvites --maintenance-db=postgres openinvites && createdb -U openinvites --maintenance-db=postgres openinvites'
    ```
-4. Load the dump taken before upgrading. It must finish without `errors ignored on restore`; if it
-   says that, the database was not empty: go back to step 3.
+5. Load the dump taken before upgrading. It must finish without `errors ignored on restore`; if it
+   says that, the database was not empty: go back to step 4.
    ```sh
    docker compose exec -T db pg_restore -U openinvites -d openinvites --clean --if-exists --no-owner < backups/openinvites-2026-09-24.dump
    ```
-5. Put the pictures back into the `uploads` volume (with S3 storage, skip this: they are in the
+6. Put the pictures back into the `uploads` volume (with S3 storage, skip this: they are in the
    bucket):
    ```sh
    docker compose run --rm --no-deps -T --entrypoint tar app -C /app -xzf - < backups/uploads-2026-09-24.tar.gz
    ```
-6. Start everything:
+7. Start everything:
    ```sh
    docker compose up -d --wait
    ```
 
 The site is then as it was when the backup was taken: anything hosts and guests added after it
-(replies, comments, photos, votes) is lost.
+(replies, comments, photos, votes) is lost. The files added to the `uploads` volume since then, by
+guests or by the newer release, stay in the volume; nothing in the restored site points at them.
 
 ## Resetting a host's password
 
