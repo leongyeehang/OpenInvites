@@ -1108,7 +1108,8 @@
         "announcements": "{count, plural, one {# message} other {# messages}}",
         "schedule": "{count, plural, one {# item} other {# items}}",
         "links": "{count, plural, one {# link} other {# links}}"
-      }
+      },
+      "newTab": "(opens in a new tab)"
     }
   },
   "Design": {
@@ -1415,7 +1416,9 @@
         "announcements": "What you send from Announcements appears here.",
         "comments": "Guests who have replied talk here.",
         "album": "Photos and videos from the event, from its start.",
-        "countdown": "A countdown to the start, in each guest’s own time."
+        "countdown": "A countdown to the start, in each guest’s own time.",
+        "noteEmpty": "Nothing written yet. Tap to write.",
+        "linksEmpty": "No links yet. Tap to add one."
       },
       "errors": {
         "unreadable": "That change couldn’t be read. Try again.",
@@ -1428,6 +1431,32 @@
         "labelTooLong": "Keep a link’s label to 40 characters.",
         "urlTooLong": "That address is too long.",
         "urlInvalid": "Links start with http:// or https://."
+      },
+      "add": "Add a section",
+      "addNote": "Note",
+      "addLinks": "Links",
+      "addHint": "A note says something in your words. Links are buttons to a registry, a playlist or a map.",
+      "full": "A page holds up to 10 notes and links.",
+      "suggestions": {
+        "dressCode": "Dress code",
+        "gettingThere": "Getting there",
+        "gifts": "Gifts",
+        "registry": "Registry",
+        "playlist": "Playlist"
+      },
+      "edit": "Edit",
+      "remove": "Remove",
+      "removeTitle": "Remove “{name}”?",
+      "removeText": "Guests will no longer see it, and what it says is deleted.",
+      "removeKeep": "Keep it",
+      "links": {
+        "labelOf": "Label of link {n}",
+        "urlOf": "Address of link {n}",
+        "add": "Add a link",
+        "moveUp": "Move {label} up",
+        "moveDown": "Move {label} down",
+        "remove": "Remove {label}",
+        "hint": "Each opens in a new tab. Up to 6."
       }
     }
   },

@@ -325,3 +325,41 @@ export async function sectionOrder(page: Page): Promise<string[]> {
   const keys = await page.locator("[data-section]").evaluateAll((elements) => elements.map((element) => element.getAttribute("data-section") ?? ""));
   return keys.filter((key, index) => key !== keys[index - 1]);
 }
+
+// Notes and Links (M8 ticket 29), added from Add a section at the foot of Arrange.
+export const arrangeSheet = (page: Page) => page.getByRole("dialog", { name: "Arrange" });
+
+// A section added from Arrange (opened if it is not open yet) by one of Add a section's buttons,
+// saved, and its own sheet, which opens over the invitation headed by its heading.
+export async function addSection(page: Page, button: string, heading = button) {
+  const sheet = (await arrangeSheet(page).isVisible()) ? arrangeSheet(page) : await openArrange(page);
+  await savedAfter(page, () => sheet.getByRole("button", { name: button, exact: true }).click());
+  const opened = page.getByRole("dialog", { name: heading });
+  await expect(opened).toBeVisible();
+  return opened;
+}
+
+// Words written in a Note's sheet, the last of them bold, until the editor draws them.
+export async function writeNote(page: Page, note: Locator, words: string, bold: string) {
+  await note.getByRole("textbox", { name: "Note" }).click();
+  await page.keyboard.type(words);
+  await note.getByRole("button", { name: "Bold" }).click();
+  await page.keyboard.type(bold);
+  await expect(page.locator('[data-section^="note:"] strong').filter({ hasText: bold })).toBeVisible({ timeout: 15_000 });
+}
+
+// A link written in a row of the Links sheet, added first, until it is saved.
+export async function writeLink(page: Page, links: Locator, n: number, label: string, url: string) {
+  await links.getByRole("button", { name: "Add a link" }).click();
+  await expect(links.getByRole("textbox", { name: `Label of link ${n}`, exact: true })).toBeFocused();
+  await links.getByRole("textbox", { name: `Label of link ${n}`, exact: true }).fill(label);
+  await savedAfter(page, () => links.getByRole("textbox", { name: `Address of link ${n}`, exact: true }).fill(url));
+}
+
+// A section's own sheet closed, which goes back to Arrange, and Arrange closed.
+export async function closeSheets(page: Page) {
+  await page.keyboard.press("Escape");
+  await expect(arrangeSheet(page)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+}

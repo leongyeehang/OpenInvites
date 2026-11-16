@@ -1108,7 +1108,8 @@
         "announcements": "{count, plural, other {# 条消息}}",
         "schedule": "{count, plural, other {# 项}}",
         "links": "{count, plural, other {# 个链接}}"
-      }
+      },
+      "newTab": "（在新标签页中打开）"
     }
   },
   "Design": {
@@ -1390,7 +1391,7 @@
       "letterHint": "你亲自邀请的宾客，会读到你在“专属邀请”页面上写给他们的信。",
       "albumHint": "关闭后，宾客看不到相册，也无法添加内容。相册里的内容不会被删除。",
       "commentsHint": "关闭后，宾客看不到留言，也无法发表留言。",
-      "countdownHint": "开启后，倒计时不再显示在“时间”下，而是单独成为一个版块。",
+      "countdownHint": "开启后，倒计时不再显示在“时间”下，而是单独成为一个板块。",
       "heading": "标题",
       "headingHint": "留空则保留“{name}”。",
       "collapsed": "折叠",
@@ -1415,7 +1416,9 @@
         "announcements": "你在“公告”中发出的内容会显示在这里。",
         "comments": "已回复的宾客在这里交流。",
         "album": "活动的照片和视频，从活动开始时起。",
-        "countdown": "距活动开始的倒计时，按每位宾客自己的时间显示。"
+        "countdown": "距活动开始的倒计时，按每位宾客自己的时间显示。",
+        "noteEmpty": "还没有写内容。点按即可书写。",
+        "linksEmpty": "还没有链接。点按即可添加。"
       },
       "errors": {
         "unreadable": "无法读取这项更改，请重试。",
@@ -1428,6 +1431,32 @@
         "labelTooLong": "链接名称请不超过 40 个字。",
         "urlTooLong": "这个网址太长了。",
         "urlInvalid": "链接须以 http:// 或 https:// 开头。"
+      },
+      "add": "添加板块",
+      "addNote": "备注",
+      "addLinks": "链接",
+      "addHint": "备注用你自己的话说明一件事。链接是通往礼物清单、歌单或地图的按钮。",
+      "full": "一个页面最多可有 10 个备注和链接板块。",
+      "suggestions": {
+        "dressCode": "着装要求",
+        "gettingThere": "交通指引",
+        "gifts": "礼物",
+        "registry": "礼物清单",
+        "playlist": "歌单"
+      },
+      "edit": "编辑",
+      "remove": "删除",
+      "removeTitle": "删除“{name}”？",
+      "removeText": "宾客将不再看到它，其中的内容也会被删除。",
+      "removeKeep": "保留",
+      "links": {
+        "labelOf": "第 {n} 个链接的名称",
+        "urlOf": "第 {n} 个链接的网址",
+        "add": "添加链接",
+        "moveUp": "将{label}上移",
+        "moveDown": "将{label}下移",
+        "remove": "删除{label}",
+        "hint": "每个链接都在新标签页中打开。最多 6 个。"
       }
     }
   },

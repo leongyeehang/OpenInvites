@@ -8,6 +8,8 @@ import { ArrangeSheet } from "@/editor/arrange-sheet";
 import { DesignSheets } from "@/editor/design-sheets";
 import { EditorDetails, type EditableDetails } from "@/editor/details";
 import { EditableTitle } from "@/editor/editable-title";
+import { LinksSheet } from "@/editor/links-sheet";
+import { NoteSheet } from "@/editor/note-sheet";
 import { defaultHeadings, previewSections } from "@/editor/section-previews";
 import { SettingsSheet, EditorToolbar } from "@/editor/settings-sheet";
 import { EditorProvider } from "@/editor/status";
@@ -38,7 +40,7 @@ import { formatOption } from "@/polls/format";
 import { leading, pollState, tally } from "@/polls/poll";
 import { loadPoll } from "@/polls/repository";
 import { listSchedule } from "@/schedule/repository";
-import { parseArrangement, type Switches } from "@/sections";
+import { parseArrangement, sectionKey, type Switches } from "@/sections";
 import { VotingSettings } from "@/voting";
 
 // The poll as the When sheet shows it: each candidate as typed and as read, with its votes by name.
@@ -188,6 +190,15 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
                       offered={{ album: features.album }}
                       headings={await defaultHeadings(event.theme.layout)}
                     />
+                    {/* Each Note's and Links' own sheet (M8 ticket 29), which its row and its
+                        drawing on the invitation open. */}
+                    {arrangement?.sections.map((section) =>
+                      section.kind === "note" ? (
+                        <NoteSheet key={sectionKey(section)} eventId={event.id} section={section} />
+                      ) : section.kind === "links" ? (
+                        <LinksSheet key={sectionKey(section)} eventId={event.id} section={section} />
+                      ) : null,
+                    )}
                     <SettingsSheet
                       eventId={event.id}
                       settings={event}

@@ -14,6 +14,12 @@ describe("the sections the editor previews", () => {
     expect(previewedSections(ON, { album: true }, false)).not.toHaveProperty("countdown");
   });
 
+  // Ticket 29's review focus: an album opens at the event's start, so an event with no date yet
+  // has none on its guests' page, nor in the editor's preview.
+  it("previews the album only for an event with a date", () => {
+    expect(previewedSections(ON, { album: true }, false)).not.toHaveProperty("album");
+  });
+
   it("leaves out a section whose column is off", () => {
     const shown = previewedSections({ lettersEnabled: false, commentsEnabled: false, guestListVisibility: "hidden", albumEnabled: false }, { album: true }, true);
     expect(Object.keys(shown).sort()).toEqual(["announcements", "countdown", "details", "schedule"]);

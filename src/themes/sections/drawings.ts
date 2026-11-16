@@ -25,6 +25,8 @@ import { countdownDrawing } from "./countdown-section";
 import { detailsDrawing } from "./details-section";
 import { guestsDrawing, type GuestListShown } from "./guests-section";
 import { letterDrawing } from "./letter-section";
+import { linksDrawing } from "./links-section";
+import { noteDrawing } from "./note-section";
 import { scheduleDrawing } from "./schedule-drawing";
 
 // The server's half of the section registry (M8 ticket 25; plan ruling 34): what each kind of
@@ -67,9 +69,13 @@ const BY_KIND = {
   comments: commentsDrawing,
   album: albumDrawing,
   countdown: countdownDrawing,
-};
+  note: noteDrawing,
+  links: linksDrawing,
+  // Every kind of section there is, and no other: a kind added to the registry and drawn by
+  // nothing does not compile.
+} satisfies Record<SectionKind, unknown>;
 
-// The kinds the server draws (the Note and Links come with ticket 29), each registered once, above.
+// The kinds the server draws, each registered once, above.
 export type DrawnKind = keyof typeof BY_KIND;
 export type SectionData = { [K in DrawnKind]: DataOf<(typeof BY_KIND)[K]> };
 // What the page loaded: a kind this viewer gets nothing of is absent.
@@ -81,6 +87,10 @@ export const DRAWINGS: { [K in DrawnKind]: SectionDrawing<SectionData[K], Sectio
 // Read from BY_KIND, so a kind registered there is loaded and placed without being listed again.
 const DRAWN_KINDS = Object.keys(BY_KIND) as DrawnKind[];
 const isDrawn = (kind: SectionKind): kind is DrawnKind => Object.hasOwn(DRAWINGS, kind);
+// Whether a kind is built in, rather than the host's own (a Note, Links), of which a page has any
+// number: what those draw is in the arrangement, which says whether each is on, and placedSections,
+// not a drawing's `shown`, whether each is placed.
+const isBuiltIn = (kind: DrawnKind): kind is DrawnKind & BuiltInKind => kind !== "note" && kind !== "links";
 
 // Everything the page's sections load, at once, each kind by its own drawing: a kind this viewer
 // gets nothing of is absent, and so is a section the host has switched off, which is never asked
@@ -88,7 +98,7 @@ const isDrawn = (kind: SectionKind): kind is DrawnKind => Object.hasOwn(DRAWINGS
 export async function loadSections(page: SectionPage, arrangement: Arrangement): Promise<LoadedSections> {
   const loaded: LoadedSections = {};
   const load = async <K extends DrawnKind>(kind: K) => {
-    if (!sectionOn(arrangement, kind)) return;
+    if (isBuiltIn(kind) && !sectionOn(arrangement, kind)) return;
     const data = await DRAWINGS[kind].load(page);
     if (data !== undefined) loaded[kind] = data;
   };
@@ -128,7 +138,7 @@ function ready<K extends DrawnKind>(page: SectionPage, loaded: LoadedSections, k
 export async function readySections(page: SectionPage, loaded: LoadedSections, arrangement: Arrangement): Promise<ReadySection[]> {
   const t = await getTranslations("EventPage");
   const shown: Partial<Record<BuiltInKind, Shown>> = {};
-  for (const kind of DRAWN_KINDS) {
+  for (const kind of DRAWN_KINDS.filter(isBuiltIn)) {
     const given = shownOf(loaded, kind);
     if (given) shown[kind] = given;
   }

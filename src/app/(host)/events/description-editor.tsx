@@ -12,8 +12,9 @@ import type { RichText } from "@/rich-text/rich-text";
 // The host writes the invitation here. The editable area is the browser's own, seeded once and
 // never re-rendered, so the cursor stays where the host put it; every keystroke is read back
 // into the document model and travels in the hidden field beside it. The server reads only the
-// model, so nothing pasted in can arrive as markup.
-export function DescriptionEditor({ doc }: { doc: RichText }) {
+// model, so nothing pasted in can arrive as markup. A Note is written here too (M8 ticket 29),
+// under its own `label`, and saved as it is typed: `onChange` hears each model read back.
+export function DescriptionEditor({ doc, label, onChange }: { doc: RichText; label?: string; onChange?: (doc: RichText) => void }) {
   const t = useTranslations("Events.form");
   const labelId = useId();
   const editable = useRef<HTMLDivElement>(null);
@@ -23,7 +24,10 @@ export function DescriptionEditor({ doc }: { doc: RichText }) {
   const [on, setOn] = useState<Record<Toggle, boolean>>({ bold: false, italic: false, insertUnorderedList: false });
 
   const read = () => {
-    if (editable.current) setValue(JSON.stringify(readRichText(editable.current)));
+    if (!editable.current) return;
+    const model = readRichText(editable.current);
+    setValue(JSON.stringify(model));
+    onChange?.(model);
   };
 
   const readToggles = useCallback(() => {
@@ -76,7 +80,7 @@ export function DescriptionEditor({ doc }: { doc: RichText }) {
     <Field>
       {/* The editable area is not a form field, so the label names it and focuses it by hand. */}
       <FieldLabel id={labelId} onClick={() => editable.current?.focus()}>
-        {t("description")}
+        {label ?? t("description")}
       </FieldLabel>
       <div className="flex flex-wrap gap-1" onMouseDown={(pressed) => pressed.preventDefault()}>
         <Button type="button" variant="ghost" size="icon" aria-label={t("descriptionBold")} aria-pressed={on.bold} className="aria-pressed:bg-muted" onClick={() => command("bold")}>

@@ -5,7 +5,8 @@ import type { BuiltInKind, Shown, Switches } from "@/sections";
 // its column says, and the album only while the site offers it too (src/features), so the editor
 // never previews an album no guest will have; the rest as the arrangement says, which
 // placedSections reads. The countdown only once the event has a date to count to (ticket 28), as
-// a guest's page has none without one.
+// a guest's page has none without one, and the album likewise, since it opens at the event's start
+// (ticket 29's review focus).
 export function previewedSections(switches: Switches, offered: { album: boolean }, dated: boolean): Partial<Record<BuiltInKind, Shown>> {
   const on: Partial<Record<BuiltInKind, boolean>> = {
     letter: switches.lettersEnabled,
@@ -14,7 +15,7 @@ export function previewedSections(switches: Switches, offered: { album: boolean 
     guests: switches.guestListVisibility !== "hidden",
     announcements: true,
     comments: switches.commentsEnabled,
-    album: offered.album && switches.albumEnabled,
+    album: offered.album && switches.albumEnabled && dated,
     countdown: dated,
   };
   return Object.fromEntries(Object.entries(on).flatMap(([kind, isOn]) => (isOn ? [[kind, { count: null }]] : [])));

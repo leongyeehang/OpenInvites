@@ -1108,7 +1108,8 @@
         "announcements": "{count, plural, other {# 則訊息}}",
         "schedule": "{count, plural, other {# 項}}",
         "links": "{count, plural, other {# 個連結}}"
-      }
+      },
+      "newTab": "（在新分頁中開啟）"
     }
   },
   "Design": {
@@ -1415,7 +1416,9 @@
         "announcements": "你在「公告」中發出的內容會顯示在這裡。",
         "comments": "已回覆的賓客在這裡交流。",
         "album": "活動的照片和影片，從活動開始時起。",
-        "countdown": "距活動開始的倒數，依每位賓客自己的時間顯示。"
+        "countdown": "距活動開始的倒數，依每位賓客自己的時間顯示。",
+        "noteEmpty": "還沒有寫內容。點一下即可書寫。",
+        "linksEmpty": "還沒有連結。點一下即可新增。"
       },
       "errors": {
         "unreadable": "無法讀取這項變更，請再試一次。",
@@ -1428,6 +1431,32 @@
         "labelTooLong": "連結名稱請不超過 40 個字。",
         "urlTooLong": "這個網址太長了。",
         "urlInvalid": "連結須以 http:// 或 https:// 開頭。"
+      },
+      "add": "新增區塊",
+      "addNote": "備註",
+      "addLinks": "連結",
+      "addHint": "備註用你自己的話說明一件事。連結是通往禮物清單、歌單或地圖的按鈕。",
+      "full": "一個頁面最多可有 10 個備註和連結區塊。",
+      "suggestions": {
+        "dressCode": "服裝要求",
+        "gettingThere": "交通指引",
+        "gifts": "禮物",
+        "registry": "禮物清單",
+        "playlist": "歌單"
+      },
+      "edit": "編輯",
+      "remove": "刪除",
+      "removeTitle": "刪除「{name}」？",
+      "removeText": "賓客將不再看到它，其中的內容也會被刪除。",
+      "removeKeep": "保留",
+      "links": {
+        "labelOf": "第 {n} 個連結的名稱",
+        "urlOf": "第 {n} 個連結的網址",
+        "add": "新增連結",
+        "moveUp": "將{label}上移",
+        "moveDown": "將{label}下移",
+        "remove": "刪除{label}",
+        "hint": "每個連結都在新分頁中開啟。最多 6 個。"
       }
     }
   },

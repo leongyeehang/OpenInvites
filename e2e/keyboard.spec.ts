@@ -451,6 +451,50 @@ test("a host renames and collapses a section in Arrange, and a guest opens it, b
   await Promise.all([host.context.close(), guest.context().close()]);
 });
 
+// M8 ticket 29: Links added from Arrange, its rows filled, moved and removed by keyboard alone. A
+// moved row's button keeps the focus; removing the last row gives it to "Add a link".
+test("a host adds Links, moves one and removes another, by keyboard alone", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-links", EVENT);
+  const page = host.page;
+  await tabTo(page, page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Arrange" }));
+  await page.keyboard.press("Enter");
+  const arrange = page.getByRole("dialog", { name: "Arrange" });
+  await expect(arrange.getByRole("heading", { name: "Arrange" })).toBeFocused();
+  await tabTo(page, arrange.getByRole("button", { name: "Registry", exact: true }));
+  await savedAfter(page, () => page.keyboard.press("Enter"));
+
+  const sheet = page.getByRole("dialog", { name: "Registry" });
+  await expect(sheet.getByRole("heading", { name: "Registry" })).toBeFocused();
+  const add = sheet.getByRole("button", { name: "Add a link" });
+  for (const [n, label, url] of [
+    [1, "Our list", "https://www.example.com/registry"],
+    [2, "Songs", "example.org/songs"],
+  ] as const) {
+    await tabTo(page, add);
+    await page.keyboard.press("Enter");
+    await expect(sheet.getByRole("textbox", { name: `Label of link ${n}`, exact: true })).toBeFocused();
+    await page.keyboard.type(label);
+    await page.keyboard.press("Tab");
+    await expect(sheet.getByRole("textbox", { name: `Address of link ${n}`, exact: true })).toBeFocused();
+    await savedAfter(page, () => page.keyboard.type(url));
+  }
+
+  const up = sheet.getByRole("button", { name: "Move Songs up" });
+  await tabTo(page, up);
+  await savedAfter(page, () => page.keyboard.press("Enter"));
+  await expect(up).toBeFocused();
+  await expect(sheet.getByRole("textbox", { name: "Label of link 1", exact: true })).toHaveValue("Songs");
+  await expectVisibleFocus(page);
+
+  await tabTo(page, sheet.getByRole("button", { name: "Remove Our list" }));
+  await savedAfter(page, () => page.keyboard.press("Enter"));
+  await expect(sheet.getByRole("listitem")).toHaveCount(1);
+  await expect(add).toBeFocused();
+  await expectVisibleFocus(page);
+  await host.context.close();
+});
+
 // The host pages' rings, and the design sheets', are drawn at half strength over the page. On
 // screen, in the 12px to the left of each focused control, at half its height, some of the ring is
 // where the page was without the focus, and stands out at 3:1 or more both from what was there

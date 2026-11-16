@@ -1,7 +1,23 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
 import { hostWithShelves } from "./dashboard";
-import { arrange, closeDesign, createDraft, createPublished, type DraftFields, openDesign, openMore, pickDesign, publishInEditor, setSchedule, toEditor } from "./events";
+import {
+  addSection,
+  arrange,
+  closeDesign,
+  closeSheets,
+  createDraft,
+  createPublished,
+  type DraftFields,
+  openDesign,
+  openMore,
+  pickDesign,
+  publishInEditor,
+  setSchedule,
+  toEditor,
+  writeLink,
+  writeNote,
+} from "./events";
 import { homeBar, openHome } from "./home";
 import { latestMailTo, newHost, openAccountMenu, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { clientAddress, expect, test, type APIRequestContext, type Browser, type Locator, type Page } from "./test";
@@ -651,6 +667,29 @@ for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
     await schedule.locator("summary").click();
     await expect(schedule).toContainText("Cake");
     await expectNoSeriousViolations(page, `the ${layout}, the collapsed schedule opened`);
+    await guest.close();
+    await host.context.close();
+  });
+}
+
+// A guest's page with a Note and Links in each layout (M8 ticket 29), one link with no label of its
+// own, as a guest reads them who has not replied. A test for each layout.
+for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
+  test(`the ${layout} with a Note and Links`, async ({ browser, request }) => {
+    test.slow();
+    const host = await createPublished(browser, request, `a11y-note-links-${layout.toLowerCase()}`, { ...EVENT, layout: layout === "Poster" ? undefined : layout });
+    await writeNote(host.page, await addSection(host.page, "Dress code"), "Cocktail attire, ", "velvet");
+    await host.page.keyboard.press("Escape");
+    const links = await addSection(host.page, "Registry");
+    await writeLink(host.page, links, 1, "Our list", "https://www.example.com/registry");
+    await writeLink(host.page, links, 2, "", "example.org/songs");
+    await closeSheets(host.page);
+    const guest = await browser.newContext();
+    const page = await guest.newPage();
+    await page.goto(host.link);
+    await expect(page.locator('[data-slot="note"] strong')).toHaveText("velvet");
+    await expect(page.locator('[data-slot="links"]').getByRole("link")).toHaveCount(2);
+    await expectNoSeriousViolations(page, `the ${layout}, a Note and Links`);
     await guest.close();
     await host.context.close();
   });

@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { RichText } from "@/rich-text/rich-text";
 import {
   applyArrangementChange,
+  clipCharacters,
   countdownOn,
   defaultOrder,
   linkHost,
+  linksToDraw,
   parseArrangement,
   parseArrangementChange,
   placedSections,
@@ -14,6 +16,7 @@ import {
   sectionOn,
   sheetRows,
   switchesAfter,
+  tidyHeading,
   type Arrangement,
   type ArrangementChange,
   type BuiltInKind,
@@ -149,6 +152,28 @@ describe("placedSections", () => {
     expect(placed.map((each) => each.key)).toEqual([...POSTER.slice(0, 7), "note:aaaaaaaa", "links:cccccccc"]);
     expect(placed.find((each) => each.kind === "note")).toMatchObject({ count: null, index: 8, style: null });
     expect(placed.find((each) => each.kind === "links")).toMatchObject({ count: 2, index: 10 });
+  });
+
+  // Ticket 29: a collapsed Links says how many links it draws, which is those a guest may follow.
+  it("counts only the links that would be drawn, and places Links with none of them nowhere", () => {
+    const withLinks = arranged((sections) => [
+      ...sections,
+      links("aaaaaaaa", { links: [{ label: "A", url: "https://a.example/" }, { label: "Bad", url: "javascript:alert(1)" }] }),
+      links("bbbbbbbb", { links: [{ label: "Bad", url: "mailto:a@b.c" }] }),
+    ]);
+    const placed = placedSections(withLinks, "poster", EVERYTHING);
+    expect(placed.find((each) => each.key === "links:aaaaaaaa")).toMatchObject({ count: 1 });
+    expect(placed.map((each) => each.key)).not.toContain("links:bbbbbbbb");
+  });
+
+  // Ticket 29 (ticket 24's review): the editor's live copy draws a Note or Links the host has just
+  // added, empty, so it can be tapped to write; a guest's page never does.
+  it("places an empty Note and Links only when asked to, as the editor does", () => {
+    const empty = arranged((sections) => [...sections, note("aaaaaaaa", { body: { blocks: [] } }), links("bbbbbbbb", { links: [] }), note("cccccccc", { on: false, body: { blocks: [] } })]);
+    expect(placedSections(empty, "poster", EVERYTHING).map((each) => each.key)).not.toContain("note:aaaaaaaa");
+    const editor = placedSections(empty, "poster", EVERYTHING, { empty: true });
+    expect(editor.map((each) => each.key)).toEqual([...POSTER.slice(0, 7), "note:aaaaaaaa", "links:bbbbbbbb"]);
+    expect(editor.find((each) => each.kind === "links")).toMatchObject({ count: 0 });
   });
 
   it("carries a heading and a style through as stored, and the section itself", () => {
@@ -303,6 +328,21 @@ describe("links a guest may follow", () => {
     for (const value of ["https://bank.example@evil.example/", "https://ada:secret@example.com/list", "http://:pw@example.com/", "bank.example@evil.example"]) {
       expect(safeLinkUrl(value), value).toBeUndefined();
     }
+  });
+
+  // Ticket 29: what a Links section draws, each address checked again on drawing.
+  it("draws only the links a guest may follow, each named by its site where it has no label", () => {
+    expect(
+      linksToDraw([
+        { label: "Bad", url: "javascript:alert(1)" },
+        { label: "Mail", url: "mailto:a@b.c" },
+        { label: "Our list", url: "https://www.example.com/list" },
+        { label: "", url: "https://example.org/songs" },
+      ]),
+    ).toEqual([
+      { label: "Our list", url: "https://www.example.com/list", host: "example.com" },
+      { label: "example.org", url: "https://example.org/songs", host: "example.org" },
+    ]);
   });
 
   it("names a link's site without its www", () => {
@@ -593,6 +633,19 @@ describe("sheetRows", () => {
       style: null,
     });
     expect(sheetRows(written, "poster", { ...SWITCHES, albumEnabled: false }, { album: true }).find((row) => row.kind === "album")?.on).toBe(false);
+  });
+});
+
+// Ticket 28's review: the Arrange sheet tidies and clips a heading by the server's own rule.
+describe("the typed text's rules", () => {
+  it("tidies a heading's spaces, and has none when nothing is left", () => {
+    expect(tidyHeading("  Dress   code \n")).toBe("Dress code");
+    expect(tidyHeading("   ")).toBeNull();
+  });
+
+  it("clips to a number of characters, as a person counts them", () => {
+    expect(clipCharacters("🎉".repeat(41), 40)).toBe("🎉".repeat(40));
+    expect(clipCharacters("abc", 40)).toBe("abc");
   });
 });
 

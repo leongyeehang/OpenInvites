@@ -149,8 +149,19 @@ export function defaultOrder(layout: Layout): Section[] {
 // Counted by character (code point), as a person counts them: forty Chinese characters or forty
 // emoji are forty, not eighty.
 const characters = (text: string) => [...text].length;
-const clipped = (text: string, max: number) => [...text].slice(0, max).join("");
 const tidy = (text: string) => text.replace(/\s+/g, " ").trim();
+
+// Text cut to `max` characters, counted as above. The Arrange sheet's fields cut what is typed by
+// it (a heading, a link's label and address), so the sheet and the server count alike.
+export function clipCharacters(text: string, max: number): string {
+  return [...text].slice(0, max).join("");
+}
+
+// A heading as it is stored: runs of whitespace as one space, trimmed, and none when nothing is
+// left, which keeps the translated default. The Arrange sheet tidies what is typed by it too.
+export function tidyHeading(text: string): string | null {
+  return tidy(text) || null;
+}
 
 // An address a guest may be sent to from a Links section: http or https only (spec, "Links"),
 // checked on save and again on drawing. One typed without a scheme is taken as https.
@@ -186,12 +197,24 @@ export function linkHost(url: string): string {
   }
 }
 
+// What a Links section draws (ticket 29): each link whose address a guest may follow, checked
+// again here rather than trusted from the save, with the site it goes to, which also names a link
+// the host gave no label.
+export function linksToDraw(links: SectionLink[]): { label: string; url: string; host: string }[] {
+  return links.flatMap((link) => {
+    const url = safeLinkUrl(link.url);
+    if (!url) return [];
+    const host = linkHost(url);
+    return [{ label: link.label || host, url, host }];
+  });
+}
+
 const asRecord = (value: unknown): Record<string, unknown> | undefined =>
   typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
 
 const storedHeading = (value: unknown): string | null => {
-  const heading = typeof value === "string" ? clipped(tidy(value), SECTION_LIMITS.heading) : "";
-  return heading === "" ? null : heading;
+  const heading = typeof value === "string" ? tidyHeading(value) : null;
+  return heading === null ? null : clipCharacters(heading, SECTION_LIMITS.heading);
 };
 
 // The first six links it would follow; nothing after them is read.
@@ -202,7 +225,7 @@ function storedLinks(value: unknown): SectionLink[] {
     const raw = asRecord(each);
     const url = safeLinkUrl(raw?.url);
     if (!raw || !url) continue;
-    links.push({ label: clipped(tidy(typeof raw.label === "string" ? raw.label : ""), SECTION_LIMITS.label), url });
+    links.push({ label: clipCharacters(tidy(typeof raw.label === "string" ? raw.label : ""), SECTION_LIMITS.label), url });
   }
   return links;
 }
@@ -270,9 +293,9 @@ const unreadable: Parsed = { ok: false, error: "unreadable" };
 function postedHeading(value: unknown): { ok: true; heading: string | null } | { ok: false; error: "unreadable" | "headingTooLong" } {
   if (value === null || value === undefined) return { ok: true, heading: null };
   if (typeof value !== "string") return { ok: false, error: "unreadable" };
-  const heading = tidy(value);
-  if (characters(heading) > SECTION_LIMITS.heading) return { ok: false, error: "headingTooLong" };
-  return { ok: true, heading: heading === "" ? null : heading };
+  const heading = tidyHeading(value);
+  if (heading !== null && characters(heading) > SECTION_LIMITS.heading) return { ok: false, error: "headingTooLong" };
+  return { ok: true, heading };
 }
 
 function postedLinks(value: unknown): { ok: true; links: SectionLink[] } | { ok: false; error: ArrangementError } {
@@ -447,16 +470,26 @@ const switchedOn = (section: Section): boolean => !("on" in section) || section.
 
 // The sections a page draws, in order. A built-in section is placed when its drawing gave this
 // viewer something of it (`shown`) and, where its switch is the arrangement's, it is on; a Note or
-// Links when it is on and has something in it.
-export function placedSections(arrangement: Arrangement, layout: Layout, shown: Partial<Record<BuiltInKind, Shown>>): PlacedSection[] {
+// Links when it is on and has something in it to draw, Links counting the links it draws. The
+// editor's live copy asks for `empty` ones too (ticket 29): a Note or Links the host has just
+// added is there to be tapped and written, where a guest's page has nothing to show.
+export function placedSections(
+  arrangement: Arrangement,
+  layout: Layout,
+  shown: Partial<Record<BuiltInKind, Shown>>,
+  { empty = false }: { empty?: boolean } = {},
+): PlacedSection[] {
   const sections = arrangement?.sections ?? defaultOrder(layout);
   return sections.flatMap((section, index): PlacedSection[] => {
     if (!switchedOn(section)) return [];
     const place = (count: number | null, collapsed: boolean): PlacedSection[] => [
       { key: sectionKey(section), kind: section.kind, heading: section.heading, collapsed, style: styleOf(section), count, index, section },
     ];
-    if (section.kind === "note") return section.body.blocks.length > 0 ? place(null, section.collapsed) : [];
-    if (section.kind === "links") return section.links.length > 0 ? place(section.links.length, section.collapsed) : [];
+    if (section.kind === "note") return empty || section.body.blocks.length > 0 ? place(null, section.collapsed) : [];
+    if (section.kind === "links") {
+      const drawn = linksToDraw(section.links).length;
+      return empty || drawn > 0 ? place(drawn, section.collapsed) : [];
+    }
     const given = isBuiltIn(section.kind) ? shown[section.kind] : undefined;
     return given ? place(given.count, section.collapsed && !given.locked) : [];
   });

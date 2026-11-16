@@ -1,19 +1,32 @@
 "use client";
 
-import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, Link2, Plus, StickyNote } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { arrangeAction } from "@/events/editor-actions";
+import { arrangeAction, type ArrangeResult } from "@/events/editor-actions";
 import { cn } from "@/lib/utils";
 import {
   applyArrangementChange,
   REGISTRY,
   SECTION_LIMITS,
+  sectionId,
   sheetRows,
   switchesAfter,
+  tidyHeading,
   type Arrangement,
   type ArrangementChange,
   type SectionKind,
@@ -22,6 +35,7 @@ import {
 } from "@/sections";
 import type { GuestListVisibility } from "@/rsvps/visibility";
 import type { Layout } from "@/themes/theme";
+import { ClippedInput } from "./clipped-input";
 import { EditorSheet } from "./sheet";
 import { useEditor } from "./status";
 
@@ -36,7 +50,10 @@ import { useEditor } from "./status";
 // shows here at once and is saved through one action, which applies it under the event's row lock;
 // a refusal puts the list and the switches back as they were. A heading is sent once the host has
 // stopped typing, as the Settings sheet sends a capacity. The poster, title, host line and reply
-// buttons are fixed and are not rows; the Countdown is a row like the rest (ticket 28).
+// buttons are fixed and are not rows; the Countdown is a row like the rest (ticket 28). At the foot,
+// Add a section adds a Note or Links, plain or headed by a suggestion, after the open row or at
+// the end, and opens its own sheet; a Note's or Links' open row edits it there, or removes it once
+// the host has confirmed (ticket 29).
 
 // What the sheet shows: the order, and the switches that are columns.
 type Arranged = { arrangement: Arrangement; switches: Switches };
@@ -47,13 +64,16 @@ const HINTS = { letter: "letterHint", comments: "commentsHint", album: "albumHin
 // A heading is sent this long after the host's last key, as the Settings sheet sends a capacity.
 const DEBOUNCE = 600;
 
+// The host's own sections, which they write, edit and remove.
+const written = (kind: SectionKind) => kind === "note" || kind === "links";
+
 // Whether a row opens, and so has a disclosure on its name: one that may be renamed or collapsed,
 // and only while it is on (ticket 28). Off, Who's coming has no choice of who sees it, since
-// choosing would switch it on (ticket 24).
-const opens = (row: SheetRow) => row.on && (REGISTRY[row.kind].rename || REGISTRY[row.kind].collapse);
+// choosing would switch it on (ticket 24). A Note's or Links' always opens, to Edit and Remove.
+const opens = (row: SheetRow) => written(row.kind) || (row.on && (REGISTRY[row.kind].rename || REGISTRY[row.kind].collapse));
 
-// A heading as the server stores it: runs of spaces as one, trimmed, and none when nothing is left.
-const tidied = (text: string) => text.replace(/\s+/g, " ").trim() || null;
+// The headings Add a section suggests, by the kind each adds (ticket 29).
+const SUGGESTIONS = { addNote: ["dressCode", "gettingThere", "gifts"], addLinks: ["registry", "playlist"] } as const;
 
 export function ArrangeSheet({
   eventId,
@@ -75,7 +95,7 @@ export function ArrangeSheet({
 }) {
   const t = useTranslations("Editor.arrange");
   const design = useTranslations("Design");
-  const { sheet, openSheet, save, openRow, setOpenRow } = useEditor();
+  const { sheet, openSheet, save, openRow, setOpenRow, editSection } = useEditor();
   const [, startSaving] = useTransition();
   // What the host sees: the arrangement and switches as saved, with the presses still being saved
   // on top.
@@ -95,7 +115,9 @@ export function ArrangeSheet({
   const refocus = useRef<string | null>(null);
   useLayoutEffect(() => {
     if (!refocus.current) return;
-    const button = buttons.current.get(refocus.current);
+    // A removed row takes its buttons with it: the focus goes to the sheet's heading rather than to
+    // nothing.
+    const button = refocus.current === "heading" ? document.querySelector<HTMLElement>('[data-slot="design-sheet"] [data-sheet-heading]') : buttons.current.get(refocus.current);
     refocus.current = null;
     if (button && document.activeElement !== button) button.focus();
   });
@@ -109,18 +131,21 @@ export function ArrangeSheet({
   const headingOf = (row: SheetRow) => (row.key in typed ? typed[row.key] : row.heading);
   const nameOf = (row: SheetRow) => headingOf(row) ?? t(`kinds.${row.kind}`);
 
-  const send = (change: ArrangementChange) => {
+  // `saved` hears the server's answer once it is saved: a new section's key.
+  const send = (change: ArrangementChange, saved?: (result: ArrangeResult & { saved: true }) => void) => {
     const before = latest.current;
     const applied = applyArrangementChange(before.arrangement, layout, change);
     const next = applied.ok ? { arrangement: applied.arrangement, switches: switchesAfter(before.switches, change) } : undefined;
     if (next) latest.current = next;
     startSaving(async () => {
       if (next) show(next);
+      let answer: ArrangeResult | undefined;
       await save(async () => {
-        const result = await arrangeAction(eventId, change);
-        setError(result.saved ? undefined : result.error);
-        return result;
+        answer = await arrangeAction(eventId, change);
+        setError(answer.saved ? undefined : answer.error);
+        return answer;
       });
+      if (answer?.saved) saved?.(answer);
     });
     return applied;
   };
@@ -140,7 +165,7 @@ export function ArrangeSheet({
   };
   const rename = (key: string, text: string) => {
     if (pending.current && pending.current.key !== key) flush();
-    const heading = tidied(text);
+    const heading = tidyHeading(text);
     pending.current = { key, heading };
     setTyped((each) => ({ ...each, [key]: heading }));
     clearTimeout(timer.current);
@@ -169,6 +194,33 @@ export function ArrangeSheet({
     refocus.current = `${row.key}:${by}`;
     const after = sheetRows(applied.arrangement, layout, switched, offered);
     say(t("position", { name: nameOf(row), position: after.findIndex((each) => each.key === row.key) + 1, count: after.length }));
+  };
+
+  // A switch pressed. The Countdown switched on while it is last moves itself to just after the
+  // Details (ticket 28), which the live line says as a move's is said (ticket 28's review).
+  const toggle = (row: SheetRow, on: boolean) => {
+    if (!on && openRow === row.key) setOpenRow(null);
+    const before = sheetRows(latest.current.arrangement, layout, latest.current.switches, offered).findIndex((each) => each.key === row.key);
+    const applied = send({ type: "toggle", key: row.key, on });
+    if (!applied.ok) return;
+    const after = sheetRows(applied.arrangement, layout, latest.current.switches, offered);
+    const position = after.findIndex((each) => each.key === row.key);
+    if (position !== before) say(t("position", { name: nameOf(row), position: position + 1, count: after.length }));
+  };
+
+  // A new Note or Links, after the open row or at the end, whose own sheet opens once it is saved
+  // under the key the server gave it. The id it is shown under meanwhile is the sheet's own.
+  const full = rows.filter((row) => written(row.kind)).length >= SECTION_LIMITS.custom;
+  const add = (type: "addNote" | "addLinks", heading: string | null) => {
+    const after = openRow && rows.some((row) => row.key === openRow) ? openRow : null;
+    send({ type, id: sectionId(), after, heading }, (result) => {
+      if (result.key) editSection(result.key, true);
+    });
+  };
+  const remove = (row: SheetRow) => {
+    refocus.current = "heading";
+    setOpenRow(null);
+    send({ type: "remove", key: row.key });
   };
 
   return (
@@ -229,10 +281,7 @@ export function ArrangeSheet({
                         aria-labelledby={nameId}
                         aria-describedby={hint ? hintId : undefined}
                         checked={row.on}
-                        onCheckedChange={(on) => {
-                          if (!on && openRow === row.key) setOpenRow(null);
-                          send({ type: "toggle", key: row.key, on });
-                        }}
+                        onCheckedChange={(on) => toggle(row, on)}
                       />
                     )}
                     <MoveButton
@@ -269,6 +318,14 @@ export function ArrangeSheet({
                       )}
                       {entry.collapse && <Collapsed collapsed={row.collapsed} onChange={(collapsed) => send({ type: "collapse", key: row.key, collapsed })} />}
                       {row.kind === "guests" && <Audience name={`${listId}-audience`} visibility={shown.switches.guestListVisibility} onSelect={(visibility) => send({ type: "audience", visibility })} />}
+                      {written(row.kind) && (
+                        <div className="flex gap-2">
+                          <Button type="button" variant="secondary" size="sm" onClick={() => editSection(row.key, true)}>
+                            {t("edit")}
+                          </Button>
+                          <RemoveSection name={name} onRemove={() => remove(row)} />
+                        </div>
+                      )}
                     </div>
                   )}
                 </li>
@@ -279,46 +336,21 @@ export function ArrangeSheet({
             {said}
           </p>
         </div>
+        <AddSection full={full} onAdd={add} />
       </div>
     </EditorSheet>
   );
 }
 
-// Up to 40 characters, counted as a person counts them and as the server does (SECTION_LIMITS):
-// forty emoji are forty, where an input's maxLength would stop at twenty.
-const clipped = (text: string) => [...text].slice(0, SECTION_LIMITS.heading).join("");
-
 // A section's heading, typed in its open row: empty, it keeps the default, which is its
-// placeholder. What is typed or pasted past the limit is cut by script; while a word is still
-// being composed (a Chinese input method), it is left alone until it is.
+// placeholder. Up to 40 characters, counted as the server counts them (ClippedInput).
 function HeadingField({ initial, placeholder, onType }: { initial: string; placeholder: string; onType: (text: string) => void }) {
   const t = useTranslations("Editor.arrange");
   const id = useId();
-  const [value, setValue] = useState(initial);
-  const composing = useRef(false);
-  const take = (text: string) => {
-    const kept = clipped(text);
-    setValue(kept);
-    onType(kept);
-  };
   return (
     <Field>
       <FieldLabel htmlFor={id}>{t("heading")}</FieldLabel>
-      <Input
-        id={id}
-        value={value}
-        placeholder={placeholder}
-        autoComplete="off"
-        aria-describedby={`${id}-hint`}
-        onChange={(event) => (composing.current ? setValue(event.target.value) : take(event.target.value))}
-        onCompositionStart={() => {
-          composing.current = true;
-        }}
-        onCompositionEnd={(event) => {
-          composing.current = false;
-          take(event.currentTarget.value);
-        }}
-      />
+      <ClippedInput id={id} initial={initial} max={SECTION_LIMITS.heading} placeholder={placeholder} autoComplete="off" aria-describedby={`${id}-hint`} onType={onType} />
       <FieldDescription id={`${id}-hint`}>{t("headingHint", { name: placeholder })}</FieldDescription>
     </Field>
   );
@@ -372,12 +404,92 @@ function Audience({ name, visibility, onSelect }: { name: string; visibility: Gu
   );
 }
 
+// Add a section, at the sheet's foot (ticket 29): a Note or Links, plain or headed by one of the
+// suggestions, until the page holds ten of them, when it says so and offers neither.
+function AddSection({ full, onAdd }: { full: boolean; onAdd: (type: "addNote" | "addLinks", heading: string | null) => void }) {
+  const t = useTranslations("Editor.arrange");
+  const id = useId();
+  return (
+    <section aria-labelledby={id} className="rounded-2xl border border-dashed p-3">
+      <h3 id={id} className="flex items-center gap-1.5 text-sm font-medium">
+        <Plus aria-hidden className="size-4" />
+        {t("add")}
+      </h3>
+      {full ? (
+        <p className="mt-1 text-sm text-muted-foreground">{t("full")}</p>
+      ) : (
+        <>
+          <p className="mt-1 text-xs text-muted-foreground">{t("addHint")}</p>
+          {(["addNote", "addLinks"] as const).map((type) => {
+            const Icon = type === "addNote" ? StickyNote : Link2;
+            return (
+              <div key={type} className="mt-3 flex flex-wrap gap-2">
+                <Button type="button" size="sm" variant="secondary" className="rounded-full" onClick={() => onAdd(type, null)}>
+                  <Icon aria-hidden />
+                  {t(type)}
+                </Button>
+                {SUGGESTIONS[type].map((suggestion) => (
+                  <Button key={suggestion} type="button" size="sm" variant="outline" className="rounded-full" onClick={() => onAdd(type, t(`suggestions.${suggestion}`))}>
+                    {t(`suggestions.${suggestion}`)}
+                  </Button>
+                ))}
+              </div>
+            );
+          })}
+        </>
+      )}
+    </section>
+  );
+}
+
+// Remove, in a Note's or Links' open row, once the host has confirmed it: what it says is deleted.
+function RemoveSection({ name, onRemove }: { name: string; onRemove: () => void }) {
+  const t = useTranslations("Editor.arrange");
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button type="button" variant="ghost" size="sm">
+          {t("remove")}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("removeTitle", { name })}</AlertDialogTitle>
+          <AlertDialogDescription>{t("removeText")}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="pt-4">
+          <AlertDialogCancel type="button">{t("removeKeep")}</AlertDialogCancel>
+          <AlertDialogAction type="button" onClick={onRemove}>
+            {t("remove")}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 // A Move button. At an end of the list it says it is unavailable, keeps its place in the Tab
 // order, so the focus is not lost from under a keyboard, and does nothing.
-function MoveButton({ label, end, onPress, ref, children }: { label: string; end: boolean; onPress: () => void; ref: (button: HTMLButtonElement | null) => void; children: ReactNode }) {
+export function MoveButton({
+  label,
+  end,
+  onPress,
+  ref,
+  control,
+  children,
+}: {
+  label: string;
+  end: boolean;
+  onPress: () => void;
+  ref?: (button: HTMLButtonElement | null) => void;
+  // What a sheet finds it by to give it the focus back (links-sheet.tsx).
+  control?: string;
+  children: ReactNode;
+}) {
   return (
     <button
       ref={ref}
+      data-control={control}
       type="button"
       aria-label={label}
       aria-disabled={end || undefined}
@@ -416,5 +528,29 @@ export function OpenArrange({ sectionKey, children }: { sectionKey: string; chil
         {t("openHint")}
       </span>
     </>
+  );
+}
+
+// A Note or Links on the editor's invitation (editor/section-previews.tsx; ticket 29), drawn in
+// full as guests will see it, or saying what to tap while it is empty, under a button the size of
+// it that opens its own sheet. The button is named "Edit" and the section's heading, which
+// `headingId` is the id of.
+export function EditSection({ sectionKey, headingId, children }: { sectionKey: string; headingId: string; children: ReactNode }) {
+  const t = useTranslations("Editor.arrange");
+  const { editSection } = useEditor();
+  const edit = useId();
+  return (
+    <div className="relative">
+      {children}
+      <button
+        type="button"
+        aria-labelledby={`${edit} ${headingId}`}
+        onClick={() => editSection(sectionKey, false)}
+        className="absolute -inset-2 cursor-pointer rounded-xl transition-colors hover:bg-theme-glass-strong/40 focus-visible:outline-2 focus-visible:outline-theme-focus-ring motion-reduce:transition-none"
+      />
+      <span id={edit} hidden>
+        {t("edit")}
+      </span>
+    </div>
   );
 }

@@ -26,6 +26,11 @@ type EditorState = {
   openRow: string | null;
   openSection: (key: string) => void;
   setOpenRow: (key: string | null) => void;
+  // A Note's or Links' own sheet (M8 ticket 29), opened by its section's key, which `openRow`
+  // holds meanwhile: from Arrange, closing it goes back to Arrange at that row; from the
+  // invitation, back to the invitation.
+  editSection: (key: string, fromArrange: boolean) => void;
+  closeSection: () => void;
 };
 
 const EditorContext = createContext<EditorState | null>(null);
@@ -52,6 +57,16 @@ export function EditorProvider({ sheet: opened = null, children }: { sheet?: She
     setSheet("arrange");
     setOpenRow(key);
   }, []);
+  const [backToArrange, setBackToArrange] = useState(false);
+  const editSection = useCallback((key: string, fromArrange: boolean) => {
+    setSheet(key.startsWith("links:") ? "links" : "note");
+    setOpenRow(key);
+    setBackToArrange(fromArrange);
+  }, []);
+  const closeSection = useCallback(() => {
+    setSheet(backToArrange ? "arrange" : null);
+    if (!backToArrange) setOpenRow(null);
+  }, [backToArrange]);
   const last = useRef<() => Promise<SaveResult>>(undefined);
   // Saves answer in the order they were sent; only the latest one's outcome is shown.
   const sent = useRef(0);
@@ -77,7 +92,7 @@ export function EditorProvider({ sheet: opened = null, children }: { sheet?: She
     if (last.current) void save(last.current);
   }, [save]);
 
-  return <EditorContext value={{ status, saves, error, save, retry, sheet, openSheet, openRow, openSection, setOpenRow }}>{children}</EditorContext>;
+  return <EditorContext value={{ status, saves, error, save, retry, sheet, openSheet, openRow, openSection, setOpenRow, editSection, closeSection }}>{children}</EditorContext>;
 }
 
 // The editor is optional around the invitation: the guest page has none.
