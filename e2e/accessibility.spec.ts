@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
 import { hostWithShelves } from "./dashboard";
-import { closeDesign, createDraft, createPublished, type DraftFields, openDesign, openMore, pickDesign, publishInEditor, toEditor } from "./events";
+import { arrange, closeDesign, createDraft, createPublished, type DraftFields, openDesign, openMore, pickDesign, publishInEditor, setSchedule, toEditor } from "./events";
 import { homeBar, openHome } from "./home";
 import { latestMailTo, newHost, openAccountMenu, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { clientAddress, expect, test, type APIRequestContext, type Browser, type Locator, type Page } from "./test";
@@ -572,7 +572,7 @@ test("the Thread layout: the event page, each turn of the conversation and the d
     await expect(page.getByLabel("Add a comment")).toBeVisible();
     await expectNoSeriousViolations(page, `${where}: the done bubble, who's coming and the comments`);
     await comment(page, "See you there!");
-    await deleteOwnComment(page, "See you there!", page.locator('[data-slot="comments"] summary'), where);
+    await deleteOwnComment(page, "See you there!", page.locator('[data-slot="comments"] summary h2'), where);
     await guest.close();
   }
 
@@ -587,6 +587,47 @@ test("the Thread layout: the event page, each turn of the conversation and the d
   await expect(page.getByText("This event is cancelled")).toBeVisible();
   await expectNoSeriousViolations(page, "the Thread, a cancelled event, dark tone");
   await visitor.close();
+  await host.context.close();
+});
+
+// The Broadsheet and the Thread in the host's order (M8 ticket 27), as the sections spec arranges
+// them: the Broadsheet with its Album moved above the comments, the Thread with its two
+// announcements moved above the schedule; each read by a guest who has not replied.
+test("the Broadsheet arranged, the Album above the comments", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "a11y-broadsheet-arranged", { ...EVENT, description: "Bring a jumper.", layout: "Broadsheet" });
+  await setSchedule(host.page, [{ start: "20:00", title: "Cake" }]);
+  await arrange(host.page, (sheet) => sheet.getByRole("button", { name: "Move Album up" }).click());
+  const guest = await browser.newContext();
+  const page = await guest.newPage();
+  await page.goto(host.link);
+  await expect(page.locator('[data-section="album"] + [data-section="comments"]')).toBeVisible();
+  await expectNoSeriousViolations(page, "the Broadsheet, arranged");
+  await guest.close();
+  await host.context.close();
+});
+
+test("the Thread arranged, its announcements above the schedule", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "a11y-thread-arranged", { ...EVENT, description: "Bring a jumper.", layout: "Thread" });
+  const manage = host.page.url();
+  await setSchedule(host.page, [{ start: "20:00", title: "Cake" }]);
+  await announce(host.page, manage, "The gate code is 1234.");
+  await announce(host.page, manage, "Parking is on Mill Lane.");
+  await host.page.goto(manage);
+  await arrange(host.page, async (sheet) => {
+    const up = sheet.getByRole("button", { name: "Move Announcements up" });
+    await up.click();
+    await expect(sheet.locator('[aria-live="polite"]')).toHaveText("Announcements, 4 of 7");
+    await up.click();
+    await expect(sheet.locator('[aria-live="polite"]')).toHaveText("Announcements, 3 of 7");
+  });
+  const guest = await browser.newContext();
+  const page = await guest.newPage();
+  await page.goto(host.link);
+  await expect(page.locator('[data-slot="announcement"] + [data-slot="announcement"] + [data-section="schedule"]')).toBeVisible();
+  await expectNoSeriousViolations(page, "the Thread, arranged");
+  await guest.close();
   await host.context.close();
 });
 

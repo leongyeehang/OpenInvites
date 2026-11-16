@@ -158,6 +158,37 @@ test("with the Album off, a host's Arrange has no Album row and the editor no al
   await operator.keyboard.press("Escape");
 });
 
+// M8 ticket 27: with the site's Album off, a change to the event's Album posted by hand is refused,
+// as the sheet that has no Album row would never send one. The host presses the Comments switch,
+// and what reaches the server names the Album instead.
+test("with the Album off, an Album change posted by hand is refused and the event's Album stays on", async () => {
+  test.slow();
+  await switchFeature(operator, "Album", false);
+  await toEditor(operator);
+  const editor = operator.url();
+  let posted = "";
+  await operator.route(editor, (route) => {
+    const request = route.request();
+    if (request.method() !== "POST" || !request.headers()["next-action"]) return route.continue();
+    posted = (request.postData() ?? "").replace('"key":"comments"', '"key":"album"');
+    return route.continue({ postData: posted });
+  });
+  const sheet = await openArrange(operator);
+  const comments = sheet.getByRole("switch", { name: "Comments" });
+  await comments.click();
+  await expect(sheet.getByRole("alert")).toHaveText("That section can’t be changed that way.", { timeout: 15_000 });
+  expect(posted).toContain('"key":"album"');
+  await expect(comments).toBeChecked();
+  await operator.keyboard.press("Escape");
+  await operator.unroute(editor);
+
+  // Back on, the event's Album is as it was: on.
+  await switchFeature(operator, "Album", true);
+  await toEditor(operator);
+  await expect((await openArrange(operator)).getByRole("switch", { name: "Album" })).toBeChecked();
+  await operator.keyboard.press("Escape");
+});
+
 test("with videos off, an album takes photos only, a video is refused, and a video already added still plays", async ({ browser }) => {
   // The worker takes the clip at its next minute, on top of the upload.
   test.setTimeout(240_000);

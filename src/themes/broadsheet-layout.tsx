@@ -1,24 +1,20 @@
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
-import type { ReactNode } from "react";
-import type { CommentsShown } from "@/comments/visibility";
+import { Fragment, type ReactNode } from "react";
 import type { EventWithHost } from "@/events/repository";
 import { formatWhen, type Dated } from "@/events/time";
-import type { Letter } from "@/invites/invite";
 import { cn } from "@/lib/utils";
-import { RichTextView } from "@/rich-text/rich-text-view";
+import type { ReadySection } from "@/sections";
 import { BackgroundDescription } from "./background-description";
-import { BroadsheetGuestList, type BroadsheetGuests } from "./broadsheet-guest-list";
+import { BroadsheetSection } from "./broadsheet-section";
 import { BroadsheetTitle } from "./broadsheet-title";
-import { AnnouncementsSection, type ShownAnnouncement } from "./sections/announcements-section";
-import { ALBUM_HEADING } from "./sections/album-section";
-import { COMMENTS_HEADING, CommentsSection } from "./sections/comments-section";
-import { LetterSection } from "./sections/letter-section";
 
 // The Broadsheet layout (spec, "Broadsheet", from the prototype's layout-broadsheet.tsx): an
-// editorial page at most 64rem wide. A masthead rule, one very large title (or the host's poster),
-// a facts grid, the host's letter to the guest, the description in columns, the host's schedule,
-// the host's announcements, the guest list typeset, and the comments, beside one ballot that stays
-// in view on a wide screen. On a phone the ballot comes straight after the facts. It renders inside
+// editorial page at most 64rem wide. A masthead rule, one very large title (or the host's poster)
+// and a facts grid, then the page's sections in the host's order (M8 ticket 27; src/sections),
+// each under its rule; never arranged, the host's letter to the guest, the description in
+// columns, the host's schedule, the host's announcements, the guest list typeset, the comments and
+// the album, as before; beside one ballot that stays in view on a wide screen. On a phone the
+// ballot comes straight after the facts. It renders inside
 // a ThemedPage, which carries the theme and paints the backdrop; the layout paints none of its own.
 //
 // Its text is set on the page rather than on glass, so it sits on the veil, the tint that keeps
@@ -30,44 +26,29 @@ import { LetterSection } from "./sections/letter-section";
 export async function BroadsheetLayout({
   event,
   hosts,
-  announcements,
-  comments,
-  commentForm,
-  album,
-  schedule,
-  letter,
   notice,
   rsvp,
-  guests,
   underWhen,
   countdown,
   underWhere,
+  headcount,
+  sections,
 }: {
   // Dated: an undated draft is shown its host in the Poster layout (app/e/[slug]/page.tsx).
   event: Dated<EventWithHost>;
   // Every host's display name, owner first, then co-hosts in the order they were added.
   hosts: string[];
-  // The host's announcements, newest first, which every viewer reads.
-  announcements: ShownAnnouncement[];
-  // The comments as this viewer may see them, absent when the host has turned them off; and the
-  // form that posts one, shown where they may.
-  comments?: CommentsShown;
-  commentForm?: ReactNode;
-  // The photo album (M4 ticket 11), as this viewer may see it.
-  album?: ReactNode;
-  // The host's schedule (M6 ticket 02), following the guest's clock.
-  schedule?: ReactNode;
-  // The host's letter to the guest the page is open for (M6 ticket 09), first in the paper.
-  letter?: Letter;
   notice?: ReactNode;
   // The ballot: the RSVP flow as the Broadsheet presents it.
   rsvp?: ReactNode;
-  // The guest list and its counts as this viewer may see them, absent when the host hides it.
-  guests?: BroadsheetGuests;
   // What the guest's own device adds: their clock, the countdown on it, their maps app.
   underWhen?: ReactNode;
   countdown?: ReactNode;
   underWhere?: ReactNode;
+  // The Host fact's headcount, given only where the guest list is open to this viewer.
+  headcount?: number;
+  // The page's sections, placed and made ready (themes/sections/drawings.ts).
+  sections: ReadySection[];
 }) {
   const [t, locale, format] = await Promise.all([getTranslations("EventPage"), getLocale(), getFormatter()]);
   const hostedBy = format.list(hosts, { type: "conjunction" });
@@ -100,7 +81,7 @@ export async function BroadsheetLayout({
             )}
             <Fact label={t("broadsheet.host", { count: hosts.length })}>
               <span className="block">{hostedBy}</span>
-              {guests?.view === "open" && <span className="mt-1 block text-sm text-theme-text-muted">{t("headcount", { count: guests.counts.headcount })}</span>}
+              {headcount !== undefined && <span className="mt-1 block text-sm text-theme-text-muted">{t("headcount", { count: headcount })}</span>}
             </Fact>
             {countdown && <Fact label={t("broadsheet.countdown")}>{countdown}</Fact>}
           </dl>
@@ -109,46 +90,17 @@ export async function BroadsheetLayout({
         {rsvp && <div className={cn("lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start", entrance, "motion-safe:delay-150")}>{rsvp}</div>}
 
         <div className={cn(PAPER, "flex flex-col gap-12 rounded-4xl lg:col-start-1 lg:rounded-t-none lg:pt-12", entrance, "motion-safe:delay-200")}>
-          {letter && (
-            <Section label={t("letter.for", { name: letter.name })} slot="letter">
-              <LetterSection body={letter.body} className="text-[17px] leading-relaxed" />
-            </Section>
-          )}
-
-          {event.descriptionRich.blocks.length > 0 && (
-            <Section label={t("broadsheet.details")} slot="description">
-              <RichTextView doc={event.descriptionRich} className="text-[17px] leading-relaxed sm:columns-2 sm:gap-8 [&>*]:break-inside-avoid" />
-            </Section>
-          )}
-
-          {schedule && (
-            <Section label={t("schedule.title")} slot="schedule">
-              {schedule}
-            </Section>
-          )}
-
-          {announcements.length > 0 && (
-            <Section label={t("announcements")} slot="announcements">
-              <AnnouncementsSection announcements={announcements} timeZone={event.timeZone} />
-            </Section>
-          )}
-
-          {guests && (
-            <Section label={t("guests")} slot="guests">
-              <BroadsheetGuestList {...guests} />
-            </Section>
-          )}
-
-          {comments && (
-            <Section label={t("comments.title")} slot="comments" headingId={COMMENTS_HEADING}>
-              <CommentsSection comments={comments} form={commentForm} slug={event.slug} timeZone={event.timeZone} />
-            </Section>
-          )}
-          {album && (
-            <Section label={t("album.title")} slot="album" headingId={ALBUM_HEADING}>
-              {album}
-            </Section>
-          )}
+          {sections.map((section) => {
+            const { placed } = section;
+            // The paper comes in as one, so a section has no entrance of its own; one that frames
+            // itself carries its own data-section.
+            if (section.whole) return <Fragment key={placed.key}>{section.whole("")}</Fragment>;
+            return (
+              <BroadsheetSection key={placed.key} label={section.heading} headingId={section.headingId} data-slot={placed.kind} data-section={placed.key}>
+                {section.body}
+              </BroadsheetSection>
+            );
+          })}
         </div>
       </div>
     </main>
@@ -172,18 +124,5 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
       <dt className="label-mono text-theme-text-muted">{label}</dt>
       <dd className="mt-2 text-lg leading-snug font-medium">{children}</dd>
     </div>
-  );
-}
-
-// A part of the page under a rule and its label. A label with an id is where the focus is sent
-// once something under it is deleted, so it can take the focus, though it is never a stop for Tab.
-function Section({ label, slot, headingId, children }: { label: string; slot: string; headingId?: string; children: ReactNode }) {
-  return (
-    <section data-slot={slot} className="border-t border-theme-text/80 pt-5">
-      <h2 id={headingId} tabIndex={headingId ? -1 : undefined} className="label-mono mb-4 text-theme-text-muted outline-none">
-        {label}
-      </h2>
-      {children}
-    </section>
   );
 }

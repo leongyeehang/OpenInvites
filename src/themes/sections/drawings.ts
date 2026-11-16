@@ -4,7 +4,19 @@ import type { CommentViewer } from "@/comments/visibility";
 import type { Reactor } from "@/comments/reactions";
 import type { EventWithHost } from "@/events/repository";
 import type { Letter } from "@/invites/invite";
-import { placedSections, REGISTRY, type Arrangement, type BuiltInKind, type ReadySection, type SectionDrawing, type SectionKind, type Shown } from "@/sections";
+import {
+  placedSections,
+  REGISTRY,
+  sectionOn,
+  type Arrangement,
+  type BuiltInKind,
+  type PlacedSection,
+  type ReadySection,
+  type SectionDrawing,
+  type SectionHeading,
+  type SectionKind,
+  type Shown,
+} from "@/sections";
 import type { Layout } from "@/themes/theme";
 import { albumDrawing } from "./album-section";
 import { announcementsDrawing, type ShownAnnouncement } from "./announcements-section";
@@ -41,9 +53,11 @@ export type SectionPage = {
   details: { underWhen?: ReactNode; underWhere?: ReactNode; calendar?: ReactNode; poll?: ReactNode };
 };
 
-// Each kind's drawing, typed by its own data; the page reads them as one list.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const DRAWINGS: { [K in SectionKind]?: SectionDrawing<any, SectionPage> } = {
+// What each kind's drawing loads, read from the drawing itself, so that a drawing handed another
+// kind's data is a compile error rather than a cast.
+type DataOf<T> = T extends SectionDrawing<infer D, SectionPage> ? D : never;
+
+const BY_KIND = {
   letter: letterDrawing,
   details: detailsDrawing,
   schedule: scheduleDrawing,
@@ -53,38 +67,71 @@ export const DRAWINGS: { [K in SectionKind]?: SectionDrawing<any, SectionPage> }
   album: albumDrawing,
 };
 
+// The kinds the server draws (the countdown, the Note and Links come with later tickets).
+export type DrawnKind = keyof typeof BY_KIND;
+export type SectionData = { [K in DrawnKind]: DataOf<(typeof BY_KIND)[K]> };
+// What the page loaded: a kind this viewer gets nothing of is absent.
+export type LoadedSections = { [K in DrawnKind]?: SectionData[K] };
+
+// Each kind's drawing, typed by its own data; the page reads them as one list.
+export const DRAWINGS: { [K in DrawnKind]: SectionDrawing<SectionData[K], SectionPage> } = BY_KIND;
+
+const DRAWN_KINDS: readonly DrawnKind[] = ["letter", "details", "schedule", "guests", "announcements", "comments", "album"];
+const isDrawn = (kind: SectionKind): kind is DrawnKind => Object.hasOwn(DRAWINGS, kind);
+
 // Everything the page's sections load, at once, each kind by its own drawing: a kind this viewer
-// gets nothing of is absent. Loaded once per page, whichever layout draws it.
-export async function loadSections(page: SectionPage): Promise<Partial<Record<SectionKind, unknown>>> {
-  const loaded = await Promise.all(Object.entries(DRAWINGS).map(async ([kind, drawing]) => [kind, await drawing.load(page)] as const));
-  return Object.fromEntries(loaded.filter(([, data]) => data !== undefined));
+// gets nothing of is absent, and so is a section the host has switched off, which is never asked
+// for (ticket 27). Loaded once per page, whichever layout draws it.
+export async function loadSections(page: SectionPage, arrangement: Arrangement): Promise<LoadedSections> {
+  const load = <K extends DrawnKind>(kind: K): Promise<SectionData[K] | undefined> =>
+    sectionOn(arrangement, kind) ? DRAWINGS[kind].load(page) : Promise.resolve(undefined);
+  const [letter, details, schedule, guests, announcements, comments, album] = await Promise.all([
+    load("letter"),
+    load("details"),
+    load("schedule"),
+    load("guests"),
+    load("announcements"),
+    load("comments"),
+    load("album"),
+  ]);
+  return { letter, details, schedule, guests, announcements, comments, album };
+}
+
+// What of one kind this viewer is shown, from its own drawing and data.
+function shownOf<K extends DrawnKind>(loaded: LoadedSections, kind: K): Shown | undefined {
+  const data = loaded[kind];
+  return data === undefined ? undefined : DRAWINGS[kind].shown(data);
+}
+
+// One placed section made ready, by its own drawing and data, or nothing when there is none.
+function ready<K extends DrawnKind>(page: SectionPage, loaded: LoadedSections, kind: K, placed: PlacedSection, t: (heading: SectionHeading) => string): ReadySection[] {
+  const drawing = DRAWINGS[kind];
+  const data = loaded[kind];
+  if (data === undefined) return [];
+  const entry = REGISTRY[kind];
+  const fixed = entry.heading[page.layout];
+  const whole = drawing.whole?.[page.layout];
+  return [
+    {
+      placed,
+      heading: placed.heading ?? drawing.heading?.(data) ?? (fixed ? t(fixed) : null),
+      headingId: drawing.headingId,
+      icon: entry.icon,
+      wide: entry.wide,
+      body: drawing.body(data, page.layout, placed),
+      ...(whole && { whole: (className: string) => whole(data, placed, className) }),
+    },
+  ];
 }
 
 // The sections the layout draws, in the host's order (or the layout's own, never arranged), each
 // with its heading in words, its icon and its body: what was loaded, placed by placedSections.
-export async function readySections(page: SectionPage, loaded: Partial<Record<SectionKind, unknown>>, arrangement: Arrangement): Promise<ReadySection[]> {
+export async function readySections(page: SectionPage, loaded: LoadedSections, arrangement: Arrangement): Promise<ReadySection[]> {
   const t = await getTranslations("EventPage");
   const shown: Partial<Record<BuiltInKind, Shown>> = {};
-  for (const [kind, drawing] of Object.entries(DRAWINGS) as [BuiltInKind, SectionDrawing<unknown, SectionPage>][]) {
-    if (loaded[kind] !== undefined) shown[kind] = drawing.shown(loaded[kind]);
+  for (const kind of DRAWN_KINDS) {
+    const given = shownOf(loaded, kind);
+    if (given) shown[kind] = given;
   }
-  return placedSections(arrangement, page.layout, shown).flatMap((placed): ReadySection[] => {
-    const drawing = DRAWINGS[placed.kind];
-    const data = loaded[placed.kind];
-    if (!drawing || data === undefined) return [];
-    const entry = REGISTRY[placed.kind];
-    const fixed = entry.heading[page.layout];
-    const whole = drawing.whole?.[page.layout];
-    return [
-      {
-        placed,
-        heading: placed.heading ?? drawing.heading?.(data) ?? (fixed ? t(fixed) : null),
-        headingId: drawing.headingId,
-        icon: entry.icon,
-        wide: entry.wide,
-        body: drawing.body(data, page.layout, placed),
-        ...(whole && { whole: (className: string) => whole(data, placed, className) }),
-      },
-    ];
-  });
+  return placedSections(arrangement, page.layout, shown).flatMap((placed) => (isDrawn(placed.kind) ? ready(page, loaded, placed.kind, placed, t) : []));
 }

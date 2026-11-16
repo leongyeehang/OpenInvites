@@ -1100,7 +1100,15 @@
     "sections": {
       "countdown": "倒數",
       "note": "備註",
-      "links": "連結"
+      "links": "連結",
+      "count": {
+        "guests": "{count, plural, =0 {還沒有人} other {預計 # 人}}",
+        "comments": "{count, plural, =0 {還沒有} other {# 則留言}}",
+        "album": "{count, plural, =0 {還沒有} other {# 個照片和影片}}",
+        "announcements": "{count, plural, other {# 則訊息}}",
+        "schedule": "{count, plural, other {# 項}}",
+        "links": "{count, plural, other {# 個連結}}"
+      }
     }
   },
   "Design": {

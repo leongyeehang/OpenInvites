@@ -451,6 +451,15 @@ export function placedSections(arrangement: Arrangement, layout: Layout, shown: 
   });
 }
 
+// Whether a built-in section is on as far as the arrangement says (ticket 27): a section whose
+// switch is the arrangement's own and that the host has switched off is neither loaded nor drawn,
+// in any layout. A column's switch, or none, is its drawing's to read. Never arranged, each is as
+// it is by default, which is the same in every layout.
+export function sectionOn(arrangement: Arrangement, kind: BuiltInKind): boolean {
+  const section = (arrangement?.sections ?? defaultOrder("poster")).find((each) => each.kind === kind);
+  return !section || !("on" in section) || section.on;
+}
+
 // The Arrange sheet's rows, in the page's order: one per section, less the album where the site
 // does not offer it, each on as its switch says.
 export function sheetRows(arrangement: Arrangement, layout: Layout, switches: Switches, offered: { album: boolean }): SheetRow[] {

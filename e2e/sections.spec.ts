@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
-import { arrange, createPublished, openArrange, sectionOrder, setGuestList, setSchedule } from "./events";
+import { arrange, chooseLayout, createPublished, openArrange, sectionOrder, setGuestList, setSchedule } from "./events";
 import { closeReply } from "./reply";
 import { clientAddress, expect, test, type Browser, type APIRequestContext, type Locator, type Page } from "./test";
 
@@ -283,5 +283,160 @@ test("the Arrange sheet with Who's coming open has no serious accessibility prob
   await expect(audience).toHaveAccessibleDescription("The hosts always see the whole list.");
   await expect(audience.getByRole("radio", { name: "Guests who have replied" })).toBeChecked();
   await expectNoSeriousViolations(host.page, "the Arrange sheet, Who’s coming open");
+  await host.context.close();
+});
+
+// M8 ticket 27: the Broadsheet and the Thread draw the same placed list as the Poster, each in its
+// own way: the Broadsheet's header keeps its facts and its body follows the host's order; the
+// Thread keeps its card first and its composer last, its details are three bubbles in a row, and
+// its announcements one bubble each, moved together.
+
+const PARTY = { ...EVENT, location: "12 Orchard Road", description: "Bring a jumper for the garden." };
+
+// The host posts an announcement from the event's announcements page, as announcements.spec.ts
+// sends one, and comes back to the editor.
+async function announce(page: Page, text: string) {
+  const editor = page.url();
+  await page.goto(`${editor}/announcements`);
+  const message = page.getByLabel("Message");
+  await message.fill(text);
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(message).toHaveValue("", { timeout: 15_000 });
+  await page.goto(editor);
+}
+
+// A published event in a layout, with one item on its schedule.
+async function laidOut(browser: Browser, request: APIRequestContext, label: string, layout: "Broadsheet" | "Thread") {
+  const host = await createPublished(browser, request, label, { ...PARTY, layout });
+  await setSchedule(host.page, [{ start: "20:00", title: "Cake" }]);
+  return host;
+}
+
+async function visitor(browser: Browser, link: string): Promise<Page> {
+  const page = await (await browser.newContext()).newPage();
+  await page.goto(link);
+  return page;
+}
+
+test("a Broadsheet never arranged keeps today's order", async ({ browser, request }) => {
+  test.slow();
+  const host = await laidOut(browser, request, "sections-broadsheet", "Broadsheet");
+  await announce(host.page, "The gate code is 1234.");
+  const guest = await visitor(browser, host.link);
+  await expectOrder(guest, ["details", "schedule", "announcements", "guests", "comments", "album"]);
+
+  // The details are the description, in the paper under the header, which keeps the facts.
+  const description = guest.locator('section[data-slot="description"][data-section="details"]');
+  await expect(description).toContainText("The details");
+  await expect(description).toContainText("Bring a jumper for the garden.");
+  await expect(guest.locator('header [data-section="details"]')).toHaveCount(0);
+  const header = (await guest.locator("main header").boundingBox())!;
+  expect((await description.boundingBox())!.y).toBeGreaterThanOrEqual(header.y + header.height - 1);
+  await Promise.all([host.context.close(), guest.context().close()]);
+});
+
+test("the Broadsheet follows the host's order", async ({ browser, request }) => {
+  test.slow();
+  const host = await laidOut(browser, request, "sections-broadsheet-move", "Broadsheet");
+  await arrange(host.page, async (sheet) => {
+    await sheet.getByRole("button", { name: "Move Album up" }).click();
+    await expect(liveLine(sheet)).toHaveText("Album, 6 of 7");
+  });
+  const guest = await visitor(browser, host.link);
+  await expectOrder(guest, ["details", "schedule", "guests", "album", "comments"]);
+  // The header still holds When, Where and the Host fact.
+  await expect(guest.locator("main header dt")).toHaveText(["When", "Where", "Host", "Countdown"]);
+  await expect(guest.locator("main header")).toContainText("12 Orchard Road");
+  await Promise.all([host.context.close(), guest.context().close()]);
+});
+
+test("a Thread never arranged keeps today's order", async ({ browser, request }) => {
+  test.slow();
+  const host = await laidOut(browser, request, "sections-thread", "Thread");
+  // The host, to whom the comments are open.
+  const page = host.page;
+  await page.goto(host.link);
+  await expectOrder(page, ["details", "schedule", "guests", "comments", "album"]);
+  // The card first, then the description, When and Where in a row.
+  await expect(page.locator('[data-slot="thread-card"]:first-child + [data-slot="description"][data-section="details"] + [data-section="details"] + [data-section="details"]')).toHaveCount(1);
+  await expect(page.locator('[data-section="details"]').nth(1)).toContainText("When");
+  await expect(page.locator('[data-section="details"]').nth(2)).toContainText("12 Orchard Road");
+
+  // The comments are folded away, their summary saying how many there are.
+  const comments = page.locator('details[data-slot="comments"][data-section="comments"]');
+  await expect(comments).not.toHaveAttribute("open");
+  await expect(comments.locator("summary h2")).toHaveText("Comments");
+  await expect(comments.locator('summary [data-slot="section-count"]')).toHaveText("none yet");
+
+  // The composer is after the last section.
+  const after = await page.locator("[data-section]").last().evaluate((last) => {
+    const log = document.querySelector('[role="log"]');
+    return log !== null && (last.compareDocumentPosition(log) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+  });
+  expect(after).toBe(true);
+
+  // A visitor who has not replied gets the comments as a plain bubble, with how many and the lock.
+  const guest = await visitor(browser, host.link);
+  const locked = guest.locator('[data-section="comments"]');
+  await expect(locked).toContainText("No comments yet");
+  await expect(locked).toContainText("Reply to join the conversation");
+  await expect(guest.locator('details[data-slot="comments"]')).toHaveCount(0);
+  await Promise.all([host.context.close(), guest.context().close()]);
+});
+
+test("the Thread moves its announcements as a group", async ({ browser, request }) => {
+  test.slow();
+  const host = await laidOut(browser, request, "sections-thread-move", "Thread");
+  await announce(host.page, "The gate code is 1234.");
+  await announce(host.page, "Parking is on Mill Lane.");
+  await arrange(host.page, async (sheet) => {
+    const up = sheet.getByRole("button", { name: "Move Announcements up" });
+    await up.click();
+    await expect(liveLine(sheet)).toHaveText("Announcements, 4 of 7");
+    await up.click();
+    await expect(liveLine(sheet)).toHaveText("Announcements, 3 of 7");
+  });
+  const guest = await visitor(browser, host.link);
+  await expectOrder(guest, ["details", "announcements", "schedule", "guests", "comments", "album"]);
+  // Oldest first, one after the other, and both before the schedule.
+  const pieces = await guest.locator('[data-slot="announcement"], [data-section="schedule"]').evaluateAll((elements) =>
+    elements.map((element) => (element.getAttribute("data-slot") === "announcement" ? element.textContent : "schedule")),
+  );
+  expect(pieces).toHaveLength(3);
+  expect(pieces[0]).toContain("The gate code is 1234.");
+  expect(pieces[1]).toContain("Parking is on Mill Lane.");
+  expect(pieces[2]).toBe("schedule");
+  await expect(guest.locator('[data-slot="announcement"][data-section="announcements"] + [data-slot="announcement"][data-section="announcements"]')).toHaveCount(1);
+  await Promise.all([host.context.close(), guest.context().close()]);
+});
+
+test("an arrangement made on Poster holds when the layout changes to Thread", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "sections-poster-thread", PARTY);
+  await arrange(host.page, (sheet) => sheet.getByRole("button", { name: "Move Album up" }).click());
+  await chooseLayout(host.page, host.link, "Thread");
+  // The host, to whom the comments are open: the stored arrangement draws them open, not folded
+  // away as the Thread does by default, and the album comes before them.
+  await host.page.goto(host.link);
+  await expect(host.page.locator('[data-slot="thread-card"]')).toBeVisible();
+  await expectOrder(host.page, ["details", "guests", "album", "comments"]);
+  await expect(host.page.locator('details[data-slot="comments"]')).toHaveCount(0);
+  await expect(host.page.getByLabel("Add a comment")).toBeVisible();
+  await host.context.close();
+});
+
+test("Schedule off leaves the Broadsheet and the Thread too", async ({ browser, request }) => {
+  test.slow();
+  const host = await laidOut(browser, request, "sections-switch-layouts", "Broadsheet");
+  await arrange(host.page, (sheet) => sheet.getByRole("switch", { name: "Schedule" }).click());
+  for (const layout of ["Broadsheet", "Thread"] as const) {
+    if (layout === "Thread") await chooseLayout(host.page, host.link, "Thread");
+    const guest = await visitor(browser, host.link);
+    await expect(guest.locator('[data-section="details"]').first()).toBeVisible();
+    await expect(guest.locator('[data-section="schedule"]')).toHaveCount(0);
+    // Not drawn, nor sent: the page holds nothing of it.
+    expect(await (await request.get(host.link)).text()).not.toContain("Cake");
+    await guest.context().close();
+  }
   await host.context.close();
 });

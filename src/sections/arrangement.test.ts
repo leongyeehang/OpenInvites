@@ -10,6 +10,7 @@ import {
   safeLinkUrl,
   sectionId,
   sectionKey,
+  sectionOn,
   sheetRows,
   switchesAfter,
   type Arrangement,
@@ -507,6 +508,21 @@ describe("switchesAfter", () => {
     for (const other of [toggle("schedule", false), { type: "move", key: "album", past: "comments" }, { type: "remove", key: "note:aaaaaaaa" }] as ArrangementChange[]) {
       expect(switchesAfter(SWITCHES, other)).toEqual(SWITCHES);
     }
+  });
+});
+
+describe("sectionOn", () => {
+  it("is on by default but for the countdown, and off where the host switched it off, in every layout", () => {
+    expect(sectionOn(null, "schedule")).toBe(true);
+    expect(sectionOn(null, "announcements")).toBe(true);
+    expect(sectionOn(null, "countdown")).toBe(false);
+    const off = arranged((sections) => sections.map((section) => (section.kind === "schedule" ? { ...section, on: false } : section)));
+    expect(sectionOn(off, "schedule")).toBe(false);
+    expect(sectionOn(off, "announcements")).toBe(true);
+  });
+
+  it("leaves a section whose switch is a column, or that has none, to its drawing", () => {
+    for (const kind of ["letter", "details", "guests", "comments", "album"] as const) expect(sectionOn(arranged(), kind)).toBe(true);
   });
 });
 

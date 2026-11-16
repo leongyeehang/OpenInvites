@@ -292,6 +292,9 @@ export async function arrangeAction(eventId: string, posted: unknown): Promise<A
   const t = await getTranslations("Editor.arrange");
   const parsed = parseArrangementChange(posted, sectionId);
   if (!parsed.ok) return { saved: false, error: t(`errors.${parsed.error}`) };
+  // Where the site has the Album off, the sheet has no Album row, so nothing may change it (M8
+  // ticket 27): not even a change posted by hand.
+  if ("key" in parsed.change && parsed.change.key === "album" && !featureOn(await siteFeatures(), "album")) return { saved: false, error: t("errors.notOffered") };
   const changed = await changeEventArrangement(host.id, event.id, parsed.change);
   if (!changed) return { saved: false, error: (await getTranslations("Events"))("errors.notFound") };
   if (!changed.ok) return { saved: false, error: t(`errors.${changed.error}`) };

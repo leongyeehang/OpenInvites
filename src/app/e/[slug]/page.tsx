@@ -52,11 +52,9 @@ import { mayVote, pollState, tally } from "@/polls/poll";
 import { loadPoll } from "@/polls/repository";
 import { findVoterOnThisDevice } from "@/polls/voter";
 import { PollBar, PollFlow, PollWhen, type PollCandidate } from "./poll-flow";
-import type { CommentsShown, CommentViewer } from "@/comments/visibility";
-import { parseArrangement } from "@/sections";
-import { AlbumSection, type AlbumShown } from "@/themes/sections/album-section";
+import type { CommentViewer } from "@/comments/visibility";
+import { parseArrangement, sectionOn } from "@/sections";
 import { loadSections, readySections, type SectionPage } from "@/themes/sections/drawings";
-import { ScheduleSection, type ScheduleShown } from "@/themes/sections/schedule-section";
 
 // Event pages are never indexed (ADR-0004). The header carries the same signal (next.config.ts).
 const noindex: Metadata["robots"] = { index: false, follow: false };
@@ -189,6 +187,9 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     : mine
       ? { kind: "guest", rsvpId: mine.rsvp.id, approval: mine.rsvp.approval }
       : { kind: "visitor" };
+  // How the host arranged the page's sections (M8 ticket 25): a section switched off there is not
+  // even read (ticket 27).
+  const arrangement = parseArrangement(event.sections);
   // What this event asks, what this guest has already said, so coming back prefills, the host's
   // own picture if there is one, and what the host has announced, which every viewer reads.
   // Whether the event is full is said beside the reply controls whatever the guest list shows, so
@@ -197,7 +198,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     listQuestions(event.id),
     mine ? findAnswers(mine.rsvp.id) : Promise.resolve({}),
     findEventUpload(event.id),
-    listAnnouncements(event.id),
+    sectionOn(arrangement, "announcements") ? listAnnouncements(event.id) : Promise.resolve([]),
     hostsOf(event.id),
     event.capacity === null ? Promise.resolve(0) : countHeadcount(event.id),
     mine ? findWaitlistPosition(mine.rsvp) : Promise.resolve(null),
@@ -253,7 +254,8 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
     turnstileSiteKey: turnstileSiteKey(),
   };
   // A guest whose reply is not approved is told why the list is locked for them.
-  const guestList = view === "hidden" ? undefined : { view, guests, counts: countRsvps(guests.map(asTally)), approval: mine?.rsvp.approval };
+  // The Broadsheet and the Thread mark the viewer's own line.
+  const guestList = view === "hidden" ? undefined : { view, guests, counts: countRsvps(guests.map(asTally)), approval: mine?.rsvp.approval, you: mine?.rsvp.id };
 
   // The page's sections (M8 ticket 25; themes/sections/drawings.ts), each loaded by its own drawing
   // from what the page has worked out: the schedule (M6 ticket 02), the comments as this viewer may
@@ -278,19 +280,16 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
           <Countdown event={time} />
         </>
       ),
-      underWhere: event.location ? <MapLink location={event.location} /> : undefined,
+      // The Thread's maps link is one of its bubbles' chips.
+      underWhere: event.location ? <MapLink location={event.location} chip={layout === "thread"} /> : undefined,
       calendar,
       poll: polling ? <PollWhen candidates={candidates} /> : undefined,
     },
   };
-  const loaded = await loadSections(sectionPage);
-  // The Broadsheet and the Thread keep their own order until they too draw the host's (M8 ticket
-  // 27), from the same loaded sections.
-  const comments = (loaded.comments as { comments: CommentsShown } | undefined)?.comments;
-  const album = loaded.album as { album: AlbumShown; slug: string } | undefined;
-  const schedule = loaded.schedule as ScheduleShown | undefined;
-  const albumNode = album && <AlbumSection {...album} />;
-  const scheduleNode = schedule && <ScheduleSection {...schedule} />;
+  // Every layout draws the same sections, loaded once, in the host's order (M8 ticket 27).
+  const sections = await readySections(sectionPage, await loadSections(sectionPage, arrangement), arrangement);
+  // How many have replied, and the headcount, are numbers the guest list gives away only with it.
+  const open = guestList?.view === "open" ? guestList.counts : undefined;
 
   // The client components below read their messages in the browser.
   return (
@@ -305,39 +304,22 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
           <ThreadLayout
             event={dated}
             hosts={hosts.map((host) => host.name)}
-            announcements={announcements}
-            comments={comments}
-            commentForm={<CommentForm slug={event.slug} />}
-            album={albumNode}
-            schedule={scheduleNode}
-            letter={letter}
             notice={notice}
             rsvp={<ThreadComposer {...flow} closedAs={isDraft ? "draft" : event.state === "cancelled" ? "cancelled" : undefined} />}
-            guests={guestList && { ...guestList, you: mine?.rsvp.id }}
-            underWhen={
-              <>
-                <ViewerTime event={time} locale={locale} />
-                <Countdown event={time} />
-              </>
-            }
-            underWhere={event.location ? <MapLink location={event.location} chip /> : undefined}
+            replies={open && open.going + open.maybe + open.cant}
+            sections={sections}
           />
         ) : layout === "broadsheet" && dated && time ? (
           <BroadsheetLayout
             event={dated}
             hosts={hosts.map((host) => host.name)}
-            announcements={announcements}
-            comments={comments}
-            commentForm={<CommentForm slug={event.slug} />}
-            album={albumNode}
-            schedule={scheduleNode}
-            letter={letter}
             notice={notice}
             rsvp={<BroadsheetBallot {...flow} />}
-            guests={guestList && { ...guestList, you: mine?.rsvp.id }}
             underWhen={<ViewerTime event={time} locale={locale} />}
             countdown={<CountdownFigure event={time} />}
             underWhere={event.location ? <MapLink location={event.location} /> : undefined}
+            headcount={open?.headcount}
+            sections={sections}
           />
         ) : (
           <PollFrame
@@ -354,7 +336,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
               notice={notice}
               rsvp={polling ? <PollBar /> : <RsvpFlow {...flow} />}
               poll={polling ? { label: (await getTranslations("EventPage"))("poll.toBeDecided") } : undefined}
-              sections={await readySections(sectionPage, loaded, parseArrangement(event.sections))}
+              sections={sections}
             />
           </PollFrame>
         )}
