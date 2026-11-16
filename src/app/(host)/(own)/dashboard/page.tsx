@@ -6,6 +6,7 @@ import { AlbumReminderNotice } from "@/album/album-reminder-notice";
 import type { AlbumTotals } from "@/album/album";
 import { albumTotalsByEvent } from "@/album/repository";
 import { requireHost } from "@/auth/session";
+import { Button } from "@/components/ui/button";
 import { hostLook } from "@/dashboard/host-look";
 import { shelve, showsYear, tileChip, tileNumber, whenKind, type ShelfEvent, type TileChip } from "@/dashboard/shelves";
 import { eventsOwnedAtLimit } from "@/events/limit";
@@ -105,8 +106,9 @@ export default async function DashboardPage() {
   );
 }
 
-// One glass panel per album the host was reminded about, under a heading on the veil: the event,
-// what its album holds, Empty the album and Keep it; gone once answered or emptied.
+// The albums the host was reminded about, under a heading on the veil, as one glass panel whose
+// rows are divided by the glass's edge (the part review after M8 ticket 23): the event, what its
+// album holds, Empty the album and Keep it; gone once answered or emptied.
 function AlbumReminders({ reminders, t }: { reminders: { id: string; title: string; album: AlbumTotals }[]; t: Translate }) {
   return (
     <ClientMessages namespaces={["Events.album"]}>
@@ -116,15 +118,15 @@ function AlbumReminders({ reminders, t }: { reminders: { id: string; title: stri
             {t("albumReminders.title")}
           </h2>
         </Veil>
-        <ul className="flex flex-col gap-3">
-          {reminders.map(({ id, title, album }) => (
-            <li key={id}>
-              <Glass className="p-4">
+        <Glass>
+          <ul className="flex flex-col divide-y divide-theme-glass-border">
+            {reminders.map(({ id, title, album }) => (
+              <li key={id} className="p-4">
                 <AlbumReminderNotice eventId={id} album={album} title={title || t("untitled")} />
-              </Glass>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+        </Glass>
       </section>
     </ClientMessages>
   );
@@ -155,12 +157,9 @@ function FirstInvitation({ theme, t }: { theme: Theme; t: Translate }) {
             {t("firstTitle")}
           </h2>
           <p className="text-muted-foreground">{t("firstText")}</p>
-          <Link
-            href="/events/new"
-            className="mt-1 inline-flex h-10 items-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground outline-none hover:inset-ring hover:inset-ring-primary-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            {t("firstButton")}
-          </Link>
+          <Button asChild className="mt-1 h-10 rounded-full border-0 px-5 font-semibold">
+            <Link href="/events/new">{t("firstButton")}</Link>
+          </Button>
         </div>
       </Glass>
     </section>
@@ -172,7 +171,10 @@ const button = "inline-flex h-10 flex-1 items-center justify-center rounded-full
 // The next event: its poster, when it is, how its replies stand and what needs the host, and the
 // three pages a host goes to most, in one glass panel with its heading. On a phone the poster is
 // above; from md it is beside, and the replies become large figures. Its links keep their fills
-// hovered, which their words are proven on, and show the hover by an edge in their words' colour.
+// hovered, which their words are proven on, and show the hover by an edge in their words' colour:
+// Guests is a default button, which the site page's scope edges (globals.css); Edit and Share are
+// drawn by hand in the secondary fill and edge themselves, as the scope proves no hover for a
+// secondary button yet (docs/contributing/backgrounds.md, "Every other page").
 function NextUp({ event, upload, t, locale }: { event: ShelfEvent; upload: ThemeUpload | null; t: Translate; locale: string }) {
   const { going, maybe, cant, waitlisted, pending, headcount } = event.counts;
   const figure = (key: "going" | "maybe" | "cant" | "waitlisted" | "toApprove", count: number, attention = false) => (
@@ -223,9 +225,9 @@ function NextUp({ event, upload, t, locale }: { event: ShelfEvent; upload: Theme
               </p>
             )}
             <div className="mt-auto flex gap-2">
-              <Link href={`/events/${event.id}/guests`} className={cn(button, "bg-primary text-primary-foreground hover:inset-ring hover:inset-ring-primary-foreground")}>
-                {t("guests")}
-              </Link>
+              <Button asChild className="h-10 flex-1 rounded-full border-0 px-4 font-semibold">
+                <Link href={`/events/${event.id}/guests`}>{t("guests")}</Link>
+              </Button>
               <Link href={`/events/${event.id}`} className={cn(button, "bg-secondary text-secondary-foreground hover:inset-ring hover:inset-ring-secondary-foreground")}>
                 {t("edit")}
               </Link>

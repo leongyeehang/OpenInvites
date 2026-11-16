@@ -2,8 +2,8 @@
 
 The GitHub release note for tag v0.8.0, begun 2026-11-11 by M8 ticket 16 in the shape of the 0.7.0
 note, with the Voting section; ticket 23 added the glass part's. The media part (tickets 01 to 09)
-and the sections part add their own sections, and the Upgrading paragraph is completed with them. For the
-maintainer to paste when the release is published (docs/releasing.md).
+and the sections part add their own sections, and the Upgrading paragraph is completed with them.
+For the maintainer to paste when the release is published (docs/releasing.md).
 
 ## Voting in the album
 
@@ -62,8 +62,9 @@ with each page's heading in its title font, and every list is one panel of glass
 **The Backdrop card.** In Account, a host can pick any gallery poster to wear behind their own
 pages instead, or leave it on Automatic; an event's own pages keep that event's.
 
-**Nothing moves.** These pages are still, whether or not the device asks for less motion: no
-drifting colour, no sparkles, no entrances.
+**Nothing moves.** Nothing on these pages moves by itself, whether or not the device asks for
+less motion: no drifting colour, no sparkles, no entrances. A sheet or dialog opened over one still
+opens with its own entrance.
 
 **Every word proven to read.** The glass is solved for each poster so that text reads at WCAG AA
 on it, in both text tones and on a host's busiest picture, and each page's words and focus rings

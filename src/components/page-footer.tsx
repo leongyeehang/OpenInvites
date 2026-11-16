@@ -21,7 +21,7 @@ export async function PageFooter({ themed = false, reportPath, poweredBy = false
     themed ? "rounded-full bg-theme-veil px-4 py-1.5 text-xs text-theme-text-muted backdrop-blur-xl" : "text-sm text-muted-foreground",
   );
   return (
-    <footer className={cn("flex flex-col items-center gap-2 px-4 pt-2 pb-8", !themed && "themed:hidden")}>
+    <footer data-slot="page-footer" className={cn("flex flex-col items-center gap-2 px-4 pt-2 pb-8", !themed && "themed:hidden")}>
       {poweredBy && (
         <p className={row}>
           <a href={SOURCE_URL} className={link}>

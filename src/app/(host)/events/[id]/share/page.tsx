@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireHost } from "@/auth/session";
 import {
@@ -19,8 +18,8 @@ import { resetLinkAction } from "@/events/actions";
 import { findHostEvent } from "@/events/repository";
 import { ClientMessages } from "@/locale/client-messages";
 import { qrSvg } from "@/sharing/qr";
-import { Glass, Veil } from "@/themes/glass";
-import { ManageHeading } from "../manage-heading";
+import { Glass } from "@/themes/glass";
+import { ManageHeading, ManageIntro } from "../manage-heading";
 import { CustomLinkForm } from "./custom-link-form";
 import { ShareActions } from "./share-actions";
 import { eventUrl } from "@/events/slug";
@@ -42,12 +41,7 @@ export default async function SharePage({ params }: PageProps<"/events/[id]/shar
 
   return (
     <>
-      <Veil className="flex flex-col gap-1">
-        <Link href={`/events/${event.id}`} className="w-fit text-sm text-muted-foreground hover:underline">
-          {t("share.backToEvent")}
-        </Link>
-        <ManageHeading font={event.theme.font}>{t("share.title")}</ManageHeading>
-      </Veil>
+      <ManageIntro back={`/events/${event.id}`} label={t("share.backToEvent")} heading={<ManageHeading font={event.theme.font}>{t("share.title")}</ManageHeading>} />
 
       <Glass className="flex flex-col gap-3 p-4 md:p-5">
         <p className="break-all font-mono text-sm">{link}</p>

@@ -63,9 +63,13 @@ export default async function InstancePage() {
         <Veil>
           <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         </Veil>
-        <Button asChild variant="outline">
-          <Link href="/instance/reports">{t("reports.link", { count: unhandledReports })}</Link>
-        </Button>
+        {/* On the veil, as Account's Sign out is: its focus ring, drawn outside it, would otherwise
+            fall on the bare backdrop, which nothing solves it against (the glass part's review). */}
+        <Veil>
+          <Button asChild variant="outline">
+            <Link href="/instance/reports">{t("reports.link", { count: unhandledReports })}</Link>
+          </Button>
+        </Veil>
       </div>
       <Card id="home-page">
         <CardHeader>

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireHost } from "@/auth/session";
 import { DeleteDialogContent } from "@/components/delete-dialog-content";
@@ -24,8 +23,8 @@ import { CO_HOST_LINK_DAYS, coHostLinkState, MAX_CO_HOSTS, roomForCoHost } from 
 import { listCoHostLinks } from "@/hosts/repository";
 import { can } from "@/hosts/role";
 import { ClientMessages } from "@/locale/client-messages";
-import { Glass, Veil } from "@/themes/glass";
-import { ManageHeading } from "../manage-heading";
+import { Glass } from "@/themes/glass";
+import { ManageHeading, ManageIntro } from "../manage-heading";
 import { CoHostLinkForm } from "./co-host-link-form";
 import { RevokeLinkForm } from "./revoke-link-form";
 
@@ -52,15 +51,17 @@ export default async function HostsPage({ params }: PageProps<"/events/[id]/host
 
   return (
     <>
-      <Veil className="flex flex-col gap-1">
-        <Link href={`/events/${event.id}`} className="w-fit text-sm text-muted-foreground hover:underline">
-          {t("backToEvent")}
-        </Link>
-        <ManageHeading font={event.theme.font} id={HEADING}>
-          {t("title")}
-        </ManageHeading>
+      <ManageIntro
+        back={`/events/${event.id}`}
+        label={t("backToEvent")}
+        heading={
+          <ManageHeading font={event.theme.font} id={HEADING}>
+            {t("title")}
+          </ManageHeading>
+        }
+      >
         <p className="text-muted-foreground">{owns ? t("explainer") : t("coHostIntro")}</p>
-      </Veil>
+      </ManageIntro>
       {owns ? <OwnersView event={event} /> : <LeaveEvent event={event} />}
     </>
   );
@@ -125,7 +126,7 @@ async function OwnersView({ event }: { event: HostEvent }) {
             {t("links")}
           </h2>
           {pending.length === 0 ? (
-            <p className="px-4 text-sm text-muted-foreground">{t("linksEmpty")}</p>
+            <p className="border-b border-theme-glass-border px-4 pb-4 text-sm text-muted-foreground">{t("linksEmpty")}</p>
           ) : (
             // Times in the event's own zone, as everywhere else on the host's pages.
             <ul className="flex flex-col divide-y divide-theme-glass-border border-y border-theme-glass-border">

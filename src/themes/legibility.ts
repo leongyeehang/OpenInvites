@@ -185,9 +185,12 @@ export type PageKind = "event" | "site";
 // (ticket 18, globals.css). Keep this in step with that markup when a new surface appears.
 export function SITE_SURFACES({ glass, glassStrong }: Pick<ToneTokens, "glass" | "glassStrong">) {
   return {
-    // A card holding a row, a panel or an alert: glass on glass.
+    // Glass on glass, and a field on it. No site page stacks glass on glass now (the part review
+    // after ticket 23): these two are kept as a guard, so that a page that does (an alert put in a
+    // card, say) is already proven, and tickets 18 to 23 were checked in pixels on the values they
+    // give. Their cost is slightly heavier glass on a site page than on the event page under light
+    // text on a few backdrops (Aurora, Midnight, Slate, Ink among them).
     nested: { layers: [glass, glass], carries: "every strength" },
-    // A field in such a card.
     nestedInset: { layers: [glass, glass, glassStrong], carries: "every strength" },
     // A control on the header's bar, hovered.
     onBar: { layers: [glassStrong, glassStrong], carries: "full strength" },

@@ -54,12 +54,19 @@ export async function expectRingStandsOut(page: Page, control: Locator) {
 // A mark drawn round `shown` by `on` and taken away by `off` (a focus ring, the ring round a chosen
 // poster), read in the 12px strip to its left with the mark and without (M8 ticket 23): somewhere
 // along the strip the mark stands out at 3:1 or more both from what was there without it and from
-// the page beyond.
-export async function expectMarkStandsOut(page: Page, shown: Locator, what: string, { on, off }: { on: () => Promise<void>; off: () => Promise<void> }) {
+// the page beyond. A mark drawn in `shown` itself (a native radio, checked) is read `across` it
+// instead, from 4px outside its left edge to 4px outside its right.
+export async function expectMarkStandsOut(
+  page: Page,
+  shown: Locator,
+  what: string,
+  { on, off, across = false }: { on: () => Promise<void>; off: () => Promise<void>; across?: boolean },
+) {
+  const strip = async () => (across ? stripAt(page, shown, -4, Math.ceil((await shown.boundingBox())!.width) + 8) : stripBeside(page, shown));
   await on();
-  const marked = await stripBeside(page, shown);
+  const marked = await strip();
   await off();
-  const unmarked = await stripBeside(page, shown);
+  const unmarked = await strip();
   const beyond = unmarked[0];
   const standsOut = Math.max(...marked.map((pixel, at) => Math.min(contrast(pixel, unmarked[at]), contrast(pixel, beyond))));
   expect(standsOut, what).toBeGreaterThanOrEqual(3);
@@ -68,13 +75,14 @@ export async function expectMarkStandsOut(page: Page, shown: Locator, what: stri
 // A button's edge drawn when it is hovered (a default button on a site page keeps its whole fill
 // and is edged inside it in its words' colour instead, tickets 19 and 23), read across its left
 // edge, from 2px outside it to 4px inside, hovered and not: somewhere there the edge stands out at
-// 3:1 or more both from what was there unhovered and from the fill inside it.
+// 3:1 or more both from what was there unhovered and from the fill inside it as it is hovered, so
+// that a hover that changed the fill is read against the fill it changed to.
 export async function expectHoverEdgeStandsOut(page: Page, button: Locator) {
   await button.hover();
   const hovered = await stripAcrossLeftEdge(page, button);
   await page.mouse.move(0, 0);
   const rest = await stripAcrossLeftEdge(page, button);
-  const fill = rest[rest.length - 1];
+  const fill = hovered[hovered.length - 1];
   const standsOut = Math.max(...hovered.map((pixel, at) => Math.min(contrast(pixel, rest[at]), contrast(pixel, fill))));
   expect(standsOut, `the hovered edge of ${button}`).toBeGreaterThanOrEqual(3);
 }

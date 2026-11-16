@@ -12,18 +12,37 @@ export const SITE_POSTERS = {
 } as const;
 
 // A page outside an event page as ticket 18 draws it: one site page, on one backdrop painted with
-// the poster's copy, with its own footer and no other, and nothing on it moving. Controls carry
-// short transitions that can still be finishing as the page arrives (a web font swapping in under
-// load), so the page is given until they end: something that moved by itself would never end.
+// the poster's copy, with its own footer and no other, one `main` and one `h1`, every control on a
+// surface its focus ring is proven against, and nothing on it moving. Controls carry short
+// transitions that can still be finishing as the page arrives (a web font swapping in under load),
+// so the page is given until they end: something that moved by itself would never end.
 export async function expectSiteLook(page: Page, copy: string) {
   await expect(page.locator(".site-page")).toHaveCount(1);
   const backdrop = page.locator('[data-slot="backdrop"]');
   await expect(backdrop).toHaveCount(1);
   await expect(backdrop.locator(`[style*="${copy}"]`)).toHaveCount(1);
   await expect(page.getByRole("contentinfo")).toHaveCount(1);
+  await expect(page.getByRole("main")).toHaveCount(1);
+  // A legal page's text is the operator's, and may hold headings of its own (src/legal).
+  expect(await page.locator("h1").evaluateAll((found) => found.filter((h1) => !h1.closest('[data-slot="legal-text"]')).length), "the page's h1").toBe(1);
+  expect(await page.evaluate(BARE_CONTROLS), "controls on the bare backdrop").toEqual([]);
   await expect
     .poll(() => page.evaluate(() => document.getAnimations().map((animation) => animation.constructor.name)), { message: "what moves" })
     .toEqual([]);
+}
+
+// Every control on a site page a person can reach and see, that sits on none of the surfaces
+// legibility.ts solves its focus ring against (SITE_SURFACES): a veil, a panel of glass, a card, an
+// alert, the header's bar or the footer, known by their `data-slot`. A ring is drawn outside its
+// control, so one on the bare backdrop is ringed on a picture nothing proves it on (the part
+// review's finding 1, Site settings' Reports).
+function BARE_CONTROLS() {
+  const SURFACES = ["veil", "glass", "card", "alert", "host-header", "page-footer"].map((slot) => `[data-slot="${slot}"]`).join(", ");
+  return [...document.querySelectorAll(".site-page :is(a[href], button, input, select, textarea, [tabindex])")]
+    .filter((control) => control.getAttribute("tabindex") !== "-1" && !control.matches(":disabled, [type=hidden]"))
+    .filter((control) => control.checkVisibility({ visibilityProperty: true }) && control.getClientRects().length > 0)
+    .filter((control) => !control.closest(SURFACES))
+    .map((control) => `${control.tagName.toLowerCase()} “${(control.textContent || control.getAttribute("aria-label") || "").trim().slice(0, 40)}”`);
 }
 
 // Once the backdrop's picture has arrived and been decoded, so that pixels are read against it and

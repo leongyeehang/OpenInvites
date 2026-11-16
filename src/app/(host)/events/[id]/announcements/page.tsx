@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteAnnouncementAction } from "@/announcements/actions";
 import { listAnnouncements } from "@/announcements/repository";
@@ -21,9 +20,9 @@ import { can } from "@/hosts/role";
 import { formatMoment, formatWhen, isDated } from "@/events/time";
 import { ClientMessages } from "@/locale/client-messages";
 import { isMailConfigured } from "@/mail/config";
-import { Glass, Veil } from "@/themes/glass";
+import { Glass } from "@/themes/glass";
 import { votingDraft } from "@/voting";
-import { ManageHeading } from "../manage-heading";
+import { ManageHeading, ManageIntro } from "../manage-heading";
 import { AnnouncementForm } from "./announcement-form";
 import { eventUrl } from "@/events/slug";
 
@@ -69,19 +68,21 @@ export default async function AnnouncementsPage({ params, searchParams }: PagePr
 
   return (
     <>
-      <Veil className="flex flex-col gap-1">
-        <Link href={`/events/${event.id}`} className="w-fit text-sm text-muted-foreground hover:underline">
-          {t("backToEvent")}
-        </Link>
-        <ManageHeading font={event.theme.font} id={HEADING}>
-          {t("title")}
-        </ManageHeading>
+      <ManageIntro
+        back={`/events/${event.id}`}
+        label={t("backToEvent")}
+        heading={
+          <ManageHeading font={event.theme.font} id={HEADING}>
+            {t("title")}
+          </ManageHeading>
+        }
+      >
         <div className="flex flex-col gap-2 text-muted-foreground">
           <p>{t("explainer")}</p>
           {event.emailField === "none" && <p>{t("askEmailHint")}</p>}
           {!mail && <p>{t("noMail")}</p>}
         </div>
-      </Veil>
+      </ManageIntro>
 
       <Glass className="p-4 md:p-5">
         <ClientMessages namespaces={["Announcements"]}>

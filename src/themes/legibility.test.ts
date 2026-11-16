@@ -17,6 +17,7 @@ import {
   worstBackdrop,
   type Backdrop,
   type BackdropUse,
+  type PageKind,
   type Rgb,
   type Rgba,
   type Surface,
@@ -364,18 +365,29 @@ describe("a site page", () => {
     expect(site.glassStrong[3]).toBeGreaterThanOrEqual(event.glassStrong[3]);
   });
 
+  // The glass under light text on a gallery poster or a colour, by its id, on an event page or a
+  // site page.
+  const glassOf = (id: string, page: PageKind) => {
+    const poster = GALLERY_POSTERS.find((each) => each.id === id);
+    if (poster) return toneTokens("light", poster, poster.accent, "poster", page).glass[3];
+    const colour = BACKGROUNDS.find((each) => each.id === id)!;
+    return toneTokens("light", colour, colour.accent, "background", page).glass[3];
+  };
+
   // The posters and colours on which a site page's glass is tinted furthest under light text, pinned
   // as tickets 17 to 19 settled them: a surface added to SITE_SURFACES for one panel would make
   // every site page's glass heavier (ticket 20's review found one moving 92 of 506 solves).
   it("a site page's glass is settled", () => {
-    const glassOf = (id: string) => {
-      const poster = GALLERY_POSTERS.find((each) => each.id === id);
-      if (poster) return toneTokens("light", poster, poster.accent, "poster", "site").glass[3];
-      const colour = BACKGROUNDS.find((each) => each.id === id)!;
-      return toneTokens("light", colour, colour.accent, "background", "site").glass[3];
-    };
     const settled = { aurora: 0.289, candlelight: 0.316, bokeh: 0.334, streamers: 0.325, midnight: 0.298, slate: 0.307, ink: 0.316 };
-    expect(Object.fromEntries(Object.keys(settled).map((id) => [id, glassOf(id)]))).toEqual(settled);
+    expect(Object.fromEntries(Object.keys(settled).map((id) => [id, glassOf(id, "site")]))).toEqual(settled);
+  });
+
+  // The event page's glass on the same seven, as it was before site pages were solved at all
+  // (b9d541d, before M8 ticket 17): what SITE_SURFACES adds is a site page's alone (the glass
+  // part's review).
+  it("an event page's glass is what it was before site pages", () => {
+    const before = { aurora: 0.244, candlelight: 0.307, bokeh: 0.325, streamers: 0.316, midnight: 0.262, slate: 0.289, ink: 0.298 };
+    expect(Object.fromEntries(Object.keys(before).map((id) => [id, glassOf(id, "event")]))).toEqual(before);
   });
 });
 

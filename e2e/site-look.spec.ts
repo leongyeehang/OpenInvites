@@ -2,7 +2,7 @@ import sharp from "sharp";
 import { expectHoverEdgeStandsOut, expectMarkStandsOut, expectRingStandsOut, worstContrast } from "./contrast";
 import { closeDesign, createDraft, createPublished, editSettings, openDesign, openMore, pickDesign, publishInEditor } from "./events";
 import { hostWithShelves } from "./dashboard";
-import { latestMailTo, mailCountTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
+import { latestMailTo, mailCountTo, newHost, OPERATOR, PASSWORD, signIn, signUp, signUpVerified } from "./hosts";
 import { tabTo } from "./focus";
 import { backdropPainted, expectSiteLook, SITE_POSTERS } from "./site-look";
 import { clientAddress, expect, expectNotFoundAsSent, test, type Browser, type Locator, type Page } from "./test";
@@ -62,9 +62,10 @@ async function newGuest(browser: Browser): Promise<Page> {
   return context.newPage();
 }
 
-// The page as the server sent it and as it stands holds nothing of the event's poster.
+// The page as it stands holds nothing of the event's poster: not its blurred copy, nor its card or
+// picture, all of whose files are named for it.
 async function expectNoDisco(page: Page) {
-  expect(await page.content(), "the event's poster").not.toContain(DISCO);
+  expect(await page.content(), "the event's poster").not.toContain("disco-ball");
 }
 
 test("the pages drawn without the database wear one poster from the whole gallery, still", async ({ page }) => {
@@ -681,7 +682,7 @@ for (const [poster, copy, tone] of [
     await backdropPainted(page);
     const read = async (text: Locator, what: string) => expect(await worstContrast(text), `${what}, on ${poster}`).toBeGreaterThanOrEqual(4.5);
     await read(card.getByText("Automatic", { exact: true }), "Automatic");
-    await read(card.getByText("Your next event’s poster, or one of this site’s."), "Automatic's hint");
+    await read(card.getByText("The poster of your next event, or of another of your events when none is coming up, or one of this site’s."), "Automatic's hint");
     await read(card.getByText("Aurora", { exact: true }), "a poster's name");
     for (const control of [automatic, aurora, save]) await expectRingStandsOut(page, control);
 
@@ -744,6 +745,27 @@ test("the invite-only notice reads under light text", async ({ browser, request 
   await host.context.close();
 });
 
+// The glass part's review: the verification banner, the same construction as the invite-only
+// notice (strong glass on the bare backdrop, its title in the attention ink) with a button in it,
+// on the poster a new host's pages wear.
+test("the verification banner reads on its poster", async ({ page }) => {
+  await signUp(page, newHost("site-look-banner"));
+  await expectSiteLook(page, SITE_POSTERS.host);
+  await backdropPainted(page);
+  const banner = page.getByRole("alert").filter({ hasText: "Verify your email" });
+  const resend = banner.getByRole("button", { name: "Resend email" });
+  // The button sits in the corner over the end of the title's box (at 390px, 45 of its 270px),
+  // where the words never reach: it is hidden while the words are read, so that its edge and its
+  // words are not read as what is behind them.
+  const action = banner.locator('[data-slot="alert-action"]');
+  await action.evaluate((element) => ((element as HTMLElement).style.visibility = "hidden"));
+  expect(await worstContrast(banner.getByText("Verify your email", { exact: true })), "the banner's title").toBeGreaterThanOrEqual(4.5);
+  expect(await worstContrast(banner.getByText(/^We sent a link to /)), "the banner's words").toBeGreaterThanOrEqual(4.5);
+  await action.evaluate((element) => (element as HTMLElement).style.removeProperty("visibility"));
+  expect(await buttonWordsContrast(resend), "Resend email").toBeGreaterThanOrEqual(4.5);
+  await expectRingStandsOut(page, resend);
+});
+
 // M8 ticket 23: a guest list as long as a party's, read to its last row, on the busiest picture a
 // host can give (the bands above). Thirty guests reply, each from an address of their own (the
 // shared `app` takes five replies a minute from one), a few at a time.
@@ -779,50 +801,96 @@ test("a long guest list reads to its last row on a busy picture", async ({ brows
 // first control: the signed-out screens (Bokeh, light text), the pages drawn without the database
 // (Cake, dark text), Site settings (Rose, light text) and a host's Account with the Backdrop set to
 // Cake, then Disco. Privacy holds no control in its main, so the footer's first link is read there.
-test("every area reads in both text tones", async ({ page, browser, request }) => {
-  test.slow();
-  const reads = async (where: Page, copy: string, tone: "light" | "dark", title: Locator, muted: Locator, control: Locator) => {
-    await expectSiteLook(where, copy);
-    await expect(where.locator(".site-page")).toHaveAttribute("data-tone", tone);
-    await backdropPainted(where);
-    expect(await worstContrast(title), `the title, on ${copy}`).toBeGreaterThanOrEqual(4.5);
-    expect(await worstContrast(muted), `a muted line, on ${copy}`).toBeGreaterThanOrEqual(4.5);
-    await expectRingStandsOut(where, control);
-  };
-  const privacyLink = (where: Page) => where.getByRole("contentinfo").getByRole("link", { name: "Privacy policy" });
+// A test per area (ticket 23's review: one test for all four had 17 s of its 90 left in a full run).
+async function readsInItsTone(where: Page, copy: string, tone: "light" | "dark", title: Locator, muted: Locator, control: Locator) {
+  await expectSiteLook(where, copy);
+  await expect(where.locator(".site-page")).toHaveAttribute("data-tone", tone);
+  await backdropPainted(where);
+  expect(await worstContrast(title), `the title, on ${copy}`).toBeGreaterThanOrEqual(4.5);
+  expect(await worstContrast(muted), `a muted line, on ${copy}`).toBeGreaterThanOrEqual(4.5);
+  await expectRingStandsOut(where, control);
+}
 
+const privacyLink = (where: Page) => where.getByRole("contentinfo").getByRole("link", { name: "Privacy policy" });
+
+test("every area reads in both text tones: the signed-out screens", async ({ page }) => {
   await page.goto("/sign-in");
-  await reads(page, SITE_POSTERS.welcome, "light", page.getByRole("heading", { level: 1, name: "Sign in" }), privacyLink(page), page.getByLabel("Email", { exact: true }));
-  await page.goto("/privacy");
-  await reads(page, SITE_POSTERS.fallback, "dark", page.getByRole("heading", { level: 1, name: "Privacy policy" }), privacyLink(page), privacyLink(page));
+  await readsInItsTone(page, SITE_POSTERS.welcome, "light", page.getByRole("heading", { level: 1, name: "Sign in" }), privacyLink(page), page.getByLabel("Email", { exact: true }));
+});
 
-  const operator = await (await browser.newContext({ reducedMotion: "no-preference" })).newPage();
-  await signIn(operator, OPERATOR.email, PASSWORD);
-  await expect(operator).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
-  await operator.goto("/instance");
-  await reads(
-    operator,
+test("every area reads in both text tones: the pages drawn without the database", async ({ page }) => {
+  await page.goto("/privacy");
+  await readsInItsTone(page, SITE_POSTERS.fallback, "dark", page.getByRole("heading", { level: 1, name: "Privacy policy" }), privacyLink(page), privacyLink(page));
+});
+
+// The home page card's small poster picker is ringed too (ticket 23's review), at its first tile,
+// which has nothing filled to its left. The shared `app` keeps the whole gallery, which draws no
+// picker, so Only the ones I pick is chosen and never saved: the site's set stays as it is.
+test("every area reads in both text tones: Site settings", async ({ page }) => {
+  await signIn(page, OPERATOR.email, PASSWORD);
+  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
+  await page.goto("/instance");
+  await readsInItsTone(
+    page,
     SITE_POSTERS.site,
     "light",
-    operator.getByRole("heading", { level: 1, name: "Site settings" }),
-    operator.getByText("What visitors see at this site’s address."),
-    operator.getByLabel("Name", { exact: true }),
+    page.getByRole("heading", { level: 1, name: "Site settings" }),
+    page.getByText("What visitors see at this site’s address."),
+    page.getByLabel("Name", { exact: true }),
   );
-  await operator.context().close();
+  const home = page.locator("#home-page");
+  await home.getByRole("button", { name: "More options" }).click();
+  await home.getByText("Only the ones I pick", { exact: true }).click();
+  await expectRingStandsOut(page, home.getByRole("checkbox").first());
+});
 
-  const host = await (await browser.newContext({ reducedMotion: "no-preference", extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
-  await signUpVerified(host, request, "site-look-areas");
+test("every area reads in both text tones: a host's Account", async ({ page, request }) => {
+  test.slow();
+  await signUpVerified(page, request, "site-look-areas");
   for (const [poster, copy, tone] of [
     ["Cake", CAKE, "dark"],
     ["Disco", DISCO, "light"],
   ] as const) {
-    await host.goto("/account");
-    await saveBackdrop(host, poster);
-    await host.goto("/account");
-    const displayName = host.locator('[data-slot="card"]').filter({ has: host.getByRole("heading", { level: 2, name: "Display name" }) });
-    await reads(host, copy, tone, host.getByRole("heading", { level: 1, name: "Account settings" }), displayName.getByText("Guests see it as “Hosted by”."), host.getByLabel("Display name"));
+    await page.goto("/account");
+    await saveBackdrop(page, poster);
+    await page.goto("/account");
+    const displayName = page.locator('[data-slot="card"]').filter({ has: page.getByRole("heading", { level: 2, name: "Display name" }) });
+    await readsInItsTone(page, copy, tone, page.getByRole("heading", { level: 1, name: "Account settings" }), displayName.getByText("Guests see it as “Hosted by”."), page.getByLabel("Display name"));
   }
-  await host.context().close();
+});
+
+// The glass part's review: a native radio is checked in the poster's accent (`accent-primary`), and
+// Balloons' is the palest. On Account, with Automatic chosen and the host's next event on Balloons,
+// the checked radio's mark stands out at 3:1 from what it was unchecked and from the card round it.
+test("a checked radio stands out in the palest accent", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "site-look-balloons", { title: "Ada’s balloons", start: "2027-03-06T19:00" });
+  await pickDesign(host.page, "Poster", "Poster", "Balloons", "Gallery");
+  const page = host.page;
+  await page.goto("/account");
+  await expectSiteLook(page, "balloons-copy");
+  await backdropPainted(page);
+  const card = backdropCard(page);
+  const automatic = card.getByRole("radio", { name: "Automatic", exact: true });
+  await expect(automatic).toBeChecked();
+  const blurred = () => page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.mouse.move(0, 0);
+  await expectMarkStandsOut(page, automatic, "Automatic's radio, checked, on Balloons", {
+    across: true,
+    on: async () => {
+      await card.getByText("Automatic", { exact: true }).click();
+      await expect(automatic).toBeChecked();
+      await blurred();
+      await page.mouse.move(0, 0);
+    },
+    off: async () => {
+      await card.getByText("Aurora", { exact: true }).click();
+      await expect(automatic).not.toBeChecked();
+      await blurred();
+      await page.mouse.move(0, 0);
+    },
+  });
+  await host.context.close();
 });
 
 // M8 ticket 23 (review focus): under forced colours, as Windows' contrast themes draw a page, the
@@ -859,8 +927,8 @@ test("forced colours keep every word apart from what is behind it", async ({ pag
   expect(await outline(page), "the focused display name's outline").toBeGreaterThanOrEqual(2);
 });
 
-// M8 ticket 23: a co-host who is removed is sent the not-found page for the event's pages, and it
-// carries nothing of the event's look: not its poster's copy, nor its title face's file. While they
+// M8 ticket 23: a co-host who is removed is sent the not-found page for each of the event's pages
+// (the glass part's review: every one of the five), and it carries nothing of the event's look: not its poster's copy, nor its title face's file. While they
 // were a co-host the same request carried both, so their absence is the removal's doing.
 test("a former co-host learns nothing of an event's look", async ({ browser, request }) => {
   test.slow();
@@ -874,10 +942,11 @@ test("a former co-host learns nothing of an event's look", async ({ browser, req
   await coHost.goto(link);
   await coHost.getByRole("button", { name: "Accept" }).click();
   await expect(coHost).toHaveURL(editor, { timeout: 15_000 });
-  const guests = `${editor}/guests`;
-  const before = await (await coHost.request.get(guests)).text();
-  expect(before, "the poster's copy, to a co-host").toContain(DISCO);
-  expect(before, "the title face's file, to a co-host").toContain("/fonts/syne-800.");
+  for (const [path] of EVENT_PAGES) {
+    const before = await (await coHost.request.get(`${editor}/${path}`)).text();
+    expect(before, `the poster's copy on ${path}, to a co-host`).toContain(DISCO);
+    expect(before, `the title face's file on ${path}, to a co-host`).toContain("/fonts/syne-800.");
+  }
 
   await owner.page.goto(`${editor}/hosts`);
   const row = owner.page.getByRole("listitem").filter({ has: owner.page.getByText("Co-host", { exact: true }) });
@@ -885,11 +954,13 @@ test("a former co-host learns nothing of an event's look", async ({ browser, req
   await owner.page.getByRole("alertdialog").getByRole("button", { name: "Remove", exact: true }).click();
   await expect(row).toHaveCount(0, { timeout: 15_000 });
 
-  const response = await coHost.request.get(guests);
-  await expectNotFoundAsSent(response);
-  const after = await response.text();
-  expect(after, "the poster's copy, to a former co-host").not.toContain("disco-ball");
-  expect(after, "the title face's file, to a former co-host").not.toContain("syne-800");
+  for (const [path] of EVENT_PAGES) {
+    const response = await coHost.request.get(`${editor}/${path}`);
+    await expectNotFoundAsSent(response);
+    const after = await response.text();
+    expect(after, `the poster's copy on ${path}, to a former co-host`).not.toContain("disco-ball");
+    expect(after, `the title face's file on ${path}, to a former co-host`).not.toContain("syne-800");
+  }
   await coHost.context().close();
   await owner.context.close();
 });

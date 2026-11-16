@@ -540,7 +540,7 @@
 }
 .site-page :is([data-slot="card"], [data-slot="alert"]) {
   backdrop-filter: blur(24px); /* the glass's blur, backdrop-blur-xl */
-  box-shadow: inset 0 0 0 1px var(--theme-glass-border), 0 8px 40px -16px rgb(0 0 0 / 0.35);
+  box-shadow: inset 0 0 0 1px var(--theme-glass-border), var(--shadow-glass);
 }
 .site-page :is([data-slot="input"], [data-slot="textarea"], [data-slot="native-select"], [data-slot="card-footer"], [data-slot="button"][data-variant="outline"]) {
   background-color: var(--theme-glass-strong);

@@ -112,14 +112,16 @@ export function LockedForm({ slug, email: given, turnstileSiteKey }: { slug: str
               {t("open")}
             </Button>
             {/* While it waits the button stays in the tab order, `aria-disabled` and a no-op, under
-                the name it always has; the seconds it shows are its description. */}
+                the name it always has; the seconds it shows are its description. It waits in the
+                muted text, which the glass is solved for, never at a lower opacity (the part
+                review after M8 ticket 23). */}
             <button
               type="button"
               onClick={resend}
               aria-disabled={waiting}
               aria-label={t("resend")}
               aria-describedby={resendIn > 0 ? `${id}-resend-in` : undefined}
-              className="cursor-pointer self-start rounded-sm text-sm underline underline-offset-2 hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-disabled:cursor-default aria-disabled:no-underline aria-disabled:opacity-70"
+              className="cursor-pointer self-start rounded-sm text-sm underline underline-offset-2 not-aria-disabled:hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-disabled:cursor-default aria-disabled:text-muted-foreground aria-disabled:no-underline"
             >
               <span id={`${id}-resend-in`}>{resendIn > 0 ? t("resendIn", { seconds: resendIn }) : t("resend")}</span>
             </button>

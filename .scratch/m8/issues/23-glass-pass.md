@@ -194,3 +194,117 @@ desktop 458 passed; fresh-instance 15, limits-instance 12, retention-instance 5,
 album-reminder-instance 5, home-instance 19, worker-instance 1, features-instance 5,
 sizes-instance 2, all passed. The flaky one is `keyboard.spec.ts:76` [mobile] (the Broadsheet
 ballot, "nothing has the focus" at Tab 13), the known one, not this part's; alone it passed.
+
+### 2026-11-15: Glass part review fixes (Opus 5.5)
+
+The one fix pass after the glass part's two reviews (ticket 23's task review and the review of the
+whole part, `part-glass-review.md`), from the controller's brief. Tickets 24 to 26 had landed
+first; nothing of theirs is undone.
+
+**A control never sits on the bare backdrop (the part review's one Important finding).**
+- `expectSiteLook` (`e2e/site-look.ts`) now also holds, on every page it reads: every visible
+  control a person can reach (links, buttons, fields, selects, `[tabindex]` not -1) inside a
+  surface its focus ring is proven against, known by `data-slot`: `veil`, `glass`, `card`, `alert`,
+  `host-header`, `page-footer`; and one `main` and one `h1` (a legal page's own text, inside
+  `legal-text`, may hold more). `Glass` and `Veil` now carry `data-slot="glass"` / `"veil"` (a
+  caller's own `data-slot`, as on the event page's sections, still wins), and the footer
+  `data-slot="page-footer"`. So `data-slot="host-header"` is selected again and stays (it was to go
+  only if nothing selected it).
+- RED, against the test profile built with everything but the fix: `site-look.spec.ts` at both
+  widths, 5 failed of 67; "Site settings and reports wear the site's poster" and "every area reads
+  in both text tones: Site settings", each at both widths, with `controls on the bare backdrop:
+  ["a “Reports (78)”"]`. No other route had a bare control: the only one was Site settings'
+  Reports. (The fifth failure was the new banner row, below.) Site settings' Reports is now on a
+  `Veil`, as Account's Sign out is. GREEN below.
+
+**Ruled by the controller.** `SITE_SURFACES.nested` and `nestedInset` stay as a deliberate guard,
+with the comment in `legibility.ts` and the sentence in `backgrounds.md` saying why and what it
+costs; no solved value changed. `backgrounds.md`'s "Every other page" names the components not yet
+safe inside the scope (`Switch`'s thumb, `FieldSeparator`'s label, a secondary `Button`'s hover,
+link and ghost `Badge` hovers, a `FieldLabel` wrapping a `Field`, a link in a `FieldDescription`, a
+destructive `Alert`'s description at 90%); no CSS change. The release note's "Nothing moves" says
+nothing on these pages moves by itself and that a sheet or dialog opened over one keeps its own
+entrance; its intro paragraph is re-flowed. The Backdrop's Automatic hint now says what
+`glowEvent` does, one sentence in each locale: "The poster of your next event, or of another of
+your events when none is coming up, or one of this site's." (你下一个活动的海报；没有即将举行的活动时，
+用你另一个活动的海报，或本站的一张海报。/ 你下一個活動的海報；沒有即將舉行的活動時，用你另一個活動的海報，
+或本站的一張海報。, "coming up" as the dashboard's 即将举行 / 即將舉行).
+
+**Smaller fixes.**
+- The dashboard's album reminders are one `Glass` panel, rows `p-4` divided by
+  `divide-y divide-theme-glass-border` (item f's convention). `[data-slot="album-reminder"]` is
+  unchanged, so `album-reminder.spec.ts` finds them as before.
+- The locked page's "Send it again in N s" waits in `text-muted-foreground`, not at 70% opacity;
+  its hover's 80% opacity no longer applies while it waits. No pixel row was added: `worstContrast`
+  reads an element's `color`, not its opacity, so it could not have seen the fault.
+- The hover edge: the three links drawn as a *default* button (the header's New event pill, the
+  first invitation's button, Next up's Guests) are `Button asChild` round their `Link`, with
+  `border-0` and their own height, radius, padding and weight, so the scope's rule edges them and
+  the hand-written `hover:inset-ring` is gone. What they take from `Button` besides: a 1px press
+  (`active:translate-y-px`) and the 150 ms colour transition every button has. Next up's Edit and
+  Share are **left drawn by hand**: they are secondary fills, and the scope has no rule for a
+  secondary button's hover (it is on the "not yet safe" list above), so as `Button
+  variant="secondary"` they would lose their edge and take shadcn's unproven hover fill.
+- Leftovers: the card and alert shadow is `var(--shadow-glass)` (checked emitted in the built CSS);
+  `HostFrame` is no longer `async`; the back link, heading and line on a veil are `ManageIntro`,
+  beside `ManageHeading` in `manage-heading.tsx`, used by the five event pages and the reports page
+  with the same markup as before. The `glow` names and the two ink variables are left alone.
+
+**Tests the reviews found missing.**
+- (gap 1) `legibility.test.ts` "an event page's glass is what it was before site pages": the event
+  page's glass under light text on Aurora 0.244, Candlelight 0.307, Bokeh 0.325, Streamers 0.316,
+  Midnight 0.262, Slate 0.289, Ink 0.298. Confirmed against b9d541d by a scratch Vitest run (in the
+  session scratchpad, not committed) that imported `git show b9d541d:src/themes/legibility.ts` beside
+  the current one and solved the seven with each: the same RGBA in every case (`posters.ts` is
+  unchanged since, and `backgrounds.ts` differs only in comments). "site surfaces leave the event
+  page alone" is kept as it was.
+- (gap 2) `src/instance/dbless-pages.test.ts`: from `not-found.tsx`, the too-fast page and its
+  component and `legal-page.tsx`, every file reached through runtime imports (by the alias,
+  relative and re-exported; type-only ones left out), transitively and not only through
+  `src/themes` and `site-look.ts`, reaches neither `src/db/` nor `src/instance/repository.ts`.
+  RED shown by putting `import { homePage } from "./repository"` in `site-look.ts` for one run: all
+  four failed, naming the path (`not-found.tsx → site-look.ts → repository.ts → db/client.ts`).
+- (gap 4) `expectNoDisco` looks for `disco-ball`.
+- (gap 5) The former co-host check reads all five `EVENT_PAGES`, before and after the removal.
+- (gap 8) "a checked radio stands out in the palest accent": Account, Automatic chosen, the next
+  event on Balloons; `expectMarkStandsOut` now takes `across`, reading the row through the control
+  itself from 4px outside each side, checked against unchecked and against the card. It passed at
+  both widths on the first run, so native radios keep `accent-primary`: no `accent-color` change.
+- (gap 11) "the verification banner reads on its poster": title, words, Resend email's words and
+  its ring, on the host area's poster. On the first run the title read 1.44:1 at 390px: the
+  Resend button sits in the alert's corner (`absolute`, 108px wide) over the last 45px of the
+  title's box, as the alert's `pr-18` leaves 72px for it; no word reaches there in English, and the
+  pixel read had taken the button's edge and words as what is behind the title. The button is
+  hidden while the words are read, as the New event pill is for the initials' ring. Left for the
+  maintainer: a longer title in another language would run under the button on a phone.
+- (7) "every area reads in both text tones" is four tests, one per area, every check kept.
+- (8) `e2e/axe.ts`: on a site page with a dialog open, the read of what is outside the scope must
+  have measured something inside the dialog (`expect.soft`).
+- (9) The hosts page's empty links message has a line under it, above the form.
+- (10) `expectHoverEdgeStandsOut` compares the edge with the hovered strip's own fill.
+- (11) The Site settings test opens More options and chooses Only the ones I pick (never saved) to
+  draw the small picker on Rose, and rings its first tile.
+- (12) Above.
+
+**E.** `album-voting.spec.ts`'s Settings test is two: "the host starts the album vote from
+Settings" (off and open read by axe) and "the host closes, reopens and turns off the album vote
+from Settings" (closed and the Turn off confirmation), every check kept.
+
+**Evidence.**
+- RED: above (`site-look.spec.ts`, 5 failed, 62 passed, against the profile built without the
+  Reports fix; the dbless test's RED above).
+- GREEN, the test profile rebuilt with the change, `CI=1 --workers=2`, both widths, one command:
+  `site-look`, `keyboard`, `accessibility`, `locales`, `reduced-motion`, `host-accounts`,
+  `instance-settings`, `dashboard`, `album-voting`, `invite-only` (the locked page), `events`
+  (New event's pill) and `co-hosts` (the hosts page): **451 passed** (1.0 h), none flaky. Then, one
+  at a time with `--no-deps`: limits-instance 12 passed (the header's pill at the limit),
+  album-reminder-instance 5 passed (the dashboard's reminders), home-instance 19 passed (its two
+  `expectSiteLook` callers, `/instance` among them).
+- Timings in that run: the four "every area" tests 2.1 to 18.3 s (the old one test was 72.7 s of
+  90 in the last full run); album voting's two Settings tests 36.8 / 38.5 s mobile and 39.0 /
+  39.7 s desktop (the old one timed out at 90 s with two workers in ticket 26's run).
+- `pnpm lint` and `pnpm typecheck` clean; `pnpm test` 123 files, 1481 tests.
+
+**For the maintainer (beyond the brief's list).** The verification banner's Resend button overlaps
+the end of the title's box on a phone (above). The dashboard's Edit and Share on Next up keep
+their hand-written edge until a secondary button's hover is proven in the scope.

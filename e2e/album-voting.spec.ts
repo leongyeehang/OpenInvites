@@ -119,8 +119,10 @@ async function press(page: Page, block: Locator, name: string, state: "off" | "o
   await expect(block).toHaveAttribute("data-state", state);
 }
 
-test("the host starts, closes, reopens and turns off the album vote from Settings", async ({ browser, request }) => {
-  // About 20 s alone, so the default 30 s ran out once beside the other voting tests.
+// The Settings sheet's Voting block from start to off, in two tests of at most two axe reads each:
+// four reads in one ran out of its 90 s at two workers beside the other voting tests (ticket 26's
+// run), as the editor's sheets did in accessibility.spec.ts (a381877).
+test("the host starts the album vote from Settings", async ({ browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "album-voting", PAST);
   const sheet = await openSettings(host.page);
@@ -134,6 +136,14 @@ test("the host starts, closes, reopens and turns off the album vote from Setting
   await press(host.page, block, "Start voting", "open");
   await expect(block).toContainText("Voting is open");
   await expectNoSeriousViolations(host.page, "the Settings sheet with the vote open");
+  await host.context.close();
+});
+
+test("the host closes, reopens and turns off the album vote from Settings", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-voting-close", PAST);
+  const block = votingBlock(await openSettings(host.page));
+  await press(host.page, block, "Start voting", "open");
 
   await press(host.page, block, "Close voting", "closed");
   await expect(block).toContainText("Voting closed");

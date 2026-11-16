@@ -38,7 +38,8 @@ export async function expectNoSeriousViolations(page: Page, where: string, { exc
     if (!changed || attempt === 3) break;
     test.info().annotations.push({ type: "axe", description: `${where}: the page changed while axe read it; read again` });
   }
-  const { violations, incomplete, contrastMeasured, scene } = read;
+  const { violations, incomplete, contrastMeasured, scene, dialogUnread } = read;
+  expect.soft(dialogUnread, `${where}: the contrast of the dialog open over the page was read`).toBe(false);
   const found = Object.fromEntries(IMPACTS.map((impact) => [impact, violations.filter((violation) => violation.impact === impact).length]));
   const unsure = Object.fromEntries([...incomplete].map(([id, targets]) => [id, targets.size]));
   test.info().annotations.push({ type: "axe", description: `${where}: ${JSON.stringify({ ...found, incomplete: unsure, contrastMeasured })}` });
@@ -104,12 +105,19 @@ async function readPage(page: Page, except: string[]) {
     for (const { target } of rule.nodes) measured.add(target.join(" "));
   }
 
-  // A site page's contrast, outside its scope alone: what is portalled over it.
+  // A site page's contrast, outside its scope alone: what is portalled over it. When a dialog is
+  // open, the read must have measured something inside it, so that it cannot pass by reading
+  // nothing (ticket 23's review).
+  let dialogUnread = false;
   if (sitePage && !except.includes(CONTRAST)) {
     const outside = await new AxeBuilder({ page }).withRules([CONTRAST]).exclude(".site-page").analyze();
     for (const { id, impact, help, nodes } of outside.violations) violations.push({ id, impact, help, targets: nodes.map((node) => node.target.join(" ") + measuredAs(node, 0)) });
     for (const { nodes } of outside.incomplete) for (const { target } of nodes) note(CONTRAST, target.join(" "));
     for (const { nodes } of outside.passes) for (const { target } of nodes) measured.add(target.join(" "));
+    if ((await page.locator('[role="dialog"]:visible, [role="alertdialog"]:visible').count()) > 0) {
+      const read = [...outside.violations, ...outside.passes].flatMap(({ nodes }) => nodes.map(({ target }) => target.join(" ")));
+      dialogUnread = !(await page.evaluate((targets) => targets.some((target) => document.querySelector(target)?.closest('[role="dialog"], [role="alertdialog"]')), read));
+    }
   }
 
   if (fixedBackdrop) {
@@ -193,7 +201,7 @@ async function readPage(page: Page, except: string[]) {
   await page.evaluate((y) => window.scrollTo(0, y), from);
   // Text measured from one view is not also counted as undecided from another.
   for (const target of measured) incomplete.get(CONTRAST)?.delete(target);
-  return { violations: [...violations, ...contrast.values()], incomplete, contrastMeasured: measured.size, scene };
+  return { violations: [...violations, ...contrast.values()], incomplete, contrastMeasured: measured.size, scene, dialogUnread };
 }
 
 // Puts whollyInSight on the page: whether an element is wholly on the screen and inside everything

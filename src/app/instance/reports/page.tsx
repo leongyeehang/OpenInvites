@@ -20,7 +20,8 @@ import { homePage } from "@/instance/repository";
 import { areaLook } from "@/instance/site-look";
 import { deleteReportedEventAction, markReportHandledAction } from "@/reports/actions";
 import { listReports, type ReportListed } from "@/reports/repository";
-import { Glass, Veil } from "@/themes/glass";
+import { Glass } from "@/themes/glass";
+import { ManageIntro } from "../../(host)/events/[id]/manage-heading";
 import { HostFrame } from "../../(host)/host-frame";
 
 // The page's heading, where the focus goes once an event is deleted, since its Delete button goes
@@ -44,15 +45,17 @@ export default async function ReportsPage() {
 
   return (
     <HostFrame host={host} look={areaLook(posterPool(home), "site")}>
-      <Veil className="flex flex-col gap-1">
-        <Link href="/instance" className="w-fit text-sm text-muted-foreground hover:underline">
-          {t("back")}
-        </Link>
-        <h1 id={HEADING} tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
-          {t("title")}
-        </h1>
+      <ManageIntro
+        back="/instance"
+        label={t("back")}
+        heading={
+          <h1 id={HEADING} tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
+            {t("title")}
+          </h1>
+        }
+      >
         <p className="mt-1 text-muted-foreground">{t("description")}</p>
-      </Veil>
+      </ManageIntro>
       {reports.length === 0 ? (
         <Glass className="p-4">
           <p className="text-sm text-muted-foreground">{t("empty")}</p>

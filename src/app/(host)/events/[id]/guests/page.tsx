@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { getLocale, getTranslations } from "next-intl/server";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireHost } from "@/auth/session";
 import { findHostEvent } from "@/events/repository";
@@ -13,7 +12,7 @@ import { listAnswersByGuest } from "@/questions/repository";
 import { asTally, countRsvps, groupByStatus } from "@/rsvps/counts";
 import { listGuestList } from "@/rsvps/repository";
 import { Glass, Veil } from "@/themes/glass";
-import { ManageHeading } from "../manage-heading";
+import { ManageHeading, ManageIntro } from "../manage-heading";
 import { GuestRow } from "./guest-row";
 import { RefreshWhileWatching } from "./refresh-every";
 
@@ -54,14 +53,16 @@ export default async function GuestListPage({ params }: PageProps<"/events/[id]/
   return (
     <ClientMessages namespaces={["Guests"]}>
       <RefreshWhileWatching />
-      <Veil className="flex flex-col gap-1">
-        <Link href={`/events/${event.id}`} className="w-fit text-sm text-muted-foreground hover:underline">
-          {t("backToEvent")}
-        </Link>
-        {/* Where the focus goes once a guest is removed, moved to Going, approved or declined (guest-row.tsx), since the button that did it goes too. */}
-        <ManageHeading font={event.theme.font} id="guest-list-heading">
-          {t("title")}
-        </ManageHeading>
+      {/* The heading is where the focus goes once a guest is removed, moved to Going, approved or declined (guest-row.tsx), since the button that did it goes too. */}
+      <ManageIntro
+        back={`/events/${event.id}`}
+        label={t("backToEvent")}
+        heading={
+          <ManageHeading font={event.theme.font} id="guest-list-heading">
+            {t("title")}
+          </ManageHeading>
+        }
+      >
         <p className="text-muted-foreground">
           {event.capacity === null
             ? t("headcount", { count: counts.headcount })
@@ -70,7 +71,7 @@ export default async function GuestListPage({ params }: PageProps<"/events/[id]/
           {counts.waitlisted > 0 && ` · ${t("waitlistedCount", { count: counts.waitlisted })}`}
           {counts.pending > 0 && ` · ${t("pendingCount", { count: counts.pending })}`}
         </p>
-      </Veil>
+      </ManageIntro>
 
       {guests.length === 0 ? (
         <Glass className="p-4">

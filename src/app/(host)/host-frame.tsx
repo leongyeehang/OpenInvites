@@ -11,7 +11,7 @@ import { VerificationBanner } from "./verification-banner";
 // host has verified their email, the page, and the themed footer. The dashboard alone is wider, for
 // its shelves. The look is the page's to choose: a host's own pages wear theirs (hostLook), Site
 // settings and reports the site area's.
-export async function HostFrame({ host, look, children }: { host: Host; look: SiteLook; children: ReactNode }) {
+export function HostFrame({ host, look, children }: { host: Host; look: SiteLook; children: ReactNode }) {
   return (
     <SitePage look={look}>
       <HostHeader host={host} />

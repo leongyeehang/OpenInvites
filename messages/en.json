@@ -260,7 +260,7 @@
       "title": "Backdrop",
       "description": "The picture behind your dashboard, this page and New event. Each event’s own pages wear that event’s poster.",
       "automatic": "Automatic",
-      "automaticHint": "Your next event’s poster, or one of this site’s.",
+      "automaticHint": "The poster of your next event, or of another of your events when none is coming up, or one of this site’s.",
       "submit": "Save",
       "saved": "Backdrop saved.",
       "unknown": "Choose Automatic or one of the gallery’s posters."
