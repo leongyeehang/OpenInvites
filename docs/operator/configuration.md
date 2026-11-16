@@ -177,10 +177,14 @@ upgraded site included.
 
 - **Album**: guests and hosts add photos to an event's page. Off, no event shows its album or
   takes photos, the hosts' Settings sheet leaves out its Album group, album reminders wait, and
-  the photos and videos stay where they are and still count toward storage.
+  the photos and videos stay where they are and still count toward storage. While it is off nobody
+  but you can remove an item (the hosts' Empty album and every Delete refuse; **Clear the album**
+  on the Storage card still works), and the files are still answered at their addresses.
 - **Videos**: albums take videos as well as photos. Off, albums take photos only; the videos
   they hold still play, and a clip already sent is still processed. Videos need the album, and a
-  usable ffmpeg: without one they stay off whatever the switch says.
+  usable ffmpeg: without one they stay off whatever the switch says. A live photo is a photo, so
+  its motion is made on events whose host unticked **Allow videos** too; this switch is what stops
+  it.
 - **Voting**: hosts may run a vote on their album's photos and videos, from the Album voting block
   in an event's Settings: up to eight awards, each for photos, videos or both, with one vote per
   person in each; who may vote (everyone who sees the album, only guests who are going, or only
@@ -541,9 +545,11 @@ video's size, frame rate, HDR and length, and the file's size); each event's Alb
 keep **when each photo and video was taken** and **the camera and its settings** (make, model, lens
 and exposure), both off by default. They are read from the upload as it is added, only for the
 switches that are on, and stored with the item; turning one off hides it from every page without
-erasing it, and nothing is read from items added while it was off. Where a picture was taken is
-never read, under any setting: the GPS part of a photo's EXIF is never followed, and a video's
-location tag is never kept.
+erasing it, and nothing is read from items added while it was off. Where a viewer is not shown
+who added an item (the host's choice for the album vote decides), the make, model and lens are
+left out for them, and so are the aperture and focal length, which are a lens's own figures; the
+shutter and ISO stay. Where a picture was taken is never read, under any setting: the GPS part of
+a photo's EXIF is never followed, and a video's location tag is never kept.
 
 Whoever added an item, and any host, may give it a **caption** (0.8) of up to 140 characters of
 plain text, while adding it or afterwards. It is kept in the database, shown under the item in the
@@ -620,7 +626,7 @@ runs.
 | `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an account email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, asking for a sign-in link, and the operator's emailed host invitations. Also each announcement a host emails to guests, counted once however many guests it reaches; each Send of an invitation from an invite list, and each "Send to everyone not yet sent", counted once however many it reaches; and each code sent to a guest to prove their email, and each ask for a code on an invite-only event's locked page, whether or not the address is on its invite list (so the answer never tells). |
 | `RATE_LIMIT_COMMENT` | `30/10m` | Posting a comment on an event page, and deleting one, by a guest or a host; and writing, changing or removing an album item's caption (0.8). This also bounds the emails that tell hosts about comments. |
 | `RATE_LIMIT_REPORT` | `5/1h` | Sending a report about an event page. This also bounds the emails that tell you about reports. |
-| `RATE_LIMIT_VOTE` | `120/10m` | Giving, moving or taking back a vote in an album. 120 in ten minutes, since a party often shares one address. |
+| `RATE_LIMIT_VOTE` | `600/10m` | Giving, moving or taking back a vote in an album. 600 in ten minutes, since a party often shares one address: forty guests at a venue voting in four awards pass 120. |
 
 Each limit is written `count/window`, the window in seconds, minutes or hours: `120/1m`,
 `60/10m`, `10/1h`. The defaults are for people, some of whom share an address (an office, a

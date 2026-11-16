@@ -9,7 +9,7 @@ import type { SaveResult } from "@/events/editor-actions";
 // that Publish can open the one whose piece is missing, and the Arrange sheet at one section's row,
 // so that a placeholder on the invitation opens its own (M8 ticket 28).
 
-export type SheetName = "poster" | "title" | "theme" | "effect" | "arrange" | "note" | "links" | "when" | "where" | "about" | "schedule" | "settings" | "more";
+type SheetName = "poster" | "title" | "theme" | "effect" | "arrange" | "note" | "links" | "when" | "where" | "about" | "schedule" | "settings" | "more";
 
 type EditorState = {
   status: "idle" | "saving" | "saved" | "failed";

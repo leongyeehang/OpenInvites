@@ -51,7 +51,7 @@ async function DetailRows({ event, locale, underWhen, underWhere, calendar, poll
 }
 
 // One row of the details list: its icon in a small tile, its heading, and what it says.
-export function DetailRow({ icon: Icon, label, slot, children }: { icon: ComponentType<{ className?: string }>; label: string; slot?: string; children: ReactNode }) {
+function DetailRow({ icon: Icon, label, slot, children }: { icon: ComponentType<{ className?: string }>; label: string; slot?: string; children: ReactNode }) {
   return (
     <section data-slot={slot} className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-3 p-4">
       <IconTile>

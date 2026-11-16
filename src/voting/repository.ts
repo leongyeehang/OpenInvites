@@ -30,7 +30,7 @@ const A_HOST: VotingViewer = { kind: "host", hostId: "" };
 // The event's row, locked for the rest of the transaction as adding photos locks it
 // (album/repository.ts, addPhotos), read as the vote's rules read it: so that a vote given and the
 // host's closing, reopening or turning off cannot cross.
-export async function lockVoting(eventId: string, tx: Db): Promise<VotingEvent | undefined> {
+async function lockVoting(eventId: string, tx: Db): Promise<VotingEvent | undefined> {
   const [locked] = await tx
     .select({
       state: event.state,
@@ -92,7 +92,7 @@ export async function listVotes(eventId: string, db: Db = getDb()): Promise<Cast
 }
 
 // Who gives a vote: a guest through their RSVP, or a host. ("Voter" is the date poll's word.)
-export type GivenBy = { rsvpId: string } | { hostId: string };
+type GivenBy = { rsvpId: string } | { hostId: string };
 
 // How many votes each of an event's awards holds, by the award's id, in every round and whoever
 // gave them (M8 ticket 13): every row, counted or not, since this is what removing the award, or

@@ -17,9 +17,11 @@ import { useEditor } from "./status";
 // left or the sheet closes, never half-typed on a pause (ticket 29's review), and a move or a
 // removal at once; a row with no address yet is not sent. An address is checked as its field is
 // left, by the rule the server holds it to (http and https only, `safeLinkUrl`): one that would be
-// refused is marked, says why under its field, and is left out of what is sent, so the other rows
-// still save (the Sections part's review, finding 3). The server checks every address again and
-// refuses the whole list over one it would not follow, which is said above it.
+// refused is marked, says why under its field and through the sheet's live line, and is sent with
+// the address it last had that was not refused, or left out where it never had one, so the other
+// rows still save and a saved link is never lost to a typo (the Sections part's review, finding 3,
+// and the re-review of its fix pass). The server checks every address again and refuses the whole
+// list over one it would not follow, which is said above it.
 // On the keyboard a moved row's button keeps the focus; a removal leaves it on the same button,
 // which then removes the row that took its place, or on "Add a link" after the last one; a new row
 // takes it at its label.
@@ -46,14 +48,21 @@ export function LinksSheet({ eventId, section }: { eventId: string; section: Sec
 }
 
 // A row as the sheet holds it: `id` keeps a row's fields with it as it moves. `url` is its address
-// as last left, which is what is sent; `draft` as typed.
-type Row = SectionLink & { id: number; draft: string };
+// as last left; `draft` as typed; `accepted` the last address left that the server would take (the
+// saved one, to begin with), or empty while there has been none.
+type Row = SectionLink & { id: number; draft: string; accepted: string };
 
-// Whether a row's address, as last left, is one the server would refuse.
-const refused = (row: Row) => row.url.trim() !== "" && safeLinkUrl(row.url) === undefined;
+// Whether an address, or a row's as last left, is one the server would refuse.
+const refusedUrl = (url: string) => url.trim() !== "" && safeLinkUrl(url) === undefined;
+const refused = (row: Row) => refusedUrl(row.url);
 
-// What is sent: the rows with an address the server would take, in order.
-const posted = (rows: Row[]): SectionLink[] => rows.filter((row) => row.url.trim() !== "" && !refused(row)).map(({ label, url }) => ({ label, url }));
+// What is sent, in order: each row with an address the server would take, a refused one with the
+// address it last had that was not refused, and none of a row with neither.
+const posted = (rows: Row[]): SectionLink[] =>
+  rows.flatMap(({ label, url, accepted }) => (url.trim() === "" ? [] : !refusedUrl(url) ? [{ label, url }] : accepted ? [{ label, url: accepted }] : []));
+
+// A row's address as left: the draft, which becomes the accepted one where the server would take it.
+const left = (row: Row): Row => ({ ...row, url: row.draft, accepted: row.draft.trim() !== "" && !refusedUrl(row.draft) ? row.draft : row.accepted });
 
 // The sheet's list, made afresh each time the sheet opens, so it starts from the links as saved.
 function LinksForm({ eventId, sectionKey: key, links }: { eventId: string; sectionKey: string; links: SectionLink[] }) {
@@ -61,7 +70,7 @@ function LinksForm({ eventId, sectionKey: key, links }: { eventId: string; secti
   const arrange = useTranslations("Editor.arrange");
   const { save } = useEditor();
   const id = useId();
-  const [rows, setRows] = useState<Row[]>(() => links.map((link, index) => ({ ...link, id: index, draft: link.url })));
+  const [rows, setRows] = useState<Row[]>(() => links.map((link, index) => ({ ...link, id: index, draft: link.url, accepted: link.url })));
   const [error, setError] = useState<string>();
   const [said, say] = useState("");
   const made = useRef(links.length);
@@ -97,7 +106,7 @@ function LinksForm({ eventId, sectionKey: key, links }: { eventId: string; secti
   useEffect(() => {
     const flush = send.current;
     return () => {
-      latest.current = latest.current.map((row) => ({ ...row, url: row.draft }));
+      latest.current = latest.current.map(left);
       flush();
     };
   }, []);
@@ -116,7 +125,14 @@ function LinksForm({ eventId, sectionKey: key, links }: { eventId: string; secti
     latest.current = latest.current.map((each) => (each.id === row.id ? { ...each, draft: text } : each));
     setRows(latest.current);
   };
-  const leave = (row: Row) => change(latest.current.map((each) => (each.id === row.id ? { ...each, url: each.draft } : each)), true);
+  // Left with an address the server would refuse, the row is marked, and that is said, once.
+  const leave = (row: Row) => {
+    const before = latest.current.find((each) => each.id === row.id);
+    const next = latest.current.map((each) => (each.id === row.id ? left(each) : each));
+    const after = next.find((each) => each.id === row.id);
+    change(next, true);
+    if (before && after && refused(after) && after.url !== before.url) say(arrange("errors.urlInvalid"));
+  };
   // A row is named by its label, or the site its address goes to, or its place.
   const nameOf = (row: Row, index: number) => row.label.trim() || (safeLinkUrl(row.draft) ? linkHost(safeLinkUrl(row.draft)!) : t("labelOf", { n: index + 1 }));
 
@@ -138,7 +154,7 @@ function LinksForm({ eventId, sectionKey: key, links }: { eventId: string; secti
     change(next, true);
   };
   const add = () => {
-    const row = { id: made.current++, label: "", url: "", draft: "" };
+    const row = { id: made.current++, label: "", url: "", draft: "", accepted: "" };
     refocus.current = `${row.id}:label`;
     // A row with no address is not sent, so nothing is saved yet.
     latest.current = [...latest.current, row];

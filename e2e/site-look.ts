@@ -17,9 +17,12 @@ export const SITE_POSTERS = {
 // transitions that can still be finishing as the page arrives (a web font swapping in under load),
 // so the page is given until they end: something that moved by itself would never end. The
 // controls are then read once, when the set of them a person can reach and see has stopped
-// changing (two reads in a row agree), so that one a client component draws late, once it has
-// hydrated, is there to be read rather than missed by a read that found none bare before it came
-// (ticket 31's review); and, everything having stopped moving, none is read on its way to a surface.
+// changing: three reads half a second apart agree, a second in all, so that one a client component
+// draws late, once it has hydrated, is there to be read rather than missed by reads that found none
+// bare before it came (ticket 31's review; two reads 100 ms apart, as before, could both come before
+// it). No page marks its hydration, so this is a window, not a proof: a control drawn more than a
+// second after the rest stopped changing would still be missed. A page with no client control
+// settles as fast as any. Everything having stopped moving, none is read on its way to a surface.
 export async function expectSiteLook(page: Page, copy: string) {
   await expect(page.locator(".site-page")).toHaveCount(1);
   const backdrop = page.locator('[data-slot="backdrop"]');
@@ -32,16 +35,15 @@ export async function expectSiteLook(page: Page, copy: string) {
   await expect
     .poll(() => page.evaluate(() => document.getAnimations().map((animation) => animation.constructor.name)), { message: "what moves" })
     .toEqual([]);
-  let before: string | undefined;
+  const reads: string[] = [];
   await expect
     .poll(
       async () => {
-        const now = (await page.evaluate(CONTROLS, false)).join("\n");
-        const settled = now === before;
-        before = now;
-        return settled;
+        reads.push((await page.evaluate(CONTROLS, false)).join("\n"));
+        const last = reads.slice(-3);
+        return last.length === 3 && last.every((read) => read === last[0]);
       },
-      { message: "the page's controls to stop changing" },
+      { message: "the page's controls to stop changing", intervals: [500], timeout: 15_000 },
     )
     .toBe(true);
   expect(await page.evaluate(CONTROLS, true), "controls on the bare backdrop").toEqual([]);

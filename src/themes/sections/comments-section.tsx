@@ -170,7 +170,7 @@ export async function CommentsSection({
 // reply is not approved, why.
 // Each comment carries its reactions, and whether this viewer gave each: `reactor` is who they react
 // as, if they may (M4 ticket 04). Whoever may post may react.
-export async function commentsFor(event: EventWithHost, viewer: CommentViewer, reactor: Reactor | undefined): Promise<CommentsShown | undefined> {
+async function commentsFor(event: EventWithHost, viewer: CommentViewer, reactor: Reactor | undefined): Promise<CommentsShown | undefined> {
   if (!event.commentsEnabled) return undefined;
   if (commentsView(viewer) === "locked") {
     return { view: "locked", count: await countComments(event.id), approval: viewer.kind === "guest" ? viewer.approval : undefined };

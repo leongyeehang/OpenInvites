@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { keptSettings, parseEventForm, type SettingsFields } from "./form";
+import { keptSettings, parseDrawnGroups, parseEventForm, type SettingsFields } from "./form";
 
 const valid = {
   title: "Ada’s birthday",
@@ -234,8 +234,11 @@ describe("keptSettings", () => {
     albumOrder: "taken" as const,
   };
 
+  // The sheet draws a group while the site has it on: these cases post the groups their switches draw.
+  const BOTH = { album: true, videos: true };
+
   it("keeps every album field as stored while the album is off, numbers as their digits and none as empty", () => {
-    expect(keptSettings(posted, stored, { album: false, videos: true })).toEqual({
+    expect(keptSettings(posted, stored, { album: false, videos: true }, { album: false, videos: false })).toEqual({
       ...posted,
       albumVisibility: "hosts",
       albumApprovalRequired: true,
@@ -252,7 +255,7 @@ describe("keptSettings", () => {
 
   it("keeps the video fields as stored while videos are off, and takes the rest of the album's as posted", () => {
     const shown = { ...posted, albumVisibility: "going", albumApprovalRequired: false, notifyOnPhoto: true };
-    expect(keptSettings(shown, stored, { album: true, videos: false })).toEqual({
+    expect(keptSettings(shown, stored, { album: true, videos: false }, { album: true, videos: false })).toEqual({
       ...shown,
       albumVideosAllowed: true,
       albumMaxVideoMinutes: "5",
@@ -262,6 +265,44 @@ describe("keptSettings", () => {
   });
 
   it("takes everything as posted while both are on", () => {
-    expect(keptSettings(posted, stored, { album: true, videos: true })).toEqual(posted);
+    expect(keptSettings(posted, stored, BOTH, BOTH)).toEqual(posted);
+  });
+
+  // The whole-branch review, finding 3: a sheet drawn while the operator had a group off, used after
+  // it is back on, posts none of its fields; they keep what the event has, whatever the switches say.
+  it("keeps the video fields as stored when the sheet did not draw them, though videos are on for the site", () => {
+    const shown = { ...posted, albumVisibility: "going", albumApprovalRequired: false, notifyOnPhoto: true };
+    expect(keptSettings(shown, stored, BOTH, { album: true, videos: false })).toEqual({
+      ...shown,
+      albumVideosAllowed: true,
+      albumMaxVideoMinutes: "5",
+      albumMaxVideoMb: "",
+      albumCopySizes: ["720p"],
+    });
+  });
+
+  it("keeps every album field as stored when the sheet did not draw the album, though it is on for the site", () => {
+    expect(keptSettings(posted, stored, BOTH, { album: false, videos: false })).toEqual({
+      ...posted,
+      albumVisibility: "hosts",
+      albumApprovalRequired: true,
+      notifyOnPhoto: true,
+      albumVideosAllowed: true,
+      albumMaxVideoMinutes: "5",
+      albumMaxVideoMb: "",
+      albumCopySizes: ["720p"],
+      albumKeepTakenAt: true,
+      albumKeepCamera: true,
+      albumOrder: "taken",
+    });
+  });
+});
+
+describe("parseDrawnGroups", () => {
+  it("reads the groups the sheet names, and none from a post that names none", () => {
+    expect(parseDrawnGroups("album videos")).toEqual({ album: true, videos: true });
+    expect(parseDrawnGroups("album")).toEqual({ album: true, videos: false });
+    expect(parseDrawnGroups("")).toEqual({ album: false, videos: false });
+    expect(parseDrawnGroups("albums video")).toEqual({ album: false, videos: false });
   });
 });

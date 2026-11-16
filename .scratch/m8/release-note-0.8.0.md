@@ -26,10 +26,12 @@ an iPhone or iPad the album says how to keep a Live Photo's motion: Safari gives
 its still.
 
 **What a host keeps, and captions.** A host may keep when each photo or video was taken, and the
-camera, lens and exposure, each a switch in the album's settings and off by default; kept, they
-show under the item, and the album can be ordered by when items were taken. Where a picture was
-taken is never read, under any setting. Whoever added an item, and any host, can give it a caption
-of up to 140 characters, shown in the viewer and read as part of the item's name.
+camera, lens and exposure, each a switch in the album's settings and off by default; kept, they show
+under the item, and the album can be ordered by when items were taken. Where a guest is not shown
+who added an item, the camera, the lens, the aperture and the focal length are left out for them;
+the shutter and ISO stay. Where a picture was taken is never read, under any setting. Whoever added
+an item, and any host, can give it a caption of up to 140 characters, shown in the viewer and read
+as part of the item's name.
 
 ## Voting in the album
 
@@ -115,7 +117,7 @@ locked page. A page holds up to ten of them, and a duplicated event keeps them.
 swiped sideways; the comments as a list or as chat bubbles; and Who's coming as names or as
 avatars, a circle of initials over each first name. Every style keeps what an album item carries:
 a video's length, the Live mark and the album vote's star; the mosaic and the strip also write an
-item's caption under it, which the grid, as before, leaves to the viewer.
+item's caption under it, which in the grid, as before, shows only when an item is opened.
 
 **One switch for each.** The Comments, Who's coming and the Album are switched in Arrange, and
 the Letter's switch there is the Invites page's. "Who can see the guest list" moved from Settings
@@ -180,7 +182,8 @@ column a 0.7 worker writes: stop the worker first (`docker compose stop worker`)
 `docker compose up -d` replace both together. A video from before 0.8 keeps its one copy until
 **Make missing sizes** gives it its sizes (and an HDR video its standard-colour copies); no item
 from before 0.8 becomes live or has details, as the files kept nothing to read. A press of a star
-counts against the new, optional `RATE_LIMIT_VOTE` (120 in ten minutes), and a caption against
+counts against the new, optional `RATE_LIMIT_VOTE` (600 in ten minutes, enough for forty guests on
+one Wi-Fi voting in four awards), and a caption against
 `RATE_LIMIT_COMMENT`. The posters chosen on Site settings' Home page card now dress the signed-out
 pages, the notice pages and Site settings too. "Who can see the guest list" and the Comments
 checkbox have left the editor's Settings sheet for Arrange; each event keeps what it had. No new

@@ -38,7 +38,7 @@ const LOCKED = { replied: "locked", going: "lockedGoing", hosts: "lockedHosts" }
 const YOURS = { going: "yoursGoing", hosts: "yoursHosts" } as const;
 
 // In the host's style (M8 ticket 30); locked, or before it opens, there is nothing to draw in one.
-export async function AlbumSection({ album, slug, style }: { album: AlbumShown; slug: string; style: AlbumStyle }) {
+async function AlbumSection({ album, slug, style }: { album: AlbumShown; slug: string; style: AlbumStyle }) {
   const t = await getTranslations("EventPage.album");
   if (album.view === "notYet") return <p className="text-sm text-theme-text-muted">{t("opensOn", { date: album.opensOn })}</p>;
   if (album.view === "locked") {

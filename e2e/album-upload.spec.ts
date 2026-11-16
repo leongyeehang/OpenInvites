@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import sharp from "sharp";
 import { createPublished, editSettings } from "./events";
-import { probeServed } from "./instances";
+import { probeServed, probeServedTags } from "./instances";
 import { closeReply } from "./reply";
 import { clientAddress, expect, test, type APIRequestContext, type Browser, type Page } from "./test";
 
@@ -15,6 +15,9 @@ const HEVC = readFileSync("e2e/fixtures/clip-hevc.mov");
 const HEVC_1080 = readFileSync("e2e/fixtures/clip-hevc-1080p.mp4");
 const HDR = readFileSync("e2e/fixtures/clip-hdr.mp4");
 const LONG = readFileSync("e2e/fixtures/clip-long.mp4");
+// clip-hevc-1080p.mp4 and a motion photo's clip with a phone's tags (fixtures/README.md).
+const HEVC_TAGGED = readFileSync("e2e/fixtures/clip-hevc-tagged.mov");
+const MOTION_TAGGED = readFileSync("e2e/fixtures/motion-photo-tagged.jpg");
 const TEST_PART = 65536;
 
 // A guest of their own, on an address of their own (the upload limit counts per address).
@@ -114,6 +117,41 @@ test("an HEVC clip held portrait gets a lighter copy, an upright poster, and los
   // at once (M8 ticket 09, a flake of the media pass).
   const poster = await sharp(await servedWithin(request, `${files}/video-poster.webp`, 30_000)).metadata();
   expect(poster.height!).toBeGreaterThan(poster.width!);
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+// The whole-branch review, finding 4: what guests are told the stored files keep is nothing of the
+// phone's. A copy made from the clip as sent, one made from the stored original, the original
+// itself, and a live photo's motion carry no tag beyond the container's own: no location, make,
+// model or creation time, and no Apple or Android key.
+const CONTAINER_TAGS = new Set(["major_brand", "minor_version", "compatible_brands", "encoder", "handler_name", "vendor_id", "language"]);
+
+function expectNoPhoneTags(bytes: Buffer, file: string) {
+  const { format, streams } = probeServedTags(bytes);
+  // The probe read the file: every MP4 names its brand.
+  expect(format.major_brand, file).toBeTruthy();
+  for (const tags of [format, ...streams]) expect(Object.keys(tags).filter((key) => !CONTAINER_TAGS.has(key)), file).toEqual([]);
+}
+
+test("a video's copies, its original and a live photo's motion keep no tag of the phone's", async ({ browser, request }) => {
+  test.setTimeout(360_000);
+  expect(HEVC_TAGGED.includes("com.apple.quicktime.model")).toBe(true);
+  expect(HEVC_TAGGED.includes("+35.6895+139.6917")).toBe(true);
+  expect(MOTION_TAGGED.includes("com.android.model")).toBe(true);
+  expect(MOTION_TAGGED.includes("+35.6895+139.6917")).toBe(true);
+  const host = await createPublished(browser, request, "video-tags", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  const api = apiOf(priya, host.link);
+  const clip = await uploadWhole(api, "clip-hevc-tagged.mov", "video/quicktime", HEVC_TAGGED, 2000);
+  const files = `${api.origin}/uploads/${clip.item.id}`;
+  // The 1080p copy is made from the clip as sent, the 720p one after it from the stored original.
+  expectNoPhoneTags(await servedWithin(request, `${files}/video-1080p.mp4`, 120_000), "video-1080p.mp4");
+  expectNoPhoneTags(await servedWithin(request, `${files}/video.mp4`, 30_000), "video.mp4");
+  expectNoPhoneTags(await servedWithin(request, `${files}/video-720p.mp4`, 120_000), "video-720p.mp4");
+
+  const live = await uploadWhole(api, "motion-photo-tagged.jpg", "image/jpeg", MOTION_TAGGED);
+  expect(live.item).toMatchObject({ kind: "photo" });
+  expectNoPhoneTags(await servedWithin(request, `${api.origin}/uploads/${live.item.id}/motion.mp4`, 150_000), "motion.mp4");
   await Promise.all([host.context.close(), priya.context().close()]);
 });
 

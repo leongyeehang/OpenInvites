@@ -138,3 +138,53 @@ its location the string `+35.6895+139.6917/`. The test profile's `app` uses 64 K
 `motion-photo.jpg` is a JPEG that `motionRange` (`src/album/motion.ts`) finds a 2-second H.264
 clip in, 640×480 with no sound, from byte 25,537 to the end; sharp reads it as a 640×480 JPEG,
 which the clip after its end does not disturb.
+
+The last two were added in the whole-branch review's fix pass of M8 (finding 4), with ffmpeg 8.1.3
+and Node 22 in the same throwaway container: `clip-hevc-tagged.mov` is `clip-hevc-1080p.mp4`
+remuxed with `clip-tagged.mov`'s iPhone tags, so that its copies, one made from the clip as sent
+and one from the stored original, can be read for them; `motion-photo-tagged.jpg` is
+`motion-photo.jpg` made again with its clip tagged as an Android phone tags one, so that its
+motion can be:
+
+```sh
+docker run --rm -v "$PWD/e2e/fixtures:/out" node:22-alpine sh -c '
+set -e; apk add --no-cache ffmpeg; cd /out
+# clip-hevc-1080p.mp4 remuxed into a .mov with an iPhone's tags and a location (the streams' creation
+# time asked for here did not survive the copy: ffprobe reads none on them).
+ffmpeg -v error -y -i clip-hevc-1080p.mp4 -c copy -tag:v hvc1 -map_metadata -1 \
+  -metadata com.apple.quicktime.creationdate=2026-01-10T16:20:00+0800 -metadata com.apple.quicktime.make=Apple \
+  -metadata "com.apple.quicktime.model=iPhone 15 Pro" -metadata location=+35.6895+139.6917/ -metadata location-eng=+35.6895+139.6917/ \
+  -metadata:s creation_time=2026-01-10T08:20:00Z -movflags +use_metadata_tags clip-hevc-tagged.mov
+cd /tmp
+ffmpeg -v error -y -f lavfi -i testsrc2=size=640x480 -frames:v 1 -q:v 3 still.jpg
+# Two seconds of testsrc2 as H.264 with no sound, tagged as an Android phone tags its clips.
+ffmpeg -v error -y -f lavfi -i testsrc2=size=640x480:rate=30 -t 2 -c:v libx264 -preset veryfast -pix_fmt yuv420p -an \
+  -metadata creation_time=2026-01-10T08:20:00Z -metadata location=+35.6895+139.6917/ -metadata com.android.version=14 \
+  -metadata com.android.manufacturer=Google -metadata com.android.model=Pixel\ 8 -metadata:s creation_time=2026-01-10T08:20:00Z \
+  -movflags +use_metadata_tags motion.mp4
+node -e "
+  const fs = require(\"fs\");
+  const still = fs.readFileSync(\"still.jpg\");
+  const clip = fs.readFileSync(\"motion.mp4\");
+  const q = String.fromCharCode(34);
+  const a = (name, value) => \" \" + name + \"=\" + q + value + q;
+  const item = (mime, semantic, length) => \"<rdf:li rdf:parseType=\" + q + \"Resource\" + q + \"><Container:Item\" + a(\"Item:Mime\", mime) + a(\"Item:Semantic\", semantic) + a(\"Item:Length\", length) + a(\"Item:Padding\", 0) + \"/></rdf:li>\";
+  const xmp = \"<x:xmpmeta\" + a(\"xmlns:x\", \"adobe:ns:meta/\") + \"><rdf:RDF\" + a(\"xmlns:rdf\", \"http://www.w3.org/1999/02/22-rdf-syntax-ns#\") + \"><rdf:Description\" + a(\"rdf:about\", \"\")
+    + a(\"xmlns:GCamera\", \"http://ns.google.com/photos/1.0/camera/\") + a(\"xmlns:Container\", \"http://ns.google.com/photos/1.0/container/\") + a(\"xmlns:Item\", \"http://ns.google.com/photos/1.0/container/item/\")
+    + a(\"GCamera:MotionPhoto\", 1) + a(\"GCamera:MotionPhotoVersion\", 1) + a(\"GCamera:MotionPhotoPresentationTimestampUs\", 1000000)
+    + \"><Container:Directory><rdf:Seq>\" + item(\"image/jpeg\", \"Primary\", 0) + item(\"video/mp4\", \"MotionPhoto\", clip.length) + \"</rdf:Seq></Container:Directory></rdf:Description></rdf:RDF></x:xmpmeta>\";
+  const body = Buffer.concat([Buffer.from(\"http://ns.adobe.com/xap/1.0/\0\"), Buffer.from(xmp)]);
+  const header = Buffer.from([0xff, 0xd8, 0xff, 0xe1, (body.length + 2) >> 8, (body.length + 2) & 255]);
+  fs.writeFileSync(\"/out/motion-photo-tagged.jpg\", Buffer.concat([header, body, still.subarray(2), clip]));
+  console.log(\"still\", still.length, \"clip\", clip.length);
+"
+'
+```
+
+It printed `still 24699 clip 215316`. `ffprobe -show_entries format_tags:stream_tags` then read
+`clip-hevc-tagged.mov`'s `com.apple.quicktime.creationdate`, `com.apple.quicktime.make`,
+`com.apple.quicktime.model`, `location` and `location-eng`, and the motion clip's
+`creation_time` (on the container and its stream), `location`, `location-eng`,
+`com.android.version`, `com.android.manufacturer` and `com.android.model`, beside the container's
+own `major_brand`, `minor_version`, `compatible_brands`, `encoder`, `handler_name`, `vendor_id` and
+`language`.

@@ -12,8 +12,10 @@ import { VotingBlock } from "./voting-block";
 // each item (ticket 11); the awards (ticket 13), Favourite alone while none is made, each with its
 // name as shown (the translated "Favourite" for none); and who may vote and the closing time, in
 // the event's zone (ticket 14); and whether a tie-break has been held, which Reopen voting then ends
-// after asking (the voting part's review). The votes a confirmation deletes are read as it opens.
-// Nothing while the operator has Voting, or the Album it needs, switched off.
+// after asking (the voting part's review); and whether the host has the album switched off in
+// Arrange, read from the event the page passes, which the block then says in place of when the album
+// opens (the whole-branch review). The votes a confirmation deletes are read as it opens. Nothing
+// while the operator has Voting, or the Album it needs, switched off.
 export async function VotingSettings({ event }: { event: HostEvent }): Promise<ReactNode> {
   if (!featureOn(await siteFeatures(), "voting")) return null;
   const now = new Date();
@@ -26,6 +28,7 @@ export async function VotingSettings({ event }: { event: HostEvent }): Promise<R
       state={votingState(event, now)}
       tiebreak={tiebreakHeld(awards)}
       albumOpen={albumOpenTo(event, { kind: "host", hostId: event.hostId }, now)}
+      albumOff={!event.albumEnabled}
       awards={shown}
       names={event.albumUploaderNames}
       voters={event.albumVoters}

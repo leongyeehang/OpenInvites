@@ -116,7 +116,7 @@ export function keepLease(renew: () => Promise<boolean>, onLost: () => void, eve
 // What processing learned of a video, the sizes it stored copies at, largest first (M8 ticket 02),
 // its HDR kind and frame rate (ticket 05, details.ts), and the capture time and camera the host
 // keeps (ticket 07).
-export type Processed = { width: number; height: number; durationMs: number; codec: string; copies: VideoQuality[]; details: ItemDetails; takenAt: Date | null };
+type Processed = { width: number; height: number; durationMs: number; codec: string; copies: VideoQuality[]; details: ItemDetails; takenAt: Date | null };
 
 // The item becomes what a photo added now would be, pending for a guest while the host approves
 // items and approved otherwise, decided under the event's lock as addPhotos decides it; only an

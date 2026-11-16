@@ -224,7 +224,9 @@ export function exposureLine(exposure: NonNullable<ItemDetails["exposure"]>): st
 // it is known; and the camera and exposure only while the host keeps them, so a detail read under a
 // switch later turned off stops being shown, though it is not erased. The camera's make and model
 // are left out too where this viewer is not shown who added the item (M8 ticket 12), as a camera
-// could name its owner; the exposure stays.
+// could name its owner; so are the exposure's aperture and focal length, which are constants of
+// one phone's lens or name a camera's lens (the whole-branch review). The shutter and the ISO are
+// the shot's own and stay.
 export type ShownDetails = ({ kind: "photo"; width: number; height: number } | { kind: "video"; size: string; fps?: number; hdr: boolean; durationMs: number }) & {
   bytes?: number;
   camera?: string;
@@ -248,7 +250,8 @@ export function shownDetails(
           durationMs: item.durationMs ?? 0,
         };
   const camera = event.albumKeepCamera && nameShown && details.camera ? cameraLine(details.camera) : "";
-  const exposure = event.albumKeepCamera && details.exposure ? exposureLine(details.exposure) : "";
+  const kept = details.exposure && (nameShown ? details.exposure : { shutter: details.exposure.shutter, iso: details.exposure.iso });
+  const exposure = event.albumKeepCamera && kept ? exposureLine(kept) : "";
   return { ...technical, ...(item.bytes !== null ? { bytes: item.bytes } : {}), ...(camera ? { camera } : {}), ...(exposure ? { exposure } : {}) };
 }
 

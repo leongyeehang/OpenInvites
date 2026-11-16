@@ -1893,6 +1893,7 @@
       "intro": "Guests pick their favourite photos and videos. Each person has one vote in each award.",
       "start": "Start voting",
       "notYet": "Voting can start once the album opens, at the start of the event.",
+      "albumOff": "The album is switched off in Arrange.",
       "open": "Voting is open",
       "closed": "Voting closed",
       "close": "Close voting",

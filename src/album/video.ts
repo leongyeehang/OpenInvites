@@ -184,7 +184,7 @@ export function sizeLabel(side: number): string {
 
 // A processed video as stored: its original's codec string, size upright, file size as sent,
 // length, and the sizes it has copies at.
-export type VideoItem = { codec: string | null; width: number | null; height: number | null; bytes: number | null; durationMs: number | null; copies: readonly VideoQuality[] };
+type VideoItem = { codec: string | null; width: number | null; height: number | null; bytes: number | null; durationMs: number | null; copies: readonly VideoQuality[] };
 
 // A video's bit rate as the sizes are decided from it: the file as sent over its length, which the
 // row keeps (`bytes`, `duration_ms`), so processing and the row read back count the same figure.

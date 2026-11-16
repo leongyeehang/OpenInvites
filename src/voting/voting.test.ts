@@ -14,6 +14,7 @@ import {
   countsShown,
   DEFAULT_AWARD,
   draftAudience,
+  draftWritten,
   finalistsGone,
   finalPlaces,
   inScope,
@@ -912,6 +913,23 @@ describe("draftAudience", () => {
     expect(draftAudience({ albumVoters: "album", albumVisibility: "going" })).toEqual(["going"]);
     expect(draftAudience({ albumVoters: "invited", albumVisibility: "going" })).toEqual(["going"]);
     expect(draftAudience({ albumVoters: "album", albumVisibility: "hosts" })).toBeUndefined();
+  });
+});
+
+// The whole-branch review, finding 2: the drafts send guests to the album, so none is written
+// while the host has it switched off in Arrange, whatever the vote's state.
+describe("draftWritten", () => {
+  it("writes the voting draft while the vote is open and the winners draft once it has closed", () => {
+    expect(draftWritten(event(), "voting", NOW)).toBe(true);
+    expect(draftWritten(event(), "winners", NOW)).toBe(false);
+    expect(draftWritten(event({ albumVoting: "closed" }), "winners", NOW)).toBe(true);
+    expect(draftWritten(event({ albumVoting: "closed" }), "voting", NOW)).toBe(false);
+    expect(draftWritten(event({ albumVoting: "off" }), "voting", NOW)).toBe(false);
+  });
+
+  it("writes neither while the event's album is switched off in Arrange", () => {
+    expect(draftWritten(event({ albumEnabled: false }), "voting", NOW)).toBe(false);
+    expect(draftWritten(event({ albumEnabled: false, albumVoting: "closed" }), "winners", NOW)).toBe(false);
   });
 });
 

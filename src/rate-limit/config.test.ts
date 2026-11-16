@@ -17,7 +17,7 @@ describe("rateLimitConfigFromEnv", () => {
         mail: { limit: 10, windowMs: 60 * MINUTE },
         comment: { limit: 30, windowMs: 10 * MINUTE },
         report: { limit: 5, windowMs: 60 * MINUTE },
-        vote: { limit: 120, windowMs: 10 * MINUTE },
+        vote: { limit: 600, windowMs: 10 * MINUTE },
       },
     });
   });

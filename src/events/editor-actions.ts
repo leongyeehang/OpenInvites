@@ -20,7 +20,7 @@ import { EMPTY_RICH_TEXT, parseRichText, richTextToPlain } from "@/rich-text/ric
 import { parseArrangementChange, sectionFeature, sectionId } from "@/sections";
 import { saveSchedule } from "@/schedule/repository";
 import { parseSchedule, parseScheduleRefresh } from "@/schedule/schedule";
-import { keptSettings, parseEventSettings, parseWhen, type SettingsFields, type WhenFields } from "./form";
+import { keptSettings, parseDrawnGroups, parseEventSettings, parseWhen, type SettingsFields, type WhenFields } from "./form";
 import { eventsOwnedAtLimit } from "./limit";
 import { missingToPublish } from "./publish";
 import { changeEventArrangement, createEvent, findHostEvent, publishEvent, updateEvent, type Event, type EventChanges } from "./repository";
@@ -226,7 +226,9 @@ export async function saveDescriptionAction(id: string, posted: string): Promise
 }
 
 // Everything a guest does not see, from the Settings sheet, which posts all of it at each change,
-// less the groups the operator's switches leave out, which keep what the event has (M8 ticket 01).
+// less the groups the operator's switches leave out, which keep what the event has (M8 ticket 01):
+// those off as the save arrives, and those the posting sheet did not draw, which it names (the
+// whole-branch review).
 export async function saveSettingsAction(id: string, formData: FormData): Promise<SaveResult> {
   const found = await editable(id);
   const t = await getTranslations("Events");
@@ -259,7 +261,8 @@ export async function saveSettingsAction(id: string, formData: FormData): Promis
     inviteOnly: formData.get("inviteOnly") === "on",
   };
   const switches = await siteFeatures();
-  const settings = parseEventSettings(keptSettings(fields, found.event, { album: featureOn(switches, "album"), videos: featureOn(switches, "videos") }));
+  const on = { album: featureOn(switches, "album"), videos: featureOn(switches, "videos") };
+  const settings = parseEventSettings(keptSettings(fields, found.event, on, parseDrawnGroups(text("drawnGroups"))));
   if (!settings.ok) return { saved: false, error: t(`errors.${settings.error}`), field: settings.error === "capacityInvalid" ? "capacity" : undefined };
   let posted: unknown = [];
   const raw = text("questions");

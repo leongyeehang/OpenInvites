@@ -113,6 +113,13 @@ export function draftAudience(event: Pick<VotingEvent, "albumVoters" | "albumVis
   return event.albumVoters === "going" || event.albumVisibility === "going" ? ["going"] : undefined;
 }
 
+// Whether the draft of `kind` is written now (M8 ticket 14, ticket 16): "voting" while the vote is
+// open, "winners" once it has closed; neither while the host has the album switched off in Arrange,
+// since both send guests to an album they would not find (the whole-branch review, finding 2).
+export function draftWritten(event: Pick<VotingEvent, "albumEnabled" | "albumVoting" | "albumVotingClosesAt">, kind: "voting" | "winners", now: Date): boolean {
+  return event.albumEnabled && votingState(event, now) === (kind === "voting" ? "open" : "closed");
+}
+
 // Whether the album is open, from the event's start while it is published and its host has it on
 // (album/album.ts, albumState, with the Album switched on for the site, which the callers check).
 function albumOpen(event: Pick<VotingEvent, "state" | "startsAt" | "albumEnabled">, now: Date): boolean {
@@ -225,7 +232,7 @@ export function tiedForFirst(placed: Places): string[] {
 
 // A closed tie-break round as the places read it: the items it was held among, as stored when it
 // opened, and its votes.
-export type HeldRound = { finalists: string[]; counts: Tally };
+type HeldRound = { finalists: string[]; counts: Tally };
 
 // The places once tie-break rounds have been held (M8 spec, "Tie-break"): the finalists of the
 // first round held take the places from first, put in order among themselves by its votes (two
@@ -270,7 +277,7 @@ export function awardPlaces(award: AwardRules, votes: GivenVote[], present: stri
 
 // The items an award may place: approved, and in what it takes votes for, as countedVotes counts
 // their votes.
-export function placeable(award: Pick<AwardRules, "scope">, items: VotableItem[]): string[] {
+function placeable(award: Pick<AwardRules, "scope">, items: VotableItem[]): string[] {
   return items.filter((item) => item.status === "approved" && inScope(award, item)).map((item) => item.id);
 }
 

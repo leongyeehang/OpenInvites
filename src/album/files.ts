@@ -34,7 +34,7 @@ export function photoUrl(id: string, name: PhotoFile): string {
 // The photo as processed: the large file's size; the picture's own size as added, upright, for the
 // technical line (M8 ticket 07); and the raw EXIF block, which no stored file keeps, for the
 // details the host keeps (exif.ts, readExif), when the photo carries one.
-export type ProcessedPhoto = { width: number; height: number; pixels: { width: number; height: number }; exif?: Uint8Array; files: Record<PhotoFile, Uint8Array> };
+type ProcessedPhoto = { width: number; height: number; pixels: { width: number; height: number }; exif?: Uint8Array; files: Record<PhotoFile, Uint8Array> };
 
 // A photo as sent, checked by its content and size, upright, re-encoded at the album's two sizes.
 export async function processPhoto(bytes: Uint8Array, maxBytes: number): Promise<{ ok: true; photo: ProcessedPhoto } | { ok: false; problem: UploadProblem }> {

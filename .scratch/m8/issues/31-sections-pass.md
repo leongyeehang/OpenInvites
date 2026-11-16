@@ -378,3 +378,73 @@ command at a time, each with the operator setup): sections 111, keyboard 53, acc
 locales 51, site-look 67, host-accounts 31, guest-list 17, description 9, duplicate 7, thread 15,
 broadsheet 15 passed; features (`features-instance`, `--no-deps`) 7 passed. None flaky, none failed.
 Disk: 29 GB free before the one rebuild, 28 GB after; no prune.
+
+### 2026-11-16: Whole-branch review fixes
+
+The review of the whole branch at 418bb01 (one Important, six Minor) and five items from the
+re-review of the sections fix pass (d36142a), in one commit on top of that pass, which it keeps.
+
+- **A. A lens is not shown beside a hidden name** (Important). Revises ticket 12's ruling that the
+  exposure stays where the uploader's name is hidden: `shownDetails` now keeps only the shutter and
+  the ISO there, and leaves the aperture and the focal length out on the server with the camera,
+  since they are one phone's lens constants or name a camera's lens. The host, and any viewer shown
+  the name, still gets all four. `configuration.md` and the release note say so. Left for the
+  maintainer: the picture's size as added (4032 × 3024 against 4080 × 3072) still tells phone
+  makes apart beside a hidden name.
+- **B. The Voting block knows the Album is switched off in Arrange.** Revises tickets 14 and 16,
+  which wrote the drafts and drew the block by the operator's switch alone: a new pure rule,
+  `draftWritten`, writes neither draft while the event's album is off, and the block, told by
+  `VotingSettings` from the event the page passes (`albumOff`), says "The album is switched off in
+  Arrange." where it said `notYet`, gives that reason for a refused Start or Reopen, and drops
+  "Tell guests voting is open". Three locales (`Voting.block.albumOff`). The voting module imports
+  nothing new.
+- **C. A stale Settings sheet does not switch videos off.** Revises ticket 01's rule that the
+  groups kept are those the site has off when the save arrives: the sheet now names the groups it
+  drew in one hidden field, `drawnGroups` ("album videos", "album" or empty), and `keptSettings`
+  takes a group as posted only where the sheet drew it and the site has it on. A post naming none
+  keeps every album field as stored. No browser test: `features.spec.ts` rewrites an Arrange post,
+  not the Settings form, and has no second operator window for a stale sheet.
+- **D. Stored copies and a live photo's motion carry no tag.** No code change: the assertion
+  passes. Two fixtures were needed, as `clip-tagged.mov` (640×480 H.264) gets no copy at all:
+  `clip-hevc-tagged.mov` (the 1080p HEVC clip with the iPhone tags and a location) and
+  `motion-photo-tagged.jpg` (the motion photo made again with its clip tagged as an Android phone
+  tags one), both recorded in `e2e/fixtures/README.md`. `probeServedTags` (`e2e/instances.ts`,
+  beside `probeServed`) reads the served 1080p copy (made from the clip as sent), the original, the
+  720p copy (made from the stored original) and `motion.mp4`: every tag left is the container's own.
+- **E.** `RATE_LIMIT_VOTE` defaults to 600 in ten minutes (was 120), revising ticket 12's default:
+  config, its unit test, `configuration.md`, `upgrade-backup.md`, `deploy/.env.example` and the
+  release note. The test profile keeps its `10/1m`.
+- **F.** The 0.8 upgrade note names enum types (no value added to an existing one), all three
+  dropped things, that 0.7 cannot run on a migrated database, and what becomes of a video being
+  processed as the app is replaced. `configuration.md`: while the Album is off only the operator can
+  remove an item and the files are still answered; a live photo's motion is made under unticked
+  Allow videos, and the Videos switch stops it.
+- **G.** `export` dropped from 23 of the 25 names the review lists, each used only in its own file and by no test (checked by `git grep`). Kept: `videoWork` (a `pgEnum`
+  drizzle-kit reads from the schema's exports) and `EventSize` (used nowhere at all; unexported it
+  is an unused-type lint warning, and deleting it is beyond this item).
+- **H.1** (re-review) A saved link is never lost to a typo: each row keeps its last accepted
+  address, and a refused row is sent with it (left out only when it has none); the field keeps what
+  was typed, marked. **H.2** The refusal is said through the sheet's live line as the field is left.
+  **H.3** A change that failed on the network and is saved by the top bar's Try again clears the
+  Arrange sheet's error, unless the host pressed since (a press counter in `send`); a refusal still
+  stays until the next press, as d36142a made it. **H.4** `expectSiteLook` waits for three reads of
+  the controls half a second apart to agree (no page marks its hydration, so it is a window, and the
+  comment says so). **H.5** The release note says a caption in the grid shows only when an item is
+  opened.
+- Not in this pass, as ruled: finding 7, the picture size beside a hidden name, Delete while an
+  album is off, `CONTEXT.md`, the version, tag, push and CI, the 0.7 migration rehearsal.
+
+Evidence: `pnpm lint` and `pnpm typecheck` clean; `pnpm test` 123 files, 1,507 tests. RED first:
+unit (`shownDetails` gave the whole exposure beside a hidden name; `draftWritten` wrote both drafts
+with the album off; `keptSettings` took the undrawn groups as posted; the vote's default was 120);
+browser on the profile built from d36142a's code with the new tests (desktop): the hidden name's
+details held `f/` (A), the block had no "switched off" line (B), the sheet's error stayed after Try
+again (H.3), the live line was empty (H.2), and "Our list" was gone from the guest's page after the
+typo (H.1, run once with the live-line line held out). D passed there as it does now. On the
+profile rebuilt with this change: `album-voting`, `album-upload`, `album-settings`, `sections`,
+`keyboard` and `site-look` at desktop, 171 passed; then the whole suite once (`CI=1`,
+`--workers=2`, every project), 1,197 passed, 2 skipped (the two mobile skips of
+`desktop-editor.spec.ts`, there since 0.5), 2 flaky: `album.spec.ts:129` at both widths, the
+host's viewer still open after Escape following an empty caption save, passing on retry; seen
+since ticket 11 and in code this pass does not touch. No failure. Disk: 28 GB free before the two
+rebuilds, 26 GB after; no prune.

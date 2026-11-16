@@ -7,7 +7,7 @@ import { defaultLocale, isLocale } from "@/locale/resolve-locale";
 import type { SavedStatus } from "@/rsvps/form";
 import { votingDraftText, winnersDraftText, type WinnersLine } from "./draft-text";
 import { listAwards, listNamedItems, listVotes } from "./repository";
-import { awardsOrDefault, countedPlaces, draftAudience, namesShown, tally, votingState, winnersOf, type Places, type ViewerWithoutInvite } from "./voting";
+import { awardsOrDefault, countedPlaces, draftAudience, draftWritten, namesShown, tally, winnersOf, type Places, type ViewerWithoutInvite } from "./voting";
 
 // The announcements the album vote writes for the host (M8 ticket 14): "voting", that the vote is
 // open, and "winners", each award's first place once it has closed (ticket 16). The Announcements
@@ -27,11 +27,10 @@ const A_GUEST: ViewerWithoutInvite = { kind: "visitor" };
 // tie-break's order holds), named by kind, and by who added it only where a guest would be shown
 // that once voting has closed (under "Never shown to guests", no one, though the host writing it
 // sees every name); emailed to the form's usual audience. Undefined for a kind it does not know,
-// and while Voting is switched off for the site.
+// while Voting is switched off for the site, and while the host has the album switched off in
+// Arrange (draftWritten; the whole-branch review).
 export async function votingDraft(event: HostEvent, kind: string | undefined, locale: string): Promise<{ body: string; audience?: SavedStatus[] } | undefined> {
-  if ((kind !== "voting" && kind !== "winners") || !featureOn(await siteFeatures(), "voting")) return undefined;
-  const state = votingState(event, new Date());
-  if (state !== (kind === "voting" ? "open" : "closed")) return undefined;
+  if ((kind !== "voting" && kind !== "winners") || !draftWritten(event, kind, new Date()) || !featureOn(await siteFeatures(), "voting")) return undefined;
   const [awards, t] = await Promise.all([listAwards(event.id), translatorFor(isLocale(locale) ? locale : defaultLocale)]);
   const rules = awardsOrDefault(awards);
   const nameOf = (award: (typeof rules)[number]) => award.name ?? t("Voting.favourite");

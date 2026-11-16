@@ -31,8 +31,9 @@ const LIMITS: Record<LimitName, { variable: string; default: Rule }> = {
   // Sending a report about an event page, which emails the operator (spec, "Report an event").
   report: { variable: "RATE_LIMIT_REPORT", default: { limit: 5, windowMs: HOUR } },
   // Giving, moving or taking back a vote in an album (M8 ticket 12): generous, since a party often
-  // shares one address.
-  vote: { variable: "RATE_LIMIT_VOTE", default: { limit: 120, windowMs: 10 * MINUTE } },
+  // shares one address; forty guests at a venue voting in four awards pass 120 (the whole-branch
+  // review).
+  vote: { variable: "RATE_LIMIT_VOTE", default: { limit: 600, windowMs: 10 * MINUTE } },
 };
 
 const UNITS: Record<string, number> = { s: SECOND, m: MINUTE, h: HOUR };

@@ -216,6 +216,13 @@ describe("shownDetails", () => {
     expect(shownDetails(photo(details), { albumKeepCamera: true }, true)).toMatchObject({ camera: "iPhone 15 Pro", exposure: "ISO 80" });
   });
 
+  it("leaves out the aperture and the focal length, a lens's own figures, beside a hidden name, and keeps the shutter and ISO (M8 whole-branch review)", () => {
+    const details = { pixels: { width: 4032, height: 3024 }, camera, exposure: { shutter: "1/120", aperture: 1.78, iso: 80, focalLength: 6.86 } };
+    expect(shownDetails(photo(details), { albumKeepCamera: true }, true)).toMatchObject({ exposure: "f/1.8 · 1/120 s · ISO 80 · 6.9 mm" });
+    expect(shownDetails(photo(details), { albumKeepCamera: true }, false)).toEqual({ kind: "photo", width: 4032, height: 3024, bytes: 3_250_000, exposure: "1/120 s · ISO 80" });
+    expect(shownDetails(photo({ exposure: { aperture: 1.4, focalLength: 85 } }), { albumKeepCamera: true }, false)).not.toHaveProperty("exposure");
+  });
+
   it("gives a photo from before 0.8 its row's size, and no file size when none is known", () => {
     expect(shownDetails(photo({}, null), { albumKeepCamera: true })).toEqual({ kind: "photo", width: 2048, height: 1536 });
   });

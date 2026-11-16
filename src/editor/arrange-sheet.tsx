@@ -118,6 +118,9 @@ export function ArrangeSheet({
   }, [shown]);
   const [said, say] = useState("");
   const [error, setError] = useState<string>();
+  // How many presses have been sent, so that a change saved by the top bar's Try again clears what
+  // the sheet says of it only while no press has come since.
+  const presses = useRef(0);
   // The Move button pressed, which has the focus back once its row has moved: a row React moves in
   // the list loses it.
   const buttons = useRef(new Map<string, HTMLButtonElement>());
@@ -148,9 +151,13 @@ export function ArrangeSheet({
   // `saved` hears the server's answer once it is saved: a new section's key. Each change stands
   // alone, so what one that failed says stays above the list until the host's next press, however
   // the changes sent after it fare; the top bar shows only the last save's outcome (the part
-  // review's finding 4).
+  // review's finding 4). A change that failed and is sent again by the top bar's Try again, which
+  // runs the same task, and is then saved, takes what the sheet says of it away, unless the host has
+  // pressed since (the re-review of the sections fix pass); a refusal sent again is refused again.
   const send = (change: ArrangementChange, saved?: (result: ArrangeResult & { saved: true }) => void) => {
     setError(undefined);
+    const press = ++presses.current;
+    let runs = 0;
     const before = latest.current;
     const applied = applyArrangementChange(before.arrangement, layout, change);
     const next = applied.ok ? { arrangement: applied.arrangement, switches: switchesAfter(before.switches, change) } : undefined;
@@ -159,7 +166,9 @@ export function ArrangeSheet({
       if (next) show(next);
       let answer: ArrangeResult | undefined;
       const ok = await save(async () => {
+        runs += 1;
         answer = await arrangeAction(eventId, change);
+        if (runs > 1 && answer.saved && press === presses.current) setError(undefined);
         return answer;
       });
       if (!ok) setError(answer && !answer.saved && answer.error ? answer.error : editor("failed"));

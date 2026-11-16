@@ -115,7 +115,7 @@ export async function setVideoProcessingAction(_: FormState, formData: FormData)
 // Make missing sizes (M8 ticket 04): how many videos were queued for the sizes they lack. Nothing
 // is queued while processing is off or this server has no usable ffmpeg, as the button is then
 // not offered.
-export type MissingSizesState = { queued: number } | undefined;
+type MissingSizesState = { queued: number } | undefined;
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the form's action, which takes the state and the form, carries nothing to read
 export async function queueMissingSizesAction(_: MissingSizesState, _formData: FormData): Promise<MissingSizesState> {

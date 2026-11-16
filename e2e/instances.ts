@@ -34,7 +34,21 @@ export function holdMotionPending(photoId: string): () => void {
 export type ServedStream = { codec_name: string; width: number; height: number; pix_fmt: string; color_transfer?: string; color_primaries?: string; avg_frame_rate: string };
 
 export function probeServed(bytes: Buffer, service = "app"): ServedStream {
-  const probe = "ffprobe -v error -select_streams v:0 -show_streams -of json -i pipe:0; status=$?; cat > /dev/null; exit $status";
+  return (ffprobe(bytes, service, "-select_streams v:0 -show_streams") as { streams: ServedStream[] }).streams[0];
+}
+
+// The tags of a served file, the container's and each stream's (the whole-branch review, finding
+// 4), read as probeServed reads a stream: what a stored copy or a live photo's motion still says
+// of the clip it was made from.
+export type ServedTags = { format: Record<string, string>; streams: Record<string, string>[] };
+
+export function probeServedTags(bytes: Buffer, service = "app"): ServedTags {
+  const out = ffprobe(bytes, service, "-show_entries format_tags:stream_tags") as { format?: { tags?: Record<string, string> }; streams?: { tags?: Record<string, string> }[] };
+  return { format: out.format?.tags ?? {}, streams: (out.streams ?? []).map((stream) => stream.tags ?? {}) };
+}
+
+function ffprobe(bytes: Buffer, service: string, ask: string): unknown {
+  const probe = `ffprobe -v error ${ask} -of json -i pipe:0; status=$?; cat > /dev/null; exit $status`;
   const out = execFileSync("docker", ["compose", "--profile", "test", "exec", "-T", service, "sh", "-c", probe], { input: bytes, stdio: "pipe" });
-  return (JSON.parse(out.toString()) as { streams: ServedStream[] }).streams[0];
+  return JSON.parse(out.toString());
 }

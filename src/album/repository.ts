@@ -14,7 +14,7 @@ export type Photo = typeof photo.$inferSelect;
 
 // A photo with the name of whoever added it: the RSVP's name, or the host's display name; and
 // whether its live photo's motion is still being made (M8 ticket 08), a `motion` job waiting.
-export type NamedPhoto = Photo & { name: string; motionPending: boolean };
+type NamedPhoto = Photo & { name: string; motionPending: boolean };
 
 // Who added a photo: exactly one of an RSVP and a host.
 export type PhotoOwner = { rsvpId: string; hostId?: undefined } | { hostId: string; rsvpId?: undefined };

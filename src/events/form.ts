@@ -218,13 +218,27 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
 // operator has the Album or Videos switched off (M8 ticket 01).
 const VIDEO_SETTINGS = ["albumVideosAllowed", "albumMaxVideoMinutes", "albumMaxVideoMb", "albumCopySizes"] as const;
 const ALBUM_SETTINGS = ["albumVisibility", "albumApprovalRequired", "notifyOnPhoto", ...VIDEO_SETTINGS, "albumKeepTakenAt", "albumKeepCamera", "albumOrder"] as const;
-export type AlbumSettingsField = (typeof ALBUM_SETTINGS)[number];
+type AlbumSettingsField = (typeof ALBUM_SETTINGS)[number];
+
+// The groups the Settings sheet drew, which it names in one hidden field, "drawnGroups", as
+// "album videos", "album" or nothing (the whole-branch review, finding 3).
+export type DrawnGroups = { album: boolean; videos: boolean };
+
+export function parseDrawnGroups(raw: string): DrawnGroups {
+  const named = raw.split(/\s+/);
+  return { album: named.includes("album"), videos: named.includes("videos") };
+}
 
 // What the sheet posted, with each group it left out taken from what the event has, written as the
 // sheet would post it, so that saving keeps the event's values for it. Otherwise saving with the
-// album off would turn its approval off, and with that approve every photo that waits.
-export function keptSettings(posted: SettingsFields, stored: Pick<EventSettings, AlbumSettingsField>, on: { album: boolean; videos: boolean }): SettingsFields {
-  const kept = !on.album ? ALBUM_SETTINGS : !on.videos ? VIDEO_SETTINGS : [];
+// album off would turn its approval off, and with that approve every photo that waits. A group is
+// taken as posted only where the sheet drew it (`drawn`) and the site has it on as the save arrives
+// (`on`): a sheet drawn while the operator had Videos off, used after it is back on, posts none of
+// the video fields, which would otherwise read as Allow videos off and no sizes (the whole-branch
+// review, finding 3).
+export function keptSettings(posted: SettingsFields, stored: Pick<EventSettings, AlbumSettingsField>, on: { album: boolean; videos: boolean }, drawn: DrawnGroups): SettingsFields {
+  const album = on.album && drawn.album;
+  const kept = !album ? ALBUM_SETTINGS : !on.videos || !drawn.videos ? VIDEO_SETTINGS : [];
   const asPosted = (value: string | number | boolean | null | readonly string[]) => (typeof value === "boolean" ? value : value === null ? "" : Array.isArray(value) ? [...value] : String(value));
   return { ...posted, ...Object.fromEntries(kept.map((field) => [field, asPosted(stored[field])])) };
 }

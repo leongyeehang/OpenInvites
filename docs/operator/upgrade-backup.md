@@ -42,11 +42,16 @@ motion photo's few seconds as a live photo, lets a host keep when and with what 
 taken, lets whoever adds an item caption it, lets hosts run a vote on their album, and dresses
 every page in a poster, and lets hosts arrange their event pages. Eleven migrations, `0054` to
 `0064`, run as the app starts. They add tables,
-columns and enum values, carry each video's lighter copy and each event's choice of it over to the
-new sizes, and then drop the column that held it (`photo.copy`); nothing else is back-filled, and
-no existing event changes until its host chooses. A video's copies made by 0.7 stay as they were
-made: an HDR video's look flat, as they did in 0.7, and a video from before 0.8 gains
-standard-colour HDR copies and its frame rate only when **Make missing sizes** makes it a size.
+columns and enum types (no value is added to an existing type), carry each video's lighter copy and
+each event's choice of it over to the new sizes, and then drop what held them: the column
+`photo.copy`, the column `event.album_copy_quality` and the type `video_quality`. Nothing else is
+back-filled, and no existing event changes until its host chooses. 0.7 cannot run on a database
+0.8 has migrated, since it reads the dropped columns on every album and event page: to go back,
+restore the backup taken before upgrading. A video being processed as the app is replaced is taken
+again within ten minutes of when it was taken and processed from the clip as sent. A video's copies
+made by 0.7 stay as they were made: an HDR video's look flat, as they did in 0.7, and a video from
+before 0.8 gains standard-colour HDR copies and its frame rate only when **Make missing sizes**
+makes it a size.
 
 - **Stop the worker container before updating, and start it with the app on 0.8.** A site that
   processes videos in a second container (`VIDEO_PROCESSING=worker`, see
@@ -77,7 +82,7 @@ standard-colour HDR copies and its frame rate only when **Make missing sizes** m
   off, everyone who sees its album allowed to vote, and who added each item shown once voting
   closes, which for an event that never votes is always, as in 0.7. Nothing changes on an album
   until its host starts a vote from the Voting block in its Settings. Each press of a star counts
-  against `RATE_LIMIT_VOTE`, 120 in ten minutes by default, since a party often shares one
+  against `RATE_LIMIT_VOTE`, 600 in ten minutes by default, since a party often shares one
   address; set it only to change that (see [configuration.md](configuration.md#rate-limits)).
 - **The home page's posters dress more pages.** The posters chosen on the Home page card now also
   dress sign-in and the other signed-out screens, the notice pages a guest meets, and Site settings

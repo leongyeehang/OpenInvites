@@ -15,7 +15,7 @@ import { ScheduleSection, type ScheduleShown } from "./schedule-section";
 // headings, how guests' pages keep fresh, the event's time alone, and the time the page is drawn
 // at, which the browser's first drawing must agree with. The times and days are written here,
 // once, so the browser shows the server's words.
-export async function scheduleFor(event: EventWithHost, now: Date, locale: string): Promise<ScheduleShown | undefined> {
+async function scheduleFor(event: EventWithHost, now: Date, locale: string): Promise<ScheduleShown | undefined> {
   if (!isDated(event) || event.state === "cancelled") return undefined;
   const items = await listSchedule(event.id);
   if (items.length === 0) return undefined;

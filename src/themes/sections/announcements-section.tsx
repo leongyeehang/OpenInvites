@@ -13,7 +13,7 @@ export type ShownAnnouncement = Pick<Announcement, "id" | "body" | "createdAt">;
 // Thread's collapsed section oldest first, as its bubbles are (ticket 27's review). Each is dated
 // in the event's zone, as everything on the page is, and keeps its line breaks and spaces;
 // nothing else in it is formatted. The layout frames it and gives it its heading.
-export async function AnnouncementsSection({
+async function AnnouncementsSection({
   announcements,
   timeZone,
   oldestFirst = false,

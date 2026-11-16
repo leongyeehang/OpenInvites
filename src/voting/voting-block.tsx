@@ -51,7 +51,7 @@ import {
 
 // One award as the block shows it (voting-settings.tsx): its id, none for Favourite before it is
 // made; its name as shown, the translated "Favourite" for none; and what it is for.
-export type BlockAward = { id: string | null; name: string; scope: AwardScope };
+type BlockAward = { id: string | null; name: string; scope: AwardScope };
 
 // The time voting closes by itself (M8 ticket 14), in the event's zone: as a datetime-local field
 // holds it ("2026-10-03T19:00") and as the host reads it, or null for none; and the zone's name.
@@ -85,12 +85,15 @@ function useFreshVotes(eventId: string) {
 // and undone on the screen, never shown as saved (review fix, ticket 13). Whatever the state, the
 // awards (ticket 13), whether guests see who added each item (ticket 11), who may vote and the time
 // voting closes by itself (ticket 14), saved the same way. While open, the way to tell guests: the
-// Announcements page with the message written (ticket 14).
+// Announcements page with the message written (ticket 14). While the host has the album switched
+// off in Arrange (`albumOff`), the block says so where it would say when the album opens, and has no
+// way to tell guests, who would find no album (the whole-branch review, finding 2).
 export function VotingBlock({
   eventId,
   state,
   tiebreak,
   albumOpen,
+  albumOff,
   awards,
   names,
   voters,
@@ -100,6 +103,7 @@ export function VotingBlock({
   state: VotingState;
   tiebreak: boolean;
   albumOpen: boolean;
+  albumOff: boolean;
   awards: BlockAward[];
   names: UploaderNames;
   voters: WhoMayVote;
@@ -112,8 +116,9 @@ export function VotingBlock({
   const [shownNames, setShownNames] = useState(names);
   const [shownVoters, setShownVoters] = useState(voters);
   const fresh = useFreshVotes(eventId);
+  const notOpen = albumOff ? t("albumOff") : t("notYet");
   const refusal = (error: Refusal) => {
-    if (error === "albumNotOpen") return t("notYet");
+    if (error === "albumNotOpen") return notOpen;
     if (error === "tiebreak") return t("reopenStale");
     if (error === "full" || error === "nameTooLong") return t(`awards.${error}`);
     if (error === "past" || error === "invalid") return t(`closes.${error}`);
@@ -165,11 +170,12 @@ export function VotingBlock({
               {t("start")}
             </Button>
           </div>
-          {!albumOpen && <FieldDescription id={`${id}-not-yet`}>{t("notYet")}</FieldDescription>}
+          {!albumOpen && <FieldDescription id={`${id}-not-yet`}>{notOpen}</FieldDescription>}
         </>
       ) : (
         <>
           <p className="text-sm">{state === "closed" ? t("closed") : closing.shown ? t("closes.openUntil", { time: closing.shown }) : t("open")}</p>
+          {albumOff && <FieldDescription>{notOpen}</FieldDescription>}
           <div className="flex flex-wrap gap-2">
             {state === "open" ? (
               <Button type="button" variant="outline" onClick={() => void run(() => closeVotingAction(eventId))}>
@@ -222,7 +228,7 @@ export function VotingBlock({
               </AlertDialogContent>
             </AlertDialog>
           </div>
-          {state === "open" && (
+          {state === "open" && !albumOff && (
             <Link
               href={`/events/${eventId}/announcements?draft=voting`}
               className="self-start rounded-sm text-sm underline underline-offset-4 hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"

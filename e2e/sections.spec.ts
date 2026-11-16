@@ -1424,6 +1424,40 @@ test("a refused move is put back and said until the host's next press", async ({
   await host.context.close();
 });
 
+// The re-review of the sections fix pass (H.3): a move that failed on the network says so in the
+// sheet, and once the top bar's Try again has saved it, the sheet says so no longer. The sheet is
+// closed to reach the top bar, as a host would, and opened again.
+test("a move that failed on the network and was saved by Try again is no longer said in the sheet", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "sections-retried", EVENT);
+  const page = host.page;
+  const path = new URL(page.url()).pathname;
+  let failed = false;
+  await page.route(
+    (url) => url.pathname === path,
+    async (route) => {
+      if (route.request().method() !== "POST" || failed || !(route.request().postData() ?? "").includes('"type":"move"')) return route.fallback();
+      failed = true;
+      await route.abort("failed");
+    },
+  );
+  const sheet = await openArrange(page);
+  const order = await rowNames(sheet);
+  await sheet.getByRole("button", { name: "Move Album up" }).click();
+  await expect(sheet.getByRole("alert")).toHaveText("Couldn’t save");
+  await expect(saveStatus(page)).toHaveAttribute("data-status", "failed");
+  await expect.poll(() => rowNames(sheet)).toEqual(order);
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+
+  await savedAfter(page, () => page.getByRole("button", { name: "Try again" }).click());
+  const again = await openArrange(page);
+  await expect(again.getByRole("alert")).toHaveCount(0);
+  await expect.poll(() => rowNames(again)).not.toEqual(order);
+  await host.context.close();
+});
+
 // Finding 3 (test gap 8): one address the server would refuse is marked under its own field and
 // left out of what is sent, so the rows around it save, and the sheet reopened holds what was.
 test("a refused address is marked in its row, and the other links save", async ({ browser, request }) => {
@@ -1437,7 +1471,9 @@ test("a refused address is marked in its row, and the other links save", async (
   await venmo.fill("jane@venmo");
   await venmo.blur();
   await expect(venmo).toHaveAttribute("aria-invalid", "true");
-  await expect(venmo).toHaveAccessibleDescription("That isn’t a web address. Try example.com/registry.");
+  await expect(venmo).toHaveAccessibleDescription(URL_INVALID);
+  // Said through the sheet's live line too, for whoever has already tabbed on (the re-review, H.2).
+  await expect(liveLine(registry)).toHaveText(URL_INVALID);
   await writeLink(host.page, registry, 3, "Songs", "example.org/songs");
   await expect(registry.getByRole("alert")).toHaveCount(0);
   await expect(venmo).toHaveAttribute("aria-invalid", "true");
@@ -1450,6 +1486,47 @@ test("a refused address is marked in its row, and the other links save", async (
   await expect(again.getByRole("listitem")).toHaveCount(2);
   await expect(again.getByRole("textbox", { name: "Label of link 1", exact: true })).toHaveValue("Our list");
   await expect(again.getByRole("textbox", { name: "Label of link 2", exact: true })).toHaveValue("Songs");
+  await Promise.all([host.context.close(), guest.context().close()]);
+});
+
+const URL_INVALID = "That isn’t a web address. Try example.com/registry.";
+
+// The re-review of the sections fix pass (H.1): a saved link is never lost to a typo. Its address
+// edited to one the server would refuse is marked, and the link keeps the address last accepted,
+// on the guest's page and in the sheet opened again; corrected, the new address is saved. The
+// label changed on another row sends the list, so the guest's page is read after a save either way.
+test("a saved link's address mistyped keeps the address last accepted until it is corrected", async ({ browser, request }) => {
+  test.setTimeout(180_000);
+  const host = await createPublished(browser, request, "sections-link-typo", EVENT);
+  const registry = await addSection(host.page, "Registry");
+  await writeLink(host.page, registry, 1, "Our list", REGISTRY_URL);
+  await writeLink(host.page, registry, 2, "Songs", "example.org/songs");
+  const address = registry.getByRole("textbox", { name: "Address of link 1", exact: true });
+  await address.fill("jane@venmo");
+  await address.blur();
+  await expect(address).toHaveAttribute("aria-invalid", "true");
+  await expect(address).toHaveAccessibleDescription(URL_INVALID);
+  await expect(liveLine(registry)).toHaveText(URL_INVALID);
+  await savedAfter(host.page, () => registry.getByRole("textbox", { name: "Label of link 2", exact: true }).fill("Our songs"));
+  await expect(address).toHaveValue("jane@venmo");
+
+  const guest = await visitor(browser, host.link);
+  await expect(links(guest).getByRole("link")).toHaveText([/^Our list/, /^Our songs/]);
+  await expect(links(guest).getByRole("link", { name: /^Our list/ })).toHaveAttribute("href", REGISTRY_URL);
+
+  await closeSheets(host.page);
+  await host.page.getByRole("button", { name: "Edit Registry" }).click();
+  const again = host.page.getByRole("dialog", { name: "Registry" });
+  await expect(again.getByRole("listitem")).toHaveCount(2);
+  await expect(again.getByRole("textbox", { name: "Label of link 1", exact: true })).toHaveValue("Our list");
+  const corrected = again.getByRole("textbox", { name: "Address of link 1", exact: true });
+  await expect(corrected).toHaveValue(REGISTRY_URL);
+  await savedAfter(host.page, async () => {
+    await corrected.fill("example.com/new-list");
+    await corrected.blur();
+  });
+  await guest.reload();
+  await expect(links(guest).getByRole("link", { name: /^Our list/ })).toHaveAttribute("href", "https://example.com/new-list");
   await Promise.all([host.context.close(), guest.context().close()]);
 });
 

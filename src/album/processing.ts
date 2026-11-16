@@ -40,7 +40,7 @@ class Final extends Error {}
 
 // The job is no longer this container's: its item was deleted, or its lease lapsed and another
 // processor took it. Whatever ran is stopped, and nothing more is done for the job.
-export class JobGone extends Error {
+class JobGone extends Error {
   constructor() {
     super("the job is gone");
   }
@@ -332,7 +332,7 @@ export async function processVideo(job: ClaimedJob): Promise<void> {
 // approved or pending; false when none answered, as for one deleted while its copy was made. The
 // details the stored original was probed for are merged into the item's (M8 ticket 05), so a
 // video from before 0.8 gains its HDR kind and frame rate when Make missing sizes reaches it.
-export async function addCopies(photoId: string, sizes: VideoQuality[], details: ItemDetails = {}): Promise<boolean> {
+async function addCopies(photoId: string, sizes: VideoQuality[], details: ItemDetails = {}): Promise<boolean> {
   const added = sql`array[${sql.join(sizes.map((size) => sql`${size}::video_size`), sql`, `)}]::video_size[]`;
   const updated = await getDb()
     .update(photo)

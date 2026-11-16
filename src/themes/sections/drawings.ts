@@ -76,13 +76,13 @@ const BY_KIND = {
 } satisfies Record<SectionKind, unknown>;
 
 // The kinds the server draws, each registered once, above.
-export type DrawnKind = keyof typeof BY_KIND;
-export type SectionData = { [K in DrawnKind]: DataOf<(typeof BY_KIND)[K]> };
+type DrawnKind = keyof typeof BY_KIND;
+type SectionData = { [K in DrawnKind]: DataOf<(typeof BY_KIND)[K]> };
 // What the page loaded: a kind this viewer gets nothing of is absent.
-export type LoadedSections = { [K in DrawnKind]?: SectionData[K] };
+type LoadedSections = { [K in DrawnKind]?: SectionData[K] };
 
 // Each kind's drawing, typed by its own data; the page reads them as one list.
-export const DRAWINGS: { [K in DrawnKind]: SectionDrawing<SectionData[K], SectionPage> } = BY_KIND;
+const DRAWINGS: { [K in DrawnKind]: SectionDrawing<SectionData[K], SectionPage> } = BY_KIND;
 
 // Read from BY_KIND, so a kind registered there is loaded and placed without being listed again.
 const DRAWN_KINDS = Object.keys(BY_KIND) as DrawnKind[];

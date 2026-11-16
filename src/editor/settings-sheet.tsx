@@ -158,6 +158,9 @@ export function SettingsSheet({
   return (
     <EditorSheet open={sheet === "settings"} onOpenChange={(open) => openSheet(open ? "settings" : null)} title={editor("settings")} description={editor("settingsIntro")} tall>
       <form ref={form} onChange={soon} onInput={soon} onClick={soon} onSubmit={(event) => event.preventDefault()}>
+        {/* The groups this sheet draws, so that a sheet drawn before the operator switched one back
+            on keeps what the event has for it (the whole-branch review; events/form.ts, keptSettings). */}
+        <input type="hidden" name="drawnGroups" value={[features.album && "album", features.album && features.videos && "videos"].filter(Boolean).join(" ")} />
         {error && !error.field && (
           <p role="alert" className="mb-4 rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">
             {error.message}

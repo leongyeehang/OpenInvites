@@ -95,6 +95,11 @@ const UPLOADER = "Wren Abernethy-Quill";
 const EXIF_PHOTO = "e2e/fixtures/photo-exif.jpg";
 const CAMERA = "iPhone 15 Pro";
 const KEEP_CAMERA = "Keep the camera and its settings";
+// Its exposure: the aperture and focal length are its lens's, the shutter and ISO the shot's.
+const EXPOSURE = "f/1.8 · 1/120 s · ISO 80 · 6.9 mm";
+const APERTURE = "f/1.8";
+const FOCAL_LENGTH = "6.9 mm";
+const SHOT = "1/120 s · ISO 80";
 
 // No guest list and no comments, in Arrange (M8 ticket 26): the album is then the only place on the
 // page a guest's name could be.
@@ -202,7 +207,8 @@ test("while voting is open a guest's page leaves out who added each item, and th
   await press(host.page, block, "Start voting", "open");
 
   // Ana sees the photo, and nothing of who added it: not on the tile, not in the viewer, not in
-  // what the page sends; nor the camera that took it, while its exposure stays.
+  // what the page sends; nor the camera that took it, nor its lens's aperture and focal length,
+  // while the shutter and ISO stay (the whole-branch review).
   const ana = await guestGoing(browser, host.link, "Ana Ruiz");
   await expect(album(ana).getByRole("button", { name: "Photo 1", exact: true })).toBeVisible();
   await album(ana).getByRole("button", { name: "Photo 1", exact: true }).click();
@@ -210,8 +216,11 @@ test("while voting is open a guest's page leaves out who added each item, and th
   await expect(viewer).toBeVisible();
   await expect(viewer).not.toContainText("Added by");
   await expect(viewer).toHaveAccessibleDescription("");
-  await expect(viewer.locator('[data-slot="item-details"]')).toContainText("ISO 80");
-  await expect(viewer.locator('[data-slot="item-details"]')).not.toContainText(CAMERA);
+  const details = viewer.locator('[data-slot="item-details"]');
+  await expect(details).toContainText(SHOT);
+  await expect(details).not.toContainText(CAMERA);
+  await expect(details).not.toContainText("f/");
+  await expect(details).not.toContainText("mm");
   await expectNoSeriousViolations(ana, "the viewer with the uploader's name left out");
   await ana.keyboard.press("Escape");
   const thumb = await album(ana).getByRole("button", { name: "Photo 1", exact: true }).locator("img").getAttribute("src");
@@ -222,18 +231,25 @@ test("while voting is open a guest's page leaves out who added each item, and th
     expect(text).not.toContain(UPLOADER);
     expect(text).not.toContain(theirs);
     expect(text).not.toContain(CAMERA);
+    expect(text).not.toContain(APERTURE);
+    expect(text).not.toContain(FOCAL_LENGTH);
   }
 
-  // The uploader sees their own name, and so does the host, whose page carries it and the camera:
-  // the checks above can fail.
+  // The uploader sees their own name, and so does the host, whose page carries it, the camera and
+  // the whole exposure: the checks above can fail.
   await uploader.reload();
   await expect(album(uploader).getByRole("button", { name: `Photo 1 by ${UPLOADER}`, exact: true })).toBeVisible();
   await host.page.goto(host.link);
   await expect(album(host.page).getByRole("button", { name: `Photo 1 by ${UPLOADER}`, exact: true })).toBeVisible();
+  await album(host.page).getByRole("button", { name: `Photo 1 by ${UPLOADER}`, exact: true }).click();
+  await expect(host.page.getByRole("dialog", { name: "Photo 1 of 1" }).locator('[data-slot="item-details"]')).toContainText(EXPOSURE);
+  await host.page.keyboard.press("Escape");
   const hosts = await sent(host.page, host.link);
   for (const text of [hosts.html, hosts.refreshed]) {
     expect(text).toContain(UPLOADER);
     expect(text).toContain(CAMERA);
+    expect(text).toContain(APERTURE);
+    expect(text).toContain(FOCAL_LENGTH);
   }
 
   // Closed, the vote shows Ana the names again, and the camera with them.
@@ -1079,6 +1095,47 @@ test("the host tells guests voting is open with a message already written", asyn
   await expect(host.page.getByText(/^Voting is open in the album for Ada’s garden party\./)).toBeVisible();
   await expect(hostsBox(host.page).getByRole("link", { name: TELL_GUESTS })).toHaveAttribute("href", /^\/events\/[0-9a-f-]{36}\/announcements\?draft=voting$/);
   await host.context.close();
+});
+
+// The whole-branch review, finding 2: the Voting block and the drafts know the host has switched the
+// album off in Arrange, where guests would find no album to vote in; the vote is kept meanwhile, and
+// switched on again it is open as it was, with its votes.
+test("with the album switched off in Arrange the Voting block says so and tells no guest, and the vote is kept", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "album-vote-album-off", PAST);
+  const editor = host.page.url();
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await addPhoto(priya);
+  await startVoting(host.page);
+  await host.page.keyboard.press("Escape");
+  await expect(host.page.getByRole("dialog", { name: "Settings" })).toBeHidden();
+  const ana = await guestGoing(browser, host.link, "Ana Ruiz");
+  await vote(ana, star(ana, "Photo 1"));
+  await expect(star(ana, "Photo 1")).toHaveAttribute("aria-pressed", "true");
+
+  await arrange(host.page, (sheet) => sheet.getByRole("switch", { name: "Album" }).click());
+  const block = votingBlock(await openSettings(host.page));
+  await expect(block).toHaveAttribute("data-state", "open");
+  await expect(block).toContainText("The album is switched off in Arrange.");
+  await expect(block.getByRole("link", { name: TELL_GUESTS })).toHaveCount(0);
+  await host.page.keyboard.press("Escape");
+  // Nor is the draft written if its address is typed: the form starts empty.
+  await host.page.goto(`${editor}/announcements?draft=voting`);
+  await expect(host.page.getByLabel("Message")).toBeVisible();
+  await expect(host.page.getByLabel("Message")).toHaveValue("");
+
+  await host.page.goto(editor);
+  await arrange(host.page, (sheet) => sheet.getByRole("switch", { name: "Album" }).click());
+  const again = votingBlock(await openSettings(host.page));
+  await expect(again).toHaveAttribute("data-state", "open");
+  await expect(again).toContainText("Voting is open");
+  await expect(again).not.toContainText("The album is switched off in Arrange.");
+  await expect(again.getByRole("link", { name: TELL_GUESTS })).toBeVisible();
+  await ana.reload();
+  await expect(star(ana, "Photo 1")).toHaveAttribute("aria-pressed", "true");
+  await host.page.goto(host.link);
+  await expect(count(host.page, "Photo 1")).toHaveAccessibleName("1 vote");
+  await Promise.all([host.context.close(), priya.context().close(), ana.context().close()]);
 });
 
 // Review fixes (ticket 15): the closing time field keeps a saved time that a partly erased value
