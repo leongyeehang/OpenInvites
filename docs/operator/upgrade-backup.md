@@ -33,7 +33,8 @@ keep your `.env` and `compose.override.yaml`. `compose.yaml` pins a Postgres 18 
 a newer copy may move it to a later one: that needs nothing more than `docker compose up -d`.
 
 Going back to an older release after a newer one has migrated the database is not supported.
-Restore the backup you took instead.
+Restore the backup you took before upgrading instead, as in
+[Going back to an older release](#going-back-to-an-older-release).
 
 ### Upgrading to 0.8
 
@@ -46,10 +47,13 @@ columns and enum types (no value is added to an existing type), carry each video
 each event's choice of it over to the new sizes, and then drop what held them: the column
 `photo.copy`, the column `event.album_copy_quality` and the type `video_quality`. Nothing else is
 back-filled, and no existing event changes until its host chooses. 0.7 cannot run on a database
-0.8 has migrated, since it reads the dropped columns on every album and event page: to go back,
-restore the backup taken before upgrading. A video being processed as the app is replaced is taken
-again within ten minutes of when it was taken and processed from the clip as sent. A video's copies
-made by 0.7 stay as they were made: an HDR video's look flat, as they did in 0.7, and a video from
+0.8 has migrated, since it reads the dropped columns on every album and event page. It looks
+healthy there (the health check and the home page answer) while every event page fails, so setting
+the image back alone is not a way back: to go back, restore the backup taken before upgrading, as
+in [Going back to an older release](#going-back-to-an-older-release). A video being processed as
+the app is replaced is taken again about ten minutes after the old app took it or last renewed its
+hold on it, give or take a minute, and processed from the clip as sent. A video's copies made
+by 0.7 stay as they were made: an HDR video's look flat, as they did in 0.7, and a video from
 before 0.8 gains standard-colour HDR copies and its frame rate only when **Make missing sizes**
 makes it a size.
 
@@ -315,8 +319,20 @@ docker compose exec -T app tar -C /app -czf - uploads > backups/uploads-$(date +
 ```
 
 Both run while the instance is up. Take the dump first: a picture uploaded between the two
-commands is then only an extra file. For a pair that matches exactly, run
-`docker compose stop app` before them and `docker compose start app` after.
+commands is then only an extra file. For a pair that matches exactly, stop the app first. The
+pictures are then archived with `run` instead of `exec`, which needs the app running: with the app
+stopped, `exec` only prints `service "app" is not running`, and the redirect still leaves an empty
+archive.
+
+```sh
+mkdir -p backups
+docker compose stop app
+docker compose exec -T db pg_dump -U openinvites -d openinvites --format=custom > backups/openinvites-$(date +%F).dump
+docker compose run --rm --no-deps -T --entrypoint tar app -C /app -czf - uploads > backups/uploads-$(date +%F).tar.gz
+docker compose start app
+```
+
+Either way, check that neither file is empty (`ls -l backups`) before you rely on it.
 
 Keep the files somewhere other than this machine. To run it every night, put those commands in a
 script and call it from cron.
@@ -348,6 +364,45 @@ On a fresh machine, or after losing the volumes:
 
 If the backup is from an older release than the image you now run, the app migrates the
 restored database as it starts, as in an upgrade.
+
+## Going back to an older release
+
+An older release cannot use a database a newer one has migrated, and loading the backup over it
+does not work either: the newer release's tables point at the older ones, so `pg_restore --clean`
+cannot drop them and stops part-way, leaving a database neither release can use. Empty the
+database first, on the same machine:
+
+1. Stop the app (`docker compose stop app worker` if you run a worker container):
+   ```sh
+   docker compose stop app
+   ```
+2. Set `OPENINVITES_IMAGE` in `.env` back to the release the backup was taken on (ending in
+   `:0.7.0`, say), with that release's deployment files if the upgrade changed them, and fetch it:
+   ```sh
+   docker compose pull
+   ```
+3. Empty the database, with only the database running:
+   ```sh
+   docker compose up -d --wait db
+   docker compose exec -T db sh -c 'dropdb -U openinvites --maintenance-db=postgres openinvites && createdb -U openinvites --maintenance-db=postgres openinvites'
+   ```
+4. Load the dump taken before upgrading. It must finish without `errors ignored on restore`; if it
+   says that, the database was not empty: go back to step 3.
+   ```sh
+   docker compose exec -T db pg_restore -U openinvites -d openinvites --clean --if-exists --no-owner < backups/openinvites-2026-09-24.dump
+   ```
+5. Put the pictures back into the `uploads` volume (with S3 storage, skip this: they are in the
+   bucket):
+   ```sh
+   docker compose run --rm --no-deps -T --entrypoint tar app -C /app -xzf - < backups/uploads-2026-09-24.tar.gz
+   ```
+6. Start everything:
+   ```sh
+   docker compose up -d --wait
+   ```
+
+The site is then as it was when the backup was taken: anything hosts and guests added after it
+(replies, comments, photos, votes) is lost.
 
 ## Resetting a host's password
 

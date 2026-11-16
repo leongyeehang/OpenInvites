@@ -4,7 +4,7 @@ import { Check, ChevronLeft, ChevronRight, CircleDot, Download, Film, ImagePlus,
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Dialog } from "radix-ui";
-import { useOptimistic, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import { useLayoutEffect, useOptimistic, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { approvePhotoAction, deletePhotoAction, setCaptionAction } from "@/album/actions";
 import { MAX_CAPTION, MAX_PHOTOS_AT_ONCE, parseCaption, shownIndex } from "@/album/album";
 import type { ShownDetails } from "@/album/details";
@@ -536,6 +536,16 @@ function Viewer({
     setEditingFor(photo?.id);
     setEditing(false);
   }
+  // Whether a caption is being written as last drawn, which Escape reads. Radix calls the Escape
+  // handler of the last render whose passive effects have run, and a caption's save answers outside
+  // any event, so its render's effects wait for a later task: an Escape pressed between, as the
+  // saved caption shows, met a handler that still thought it was being written, ended the writing
+  // already ended, and left the viewer open (the caption test's flake, the last fix dispatch). This
+  // is set as each render is drawn, before anything else can run.
+  const writing = useRef(editing);
+  useLayoutEffect(() => {
+    writing.current = editing;
+  });
   const go = (step: number) => index !== undefined && photos.length > 0 && onShow(photos[(index + step + photos.length) % photos.length].id);
   // Who added it, where this viewer is shown that (M8 ticket 11), and whether it waits: nothing at
   // all for an item of someone else's while names are hidden, and then no description either.
@@ -557,7 +567,7 @@ function Viewer({
             onClosed(deleted.current);
           }}
           onEscapeKeyDown={(event) => {
-            if (!editing) return;
+            if (!writing.current) return;
             event.preventDefault();
             setEditing(false);
           }}

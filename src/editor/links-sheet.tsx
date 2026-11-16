@@ -18,10 +18,11 @@ import { useEditor } from "./status";
 // removal at once; a row with no address yet is not sent. An address is checked as its field is
 // left, by the rule the server holds it to (http and https only, `safeLinkUrl`): one that would be
 // refused is marked, says why under its field and through the sheet's live line, and is sent with
-// the address it last had that was not refused, or left out where it never had one, so the other
-// rows still save and a saved link is never lost to a typo (the Sections part's review, finding 3,
-// and the re-review of its fix pass). The server checks every address again and refuses the whole
-// list over one it would not follow, which is said above it.
+// the address it last had that was not refused, or left out where it has had none since its field
+// was last left empty, so the other rows still save, a saved link is never lost to a typo (the
+// Sections part's review, finding 3, and the re-review of its fix pass), and a link the host
+// cleared is not brought back by one (the last review). The server checks every address again and
+// refuses the whole list over one it would not follow, which is said above it.
 // On the keyboard a moved row's button keeps the focus; a removal leaves it on the same button,
 // which then removes the row that took its place, or on "Add a link" after the last one; a new row
 // takes it at its label.
@@ -49,7 +50,7 @@ export function LinksSheet({ eventId, section }: { eventId: string; section: Sec
 
 // A row as the sheet holds it: `id` keeps a row's fields with it as it moves. `url` is its address
 // as last left; `draft` as typed; `accepted` the last address left that the server would take (the
-// saved one, to begin with), or empty while there has been none.
+// saved one, to begin with), or empty while there has been none since the field was left empty.
 type Row = SectionLink & { id: number; draft: string; accepted: string };
 
 // Whether an address, or a row's as last left, is one the server would refuse.
@@ -62,7 +63,9 @@ const posted = (rows: Row[]): SectionLink[] =>
   rows.flatMap(({ label, url, accepted }) => (url.trim() === "" ? [] : !refusedUrl(url) ? [{ label, url }] : accepted ? [{ label, url: accepted }] : []));
 
 // A row's address as left: the draft, which becomes the accepted one where the server would take it.
-const left = (row: Row): Row => ({ ...row, url: row.draft, accepted: row.draft.trim() !== "" && !refusedUrl(row.draft) ? row.draft : row.accepted });
+// Left empty, the row forgets the address it had, so a typo that follows does not bring back a link
+// the host cleared (the last review, minor 2).
+const left = (row: Row): Row => ({ ...row, url: row.draft, accepted: row.draft.trim() === "" ? "" : !refusedUrl(row.draft) ? row.draft : row.accepted });
 
 // The sheet's list, made afresh each time the sheet opens, so it starts from the links as saved.
 function LinksForm({ eventId, sectionKey: key, links }: { eventId: string; sectionKey: string; links: SectionLink[] }) {
@@ -72,7 +75,14 @@ function LinksForm({ eventId, sectionKey: key, links }: { eventId: string; secti
   const id = useId();
   const [rows, setRows] = useState<Row[]>(() => links.map((link, index) => ({ ...link, id: index, draft: link.url, accepted: link.url })));
   const [error, setError] = useState<string>();
-  const [said, say] = useState("");
+  const [said, setSaid] = useState("");
+  // Said through the live line. The same words set again would change nothing there, and a refusal
+  // that follows another would go unheard, so the line is emptied and filled on the next tick (the
+  // last review, minor 3).
+  const say = (text: string) => {
+    setSaid("");
+    setTimeout(() => setSaid(text), 0);
+  };
   const made = useRef(links.length);
   // The rows as last changed, and the links last sent (as saved, to begin with).
   const latest = useRef(rows);

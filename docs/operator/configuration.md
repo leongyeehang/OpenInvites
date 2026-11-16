@@ -179,7 +179,8 @@ upgraded site included.
   takes photos, the hosts' Settings sheet leaves out its Album group, album reminders wait, and
   the photos and videos stay where they are and still count toward storage. While it is off nobody
   but you can remove an item (the hosts' Empty album and every Delete refuse; **Clear the album**
-  on the Storage card still works), and the files are still answered at their addresses.
+  on the Storage card still works), except that deleting the event, or a host deleting their
+  account, still removes its items; the files are still answered at their addresses.
 - **Videos**: albums take videos as well as photos. Off, albums take photos only; the videos
   they hold still play, and a clip already sent is still processed. Videos need the album, and a
   usable ffmpeg: without one they stay off whatever the switch says. A live photo is a photo, so

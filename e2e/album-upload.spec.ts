@@ -126,19 +126,24 @@ test("an HEVC clip held portrait gets a lighter copy, an upright poster, and los
 // model or creation time, and no Apple or Android key.
 const CONTAINER_TAGS = new Set(["major_brand", "minor_version", "compatible_brands", "encoder", "handler_name", "vendor_id", "language"]);
 
+// Where both tagged fixtures say they were taken, as their own bytes spell it.
+const FIXTURE_LOCATION = "+35.6895+139.6917";
+
 function expectNoPhoneTags(bytes: Buffer, file: string) {
   const { format, streams } = probeServedTags(bytes);
   // The probe read the file: every MP4 names its brand.
   expect(format.major_brand, file).toBeTruthy();
   for (const tags of [format, ...streams]) expect(Object.keys(tags).filter((key) => !CONTAINER_TAGS.has(key)), file).toEqual([]);
+  // Nor anywhere else in the file, outside any tag the probe reads (the last review, minor 5).
+  expect(bytes.includes(FIXTURE_LOCATION), file).toBe(false);
 }
 
 test("a video's copies, its original and a live photo's motion keep no tag of the phone's", async ({ browser, request }) => {
   test.setTimeout(360_000);
   expect(HEVC_TAGGED.includes("com.apple.quicktime.model")).toBe(true);
-  expect(HEVC_TAGGED.includes("+35.6895+139.6917")).toBe(true);
+  expect(HEVC_TAGGED.includes(FIXTURE_LOCATION)).toBe(true);
   expect(MOTION_TAGGED.includes("com.android.model")).toBe(true);
-  expect(MOTION_TAGGED.includes("+35.6895+139.6917")).toBe(true);
+  expect(MOTION_TAGGED.includes(FIXTURE_LOCATION)).toBe(true);
   const host = await createPublished(browser, request, "video-tags", PAST);
   const priya = await guestGoing(browser, host.link, "Priya Nair");
   const api = apiOf(priya, host.link);

@@ -448,3 +448,51 @@ profile rebuilt with this change: `album-voting`, `album-upload`, `album-setting
 host's viewer still open after Escape following an empty caption save, passing on retry; seen
 since ticket 11 and in code this pass does not touch. No failure. Disk: 28 GB free before the two
 rebuilds, 26 GB after; no prune.
+
+### 2026-11-16: Last fixes
+
+The last fix dispatch, on top of 29b0f4a: the cause of the caption test's flake, the re-review's
+five minors, and the rehearsal's corrections to the upgrade document.
+
+- **The flake (`e2e/album.spec.ts:129`, the host's viewer still open after Escape following the
+  empty caption save).** Cause: the viewer's Escape handler was one render behind just after a save.
+  - Radix calls `onEscapeKeyDown` through `useCallbackRef`, which takes the newest handler in a
+    passive effect.
+  - A caption's save answers outside any event, so the render that ends the writing commits in a
+    default lane, and React 19 runs its passive effects in a later Scheduler task.
+  - An Escape in between met the old handler, which still saw `editing` true. It prevented the
+    dismissal and ended writing that had already ended.
+  - Measured with a stand-in React DevTools hook, the gap was 1.4 to 36 ms on this machine, up to
+    62 ms under load and 152 ms with the page's CPU slowed 6×. So a person on a slow phone can meet
+    it too.
+  - Fix: Escape reads `writing.current`, set from `editing` in a layout effect, which runs inside
+    the commit (`src/themes/sections/album.tsx`).
+  - New test, "Escape pressed as a caption's save lands closes the viewer": presses Escape the
+    instant the field leaves the page, inside the gap by construction. Failed 6/6 on 29b0f4a,
+    passes 6/6.
+  - The caption test itself, 30 per width, two workers, no retries: 30/30 and 30/30 before (the
+    race was not caught in 100 natural runs, under load or slowed either); 30/30 and 30/30 after.
+- **Minor 1** and **rehearsal 3.3(a)**: a video being processed as the app is replaced "is taken
+  again about ten minutes after the old app took it or last renewed its hold on it, give or take a
+  minute".
+- **Minor 2**: a links row's address left empty forgets its last accepted one, so a typo after it
+  does not bring back the cleared link. New test, "a saved link's address cleared and then
+  mistyped does not bring the link back".
+- **Minor 3**: the links sheet's live line is emptied and filled on the next tick, so a second
+  refusal is heard. The refused-address test asserts the line goes `""` then the message.
+- **Minor 4**: `form.test.ts`'s two site-off cases pass `BOTH` as drawn, so the site's switch is
+  tested alone; a mutation that ignores it now fails them.
+- **Minor 5**: `expectNoPhoneTags` asserts the served bytes hold no `+35.6895+139.6917`.
+- **configuration.md**, Album off: deleting the event, or a host deleting their account, still
+  removes its items.
+- **Rehearsal 3.1**: `upgrade-backup.md` has a new section, Going back to an older release, linked
+  from both "go back" sentences. Its steps: stop the app, set the image back, empty the database
+  with `dropdb`/`createdb`, `pg_restore` (which must end without "errors ignored on restore"), the
+  uploads, and up. Anything added after the backup is lost.
+- **Rehearsal 3.2**: the matching-pair backup stops the app and archives the uploads with
+  `compose run … --entrypoint tar`, and says to check that neither file is empty.
+- **Rehearsal 3.3(b)**: 0.7 on a migrated database looks healthy while every event page fails, so
+  changing only the image back is not a way back.
+
+Evidence: in `.superpowers/sdd/m8-plan/last-fix-report.md` (RED and GREEN for each item, the probe
+logs and traces under `test-results/`, and every check).

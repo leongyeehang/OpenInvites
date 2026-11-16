@@ -1474,6 +1474,16 @@ test("a refused address is marked in its row, and the other links save", async (
   await expect(venmo).toHaveAccessibleDescription(URL_INVALID);
   // Said through the sheet's live line too, for whoever has already tabbed on (the re-review, H.2).
   await expect(liveLine(registry)).toHaveText(URL_INVALID);
+  // A refusal after another is said again (the last review, minor 3): the line is emptied and then
+  // filled, so a screen reader hears a change, where the same words set again would change nothing.
+  await liveLine(registry).evaluate((line) => {
+    const heard: string[] = [];
+    (window as unknown as { heard: string[] }).heard = heard;
+    new MutationObserver(() => heard.push(line.textContent ?? "")).observe(line, { childList: true, characterData: true, subtree: true });
+  });
+  await venmo.fill("jane@paypal");
+  await venmo.blur();
+  await expect.poll(() => host.page.evaluate(() => (window as unknown as { heard: string[] }).heard)).toEqual(["", URL_INVALID]);
   await writeLink(host.page, registry, 3, "Songs", "example.org/songs");
   await expect(registry.getByRole("alert")).toHaveCount(0);
   await expect(venmo).toHaveAttribute("aria-invalid", "true");
@@ -1527,6 +1537,39 @@ test("a saved link's address mistyped keeps the address last accepted until it i
   });
   await guest.reload();
   await expect(links(guest).getByRole("link", { name: /^Our list/ })).toHaveAttribute("href", "https://example.com/new-list");
+  await Promise.all([host.context.close(), guest.context().close()]);
+});
+
+// The last review, minor 2: a saved link's address cleared takes the link off the page, and the
+// address it had is forgotten, so a typo that follows does not bring it back. The label changed on
+// the other row sends the list, so the guest's page is read after a save either way.
+test("a saved link's address cleared and then mistyped does not bring the link back", async ({ browser, request }) => {
+  test.setTimeout(180_000);
+  const host = await createPublished(browser, request, "sections-link-cleared", EVENT);
+  const registry = await addSection(host.page, "Registry");
+  await writeLink(host.page, registry, 1, "Our list", REGISTRY_URL);
+  await writeLink(host.page, registry, 2, "Songs", "example.org/songs");
+  const address = registry.getByRole("textbox", { name: "Address of link 1", exact: true });
+  await savedAfter(host.page, async () => {
+    await address.fill("");
+    await address.blur();
+  });
+  const guest = await visitor(browser, host.link);
+  await expect(links(guest).getByRole("link")).toHaveText([/^Songs/]);
+
+  await address.fill("jane@venmo");
+  await address.blur();
+  await expect(address).toHaveAttribute("aria-invalid", "true");
+  await savedAfter(host.page, () => registry.getByRole("textbox", { name: "Label of link 2", exact: true }).fill("Our songs"));
+  await guest.reload();
+  await expect(links(guest).getByRole("link")).toHaveText([/^Our songs/]);
+
+  await closeSheets(host.page);
+  await host.page.getByRole("button", { name: "Edit Registry" }).click();
+  const again = host.page.getByRole("dialog", { name: "Registry" });
+  await expect(again.getByRole("listitem")).toHaveCount(1);
+  await expect(again.getByRole("textbox", { name: "Label of link 1", exact: true })).toHaveValue("Our songs");
+  await expect(again.getByRole("textbox", { name: "Address of link 1", exact: true })).toHaveValue("https://example.org/songs");
   await Promise.all([host.context.close(), guest.context().close()]);
 });
 

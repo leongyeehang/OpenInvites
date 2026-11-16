@@ -234,11 +234,13 @@ describe("keptSettings", () => {
     albumOrder: "taken" as const,
   };
 
-  // The sheet draws a group while the site has it on: these cases post the groups their switches draw.
+  // A sheet drawn while the site had both groups on. The cases with a switch off post it so, as a
+  // sheet opened before the operator switched it off would, so that the site's switch as the save
+  // arrives is what keeps the fields (the last review, minor 4).
   const BOTH = { album: true, videos: true };
 
   it("keeps every album field as stored while the album is off, numbers as their digits and none as empty", () => {
-    expect(keptSettings(posted, stored, { album: false, videos: true }, { album: false, videos: false })).toEqual({
+    expect(keptSettings(posted, stored, { album: false, videos: true }, BOTH)).toEqual({
       ...posted,
       albumVisibility: "hosts",
       albumApprovalRequired: true,
@@ -255,7 +257,7 @@ describe("keptSettings", () => {
 
   it("keeps the video fields as stored while videos are off, and takes the rest of the album's as posted", () => {
     const shown = { ...posted, albumVisibility: "going", albumApprovalRequired: false, notifyOnPhoto: true };
-    expect(keptSettings(shown, stored, { album: true, videos: false }, { album: true, videos: false })).toEqual({
+    expect(keptSettings(shown, stored, { album: true, videos: false }, BOTH)).toEqual({
       ...shown,
       albumVideosAllowed: true,
       albumMaxVideoMinutes: "5",

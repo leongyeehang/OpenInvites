@@ -215,6 +215,35 @@ test("whoever adds an item captions it, a host changes it, and another guest can
   await Promise.all([host.context.close(), priya.context().close(), mei.context().close()]);
 });
 
+// The caption test's flake (the last fix dispatch): a caption's save answers outside any event, so
+// the render that shows it saved has its passive effects, where Radix takes the viewer's newest
+// Escape handler, run in a later task. An Escape pressed in between met the handler that still
+// thought the caption was being written, and the viewer stayed open. Here the Escape is pressed in
+// that gap by construction: the instant the caption's field leaves the page, before any later task
+// can run, a key press is sent where the keyboard would send it, to the element with the focus.
+test("Escape pressed as a caption's save lands closes the viewer", async ({ browser, request }) => {
+  const host = await createPublished(browser, request, "album-caption-escape", PAST);
+  await host.page.goto(host.link);
+  await album(host.page).getByLabel(/^Add photos/).setInputFiles([await photo("lake.jpg", "#d07a3a")]);
+  const tile = album(host.page).getByRole("button", { name: /^Photo 1 by / });
+  await tile.click({ timeout: 20_000 });
+  const viewer = host.page.getByRole("dialog", { name: "Photo 1 of 1" });
+  await viewer.getByRole("button", { name: "Add a caption" }).click();
+  await captionField(viewer).fill("Lakeside");
+  await host.page.evaluate(() => {
+    const observer = new MutationObserver(() => {
+      if (document.getElementById("caption-field")) return;
+      observer.disconnect();
+      (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true, cancelable: true }));
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  });
+  await viewer.getByRole("button", { name: "Save" }).click();
+  await expect(viewer).toBeHidden();
+  await expect(album(host.page).getByRole("button", { name: /^Photo 1 by .+: Lakeside$/ })).toBeVisible();
+  await host.context.close();
+});
+
 test("a caption over 140 characters is refused", async ({ browser, request }) => {
   const host = await createPublished(browser, request, "album-caption-long", PAST);
   const priya = await guestGoing(browser, host.link, "Priya Nair");
