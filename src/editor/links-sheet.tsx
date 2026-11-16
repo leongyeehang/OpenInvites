@@ -12,15 +12,16 @@ import { EditorSheet } from "./sheet";
 import { useEditor } from "./status";
 
 // A Links section's own sheet (M8 spec, "Links"; ticket 29): its links as rows of a label and an
-// address, added, removed and moved by buttons, at most six. The list is not a form: the links are
-// saved once the host has stopped typing, as a heading in Arrange is, and a move or a removal at
-// once; a row with no address yet is not sent. The server checks every address (http and https
-// only) and refuses the whole list over one it would not follow, which is said above the list.
+// address, added, removed and moved by buttons, at most six. The list is not a form: a label is
+// saved once the host has stopped typing, as a heading in Arrange is, an address once its field is
+// left or the sheet closes, never half-typed on a pause (ticket 29's review), and a move or a
+// removal at once; a row with no address yet is not sent. The server checks every address (http
+// and https only) and refuses the whole list over one it would not follow, which is said above it.
 // On the keyboard a moved row's button keeps the focus; a removal leaves it on the same button,
 // which then removes the row that took its place, or on "Add a link" after the last one; a new row
 // takes it at its label.
 
-// The links are sent this long after the host's last key, as a heading is.
+// A label is sent this long after the host's last key, as a heading is.
 const DEBOUNCE = 600;
 
 export function LinksSheet({ eventId, section }: { eventId: string; section: Section & { kind: "links" } }) {
@@ -41,8 +42,9 @@ export function LinksSheet({ eventId, section }: { eventId: string; section: Sec
   );
 }
 
-// A row as the sheet holds it: `id` keeps a row's fields with it as it moves.
-type Row = SectionLink & { id: number };
+// A row as the sheet holds it: `id` keeps a row's fields with it as it moves. `url` is its address
+// as last left, which is what is sent; `draft` as typed.
+type Row = SectionLink & { id: number; draft: string };
 
 // What is sent: the rows with an address, in order.
 const posted = (rows: Row[]): SectionLink[] => rows.filter((row) => row.url.trim() !== "").map(({ label, url }) => ({ label, url }));
@@ -53,7 +55,7 @@ function LinksForm({ eventId, sectionKey: key, links }: { eventId: string; secti
   const arrange = useTranslations("Editor.arrange");
   const { save } = useEditor();
   const id = useId();
-  const [rows, setRows] = useState<Row[]>(() => links.map((link, index) => ({ ...link, id: index })));
+  const [rows, setRows] = useState<Row[]>(() => links.map((link, index) => ({ ...link, id: index, draft: link.url })));
   const [error, setError] = useState<string>();
   const [said, say] = useState("");
   const made = useRef(links.length);
@@ -85,10 +87,13 @@ function LinksForm({ eventId, sectionKey: key, links }: { eventId: string; secti
       return result;
     });
   });
-  // Closing the sheet sends what is waiting.
+  // Closing the sheet sends what is waiting, an address being typed with it.
   useEffect(() => {
     const flush = send.current;
-    return () => flush();
+    return () => {
+      latest.current = latest.current.map((row) => ({ ...row, url: row.draft }));
+      flush();
+    };
   }, []);
 
   // A change to the rows, sent once the typing stops, or at once.
@@ -99,9 +104,15 @@ function LinksForm({ eventId, sectionKey: key, links }: { eventId: string; secti
     if (now) send.current();
     else timer.current = setTimeout(send.current, DEBOUNCE);
   };
-  const type = (row: Row, field: "label" | "url", text: string) => change(latest.current.map((each) => (each.id === row.id ? { ...each, [field]: text } : each)));
+  const label = (row: Row, text: string) => change(latest.current.map((each) => (each.id === row.id ? { ...each, label: text } : each)));
+  // An address as typed is only kept; it is sent once its field is left.
+  const draft = (row: Row, text: string) => {
+    latest.current = latest.current.map((each) => (each.id === row.id ? { ...each, draft: text } : each));
+    setRows(latest.current);
+  };
+  const leave = (row: Row) => change(latest.current.map((each) => (each.id === row.id ? { ...each, url: each.draft } : each)), true);
   // A row is named by its label, or the site its address goes to, or its place.
-  const nameOf = (row: Row, index: number) => row.label.trim() || (safeLinkUrl(row.url) ? linkHost(safeLinkUrl(row.url)!) : t("labelOf", { n: index + 1 }));
+  const nameOf = (row: Row, index: number) => row.label.trim() || (safeLinkUrl(row.draft) ? linkHost(safeLinkUrl(row.draft)!) : t("labelOf", { n: index + 1 }));
 
   const move = (row: Row, by: -1 | 1) => {
     const current = latest.current;
@@ -121,7 +132,7 @@ function LinksForm({ eventId, sectionKey: key, links }: { eventId: string; secti
     change(next, true);
   };
   const add = () => {
-    const row = { id: made.current++, label: "", url: "" };
+    const row = { id: made.current++, label: "", url: "", draft: "" };
     refocus.current = `${row.id}:label`;
     // A row with no address is not sent, so nothing is saved yet.
     latest.current = [...latest.current, row];
@@ -156,21 +167,22 @@ function LinksForm({ eventId, sectionKey: key, links }: { eventId: string; secti
                     initial={row.label}
                     max={SECTION_LIMITS.label}
                     autoComplete="off"
-                    onType={(text) => type(row, "label", text)}
+                    onType={(text) => label(row, text)}
                   />
                   <label htmlFor={field("url")} className="text-xs font-medium text-muted-foreground">
                     {t("urlOf", { n })}
                   </label>
                   <ClippedInput
                     id={field("url")}
-                    initial={row.url}
+                    initial={row.draft}
                     max={SECTION_LIMITS.url}
                     inputMode="url"
                     autoCapitalize="none"
                     autoCorrect="off"
                     autoComplete="off"
                     spellCheck={false}
-                    onType={(text) => type(row, "url", text)}
+                    onType={(text) => draft(row, text)}
+                    onBlur={() => leave(row)}
                   />
                 </div>
                 <div className="flex shrink-0 flex-col items-center">

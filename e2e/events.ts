@@ -348,12 +348,17 @@ export async function writeNote(page: Page, note: Locator, words: string, bold: 
   await expect(page.locator('[data-section^="note:"] strong').filter({ hasText: bold })).toBeVisible({ timeout: 15_000 });
 }
 
-// A link written in a row of the Links sheet, added first, until it is saved.
+// A link written in a row of the Links sheet, added first, until it is saved: an address is sent
+// once its field is left (ticket 29's review).
 export async function writeLink(page: Page, links: Locator, n: number, label: string, url: string) {
   await links.getByRole("button", { name: "Add a link" }).click();
   await expect(links.getByRole("textbox", { name: `Label of link ${n}`, exact: true })).toBeFocused();
   await links.getByRole("textbox", { name: `Label of link ${n}`, exact: true }).fill(label);
-  await savedAfter(page, () => links.getByRole("textbox", { name: `Address of link ${n}`, exact: true }).fill(url));
+  const address = links.getByRole("textbox", { name: `Address of link ${n}`, exact: true });
+  await savedAfter(page, async () => {
+    await address.fill(url);
+    await address.blur();
+  });
 }
 
 // A section's own sheet closed, which goes back to Arrange, and Arrange closed.

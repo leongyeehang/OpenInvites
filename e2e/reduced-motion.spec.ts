@@ -573,3 +573,45 @@ test("under reduced motion the album vote is still, while open and once closed w
   await expectStill(guest, "the closed album with the Winners strip");
   await Promise.all([guest.context().close(), host.context.close()]);
 });
+
+// M8 ticket 30: the album drawn as a mosaic and as a strip, which under reduced motion scrolls at
+// once rather than smoothly, is still.
+test("under reduced motion the album as a mosaic and a strip is still", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "still-album-styles", { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" });
+  const album = (page: Page) => page.locator('[data-slot="album"]');
+  const guest = await stillGuest(browser);
+  await guest.goto(host.link);
+  await guest.getByRole("button", { name: "Going" }).click();
+  await guest.getByLabel("Your name").fill("Ana Ruiz");
+  await guest.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(guest.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+  await guest.getByRole("dialog", { name: "Your RSVP" }).getByRole("button", { name: "Close" }).click();
+  const photos = await Promise.all(
+    ["#2f6b3a", "#c0506a", "#d07a3a"].map(async (background, at) => ({
+      name: `photo-${at}.jpg`,
+      mimeType: "image/jpeg",
+      buffer: await sharp({ create: { width: 1200, height: 900, channels: 3, background } }).jpeg().toBuffer(),
+    })),
+  );
+  await album(guest).getByLabel(/^Add photos/).setInputFiles(photos);
+  await expect(album(guest).locator("li[data-item]")).toHaveCount(3, { timeout: 20_000 });
+
+  for (const style of ["Mosaic", "Strip"] as const) {
+    await arrange(host.page, async (sheet) => {
+      const options = sheet.getByRole("button", { name: "Options for Album" });
+      if ((await options.getAttribute("aria-expanded")) !== "true") await options.click();
+      await sheet.getByRole("radiogroup", { name: "Style" }).getByRole("radio", { name: style }).click();
+    });
+    await guest.reload();
+    await expect(album(guest).locator(`ul[data-style="${style.toLowerCase()}"]`)).toBeVisible();
+    await expectStill(guest, `the album as a ${style.toLowerCase()}`);
+  }
+  const strip = album(guest).getByRole("region", { name: "Photos and videos, scrolling sideways" });
+  await strip.focus();
+  await guest.keyboard.press("ArrowRight");
+  await expect.poll(() => strip.evaluate((region) => region.scrollLeft)).toBeGreaterThan(0);
+  expect(await strip.evaluate((region) => getComputedStyle(region).scrollBehavior)).toBe("auto");
+  await expectStill(guest, "the strip, scrolled");
+  await Promise.all([guest.context().close(), host.context.close()]);
+});

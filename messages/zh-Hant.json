@@ -1071,6 +1071,7 @@
       "originalUnplayable": "原片：此瀏覽器無法播放。",
       "unplayable": "此瀏覽器無法播放這段影片，請下載後觀看。",
       "live": "原況",
+      "strip": "照片和影片，左右滑動查看",
       "playLive": "播放原況照片",
       "livePhotoNote": "在 iPhone 上，原況照片會以照片形式新增。若要保留其動態，請在「照片」中對它選擇「儲存為影片」，再新增該影片。",
       "livePhotoNoteNoVideos": "在 iPhone 上，原況照片會以照片形式新增，不含其動態。",
@@ -1396,6 +1397,16 @@
       "headingHint": "留空則保留「{name}」。",
       "collapsed": "摺疊",
       "collapsedHint": "賓客會看到標題和其中有多少內容，輕點即可展開。",
+      "style": "樣式",
+      "styles": {
+        "grid": "網格",
+        "mosaic": "拼貼",
+        "strip": "橫排",
+        "list": "清單",
+        "bubbles": "氣泡",
+        "names": "名字",
+        "avatars": "頭像"
+      },
       "kinds": {
         "letter": "專屬信件",
         "details": "詳情",

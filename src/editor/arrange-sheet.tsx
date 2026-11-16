@@ -30,6 +30,7 @@ import {
   type Arrangement,
   type ArrangementChange,
   type SectionKind,
+  type SectionStyle,
   type SheetRow,
   type Switches,
 } from "@/sections";
@@ -38,6 +39,7 @@ import type { Layout } from "@/themes/theme";
 import { ClippedInput } from "./clipped-input";
 import { EditorSheet } from "./sheet";
 import { useEditor } from "./status";
+import { StyleGlyph } from "./style-glyphs";
 
 // The Arrange sheet (M8 spec, "Arrange sheet"; ticket 25): a design sheet over a live copy of the
 // invitation, one row per section of the page in its order, each with Move up and Move down,
@@ -67,10 +69,14 @@ const DEBOUNCE = 600;
 // The host's own sections, which they write, edit and remove.
 const written = (kind: SectionKind) => kind === "note" || kind === "links";
 
-// Whether a row opens, and so has a disclosure on its name: one that may be renamed or collapsed,
-// and only while it is on (ticket 28). Off, Who's coming has no choice of who sees it, since
-// choosing would switch it on (ticket 24). A Note's or Links' always opens, to Edit and Remove.
-const opens = (row: SheetRow) => written(row.kind) || (row.on && (REGISTRY[row.kind].rename || REGISTRY[row.kind].collapse));
+// Whether a row opens, and so has a disclosure on its name: one that may be renamed, collapsed or
+// drawn in another style, and only while it is on (tickets 28 and 30). Off, Who's coming has no
+// choice of who sees it, since choosing would switch it on (ticket 24). A Note's or Links' always
+// opens, to Edit and Remove.
+const opens = (row: SheetRow) => {
+  const entry = REGISTRY[row.kind];
+  return written(row.kind) || (row.on && (entry.rename || entry.collapse || entry.styles.length > 0));
+};
 
 // The headings Add a section suggests, by the kind each adds (ticket 29).
 const SUGGESTIONS = { addNote: ["dressCode", "gettingThere", "gifts"], addLinks: ["registry", "playlist"] } as const;
@@ -128,6 +134,11 @@ export function ArrangeSheet({
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const rows = sheetRows(shown.arrangement, layout, shown.switches, offered);
+  // The rows the server has saved. A Note or Links just added is shown at once under the sheet's
+  // own key, which the server does not know: until it comes back under the server's, its controls
+  // wait, and a press on them sends nothing (ticket 29's review).
+  const savedKeys = new Set(sheetRows(arrangement, layout, switches, offered).map((row) => row.key));
+  const waiting = (row: SheetRow) => !savedKeys.has(row.key);
   const headingOf = (row: SheetRow) => (row.key in typed ? typed[row.key] : row.heading);
   const nameOf = (row: SheetRow) => headingOf(row) ?? t(`kinds.${row.kind}`);
 
@@ -245,7 +256,8 @@ export function ArrangeSheet({
               const hintId = `${nameId}-hint`;
               const panelId = `${nameId}-panel`;
               const hint = entry.switch === "none" ? t("alwaysOn") : row.kind in HINTS ? t(HINTS[row.kind as keyof typeof HINTS]) : undefined;
-              const expanded = opens(row) && openRow === row.key;
+              const pending = waiting(row);
+              const expanded = opens(row) && !pending && openRow === row.key;
               return (
                 <li key={row.key} className="rounded-2xl border bg-accent/40">
                   <div className="flex items-center gap-3 py-2 pr-2 pl-3">
@@ -257,7 +269,10 @@ export function ArrangeSheet({
                           aria-label={t("open", { name })}
                           aria-expanded={expanded}
                           aria-controls={expanded ? panelId : undefined}
-                          onClick={() => setOpenRow(expanded ? null : row.key)}
+                          aria-disabled={pending || undefined}
+                          onClick={() => {
+                            if (!pending) setOpenRow(expanded ? null : row.key);
+                          }}
                           className="-mx-1 flex max-w-full cursor-pointer items-center gap-1 rounded-md px-1 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
                         >
                           <span id={nameId} className="truncate text-sm font-medium">
@@ -280,13 +295,17 @@ export function ArrangeSheet({
                       <Switch
                         aria-labelledby={nameId}
                         aria-describedby={hint ? hintId : undefined}
+                        aria-disabled={pending || undefined}
                         checked={row.on}
-                        onCheckedChange={(on) => toggle(row, on)}
+                        onCheckedChange={(on) => {
+                          if (!pending) toggle(row, on);
+                        }}
                       />
                     )}
                     <MoveButton
                       label={t("moveUp", { name })}
                       end={index === 0}
+                      waiting={pending}
                       onPress={() => move(row, -1)}
                       ref={(button) => {
                         if (button) buttons.current.set(`${row.key}:-1`, button);
@@ -298,6 +317,7 @@ export function ArrangeSheet({
                     <MoveButton
                       label={t("moveDown", { name })}
                       end={index === rows.length - 1}
+                      waiting={pending}
                       onPress={() => move(row, 1)}
                       ref={(button) => {
                         if (button) buttons.current.set(`${row.key}:1`, button);
@@ -317,6 +337,9 @@ export function ArrangeSheet({
                         />
                       )}
                       {entry.collapse && <Collapsed collapsed={row.collapsed} onChange={(collapsed) => send({ type: "collapse", key: row.key, collapsed })} />}
+                      {row.style && entry.styles.length > 0 && (
+                        <Styles styles={entry.styles} chosen={row.style} waiting={pending} onChoose={(style) => send({ type: "style", key: row.key, style })} />
+                      )}
                       {row.kind === "guests" && <Audience name={`${listId}-audience`} visibility={shown.switches.guestListVisibility} onSelect={(visibility) => send({ type: "audience", visibility })} />}
                       {written(row.kind) && (
                         <div className="flex gap-2">
@@ -371,6 +394,52 @@ function Collapsed({ collapsed, onChange }: { collapsed: boolean; onChange: (col
         </p>
       </div>
       <Switch aria-labelledby={`${id}-label`} aria-describedby={`${id}-hint`} checked={collapsed} onCheckedChange={onChange} />
+    </div>
+  );
+}
+
+// The styles a section may be drawn in, in its open row (ticket 30): a radio group of large
+// swatches, each a small drawing of the style over its name. Tab reaches the style chosen, and an
+// arrow moves to the next and chooses it, as the video player's sizes do (video-player.tsx). Each
+// choice is sent at once. While the row waits for its add, a press does nothing.
+function Styles({ styles, chosen, waiting, onChoose }: { styles: readonly SectionStyle[]; chosen: SectionStyle; waiting: boolean; onChoose: (style: SectionStyle) => void }) {
+  const t = useTranslations("Editor.arrange");
+  const id = useId();
+  const choose = (style: SectionStyle) => {
+    if (!waiting && style !== chosen) onChoose(style);
+  };
+  const move = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+    const radios = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+    const at = radios.findIndex((radio) => radio === document.activeElement);
+    const next = radios[(at + (event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1) + radios.length) % radios.length];
+    if (!next) return;
+    next.focus();
+    choose(styles[radios.indexOf(next)]);
+  };
+  return (
+    <div role="radiogroup" aria-labelledby={`${id}-label`} onKeyDown={move} className="flex flex-col gap-2">
+      <p id={`${id}-label`} className="text-xs font-medium tracking-label text-muted-foreground uppercase">
+        {t("style")}
+      </p>
+      <div className="grid grid-cols-3 gap-2">
+        {styles.map((style) => (
+          <button
+            key={style}
+            type="button"
+            role="radio"
+            aria-checked={style === chosen}
+            aria-disabled={waiting || undefined}
+            tabIndex={style === chosen ? 0 : -1}
+            onClick={() => choose(style)}
+            className="group/swatch flex cursor-pointer flex-col items-center gap-2 rounded-xl border bg-background/60 px-2 pt-3 pb-2 text-xs font-medium text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-checked:border-primary aria-checked:text-foreground aria-checked:ring-1 aria-checked:ring-primary"
+          >
+            <StyleGlyph style={style} className="h-10 w-16 group-aria-checked/swatch:text-primary" />
+            {t(`styles.${style}`)}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -468,11 +537,12 @@ function RemoveSection({ name, onRemove }: { name: string; onRemove: () => void 
   );
 }
 
-// A Move button. At an end of the list it says it is unavailable, keeps its place in the Tab
-// order, so the focus is not lost from under a keyboard, and does nothing.
+// A Move button. At an end of the list, or while its row waits, it says it is unavailable, keeps
+// its place in the Tab order, so the focus is not lost from under a keyboard, and does nothing.
 export function MoveButton({
   label,
   end,
+  waiting = false,
   onPress,
   ref,
   control,
@@ -480,6 +550,8 @@ export function MoveButton({
 }: {
   label: string;
   end: boolean;
+  // While its row waits for its add (ticket 29's review), it is unavailable in the same way.
+  waiting?: boolean;
   onPress: () => void;
   ref?: (button: HTMLButtonElement | null) => void;
   // What a sheet finds it by to give it the focus back (links-sheet.tsx).
@@ -492,13 +564,13 @@ export function MoveButton({
       data-control={control}
       type="button"
       aria-label={label}
-      aria-disabled={end || undefined}
+      aria-disabled={end || waiting || undefined}
       onClick={() => {
-        if (!end) onPress();
+        if (!end && !waiting) onPress();
       }}
       className={cn(
         "grid size-9 shrink-0 cursor-pointer place-items-center rounded-full hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring",
-        end && "cursor-default opacity-40 hover:bg-transparent",
+        (end || waiting) && "cursor-default opacity-40 hover:bg-transparent",
       )}
     >
       {children}

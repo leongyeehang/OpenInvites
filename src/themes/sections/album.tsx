@@ -112,11 +112,16 @@ export const ALBUM_HEADING = "album-heading";
 
 const NONE_APPROVING: ReadonlySet<string> = new Set();
 
+// How the host has the album drawn (M8 ticket 30): a grid, as it always was; a mosaic, the first
+// item two columns wide and two rows high; or a strip, one row the guest scrolls sideways.
+export type AlbumStyle = "grid" | "mosaic" | "strip";
+
 // The album (M4 ticket 11): a grid of the photos, oldest first, each opening the viewer; and Add
 // photos, which sends up to ten at once and says what became of each. A photo waiting for approval
 // is marked under its thumbnail, and to a host has Approve and Delete there (M6 ticket 03). With a
 // slot (M8 ticket 12), its head sits above the grid, the grid lists the slot's items, which the
-// numbers and the viewer follow, and each tile and the viewer's header carry the slot's node.
+// numbers and the viewer follow, and each tile and the viewer's header carry the slot's node. In
+// the host's style (M8 ticket 30), every style drawing the same tiles.
 export function Album({
   slug,
   photos: all,
@@ -124,6 +129,7 @@ export function Album({
   video,
   keeps,
   slot,
+  style,
 }: {
   slug: string;
   photos: ShownPhoto[];
@@ -131,6 +137,7 @@ export function Album({
   video: VideoCaps;
   keeps: Keeps;
   slot?: AlbumSlot;
+  style: AlbumStyle;
 }) {
   const t = useTranslations("EventPage.album");
   const locale = useLocale();
@@ -218,6 +225,126 @@ export function Album({
     }
   };
 
+  const captioned = style !== "grid";
+  // One item's tile, the same in every style: its thumbnail, which opens the viewer, with a video's
+  // length or the Live mark and the slot's node; or a video still processing; and under it what
+  // waits for a host. `className` is the style's, for the tile's place and size.
+  const tile = (photo: ShownPhoto, className?: string) => {
+    const at = opening.indexOf(photo as Openable);
+    const n = at + 1;
+    return (
+      <li key={photo.id} data-item={photo.kind} data-state={photo.kind === "video" ? photo.state : "ready"} className={cn("flex flex-col gap-1", className)}>
+        {openable(photo) ? (
+          // The slot's node sits beside the thumbnail's button, never inside it: it may hold
+          // a button of its own.
+          <div className="relative">
+            <button
+              id={`album-item-${photo.id}`}
+              ref={(button) => {
+                if (button) thumbnails.current.set(photo.id, button);
+                else thumbnails.current.delete(photo.id);
+              }}
+              type="button"
+              onClick={() => {
+                last.current = photo.id;
+                setOpen(photo.id);
+              }}
+              className="relative block aspect-square w-full cursor-pointer overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
+            >
+              {/* Its id names the item alone, without a video's length or the Live mark,
+                  for what a slot labels by it (M8 ticket 12). */}
+              {/* eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized */}
+              <img id={`album-item-${photo.id}-label`} src={photo.thumb} alt={label(photo, n)} loading="lazy" className="size-full object-cover" />
+              {photo.kind === "video" && (
+                <span className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 text-[11px] font-medium text-white">
+                  <Film className="size-3" aria-hidden />
+                  {clockTime(photo.durationMs)}
+                </span>
+              )}
+              {/* A live photo's mark is inside the tile's button, never a button of its own. */}
+              {isLive(photo) && (
+                <span data-slot="live-mark" className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 text-[11px] font-medium text-white">
+                  <CircleDot className="size-3" aria-hidden />
+                  {t("live")}
+                </span>
+              )}
+            </button>
+            {slot?.tile[photo.id]}
+          </div>
+        ) : (
+          // A video still processing, or one that could not be: its uploader and the hosts
+          // see it, nobody else (album/visibility.ts). No pulse: nothing here moves.
+          <div
+            role={photo.state === "processing" ? "status" : undefined}
+            className="flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-xl bg-theme-glass-strong px-2 text-center text-xs text-theme-text-muted"
+          >
+            <Film className="size-6" aria-hidden />
+            {photo.state === "processing" ? t("processing") : photo.failure === "tooLong" ? t("failedTooLong", { max: formatMinutes(video.maxMs / 60_000, locale) }) : t("failed")}
+          </div>
+        )}
+        {/* A mosaic and a strip write a caption under its picture, on one line (M8 ticket 30); the
+            grid, whose tiles are a third of a phone's width, writes none (ticket 09). It is
+            already in the item's name, so it is not read twice. */}
+        {captioned && photo.caption && (
+          <p data-slot="caption" aria-hidden className="truncate text-xs text-theme-text-muted">
+            {photo.caption}
+          </p>
+        )}
+        {photo.pending && <p className="text-xs text-theme-text-muted">{t("pending")}</p>}
+        {/* Remove, Approve and Delete are for the hosts and the uploader, who always have
+            the name (M8 ticket 11). */}
+        {!openable(photo) && photo.deletable && photo.name !== null && (
+          <DeletePhoto slug={slug} id={photo.id} focusOnceDeleted={() => document.getElementById(ALBUM_HEADING)?.focus()}>
+            <button
+              type="button"
+              aria-label={t("removeVideo", { name: photo.name })}
+              className="inline-flex h-9 cursor-pointer items-center gap-1.5 self-start rounded-full bg-theme-glass-strong px-3 text-xs font-medium hover:bg-theme-glass focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
+            >
+              <Trash2 className="size-4" aria-hidden />
+              {t("remove")}
+            </button>
+          </DeletePhoto>
+        )}
+        {photo.approvable && photo.name !== null && (
+          // Two round buttons in one row, which fit the narrowest column (the Thread's, about
+          // 80px at a phone's width): Approve, in the accent, and Delete. Approve has no word
+          // of its own, so its name is its tooltip too, and while it approves it is dimmed and
+          // busy (M6 ticket 10).
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              aria-label={t("approvePhoto", { n, name: photo.name })}
+              title={t("approvePhoto", { n, name: photo.name })}
+              disabled={approving.has(photo.id)}
+              aria-busy={approving.has(photo.id)}
+              onClick={() =>
+                // The controls go once it is approved; the focus stays with its item.
+                approve(photo.id, () => thumbnails.current.get(photo.id)?.focus())
+              }
+              className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-theme-accent text-theme-on-accent hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text disabled:cursor-wait disabled:opacity-50"
+            >
+              <Check className="size-4" aria-hidden />
+            </button>
+            <DeletePhoto
+              slug={slug}
+              id={photo.id}
+              // The thumbnail goes with it.
+              focusOnceDeleted={() => document.getElementById(ALBUM_HEADING)?.focus()}
+            >
+              <button
+                type="button"
+                aria-label={t("deletePhoto", { n, name: photo.name })}
+                className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-theme-glass-strong hover:bg-theme-glass focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
+              >
+                <Trash2 className="size-4" aria-hidden />
+              </button>
+            </DeletePhoto>
+          </div>
+        )}
+      </li>
+    );
+  };
+
   return (
     <div className="flex flex-col gap-4">
       {slot?.head}
@@ -225,115 +352,11 @@ export function Album({
       {photos.length === 0 ? (
         <p className="text-sm text-theme-text-muted">{t("empty")}</p>
       ) : (
-        <ul className="grid grid-cols-3 gap-1.5">
-          {photos.map((photo) => {
-            const at = opening.indexOf(photo as Openable);
-            const n = at + 1;
-            return (
-              <li key={photo.id} data-item={photo.kind} data-state={photo.kind === "video" ? photo.state : "ready"} className="flex flex-col gap-1">
-                {openable(photo) ? (
-                  // The slot's node sits beside the thumbnail's button, never inside it: it may hold
-                  // a button of its own.
-                  <div className="relative">
-                    <button
-                      id={`album-item-${photo.id}`}
-                      ref={(button) => {
-                        if (button) thumbnails.current.set(photo.id, button);
-                        else thumbnails.current.delete(photo.id);
-                      }}
-                      type="button"
-                      onClick={() => {
-                        last.current = photo.id;
-                        setOpen(photo.id);
-                      }}
-                      className="relative block aspect-square w-full cursor-pointer overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
-                    >
-                      {/* Its id names the item alone, without a video's length or the Live mark,
-                          for what a slot labels by it (M8 ticket 12). */}
-                      {/* eslint-disable-next-line @next/next/no-img-element -- served whole from the uploads route, already sized */}
-                      <img id={`album-item-${photo.id}-label`} src={photo.thumb} alt={label(photo, n)} loading="lazy" className="size-full object-cover" />
-                      {photo.kind === "video" && (
-                        <span className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 text-[11px] font-medium text-white">
-                          <Film className="size-3" aria-hidden />
-                          {clockTime(photo.durationMs)}
-                        </span>
-                      )}
-                      {/* A live photo's mark is inside the tile's button, never a button of its own. */}
-                      {isLive(photo) && (
-                        <span data-slot="live-mark" className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 text-[11px] font-medium text-white">
-                          <CircleDot className="size-3" aria-hidden />
-                          {t("live")}
-                        </span>
-                      )}
-                    </button>
-                    {slot?.tile[photo.id]}
-                  </div>
-                ) : (
-                  // A video still processing, or one that could not be: its uploader and the hosts
-                  // see it, nobody else (album/visibility.ts). No pulse: nothing here moves.
-                  <div
-                    role={photo.state === "processing" ? "status" : undefined}
-                    className="flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-xl bg-theme-glass-strong px-2 text-center text-xs text-theme-text-muted"
-                  >
-                    <Film className="size-6" aria-hidden />
-                    {photo.state === "processing" ? t("processing") : photo.failure === "tooLong" ? t("failedTooLong", { max: formatMinutes(video.maxMs / 60_000, locale) }) : t("failed")}
-                  </div>
-                )}
-                {photo.pending && <p className="text-xs text-theme-text-muted">{t("pending")}</p>}
-                {/* Remove, Approve and Delete are for the hosts and the uploader, who always have
-                    the name (M8 ticket 11). */}
-                {!openable(photo) && photo.deletable && photo.name !== null && (
-                  <DeletePhoto slug={slug} id={photo.id} focusOnceDeleted={() => document.getElementById(ALBUM_HEADING)?.focus()}>
-                    <button
-                      type="button"
-                      aria-label={t("removeVideo", { name: photo.name })}
-                      className="inline-flex h-9 cursor-pointer items-center gap-1.5 self-start rounded-full bg-theme-glass-strong px-3 text-xs font-medium hover:bg-theme-glass focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
-                    >
-                      <Trash2 className="size-4" aria-hidden />
-                      {t("remove")}
-                    </button>
-                  </DeletePhoto>
-                )}
-                {photo.approvable && photo.name !== null && (
-                  // Two round buttons in one row, which fit the narrowest column (the Thread's, about
-                  // 80px at a phone's width): Approve, in the accent, and Delete. Approve has no word
-                  // of its own, so its name is its tooltip too, and while it approves it is dimmed and
-                  // busy (M6 ticket 10).
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      aria-label={t("approvePhoto", { n, name: photo.name })}
-                      title={t("approvePhoto", { n, name: photo.name })}
-                      disabled={approving.has(photo.id)}
-                      aria-busy={approving.has(photo.id)}
-                      onClick={() =>
-                        // The controls go once it is approved; the focus stays with its item.
-                        approve(photo.id, () => thumbnails.current.get(photo.id)?.focus())
-                      }
-                      className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-theme-accent text-theme-on-accent hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text disabled:cursor-wait disabled:opacity-50"
-                    >
-                      <Check className="size-4" aria-hidden />
-                    </button>
-                    <DeletePhoto
-                      slug={slug}
-                      id={photo.id}
-                      // The thumbnail goes with it.
-                      focusOnceDeleted={() => document.getElementById(ALBUM_HEADING)?.focus()}
-                    >
-                      <button
-                        type="button"
-                        aria-label={t("deletePhoto", { n, name: photo.name })}
-                        className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-theme-glass-strong hover:bg-theme-glass focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
-                      >
-                        <Trash2 className="size-4" aria-hidden />
-                      </button>
-                    </DeletePhoto>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <AlbumItems style={style} label={t("strip")}>
+          {photos.map((photo, index) =>
+            tile(photo, style === "mosaic" && index === 0 ? "col-span-2 row-span-2" : style === "strip" ? "w-40 shrink-0 snap-start" : undefined),
+          )}
+        </AlbumItems>
       )}
 
       <div className="flex flex-col gap-1.5">
@@ -431,6 +454,32 @@ export function Album({
         }}
       />
     </div>
+  );
+}
+
+// The items in the album's style, each tile placed and sized by the style. A strip is a region of
+// its own, which the keyboard reaches and scrolls with the arrows and a finger swipes: the
+// browser's own scrolling, smooth only where motion is welcome, each tile snapping to its start.
+// Its padding leaves room for a thumbnail's focus ring inside the scroller.
+function AlbumItems({ style, label, children }: { style: AlbumStyle; label: string; children: ReactNode }) {
+  if (style === "strip") {
+    return (
+      <div
+        role="region"
+        tabIndex={0}
+        aria-label={label}
+        className="-m-1 snap-x snap-mandatory scroll-px-1 overflow-x-auto p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text motion-safe:scroll-smooth"
+      >
+        <ul data-style="strip" className="flex gap-1.5">
+          {children}
+        </ul>
+      </div>
+    );
+  }
+  return (
+    <ul data-style={style} className="grid grid-cols-3 gap-1.5">
+      {children}
+    </ul>
   );
 }
 

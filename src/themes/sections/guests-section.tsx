@@ -9,6 +9,7 @@ import type { SectionDrawing } from "@/sections";
 import { BroadsheetGuestList } from "../broadsheet-guest-list";
 import { initialsOf } from "../poster-parts";
 import type { SectionPage } from "./drawings";
+import { GuestAvatars } from "./guest-avatars";
 
 // Who's coming as this viewer may see it (rsvps/visibility.ts), worked out by the page: absent when
 // the host hides the list, locked to a guest who has not replied or whose reply waits for the
@@ -74,9 +75,19 @@ async function WhoIsComing({ view, guests, counts, you, approval }: GuestListSho
 // heads it; the count beside a collapsed heading is how many people are expected, Going and their
 // plus-ones, the headcount the page gives wherever it shows the list (ticket 27's review), and not
 // how many replied. It is there whenever the list is, a list of only Maybes reading "nobody yet".
+// In the host's other style, avatars, every layout draws the same circles while the list is open
+// to this viewer; locked, it is the layout's own promise of names, whatever the style (ticket 30).
 export const guestsDrawing: SectionDrawing<GuestListShown, SectionPage> = {
   load: async ({ guestList }) => guestList,
   shown: (list) => ({ count: list.view === "open" ? list.counts.headcount : null, locked: list.view === "locked" }),
-  body: (list, layout) =>
-    layout === "broadsheet" ? <BroadsheetGuestList {...list} /> : layout === "thread" ? <WhoIsComing {...list} /> : <GuestList {...list} />,
+  body: (list, layout, placed) =>
+    list.view === "open" && placed.section.kind === "guests" && placed.section.style === "avatars" ? (
+      <GuestAvatars guests={list.guests} counts={list.counts} you={list.you} />
+    ) : layout === "broadsheet" ? (
+      <BroadsheetGuestList {...list} />
+    ) : layout === "thread" ? (
+      <WhoIsComing {...list} />
+    ) : (
+      <GuestList {...list} />
+    ),
 };

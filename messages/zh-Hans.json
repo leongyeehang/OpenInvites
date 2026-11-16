@@ -1071,6 +1071,7 @@
       "originalUnplayable": "原片：此浏览器无法播放。",
       "unplayable": "此浏览器无法播放这段视频，请下载后观看。",
       "live": "实况",
+      "strip": "照片和视频，左右滑动查看",
       "playLive": "播放实况照片",
       "livePhotoNote": "在 iPhone 上，实况照片会作为照片添加。若要保留其动态，请在“照片”中对它选择“存储为视频”，再添加该视频。",
       "livePhotoNoteNoVideos": "在 iPhone 上，实况照片会作为照片添加，不含其动态。",
@@ -1396,6 +1397,16 @@
       "headingHint": "留空则保留“{name}”。",
       "collapsed": "折叠",
       "collapsedHint": "宾客会看到标题和其中有多少内容，轻点即可展开。",
+      "style": "样式",
+      "styles": {
+        "grid": "网格",
+        "mosaic": "拼贴",
+        "strip": "横排",
+        "list": "列表",
+        "bubbles": "气泡",
+        "names": "名字",
+        "avatars": "头像"
+      },
       "kinds": {
         "letter": "专属信件",
         "details": "详情",

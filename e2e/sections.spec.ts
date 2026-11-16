@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
 import {
@@ -11,6 +12,7 @@ import {
   openMore,
   openSettings,
   savedAfter,
+  saveStatus,
   sectionOrder,
   setGuestList,
   setSchedule,
@@ -18,6 +20,7 @@ import {
   writeLink,
   writeNote,
 } from "./events";
+import { tabTo } from "./focus";
 import { closeReply, rsvpSheet } from "./reply";
 import { clientAddress, expect, test, type Browser, type APIRequestContext, type Locator, type Page } from "./test";
 
@@ -818,6 +821,7 @@ test("Links to a registry and a playlist", async ({ browser, request }) => {
   await registry.getByRole("button", { name: "Add a link" }).click();
   await registry.getByRole("textbox", { name: "Label of link 3", exact: true }).fill("Bad");
   await registry.getByRole("textbox", { name: "Address of link 3", exact: true }).fill("javascript:alert(1)");
+  await registry.getByRole("textbox", { name: "Address of link 3", exact: true }).blur();
   await expect(registry.getByRole("alert")).toHaveText("Links start with http:// or https://.");
   await guest.reload();
   await expect(links(guest).getByRole("link")).toHaveCount(2);
@@ -975,4 +979,339 @@ test("the Links sheet with three rows has no serious accessibility problems", as
   await expect(registry.getByRole("listitem")).toHaveCount(3);
   await expectNoSeriousViolations(host.page, "the Links sheet, three rows");
   await host.context.close();
+});
+
+// M8 ticket 30: a row in Arrange that offers styles opens to them as swatches. The Album is a grid
+// (as it always was), a mosaic or a strip; the Comments a list or chat bubbles; Who's coming names
+// (each layout's own) or avatars. Every style keeps what an album item carries, and the editor's
+// placeholders show the style chosen.
+
+const STARTED = { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" };
+// Ticket 08's motion photo, whose motion waits its turn in the queue behind every video the other
+// specs keep sending (album-live.spec.ts).
+const MOTION_PHOTO = "e2e/fixtures/motion-photo.jpg";
+const MOTION_MS = 150_000;
+
+const jpeg = async (name: string, background: string) => ({
+  name,
+  mimeType: "image/jpeg",
+  buffer: await sharp({ create: { width: 1200, height: 900, channels: 3, background } }).jpeg().toBuffer(),
+});
+
+const tilesOf = (page: Page) => section(page, "album").locator("li[data-item]");
+
+// Items added in one ask (the test profile takes three a minute per address), until the album
+// shows `count` of them.
+async function addPhotos(page: Page, files: { name: string; mimeType: string; buffer: Buffer }[], count: number) {
+  await section(page, "album").getByLabel(/^Add photos/).setInputFiles(files);
+  await expect(tilesOf(page)).toHaveCount(count, { timeout: 20_000 });
+}
+
+// A style chosen in a row's open row in Arrange, which is open, and saved.
+async function pickStyle(page: Page, sheet: Locator, row: string, style: string) {
+  await openRow(sheet, row);
+  const swatch = sheet.getByRole("radiogroup", { name: "Style" }).getByRole("radio", { name: style, exact: true });
+  await savedAfter(page, () => swatch.click());
+  await expect(swatch).toHaveAttribute("aria-checked", "true");
+}
+
+// The same, from the editor's toolbar, the sheet closed again.
+async function chooseStyle(page: Page, row: string, style: string) {
+  const sheet = await openArrange(page);
+  await pickStyle(page, sheet, row, style);
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+}
+
+// Each tile still carries what its item does: the Live mark on the live photo, the caption on the
+// captioned one, and the third opens the viewer on its own picture.
+async function expectTilesCarry(page: Page) {
+  const tiles = tilesOf(page);
+  await expect(tiles).toHaveCount(3);
+  await expect(tiles.locator('[data-slot="live-mark"]')).toHaveText("Live");
+  await expect(tiles.locator('[data-slot="caption"]')).toHaveText("Sunset over the lake");
+  const third = tiles.nth(2).locator('button[id^="album-item-"]');
+  const name = (await third.locator("img").getAttribute("alt"))!;
+  await third.click();
+  const viewer = page.getByRole("dialog", { name: "Photo 3 of 3" });
+  await expect(viewer.getByRole("img", { name, exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+}
+
+test("the album as a mosaic and a strip", async ({ browser, request }) => {
+  test.setTimeout(MOTION_MS + 180_000);
+  const host = await createPublished(browser, request, "sections-album-styles", STARTED);
+  const mei = await guestGoing(browser, host.link, "Mei Nakamura");
+  await addPhotos(mei, [await jpeg("lake.jpg", "#d07a3a"), { name: "motion-photo.jpg", mimeType: "image/jpeg", buffer: readFileSync(MOTION_PHOTO) }, await jpeg("garden.jpg", "#2f6b3a")], 3);
+  // A caption given in the viewer, through Add a caption (ticket 09).
+  await tilesOf(mei).nth(1).locator('button[id^="album-item-"]').click();
+  const viewer = mei.getByRole("dialog", { name: "Photo 2 of 3" });
+  await viewer.getByRole("button", { name: "Add a caption" }).click();
+  await viewer.getByLabel("Caption", { exact: true }).fill("Sunset over the lake");
+  await viewer.getByRole("button", { name: "Save" }).click();
+  await expect(viewer.locator('[data-slot="caption"]')).toHaveText("Sunset over the lake");
+  await mei.keyboard.press("Escape");
+  await expect(tilesOf(mei).locator('[data-slot="live-mark"]')).toHaveText("Live", { timeout: MOTION_MS });
+
+  // A grid, as it always was, draws no caption under its tiles (ticket 09).
+  await expect(section(mei, "album").locator('ul[data-style="grid"]')).toBeVisible();
+  await expect(tilesOf(mei).locator('[data-slot="caption"]')).toHaveCount(0);
+
+  // A mosaic: the first item two columns wide.
+  await chooseStyle(host.page, "Album", "Mosaic");
+  await mei.reload();
+  await expect(section(mei, "album").locator('ul[data-style="mosaic"]')).toBeVisible();
+  const [first, second] = [await tilesOf(mei).nth(0).boundingBox(), await tilesOf(mei).nth(1).boundingBox()];
+  expect(first!.width / second!.width).toBeGreaterThan(1.9);
+  expect(first!.width / second!.width).toBeLessThan(2.2);
+  await expectTilesCarry(mei);
+
+  // A strip: one row, a region of its own that Tab reaches and ArrowRight scrolls.
+  await chooseStyle(host.page, "Album", "Strip");
+  await mei.reload();
+  const strip = section(mei, "album").getByRole("region", { name: "Photos and videos, scrolling sideways" });
+  await expect(strip.locator('ul[data-style="strip"]')).toBeVisible();
+  const tops = await tilesOf(mei).evaluateAll((tiles) => tiles.map((tile) => Math.round(tile.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBe(1);
+  await tabTo(mei, strip);
+  expect(await strip.evaluate((region) => region.scrollLeft)).toBe(0);
+  await mei.keyboard.press("ArrowRight");
+  await expect.poll(() => strip.evaluate((region) => region.scrollLeft)).toBeGreaterThan(0);
+  await expectTilesCarry(mei);
+  await Promise.all([host.context.close(), mei.context().close()]);
+});
+
+test("the vote control in every style", async ({ browser, request }) => {
+  test.setTimeout(180_000);
+  const host = await createPublished(browser, request, "sections-album-vote", STARTED);
+  const block = (await openSettings(host.page)).locator('[data-slot="voting-block"]');
+  await savedAfter(host.page, () => block.getByRole("button", { name: "Start voting", exact: true }).click());
+  await expect(block).toHaveAttribute("data-state", "open");
+  await host.page.keyboard.press("Escape");
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await addPhotos(priya, [await jpeg("lake.jpg", "#d07a3a"), await jpeg("garden.jpg", "#2f6b3a")], 2);
+  const mei = await guestGoing(browser, host.link, "Mei Nakamura");
+
+  for (const style of ["Grid", "Mosaic", "Strip"] as const) {
+    if (style !== "Grid") await chooseStyle(host.page, "Album", style);
+    await mei.reload();
+    await expect(section(mei, "album").locator(`ul[data-style="${style.toLowerCase()}"]`)).toBeVisible();
+    for (const tile of await tilesOf(mei).all()) await expect(tile.locator('[data-slot="vote-star"]')).toHaveCount(1);
+  }
+  // Pressed in the strip, it gives the vote, which a fresh page still shows.
+  const star = tilesOf(mei).first().locator('[data-slot="vote-star"]');
+  const answered = mei.waitForResponse((response) => response.request().method() === "POST" && response.request().headers()["next-action"] !== undefined);
+  await star.click();
+  await answered;
+  await expect(star).toHaveAttribute("aria-pressed", "true");
+  await mei.reload();
+  await expect(tilesOf(mei).first().locator('[data-slot="vote-star"]')).toHaveAttribute("aria-pressed", "true");
+  await Promise.all([host.context.close(), priya.context().close(), mei.context().close()]);
+});
+
+test("comments as bubbles", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "sections-bubbles", { ...EVENT, plusOnes: "0" });
+  const editor = host.page.url();
+  await chooseStyle(host.page, "Comments", "Bubbles");
+  await host.page.goto(host.link);
+  await postComment(host.page, "Welcome, all!");
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await postComment(priya, "See you there!");
+
+  const list = section(priya, "comments").locator('ol[data-style="bubbles"]');
+  await expect(list.getByRole("listitem")).toHaveCount(2);
+  const bubbleOf = (text: string) => list.getByRole("listitem").filter({ hasText: text }).locator('[data-slot="comment-bubble"]');
+  const hosts = (await bubbleOf("Welcome, all!").boundingBox())!;
+  const guests = (await bubbleOf("See you there!").boundingBox())!;
+  expect(hosts.x).toBeGreaterThan(guests.x);
+  expect(hosts.x + hosts.width).toBeGreaterThan(guests.x + guests.width);
+
+  // A reaction still toggles.
+  const mine = list.getByRole("listitem").filter({ hasText: "Welcome, all!" });
+  await mine.getByRole("button", { name: "Add a reaction" }).click();
+  await priya.getByRole("group", { name: "React with" }).getByRole("button", { name: "Party" }).click();
+  const party = mine.getByRole("button", { name: /^Party, / });
+  await expect(party).toHaveAttribute("aria-pressed", "true", { timeout: 15_000 });
+  await party.click();
+  await expect(mine.getByRole("button", { name: /^Party, / })).toHaveCount(0, { timeout: 15_000 });
+
+  // Delete still asks first.
+  await list.getByRole("listitem").filter({ hasText: "See you there!" }).getByRole("button", { name: "Delete" }).click();
+  const confirm = priya.getByRole("alertdialog");
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole("button", { name: "Never mind" }).click();
+  await expect(bubbleOf("See you there!")).toBeVisible();
+  await host.page.goto(editor);
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+test("Who's coming as avatars", async ({ browser, request }) => {
+  test.setTimeout(180_000);
+  const host = await createPublished(browser, request, "sections-avatars", { ...EVENT, plusOnes: "0" });
+  const mei = await guestGoing(browser, host.link, "Mei Nakamura");
+  await chooseStyle(host.page, "Who’s coming", "Avatars");
+  // A visitor under "Guests who have replied" sees the locked pile, as before, and no name.
+  const stranger = await visitor(browser, host.link);
+  await expect(section(stranger, "guests")).toContainText("RSVP to see who’s coming");
+  await expect(section(stranger, "guests").locator('[data-style="avatars"]')).toHaveCount(0);
+  expect(await stranger.content()).not.toContain("Nakamura");
+
+  for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
+    if (layout !== "Poster") await chooseLayout(host.page, host.link, layout);
+    await mei.reload();
+    await expect(mei.locator("[data-layout]")).toHaveAttribute("data-layout", layout.toLowerCase());
+    const avatars = mei.locator('[data-section="guests"] [data-style="avatars"]');
+    await expect(avatars.locator('[data-slot="avatar"]')).toHaveText("MN");
+    await expect(avatars.getByText("Mei", { exact: true })).toBeVisible();
+    await expect(avatars).toContainText("Going");
+  }
+  await Promise.all([host.context.close(), mei.context().close(), stranger.context().close()]);
+});
+
+test("the open row's swatches, and the placeholder that shows the style", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "sections-swatches", EVENT);
+  const sheet = await openArrange(host.page);
+  await openRow(sheet, "Album");
+  const styles = sheet.getByRole("radiogroup", { name: "Style" });
+  await expect(styles.getByRole("radio")).toHaveText(["Grid", "Mosaic", "Strip"]);
+  await expect(styles.getByRole("radio", { name: "Grid" })).toHaveAttribute("aria-checked", "true");
+  await expectNoSeriousViolations(host.page, "the Arrange sheet, the Album's styles");
+  await pickStyle(host.page, sheet, "Album", "Strip");
+  await host.page.keyboard.press("Escape");
+  const preview = section(host.page, "album").locator('[data-slot="style-preview"]');
+  await expect(preview).toHaveText("Strip");
+  await expect(preview.locator('svg[data-glyph="strip"]')).toBeVisible();
+  // The other placeholders show theirs, unchanged.
+  await expect(section(host.page, "comments").locator('[data-slot="style-preview"]')).toHaveText("List");
+  await host.context.close();
+});
+
+// A started event whose album holds two photos, with a comment by the host and one by a guest,
+// drawn in a mosaic, bubbles and avatars, in a layout; Mei, the guest, is going. She replies on the
+// Poster, and the layout is chosen after.
+async function everyStyle(browser: Browser, request: APIRequestContext, label: string, layout: "Poster" | "Broadsheet" | "Thread") {
+  const host = await createPublished(browser, request, label, STARTED);
+  const editor = host.page.url();
+  const mei = await guestGoing(browser, host.link, "Mei Nakamura");
+  await addPhotos(mei, [await jpeg("lake.jpg", "#d07a3a"), await jpeg("garden.jpg", "#2f6b3a")], 2);
+  await postComment(mei, "See you there!");
+  await host.page.goto(host.link);
+  await postComment(host.page, "Welcome, all!");
+  await host.page.goto(editor);
+  const sheet = await openArrange(host.page);
+  await pickStyle(host.page, sheet, "Album", "Mosaic");
+  await pickStyle(host.page, sheet, "Comments", "Bubbles");
+  await pickStyle(host.page, sheet, "Who’s coming", "Avatars");
+  await host.page.keyboard.press("Escape");
+  if (layout !== "Poster") await chooseLayout(host.page, host.link, layout);
+  return { host, mei };
+}
+
+// The Thread folds its comments away; they are opened to be read.
+async function shown(page: Page) {
+  await page.reload();
+  const folded = page.locator('details[data-slot="comments"]:not([open]) summary');
+  if (await folded.count()) await folded.click();
+  await expect(page.locator('ol[data-style="bubbles"]')).toBeVisible();
+}
+
+for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
+  test(`every style in the ${layout} has no serious accessibility problems`, async ({ browser, request }) => {
+    test.setTimeout(180_000);
+    const { host, mei } = await everyStyle(browser, request, `sections-axe-styles-${layout.toLowerCase()}`, layout);
+    await shown(mei);
+    await expect(mei.locator("[data-layout]")).toHaveAttribute("data-layout", layout.toLowerCase());
+    await expect(mei.locator('ul[data-style="mosaic"]')).toBeVisible();
+    await expect(mei.locator('[data-style="avatars"]')).toBeVisible();
+    await expectNoSeriousViolations(mei, `the ${layout}: a mosaic, bubbles and avatars`);
+    await chooseStyle(host.page, "Album", "Strip");
+    await shown(mei);
+    await expect(mei.locator('ul[data-style="strip"]')).toBeVisible();
+    await expectNoSeriousViolations(mei, `the ${layout}: a strip`);
+    await Promise.all([host.context.close(), mei.context().close()]);
+  });
+}
+
+// From ticket 29's review: a section just added waits for the server's key before anything else
+// is sent about it. Its add is held back by hand; meanwhile its Move up and its switch do nothing.
+test("a section just added waits for its add", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "sections-pending", EVENT);
+  const page = host.page;
+  const path = new URL(page.url()).pathname;
+  let held = false;
+  let release = () => {};
+  const released = new Promise<void>((resolve) => (release = resolve));
+  await page.route(
+    (url) => url.pathname === path,
+    async (route) => {
+      if (route.request().method() === "POST" && route.request().postData()?.includes('"addNote"')) {
+        held = true;
+        await released;
+      }
+      await route.continue();
+    },
+  );
+  const sheet = await openArrange(page);
+  await sheet.getByRole("button", { name: "Dress code", exact: true }).click();
+  await expect.poll(() => held).toBe(true);
+  const up = sheet.getByRole("button", { name: "Move Dress code up" });
+  await expect(up).toHaveAttribute("aria-disabled", "true");
+  await up.focus();
+  await page.keyboard.press("Enter");
+  const on = sheet.getByRole("switch", { name: "Dress code" });
+  await expect(on).toHaveAttribute("aria-disabled", "true");
+  await on.focus();
+  await page.keyboard.press("Space");
+  await expect(on).toBeChecked();
+  expect((await rowNames(sheet)).at(-1)).toBe("Dress code");
+
+  release();
+  await expect(page.getByRole("dialog", { name: "Dress code" })).toBeVisible({ timeout: 15_000 });
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("alert")).toHaveCount(0);
+  await expect(saveStatus(page)).toHaveAttribute("data-status", "saved");
+  expect((await rowNames(sheet)).at(-1)).toBe("Dress code");
+  await expect(sheet.getByRole("button", { name: "Move Dress code up" })).not.toHaveAttribute("aria-disabled", "true");
+  await expect(sheet.getByRole("switch", { name: "Dress code" })).toBeChecked();
+  await host.context.close();
+});
+
+// From ticket 29's review: a link's address is sent once its field is left, never half-typed on a
+// pause; its label is counted by character, as a heading is.
+test("a link's address is sent once its field is left", async ({ browser, request }) => {
+  test.setTimeout(180_000);
+  const host = await createPublished(browser, request, "sections-link-address", EVENT);
+  const registry = await addSection(host.page, "Registry");
+  await registry.getByRole("button", { name: "Add a link" }).click();
+  const label = registry.getByRole("textbox", { name: "Label of link 1", exact: true });
+  await label.fill("🎉".repeat(41));
+  await expect(label).toHaveValue("🎉".repeat(40));
+  await label.fill("");
+  await writeLink(host.page, registry, 2, "Songs", "example.org/songs");
+  await registry.getByRole("button", { name: "Remove Label of link 1" }).click();
+  await expect(registry.getByRole("listitem")).toHaveCount(1);
+
+  // Its address half-typed while the label changes: the label is saved, the address is not.
+  const address = registry.getByRole("textbox", { name: "Address of link 1", exact: true });
+  await savedAfter(host.page, async () => {
+    await label.fill("Our songs");
+    await address.fill("ht");
+  });
+  await expect(address).toBeFocused();
+  await expect(registry.getByRole("alert")).toHaveCount(0);
+  const guest = await visitor(browser, host.link);
+  await expect(links(guest).getByRole("link", { name: /^Our songs/ })).toHaveAttribute("href", "https://example.org/songs");
+  await expect(links(guest).locator('a[href^="https://ht"]')).toHaveCount(0);
+
+  // Finished and left with Tab, it is.
+  await address.fill("https://example.org/playlist");
+  await savedAfter(host.page, () => address.press("Tab"));
+  await guest.reload();
+  await expect(links(guest).getByRole("link", { name: /^Our songs/ })).toHaveAttribute("href", "https://example.org/playlist");
+  await Promise.all([host.context.close(), guest.context().close()]);
 });

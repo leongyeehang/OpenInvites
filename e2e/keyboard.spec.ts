@@ -477,7 +477,9 @@ test("a host adds Links, moves one and removes another, by keyboard alone", asyn
     await page.keyboard.type(label);
     await page.keyboard.press("Tab");
     await expect(sheet.getByRole("textbox", { name: `Address of link ${n}`, exact: true })).toBeFocused();
-    await savedAfter(page, () => page.keyboard.type(url));
+    // An address is sent once its field is left (ticket 29's review).
+    await page.keyboard.type(url);
+    await savedAfter(page, () => page.keyboard.press("Tab"));
   }
 
   const up = sheet.getByRole("button", { name: "Move Songs up" });
@@ -1046,4 +1048,38 @@ test("the album vote by keyboard alone: the host's Voting block, a guest's stars
   await expect(confirm).toBeHidden();
   await expect(block).toHaveAttribute("data-state", "off");
   await Promise.all([guest.context().close(), host.context.close()]);
+});
+
+// M8 ticket 30: a row's styles are a radio group of swatches: Tab reaches the style chosen, and an
+// arrow moves to the next and chooses it, wrapping at the ends.
+test("a host chooses the album's style in Arrange by its swatches' arrows", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-styles", EVENT);
+  const page = host.page;
+  await tabTo(page, page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Arrange" }));
+  await page.keyboard.press("Enter");
+  const sheet = page.getByRole("dialog", { name: "Arrange" });
+  await expect(sheet.getByRole("heading", { name: "Arrange" })).toBeFocused();
+  const options = sheet.getByRole("button", { name: "Options for Album" });
+  await tabTo(page, options);
+  await page.keyboard.press("Enter");
+  await expect(options).toHaveAttribute("aria-expanded", "true");
+
+  const styles = sheet.getByRole("radiogroup", { name: "Style" });
+  await tabTo(page, styles.getByRole("radio", { name: "Grid" }));
+  for (const [key, style] of [
+    ["ArrowRight", "Mosaic"],
+    ["ArrowRight", "Strip"],
+    ["ArrowRight", "Grid"],
+    ["ArrowLeft", "Strip"],
+  ] as const) {
+    await savedAfter(page, () => page.keyboard.press(key));
+    const radio = styles.getByRole("radio", { name: style });
+    await expect(radio).toBeFocused();
+    await expect(radio).toHaveAttribute("aria-checked", "true");
+    await expectVisibleFocus(page);
+  }
+  await page.keyboard.press("Escape");
+  await expect(page.locator('[data-section="album"] [data-slot="style-preview"]')).toHaveText("Strip");
+  await host.context.close();
 });

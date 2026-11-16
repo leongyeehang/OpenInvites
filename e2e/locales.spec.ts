@@ -649,3 +649,24 @@ test("a host and a guest whose browsers ask for zh-TW start and read the album v
   await expect(head.getByText("這個獎項只評選照片。")).toBeVisible();
   await Promise.all([context.close(), hostContext.close(), host.context.close()]);
 });
+
+// M8 ticket 30: the styles each row of Arrange offers, named in Traditional Chinese.
+test("a host whose browser asks for zh-TW reads the sections' styles in Arrange in Traditional Chinese", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "locale-styles", { title: "Ada’s birthday", start: "2027-05-08T19:00" });
+  const context = await browser.newContext({ locale: "zh-TW", storageState: await host.context.storageState() });
+  const page = await context.newPage();
+  await page.goto(host.page.url());
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
+  await page.getByRole("navigation", { name: "設計邀請" }).getByRole("button", { name: "排列" }).click();
+  const sheet = page.getByRole("dialog", { name: "排列" });
+  for (const [row, styles] of [
+    ["相簿", ["網格", "拼貼", "橫排"]],
+    ["留言", ["清單", "氣泡"]],
+    ["誰會來", ["名字", "頭像"]],
+  ] as const) {
+    await sheet.getByRole("button", { name: `${row}的選項` }).click();
+    await expect(sheet.getByRole("radiogroup", { name: "樣式" }).getByRole("radio")).toHaveText([...styles]);
+  }
+  await Promise.all([context.close(), host.context.close()]);
+});

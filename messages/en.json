@@ -1071,6 +1071,7 @@
       "originalUnplayable": "Original: not playable in this browser.",
       "unplayable": "This browser cannot play this video. Download it to watch.",
       "live": "Live",
+      "strip": "Photos and videos, scrolling sideways",
       "playLive": "Play live photo",
       "livePhotoNote": "On an iPhone, a Live Photo is added as a photo. To keep its motion, choose Save as Video on it in Photos and add the video.",
       "livePhotoNoteNoVideos": "On an iPhone, a Live Photo is added as a photo, without its motion.",
@@ -1396,6 +1397,16 @@
       "headingHint": "Leave it empty to keep “{name}”.",
       "collapsed": "Collapsed",
       "collapsedHint": "Guests see the heading and how much it holds, and open it with a tap.",
+      "style": "Style",
+      "styles": {
+        "grid": "Grid",
+        "mosaic": "Mosaic",
+        "strip": "Strip",
+        "list": "List",
+        "bubbles": "Bubbles",
+        "names": "Names",
+        "avatars": "Avatars"
+      },
       "kinds": {
         "letter": "Personal letter",
         "details": "Details",

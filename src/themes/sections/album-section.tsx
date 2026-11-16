@@ -14,7 +14,7 @@ import { featureOn, siteFeatures } from "@/features";
 import { instanceLimits } from "@/instance/repository";
 import type { SectionDrawing } from "@/sections";
 import { albumVotingFor } from "@/voting";
-import { Album, ALBUM_HEADING, type AlbumSlot, type Keeps, type ShownPhoto } from "./album";
+import { Album, ALBUM_HEADING, type AlbumSlot, type AlbumStyle, type Keeps, type ShownPhoto } from "./album";
 import type { SectionPage } from "./drawings";
 
 export { ALBUM_HEADING } from "./album";
@@ -37,7 +37,8 @@ export type AlbumShown =
 const LOCKED = { replied: "locked", going: "lockedGoing", hosts: "lockedHosts" } as const;
 const YOURS = { going: "yoursGoing", hosts: "yoursHosts" } as const;
 
-export async function AlbumSection({ album, slug }: { album: AlbumShown; slug: string }) {
+// In the host's style (M8 ticket 30); locked, or before it opens, there is nothing to draw in one.
+export async function AlbumSection({ album, slug, style }: { album: AlbumShown; slug: string; style: AlbumStyle }) {
   const t = await getTranslations("EventPage.album");
   if (album.view === "notYet") return <p className="text-sm text-theme-text-muted">{t("opensOn", { date: album.opensOn })}</p>;
   if (album.view === "locked") {
@@ -58,11 +59,11 @@ export async function AlbumSection({ album, slug }: { album: AlbumShown; slug: s
           <h3 className="font-medium">{t("yours")}</h3>
           <p className="mt-0.5 text-sm text-theme-text-muted">{t(YOURS[album.why])}</p>
         </div>
-        <Album slug={slug} photos={album.photos} maxMegabytes={album.maxMegabytes} video={album.video} keeps={album.keeps} />
+        <Album slug={slug} photos={album.photos} maxMegabytes={album.maxMegabytes} video={album.video} keeps={album.keeps} style={style} />
       </div>
     );
   }
-  return <Album slug={slug} photos={album.photos} maxMegabytes={album.maxMegabytes} video={album.video} keeps={album.keeps} slot={album.slot} />;
+  return <Album slug={slug} photos={album.photos} maxMegabytes={album.maxMegabytes} video={album.video} keeps={album.keeps} slot={album.slot} style={style} />;
 }
 
 // What the album shows this viewer (album/album.ts, album/visibility.ts), or nothing where there is
@@ -163,7 +164,8 @@ export async function albumFor(event: EventWithHost, viewer: AlbumViewer, locale
 
 // The album as a section (M8 ticket 25), which works out its own viewer (album/viewer.ts), so that
 // nothing outside src/album newly reads the album's internals. The count beside a collapsed
-// heading is how many items it shows this viewer, or, locked, how many it holds.
+// heading is how many items it shows this viewer, or, locked, how many it holds. It is drawn in the
+// host's style, the same in every layout (ticket 30).
 export const albumDrawing: SectionDrawing<{ album: AlbumShown; slug: string }, SectionPage> = {
   load: async ({ event, locale, now }) => {
     const album = await albumFor(event, await albumViewer(event.id), locale, now);
@@ -171,5 +173,5 @@ export const albumDrawing: SectionDrawing<{ album: AlbumShown; slug: string }, S
   },
   shown: ({ album }) => ({ count: album.view === "notYet" ? null : album.view === "locked" ? album.count : album.photos.length, locked: album.view === "locked" }),
   headingId: ALBUM_HEADING,
-  body: (data) => <AlbumSection {...data} />,
+  body: (data, _layout, placed) => <AlbumSection {...data} style={placed.section.kind === "album" ? placed.section.style : "grid"} />,
 };
