@@ -639,11 +639,6 @@
         "optional": "Optional",
         "required": "Required"
       },
-      "guestListVisibility": "Who can see the guest list",
-      "guestListAlways": "Everyone who opens the link",
-      "guestListAfterReply": "Guests who have replied",
-      "guestListHidden": "Only the hosts",
-      "guestListVisibilityHint": "The hosts always see the whole list.",
       "album": {
         "title": "Album",
         "visibility": "Who can see the album",
@@ -676,8 +671,6 @@
       "notifyOnRsvp": "Email the hosts when a guest replies",
       "remindersEnabled": "Remind guests by email (a week before to Maybe, the day before to Going)",
       "askEmailHint": "Guests get email only if you ask for their email on the RSVP form.",
-      "commentsEnabled": "Comments",
-      "commentsEnabledHint": "Guests who have replied, and the hosts, can comment on the event page.",
       "notifyOnComment": "Email the hosts when a guest comments",
       "questions": "Questions",
       "questionsHint": "Asked while a guest replies. Only the hosts see their answers.",
@@ -715,7 +708,6 @@
       "plusOnesAllowedInvalid": "Choose a number of plus-ones between none and ten.",
       "capacityInvalid": "Enter a whole number from 1 to 5,000 for the capacity, or leave it empty to take everyone.",
       "contactFieldInvalid": "Choose how to ask for an email and a phone number.",
-      "guestListVisibilityInvalid": "Choose who can see the guest list.",
       "albumVisibilityInvalid": "Choose who can see the album.",
       "questionsInvalid": "Those questions could not be read. Try again.",
       "questionTypeInvalid": "Choose a kind for every question.",
@@ -1382,6 +1374,14 @@
       "moveDown": "Move {name} down",
       "position": "{name}, {position} of {count}",
       "openHint": "Opens the Arrange sheet.",
+      "open": "Options for {name}",
+      "audience": "Who sees it",
+      "audienceAlways": "Everyone with the link",
+      "audienceAfterReply": "Guests who have replied",
+      "audienceHint": "The hosts always see the whole list.",
+      "letterHint": "Guests you invite personally read the letter you write them on the Invites page.",
+      "albumHint": "Off, guests see no album and can’t add to it. Nothing in it is deleted.",
+      "commentsHint": "Off, guests see no comments and can’t post one.",
       "kinds": {
         "letter": "Personal letter",
         "details": "Details",
@@ -1397,7 +1397,8 @@
       "preview": {
         "letter": "Each guest you invite personally reads your letter to them here.",
         "schedule": "Your schedule, following each guest’s clock.",
-        "guests": "Who’s coming, for the guests you let see it.",
+        "guestsAlways": "Who’s coming, for everyone with the link.",
+        "guestsAfterReply": "Who’s coming, for guests who have replied.",
         "announcements": "What you send from Announcements appears here.",
         "comments": "Guests who have replied talk here.",
         "album": "Photos and videos from the event, from its start."

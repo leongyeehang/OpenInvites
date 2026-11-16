@@ -17,7 +17,6 @@ import { countVoters, dropUnvotedPoll, findOption, openPoll, pickDate } from "@/
 import { parseQuestions } from "@/questions/question";
 import { saveQuestions } from "@/questions/repository";
 import { EMPTY_RICH_TEXT, parseRichText, richTextToPlain } from "@/rich-text/rich-text";
-import { DEFAULT_GUEST_LIST_VISIBILITY } from "@/rsvps/visibility";
 import { parseArrangementChange, sectionId } from "@/sections";
 import { saveSchedule } from "@/schedule/repository";
 import { parseSchedule, parseScheduleRefresh } from "@/schedule/schedule";
@@ -39,7 +38,9 @@ export type SaveResult = { saved: true } | { saved: false; error: string; field?
 // A new event: a draft with no title and no date, the settings 0.4's form started with, and the
 // look every event starts with (themes/theme.ts), dated later in the editor, which it opens in.
 // The zone is the host's device's, which the browser posts, until the date sheet says otherwise.
-// The operator's limit on events per host applies here, as the form's did.
+// The operator's limit on events per host applies here, as the form's did. Comments and who sees
+// Who's coming, which Arrange switches (M8 ticket 26), start as the columns' defaults: on, and
+// guests who have replied.
 export async function newEventAction(_: FormState, formData: FormData): Promise<FormState> {
   const host = await requireHost();
   const t = await getTranslations("Events");
@@ -64,10 +65,8 @@ export async function newEventAction(_: FormState, formData: FormData): Promise<
     emailField: "none",
     phoneField: "none",
     verifyEmail: false,
-    guestListVisibility: DEFAULT_GUEST_LIST_VISIBILITY,
     notifyOnRsvp: true,
     remindersEnabled: true,
-    commentsEnabled: true,
     notifyOnComment: true,
     albumVisibility: "replied",
     albumApprovalRequired: false,
@@ -244,10 +243,8 @@ export async function saveSettingsAction(id: string, formData: FormData): Promis
     emailField: text("emailField"),
     phoneField: text("phoneField"),
     verifyEmail: formData.get("verifyEmail") === "on",
-    guestListVisibility: text("guestListVisibility"),
     notifyOnRsvp: formData.get("notifyOnRsvp") === "on",
     remindersEnabled: formData.get("remindersEnabled") === "on",
-    commentsEnabled: formData.get("commentsEnabled") === "on",
     notifyOnComment: formData.get("notifyOnComment") === "on",
     albumVisibility: text("albumVisibility"),
     albumApprovalRequired: formData.get("albumApprovalRequired") === "on",

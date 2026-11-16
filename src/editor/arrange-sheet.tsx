@@ -2,22 +2,36 @@
 
 import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useId, useLayoutEffect, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
 import { Switch } from "@/components/ui/switch";
 import { arrangeAction } from "@/events/editor-actions";
 import { cn } from "@/lib/utils";
-import { applyArrangementChange, REGISTRY, sheetRows, type Arrangement, type ArrangementChange, type SheetRow, type Switches } from "@/sections";
+import { applyArrangementChange, REGISTRY, sheetRows, switchesAfter, type Arrangement, type ArrangementChange, type SheetRow, type Switches } from "@/sections";
+import type { GuestListVisibility } from "@/rsvps/visibility";
 import type { Layout } from "@/themes/theme";
 import { EditorSheet } from "./sheet";
 import { useEditor } from "./status";
 
 // The Arrange sheet (M8 spec, "Arrange sheet"; ticket 25): a design sheet over a live copy of the
 // invitation, one row per section of the page in its order, each with Move up and Move down,
-// which name the section and say where it went, and an On switch where the switch is the
-// arrangement's own (the Schedule, the Announcements; ticket 26 adds the sections whose switch is
-// a column). Every press shows here at once and is saved through one action, which applies it
-// under the event's row lock; a refusal puts the list back as it was. The poster, title, host line
-// and reply buttons are fixed and are not rows. The countdown's row comes with ticket 28.
+// which name the section and say where it went, and an On switch for each section that has one:
+// the arrangement's own (the Schedule, the Announcements) or, for the Letter, Who's coming, the
+// Comments and the Album, the event's column, the one truth the server checks (ticket 26). A row
+// with more to it opens in place, one at a time: Who's coming's, while it is on, for who sees it.
+// Every press shows here at once and is saved through one action, which applies it under the
+// event's row lock; a refusal puts the list and the switches back as they were. The poster, title,
+// host line and reply buttons are fixed and are not rows. The countdown's row comes with ticket 28.
+
+// What the sheet shows: the order, and the switches that are columns.
+type Arranged = { arrangement: Arrangement; switches: Switches };
+
+// The hint under a row's name, which also describes its switch.
+const HINTS = { letter: "letterHint", comments: "commentsHint", album: "albumHint" } as const;
+
+// Whether a row opens, and so has a disclosure on its name: only Who's coming, and only while it is
+// on, since choosing who sees it switches it on (ticket 24). Ticket 28 opens every row for its
+// heading and Collapsed.
+const opens = (row: SheetRow) => row.kind === "guests" && row.on;
 
 const rowsOf = (arrangement: Arrangement, layout: Layout, switches: Switches, offered: { album: boolean }) =>
   sheetRows(arrangement, layout, switches, offered).filter((row) => row.kind !== "countdown");
@@ -41,8 +55,10 @@ export function ArrangeSheet({
   const design = useTranslations("Design");
   const { sheet, openSheet, save } = useEditor();
   const [, startSaving] = useTransition();
-  // What the host sees: the arrangement as saved, with the presses still being saved on top.
-  const [shown, show] = useOptimistic(arrangement, (_saved: Arrangement, next: Arrangement) => next);
+  // What the host sees: the arrangement and switches as saved, with the presses still being saved
+  // on top.
+  const saved = useMemo(() => ({ arrangement, switches }), [arrangement, switches]);
+  const [shown, show] = useOptimistic(saved, (_saved: Arranged, next: Arranged) => next);
   // The newest of them, which a press works from: two presses can come before the list is drawn
   // again, and the second must move from where the first left it.
   const latest = useRef(shown);
@@ -61,16 +77,20 @@ export function ArrangeSheet({
     refocus.current = null;
     if (button && document.activeElement !== button) button.focus();
   });
+  // The row open in place, by key.
+  const [openRow, setOpenRow] = useState<string | null>(null);
   const listId = useId();
 
-  const rows = rowsOf(shown, layout, switches, offered);
+  const rows = rowsOf(shown.arrangement, layout, shown.switches, offered);
   const nameOf = (row: SheetRow) => row.heading ?? t(`kinds.${row.kind}`);
 
   const send = (change: ArrangementChange) => {
-    const applied = applyArrangementChange(latest.current, layout, change);
-    if (applied.ok) latest.current = applied.arrangement;
+    const before = latest.current;
+    const applied = applyArrangementChange(before.arrangement, layout, change);
+    const next = applied.ok ? { arrangement: applied.arrangement, switches: switchesAfter(before.switches, change) } : undefined;
+    if (next) latest.current = next;
     startSaving(async () => {
-      if (applied.ok) show(applied.arrangement);
+      if (next) show(next);
       await save(async () => {
         const result = await arrangeAction(eventId, change);
         setError(result.saved ? undefined : result.error);
@@ -81,7 +101,8 @@ export function ArrangeSheet({
   };
 
   const move = (row: SheetRow, by: -1 | 1) => {
-    const current = rowsOf(latest.current, layout, switches, offered);
+    const { arrangement: from, switches: switched } = latest.current;
+    const current = rowsOf(from, layout, switched, offered);
     const at = current.findIndex((each) => each.key === row.key);
     const neighbour = current[at + by];
     // At an end the button stays where it is, focusable, and does nothing.
@@ -89,7 +110,7 @@ export function ArrangeSheet({
     const applied = send({ type: "move", key: row.key, past: neighbour.key });
     if (!applied.ok) return;
     refocus.current = `${row.key}:${by}`;
-    const after = rowsOf(applied.arrangement, layout, switches, offered);
+    const after = rowsOf(applied.arrangement, layout, switched, offered);
     say(t("position", { name: nameOf(row), position: after.findIndex((each) => each.key === row.key) + 1, count: after.length }));
   };
 
@@ -112,38 +133,79 @@ export function ArrangeSheet({
               const Icon = entry.icon;
               const name = nameOf(row);
               const nameId = `${listId}-${row.key}`;
+              const hintId = `${nameId}-hint`;
+              const panelId = `${nameId}-panel`;
+              const hint = entry.switch === "none" ? t("alwaysOn") : row.kind in HINTS ? t(HINTS[row.kind as keyof typeof HINTS]) : undefined;
+              const expanded = opens(row) && openRow === row.key;
               return (
-                <li key={row.key} className="flex items-center gap-3 rounded-2xl border bg-accent/40 py-2 pr-2 pl-3">
-                  <Icon aria-hidden className="size-4.5 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <p id={nameId} className="truncate text-sm font-medium">
-                      {name}
-                    </p>
-                    {entry.switch === "none" && <p className="text-xs text-muted-foreground">{t("alwaysOn")}</p>}
+                <li key={row.key} className="rounded-2xl border bg-accent/40">
+                  <div className="flex items-center gap-3 py-2 pr-2 pl-3">
+                    <Icon aria-hidden className="size-4.5 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      {opens(row) ? (
+                        <button
+                          type="button"
+                          aria-label={t("open", { name })}
+                          aria-expanded={expanded}
+                          aria-controls={expanded ? panelId : undefined}
+                          onClick={() => setOpenRow(expanded ? null : row.key)}
+                          className="-mx-1 flex max-w-full cursor-pointer items-center gap-1 rounded-md px-1 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+                        >
+                          <span id={nameId} className="truncate text-sm font-medium">
+                            {name}
+                          </span>
+                          <ChevronRight aria-hidden className={cn("size-4 shrink-0 text-muted-foreground", expanded && "rotate-90")} />
+                        </button>
+                      ) : (
+                        <p id={nameId} className="truncate text-sm font-medium">
+                          {name}
+                        </p>
+                      )}
+                      {hint && (
+                        <p id={hintId} className="text-xs text-muted-foreground">
+                          {hint}
+                        </p>
+                      )}
+                    </div>
+                    {entry.switch !== "none" && (
+                      <Switch
+                        aria-labelledby={nameId}
+                        aria-describedby={hint ? hintId : undefined}
+                        checked={row.on}
+                        onCheckedChange={(on) => {
+                          if (!on && openRow === row.key) setOpenRow(null);
+                          send({ type: "toggle", key: row.key, on });
+                        }}
+                      />
+                    )}
+                    <MoveButton
+                      label={t("moveUp", { name })}
+                      end={index === 0}
+                      onPress={() => move(row, -1)}
+                      ref={(button) => {
+                        if (button) buttons.current.set(`${row.key}:-1`, button);
+                        else buttons.current.delete(`${row.key}:-1`);
+                      }}
+                    >
+                      <ChevronUp aria-hidden className="size-4.5" />
+                    </MoveButton>
+                    <MoveButton
+                      label={t("moveDown", { name })}
+                      end={index === rows.length - 1}
+                      onPress={() => move(row, 1)}
+                      ref={(button) => {
+                        if (button) buttons.current.set(`${row.key}:1`, button);
+                        else buttons.current.delete(`${row.key}:1`);
+                      }}
+                    >
+                      <ChevronDown aria-hidden className="size-4.5" />
+                    </MoveButton>
                   </div>
-                  {entry.switch === "stored" && <Switch aria-labelledby={nameId} checked={row.on} onCheckedChange={(on) => send({ type: "toggle", key: row.key, on })} />}
-                  <MoveButton
-                    label={t("moveUp", { name })}
-                    end={index === 0}
-                    onPress={() => move(row, -1)}
-                    ref={(button) => {
-                      if (button) buttons.current.set(`${row.key}:-1`, button);
-                      else buttons.current.delete(`${row.key}:-1`);
-                    }}
-                  >
-                    <ChevronUp aria-hidden className="size-4.5" />
-                  </MoveButton>
-                  <MoveButton
-                    label={t("moveDown", { name })}
-                    end={index === rows.length - 1}
-                    onPress={() => move(row, 1)}
-                    ref={(button) => {
-                      if (button) buttons.current.set(`${row.key}:1`, button);
-                      else buttons.current.delete(`${row.key}:1`);
-                    }}
-                  >
-                    <ChevronDown aria-hidden className="size-4.5" />
-                  </MoveButton>
+                  {expanded && (
+                    <div id={panelId} className="border-t px-3 py-3">
+                      {row.kind === "guests" && <Audience name={`${listId}-audience`} visibility={shown.switches.guestListVisibility} onSelect={(visibility) => send({ type: "audience", visibility })} />}
+                    </div>
+                  )}
                 </li>
               );
             })}
@@ -154,6 +216,35 @@ export function ArrangeSheet({
         </div>
       </div>
     </EditorSheet>
+  );
+}
+
+// Who sees Who's coming, in its open row, which is drawn only while the list is on: choosing here
+// would switch it on (ticket 24's switchesAfter). Hidden is the row's switch, not a choice here.
+function Audience({ name, visibility, onSelect }: { name: string; visibility: GuestListVisibility; onSelect: (visibility: "always" | "afterReply") => void }) {
+  const t = useTranslations("Editor.arrange");
+  const id = useId();
+  return (
+    <div role="radiogroup" aria-labelledby={`${id}-label`} aria-describedby={`${id}-hint`} className="flex flex-col gap-2">
+      <p id={`${id}-label`} className="text-xs font-medium tracking-label text-muted-foreground uppercase">
+        {t("audience")}
+      </p>
+      {(["always", "afterReply"] as const).map((each) => (
+        <label key={each} className="flex cursor-pointer items-center gap-2.5 text-sm">
+          <input
+            type="radio"
+            name={name}
+            checked={visibility === each}
+            onChange={() => onSelect(each)}
+            className="size-4 shrink-0 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          />
+          {t(each === "always" ? "audienceAlways" : "audienceAfterReply")}
+        </label>
+      ))}
+      <p id={`${id}-hint`} className="text-xs text-muted-foreground">
+        {t("audienceHint")}
+      </p>
+    </div>
   );
 }
 

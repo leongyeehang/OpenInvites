@@ -4,7 +4,6 @@ import { ALBUM_VISIBILITIES, type AlbumVisibility } from "@/album/visibility";
 import { VIDEO_MB, VIDEO_MINUTES } from "@/instance/limits";
 import { richTextToPlain, type RichText } from "@/rich-text/rich-text";
 import { CONTACT_FIELDS, type ContactField } from "@/rsvps/form";
-import { GUEST_LIST_VISIBILITIES, type GuestListVisibility } from "@/rsvps/visibility";
 import { isTimeZone, parseWallTime } from "./time";
 
 // What a host fills in, once trusted. Times are instants; the form's wall-clock values are
@@ -25,10 +24,8 @@ export type EventInput = {
   emailField: ContactField;
   phoneField: ContactField;
   verifyEmail: boolean;
-  guestListVisibility: GuestListVisibility;
   notifyOnRsvp: boolean;
   remindersEnabled: boolean;
-  commentsEnabled: boolean;
   notifyOnComment: boolean;
   albumVisibility: AlbumVisibility;
   albumApprovalRequired: boolean;
@@ -63,10 +60,8 @@ export type EventFormFields = {
   emailField: string;
   phoneField: string;
   verifyEmail: boolean;
-  guestListVisibility: string;
   notifyOnRsvp: boolean;
   remindersEnabled: boolean;
-  commentsEnabled: boolean;
   notifyOnComment: boolean;
   albumVisibility: string;
   albumApprovalRequired: boolean;
@@ -98,7 +93,6 @@ export type EventFormError =
   | "plusOnesAllowedInvalid"
   | "capacityInvalid"
   | "contactFieldInvalid"
-  | "guestListVisibilityInvalid"
   | "albumVisibilityInvalid"
   | "albumMaxVideoMinutesInvalid"
   | "albumMaxVideoMbInvalid"
@@ -156,7 +150,8 @@ export function parseWhen(fields: WhenFields): { ok: true; when: EventWhen } | {
 }
 
 // Everything a guest does not see (M4 spec, "Settings sheet"): who may come and bring whom, what
-// they are asked, who sees the list and the album, and what is emailed.
+// they are asked, who sees the album, and what is emailed. Who sees the list and whether the event
+// takes comments are switched in Arrange with their sections (M8 ticket 26).
 export type EventSettings = Omit<EventInput, "title" | "startsAt" | "endsAt" | "allDay" | "timeZone" | "location" | "description" | "descriptionRich">;
 export type SettingsFields = Omit<EventFormFields, "title" | "allDay" | "start" | "end" | "timeZone" | "location" | "description">;
 
@@ -172,9 +167,6 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
   const emailField = CONTACT_FIELDS.find((each) => each === fields.emailField);
   const phoneField = CONTACT_FIELDS.find((each) => each === fields.phoneField);
   if (!emailField || !phoneField) return { ok: false, error: "contactFieldInvalid" };
-
-  const guestListVisibility = GUEST_LIST_VISIBILITIES.find((each) => each === fields.guestListVisibility);
-  if (!guestListVisibility) return { ok: false, error: "guestListVisibilityInvalid" };
 
   const albumVisibility = ALBUM_VISIBILITIES.find((each) => each === fields.albumVisibility);
   if (!albumVisibility) return { ok: false, error: "albumVisibilityInvalid" };
@@ -204,10 +196,8 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
       emailField,
       phoneField,
       verifyEmail: fields.verifyEmail,
-      guestListVisibility,
       notifyOnRsvp: fields.notifyOnRsvp,
       remindersEnabled: fields.remindersEnabled,
-      commentsEnabled: fields.commentsEnabled,
       notifyOnComment: fields.notifyOnComment,
       albumVisibility,
       albumApprovalRequired: fields.albumApprovalRequired,

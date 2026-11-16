@@ -639,11 +639,6 @@
         "optional": "选填",
         "required": "必填"
       },
-      "guestListVisibility": "谁可以看到宾客名单",
-      "guestListAlways": "所有打开链接的人",
-      "guestListAfterReply": "已回复的宾客",
-      "guestListHidden": "只有主办人",
-      "guestListVisibilityHint": "主办人始终能看到完整名单。",
       "album": {
         "title": "相册",
         "visibility": "谁可以看到相册",
@@ -676,8 +671,6 @@
       "notifyOnRsvp": "有宾客回复时给主办人发邮件",
       "remindersEnabled": "发邮件提醒宾客（提前一周提醒待定的宾客，提前一天提醒参加的宾客）",
       "askEmailHint": "只有你在回复表单中请宾客留下邮箱，宾客才会收到邮件。",
-      "commentsEnabled": "留言",
-      "commentsEnabledHint": "已回复的宾客和主办人可以在活动页面上留言。",
       "notifyOnComment": "有宾客留言时给主办人发邮件",
       "questions": "问题",
       "questionsHint": "宾客回复时作答，只有主办人能看到答案。",
@@ -715,7 +708,6 @@
       "plusOnesAllowedInvalid": "请选择 0 到 10 之间的同伴人数。",
       "capacityInvalid": "请为人数上限填写 1 到 5,000 之间的整数，或留空表示不设上限。",
       "contactFieldInvalid": "请选择如何询问邮箱和电话号码。",
-      "guestListVisibilityInvalid": "请选择谁可以看到宾客名单。",
       "albumVisibilityInvalid": "请选择谁可以看到相册。",
       "questionsInvalid": "无法读取这些问题，请重试。",
       "questionTypeInvalid": "请为每个问题选择类型。",
@@ -1382,6 +1374,14 @@
       "moveDown": "将{name}下移",
       "position": "{name}，第 {position} 个，共 {count} 个",
       "openHint": "打开“排列”面板。",
+      "open": "{name}的选项",
+      "audience": "谁能看到",
+      "audienceAlways": "所有持有链接的人",
+      "audienceAfterReply": "已回复的宾客",
+      "audienceHint": "主办人始终能看到完整名单。",
+      "letterHint": "你亲自邀请的宾客，会读到你在“专属邀请”页面上写给他们的信。",
+      "albumHint": "关闭后，宾客看不到相册，也无法添加内容。相册里的内容不会被删除。",
+      "commentsHint": "关闭后，宾客看不到留言，也无法发表留言。",
       "kinds": {
         "letter": "专属信件",
         "details": "详情",
@@ -1397,7 +1397,8 @@
       "preview": {
         "letter": "你亲自邀请的每位宾客会在这里读到你写给他们的信。",
         "schedule": "你的日程，按每位宾客所在的时区显示。",
-        "guests": "谁会来，只给你允许查看的宾客看。",
+        "guestsAlways": "谁会来，所有持有链接的人都能看到。",
+        "guestsAfterReply": "谁会来，已回复的宾客能看到。",
         "announcements": "你在“公告”中发出的内容会显示在这里。",
         "comments": "已回复的宾客在这里交流。",
         "album": "活动的照片和视频，从活动开始时起。"

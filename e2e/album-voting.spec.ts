@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
-import { createPublished, editSettings, openMore, openSettings, savedAfter, saveStatus, setWhen, utcFromNow } from "./events";
+import { arrange, createPublished, editSettings, openMore, openSettings, savedAfter, saveStatus, setGuestList, setWhen, utcFromNow } from "./events";
 import { signUpVerified } from "./hosts";
 import { exec } from "./instances";
 import { closeReply } from "./reply";
@@ -96,6 +96,13 @@ const EXIF_PHOTO = "e2e/fixtures/photo-exif.jpg";
 const CAMERA = "iPhone 15 Pro";
 const KEEP_CAMERA = "Keep the camera and its settings";
 
+// No guest list and no comments, in Arrange (M8 ticket 26): the album is then the only place on the
+// page a guest's name could be.
+async function hideGuestsAndComments(page: Page) {
+  await setGuestList(page, "hidden");
+  await arrange(page, (sheet) => sheet.getByRole("switch", { name: "Comments" }).click());
+}
+
 // The id of the reply a guest sent to the event at `link`, read from the database.
 function rsvpIdOf(link: string, name: string): string {
   const slug = new URL(link, "http://localhost").pathname.split("/").pop()!;
@@ -174,10 +181,9 @@ test("while voting is open a guest's page leaves out who added each item, and th
   // The album is the only place on the page a guest's name could be. The host keeps each item's
   // camera, which is left out with the name (M8 ticket 12).
   await editSettings(host.page, async (sheet) => {
-    await sheet.getByLabel("Who can see the guest list").selectOption("hidden");
-    await sheet.getByLabel("Comments", { exact: true }).uncheck();
     await sheet.getByRole("group", { name: "Album", exact: true }).getByLabel(KEEP_CAMERA).check();
   });
+  await hideGuestsAndComments(host.page);
 
   const uploader = await guestGoing(browser, host.link, UPLOADER);
   await addPhoto(uploader, EXIF_PHOTO);
@@ -233,10 +239,7 @@ test("Never keeps names from guests whatever the vote, and Always shows them whi
   test.slow();
   const host = await createPublished(browser, request, "album-names-choice", PAST);
   // The album is the only place on the page a guest's name could be.
-  await editSettings(host.page, async (sheet) => {
-    await sheet.getByLabel("Who can see the guest list").selectOption("hidden");
-    await sheet.getByLabel("Comments", { exact: true }).uncheck();
-  });
+  await hideGuestsAndComments(host.page);
   const uploader = await guestGoing(browser, host.link, UPLOADER);
   await addPhoto(uploader);
   const theirs = rsvpIdOf(host.link, UPLOADER);
@@ -1548,10 +1551,7 @@ test("once voting closes, a Winners strip heads the album with each award's top 
   const host = await createPublished(browser, request, "album-winners", PAST);
   const editor = host.page.url();
   // The album is the only place on the page an uploader's name could be.
-  await editSettings(host.page, async (sheet) => {
-    await sheet.getByLabel("Who can see the guest list").selectOption("hidden");
-    await sheet.getByLabel("Comments", { exact: true }).uncheck();
-  });
+  await hideGuestsAndComments(host.page);
   const priya = await guestGoing(browser, host.link, "Priya Nair");
   await addPhotos(priya, [await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a")], 2);
   const [first, second] = await order(priya);

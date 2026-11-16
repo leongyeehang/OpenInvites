@@ -1,4 +1,4 @@
-import { chooseLayout, closeDesign, createDraft, createPublished, type DraftFields, editSettings, openDesign, openMore, pickDesign, publishInEditor, toEditor } from "./events";
+import { chooseLayout, closeDesign, createDraft, createPublished, type DraftFields, openDesign, openMore, pickDesign, publishInEditor, setGuestList, toEditor } from "./events";
 import { signUpVerified } from "./hosts";
 import { expect, test, type APIRequestContext, type Browser, type Page } from "./test";
 
@@ -46,14 +46,6 @@ async function someoneElseReplies(browser: Browser, link: string, name: string, 
   const context = await browser.newContext();
   await reply(await context.newPage(), link, name, status);
   await context.close();
-}
-
-// In the editor's Settings sheet, which waits for this change's own save.
-async function setGuestListVisibility(hostPage: Page, who: "always" | "afterReply" | "hidden") {
-  await hostPage.reload();
-  await editSettings(hostPage, async () => {
-    await hostPage.getByLabel("Who can see the guest list").selectOption(who);
-  });
 }
 
 // Notes whether the typing dots show, however briefly, before the host's next line.
@@ -254,7 +246,7 @@ test("who's coming follows the host's visibility setting: locked before replying
   await expect(page.locator("header").getByText("Invitation · 3 replies", { exact: true })).toBeVisible();
 
   // Shown to everyone: a visitor who has not replied sees it.
-  await setGuestListVisibility(host.page, "always");
+  await setGuestList(host.page, "always");
   const visitor = await browser.newContext();
   const visitorPage = await visitor.newPage();
   await visitorPage.goto(host.link);
@@ -263,7 +255,7 @@ test("who's coming follows the host's visibility setting: locked before replying
   await visitor.close();
 
   // Hidden: no bubble and no count, even for a guest who has replied.
-  await setGuestListVisibility(host.page, "hidden");
+  await setGuestList(host.page, "hidden");
   await page.reload();
   await expect(doneBubble(page)).toBeVisible();
   await expect(whoIsComing(page)).toHaveCount(0);

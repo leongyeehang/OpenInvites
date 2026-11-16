@@ -639,11 +639,6 @@
         "optional": "選填",
         "required": "必填"
       },
-      "guestListVisibility": "誰可以看到賓客名單",
-      "guestListAlways": "所有開啟連結的人",
-      "guestListAfterReply": "已回覆的賓客",
-      "guestListHidden": "只有主辦人",
-      "guestListVisibilityHint": "主辦人永遠都能看到完整名單。",
       "album": {
         "title": "相簿",
         "visibility": "誰可以看到相簿",
@@ -676,8 +671,6 @@
       "notifyOnRsvp": "有賓客回覆時寄電子郵件給主辦人",
       "remindersEnabled": "寄電子郵件提醒賓客（提前一週提醒待定的賓客，提前一天提醒參加的賓客）",
       "askEmailHint": "只有你在回覆表單中請賓客留下電子郵件，賓客才會收到郵件。",
-      "commentsEnabled": "留言",
-      "commentsEnabledHint": "已回覆的賓客和主辦人可以在活動頁面上留言。",
       "notifyOnComment": "有賓客留言時寄電子郵件給主辦人",
       "questions": "問題",
       "questionsHint": "賓客回覆時作答，只有主辦人看得到答案。",
@@ -715,7 +708,6 @@
       "plusOnesAllowedInvalid": "請選擇 0 到 10 之間的同伴人數。",
       "capacityInvalid": "請為人數上限填寫 1 到 5,000 之間的整數，或留空表示不設上限。",
       "contactFieldInvalid": "請選擇如何詢問電子郵件和電話號碼。",
-      "guestListVisibilityInvalid": "請選擇誰可以看到賓客名單。",
       "albumVisibilityInvalid": "請選擇誰可以看到相簿。",
       "questionsInvalid": "無法讀取這些問題，請再試一次。",
       "questionTypeInvalid": "請為每個問題選擇類型。",
@@ -1382,6 +1374,14 @@
       "moveDown": "將{name}下移",
       "position": "{name}，第 {position} 個，共 {count} 個",
       "openHint": "開啟「排列」面板。",
+      "open": "{name}的選項",
+      "audience": "誰能看到",
+      "audienceAlways": "所有持有連結的人",
+      "audienceAfterReply": "已回覆的賓客",
+      "audienceHint": "主辦人永遠都能看到完整名單。",
+      "letterHint": "你親自邀請的賓客，會讀到你在「專屬邀請」頁面上寫給他們的信。",
+      "albumHint": "關閉後，賓客看不到相簿，也無法新增內容。相簿裡的內容不會被刪除。",
+      "commentsHint": "關閉後，賓客看不到留言，也無法發表留言。",
       "kinds": {
         "letter": "專屬信件",
         "details": "詳情",
@@ -1397,7 +1397,8 @@
       "preview": {
         "letter": "你親自邀請的每位賓客會在這裡讀到你寫給他們的信。",
         "schedule": "你的日程，依每位賓客所在的時區顯示。",
-        "guests": "誰會來，只給你允許查看的賓客看。",
+        "guestsAlways": "誰會來，所有持有連結的人都能看到。",
+        "guestsAfterReply": "誰會來，已回覆的賓客能看到。",
         "announcements": "你在「公告」中發出的內容會顯示在這裡。",
         "comments": "已回覆的賓客在這裡交流。",
         "album": "活動的照片和影片，從活動開始時起。"

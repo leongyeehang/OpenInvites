@@ -49,9 +49,13 @@ export type EventChanges = EventInput & { locale: Locale };
 // personal letters, which the copy keeps (M6 spec); and when to be reminded about the album, the
 // site's default for a new event and the source's for a copy (M7 ticket 09); and the album vote's
 // settings, which a copy keeps (M8 ticket 10); and the page's arrangement and whether its album is
-// on, which a copy keeps too (M8 ticket 25).
+// on, which a copy keeps too (M8 ticket 25); and whether it takes comments and who sees Who's
+// coming, which Arrange switches and a copy keeps, and a new event leaves to the columns' defaults
+// (M8 ticket 26).
 export type NewEvent = MaybeDated<EventChanges> &
-  Partial<Pick<Event, "lettersEnabled" | "albumReminderDays" | "albumVoters" | "albumUploaderNames" | "sections" | "albumEnabled">>;
+  Partial<
+    Pick<Event, "lettersEnabled" | "albumReminderDays" | "albumVoters" | "albumUploaderNames" | "sections" | "albumEnabled" | "commentsEnabled" | "guestListVisibility">
+  >;
 
 // A new event starts with the Birthday template's theme (ticket 06), unless it is given one: a
 // duplicate starts with the theme of the event it copies.

@@ -1,5 +1,5 @@
 import { expectNoSeriousViolations } from "./axe";
-import { chooseLayout, createDraft, createPublished, type DraftFields, editSettings, openMore, publishInEditor } from "./events";
+import { chooseLayout, createDraft, createPublished, type DraftFields, editSettings, openMore, publishInEditor, setGuestList } from "./events";
 import { latestMailTo, mailCountTo, MAILPIT, newHost, signUpVerified } from "./hosts";
 import { clientAddress, expect, expectNotFoundAsSent, test, type APIRequestContext, type Browser, type Page } from "./test";
 import { openMyReply } from "./reply";
@@ -74,9 +74,7 @@ test("a guest opens their personal invite with their name and email filled in, r
   await expect(host.page.getByText(customUrl, { exact: true })).toBeVisible({ timeout: 15_000 });
   // Anyone with the link sees who is coming.
   await host.page.goto(manage);
-  await editSettings(host.page, async () => {
-    await host.page.getByLabel("Who can see the guest list").selectOption("always");
-  });
+  await setGuestList(host.page, "always");
 
   // The host makes two invites from the manage page's Invites; nobody has opened either.
   await host.page.goto(manage);

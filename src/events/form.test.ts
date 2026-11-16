@@ -16,10 +16,8 @@ const valid = {
   emailField: "optional",
   phoneField: "none",
   verifyEmail: true,
-  guestListVisibility: "afterReply",
   notifyOnRsvp: true,
   remindersEnabled: true,
-  commentsEnabled: true,
   notifyOnComment: true,
   albumVisibility: "going",
   albumApprovalRequired: true,
@@ -55,10 +53,8 @@ describe("parseEventForm", () => {
         emailField: "optional",
         phoneField: "none",
         verifyEmail: true,
-        guestListVisibility: "afterReply",
         notifyOnRsvp: true,
         remindersEnabled: true,
-        commentsEnabled: true,
         notifyOnComment: true,
         albumVisibility: "going",
         albumApprovalRequired: true,
@@ -101,13 +97,6 @@ describe("parseEventForm", () => {
 
   it("rejects a time zone that is not on the list", () => {
     expect(parseEventForm({ ...valid, timeZone: "Mars/Olympus" })).toEqual({ ok: false, error: "timeZoneInvalid" });
-  });
-
-  it("only takes a guest list visibility it knows", () => {
-    expect(parseEventForm({ ...valid, guestListVisibility: "sometimes" })).toEqual({
-      ok: false,
-      error: "guestListVisibilityInvalid",
-    });
   });
 
   it("only takes an album visibility it knows", () => {
@@ -217,10 +206,8 @@ describe("keptSettings", () => {
     emailField: "optional",
     phoneField: "none",
     verifyEmail: true,
-    guestListVisibility: "afterReply",
     notifyOnRsvp: true,
     remindersEnabled: true,
-    commentsEnabled: true,
     notifyOnComment: true,
     inviteOnly: true,
     albumVisibility: "",

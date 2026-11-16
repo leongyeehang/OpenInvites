@@ -300,6 +300,25 @@ export async function arrange(page: Page, change: (sheet: Locator) => Promise<vo
   await expect(sheet).toBeHidden();
 }
 
+// Who sees Who's coming, in Arrange (M8 ticket 26): "hidden" is the row switched off; otherwise it
+// is switched on if it was off, which starts at guests who have replied, and its open row says who
+// sees it. Each change waits for its own save; the sheet is closed again.
+export async function setGuestList(page: Page, who: "always" | "afterReply" | "hidden") {
+  const sheet = await openArrange(page);
+  const on = sheet.getByRole("switch", { name: "Who’s coming" });
+  if ((await on.isChecked()) !== (who !== "hidden")) await savedAfter(page, () => on.click());
+  await expect(on).toBeChecked({ checked: who !== "hidden" });
+  if (who !== "hidden") {
+    const options = sheet.getByRole("button", { name: "Options for Who’s coming" });
+    if ((await options.getAttribute("aria-expanded")) !== "true") await options.click();
+    const choice = sheet.getByRole("radiogroup", { name: "Who sees it" }).getByRole("radio", { name: who === "always" ? "Everyone with the link" : "Guests who have replied" });
+    if (!(await choice.isChecked())) await savedAfter(page, () => choice.check());
+    await expect(choice).toBeChecked();
+  }
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+}
+
 // The sections of an event page, or of the editor's invitation, in the order they are drawn: each
 // one's `data-section`, a section drawn as several pieces in a row counted once.
 export async function sectionOrder(page: Page): Promise<string[]> {

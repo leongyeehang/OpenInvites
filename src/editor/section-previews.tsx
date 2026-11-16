@@ -12,7 +12,7 @@ import { previewedSections } from "./previewed";
 // placeholder that says what guests will see there, and opens Arrange. Nothing of a guest's is
 // loaded: the editor shows no comments, photos or guests.
 
-// What each placeholder says, by kind.
+// What each placeholder says, by kind; Who's coming's names who sees it (M8 ticket 26).
 const PREVIEWS = ["letter", "schedule", "guests", "announcements", "comments", "album"] as const;
 type Previewed = (typeof PREVIEWS)[number];
 
@@ -38,7 +38,7 @@ export async function previewSections(
       {
         ...base,
         heading: placed.heading ?? (fixed ? page(fixed) : arrange(`kinds.${kind}`)),
-        body: <OpenArrange>{arrange(`preview.${kind}`)}</OpenArrange>,
+        body: <OpenArrange>{arrange(kind !== "guests" ? `preview.${kind}` : switches.guestListVisibility === "always" ? "preview.guestsAlways" : "preview.guestsAfterReply")}</OpenArrange>,
       },
     ];
   });

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
-import { createDraft, editSettings, openSettings, publishInEditor, savedAfter, toEditor } from "./events";
+import { createDraft, editSettings, openArrange, openSettings, publishInEditor, savedAfter, toEditor } from "./events";
 import { dismissOperatorWelcome, newHost, signUp, verifyEmail } from "./hosts";
 import { recreate } from "./instances";
 import { closeReply } from "./reply";
@@ -134,6 +134,28 @@ test("the operator switches the album off: hosts and guests are not shown it, an
   await expect(albumGroup(sheet).getByLabel(APPROVE_PHOTOS)).toBeChecked();
   await expect(sheet.getByLabel("Plus-ones per guest")).toHaveValue("2");
   await priya.context().close();
+});
+
+// M8 ticket 26: where the site has the Album off, Arrange does not offer the event's, and the editor
+// previews no album; switched on again, both are back.
+test("with the Album off, a host's Arrange has no Album row and the editor no album placeholder; back on, both return", async () => {
+  test.slow();
+  await switchFeature(operator, "Album", false);
+  await toEditor(operator);
+  await expect(operator.locator('[data-section="details"]')).toBeVisible();
+  await expect(operator.locator('[data-section="album"]')).toHaveCount(0);
+  let sheet = await openArrange(operator);
+  await expect(sheet.getByRole("switch", { name: "Comments" })).toBeVisible();
+  await expect(sheet.getByRole("switch", { name: "Album" })).toHaveCount(0);
+  await expect(sheet.getByRole("button", { name: "Move Album up" })).toHaveCount(0);
+
+  await switchFeature(operator, "Album", true);
+  await toEditor(operator);
+  await expect(operator.locator('[data-section="album"]')).toBeVisible();
+  sheet = await openArrange(operator);
+  await expect(sheet.getByRole("switch", { name: "Album" })).toBeChecked();
+  await expect(sheet.getByRole("button", { name: "Move Album up" })).toBeVisible();
+  await operator.keyboard.press("Escape");
 });
 
 test("with videos off, an album takes photos only, a video is refused, and a video already added still plays", async ({ browser }) => {

@@ -19,12 +19,9 @@ import { VIDEO_MB, VIDEO_MINUTES } from "@/instance/limits";
 import { cn } from "@/lib/utils";
 import type { QuestionDraft } from "@/questions/question";
 import { CONTACT_FIELDS, type ContactField } from "@/rsvps/form";
-import { GUEST_LIST_VISIBILITIES } from "@/rsvps/visibility";
 import { AlbumBlock } from "./album-block";
 import { EditorSheet } from "./sheet";
 import { useEditor } from "./status";
-
-const GUEST_LIST_LABELS = { always: "guestListAlways", afterReply: "guestListAfterReply", hidden: "guestListHidden" } as const;
 
 // A change is saved this long after the host's last one, so typing a capacity sends it once.
 const DEBOUNCE = 600;
@@ -76,6 +73,9 @@ export function EditorToolbar({ sheets }: { sheets: ReactNode }) {
 // Everything a guest does not see (M4 spec, "Settings sheet"), with 0.4's defaults, so a host can
 // publish without opening it. Each change is saved as it is made, the whole sheet at once, through
 // the rules the 0.4 form followed (events/form.ts); a refusal says why at the top of the sheet.
+// Who sees the guest list and whether the event takes comments are not here: they are switched in
+// Arrange with their sections (M8 ticket 26), and this sheet, which posts every field, never posts
+// either.
 export function SettingsSheet({
   eventId,
   settings,
@@ -274,18 +274,6 @@ export function SettingsSheet({
             </Field>
           </FieldSet>
 
-          <Field>
-            <FieldLabel htmlFor={`${id}-guest-list`}>{t("guestListVisibility")}</FieldLabel>
-            <NativeSelect id={`${id}-guest-list`} name="guestListVisibility" defaultValue={settings.guestListVisibility}>
-              {GUEST_LIST_VISIBILITIES.map((visibility) => (
-                <NativeSelectOption key={visibility} value={visibility}>
-                  {t(GUEST_LIST_LABELS[visibility])}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            <FieldDescription>{t("guestListVisibilityHint")}</FieldDescription>
-          </Field>
-
           {features.album && (
             <FieldSet className="gap-3">
               <FieldLegend variant="label">{t("album.title")}</FieldLegend>
@@ -418,13 +406,6 @@ export function SettingsSheet({
               <FieldContent>
                 <FieldLabel htmlFor={`${id}-reminders`}>{t("remindersEnabled")}</FieldLabel>
                 {emailField === "none" && <FieldDescription id={`${id}-reminders-hint`}>{t("askEmailHint")}</FieldDescription>}
-              </FieldContent>
-            </Field>
-            <Field orientation="horizontal">
-              <Checkbox id={`${id}-comments`} name="commentsEnabled" defaultChecked={settings.commentsEnabled} aria-describedby={`${id}-comments-hint`} />
-              <FieldContent>
-                <FieldLabel htmlFor={`${id}-comments`}>{t("commentsEnabled")}</FieldLabel>
-                <FieldDescription id={`${id}-comments-hint`}>{t("commentsEnabledHint")}</FieldDescription>
               </FieldContent>
             </Field>
             <Field orientation="horizontal">
