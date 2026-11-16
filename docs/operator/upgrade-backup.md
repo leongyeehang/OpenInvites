@@ -85,9 +85,11 @@ standard-colour HDR copies and its frame rate only when **Make missing sizes** m
   there too. Migration `0063` adds the `host_look` table, which holds the poster a host picks in
   Account's Backdrop card; it starts empty, so every host is on Automatic, wearing their next
   event's poster.
-- **Every event page looks as it did until its host arranges it.** Migration `0064` adds
-  `event.sections`, the order and settings a host gives the page's sections in the editor's new
-  Arrange sheet, empty for every event, which draws each layout exactly as before; and
+- **Every event page keeps its order and everything on it until its host arranges it.**
+  Migration `0064` adds `event.sections`, the order and settings a host gives the page's sections
+  in the editor's new Arrange sheet, empty for every event, which keeps each layout's order and
+  everything on it (a few headings, and the Thread's folded comments, are drawn a little
+  differently; the release notes list them); and
   `event.album_enabled`, the event's own Album switch, on for every event. "Who can see the guest
   list" and the Comments checkbox have moved from the editor's Settings sheet to Arrange, as the
   switches of Who's coming and the Comments; "Only the hosts" is now Who's coming switched off.

@@ -31,5 +31,7 @@ describe("the sections the editor previews", () => {
     expect(previewedSections(ON, { album: false }, true)).not.toHaveProperty("album");
     expect(previewedSections({ ...ON, albumEnabled: false }, { album: true }, true)).not.toHaveProperty("album");
     expect(previewedSections(ON, { album: true }, true)).toHaveProperty("album");
+    // A feature not said to be on is not offered (the part review's finding 5).
+    expect(previewedSections(ON, {}, true)).not.toHaveProperty("album");
   });
 });

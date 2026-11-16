@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clipRichText, parseRichText, richTextToPlain, type RichText } from "./rich-text";
+import { clipRichText, MAX_HREF, parseRichText, richTextToPlain, safeHref, type RichText } from "./rich-text";
 
 const doc = (blocks: RichText["blocks"]): RichText => ({ blocks });
 
@@ -26,6 +26,17 @@ describe("parseRichText", () => {
         doc: doc([{ type: "paragraph", spans: [{ text: "Map" }] }]),
       });
     }
+  });
+
+  // The part review's finding 8: an address is held to a Links section's (SECTION_LIMITS.url), so
+  // words cannot carry megabytes of addresses; the words stay, as for any link that is dropped.
+  it("drops a link whose address is longer than 2,000 characters, and keeps its words", () => {
+    const linked = (href: string) => ({ blocks: [{ type: "paragraph", spans: [{ text: "Map", href }] }] });
+    const longest = `https://example.test/${"a".repeat(MAX_HREF - "https://example.test/".length)}`;
+    expect(parseRichText(linked(longest))).toEqual({ ok: true, doc: linked(longest) });
+    expect(parseRichText(linked(`${longest}a`))).toEqual({ ok: true, doc: doc([{ type: "paragraph", spans: [{ text: "Map" }] }]) });
+    expect(safeHref(`${longest}a`)).toBeUndefined();
+    expect(MAX_HREF).toBe(2000);
   });
 
   it("drops anything it does not recognise rather than trusting it", () => {

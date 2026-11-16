@@ -601,6 +601,56 @@ test("a host arranges the whole page by keyboard alone, and a guest opens a fold
   await Promise.all([host.context.close(), guest.context().close()]);
 });
 
+// The Sections part's review, finding 2. A sheet opened with nothing focused, as Safari opens one
+// from a click (it focuses no button it clicks; the suite's Chrome does, so the click here is
+// dispatched without focus), has no opener: closing it moves the focus to no earlier sheet's.
+test("a sheet opened with nothing focused sends the focus to no earlier sheet's opener", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-no-opener", EVENT);
+  const page = host.page;
+  const toolbar = page.getByRole("navigation", { name: "Design the invitation" });
+  const when = page.getByRole("button", { name: /^When:/ });
+  await tabTo(page, when);
+  await page.keyboard.press("Enter");
+  const whenSheet = page.getByRole("dialog", { name: "When" });
+  await expect(whenSheet.getByRole("heading", { name: "When" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(whenSheet).toBeHidden();
+  await expect(when).toBeFocused();
+
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await toolbar.getByRole("button", { name: "Theme" }).dispatchEvent("click");
+  const theme = page.getByRole("dialog", { name: "Theme" });
+  await expect(theme.getByRole("heading", { name: "Theme" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(theme).toBeHidden();
+  // Once the page has run what the close queued, the focus is where it was as Theme opened.
+  await page.evaluate(() => new Promise((done) => setTimeout(done)));
+  await expect(when).not.toBeFocused();
+  expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+  await host.context.close();
+});
+
+// The same finding: a sheet whose opener has gone meanwhile, the Album's placeholder once the
+// Album is switched off, gives the focus to the toolbar's button for it rather than to nothing.
+test("a sheet whose opener has gone gives the focus to its toolbar button", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-gone-opener", EVENT);
+  const page = host.page;
+  const toolbar = page.getByRole("navigation", { name: "Design the invitation" });
+  await tabTo(page, page.getByRole("button", { name: "Photos and videos from the event, from its start." }));
+  await page.keyboard.press("Enter");
+  const arrange = page.getByRole("dialog", { name: "Arrange" });
+  await expect(arrange.getByRole("button", { name: "Options for Album" })).toHaveAttribute("aria-expanded", "true");
+  await savedAfter(page, () => arrange.getByRole("switch", { name: "Album" }).press("Space"));
+  await expect(page.locator('[data-section="album"]')).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(arrange).toBeHidden();
+  await expect(toolbar.getByRole("button", { name: "Arrange" })).toBeFocused();
+  await expectVisibleFocus(page);
+  await host.context.close();
+});
+
 // The host pages' rings, and the design sheets', are drawn at half strength over the page. On
 // screen, in the 12px to the left of each focused control, at half its height, some of the ring is
 // where the page was without the focus, and stands out at 3:1 or more both from what was there

@@ -1396,7 +1396,7 @@
       "heading": "Heading",
       "headingHint": "Leave it empty to keep “{name}”.",
       "collapsed": "Collapsed",
-      "collapsedHint": "Guests see the heading and how much it holds, and open it with a tap.",
+      "collapsedHint": "Guests see its heading, and open it with a tap.",
       "style": "Style",
       "styles": {
         "grid": "Grid",
@@ -1435,19 +1435,19 @@
         "unreadable": "That change couldn’t be read. Try again.",
         "unknownSection": "That section is no longer on the page. Reload to see it as it is.",
         "notOffered": "That section can’t be changed that way.",
-        "tooManySections": "A page holds up to 10 notes and links.",
+        "tooManySections": "A page holds up to 10 Notes and Links sections.",
         "headingTooLong": "Keep headings to 40 characters.",
         "noteTooLong": "Keep a note to 2,000 characters.",
         "tooManyLinks": "A Links section holds up to 6 links.",
         "labelTooLong": "Keep a link’s label to 40 characters.",
         "urlTooLong": "That address is too long.",
-        "urlInvalid": "Links start with http:// or https://."
+        "urlInvalid": "That isn’t a web address. Try example.com/registry."
       },
       "add": "Add a section",
       "addNote": "Note",
       "addLinks": "Links",
       "addHint": "A note says something in your words. Links are buttons to a registry, a playlist or a map.",
-      "full": "A page holds up to 10 notes and links.",
+      "full": "A page holds up to 10 Notes and Links sections.",
       "suggestions": {
         "dressCode": "Dress code",
         "gettingThere": "Getting there",
@@ -1460,6 +1460,7 @@
       "removeTitle": "Remove “{name}”?",
       "removeText": "Guests will no longer see it, and what it says is deleted.",
       "removeKeep": "Keep it",
+      "noteHint": "Up to {max, number} characters.",
       "links": {
         "labelOf": "Label of link {n}",
         "urlOf": "Address of link {n}",

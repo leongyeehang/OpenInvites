@@ -17,7 +17,7 @@ import { countVoters, dropUnvotedPoll, findOption, openPoll, pickDate } from "@/
 import { parseQuestions } from "@/questions/question";
 import { saveQuestions } from "@/questions/repository";
 import { EMPTY_RICH_TEXT, parseRichText, richTextToPlain } from "@/rich-text/rich-text";
-import { parseArrangementChange, sectionId } from "@/sections";
+import { parseArrangementChange, sectionFeature, sectionId } from "@/sections";
 import { saveSchedule } from "@/schedule/repository";
 import { parseSchedule, parseScheduleRefresh } from "@/schedule/schedule";
 import { keptSettings, parseEventSettings, parseWhen, type SettingsFields, type WhenFields } from "./form";
@@ -292,9 +292,10 @@ export async function arrangeAction(eventId: string, posted: unknown): Promise<A
   const t = await getTranslations("Editor.arrange");
   const parsed = parseArrangementChange(posted, sectionId);
   if (!parsed.ok) return { saved: false, error: t(`errors.${parsed.error}`) };
-  // Where the site has the Album off, the sheet has no Album row, so nothing may change it (M8
-  // ticket 27): not even a change posted by hand.
-  if ("key" in parsed.change && parsed.change.key === "album" && !featureOn(await siteFeatures(), "album")) return { saved: false, error: t("errors.notOffered") };
+  // Where the site has a section's feature off (the Album), the sheet has no row for it, so nothing
+  // may change it (M8 ticket 27): not even a change posted by hand. The registry says which feature.
+  const feature = "key" in parsed.change ? sectionFeature(parsed.change.key) : undefined;
+  if (feature && !featureOn(await siteFeatures(), feature)) return { saved: false, error: t("errors.notOffered") };
   const changed = await changeEventArrangement(host.id, event.id, parsed.change);
   if (!changed) return { saved: false, error: (await getTranslations("Events"))("errors.notFound") };
   if (!changed.ok) return { saved: false, error: t(`errors.${changed.error}`) };

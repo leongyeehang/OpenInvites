@@ -3,15 +3,21 @@ import { getTranslations } from "next-intl/server";
 import { cn } from "@/lib/utils";
 import type { ReadySection, SectionKind } from "@/sections";
 
-// How much each kind of section holds, said beside its heading once it is collapsed.
-const COUNTS: Partial<Record<SectionKind, `sections.count.${"guests" | "comments" | "album" | "announcements" | "schedule" | "links"}`>> = {
+// How much each kind of section holds, said beside its heading once it is collapsed: every kind,
+// so that one added without saying does not compile (the part review's finding 5); null where it
+// says nothing (a Note), or is never collapsed.
+const COUNTS = {
+  letter: null,
+  details: null,
+  schedule: "sections.count.schedule",
   guests: "sections.count.guests",
+  announcements: "sections.count.announcements",
   comments: "sections.count.comments",
   album: "sections.count.album",
-  announcements: "sections.count.announcements",
-  schedule: "sections.count.schedule",
+  countdown: null,
+  note: null,
   links: "sections.count.links",
-};
+} as const satisfies Record<SectionKind, `sections.count.${string}` | null>;
 
 // The summary of a collapsed section (M8 ticket 27), the native disclosure's control, which every
 // layout's collapsed frame opens with: the section's icon, its heading, how much it holds where it

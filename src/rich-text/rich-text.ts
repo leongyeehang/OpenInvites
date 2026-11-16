@@ -21,6 +21,12 @@ export const MAX_DESCRIPTION = 10_000;
 // The only schemes a guest can be sent to. Anything else is dropped, and the words stay.
 const LINK_SCHEMES = ["http:", "https:", "mailto:"];
 
+// The longest address a link may have, the same as a Links section's (SECTION_LIMITS.url, M8). The
+// words count towards a document's limit and its links' addresses do not, so without this a Note
+// or a description could carry megabytes of them (the Sections part's review, finding 8). A
+// longer one is dropped as an unsafe one is, and the words stay.
+export const MAX_HREF = 2000;
+
 export type RichTextError = "descriptionTooLong";
 
 export type ParsedRichText = { ok: true; doc: RichText } | { ok: false; error: RichTextError };
@@ -28,7 +34,7 @@ export type ParsedRichText = { ok: true; doc: RichText } | { ok: false; error: R
 // Exported because the spec asks for the check on save and again on render: a row that
 // reached the database another way is still not allowed to send a guest anywhere odd.
 export function safeHref(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
+  if (typeof value !== "string" || value.trim().length > MAX_HREF) return undefined;
   try {
     return LINK_SCHEMES.includes(new URL(value.trim()).protocol) ? value.trim() : undefined;
   } catch {

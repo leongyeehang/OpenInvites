@@ -99,8 +99,9 @@ the comments, the album and the countdown. Move up and Move down put them in the
 saying where each went; a switch turns a section off; and a row opens to rename the section and,
 where it has one, to collapse it, so that guests see its heading and how much it holds and open it
 with a tap, still open after a refresh. The invitation above the sheet moves as the host arranges
-it, every section shown as what guests will see there, each opening Arrange at its own row. The
-Poster, the Broadsheet and the Thread each draw the host's order in their own way.
+it, every section shown as what guests will see there: the details are edited in place, a Note or
+Links opens its own sheet, and every other section opens Arrange at its own row. The Poster, the
+Broadsheet and the Thread each draw the host's order in their own way.
 
 **A countdown, notes and links.** The countdown can be a section of its own instead of a line
 under When. **Add a section** adds a Note, written in the About editor (with Dress code, Getting
@@ -113,7 +114,8 @@ locked page. A page holds up to ten of them, and a duplicated event keeps them.
 **Styles.** The album can be drawn as a grid, a mosaic with the first item large, or a strip
 swiped sideways; the comments as a list or as chat bubbles; and Who's coming as names or as
 avatars, a circle of initials over each first name. Every style keeps what an album item carries:
-a video's length, the Live mark, the caption and the vote.
+a video's length, the Live mark and the album vote's star; the mosaic and the strip also write an
+item's caption under it, which the grid, as before, leaves to the viewer.
 
 **One switch for each.** The Comments, Who's coming and the Album are switched in Arrange, and
 the Letter's switch there is the Invites page's. "Who can see the guest list" moved from Settings
@@ -122,8 +124,11 @@ now Who's coming switched off. With the Comments off nothing can be posted, and 
 guests see no album and its uploads are refused; nothing in it is deleted, and it is all back once
 it is switched on.
 
-**Unchanged until arranged.** An event nobody has arranged looks exactly as it did in 0.7, in every
-layout.
+**Unchanged until arranged.** An event nobody has arranged keeps its order and everything on it, in
+every layout. A few things are drawn a little differently: the Poster's announcements are headed
+with a megaphone, and in the Thread the folded comments read "Comments · 3 comments", a guest who has
+not replied sees the comments in a wider bubble under a "Comments" heading, the album's heading is
+in small capitals, and the bubbles arrive section by section.
 
 ## Features
 

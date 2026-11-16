@@ -68,7 +68,10 @@ export function EditorProvider({ sheet: opened = null, children }: { sheet?: She
     if (!backToArrange) setOpenRow(null);
   }, [backToArrange]);
   const last = useRef<() => Promise<SaveResult>>(undefined);
-  // Saves answer in the order they were sent; only the latest one's outcome is shown.
+  // Saves answer in the order they were sent; only the latest one's outcome is shown here, which is
+  // right where each save carries everything (Settings). Each still answers whether it was saved to
+  // whoever sent it, and Arrange, whose changes stand alone, says so of one that was not, even when
+  // a later one was (the Sections part's review, finding 4).
   const sent = useRef(0);
 
   const save = useCallback(async (task: () => Promise<SaveResult>) => {

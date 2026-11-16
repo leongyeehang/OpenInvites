@@ -1396,7 +1396,7 @@
       "heading": "區塊標題",
       "headingHint": "留空則保留「{name}」。",
       "collapsed": "摺疊",
-      "collapsedHint": "賓客會看到標題和其中有多少內容，點一下即可展開。",
+      "collapsedHint": "賓客會看到區塊標題，點一下即可展開。",
       "style": "樣式",
       "styles": {
         "grid": "網格",
@@ -1436,12 +1436,12 @@
         "unknownSection": "這個區塊已不在頁面上。請重新載入以查看目前的頁面。",
         "notOffered": "這個區塊不能這樣變更。",
         "tooManySections": "一個頁面最多可有 10 個備註和連結區塊。",
-        "headingTooLong": "標題請不超過 40 個字。",
+        "headingTooLong": "區塊標題請不超過 40 個字。",
         "noteTooLong": "備註請不超過 2,000 個字。",
         "tooManyLinks": "一個連結區塊最多可放 6 個連結。",
         "labelTooLong": "連結名稱請不超過 40 個字。",
         "urlTooLong": "這個網址太長了。",
-        "urlInvalid": "連結須以 http:// 或 https:// 開頭。"
+        "urlInvalid": "這不是網址。可以試試 example.com/registry。"
       },
       "add": "新增區塊",
       "addNote": "備註",
@@ -1460,6 +1460,7 @@
       "removeTitle": "刪除「{name}」？",
       "removeText": "賓客將不再看到它，其中的內容也會被刪除。",
       "removeKeep": "保留",
+      "noteHint": "最多 {max, number} 個字。",
       "links": {
         "labelOf": "第 {n} 個連結的名稱",
         "urlOf": "第 {n} 個連結的網址",

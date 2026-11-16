@@ -174,6 +174,8 @@ pass's; none fixed here):
   Chinese.
 - No Lighthouse figures were recorded for 0.7 (M7 ran none, nor did M4 to M6); the last are M3
   ticket 11's, for cases since renamed, given beside this run's below.
+- The caption line drawn only under a tile that opens (carried item 8, `openable(photo)` in
+  `album.tsx`) is proven by reading only: no browser test holds a captioned video in processing.
 - The plan's rulings of this part, one line each: 34, the registry is two halves (`REGISTRY`
   client-safe, the drawings on the server); 35, a move names the neighbour the sheet shows; 36,
   only the Poster was drawn from the list in ticket 25; 37, every Poster heading carries its
@@ -278,10 +280,101 @@ starts from now), "Left out, and why".
   The three under 90 are pages never arranged, which draw as before. The uploaded photo and the
   portrait poster have the host's picture as their largest paint (LCP 3.77 to 3.92 s, where the
   others are 3.1 to 3.2 s), and Lighthouse's first opportunity for both is "Improve image delivery"
-  (116 and 120 KiB, 600 to 800 ms of LCP): the upload's poster rendition, outside the Sections
-  part, which M8 changed only in comments (`src/uploads/renditions.ts`, `process.ts`). Named for
-  the maintainer, not fixed. The Broadsheet's 89 in Simplified Chinese is one point under, with
+  (116 and 120 KiB, 600 to 800 ms of LCP): the upload's poster rendition, so the cause is probably
+  outside the Sections part, which M8 changed only in comments (`src/uploads/renditions.ts`,
+  `process.ts`). Probably, not proven: what would settle it is the same two picture cases, the
+  uploaded photo and the portrait poster, run against v0.7.0 on this machine. Named for the
+  maintainer, not fixed. The Broadsheet's 89 in Simplified Chinese is one point under, with
   runs 87 to 91 and 91 in English, TBT 245 ms; within this machine's spread, and the arranged
   Poster passes, but without a 0.7 baseline run on this machine I cannot say the Sections part
   costs nothing there. Named too.
 - Disk: 31 GB free at the start, 30 GB after the three rebuilds; no prune needed.
+
+**2026-11-16, Sections part review fixes (Opus 5.5).** The one fix pass after ticket 31's task
+review and the review of the whole part (`part-sections-review.md`, findings 1 to 10 and its test
+gaps), in one commit. What changed, and where it differs from the Comments of tickets 24 to 31
+above:
+
+- **A hidden guest list stays hidden.** `refusedBySwitches(switches, change)` (`@/sections`) refuses
+  an `audience` change with `notOffered` while `guestListVisibility` is `hidden`, and
+  `changeEventArrangement` asks it under the row lock before the change is applied. Ticket 24's
+  `switchesAfter` still sets the visibility for an `audience` change; it is no longer reached while
+  the list is off, so a stale sheet's "Everyone with the link" reads "That section can’t be changed
+  that way." and switches nothing on.
+- **Focus after a sheet closes** (`sheet.tsx`). Ticket 31's `chainOpener` is now cleared where a
+  chain ends (a close with no other sheet open), so a sheet opened later with nothing focused
+  (Safari, which focuses no button it clicks) has no opener and moves the focus nowhere, as before
+  this part. A sheet opened with the focus nowhere *while a chain is open* still takes the chain's
+  opener: closing a Note's sheet back to Arrange removes the Note's sheet, focus and all, before
+  Arrange's opens (Radix mounts a portal's content a render later), so "only when the focus is in a
+  sheet" would leave the end of that chain with no opener, the fault ticket 31 fixed. An opener that
+  has gone (the Album's placeholder once the Album is off) gives the focus to the toolbar's button
+  for the sheet, read as it opened (`[data-slot="editor-toolbar"] [aria-expanded="true"]`; the
+  toolbar's `nav` carries the slot now). A sheet with no toolbar button and a gone opener (a Note's)
+  still leaves the focus where Radix puts it.
+- **The Links sheet.** As an address field is left, its row is checked by `safeLinkUrl`; a row the
+  server would refuse is `aria-invalid`, says why under its field (`aria-describedby`), and is left
+  out of what is sent, so the other rows save and a reopened sheet shows them. The alert above the
+  list now shows only what the server refuses (a list posted by hand). Ticket 29's "the server
+  refuses the whole list over one" is still the server's rule; the sheet no longer sends such a
+  list. `Editor.arrange.errors.urlInvalid` says what to type ("That isn’t a web address. Try
+  example.com/registry."). Any refused address gets this message, including one made too long by
+  the `https://` the server adds (`urlTooLong`), since the sheet asks `safeLinkUrl` alone. A row
+  with a label and no address is still not sent (for the maintainer).
+- **A refusal in Arrange stays until the next press.** `send` clears the sheet's error at each
+  press and sets it when its own save comes back unsaved, a refusal's words or, for a save that
+  threw, `Editor.failed`; another change's success no longer clears it. The top bar
+  (`status.tsx`, unchanged in behaviour) still shows the last save's outcome.
+- **The registry is the door.** `REGISTRY[kind].feature` is a `FeatureId` and is what leaves a
+  section out: `kindOffered(kind, offered)` for `sheetRows` and `previewedSections`, which take
+  `OfferedFeatures` (`Partial<Record<FeatureId, boolean>>`, a feature not named is off), and
+  `sectionFeature(key)` for `arrangeAction`; the three `"album"` comparisons are gone. The functions
+  read `REGISTRY` itself and take none, so no unit case adds a made-up feature-bound kind; the cases
+  added pin `{}` as offering no album, and `sectionFeature` by key. `PREVIEWS` is a record over the
+  built-in kinds but Details, `COUNTS` over every kind (`satisfies`), and `previewedSections`' list
+  a `Record<BuiltInKind, boolean>`, so a kind missing from any does not compile. `@/sections`
+  (`index.ts`) names its exports: what is imported from outside, plus `OfferedFeatures`;
+  `defaultOrder` and `SectionEntry` are no longer in it. `wide`'s comment says only the Thread reads
+  it. `sections.md` names the steps a kind takes beyond the two halves, the five for a switch that
+  is a column, and the ruling that what is stored wins across a layout change.
+- **Smaller.** A Move past a neighbour still waiting for its add is an end (and its button says so,
+  as at the list's ends). Add a section lands after `openRow` only when that row opens. The Note's
+  sheet says "Up to 2,000 characters." under the editor (`Editor.arrange.noteHint`, from
+  `SECTION_LIMITS.note`; the editor's `DescriptionEditor` takes `hint`, and its text area is now
+  described by its hint, the About sheet's too). `safeHref` drops an address over `MAX_HREF`
+  (2,000, `src/rich-text`; `SECTION_LIMITS.url` is now that constant), so a Note's or a
+  description's link is bounded, posted or stored: a stored long one loses its link and keeps its
+  words. Words: `headingTooLong` 板块标题 / 區塊標題; `tooManySections` and `full` "A page holds up
+  to 10 Notes and Links sections."; `collapsedHint` "Guests see its heading, and open it with a
+  tap." (宾客会看到板块标题，点按即可展开。/ 賓客會看到區塊標題，點一下即可展開。). The release note and
+  the upgrade note say an unarranged page "keeps its order and everything on it" and the release
+  note lists the drawn differences; "each opening Arrange at its own row" and "the caption and the
+  vote" are made true. `e2e/site-look.ts` reads the bare controls once, after the set of visible
+  controls has stopped changing. The Lighthouse paragraph above says "probably" and names the
+  check; the caption-only-on-an-openable-tile item is listed for the maintainer.
+- **Tests added** (`sections.spec.ts` unless said): a stale sheet's "Everyone with the link" while
+  Who's coming is off; a refused move put back and said until the next press; a refused address
+  marked while the other links save; Add a section from the Letter's placeholder; a Note switched
+  off and on; a collapsed, locked Who's coming in avatars in each layout; Thread to Poster keeps
+  what was stored; a Note past 2,000 characters; two windows moving from stale sheets (the same
+  host in a second browser context, not a co-host); in `keyboard.spec.ts`, a sheet opened with
+  nothing focused, and a sheet whose opener has gone. "Links to a registry and a playlist" now
+  expects the refused row marked rather than the alert, and its Remove sends nothing. Unit:
+  `refusedBySwitches`, `sectionFeature`, garbage stored values, a Note's and a description's long
+  `href`, and `{}` as offering no album.
+- The maintainer's item above, "No test of a refused arrangement save's rollback", is covered now by
+  the refused-move test.
+
+Evidence: `pnpm lint` and `pnpm typecheck` clean; `pnpm test` 123 files, 1,501 tests. RED first:
+unit (`refusedBySwitches` and `sectionFeature` not functions; three long-`href` cases kept the
+link); browser against the profile as ticket 31 left it (desktop, `--retries=0`): the stale
+audience (no alert, the server took it), the refused move (alert cleared by the next success),
+the refused address and the `javascript:` row (no `aria-invalid`), the Letter's placeholder (the
+Note landed after the Letter), the Note's limit (no description), both keyboard rows (the When row
+focused; nothing on the toolbar's Arrange), and the reworded strings. Passing before as after, as
+pins: the Note switched off, the locked avatars, Thread to Poster, two windows, the garbage
+values. On the profile rebuilt with the change (`CI=1`, `--workers=2`, mobile and desktop, one
+command at a time, each with the operator setup): sections 111, keyboard 53, accessibility 133,
+locales 51, site-look 67, host-accounts 31, guest-list 17, description 9, duplicate 7, thread 15,
+broadsheet 15 passed; features (`features-instance`, `--no-deps`) 7 passed. None flaky, none failed.
+Disk: 29 GB free before the one rebuild, 28 GB after; no prune.

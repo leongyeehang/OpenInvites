@@ -16,9 +16,10 @@ export const SITE_POSTERS = {
 // surface its focus ring is proven against, and nothing on it moving. Controls carry short
 // transitions that can still be finishing as the page arrives (a web font swapping in under load),
 // so the page is given until they end: something that moved by itself would never end. The
-// controls are read once it is still, and again until none is bare, so one drawn late (a client
-// component's, once it has hydrated) is read too, and one on its way to a surface is not failed
-// for where it was.
+// controls are then read once, when the set of them a person can reach and see has stopped
+// changing (two reads in a row agree), so that one a client component draws late, once it has
+// hydrated, is there to be read rather than missed by a read that found none bare before it came
+// (ticket 31's review); and, everything having stopped moving, none is read on its way to a surface.
 export async function expectSiteLook(page: Page, copy: string) {
   await expect(page.locator(".site-page")).toHaveCount(1);
   const backdrop = page.locator('[data-slot="backdrop"]');
@@ -31,21 +32,34 @@ export async function expectSiteLook(page: Page, copy: string) {
   await expect
     .poll(() => page.evaluate(() => document.getAnimations().map((animation) => animation.constructor.name)), { message: "what moves" })
     .toEqual([]);
-  await expect.poll(() => page.evaluate(BARE_CONTROLS), { message: "controls on the bare backdrop" }).toEqual([]);
+  let before: string | undefined;
+  await expect
+    .poll(
+      async () => {
+        const now = (await page.evaluate(CONTROLS, false)).join("\n");
+        const settled = now === before;
+        before = now;
+        return settled;
+      },
+      { message: "the page's controls to stop changing" },
+    )
+    .toBe(true);
+  expect(await page.evaluate(CONTROLS, true), "controls on the bare backdrop").toEqual([]);
 }
 
-// Every control on a site page a person can reach and see, that sits on none of the surfaces
-// legibility.ts solves its focus ring against (SITE_SURFACES): a veil, a panel of glass, a card, an
-// alert or the header's bar, known by their `data-slot`. The footer is none of them: its links and
-// languages sit on pills of the veil, which carry the veil's slot (page-footer.tsx), and the footer
-// round them is bare. A ring is drawn outside its control, so one on the bare backdrop is ringed on
-// a picture nothing proves it on (the part review's finding 1, Site settings' Reports).
-function BARE_CONTROLS() {
+// Every control on a site page a person can reach and see, by its tag and words; with `bare`, only
+// those that sit on none of the surfaces legibility.ts solves its focus ring against
+// (SITE_SURFACES): a veil, a panel of glass, a card, an alert or the header's bar, known by their
+// `data-slot`. The footer is none of them: its links and languages sit on pills of the veil, which
+// carry the veil's slot (page-footer.tsx), and the footer round them is bare. A ring is drawn
+// outside its control, so one on the bare backdrop is ringed on a picture nothing proves it on (the
+// part review's finding 1, Site settings' Reports).
+function CONTROLS(bare: boolean) {
   const SURFACES = ["veil", "glass", "card", "alert", "host-header"].map((slot) => `[data-slot="${slot}"]`).join(", ");
   return [...document.querySelectorAll(".site-page :is(a[href], button, input, select, textarea, [tabindex])")]
     .filter((control) => control.getAttribute("tabindex") !== "-1" && !control.matches(":disabled, [type=hidden]"))
     .filter((control) => control.checkVisibility({ visibilityProperty: true }) && control.getClientRects().length > 0)
-    .filter((control) => !control.closest(SURFACES))
+    .filter((control) => !bare || !control.closest(SURFACES))
     .map((control) => `${control.tagName.toLowerCase()} “${(control.textContent || control.getAttribute("aria-label") || "").trim().slice(0, 40)}”`);
 }
 

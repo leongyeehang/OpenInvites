@@ -12,6 +12,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import type { FeatureId } from "@/features";
 import type { Layout } from "@/themes/theme";
 import type { PlacedSection, SectionKind, SectionStyle, Shown } from "./arrangement";
 
@@ -48,10 +49,13 @@ export type SectionEntry = {
   // The heading each layout gives the section when the host has not renamed it; null where the
   // layout draws none, or where the drawing words it itself (the Letter's "For {name}").
   heading: Record<Layout, SectionHeading | null>;
-  // Whether the Poster draws it across both columns on a wide screen.
+  // Whether the Thread draws it in its wide bubble, a region named by its heading, rather than in a
+  // host's bubble under a small heading (thread-layout.tsx). Only the Thread reads it.
   wide: boolean;
-  // The site's feature the section belongs to, when there is one (src/features).
-  feature?: "album";
+  // The site's feature the section belongs to, when there is one (src/features). Where the site has
+  // it off, Arrange has no row for the section and the editor no preview (kindOffered), and
+  // arrangeAction refuses a change to it (sectionFeature).
+  feature?: FeatureId;
 };
 
 const everywhere = (heading: SectionHeading): Record<Layout, SectionHeading> => ({ poster: heading, broadsheet: heading, thread: heading });

@@ -24,7 +24,7 @@ import {
 } from "./events";
 import { tabTo } from "./focus";
 import { closeReply, rsvpSheet } from "./reply";
-import { clientAddress, expect, test, type Browser, type APIRequestContext, type Locator, type Page } from "./test";
+import { clientAddress, expect, test, type Browser, type BrowserContext, type APIRequestContext, type Locator, type Page } from "./test";
 
 // M8 ticket 25: the host puts the Poster's sections in order in the editor's Arrange sheet, and
 // switches off the ones whose switch is the arrangement's own; guests see that order. A page never
@@ -575,7 +575,7 @@ test("a collapsed Album opens with one tap and stays open", async ({ browser, re
   await arrange(host.page, async (sheet) => {
     await openRow(sheet, "Album");
     const collapsed = sheet.getByRole("switch", { name: "Collapsed" });
-    await expect(collapsed).toHaveAccessibleDescription("Guests see the heading and how much it holds, and open it with a tap.");
+    await expect(collapsed).toHaveAccessibleDescription("Guests see its heading, and open it with a tap.");
     await collapsed.click();
     await expect(collapsed).toBeChecked();
   });
@@ -812,18 +812,21 @@ test("Links to a registry and a playlist", async ({ browser, request }) => {
   await expect(ours).toHaveAccessibleName(/\(opens in a new tab\)$/);
   await expect(links(guest).getByRole("link", { name: /^Songs/ })).toHaveAttribute("href", "https://example.org/songs");
 
-  // An address a guest may not be sent to is refused, and nothing is saved.
+  // An address a guest may not be sent to is marked in its row as its field is left, and is not
+  // sent (the part review's finding 3).
   await registry.getByRole("button", { name: "Add a link" }).click();
   await registry.getByRole("textbox", { name: "Label of link 3", exact: true }).fill("Bad");
-  await registry.getByRole("textbox", { name: "Address of link 3", exact: true }).fill("javascript:alert(1)");
-  await registry.getByRole("textbox", { name: "Address of link 3", exact: true }).blur();
-  await expect(registry.getByRole("alert")).toHaveText("Links start with http:// or https://.");
+  const bad = registry.getByRole("textbox", { name: "Address of link 3", exact: true });
+  await bad.fill("javascript:alert(1)");
+  await bad.blur();
+  await expect(bad).toHaveAttribute("aria-invalid", "true");
   await guest.reload();
   await expect(links(guest).getByRole("link")).toHaveCount(2);
   await expect(links(guest)).not.toContainText("Bad");
 
-  // Removed, and Songs moved up, both saved.
-  await savedAfter(host.page, () => registry.getByRole("button", { name: "Remove Bad" }).click());
+  // Removed, which sends nothing, as nothing of it was sent; Songs moved up, saved.
+  await registry.getByRole("button", { name: "Remove Bad" }).click();
+  await expect(registry.getByRole("listitem")).toHaveCount(2);
   await expect(registry.getByRole("alert")).toHaveCount(0);
   const up = registry.getByRole("button", { name: "Move Songs up" });
   await savedAfter(host.page, () => up.click());
@@ -901,7 +904,7 @@ test("a page holds ten notes and links at most", async ({ browser, request }) =>
     await host.page.keyboard.press("Escape");
     await expect(sheet.getByRole("switch", { name: "Note" })).toHaveCount(added);
   }
-  await expect(sheet.getByRole("region", { name: "Add a section" })).toContainText("A page holds up to 10 notes and links.");
+  await expect(sheet.getByRole("region", { name: "Add a section" })).toContainText("A page holds up to 10 Notes and Links sections.");
   await expect(sheet.getByRole("button", { name: "Note", exact: true })).toHaveCount(0);
   await expect(sheet.getByRole("button", { name: "Links", exact: true })).toHaveCount(0);
   await host.page.keyboard.press("Escape");
@@ -1342,4 +1345,232 @@ test("a link's address is sent once its field is left", async ({ browser, reques
   await guest.reload();
   await expect(links(guest).getByRole("link", { name: /^Our songs/ })).toHaveAttribute("href", "https://example.org/playlist");
   await Promise.all([host.context.close(), guest.context().close()]);
+});
+
+// The Sections part's review: its fix pass. Each test below fails without that pass's change, or
+// pins what the review found unproven.
+
+// The same host in a second window, its editor open: a sheet there opened before a change made in
+// the first is as stale as another host's would be.
+async function secondWindow(browser: Browser, host: { context: BrowserContext; page: Page }): Promise<Page> {
+  const page = await (await browser.newContext({ storageState: await host.context.storageState() })).newPage();
+  await page.goto(host.page.url());
+  return page;
+}
+
+// Finding 1 (test gap 5): who sees Who's coming, chosen in a sheet opened while the list was on,
+// once it has been switched off elsewhere, is refused, and the list stays hidden.
+test("who sees Who's coming, chosen in a sheet opened before the list was switched off, is refused", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "sections-stale-audience", { ...EVENT, plusOnes: "0" });
+  await (await guestGoing(browser, host.link, "Mei Nakamura")).context().close();
+  const other = await secondWindow(browser, host);
+  const stale = await openArrange(other);
+  await openRow(stale, "Who’s coming");
+  const everyone = stale.getByRole("radiogroup", { name: "Who sees it" }).getByRole("radio", { name: "Everyone with the link" });
+  await expect(everyone).toBeVisible();
+
+  await setGuestList(host.page, "hidden");
+  await everyone.click();
+  await expect(stale.getByRole("alert")).toHaveText("That section can’t be changed that way.", { timeout: 15_000 });
+  const stranger = await visitor(browser, host.link);
+  await expect(section(stranger, "details")).toBeVisible();
+  await expect(section(stranger, "guests")).toHaveCount(0);
+  expect(await stranger.content()).not.toContain("Nakamura");
+  // The first window's Arrange, opened afresh, still has the list off.
+  await expect((await openArrange(host.page)).getByRole("switch", { name: "Who’s coming" })).not.toBeChecked();
+  await Promise.all([host.context.close(), other.context().close(), stranger.context().close()]);
+});
+
+// Finding 4 (test gap 3): a change the server refuses puts the sheet back and says so, and what it
+// says stays until the host's next press, past the save of a change pressed while it was on its
+// way. The move is held on its way, and what reaches the server names a section that is not there.
+test("a refused move is put back and said until the host's next press", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "sections-refused", EVENT);
+  const page = host.page;
+  const path = new URL(page.url()).pathname;
+  let held = false;
+  let release = () => {};
+  const released = new Promise<void>((resolve) => (release = resolve));
+  await page.route(
+    (url) => url.pathname === path,
+    async (route) => {
+      const posted = route.request().postData() ?? "";
+      if (route.request().method() !== "POST" || !posted.includes('"type":"move"')) return route.continue();
+      held = true;
+      await released;
+      await route.continue({ postData: posted.replace('"key":"album"', '"key":"gone"') });
+    },
+  );
+  const sheet = await openArrange(page);
+  const order = await rowNames(sheet);
+  await sheet.getByRole("button", { name: "Move Album up" }).click();
+  await expect.poll(() => held).toBe(true);
+  // Pressed while the move is on its way, the Schedule's switch is sent after it, and saved.
+  const schedule = sheet.getByRole("switch", { name: "Schedule" });
+  await schedule.click();
+  await savedAfter(page, async () => release());
+
+  await expect(sheet.getByRole("alert")).toHaveText("That section is no longer on the page. Reload to see it as it is.");
+  await expect.poll(() => rowNames(sheet)).toEqual(order);
+  await expect(sheet.getByRole("switch", { name: "Album" })).toBeChecked();
+  await expect(schedule).not.toBeChecked();
+  // Still said after the Schedule's save, until the next press.
+  await expect(sheet.getByRole("alert")).toBeVisible();
+  await savedAfter(page, () => schedule.click());
+  await expect(sheet.getByRole("alert")).toHaveCount(0);
+  await expect(schedule).toBeChecked();
+  await host.context.close();
+});
+
+// Finding 3 (test gap 8): one address the server would refuse is marked under its own field and
+// left out of what is sent, so the rows around it save, and the sheet reopened holds what was.
+test("a refused address is marked in its row, and the other links save", async ({ browser, request }) => {
+  test.setTimeout(180_000);
+  const host = await createPublished(browser, request, "sections-link-refused", EVENT);
+  const registry = await addSection(host.page, "Registry");
+  await writeLink(host.page, registry, 1, "Our list", REGISTRY_URL);
+  await registry.getByRole("button", { name: "Add a link" }).click();
+  await registry.getByRole("textbox", { name: "Label of link 2", exact: true }).fill("Venmo");
+  const venmo = registry.getByRole("textbox", { name: "Address of link 2", exact: true });
+  await venmo.fill("jane@venmo");
+  await venmo.blur();
+  await expect(venmo).toHaveAttribute("aria-invalid", "true");
+  await expect(venmo).toHaveAccessibleDescription("That isn’t a web address. Try example.com/registry.");
+  await writeLink(host.page, registry, 3, "Songs", "example.org/songs");
+  await expect(registry.getByRole("alert")).toHaveCount(0);
+  await expect(venmo).toHaveAttribute("aria-invalid", "true");
+
+  const guest = await visitor(browser, host.link);
+  await expect(links(guest).getByRole("link")).toHaveText([/^Our list/, /^Songs/]);
+  await closeSheets(host.page);
+  await host.page.getByRole("button", { name: "Edit Registry" }).click();
+  const again = host.page.getByRole("dialog", { name: "Registry" });
+  await expect(again.getByRole("listitem")).toHaveCount(2);
+  await expect(again.getByRole("textbox", { name: "Label of link 1", exact: true })).toHaveValue("Our list");
+  await expect(again.getByRole("textbox", { name: "Label of link 2", exact: true })).toHaveValue("Songs");
+  await Promise.all([host.context.close(), guest.context().close()]);
+});
+
+// Finding 9: the Letter's placeholder opens Arrange at its row, which has nothing to open; a
+// section added then goes at the end, as from the toolbar, not after the Letter.
+test("a section added from the Letter's placeholder goes at the end", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "sections-letter-add", EVENT);
+  await arrange(host.page, (sheet) => sheet.getByRole("switch", { name: "Personal letter" }).click());
+  await host.page.getByRole("button", { name: "Each guest you invite personally reads your letter to them here." }).click();
+  await expect(arrangeSheet(host.page)).toBeVisible();
+  await addSection(host.page, "Dress code");
+  await closeSheets(host.page);
+  const order = await sectionOrder(host.page);
+  expect(order[0]).toBe("letter");
+  expect(order.at(-1)).toMatch(/^note:[0-9a-z]{8}$/);
+  await host.context.close();
+});
+
+// Test gap 2: a Note switched off is not on the guest's page, nor are its words in it.
+test("a Note switched off leaves the guest's page and its words are not in the HTML; switched on, it is back", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "sections-note-off", EVENT);
+  await writeNote(host.page, await addSection(host.page, "Dress code"), NOTE.words, NOTE.bold);
+  await closeSheets(host.page);
+  const guest = await visitor(browser, host.link);
+  await expect(note(guest)).toContainText(NOTE.bold);
+
+  await arrange(host.page, (sheet) => sheet.getByRole("switch", { name: "Dress code" }).click());
+  await guest.reload();
+  await expect(section(guest, "details")).toBeVisible();
+  await expect(note(guest)).toHaveCount(0);
+  expect(await guest.content()).not.toContain(NOTE.bold);
+
+  await arrange(host.page, (sheet) => sheet.getByRole("switch", { name: "Dress code" }).click());
+  await guest.reload();
+  await expect(note(guest)).toContainText(NOTE.bold);
+  await Promise.all([host.context.close(), guest.context().close()]);
+});
+
+// Test gap 6: Who's coming collapsed and drawn as avatars is still locked to a visitor under
+// "Guests who have replied", in every layout: drawn open as each layout's lock, with no count and
+// no name anywhere in the page.
+test("a collapsed Who's coming in avatars, locked to a visitor, holds no count and no name in any layout", async ({ browser, request }) => {
+  test.setTimeout(180_000);
+  const host = await createPublished(browser, request, "sections-guests-locked", { ...EVENT, plusOnes: "0" });
+  await (await guestGoing(browser, host.link, "Mei Nakamura")).context().close();
+  const sheet = await openArrange(host.page);
+  await pickStyle(host.page, sheet, "Who’s coming", "Avatars");
+  await savedAfter(host.page, () => sheet.getByRole("switch", { name: "Collapsed" }).click());
+  await host.page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+
+  const stranger = await visitor(browser, host.link);
+  for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
+    if (layout !== "Poster") await chooseLayout(host.page, host.link, layout);
+    await stranger.reload();
+    await expect(stranger.locator("[data-layout]")).toHaveAttribute("data-layout", layout.toLowerCase());
+    await expect(section(stranger, "guests").first()).toBeVisible();
+    await expect(stranger.locator('details[data-slot="guests"]')).toHaveCount(0);
+    // No count in what is drawn (the scripts carry the client messages, the count phrase's
+    // template among them), and no name anywhere.
+    const drawn = await stranger.evaluate(() => {
+      const copy = document.documentElement.cloneNode(true) as HTMLElement;
+      for (const script of copy.querySelectorAll("script")) script.replaceWith();
+      return copy.outerHTML;
+    });
+    expect(drawn, layout).not.toMatch(/\bexpected\b/);
+    expect(await stranger.content(), layout).not.toContain("Nakamura");
+  }
+  await Promise.all([host.context.close(), stranger.context().close()]);
+});
+
+// Test gap 9, and the ruling in docs/contributing/sections.md: what is stored wins. A page first
+// arranged on the Thread stored the Thread's comments as folded away, and the Poster keeps them so.
+test("an arrangement made on Thread holds when the layout changes to Poster, its comments still collapsed", async ({ browser, request }) => {
+  test.slow();
+  const host = await laidOut(browser, request, "sections-thread-poster", "Thread");
+  await arrange(host.page, (sheet) => sheet.getByRole("button", { name: "Move Album up" }).click());
+  await chooseLayout(host.page, host.link, "Poster");
+  // The host, to whom the comments are open.
+  await host.page.goto(host.link);
+  await expect(host.page.locator("[data-layout]")).toHaveAttribute("data-layout", "poster");
+  await expectOrder(host.page, ["details", "schedule", "guests", "album", "comments"]);
+  const comments = host.page.locator('details[data-slot="comments"]');
+  await expect(comments).toHaveCount(1);
+  await expect(comments).not.toHaveAttribute("open");
+  await host.context.close();
+});
+
+// Test gap 10: a Note's limit is named under its editor from the start; past it, the sheet says
+// so, and the guest's page keeps the last version under it.
+test("a Note past 2,000 characters says so, and the guest's page keeps the last version under it", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "sections-note-limit", EVENT);
+  const dressCode = await addSection(host.page, "Dress code");
+  const text = dressCode.getByRole("textbox", { name: "Note" });
+  await expect(text).toHaveAccessibleDescription("Up to 2,000 characters.");
+  await text.click();
+  await savedAfter(host.page, () => host.page.keyboard.type("Cocktail attire."));
+  await host.page.keyboard.insertText(" velvet".repeat(300));
+  await expect(dressCode.getByRole("alert")).toHaveText("Keep a note to 2,000 characters.", { timeout: 15_000 });
+  await closeSheets(host.page);
+  const guest = await visitor(browser, host.link);
+  await expect(note(guest)).toContainText("Cocktail attire.");
+  await expect(note(guest)).not.toContainText("velvet");
+  await Promise.all([host.context.close(), guest.context().close()]);
+});
+
+// Test gap 4: the same page arranged in two windows, each sheet opened before the other's move;
+// each moves a different section, and both moves hold, each where its host meant.
+test("two windows move different sections from sheets opened before either move, and both hold", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "sections-two-windows", EVENT);
+  const other = await secondWindow(browser, host);
+  const first = await openArrange(host.page);
+  const second = await openArrange(other);
+  await savedAfter(host.page, () => first.getByRole("button", { name: "Move Album up" }).click());
+  await savedAfter(other, () => second.getByRole("button", { name: "Move Schedule down" }).click());
+  await expect(second.getByRole("alert")).toHaveCount(0);
+  await host.page.reload();
+  expect(await rowNames(await openArrange(host.page))).toEqual(["Personal letter", "Details", "Who’s coming", "Schedule", "Announcements", "Album", "Comments", "Countdown"]);
+  await Promise.all([host.context.close(), other.context().close()]);
 });

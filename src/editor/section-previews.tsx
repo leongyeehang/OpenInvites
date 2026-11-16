@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
-import { linksToDraw, placedSections, REGISTRY, type Arrangement, type ReadySection, type SectionKind, type Switches } from "@/sections";
+import { linksToDraw, placedSections, REGISTRY, type Arrangement, type BuiltInKind, type OfferedFeatures, type ReadySection, type SectionKind, type Switches } from "@/sections";
 import { LinksSection } from "@/themes/sections/links-section";
 import { NoteSection } from "@/themes/sections/note-section";
 import type { Layout } from "@/themes/theme";
@@ -19,16 +19,25 @@ import { StyleGlyph } from "./style-glyphs";
 // added and not yet written is drawn too, saying what to tap (ticket 29), where a guest's page
 // leaves it out.
 
-// What each placeholder says, by kind; Who's coming's names who sees it (M8 ticket 26).
-const PREVIEWS = ["letter", "schedule", "guests", "announcements", "comments", "album", "countdown"] as const;
-type Previewed = (typeof PREVIEWS)[number];
+// What each placeholder says, by kind; Who's coming's names who sees it (M8 ticket 26). Every
+// built-in kind but the Details, which are the list the host edits, has one: a kind added without
+// one does not compile, rather than being left off the invitation (the part review's finding 5).
+const PREVIEWS = {
+  letter: "preview.letter",
+  schedule: "preview.schedule",
+  guests: { always: "preview.guestsAlways", afterReply: "preview.guestsAfterReply" },
+  announcements: "preview.announcements",
+  comments: "preview.comments",
+  album: "preview.album",
+  countdown: "preview.countdown",
+} as const satisfies Record<Exclude<BuiltInKind, "details">, string | Record<"always" | "afterReply", string>>;
 
 export async function previewSections(
   arrangement: Arrangement,
   layout: Layout,
   switches: Switches,
   details: ReactNode,
-  offered: { album: boolean },
+  offered: OfferedFeatures,
   // Whether the event has a date, which the countdown counts to.
   dated: boolean,
 ): Promise<ReadySection[]> {
@@ -37,10 +46,10 @@ export async function previewSections(
   return placedSections(arrangement, layout, shown, { empty: true }).flatMap((placed): ReadySection[] => {
     const entry = REGISTRY[placed.kind];
     const base = { placed, icon: entry.icon, wide: entry.wide };
-    if (placed.kind === "details") {
+    const { section } = placed;
+    if (section.kind === "details") {
       return [{ ...base, heading: null, body: details, whole: (className) => <div data-section={placed.key} className={className}>{details}</div> }];
     }
-    const { section } = placed;
     if (section.kind === "note" || section.kind === "links") {
       const headingId = `${placed.key}-heading`;
       const empty = (text: string) => <p className="text-sm text-theme-text-muted">{text}</p>;
@@ -65,8 +74,8 @@ export async function previewSections(
         },
       ];
     }
-    if (!(PREVIEWS as readonly string[]).includes(placed.kind)) return [];
-    const kind = placed.kind as Previewed;
+    const { kind } = section;
+    const preview = PREVIEWS[kind];
     const fixed = entry.heading.poster;
     return [
       {
@@ -75,7 +84,7 @@ export async function previewSections(
         body: (
           <OpenArrange sectionKey={placed.key}>
             <span className="flex min-w-0 flex-col gap-2">
-              {arrange(kind !== "guests" ? `preview.${kind}` : switches.guestListVisibility === "always" ? "preview.guestsAlways" : "preview.guestsAfterReply")}
+              {arrange(typeof preview === "string" ? preview : preview[switches.guestListVisibility === "always" ? "always" : "afterReply"])}
               {/* The style it is drawn in, by its drawing and its name (ticket 30). */}
               {placed.style && (
                 <span data-slot="style-preview" className="inline-flex items-center gap-1.5 text-xs font-medium text-theme-text-faint">

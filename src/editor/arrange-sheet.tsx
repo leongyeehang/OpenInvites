@@ -29,6 +29,7 @@ import {
   tidyHeading,
   type Arrangement,
   type ArrangementChange,
+  type OfferedFeatures,
   type SectionKind,
   type SectionStyle,
   type SheetRow,
@@ -94,13 +95,15 @@ export function ArrangeSheet({
   layout: Layout;
   arrangement: Arrangement;
   switches: Switches;
-  // Whether the site offers the album at all (src/features): where it does not, there is no row.
-  offered: { album: boolean };
+  // The site's features that are on (src/features): a section that belongs to one that is off,
+  // the album, has no row (kindOffered).
+  offered: OfferedFeatures;
   // Each section's heading in the event's layout until the host renames it (section-previews.tsx).
   headings: Partial<Record<SectionKind, string>>;
 }) {
   const t = useTranslations("Editor.arrange");
   const design = useTranslations("Design");
+  const editor = useTranslations("Editor");
   const { sheet, openSheet, save, openRow, setOpenRow, editSection } = useEditor();
   const [, startSaving] = useTransition();
   // What the host sees: the arrangement and switches as saved, with the presses still being saved
@@ -142,8 +145,12 @@ export function ArrangeSheet({
   const headingOf = (row: SheetRow) => (row.key in typed ? typed[row.key] : row.heading);
   const nameOf = (row: SheetRow) => headingOf(row) ?? t(`kinds.${row.kind}`);
 
-  // `saved` hears the server's answer once it is saved: a new section's key.
+  // `saved` hears the server's answer once it is saved: a new section's key. Each change stands
+  // alone, so what one that failed says stays above the list until the host's next press, however
+  // the changes sent after it fare; the top bar shows only the last save's outcome (the part
+  // review's finding 4).
   const send = (change: ArrangementChange, saved?: (result: ArrangeResult & { saved: true }) => void) => {
+    setError(undefined);
     const before = latest.current;
     const applied = applyArrangementChange(before.arrangement, layout, change);
     const next = applied.ok ? { arrangement: applied.arrangement, switches: switchesAfter(before.switches, change) } : undefined;
@@ -151,12 +158,12 @@ export function ArrangeSheet({
     startSaving(async () => {
       if (next) show(next);
       let answer: ArrangeResult | undefined;
-      await save(async () => {
+      const ok = await save(async () => {
         answer = await arrangeAction(eventId, change);
-        setError(answer.saved ? undefined : answer.error);
         return answer;
       });
-      if (answer?.saved) saved?.(answer);
+      if (!ok) setError(answer && !answer.saved && answer.error ? answer.error : editor("failed"));
+      else if (answer?.saved) saved?.(answer);
     });
     return applied;
   };
@@ -198,8 +205,10 @@ export function ArrangeSheet({
     const current = sheetRows(from, layout, switched, offered);
     const at = current.findIndex((each) => each.key === row.key);
     const neighbour = current[at + by];
-    // At an end the button stays where it is, focusable, and does nothing.
-    if (at < 0 || !neighbour) return;
+    // At an end the button stays where it is, focusable, and does nothing. A neighbour still
+    // waiting for its add is an end too: the server does not know it yet by the key the sheet
+    // shows it under (the part review's finding 6).
+    if (at < 0 || !neighbour || waiting(neighbour)) return;
     const applied = send({ type: "move", key: row.key, past: neighbour.key });
     if (!applied.ok) return;
     refocus.current = `${row.key}:${by}`;
@@ -223,7 +232,9 @@ export function ArrangeSheet({
   // under the key the server gave it. The id it is shown under meanwhile is the sheet's own.
   const full = rows.filter((row) => written(row.kind)).length >= SECTION_LIMITS.custom;
   const add = (type: "addNote" | "addLinks", heading: string | null) => {
-    const after = openRow && rows.some((row) => row.key === openRow) ? openRow : null;
+    // Only a row that is open: the Letter's placeholder names its row, which has nothing to open
+    // (the part review's finding 9).
+    const after = rows.some((row) => row.key === openRow && opens(row) && !waiting(row)) ? openRow : null;
     send({ type, id: sectionId(), after, heading }, (result) => {
       if (result.key) editSection(result.key, true);
     });
@@ -306,7 +317,7 @@ export function ArrangeSheet({
                     )}
                     <MoveButton
                       label={t("moveUp", { name })}
-                      end={index === 0}
+                      end={index === 0 || waiting(rows[index - 1])}
                       waiting={pending}
                       onPress={() => move(row, -1)}
                       ref={(button) => {
@@ -318,7 +329,7 @@ export function ArrangeSheet({
                     </MoveButton>
                     <MoveButton
                       label={t("moveDown", { name })}
-                      end={index === rows.length - 1}
+                      end={index === rows.length - 1 || waiting(rows[index + 1])}
                       waiting={pending}
                       onPress={() => move(row, 1)}
                       ref={(button) => {
@@ -381,7 +392,7 @@ function HeadingField({ initial, placeholder, onType }: { initial: string; place
   );
 }
 
-// Whether guests see the section folded away, its heading and how much it holds, in its open row.
+// Whether guests see the section folded away under its heading, in its open row.
 function Collapsed({ collapsed, onChange }: { collapsed: boolean; onChange: (collapsed: boolean) => void }) {
   const t = useTranslations("Editor.arrange");
   const id = useId();

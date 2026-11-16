@@ -7,8 +7,8 @@ buttons are not sections; they stay where each layout puts them.
 
 A host arranges the page in the editor's **Arrange** sheet: they put the sections in order, switch
 off the ones guests do not need, rename and collapse them, choose how the album, the comments and
-Who's coming are drawn, and add Notes and Links. An event never arranged is drawn as every layout
-drew it before 0.8.
+Who's coming are drawn, and add Notes and Links. An event never arranged keeps, in every layout,
+its order and everything on it from before 0.8.
 
 ## The arrangement
 
@@ -30,6 +30,12 @@ What the host chose is the event's **arrangement**, one JSON value in `event.sec
 - `placedSections` gives the sections a page draws, in order, from the arrangement and from what
   each kind's drawing says this viewer is shown.
 
+An arrangement stores what the host last saved for every section, not only what they changed: the
+first change stores the whole order, from the layout's default, with each section's `collapsed`,
+heading and style as they were then. So a page arranged on one layout keeps those choices when the
+layout is changed, `collapsed` included: a page first arranged on the Thread, which folds its
+comments away by default, keeps them folded on the Poster. That is ruled: what is stored wins.
+
 `@/sections` is the module's one public entry ([ADR-0008](../adr/0008-features-are-modules.md)) and
 is client-safe: nothing in it reaches the database.
 
@@ -42,8 +48,8 @@ bundles what the server loads:
    Arrange sheet offers for the kind: where its On switch lives (`switch`: none, a column, or the
    arrangement's own), whether it may be collapsed and renamed, its display `styles` (the first is
    what the page always drew), its icon, its default heading in each layout (an `EventPage` message,
-   `SectionHeading`), whether the Poster draws it across both columns, and the site's feature it
-   belongs to, if any.
+   `SectionHeading`), whether the Thread draws it in its wide bubble (`wide`, which only the Thread
+   reads), and the site's feature it belongs to, if any (`feature`).
 2. **A `SectionDrawing`** in [`src/themes/sections/`](../../src/themes/sections/), one file per kind,
    registered in `BY_KIND` in [`drawings.ts`](../../src/themes/sections/drawings.ts). It says what the
    kind `load`s for the page (nothing when the viewer gets none of it), what of it is `shown` (the
@@ -73,17 +79,31 @@ A later module brings a section of its own like this:
   `builtIn` and its `REGISTRY` entry, and puts a kind missing from a stored arrangement in after the
   section before it in the Poster's order, so pages arranged before the kind existed gain it too.
 - **Its entry** in `REGISTRY`, with its default heading per layout as an `EventPage` message added
-  to `SectionHeading` (`EventPage.sections.<kind>` for a new one).
+  to `SectionHeading` (`EventPage.sections.<kind>` for a new one). If it belongs to one of the
+  site's features, its `feature` names it: then Arrange has no row for it and the editor no preview
+  while the site has the feature off (`kindOffered`, which `sheetRows` and `previewedSections`
+  ask), and `arrangeAction` refuses a change to it (`sectionFeature`). Nothing else need name the
+  kind for that.
 - **Its drawing**, in a file of its own in `src/themes/sections/` (or exported from the module's
   entry, if it is a module), registered in `BY_KIND`. Its `load` asks the module's own entry, never
   its internals, and returns nothing for a viewer who gets none of it.
+- **Its collapsed count** in `COUNTS` (`src/themes/sections/section-summary.tsx`): the
+  `EventPage.sections.count.<kind>` message, or `null` where it says none.
 - **Its messages**, in `messages/en.json`, `zh-Hans.json` and `zh-Hant.json`: the row's name
   (`Editor.arrange.kinds.<kind>`), the editor's placeholder line (`Editor.arrange.preview.<kind>`),
   a hint under the row if its switch needs one, its default heading, and a collapsed count
   (`EventPage.sections.count.<kind>`) if it has one.
-- **Its preview** in `previewedSections`, on when a guest's page would draw it.
+- **Its preview** in `previewedSections` (`src/editor/previewed.ts`), on when a guest's page would
+  draw it, and its placeholder line in `PREVIEWS` (`src/editor/section-previews.tsx`).
+- **A switch that is a column** (see below) takes five more: its field in `Switches`, its case in
+  `switchesAfter`, its entry in `sheetRows`' `columns`, its column in the select of
+  `changeEventArrangement` (`src/events/repository.ts`), and, if the row needs one, its hint in
+  `HINTS` (`src/editor/arrange-sheet.tsx`).
 - **Tests**: unit cases in `arrangement.test.ts` and `registry.test.ts`, and a row in
   `e2e/sections.spec.ts` that a guest sees it in every layout, in the host's order.
+
+`BY_KIND`, `PREVIEWS`, `COUNTS` and `previewedSections`' list are each typed as a record over the
+kinds they must name, so a kind missing from one of them does not compile.
 
 ## Why some switches are columns
 
@@ -96,7 +116,10 @@ one truth: Arrange writes the column in the same transaction as the arrangement 
 and the server never has to read the arrangement to decide whether to accept a post. A section
 that only changes what is drawn (the Schedule, the Announcements, the Countdown, a Note, Links)
 keeps its switch in the arrangement. Where the site has a feature off (`REGISTRY[kind].feature`),
-Arrange does not offer the section, and `arrangeAction` refuses a change to it.
+Arrange does not offer the section, and `arrangeAction` refuses a change to it. Who sees Who's
+coming is offered only while the list is on, since choosing would switch it on; the server refuses
+it while the list is off (`refusedBySwitches`), as a sheet opened before it was switched off may
+still post it.
 
 ## The limits
 

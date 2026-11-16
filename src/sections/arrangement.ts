@@ -1,4 +1,5 @@
-import { clipRichText, EMPTY_RICH_TEXT, parseRichText, type RichText } from "@/rich-text/rich-text";
+import type { FeatureId } from "@/features";
+import { clipRichText, EMPTY_RICH_TEXT, MAX_HREF, parseRichText, type RichText } from "@/rich-text/rich-text";
 import type { GuestListVisibility } from "@/rsvps/visibility";
 import type { Layout } from "@/themes/theme";
 import { REGISTRY } from "./registry";
@@ -34,7 +35,8 @@ export type SectionStyle = "grid" | "mosaic" | "strip" | "list" | "bubbles" | "n
 // Absent (null) means never arranged, which places each layout's sections exactly as before 0.8.
 export type Arrangement = { sections: Section[] } | null;
 
-export const SECTION_LIMITS = { custom: 10, heading: 40, note: 2000, links: 6, label: 40, url: 2000 } as const;
+// A link's address is held to the same limit in a Links section as in a Note's words (MAX_HREF).
+export const SECTION_LIMITS = { custom: 10, heading: 40, note: 2000, links: 6, label: 40, url: MAX_HREF } as const;
 
 // The event's switches that are columns, because they change what the server accepts (the spec's
 // "one switch, one truth"): Arrange turns them with their sections.
@@ -440,6 +442,15 @@ export function applyArrangementChange(arrangement: Arrangement, layout: Layout,
   }
 }
 
+// Why the event's switches as they stand refuse a change, if they do (the part review's finding
+// 1). Who sees Who's coming is a choice only while the list is on, as the Arrange sheet offers it,
+// since choosing would switch the list on: a sheet left open from before it was switched off may
+// still post one, and it must not show every guest's name to whoever has the link. The server asks
+// this under the event's row lock, before the change is applied.
+export function refusedBySwitches(switches: Switches, change: ArrangementChange): ArrangementError | undefined {
+  return change.type === "audience" && switches.guestListVisibility === "hidden" ? "notOffered" : undefined;
+}
+
 // The event's switches after a change: the four whose switch is a column turn with their
 // sections, and `audience` sets who sees the guest list. Switching Who's coming on from off gives
 // "after you reply", the default.
@@ -510,9 +521,28 @@ export function countdownOn(arrangement: Arrangement): boolean {
   return sectionOn(arrangement, "countdown");
 }
 
-// The Arrange sheet's rows, in the page's order: one per section, less the album where the site
-// does not offer it, each on as its switch says.
-export function sheetRows(arrangement: Arrangement, layout: Layout, switches: Switches, offered: { album: boolean }): SheetRow[] {
+// The site's features that are on (src/features), as far as the sections are concerned: one not
+// named is taken as off.
+export type OfferedFeatures = Partial<Record<FeatureId, boolean>>;
+
+// Whether the site offers a kind of section: one that belongs to a feature (REGISTRY[kind].feature)
+// only while the site has that feature on (ADR-0008: a feature switched off is not shown).
+export function kindOffered(kind: SectionKind, offered: OfferedFeatures): boolean {
+  const { feature } = REGISTRY[kind];
+  return feature === undefined || offered[feature] === true;
+}
+
+// The site's feature the section a change names belongs to, if any, by its key (a built-in
+// section's key is its kind, a written one's starts with it): where the site has that feature off,
+// nothing may change the section, not even a change posted by hand (arrangeAction).
+export function sectionFeature(key: string): FeatureId | undefined {
+  const kind = key.split(":")[0];
+  return Object.hasOwn(REGISTRY, kind) ? REGISTRY[kind as SectionKind].feature : undefined;
+}
+
+// The Arrange sheet's rows, in the page's order: one per section, less those the site does not
+// offer (kindOffered), each on as its switch says.
+export function sheetRows(arrangement: Arrangement, layout: Layout, switches: Switches, offered: OfferedFeatures): SheetRow[] {
   const columns: Record<string, boolean> = {
     letter: switches.lettersEnabled,
     guests: switches.guestListVisibility !== "hidden",
@@ -520,7 +550,7 @@ export function sheetRows(arrangement: Arrangement, layout: Layout, switches: Sw
     album: switches.albumEnabled,
   };
   return (arrangement?.sections ?? defaultOrder(layout))
-    .filter((section) => offered.album || section.kind !== "album")
+    .filter((section) => kindOffered(section.kind, offered))
     .map((section) => {
       const entry = REGISTRY[section.kind];
       const on = entry.switch === "none" ? true : entry.switch === "column" ? columns[section.kind] : "on" in section && section.on;

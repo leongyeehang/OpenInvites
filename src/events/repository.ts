@@ -6,7 +6,7 @@ import { hostedBy } from "@/hosts/repository";
 import { roleOf, type Role } from "@/hosts/role";
 import { isUuid } from "@/lib/uuid";
 import type { Locale } from "@/locale/resolve-locale";
-import { applyArrangementChange, parseArrangement, switchesAfter, type ArrangementChange, type ArrangementError, type Switches } from "@/sections";
+import { applyArrangementChange, parseArrangement, refusedBySwitches, switchesAfter, type ArrangementChange, type ArrangementError, type Switches } from "@/sections";
 import { DEFAULT_THEME, parseTheme, type Theme } from "@/themes/theme";
 import { approvePending, promoteWaitlist } from "@/rsvps/repository";
 import { removeItemFiles } from "@/album/files";
@@ -191,9 +191,13 @@ export async function changeEventArrangement(
       // are not held up meanwhile, as the album's and the vote's locks leave them.
       .for("no key update");
     if (!row) return undefined;
+    const before: Switches = { lettersEnabled: row.lettersEnabled, commentsEnabled: row.commentsEnabled, guestListVisibility: row.guestListVisibility, albumEnabled: row.albumEnabled };
+    // Who sees a guest list that is off, posted from a sheet opened before it was switched off, is
+    // refused rather than switching the list on (the Sections part's review, finding 1).
+    const refused = refusedBySwitches(before, change);
+    if (refused) return { ok: false, error: refused };
     const applied = applyArrangementChange(parseArrangement(row.sections), parseTheme(row.theme).layout, change);
     if (!applied.ok) return applied;
-    const before: Switches = { lettersEnabled: row.lettersEnabled, commentsEnabled: row.commentsEnabled, guestListVisibility: row.guestListVisibility, albumEnabled: row.albumEnabled };
     const after = switchesAfter(before, change);
     const turned = Object.fromEntries(Object.entries(after).filter(([name, value]) => before[name as keyof Switches] !== value)) as Partial<Switches>;
     await tx

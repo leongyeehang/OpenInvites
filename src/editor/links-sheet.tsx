@@ -15,8 +15,11 @@ import { useEditor } from "./status";
 // address, added, removed and moved by buttons, at most six. The list is not a form: a label is
 // saved once the host has stopped typing, as a heading in Arrange is, an address once its field is
 // left or the sheet closes, never half-typed on a pause (ticket 29's review), and a move or a
-// removal at once; a row with no address yet is not sent. The server checks every address (http
-// and https only) and refuses the whole list over one it would not follow, which is said above it.
+// removal at once; a row with no address yet is not sent. An address is checked as its field is
+// left, by the rule the server holds it to (http and https only, `safeLinkUrl`): one that would be
+// refused is marked, says why under its field, and is left out of what is sent, so the other rows
+// still save (the Sections part's review, finding 3). The server checks every address again and
+// refuses the whole list over one it would not follow, which is said above it.
 // On the keyboard a moved row's button keeps the focus; a removal leaves it on the same button,
 // which then removes the row that took its place, or on "Add a link" after the last one; a new row
 // takes it at its label.
@@ -46,8 +49,11 @@ export function LinksSheet({ eventId, section }: { eventId: string; section: Sec
 // as last left, which is what is sent; `draft` as typed.
 type Row = SectionLink & { id: number; draft: string };
 
-// What is sent: the rows with an address, in order.
-const posted = (rows: Row[]): SectionLink[] => rows.filter((row) => row.url.trim() !== "").map(({ label, url }) => ({ label, url }));
+// Whether a row's address, as last left, is one the server would refuse.
+const refused = (row: Row) => row.url.trim() !== "" && safeLinkUrl(row.url) === undefined;
+
+// What is sent: the rows with an address the server would take, in order.
+const posted = (rows: Row[]): SectionLink[] => rows.filter((row) => row.url.trim() !== "" && !refused(row)).map(({ label, url }) => ({ label, url }));
 
 // The sheet's list, made afresh each time the sheet opens, so it starts from the links as saved.
 function LinksForm({ eventId, sectionKey: key, links }: { eventId: string; sectionKey: string; links: SectionLink[] }) {
@@ -155,6 +161,7 @@ function LinksForm({ eventId, sectionKey: key, links }: { eventId: string; secti
             const n = index + 1;
             const name = nameOf(row, index);
             const field = (part: string) => `${id}-${row.id}-${part}`;
+            const wrong = refused(row);
             return (
               <li key={row.id} className="flex items-start gap-2 rounded-2xl border bg-accent/40 p-3">
                 <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -181,9 +188,16 @@ function LinksForm({ eventId, sectionKey: key, links }: { eventId: string; secti
                     autoCorrect="off"
                     autoComplete="off"
                     spellCheck={false}
+                    aria-invalid={wrong || undefined}
+                    aria-describedby={wrong ? field("url-error") : undefined}
                     onType={(text) => draft(row, text)}
                     onBlur={() => leave(row)}
                   />
+                  {wrong && (
+                    <p id={field("url-error")} className="text-xs text-destructive">
+                      {arrange("errors.urlInvalid")}
+                    </p>
+                  )}
                 </div>
                 <div className="flex shrink-0 flex-col items-center">
                   <MoveButton label={t("moveUp", { label: name })} end={index === 0} onPress={() => move(row, -1)} control={`${row.id}:-1`}>

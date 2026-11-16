@@ -5,14 +5,15 @@ import { useEffect, useRef, useState } from "react";
 import { DescriptionEditor } from "@/app/(host)/events/description-editor";
 import { arrangeAction } from "@/events/editor-actions";
 import type { RichText } from "@/rich-text/rich-text";
-import { sectionKey, type Section } from "@/sections";
+import { SECTION_LIMITS, sectionKey, type Section } from "@/sections";
 import { EditorSheet } from "./sheet";
 import { useEditor } from "./status";
 
 // A Note's own sheet (M8 spec, "Sections"; ticket 29): a tall sheet, as About's is, headed by the
 // Note's heading, with the About editor in it. What the host writes is saved once they have
 // stopped typing, as a heading in Arrange is, and closing the sheet sends what is waiting. The
-// server holds a Note to its limit (SECTION_LIMITS.note) and says so here when it is past it.
+// server holds a Note to its limit (SECTION_LIMITS.note), which the line under the editor names
+// from the start, and says so here when it is past it.
 // Opened from the Note's row in Arrange, or from the Note on the invitation (`editSection`).
 
 // A Note is sent this long after the host's last change, as a heading is.
@@ -76,6 +77,8 @@ function NoteForm({ eventId, sectionKey: key, body }: { eventId: string; section
       <DescriptionEditor
         doc={body}
         label={t("kinds.note")}
+        // Its limit, said before it is passed (the Sections part's review, finding 8).
+        hint={t("noteHint", { max: SECTION_LIMITS.note })}
         onChange={(doc) => {
           latest.current = doc;
           clearTimeout(timer.current);

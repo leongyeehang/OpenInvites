@@ -11,8 +11,11 @@ import {
   parseArrangementChange,
   placedSections,
   safeLinkUrl,
+  SECTION_LIMITS,
   sectionId,
   sectionKey,
+  refusedBySwitches,
+  sectionFeature,
   sectionOn,
   sheetRows,
   switchesAfter,
@@ -208,6 +211,26 @@ describe("parseArrangement", () => {
     expect(sections.filter((each) => each.kind === "album")).toEqual([{ kind: "album", collapsed: true, heading: null, style: "strip" }]);
     expect(sections.filter((each) => each.kind === "note")).toEqual([note("abcd1234", { body: body("First") })]);
     expect(sections.filter((each) => each.kind === "links")).toEqual([]);
+  });
+
+  // The part review's test gap 11: what `docs/contributing/sections.md` promises of a damaged value.
+  it("never throws on garbage, and always returns each built-in section once", () => {
+    const garbage: unknown[] = [
+      { sections: [{ kind: "__proto__" }, { kind: "constructor" }, { kind: "toString" }, { kind: "hasOwnProperty" }] },
+      { sections: [["album"], { kind: ["album"] }, { kind: "album", heading: ["Photos"], style: ["grid"], collapsed: [true] }] },
+      { sections: [null, undefined, 0, "", NaN, { kind: null }, { kind: "note", id: null, body: null }, { kind: "links", id: "abcd1234", links: [null, [], { url: null }] }] },
+      { sections: [{ kind: "comments", heading: "x".repeat(5_000_000) }, { kind: "note", id: "abcd1234", heading: "y".repeat(5_000_000), body: { blocks: [null, { type: "paragraph", spans: null }] } }] },
+      { sections: [{ kind: "note", id: "abcd1234", body: { blocks: { 0: "not an array" } } }, { kind: "links", id: "abcd1235", links: { url: "https://example.com" } }] },
+      JSON.parse('{"sections":[{"kind":"__proto__","__proto__":{"kind":"album"}},{"__proto__":{"kind":"schedule","on":false}}]}'),
+      { sections: Object.assign(Object.create({ kind: "album" }), { 0: "x" }) },
+      { sections: [Object.create(null), Object.assign(Object.create(null), { kind: "album", style: "strip" })] },
+    ];
+    for (const stored of garbage) {
+      expect(() => parseArrangement(stored)).not.toThrow();
+      const sections = parseArrangement(stored)?.sections ?? defaultOrder("poster");
+      expect(sections.filter((section) => POSTER.includes(section.kind)).map((section) => section.kind).sort()).toEqual([...POSTER].sort());
+      for (const section of sections) expect((section.heading ?? "").length).toBeLessThanOrEqual(40);
+    }
   });
 
   it("puts back a built-in section missing from the stored order after the one before it in the Poster's order", () => {
@@ -407,6 +430,18 @@ describe("parseArrangementChange", () => {
     expect(parsed({ type: "editNote", key: "note:abcd1234", body: of(2_001) })).toEqual({ ok: false, error: "noteTooLong" });
   });
 
+  // The part review's finding 8: a link's address in a Note is held to a Links address's limit, so
+  // a Note's words cannot carry megabytes of addresses; the words stay without the link.
+  it("drops a link in a Note whose address is longer than a link's may be", () => {
+    const linked = (href: string) => ({ blocks: [{ type: "paragraph", spans: [{ text: "The shop", href }] }] });
+    const longest = `https://example.com/${"a".repeat(SECTION_LIMITS.url - "https://example.com/".length)}`;
+    expect(parsed({ type: "editNote", key: "note:abcd1234", body: linked(longest) })).toEqual({ ok: true, change: { type: "editNote", key: "note:abcd1234", body: linked(longest) } });
+    expect(parsed({ type: "editNote", key: "note:abcd1234", body: linked(`${longest}a`) })).toEqual({
+      ok: true,
+      change: { type: "editNote", key: "note:abcd1234", body: { blocks: [{ type: "paragraph", spans: [{ text: "The shop" }] }] } },
+    });
+  });
+
   it("holds Links to six, a label to 40 characters, and an address to one a guest may follow", () => {
     const edit = (links: unknown) => parsed({ type: "editLinks", key: "links:abcd1234", links });
     const link = (label: string, url: string) => ({ label, url });
@@ -587,6 +622,36 @@ describe("switchesAfter", () => {
   });
 });
 
+// The part review's finding 1: who sees Who's coming is no choice while the list is off, which a
+// sheet left open from before it was switched off may still post.
+describe("refusedBySwitches", () => {
+  const audience = (visibility: "always" | "afterReply"): ArrangementChange => ({ type: "audience", visibility });
+
+  it("refuses who sees Who's coming while the list is off", () => {
+    const hidden: Switches = { ...SWITCHES, guestListVisibility: "hidden" };
+    expect(refusedBySwitches(hidden, audience("always"))).toBe("notOffered");
+    expect(refusedBySwitches(hidden, audience("afterReply"))).toBe("notOffered");
+  });
+
+  it("takes it while the list is on, and takes any other change either way, the list switched on among them", () => {
+    expect(refusedBySwitches(SWITCHES, audience("always"))).toBeUndefined();
+    expect(refusedBySwitches({ ...SWITCHES, guestListVisibility: "always" }, audience("afterReply"))).toBeUndefined();
+    const hidden: Switches = { ...SWITCHES, guestListVisibility: "hidden" };
+    for (const other of [{ type: "toggle", key: "guests", on: true }, { type: "move", key: "guests", past: "comments" }, { type: "rename", key: "guests", heading: "Guests" }] as ArrangementChange[]) {
+      expect(refusedBySwitches(hidden, other)).toBeUndefined();
+    }
+  });
+});
+
+// The part review's finding 5: what leaves a section out where the site has a feature off is the
+// registry's `feature`, read by the key a change names.
+describe("sectionFeature", () => {
+  it("is the site's feature a section belongs to, by its key", () => {
+    expect(sectionFeature("album")).toBe("album");
+    for (const key of ["comments", "guests", "countdown", "note:abcd1234", "links:abcd1234", "__proto__", "constructor", "map", ""]) expect(sectionFeature(key), key).toBeUndefined();
+  });
+});
+
 describe("sectionOn", () => {
   it("is on by default but for the countdown, and off where the host switched it off, in every layout", () => {
     expect(sectionOn(null, "schedule")).toBe(true);
@@ -620,6 +685,8 @@ describe("sheetRows", () => {
     expect(on).toEqual({ letter: true, details: true, schedule: true, guests: false, announcements: true, comments: false, album: true, countdown: false });
     expect(rows.find((row) => row.key === "album")).toEqual({ key: "album", kind: "album", heading: null, on: true, collapsed: false, style: "grid" });
     expect(sheetRows(null, "poster", switches, { album: false }).map((row) => row.key)).not.toContain("album");
+    // A feature not said to be on is not offered.
+    expect(sheetRows(null, "poster", switches, {}).map((row) => row.key)).toEqual(POSTER.filter((key) => key !== "album"));
   });
 
   it("follows the arrangement's order and what it stores", () => {
