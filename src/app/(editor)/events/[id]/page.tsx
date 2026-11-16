@@ -8,7 +8,7 @@ import { ArrangeSheet } from "@/editor/arrange-sheet";
 import { DesignSheets } from "@/editor/design-sheets";
 import { EditorDetails, type EditableDetails } from "@/editor/details";
 import { EditableTitle } from "@/editor/editable-title";
-import { previewSections } from "@/editor/section-previews";
+import { defaultHeadings, previewSections } from "@/editor/section-previews";
 import { SettingsSheet, EditorToolbar } from "@/editor/settings-sheet";
 import { EditorProvider } from "@/editor/status";
 import { EditorTopBar } from "@/editor/top-bar";
@@ -180,7 +180,14 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
                 sheets={
                   <>
                     <DesignSheets eventId={event.id} title={event.title} maxUploadBytes={limits.maxPhotoMb * MEGABYTE} />
-                    <ArrangeSheet eventId={event.id} layout={event.theme.layout} arrangement={arrangement} switches={sectionSwitches} offered={{ album: features.album }} />
+                    <ArrangeSheet
+                      eventId={event.id}
+                      layout={event.theme.layout}
+                      arrangement={arrangement}
+                      switches={sectionSwitches}
+                      offered={{ album: features.album }}
+                      headings={await defaultHeadings(event.theme.layout)}
+                    />
                     <SettingsSheet
                       eventId={event.id}
                       settings={event}
@@ -203,7 +210,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/e
           <PosterLayout
             event={{ ...event, hostName: hosts[0]?.name ?? "" }}
             hosts={hosts.map((each) => each.name)}
-            sections={await previewSections(arrangement, event.theme.layout, sectionSwitches, <EditorDetails details={details} timeZones={timeZones()} />, { album: features.album })}
+            sections={await previewSections(arrangement, event.theme.layout, sectionSwitches, <EditorDetails details={details} timeZones={timeZones()} />, { album: features.album }, dated !== undefined)}
             edit={{
               title: {
                 full: <EditableTitle eventId={event.id} title={event.title} compact={false} />,

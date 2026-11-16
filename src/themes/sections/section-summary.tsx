@@ -41,7 +41,8 @@ export async function SectionSummary({ section, className }: { section: ReadySec
           </span>
         </>
       )}
-      <ChevronDown className="ml-auto size-4 shrink-0 group-open:rotate-180" aria-hidden />
+      {/* It turns as it opens only where the guest's device allows motion. */}
+      <ChevronDown className="ml-auto size-4 shrink-0 group-open:rotate-180 motion-safe:transition-transform motion-safe:duration-200" aria-hidden />
     </summary>
   );
 }

@@ -1104,7 +1104,7 @@
       "count": {
         "guests": "{count, plural, =0 {还没有人} other {预计 # 人}}",
         "comments": "{count, plural, =0 {还没有} other {# 条留言}}",
-        "album": "{count, plural, =0 {还没有} other {# 个照片和视频}}",
+        "album": "{count, plural, =0 {还没有} other {# 张照片和视频}}",
         "announcements": "{count, plural, other {# 条消息}}",
         "schedule": "{count, plural, other {# 项}}",
         "links": "{count, plural, other {# 个链接}}"
@@ -1390,6 +1390,11 @@
       "letterHint": "你亲自邀请的宾客，会读到你在“专属邀请”页面上写给他们的信。",
       "albumHint": "关闭后，宾客看不到相册，也无法添加内容。相册里的内容不会被删除。",
       "commentsHint": "关闭后，宾客看不到留言，也无法发表留言。",
+      "countdownHint": "开启后，倒计时不再显示在“时间”下，而是单独成为一个版块。",
+      "heading": "标题",
+      "headingHint": "留空则保留“{name}”。",
+      "collapsed": "折叠",
+      "collapsedHint": "宾客会看到标题和其中有多少内容，轻点即可展开。",
       "kinds": {
         "letter": "专属信件",
         "details": "详情",
@@ -1409,7 +1414,8 @@
         "guestsAfterReply": "谁会来，已回复的宾客能看到。",
         "announcements": "你在“公告”中发出的内容会显示在这里。",
         "comments": "已回复的宾客在这里交流。",
-        "album": "活动的照片和视频，从活动开始时起。"
+        "album": "活动的照片和视频，从活动开始时起。",
+        "countdown": "距活动开始的倒计时，按每位宾客自己的时间显示。"
       },
       "errors": {
         "unreadable": "无法读取这项更改，请重试。",

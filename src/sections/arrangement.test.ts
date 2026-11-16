@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { RichText } from "@/rich-text/rich-text";
 import {
   applyArrangementChange,
+  countdownOn,
   defaultOrder,
   linkHost,
   parseArrangement,
@@ -487,6 +488,41 @@ describe("applyArrangementChange", () => {
     const result = applied(written, { type: "toggle", key: "note:aaaaaaaa", on: false });
     expect(result.ok && result.arrangement.sections.at(-1)).toEqual(note("aaaaaaaa", { on: false }));
   });
+
+  // Ticket 28: the countdown is last in every default order only for the Poster's entrance delays;
+  // switched on from there it goes where a host looks for it, and once placed it keeps its place.
+  it("moves the countdown switched on while it is last to just after the Details", () => {
+    expect(appliedKeys(null, { type: "toggle", key: "countdown", on: true })).toEqual([
+      "letter",
+      "details",
+      "countdown",
+      "schedule",
+      "guests",
+      "announcements",
+      "comments",
+      "album",
+    ]);
+    const result = applied(null, { type: "toggle", key: "countdown", on: true });
+    expect(result.ok && result.arrangement.sections[2]).toMatchObject({ kind: "countdown", on: true });
+  });
+
+  it("leaves the countdown where the host put it when it is not last", () => {
+    // After the album, with a note after it.
+    const placed = arranged((sections) => [...sections, note("aaaaaaaa")]);
+    expect(appliedKeys(placed, { type: "toggle", key: "countdown", on: true })).toEqual([...POSTER, "note:aaaaaaaa"]);
+    // Switched off where it is last, it stays last.
+    const on = applied(null, { type: "toggle", key: "countdown", on: true });
+    expect(on.ok && appliedKeys(on.arrangement, { type: "toggle", key: "countdown", on: false })).toEqual([
+      "letter",
+      "details",
+      "countdown",
+      "schedule",
+      "guests",
+      "announcements",
+      "comments",
+      "album",
+    ]);
+  });
 });
 
 describe("switchesAfter", () => {
@@ -523,6 +559,15 @@ describe("sectionOn", () => {
 
   it("leaves a section whose switch is a column, or that has none, to its drawing", () => {
     for (const kind of ["letter", "details", "guests", "comments", "album"] as const) expect(sectionOn(arranged(), kind)).toBe(true);
+  });
+});
+
+describe("countdownOn", () => {
+  it("is off for a page never arranged, and on only while the host has the countdown on", () => {
+    expect(countdownOn(null)).toBe(false);
+    const on = arranged((sections) => sections.map((section) => (section.kind === "countdown" ? { ...section, on: true } : section)));
+    expect(countdownOn(on)).toBe(true);
+    expect(countdownOn(arranged())).toBe(false);
   });
 });
 

@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { closeDesign, createDraft, createPublished, type DraftFields, openArrange, openDesign, openSettings, savedAfter, saveStatus, toEditor } from "./events";
+import { closeDesign, createDraft, createPublished, type DraftFields, openArrange, openDesign, openSettings, savedAfter, saveStatus, setSchedule, toEditor } from "./events";
 import { expectRingStandsOut } from "./contrast";
 import { hostWithShelves, SHELVES } from "./dashboard";
 import { expectVisibleFocus, tabTo } from "./focus";
@@ -404,6 +404,51 @@ test("a host picks a poster, changes a knob, restores the poster's look and clos
   await expect(posterButton).toBeFocused();
   await expectVisibleFocus(page);
   await host.context.close();
+});
+
+// M8 ticket 28: in Arrange, a row's disclosure, its Heading field and its Collapsed switch are
+// each a Tab away; on the guest's page the collapsed section's summary is a stop of its own, which
+// Enter and Space open and close.
+test("a host renames and collapses a section in Arrange, and a guest opens it, by keyboard alone", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-collapse", EVENT);
+  const page = host.page;
+  await setSchedule(page, [{ start: "20:00", title: "Cake" }]);
+  await tabTo(page, page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Arrange" }));
+  await page.keyboard.press("Enter");
+  const sheet = page.getByRole("dialog", { name: "Arrange" });
+  await expect(sheet.getByRole("heading", { name: "Arrange" })).toBeFocused();
+
+  const options = sheet.getByRole("button", { name: "Options for Schedule" });
+  await tabTo(page, options);
+  await page.keyboard.press("Enter");
+  await expect(options).toHaveAttribute("aria-expanded", "true");
+  await tabTo(page, sheet.getByRole("textbox", { name: "Heading" }));
+  await savedAfter(page, () => page.keyboard.type("Plan"));
+  await expect(sheet.getByRole("button", { name: "Options for Plan" })).toBeVisible();
+  const collapsed = sheet.getByRole("switch", { name: "Collapsed" });
+  await tabTo(page, collapsed);
+  await savedAfter(page, () => page.keyboard.press("Space"));
+  await expect(collapsed).toBeChecked();
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+
+  const guest = await (await browser.newContext()).newPage();
+  await guest.goto(host.link);
+  const schedule = guest.locator('details[data-slot="schedule"]');
+  const summary = schedule.locator("summary");
+  await expect(summary.getByRole("heading", { name: "Plan" })).toBeVisible();
+  await expect(schedule).not.toHaveAttribute("open");
+  await tabTo(guest, summary);
+  await guest.keyboard.press("Enter");
+  await expect(schedule).toHaveAttribute("open", "");
+  await expect(schedule).toContainText("Cake");
+  await guest.keyboard.press("Enter");
+  await expect(schedule).not.toHaveAttribute("open");
+  await guest.keyboard.press("Space");
+  await expect(schedule).toHaveAttribute("open", "");
+  await expectVisibleFocus(guest);
+  await Promise.all([host.context.close(), guest.context().close()]);
 });
 
 // The host pages' rings, and the design sheets', are drawn at half strength over the page. On

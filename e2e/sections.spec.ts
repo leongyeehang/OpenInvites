@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
-import { arrange, chooseLayout, createPublished, openArrange, sectionOrder, setGuestList, setSchedule } from "./events";
-import { closeReply } from "./reply";
+import { arrange, chooseLayout, createPublished, openArrange, openMore, savedAfter, sectionOrder, setGuestList, setSchedule, setWhen } from "./events";
+import { closeReply, rsvpSheet } from "./reply";
 import { clientAddress, expect, test, type Browser, type APIRequestContext, type Locator, type Page } from "./test";
 
 // M8 ticket 25: the host puts the Poster's sections in order in the editor's Arrange sheet, and
@@ -58,7 +58,7 @@ test("the host moves the Album above the Comments", async ({ browser, request })
     const up = sheet.getByRole("button", { name: "Move Album up" });
     await up.click();
     await expect(up).toBeFocused();
-    await expect(liveLine(sheet)).toHaveText("Album, 6 of 7");
+    await expect(liveLine(sheet)).toHaveText("Album, 6 of 8");
   });
 
   // The editor's invitation follows, then a guest's page.
@@ -69,7 +69,7 @@ test("the host moves the Album above the Comments", async ({ browser, request })
   // And the sheet holds the order after a reload.
   await host.page.reload();
   const sheet = await openArrange(host.page);
-  expect(await rowNames(sheet)).toEqual(["Personal letter", "Details", "Schedule", "Who’s coming", "Announcements", "Album", "Comments"]);
+  expect(await rowNames(sheet)).toEqual(["Personal letter", "Details", "Schedule", "Who’s coming", "Announcements", "Album", "Comments", "Countdown"]);
   await close();
 });
 
@@ -107,11 +107,11 @@ test("Arrange by keyboard", async ({ browser, request }) => {
   await expect(up).toBeFocused();
 
   await page.keyboard.press("Enter");
-  await expect(liveLine(sheet)).toHaveText("Album, 6 of 7");
+  await expect(liveLine(sheet)).toHaveText("Album, 6 of 8");
   await page.keyboard.press("Enter");
   await expect(up).toBeFocused();
-  await expect(liveLine(sheet)).toHaveText("Album, 5 of 7");
-  await expect.poll(() => rowNames(sheet)).toEqual(["Personal letter", "Details", "Schedule", "Who’s coming", "Album", "Announcements", "Comments"]);
+  await expect(liveLine(sheet)).toHaveText("Album, 5 of 8");
+  await expect.poll(() => rowNames(sheet)).toEqual(["Personal letter", "Details", "Schedule", "Who’s coming", "Album", "Announcements", "Comments", "Countdown"]);
 
   // Both presses are saved, in order.
   await page.keyboard.press("Escape");
@@ -340,7 +340,7 @@ test("the Broadsheet follows the host's order", async ({ browser, request }) => 
   const host = await laidOut(browser, request, "sections-broadsheet-move", "Broadsheet");
   await arrange(host.page, async (sheet) => {
     await sheet.getByRole("button", { name: "Move Album up" }).click();
-    await expect(liveLine(sheet)).toHaveText("Album, 6 of 7");
+    await expect(liveLine(sheet)).toHaveText("Album, 6 of 8");
   });
   const guest = await visitor(browser, host.link);
   await expectOrder(guest, ["details", "schedule", "guests", "album", "comments"]);
@@ -392,9 +392,9 @@ test("the Thread moves its announcements as a group", async ({ browser, request 
   await arrange(host.page, async (sheet) => {
     const up = sheet.getByRole("button", { name: "Move Announcements up" });
     await up.click();
-    await expect(liveLine(sheet)).toHaveText("Announcements, 4 of 7");
+    await expect(liveLine(sheet)).toHaveText("Announcements, 4 of 8");
     await up.click();
-    await expect(liveLine(sheet)).toHaveText("Announcements, 3 of 7");
+    await expect(liveLine(sheet)).toHaveText("Announcements, 3 of 8");
   });
   const guest = await visitor(browser, host.link);
   await expectOrder(guest, ["details", "announcements", "schedule", "guests", "comments", "album"]);
@@ -439,4 +439,241 @@ test("Schedule off leaves the Broadsheet and the Thread too", async ({ browser, 
     await guest.context().close();
   }
   await host.context.close();
+});
+
+// M8 ticket 28: a row in Arrange opens to its heading and, where the section offers it, Collapsed;
+// guests read the host's heading in every layout, and a collapsed section is a native disclosure
+// showing its heading and how much it holds. The Countdown joins the sheet, and a placeholder in
+// the editor opens Arrange at its own row.
+
+// The open row of a section in Arrange, opened if it is not open yet.
+async function openRow(sheet: Locator, name: string) {
+  const options = sheet.getByRole("button", { name: `Options for ${name}` });
+  if ((await options.getAttribute("aria-expanded")) !== "true") await options.click();
+  await expect(options).toHaveAttribute("aria-expanded", "true");
+}
+
+// A section collapsed in Arrange, saved, and the sheet closed again.
+async function collapse(page: Page, name: string) {
+  await arrange(page, async (sheet) => {
+    await openRow(sheet, name);
+    const collapsed = sheet.getByRole("switch", { name: "Collapsed" });
+    await collapsed.click();
+    await expect(collapsed).toBeChecked();
+  });
+}
+
+async function postComment(page: Page, text: string) {
+  const box = page.getByLabel("Add a comment");
+  await box.fill(text);
+  await page.getByRole("button", { name: "Post", exact: true }).click();
+  await expect(box).toHaveValue("", { timeout: 15_000 });
+}
+
+test("a renamed section reads the host's heading", async ({ browser, request }) => {
+  test.setTimeout(180_000);
+  const host = await createPublished(browser, request, "sections-rename", { ...EVENT, plusOnes: "0" });
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  await postComment(priya, "See you there!");
+
+  const sheet = await openArrange(host.page);
+  await openRow(sheet, "Comments");
+  const heading = sheet.getByRole("textbox", { name: "Heading" });
+  await expect(heading).toHaveAttribute("placeholder", "Comments");
+  await expect(heading).toHaveAccessibleDescription("Leave it empty to keep “Comments”.");
+  // Counted by character, as the server counts it: forty emoji fit and are saved, a forty-first
+  // is not typed.
+  await savedAfter(host.page, () => heading.fill("🎉".repeat(41)));
+  await expect(heading).toHaveValue("🎉".repeat(40));
+  await savedAfter(host.page, () => heading.fill("Guestbook"));
+  // The row is named by the host's heading as it is typed.
+  await expect(sheet.getByRole("switch", { name: "Guestbook" })).toBeChecked();
+  await host.page.keyboard.press("Escape");
+  // The editor's placeholder reads it too.
+  await expect(section(host.page, "comments")).toContainText("Guestbook");
+
+  for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
+    if (layout !== "Poster") await chooseLayout(host.page, host.link, layout);
+    await priya.reload();
+    await expect(priya.locator("[data-layout]")).toHaveAttribute("data-layout", layout.toLowerCase());
+    await expect(section(priya, "comments").getByRole("heading", { name: "Guestbook" })).toBeVisible();
+  }
+  // Once her comment has gone, with its Delete button, the focus is on the host's heading.
+  await priya.getByRole("listitem").filter({ hasText: "See you there!" }).getByRole("button", { name: "Delete" }).click();
+  await priya.getByRole("alertdialog").getByRole("button", { name: "Delete it" }).click();
+  await expect(priya.getByRole("heading", { name: "Guestbook" })).toBeFocused({ timeout: 15_000 });
+
+  // Emptied, the default is back.
+  const again = await openArrange(host.page);
+  await openRow(again, "Guestbook");
+  await savedAfter(host.page, () => again.getByRole("textbox", { name: "Heading" }).fill(""));
+  await host.page.keyboard.press("Escape");
+  await priya.reload();
+  await expect(section(priya, "comments").getByRole("heading", { name: "Comments" })).toBeVisible();
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+test("a collapsed Album opens with one tap and stays open", async ({ browser, request }) => {
+  test.slow();
+  // An event that has started, so its album is open.
+  const host = await createPublished(browser, request, "sections-collapse", { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" });
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  const garden = await sharp({ create: { width: 1600, height: 1200, channels: 3, background: "#2f6b3a" } }).jpeg().toBuffer();
+  await section(priya, "album").getByLabel(/^Add photos/).setInputFiles([{ name: "garden.jpg", mimeType: "image/jpeg", buffer: garden }]);
+  await expect(section(priya, "album").getByRole("status")).toContainText("garden.jpg: added", { timeout: 20_000 });
+
+  await arrange(host.page, async (sheet) => {
+    await openRow(sheet, "Album");
+    const collapsed = sheet.getByRole("switch", { name: "Collapsed" });
+    await expect(collapsed).toHaveAccessibleDescription("Guests see the heading and how much it holds, and open it with a tap.");
+    await collapsed.click();
+    await expect(collapsed).toBeChecked();
+  });
+  await priya.reload();
+  const album = priya.locator('details[data-slot="album"][data-section="album"]');
+  await expect(album).not.toHaveAttribute("open");
+  const summary = album.locator("summary");
+  await expect(summary.locator("h2")).toHaveText("Photos");
+  await expect(summary.locator('[data-slot="section-count"]')).toHaveText("1 photo or video");
+  await summary.focus();
+  await priya.keyboard.press("Enter");
+  await expect(album).toHaveAttribute("open", "");
+  await expect(album.getByRole("button", { name: "Photo 1 by Priya Nair" })).toBeVisible();
+
+  // Her comment refreshes the page, which leaves the album as she opened it.
+  await postComment(priya, "What a day!");
+  await expect(section(priya, "comments")).toContainText("What a day!");
+  await expect(album).toHaveAttribute("open", "");
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+test("a section locked to the viewer is drawn open", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "sections-locked", EVENT);
+  await collapse(host.page, "Comments");
+  // To the host, to whom they are open, the comments are folded away.
+  await host.page.goto(host.link);
+  await expect(host.page.locator('details[data-slot="comments"]')).not.toHaveAttribute("open");
+
+  const guest = await visitor(browser, host.link);
+  const comments = section(guest, "comments");
+  await expect(comments).toContainText("No comments yet");
+  await expect(comments).toContainText("Reply to join the conversation");
+  await expect(guest.locator('details[data-slot="comments"]')).toHaveCount(0);
+  await Promise.all([host.context.close(), guest.context().close()]);
+});
+
+test("Countdown", async ({ browser, request }) => {
+  test.setTimeout(180_000);
+  const host = await createPublished(browser, request, "sections-countdown", EVENT);
+  const guest = await visitor(browser, host.link);
+  // Off, as it starts: the countdown is under When.
+  await expect(section(guest, "details")).toContainText("Starts in");
+  await expect(section(guest, "countdown")).toHaveCount(0);
+
+  await arrange(host.page, async (sheet) => {
+    const countdown = sheet.getByRole("switch", { name: "Countdown" });
+    await expect(countdown).not.toBeChecked();
+    await expect(countdown).toHaveAccessibleDescription("On, the countdown leaves When and has a place of its own.");
+    await countdown.click();
+    await expect(countdown).toBeChecked();
+  });
+  // The editor previews it, just after the details.
+  await expect(host.page.getByRole("button", { name: "A countdown to the start, in each guest’s own time." })).toBeVisible();
+  await guest.reload();
+  await expectOrder(guest, ["details", "countdown", "guests", "comments", "album"]);
+  await expect(section(guest, "countdown")).toContainText("days to go");
+  await expect(section(guest, "details")).not.toContainText("Starts in");
+
+  // The Broadsheet has no Countdown fact, and the section; the Thread has none under When.
+  await chooseLayout(host.page, host.link, "Broadsheet");
+  await guest.reload();
+  await expect(guest.locator("main header dt")).toHaveText(["When", "Host"]);
+  await expect(section(guest, "countdown")).toContainText("days to go");
+  await chooseLayout(host.page, host.link, "Thread");
+  await guest.reload();
+  await expect(guest.locator('[data-slot="thread-card"]')).toBeVisible();
+  await expect(section(guest, "countdown")).toContainText("days to go");
+  await expect(section(guest, "details")).not.toContainText("Starts in");
+
+  // A cancelled event has nothing to count to.
+  await openMore(host.page);
+  await host.page.getByRole("button", { name: "Cancel event" }).click();
+  await host.page.getByRole("button", { name: "Cancel the event" }).click();
+  await expect(host.page.getByText("Cancelled", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await guest.reload();
+  await expect(section(guest, "details").first()).toBeVisible();
+  await expect(section(guest, "countdown")).toHaveCount(0);
+
+  // Nor has a draft with no date yet, until it has one.
+  await host.page.goto("/events/new");
+  await expect(host.page).toHaveURL(/\/events\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+  await arrange(host.page, (sheet) => sheet.getByRole("switch", { name: "Countdown" }).click());
+  await expect(section(host.page, "details")).toBeVisible();
+  await expect(section(host.page, "countdown")).toHaveCount(0);
+  await setWhen(host.page, { start: "2027-05-08T19:00" });
+  await expect(section(host.page, "countdown")).toBeVisible();
+  await Promise.all([host.context.close(), guest.context().close()]);
+});
+
+test("a placeholder opens its row", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "sections-placeholder", EVENT);
+  await host.page.getByRole("button", { name: "Photos and videos from the event, from its start." }).click();
+  const sheet = host.page.getByRole("dialog", { name: "Arrange" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Options for Album" })).toHaveAttribute("aria-expanded", "true");
+  await expect(sheet.getByRole("switch", { name: "Collapsed" })).toBeVisible();
+  // Renamed from there, the placeholder shows the host's heading.
+  await savedAfter(host.page, () => sheet.getByRole("textbox", { name: "Heading" }).fill("Our pictures"));
+  await host.page.keyboard.press("Escape");
+  await expect(section(host.page, "album")).toContainText("Our pictures");
+  // Opened again from the toolbar, no row is open.
+  await expect((await openArrange(host.page)).getByRole("button", { name: "Options for Our pictures" })).toHaveAttribute("aria-expanded", "false");
+  await host.context.close();
+});
+
+test("the Arrange sheet with a row open has no serious accessibility problems", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "sections-axe-row", EVENT);
+  const sheet = await openArrange(host.page);
+  await openRow(sheet, "Album");
+  await expect(sheet.getByRole("textbox", { name: "Heading" })).toBeVisible();
+  await expectNoSeriousViolations(host.page, "the Arrange sheet, the Album open");
+  await host.context.close();
+});
+
+// From ticket 27's review: Who's coming collapsed says how many people are expected (Going and
+// their plus-ones), the number the page gives elsewhere, not how many replied.
+async function replies(browser: Browser, link: string, name: string, status: "Going" | "Maybe" | "Can’t go", plusOne = false) {
+  const page = await (await browser.newContext()).newPage();
+  await page.goto(link);
+  await page.getByRole("button", { name: status }).click();
+  await page.getByLabel("Your name").fill(name);
+  if (status !== "Can’t go") {
+    await page.getByRole("button", { name: "Continue" }).click();
+    if (plusOne) await page.getByRole("radio", { name: "+1" }).click();
+  }
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(rsvpSheet(page).getByRole("heading", { name: { Going: "You’re going!", Maybe: "You’re a maybe.", "Can’t go": "We’ll miss you." }[status] })).toBeVisible({
+    timeout: 15_000,
+  });
+  await closeReply(page);
+  return page;
+}
+
+test("a collapsed Who's coming counts the people expected", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "sections-guests-count", { ...EVENT, plusOnes: "1" });
+  const priya = await replies(browser, host.link, "Priya Nair", "Going", true);
+  await (await replies(browser, host.link, "Mei Lin", "Maybe")).context().close();
+  await (await replies(browser, host.link, "Ravi Shah", "Can’t go")).context().close();
+  await collapse(host.page, "Who’s coming");
+  for (const layout of ["Poster", "Thread"] as const) {
+    if (layout !== "Poster") await chooseLayout(host.page, host.link, layout);
+    await priya.reload();
+    await expect(priya.locator("[data-layout]")).toHaveAttribute("data-layout", layout.toLowerCase());
+    await expect(priya.locator('details[data-slot="guests"] [data-slot="section-count"]')).toHaveText("2 expected");
+  }
+  await Promise.all([host.context.close(), priya.context().close()]);
 });

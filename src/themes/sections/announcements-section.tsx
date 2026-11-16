@@ -9,14 +9,23 @@ import type { SectionPage } from "./drawings";
 // One of the host's announcements as the event page shows it.
 export type ShownAnnouncement = Pick<Announcement, "id" | "body" | "createdAt">;
 
-// The host's announcements, newest first, as every layout shows them under "From the host". Each
-// is dated in the event's zone, as everything on the page is, and keeps its line breaks and
-// spaces; nothing else in it is formatted. The layout frames it and gives it its heading.
-export async function AnnouncementsSection({ announcements, timeZone }: { announcements: ShownAnnouncement[]; timeZone: string }) {
+// The host's announcements, newest first, as every layout shows them under "From the host"; the
+// Thread's collapsed section oldest first, as its bubbles are (ticket 27's review). Each is dated
+// in the event's zone, as everything on the page is, and keeps its line breaks and spaces;
+// nothing else in it is formatted. The layout frames it and gives it its heading.
+export async function AnnouncementsSection({
+  announcements,
+  timeZone,
+  oldestFirst = false,
+}: {
+  announcements: ShownAnnouncement[];
+  timeZone: string;
+  oldestFirst?: boolean;
+}) {
   const locale = await getLocale();
   return (
     <ol className="flex flex-col gap-4">
-      {announcements.map((each) => (
+      {(oldestFirst ? [...announcements].reverse() : announcements).map((each) => (
         <li key={each.id}>
           <p className="text-sm text-theme-text-faint">
             <time dateTime={each.createdAt.toISOString()}>{formatMoment(each.createdAt, timeZone, locale)}</time>
@@ -56,7 +65,7 @@ type AnnouncementsData = { announcements: ShownAnnouncement[]; timeZone: string 
 export const announcementsDrawing: SectionDrawing<AnnouncementsData, SectionPage> = {
   load: async ({ announcements, event }) => (announcements.length > 0 ? { announcements, timeZone: event.timeZone } : undefined),
   shown: ({ announcements }) => ({ count: announcements.length }),
-  body: (data) => <AnnouncementsSection {...data} />,
+  body: (data, layout) => <AnnouncementsSection {...data} oldestFirst={layout === "thread"} />,
   whole: {
     thread: (data, placed, className) => <ThreadAnnouncements {...data} heading={placed.heading} sectionKey={placed.key} className={className} />,
   },

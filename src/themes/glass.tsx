@@ -5,17 +5,13 @@ import { cn } from "@/lib/utils";
 // `strong` is the more opaque frost for small pieces that sit on other content. Its `data-slot` says
 // a control on it sits on a proven surface (e2e/site-look.ts), unless a caller names it otherwise.
 export function Glass({ strong = false, className, ...props }: ComponentProps<"div"> & { strong?: boolean }) {
-  return (
-    <div
-      data-slot="glass"
-      className={cn(
-        "rounded-3xl border border-theme-glass-border shadow-glass backdrop-blur-xl",
-        strong ? "bg-theme-glass-strong" : "bg-theme-glass",
-        className,
-      )}
-      {...props}
-    />
-  );
+  return <div data-slot="glass" className={cn(glassClasses(strong), className)} {...props} />;
+}
+
+// The glass's own classes, for a surface that cannot be a `div`: the Poster's collapsed section is
+// a `<details>` (M8 ticket 28).
+export function glassClasses(strong = false): string {
+  return cn("rounded-3xl border border-theme-glass-border shadow-glass backdrop-blur-xl", strong ? "bg-theme-glass-strong" : "bg-theme-glass");
 }
 
 // What a heading outside a panel sits on, set straight on the page (legibility.ts, SURFACES.page):

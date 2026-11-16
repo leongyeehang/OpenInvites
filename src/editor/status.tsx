@@ -6,7 +6,8 @@ import type { SaveResult } from "@/events/editor-actions";
 // The editor's one save status (M4 spec, "The editor"): every piece the host changes is saved as
 // they make it, and the top bar says how the last save went, "Saving…", "Saved", or what went
 // wrong, with Try again, which sends that save again. The details' sheets open from here too, so
-// that Publish can open the one whose piece is missing.
+// that Publish can open the one whose piece is missing, and the Arrange sheet at one section's row,
+// so that a placeholder on the invitation opens its own (M8 ticket 28).
 
 export type SheetName = "poster" | "title" | "theme" | "effect" | "arrange" | "note" | "links" | "when" | "where" | "about" | "schedule" | "settings" | "more";
 
@@ -18,7 +19,13 @@ type EditorState = {
   save: (task: () => Promise<SaveResult>) => Promise<boolean>;
   retry: () => void;
   sheet: SheetName | null;
+  // Opening or closing a sheet closes any row open in Arrange.
   openSheet: (name: SheetName | null) => void;
+  // The row open in the Arrange sheet, by its section's key: `openSection` opens the sheet at it,
+  // and `setOpenRow` opens or closes one from inside the sheet.
+  openRow: string | null;
+  openSection: (key: string) => void;
+  setOpenRow: (key: string | null) => void;
 };
 
 const EditorContext = createContext<EditorState | null>(null);
@@ -35,7 +42,16 @@ export function EditorProvider({ sheet: opened = null, children }: { sheet?: She
   const [status, setStatus] = useState<EditorState["status"]>("idle");
   const [error, setError] = useState<string>();
   const [saves, setSaves] = useState(0);
-  const [sheet, openSheet] = useState<SheetName | null>(opened);
+  const [sheet, setSheet] = useState<SheetName | null>(opened);
+  const [openRow, setOpenRow] = useState<string | null>(null);
+  const openSheet = useCallback((name: SheetName | null) => {
+    setSheet(name);
+    setOpenRow(null);
+  }, []);
+  const openSection = useCallback((key: string) => {
+    setSheet("arrange");
+    setOpenRow(key);
+  }, []);
   const last = useRef<() => Promise<SaveResult>>(undefined);
   // Saves answer in the order they were sent; only the latest one's outcome is shown.
   const sent = useRef(0);
@@ -61,7 +77,7 @@ export function EditorProvider({ sheet: opened = null, children }: { sheet?: She
     if (last.current) void save(last.current);
   }, [save]);
 
-  return <EditorContext value={{ status, saves, error, save, retry, sheet, openSheet }}>{children}</EditorContext>;
+  return <EditorContext value={{ status, saves, error, save, retry, sheet, openSheet, openRow, openSection, setOpenRow }}>{children}</EditorContext>;
 }
 
 // The editor is optional around the invitation: the guest page has none.

@@ -4,9 +4,10 @@ import type { EventWithHost } from "@/events/repository";
 import { formatWhenBrief, isDated } from "@/events/time";
 import { cn } from "@/lib/utils";
 import type { ReadySection } from "@/sections";
-import { Glass } from "./glass";
+import { Glass, glassClasses } from "./glass";
 import { PosterHero } from "./poster-card";
 import { entrance, HostLine, invitationEntrance, SectionLabel } from "./poster-parts";
+import { SectionSummary } from "./sections/section-summary";
 
 // The Poster layout, poster first (M4 spec, "The guest page"): the poster as wide as the page's
 // column, the title on it or under it with its date, who is hosting, then the page's sections in
@@ -81,6 +82,17 @@ export async function PosterLayout({
         {sections.map((section) => {
           const { placed } = section;
           const rise = cn(entrance, DELAYS[Math.min(placed.index, DELAYS.length - 1)]);
+          // Collapsed (M8 ticket 28), a native disclosure on the same glass: its summary the
+          // heading and how much it holds. It is never given `open`, so the guest's choice
+          // outlasts a refresh.
+          if (placed.collapsed) {
+            return (
+              <details key={placed.key} data-slot={placed.kind} data-section={placed.key} className={cn(glassClasses(), "group rounded-[1.75rem] p-5", rise)}>
+                <SectionSummary section={section} />
+                <div className="mt-4">{section.body}</div>
+              </details>
+            );
+          }
           // A section that frames itself carries its own data-section.
           if (section.whole) return <Fragment key={placed.key}>{section.whole(rise)}</Fragment>;
           return (

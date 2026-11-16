@@ -1390,6 +1390,11 @@
       "letterHint": "Guests you invite personally read the letter you write them on the Invites page.",
       "albumHint": "Off, guests see no album and can’t add to it. Nothing in it is deleted.",
       "commentsHint": "Off, guests see no comments and can’t post one.",
+      "countdownHint": "On, the countdown leaves When and has a place of its own.",
+      "heading": "Heading",
+      "headingHint": "Leave it empty to keep “{name}”.",
+      "collapsed": "Collapsed",
+      "collapsedHint": "Guests see the heading and how much it holds, and open it with a tap.",
       "kinds": {
         "letter": "Personal letter",
         "details": "Details",
@@ -1409,7 +1414,8 @@
         "guestsAfterReply": "Who’s coming, for guests who have replied.",
         "announcements": "What you send from Announcements appears here.",
         "comments": "Guests who have replied talk here.",
-        "album": "Photos and videos from the event, from its start."
+        "album": "Photos and videos from the event, from its start.",
+        "countdown": "A countdown to the start, in each guest’s own time."
       },
       "errors": {
         "unreadable": "That change couldn’t be read. Try again.",

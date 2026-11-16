@@ -21,6 +21,7 @@ import type { Layout } from "@/themes/theme";
 import { albumDrawing } from "./album-section";
 import { announcementsDrawing, type ShownAnnouncement } from "./announcements-section";
 import { commentsDrawing } from "./comments-section";
+import { countdownDrawing } from "./countdown-section";
 import { detailsDrawing } from "./details-section";
 import { guestsDrawing, type GuestListShown } from "./guests-section";
 import { letterDrawing } from "./letter-section";
@@ -65,9 +66,10 @@ const BY_KIND = {
   announcements: announcementsDrawing,
   comments: commentsDrawing,
   album: albumDrawing,
+  countdown: countdownDrawing,
 };
 
-// The kinds the server draws (the countdown, the Note and Links come with later tickets).
+// The kinds the server draws (the Note and Links come with ticket 29), each registered once, above.
 export type DrawnKind = keyof typeof BY_KIND;
 export type SectionData = { [K in DrawnKind]: DataOf<(typeof BY_KIND)[K]> };
 // What the page loaded: a kind this viewer gets nothing of is absent.
@@ -76,25 +78,22 @@ export type LoadedSections = { [K in DrawnKind]?: SectionData[K] };
 // Each kind's drawing, typed by its own data; the page reads them as one list.
 export const DRAWINGS: { [K in DrawnKind]: SectionDrawing<SectionData[K], SectionPage> } = BY_KIND;
 
-const DRAWN_KINDS: readonly DrawnKind[] = ["letter", "details", "schedule", "guests", "announcements", "comments", "album"];
+// Read from BY_KIND, so a kind registered there is loaded and placed without being listed again.
+const DRAWN_KINDS = Object.keys(BY_KIND) as DrawnKind[];
 const isDrawn = (kind: SectionKind): kind is DrawnKind => Object.hasOwn(DRAWINGS, kind);
 
 // Everything the page's sections load, at once, each kind by its own drawing: a kind this viewer
 // gets nothing of is absent, and so is a section the host has switched off, which is never asked
 // for (ticket 27). Loaded once per page, whichever layout draws it.
 export async function loadSections(page: SectionPage, arrangement: Arrangement): Promise<LoadedSections> {
-  const load = <K extends DrawnKind>(kind: K): Promise<SectionData[K] | undefined> =>
-    sectionOn(arrangement, kind) ? DRAWINGS[kind].load(page) : Promise.resolve(undefined);
-  const [letter, details, schedule, guests, announcements, comments, album] = await Promise.all([
-    load("letter"),
-    load("details"),
-    load("schedule"),
-    load("guests"),
-    load("announcements"),
-    load("comments"),
-    load("album"),
-  ]);
-  return { letter, details, schedule, guests, announcements, comments, album };
+  const loaded: LoadedSections = {};
+  const load = async <K extends DrawnKind>(kind: K) => {
+    if (!sectionOn(arrangement, kind)) return;
+    const data = await DRAWINGS[kind].load(page);
+    if (data !== undefined) loaded[kind] = data;
+  };
+  await Promise.all(DRAWN_KINDS.map(load));
+  return loaded;
 }
 
 // What of one kind this viewer is shown, from its own drawing and data.

@@ -382,6 +382,13 @@ export function applyArrangementChange(arrangement: Arrangement, layout: Layout,
       if (entry.switch === "none") return refused("notOffered");
       // A column's switch is the event's: switchesAfter turns it, and the order stays.
       if ("on" in section) sections[at] = { ...section, on: change.on };
+      // The countdown is last in every default order only so that the Poster's entrance delays
+      // stay as they were (ticket 24): switched on from there it goes just after the Details,
+      // where a host looks for it (ticket 28). Once the host has placed it, it keeps its place.
+      if (section.kind === "countdown" && change.on && at === sections.length - 1) {
+        const details = sections.findIndex((each) => each.kind === "details");
+        sections.splice(details + 1, 0, ...sections.splice(at, 1));
+      }
       return done();
     case "collapse":
       if (!entry.collapse) return refused("notOffered");
@@ -434,13 +441,17 @@ export function switchesAfter(switches: Switches, change: ArrangementChange): Sw
 
 const styleOf = (section: Section): SectionStyle | null => ("style" in section ? section.style : null);
 
+// Whether a section is on as far as the arrangement says: one whose switch is the arrangement's
+// own is on as stored; any other (a column's switch, or none) is its drawing's to say.
+const switchedOn = (section: Section): boolean => !("on" in section) || section.on;
+
 // The sections a page draws, in order. A built-in section is placed when its drawing gave this
 // viewer something of it (`shown`) and, where its switch is the arrangement's, it is on; a Note or
 // Links when it is on and has something in it.
 export function placedSections(arrangement: Arrangement, layout: Layout, shown: Partial<Record<BuiltInKind, Shown>>): PlacedSection[] {
   const sections = arrangement?.sections ?? defaultOrder(layout);
   return sections.flatMap((section, index): PlacedSection[] => {
-    if ("on" in section && !section.on) return [];
+    if (!switchedOn(section)) return [];
     const place = (count: number | null, collapsed: boolean): PlacedSection[] => [
       { key: sectionKey(section), kind: section.kind, heading: section.heading, collapsed, style: styleOf(section), count, index, section },
     ];
@@ -457,7 +468,13 @@ export function placedSections(arrangement: Arrangement, layout: Layout, shown: 
 // it is by default, which is the same in every layout.
 export function sectionOn(arrangement: Arrangement, kind: BuiltInKind): boolean {
   const section = (arrangement?.sections ?? defaultOrder("poster")).find((each) => each.kind === kind);
-  return !section || !("on" in section) || section.on;
+  return !section || switchedOn(section);
+}
+
+// Whether the host has the countdown on (ticket 28): then it is a section of its own, and leaves
+// the When it is otherwise drawn under.
+export function countdownOn(arrangement: Arrangement): boolean {
+  return sectionOn(arrangement, "countdown");
 }
 
 // The Arrange sheet's rows, in the page's order: one per section, less the album where the site

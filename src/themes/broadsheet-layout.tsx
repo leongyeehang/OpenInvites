@@ -7,6 +7,7 @@ import type { ReadySection } from "@/sections";
 import { BackgroundDescription } from "./background-description";
 import { BroadsheetSection } from "./broadsheet-section";
 import { BroadsheetTitle } from "./broadsheet-title";
+import { SectionSummary } from "./sections/section-summary";
 
 // The Broadsheet layout (spec, "Broadsheet", from the prototype's layout-broadsheet.tsx): an
 // editorial page at most 64rem wide. A masthead rule, one very large title (or the host's poster)
@@ -92,6 +93,16 @@ export async function BroadsheetLayout({
         <div className={cn(PAPER, "flex flex-col gap-12 rounded-4xl lg:col-start-1 lg:rounded-t-none lg:pt-12", entrance, "motion-safe:delay-200")}>
           {sections.map((section) => {
             const { placed } = section;
+            // Collapsed (M8 ticket 28), a native disclosure under the section's rule, its summary
+            // the heading in the labels' small capitals and how much it holds.
+            if (placed.collapsed) {
+              return (
+                <details key={placed.key} data-slot={placed.kind} data-section={placed.key} className="group border-t border-theme-text/80 pt-5">
+                  <SectionSummary section={section} className="label-mono text-theme-text-muted" />
+                  <div className="mt-4">{section.body}</div>
+                </details>
+              );
+            }
             // The paper comes in as one, so a section has no entrance of its own; one that frames
             // itself carries its own data-section.
             if (section.whole) return <Fragment key={placed.key}>{section.whole("")}</Fragment>;

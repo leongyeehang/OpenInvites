@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { chooseLayout, closeDesign, createDraft, createPublished, type DesignSheet, HOUR, itemFromNow, openDesign, openMore, openSettings, publishInEditor, savedAfter, setSchedule, utcFromNow } from "./events";
+import { arrange, chooseLayout, closeDesign, createDraft, createPublished, type DesignSheet, HOUR, itemFromNow, openDesign, openMore, openSettings, publishInEditor, savedAfter, setSchedule, utcFromNow } from "./events";
 import { openHome } from "./home";
 import { latestMailTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { expectStill } from "./still";
@@ -487,6 +487,34 @@ test("under reduced motion a guest's letter is still, in the Poster, the Broadsh
     await expect(page.locator("[data-layout]")).toHaveAttribute("data-layout", layout.toLowerCase());
     await expect(page.locator('[data-slot="letter"]').getByRole("heading", { name: "For Mei", exact: true })).toBeVisible();
     await expectStill(page, `a letter on the ${layout}`);
+  }
+  await page.context().close();
+  await host.context.close();
+});
+
+// A collapsed section (M8 ticket 28), opened, in each layout: its chevron turns only where motion
+// is allowed, and nothing in it moves.
+test("under reduced motion a collapsed section opened is still, in the Poster, the Broadsheet and the Thread", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "still-collapsed", { title: "Ada’s supper club", start: "2027-03-06T19:00", plusOnes: "0" });
+  await setSchedule(host.page, [{ start: "20:00", title: "Cake" }]);
+  await arrange(host.page, async (sheet) => {
+    await sheet.getByRole("button", { name: "Options for Schedule" }).click();
+    await sheet.getByRole("switch", { name: "Collapsed" }).click();
+  });
+  const page = await stillGuest(browser);
+  await page.goto(host.link);
+  for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
+    if (layout !== "Poster") {
+      await chooseLayout(host.page, host.link, layout);
+      await expect.poll(() => request.get(host.link).then((response) => response.text()), { timeout: 15_000 }).toContain(`data-layout="${layout.toLowerCase()}"`);
+      await page.reload();
+    }
+    const schedule = page.locator('details[data-slot="schedule"]');
+    await schedule.locator("summary").click();
+    await expect(schedule).toHaveAttribute("open", "");
+    await expect(schedule).toContainText("Cake");
+    await expectStill(page, `a collapsed schedule opened on the ${layout}`);
   }
   await page.context().close();
   await host.context.close();

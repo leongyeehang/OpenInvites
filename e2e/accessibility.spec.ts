@@ -618,9 +618,9 @@ test("the Thread arranged, its announcements above the schedule", async ({ brows
   await arrange(host.page, async (sheet) => {
     const up = sheet.getByRole("button", { name: "Move Announcements up" });
     await up.click();
-    await expect(sheet.locator('[aria-live="polite"]')).toHaveText("Announcements, 4 of 7");
+    await expect(sheet.locator('[aria-live="polite"]')).toHaveText("Announcements, 4 of 8");
     await up.click();
-    await expect(sheet.locator('[aria-live="polite"]')).toHaveText("Announcements, 3 of 7");
+    await expect(sheet.locator('[aria-live="polite"]')).toHaveText("Announcements, 3 of 8");
   });
   const guest = await browser.newContext();
   const page = await guest.newPage();
@@ -630,6 +630,31 @@ test("the Thread arranged, its announcements above the schedule", async ({ brows
   await guest.close();
   await host.context.close();
 });
+
+// A collapsed section in each layout (M8 ticket 28): the schedule, folded away, then opened by a
+// guest who has not replied. A test for each layout.
+for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
+  test(`the ${layout} with a collapsed section, closed and opened`, async ({ browser, request }) => {
+    test.slow();
+    const host = await createPublished(browser, request, `a11y-collapsed-${layout.toLowerCase()}`, { ...EVENT, layout: layout === "Poster" ? undefined : layout });
+    await setSchedule(host.page, [{ start: "20:00", title: "Cake" }]);
+    await arrange(host.page, async (sheet) => {
+      await sheet.getByRole("button", { name: "Options for Schedule" }).click();
+      await sheet.getByRole("switch", { name: "Collapsed" }).click();
+    });
+    const guest = await browser.newContext();
+    const page = await guest.newPage();
+    await page.goto(host.link);
+    const schedule = page.locator('details[data-slot="schedule"]');
+    await expect(schedule.locator('summary [data-slot="section-count"]')).toHaveText("1 item");
+    await expectNoSeriousViolations(page, `the ${layout}, the schedule collapsed`);
+    await schedule.locator("summary").click();
+    await expect(schedule).toContainText("Cake");
+    await expectNoSeriousViolations(page, `the ${layout}, the collapsed schedule opened`);
+    await guest.close();
+    await host.context.close();
+  });
+}
 
 // The comments on the Poster (ticket 06), with the host's announcement above them: locked for a
 // guest who has not replied, open with the form once they have, a guest's own deleted, and on a

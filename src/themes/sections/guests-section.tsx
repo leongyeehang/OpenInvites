@@ -71,10 +71,12 @@ async function WhoIsComing({ view, guests, counts, you, approval }: GuestListSho
 }
 
 // The guest list as a section (M8 ticket 25), drawn in each layout's own way (ticket 27). The frame
-// heads it; the count beside a collapsed heading is how many guests are listed.
+// heads it; the count beside a collapsed heading is how many people are expected, Going and their
+// plus-ones, the headcount the page gives wherever it shows the list (ticket 27's review), and not
+// how many replied. It is there whenever the list is, a list of only Maybes reading "nobody yet".
 export const guestsDrawing: SectionDrawing<GuestListShown, SectionPage> = {
   load: async ({ guestList }) => guestList,
-  shown: (list) => ({ count: list.view === "open" ? list.guests.length : null, locked: list.view === "locked" }),
+  shown: (list) => ({ count: list.view === "open" ? list.counts.headcount : null, locked: list.view === "locked" }),
   body: (list, layout) =>
     layout === "broadsheet" ? <BroadsheetGuestList {...list} /> : layout === "thread" ? <WhoIsComing {...list} /> : <GuestList {...list} />,
 };

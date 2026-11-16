@@ -53,7 +53,7 @@ import { loadPoll } from "@/polls/repository";
 import { findVoterOnThisDevice } from "@/polls/voter";
 import { PollBar, PollFlow, PollWhen, type PollCandidate } from "./poll-flow";
 import type { CommentViewer } from "@/comments/visibility";
-import { parseArrangement, sectionOn } from "@/sections";
+import { countdownOn, parseArrangement, sectionOn } from "@/sections";
 import { loadSections, readySections, type SectionPage } from "@/themes/sections/drawings";
 
 // Event pages are never indexed (ADR-0004). The header carries the same signal (next.config.ts).
@@ -190,6 +190,8 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
   // How the host arranged the page's sections (M8 ticket 25): a section switched off there is not
   // even read (ticket 27).
   const arrangement = parseArrangement(event.sections);
+  // Switched on there, the countdown is a section of its own and leaves When (ticket 28).
+  const countdownInWhen = !countdownOn(arrangement);
   // What this event asks, what this guest has already said, so coming back prefills, the host's
   // own picture if there is one, and what the host has announced, which every viewer reads.
   // Whether the event is full is said beside the reply controls whatever the guest list shows, so
@@ -277,7 +279,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
       underWhen: time && (
         <>
           <ViewerTime event={time} locale={locale} />
-          <Countdown event={time} />
+          {countdownInWhen && <Countdown event={time} />}
         </>
       ),
       // The Thread's maps link is one of its bubbles' chips.
@@ -316,7 +318,7 @@ export default async function EventPage({ params }: PageProps<"/e/[slug]">) {
             notice={notice}
             rsvp={<BroadsheetBallot {...flow} />}
             underWhen={<ViewerTime event={time} locale={locale} />}
-            countdown={<CountdownFigure event={time} />}
+            countdown={countdownInWhen ? <CountdownFigure event={time} /> : undefined}
             underWhere={event.location ? <MapLink location={event.location} /> : undefined}
             headcount={open?.headcount}
             sections={sections}
