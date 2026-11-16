@@ -754,16 +754,22 @@ test("the verification banner reads on its poster", async ({ page }) => {
   await backdropPainted(page);
   const banner = page.getByRole("alert").filter({ hasText: "Verify your email" });
   const resend = banner.getByRole("button", { name: "Resend email" });
-  // The button sits in the corner over the end of the title's box (at 390px, 45 of its 270px),
-  // where the words never reach: it is hidden while the words are read, so that its edge and its
-  // words are not read as what is behind them.
-  const action = banner.locator('[data-slot="alert-action"]');
-  await action.evaluate((element) => ((element as HTMLElement).style.visibility = "hidden"));
-  expect(await worstContrast(banner.getByText("Verify your email", { exact: true })), "the banner's title").toBeGreaterThanOrEqual(4.5);
-  expect(await worstContrast(banner.getByText(/^We sent a link to /)), "the banner's words").toBeGreaterThanOrEqual(4.5);
-  await action.evaluate((element) => (element as HTMLElement).style.removeProperty("visibility"));
-  expect(await buttonWordsContrast(resend), "Resend email").toBeGreaterThanOrEqual(4.5);
+  // The button sits clear of the words (below them at a phone's width, beside them wider; ticket
+  // 31), so they are read with it in place, and again once Resend has said it sent.
+  const read = async (when: string) => {
+    expect(await worstContrast(banner.getByText("Verify your email", { exact: true })), `the banner's title, ${when}`).toBeGreaterThanOrEqual(4.5);
+    expect(await worstContrast(banner.getByText(/^We sent a link to /)), `the banner's words, ${when}`).toBeGreaterThanOrEqual(4.5);
+    expect(await buttonWordsContrast(resend), `Resend email, ${when}`).toBeGreaterThanOrEqual(4.5);
+  };
+  await read("before Resend");
   await expectRingStandsOut(page, resend);
+  await resend.click();
+  const sent = banner.getByRole("status");
+  await expect(sent).toHaveText("Sent. Check your inbox.", { timeout: 15_000 });
+  // Not hovered, as it was read before.
+  await page.mouse.move(0, 0);
+  await read("after Resend");
+  expect(await worstContrast(sent), "what Resend says").toBeGreaterThanOrEqual(4.5);
 });
 
 // M8 ticket 23: a guest list as long as a party's, read to its last row, on the busiest picture a

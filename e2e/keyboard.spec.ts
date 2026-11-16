@@ -1,5 +1,20 @@
 import sharp from "sharp";
-import { closeDesign, createDraft, createPublished, type DraftFields, openArrange, openDesign, openSettings, savedAfter, saveStatus, setSchedule, toEditor } from "./events";
+import {
+  addSection,
+  closeDesign,
+  closeSheets,
+  createDraft,
+  createPublished,
+  type DraftFields,
+  openArrange,
+  openDesign,
+  openSettings,
+  savedAfter,
+  saveStatus,
+  setSchedule,
+  toEditor,
+  writeLink,
+} from "./events";
 import { expectRingStandsOut } from "./contrast";
 import { hostWithShelves, SHELVES } from "./dashboard";
 import { expectVisibleFocus, tabTo } from "./focus";
@@ -495,6 +510,95 @@ test("a host adds Links, moves one and removes another, by keyboard alone", asyn
   await expect(add).toBeFocused();
   await expectVisibleFocus(page);
   await host.context.close();
+});
+
+// M8 ticket 31: the whole of Arrange without a pointer, from the toolbar and back to it: Schedule's
+// switch by Space, the Album moved up by Enter with the focus staying on its button and the live line
+// saying where it went, the Comments' row opened, renamed and collapsed by Space, a Dress code note
+// added and written in, Escape back to Arrange at the note's row, and Escape to the toolbar. Then
+// the guest, who replied before, opens the folded Guestbook by Enter and by Space, and Tabs to each
+// link of the Registry. The Registry and her reply are made first, by the usual helpers.
+test("a host arranges the whole page by keyboard alone, and a guest opens a folded section and reaches each link", async ({ browser, request }) => {
+  test.setTimeout(180_000);
+  const host = await createPublished(browser, request, "keyboard-arrange-all", { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0" });
+  const page = host.page;
+  await setSchedule(page, [{ start: "20:00", title: "Cake" }]);
+  const registry = await addSection(page, "Registry");
+  await writeLink(page, registry, 1, "Our list", "https://www.example.com/registry");
+  await writeLink(page, registry, 2, "Songs", "https://example.org/songs");
+  await closeSheets(page);
+  const guest = await (await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
+  await guest.goto(host.link);
+  await guest.getByRole("button", { name: "Going", exact: true }).click();
+  await guest.getByLabel("Your name").fill("Priya Nair");
+  await guest.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(guest.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+
+  // The host's keyboard starts from a page freshly opened.
+  await page.reload();
+  const toolbarArrange = page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Arrange" });
+  await tabTo(page, toolbarArrange);
+  await page.keyboard.press("Enter");
+  const sheet = page.getByRole("dialog", { name: "Arrange" });
+  await expect(sheet.getByRole("heading", { name: "Arrange" })).toBeFocused();
+  const live = sheet.locator('[aria-live="polite"]');
+
+  const schedule = sheet.getByRole("switch", { name: "Schedule" });
+  await tabTo(page, schedule);
+  await savedAfter(page, () => page.keyboard.press("Space"));
+  await expect(schedule).not.toBeChecked();
+
+  const up = sheet.getByRole("button", { name: "Move Album up" });
+  await tabTo(page, up);
+  await savedAfter(page, () => page.keyboard.press("Enter"));
+  await expect(up).toBeFocused();
+  await expect(live).toHaveText("Album, 6 of 9");
+  await expectVisibleFocus(page);
+
+  const options = sheet.getByRole("button", { name: "Options for Comments" });
+  await tabTo(page, options);
+  await page.keyboard.press("Enter");
+  await expect(options).toHaveAttribute("aria-expanded", "true");
+  await tabTo(page, sheet.getByRole("textbox", { name: "Heading" }));
+  await savedAfter(page, () => page.keyboard.type("Guestbook"));
+  const collapsed = sheet.getByRole("switch", { name: "Collapsed" });
+  await tabTo(page, collapsed);
+  await savedAfter(page, () => page.keyboard.press("Space"));
+  await expect(collapsed).toBeChecked();
+
+  await tabTo(page, sheet.getByRole("button", { name: "Dress code", exact: true }));
+  await savedAfter(page, () => page.keyboard.press("Enter"));
+  const note = page.getByRole("dialog", { name: "Dress code" });
+  await expect(note.getByRole("heading", { name: "Dress code" })).toBeFocused();
+  await tabTo(page, note.getByRole("textbox", { name: "Note" }));
+  await savedAfter(page, () => page.keyboard.type("Cocktail attire."));
+  await page.keyboard.press("Escape");
+  await expect(note).toBeHidden();
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Options for Dress code" })).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  await expect(toolbarArrange).toBeFocused();
+  await expectVisibleFocus(page);
+
+  // The guest's page, as arranged: the Guestbook folded, opened and closed by Enter and Space.
+  await guest.reload();
+  await expect(guest.locator('[data-section="schedule"]')).toHaveCount(0);
+  const guestbook = guest.locator('details[data-slot="comments"]');
+  const summary = guestbook.locator("summary");
+  await expect(summary.getByRole("heading", { name: "Guestbook" })).toBeVisible();
+  await expect(guestbook).not.toHaveAttribute("open");
+  await tabTo(guest, summary);
+  await guest.keyboard.press("Enter");
+  await expect(guestbook).toHaveAttribute("open", "");
+  await guest.keyboard.press("Enter");
+  await expect(guestbook).not.toHaveAttribute("open");
+  await guest.keyboard.press("Space");
+  await expect(guestbook).toHaveAttribute("open", "");
+  await expectVisibleFocus(guest);
+  // Each link of the Registry is a stop of its own, ringed (tabTo checks every stop).
+  for (const name of [/^Our list/, /^Songs/]) await tabTo(guest, guest.locator('[data-slot="links"]').getByRole("link", { name }));
+  await Promise.all([host.context.close(), guest.context().close()]);
 });
 
 // The host pages' rings, and the design sheets', are drawn at half strength over the page. On

@@ -7,8 +7,9 @@ import { describe, expect, it } from "vitest";
 // found, too fast and the legal pages wear the fallback area's poster from DBLESS_POOL, so that a
 // page shown when something has failed costs no query that may fail too. They hold to it only while
 // nothing they import reaches the database, which this follows by reading: every file each page
-// imports, and every file those import in turn, as far as the source goes. Type-only imports are
-// left out, as nothing of them runs.
+// imports, and every file those import in turn, as far as the source goes, loaded at once or by a
+// dynamic import() (src/instrumentation.ts loads that way). Type-only imports are left out, as
+// nothing of them runs.
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
@@ -18,6 +19,13 @@ const PAGES = ["src/app/not-found.tsx", "src/app/too-fast/page.tsx", "src/compon
 const DATABASE = /^src\/(db\/|instance\/repository\.ts$)/;
 
 const IMPORT = /^\s*(?:import|export)\s+(?!type\b)(?:[^"';]*?\sfrom\s+)?["']([^"']+)["']/gm;
+// A dynamic import() of a module named outright; `typeof import("…")` names a type, not a load.
+const DYNAMIC = /(?<!\btypeof\s+)\bimport\(\s*["']([^"']+)["']\s*\)/g;
+
+// The modules a file's source names to load, at once or dynamically.
+function importsOf(code: string): string[] {
+  return [...code.matchAll(IMPORT), ...code.matchAll(DYNAMIC)].map(([, source]) => source);
+}
 
 // The file an import names, when it is one of the app's own: by the alias, or relative.
 function resolve(from: string, source: string): string | null {
@@ -33,7 +41,7 @@ function reached(entry: string): Map<string, string[]> {
   while (queue.length > 0) {
     const file = queue.shift()!;
     const via = paths.get(relative(ROOT, file))!;
-    for (const [, source] of readFileSync(file, "utf8").matchAll(IMPORT)) {
+    for (const source of importsOf(readFileSync(file, "utf8"))) {
       const found = resolve(file, source);
       if (!found || paths.has(relative(ROOT, found))) continue;
       paths.set(relative(ROOT, found), [...via, relative(ROOT, found)]);
@@ -49,6 +57,11 @@ describe("the pages drawn without the database", () => {
     expect(sources('import { a } from "@/x";\nimport b from "./y";\nexport { c } from "../z";\nimport "./side";\n')).toEqual(["@/x", "./y", "../z", "./side"]);
     expect(sources('import type { a } from "@/instance/repository";\nexport type { b } from "@/db/schema";\n')).toEqual([]);
     expect(sources('import {\n  a,\n  b,\n} from "@/instance/repository";\n')).toEqual(["@/instance/repository"]);
+  });
+
+  it("follows a dynamic import(), and leaves one in a type out", () => {
+    expect(importsOf('const { a } = await import("@/x");\nawait import(\n  "./y"\n);\n')).toEqual(["@/x", "./y"]);
+    expect(importsOf('type Schema = typeof import("@/db/schema");\n')).toEqual([]);
   });
 
   it("reach the site look and the themes, as they are drawn from them", () => {

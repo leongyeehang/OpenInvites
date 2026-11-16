@@ -1,6 +1,20 @@
 import sharp from "sharp";
 import { clientAddress, expect, test, type Browser, type Page } from "./test";
-import { createPublished, editSettings, HOUR, itemFromNow, openMore, savedAfter, setSchedule, utcFromNow } from "./events";
+import {
+  addSection,
+  arrange,
+  closeSheets,
+  createPublished,
+  editSettings,
+  HOUR,
+  itemFromNow,
+  openMore,
+  openRow,
+  savedAfter,
+  setSchedule,
+  utcFromNow,
+  writeLink,
+} from "./events";
 import { hostWithShelves } from "./dashboard";
 import { expectHomeIn, openHome } from "./home";
 import { latestMailTo, linkIn, mailCountTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
@@ -669,4 +683,46 @@ test("a host whose browser asks for zh-TW reads the sections' styles in Arrange 
     await expect(sheet.getByRole("radiogroup", { name: "樣式" }).getByRole("radio")).toHaveText([...styles]);
   }
   await Promise.all([context.close(), host.context.close()]);
+});
+
+// M8 ticket 31: Arrange in Traditional Chinese for a host whose browser asks for zh-TW (its rows'
+// names, a row's Move buttons and Add a section), and an arranged page in Simplified Chinese for a
+// guest whose browser asks for zh-CN (a folded section's count, and a link's "opens in a new tab").
+test("a zh-TW host reads Arrange in Traditional Chinese, and a zh-CN guest reads an arranged page in Simplified Chinese", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "locale-arrange", { title: "Ada’s birthday", start: "2027-05-08T19:00" });
+  const editor = host.page.url();
+  await setSchedule(host.page, [{ start: "20:00", title: "Cake" }]);
+  await arrange(host.page, async (sheet) => {
+    await openRow(sheet, "Schedule");
+    await sheet.getByRole("switch", { name: "Collapsed" }).click();
+  });
+  const registry = await addSection(host.page, "Registry");
+  await writeLink(host.page, registry, 1, "Our list", "https://www.example.com/registry");
+  await closeSheets(host.page);
+
+  const context = await browser.newContext({ locale: "zh-TW", storageState: await host.context.storageState() });
+  const page = await context.newPage();
+  await page.goto(editor);
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
+  await page.getByRole("navigation", { name: "設計邀請" }).getByRole("button", { name: "排列" }).click();
+  const sheet = page.getByRole("dialog", { name: "排列" });
+  // The host's own heading, given in English, is the Registry's name in any language.
+  const rows = await sheet.getByRole("list", { name: "區塊" }).getByRole("listitem").allInnerTexts();
+  expect(rows.map((text) => text.split("\n")[0].trim())).toEqual(["專屬信件", "詳情", "日程", "誰會來", "公告", "留言", "相簿", "倒數", "Registry"]);
+  await expect(sheet.getByRole("button", { name: "將相簿上移" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "將相簿下移" })).toBeVisible();
+  const add = sheet.getByRole("region", { name: "新增區塊" });
+  await expect(add.getByRole("button", { name: "服裝要求", exact: true })).toBeVisible();
+  await expect(add.getByRole("button", { name: "歌單", exact: true })).toBeVisible();
+
+  const guestContext = await browser.newContext({ locale: "zh-CN", extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
+  const guest = await guestContext.newPage();
+  await guest.goto(host.link);
+  await expect(guest.locator("html")).toHaveAttribute("lang", "zh-Hans");
+  const schedule = guest.locator('details[data-slot="schedule"]');
+  await expect(schedule.locator("summary").getByRole("heading", { name: "日程" })).toBeVisible();
+  await expect(schedule.locator('summary [data-slot="section-count"]')).toHaveText("1 项");
+  await expect(guest.locator('[data-slot="links"]').getByRole("link")).toHaveAccessibleName(/^Our list.*（在新标签页中打开）$/);
+  await Promise.all([guestContext.close(), context.close(), host.context.close()]);
 });

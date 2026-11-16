@@ -8,11 +8,12 @@ import { setLocale } from "./set-locale";
 // read it (spec, story 61). Works without JavaScript: each language is a button that submits the
 // form, the server action sets the locale cookie, and the page re-renders in the chosen language.
 // Each is named in its own language, so anyone can find theirs whatever the page is in now.
-export async function LocaleSwitcher({ className, currentClassName }: { className?: string; currentClassName?: string }) {
+// `slot` names the surface it is drawn as, where it is one (page-footer.tsx).
+export async function LocaleSwitcher({ slot, className, currentClassName }: { slot?: string; className?: string; currentClassName?: string }) {
   const [current, t, localeNames] = await Promise.all([getLocale(), getTranslations("LocaleSwitcher"), getTranslations("Locales")]);
 
   return (
-    <form action={setLocale} aria-label={t("label")} className={cn("flex w-fit flex-wrap items-center justify-center gap-x-3 gap-y-1", className)}>
+    <form action={setLocale} aria-label={t("label")} data-slot={slot} className={cn("flex w-fit flex-wrap items-center justify-center gap-x-3 gap-y-1", className)}>
       <Globe className="size-3.5 shrink-0" aria-hidden />
       {locales.map((locale) => (
         <button

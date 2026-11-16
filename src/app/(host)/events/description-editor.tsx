@@ -111,6 +111,10 @@ export function DescriptionEditor({ doc, label, onChange }: { doc: RichText; lab
         aria-multiline="true"
         aria-labelledby={labelId}
         contentEditable
+        // Named outright: a sheet's focus trap (Radix) counts only what says it is in the Tab
+        // order, and in the Note's sheet, where this is the last stop, it would otherwise send Tab
+        // from Bullet list back to the top, never into the text (M8 ticket 31).
+        tabIndex={0}
         suppressContentEditableWarning
         onInput={read}
         onBlur={read}

@@ -228,8 +228,11 @@ export function Album({
   const captioned = style !== "grid";
   // One item's tile, the same in every style: its thumbnail, which opens the viewer, with a video's
   // length or the Live mark and the slot's node; or a video still processing; and under it what
-  // waits for a host. `className` is the style's, for the tile's place and size.
-  const tile = (photo: ShownPhoto, className?: string) => {
+  // waits for a host. `className` is the style's, for the tile's place and size. The mosaic's
+  // first tile is `big`: its rows are as tall as the tallest tile beside it, a waiting item's
+  // Approve and Delete under it included, so its picture grows to fill them, cropped as every
+  // thumbnail is, rather than leave a gap under it (ticket 30's review).
+  const tile = (photo: ShownPhoto, className?: string, big = false) => {
     const at = opening.indexOf(photo as Openable);
     const n = at + 1;
     return (
@@ -237,7 +240,7 @@ export function Album({
         {openable(photo) ? (
           // The slot's node sits beside the thumbnail's button, never inside it: it may hold
           // a button of its own.
-          <div className="relative">
+          <div className={cn("relative", big && "grow")}>
             <button
               id={`album-item-${photo.id}`}
               ref={(button) => {
@@ -249,7 +252,10 @@ export function Album({
                 last.current = photo.id;
                 setOpen(photo.id);
               }}
-              className="relative block aspect-square w-full cursor-pointer overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text"
+              className={cn(
+                "relative block aspect-square w-full cursor-pointer overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-text",
+                big && "h-full",
+              )}
             >
               {/* Its id names the item alone, without a video's length or the Live mark,
                   for what a slot labels by it (M8 ticket 12). */}
@@ -276,7 +282,10 @@ export function Album({
           // see it, nobody else (album/visibility.ts). No pulse: nothing here moves.
           <div
             role={photo.state === "processing" ? "status" : undefined}
-            className="flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-xl bg-theme-glass-strong px-2 text-center text-xs text-theme-text-muted"
+            className={cn(
+              "flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-xl bg-theme-glass-strong px-2 text-center text-xs text-theme-text-muted",
+              big && "grow",
+            )}
           >
             <Film className="size-6" aria-hidden />
             {photo.state === "processing" ? t("processing") : photo.failure === "tooLong" ? t("failedTooLong", { max: formatMinutes(video.maxMs / 60_000, locale) }) : t("failed")}
@@ -284,8 +293,9 @@ export function Album({
         )}
         {/* A mosaic and a strip write a caption under its picture, on one line (M8 ticket 30); the
             grid, whose tiles are a third of a phone's width, writes none (ticket 09). It is
-            already in the item's name, so it is not read twice. */}
-        {captioned && photo.caption && (
+            already in the item's name, so it is not read twice; a video still processing, or
+            failed, has no such name, so it has none under it either. */}
+        {captioned && photo.caption && openable(photo) && (
           <p data-slot="caption" aria-hidden className="truncate text-xs text-theme-text-muted">
             {photo.caption}
           </p>
@@ -354,7 +364,7 @@ export function Album({
       ) : (
         <AlbumItems style={style} label={t("strip")}>
           {photos.map((photo, index) =>
-            tile(photo, style === "mosaic" && index === 0 ? "col-span-2 row-span-2" : style === "strip" ? "w-40 shrink-0 snap-start" : undefined),
+            style === "mosaic" && index === 0 ? tile(photo, "col-span-2 row-span-2", true) : tile(photo, style === "strip" ? "w-40 shrink-0 snap-start" : undefined),
           )}
         </AlbumItems>
       )}

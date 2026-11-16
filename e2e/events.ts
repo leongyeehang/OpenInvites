@@ -300,6 +300,14 @@ export async function arrange(page: Page, change: (sheet: Locator) => Promise<vo
   await expect(sheet).toBeHidden();
 }
 
+// A row of the open Arrange sheet opened, for its heading, its Collapsed and its styles (M8 ticket
+// 28), unless it is open already.
+export async function openRow(sheet: Locator, name: string) {
+  const options = sheet.getByRole("button", { name: `Options for ${name}` });
+  if ((await options.getAttribute("aria-expanded")) !== "true") await options.click();
+  await expect(options).toHaveAttribute("aria-expanded", "true");
+}
+
 // Who sees Who's coming, in Arrange (M8 ticket 26): "hidden" is the row switched off; otherwise it
 // is switched on if it was off, which starts at guests who have replied, and its open row says who
 // sees it. Each change waits for its own save; the sheet is closed again.
@@ -367,4 +375,40 @@ export async function closeSheets(page: Page) {
   await expect(arrangeSheet(page)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
+}
+
+// The Dress code note's linked words and their address (M8 ticket 31).
+export const NOTE_LINK = { words: "the shop", url: "https://shop.example.com/velvet" } as const;
+
+// A page arranged through every part of Arrange, as the Sections pass reads it (M8 ticket 31): the
+// Countdown on, a Dress code note whose last words are a link, and a Registry of two links; and
+// `collapse` folded away. With the Comments, the Album is moved above them first and they are
+// renamed "Guestbook". Every change is saved, and the sheets are closed again.
+export async function arrangeWholePage(page: Page, collapse: "Comments" | "Album") {
+  const sheet = await openArrange(page);
+  if (collapse === "Comments") {
+    await savedAfter(page, () => sheet.getByRole("button", { name: "Move Album up" }).click());
+    await openRow(sheet, "Comments");
+    await savedAfter(page, () => sheet.getByRole("textbox", { name: "Heading" }).fill("Guestbook"));
+  } else {
+    await openRow(sheet, "Album");
+  }
+  await savedAfter(page, () => sheet.getByRole("switch", { name: "Collapsed" }).click());
+  await savedAfter(page, () => sheet.getByRole("switch", { name: "Countdown" }).click());
+  const note = await addSection(page, "Dress code");
+  await writeNote(page, note, "Cocktail attire, ", "velvet");
+  await note.getByRole("button", { name: "Bold" }).click();
+  // The note's link, made as the About sheet makes one: the words chosen, then Add a link, which
+  // asks for the address.
+  await page.keyboard.type(` from ${NOTE_LINK.words}`);
+  for (let at = 0; at < NOTE_LINK.words.length; at++) await page.keyboard.press("Shift+ArrowLeft");
+  page.once("dialog", (dialog) => dialog.accept(NOTE_LINK.url));
+  await savedAfter(page, () => note.getByRole("button", { name: "Add a link" }).click());
+  await expect(note.getByRole("textbox", { name: "Note" }).locator("a")).toHaveText(NOTE_LINK.words);
+  await page.keyboard.press("Escape");
+  await expect(arrangeSheet(page)).toBeVisible();
+  const links = await addSection(page, "Registry");
+  await writeLink(page, links, 1, "Our list", "https://www.example.com/registry");
+  await writeLink(page, links, 2, "Songs", "https://example.org/songs");
+  await closeSheets(page);
 }

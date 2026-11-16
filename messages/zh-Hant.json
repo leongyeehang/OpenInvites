@@ -1393,10 +1393,10 @@
       "albumHint": "關閉後，賓客看不到相簿，也無法新增內容。相簿裡的內容不會被刪除。",
       "commentsHint": "關閉後，賓客看不到留言，也無法發表留言。",
       "countdownHint": "開啟後，倒數不再顯示在「時間」下，而是單獨成為一個區塊。",
-      "heading": "標題",
+      "heading": "區塊標題",
       "headingHint": "留空則保留「{name}」。",
       "collapsed": "摺疊",
-      "collapsedHint": "賓客會看到標題和其中有多少內容，輕點即可展開。",
+      "collapsedHint": "賓客會看到標題和其中有多少內容，點一下即可展開。",
       "style": "樣式",
       "styles": {
         "grid": "網格",

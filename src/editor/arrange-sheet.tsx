@@ -273,7 +273,8 @@ export function ArrangeSheet({
                           onClick={() => {
                             if (!pending) setOpenRow(expanded ? null : row.key);
                           }}
-                          className="-mx-1 flex max-w-full cursor-pointer items-center gap-1 rounded-md px-1 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+                          // Dimmed while its row waits for its add, as its Move buttons are.
+                          className="-mx-1 flex max-w-full cursor-pointer items-center gap-1 rounded-md px-1 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring aria-disabled:cursor-default aria-disabled:opacity-40 aria-disabled:hover:bg-transparent"
                         >
                           <span id={nameId} className="truncate text-sm font-medium">
                             {name}
@@ -296,6 +297,7 @@ export function ArrangeSheet({
                         aria-labelledby={nameId}
                         aria-describedby={hint ? hintId : undefined}
                         aria-disabled={pending || undefined}
+                        className="aria-disabled:cursor-default aria-disabled:opacity-40"
                         checked={row.on}
                         onCheckedChange={(on) => {
                           if (!pending) toggle(row, on);

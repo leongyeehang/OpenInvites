@@ -4,15 +4,21 @@ import { hostWithShelves } from "./dashboard";
 import {
   addSection,
   arrange,
+  arrangeWholePage,
+  chooseLayout,
   closeDesign,
   closeSheets,
   createDraft,
   createPublished,
   type DraftFields,
   openDesign,
+  NOTE_LINK,
+  openArrange,
   openMore,
+  openRow,
   pickDesign,
   publishInEditor,
+  sectionOrder,
   setSchedule,
   toEditor,
   writeLink,
@@ -694,6 +700,72 @@ for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
     await host.context.close();
   });
 }
+
+// A page arranged through every part of Arrange (M8 ticket 31), in each layout: the Album above
+// the Comments, the Comments renamed and collapsed, the Countdown on, a Note with a link and Links of
+// two. Read by a guest who has replied, so the Comments are hers to open (locked, they would be
+// drawn open): folded, then opened. She replies on the Poster, before the layout is chosen. A test
+// for each layout, two reads each.
+for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
+  test(`the ${layout} arranged in every way, its renamed Comments collapsed and then opened`, async ({ browser, request }) => {
+    test.slow();
+    const host = await createPublished(browser, request, `a11y-arranged-${layout.toLowerCase()}`, SIMPLE);
+    const guest = await newGuest(browser);
+    await replyGoing(guest, "Poster", host.link, "Priya Nair");
+    await expect(guest.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+    await arrangeWholePage(host.page, "Comments");
+    if (layout !== "Poster") await chooseLayout(host.page, host.link, layout);
+
+    await guest.goto(host.link);
+    await expect(guest.locator("[data-layout]")).toHaveAttribute("data-layout", layout.toLowerCase());
+    const order = await sectionOrder(guest);
+    expect(order.indexOf("album"), "the Album above the Comments").toBeLessThan(order.indexOf("comments"));
+    await expect(guest.locator('[data-section="countdown"]')).toBeVisible();
+    await expect(guest.locator('[data-slot="note"]').getByRole("link", { name: new RegExp(`^${NOTE_LINK.words}`) })).toBeVisible();
+    await expect(guest.locator('[data-slot="links"]').getByRole("link")).toHaveCount(2);
+    const comments = guest.locator('details[data-slot="comments"]');
+    await expect(comments.locator("summary").getByRole("heading", { name: "Guestbook" })).toBeVisible();
+    await expect(comments).not.toHaveAttribute("open");
+    await expectNoSeriousViolations(guest, `the ${layout} arranged, the Guestbook collapsed`);
+    await comments.locator("summary").click();
+    await expect(comments).toHaveAttribute("open", "");
+    await expect(comments.getByLabel("Add a comment")).toBeVisible();
+    await expectNoSeriousViolations(guest, `the ${layout} arranged, the Guestbook opened`);
+    await Promise.all([guest.context().close(), host.context.close()]);
+  });
+}
+
+// The editor's Arrange sheet open on the row with every field (M8 ticket 31): Who's coming, its
+// switch, who sees it, its heading, Collapsed and its styles; with Add a section at the sheet's foot.
+test("the editor's Arrange sheet open on Who's coming, with every field, and Add a section", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "a11y-arrange-every-field", SIMPLE);
+  const sheet = await openArrange(host.page);
+  await openRow(sheet, "Who’s coming");
+  await expect(sheet.getByRole("switch", { name: "Who’s coming" })).toBeChecked();
+  await expect(sheet.getByRole("radiogroup", { name: "Who sees it" })).toBeVisible();
+  await expect(sheet.getByRole("textbox", { name: "Heading" })).toBeVisible();
+  await expect(sheet.getByRole("switch", { name: "Collapsed" })).toBeVisible();
+  await expect(sheet.getByRole("radiogroup", { name: "Style" })).toBeVisible();
+  await expect(sheet.getByRole("region", { name: "Add a section" })).toBeVisible();
+  await expectNoSeriousViolations(host.page, "the Arrange sheet, Who’s coming open");
+  await host.context.close();
+});
+
+// The Note's sheet and the Links' sheet over the editor, each written in (M8 ticket 31).
+test("the editor's Note sheet and Links sheet, each written in", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "a11y-note-links-sheets", SIMPLE);
+  const note = await addSection(host.page, "Dress code");
+  await writeNote(host.page, note, "Cocktail attire, ", "velvet");
+  await expectNoSeriousViolations(host.page, "the Note sheet");
+  await host.page.keyboard.press("Escape");
+  const links = await addSection(host.page, "Registry");
+  await writeLink(host.page, links, 1, "Our list", "https://www.example.com/registry");
+  await writeLink(host.page, links, 2, "Songs", "https://example.org/songs");
+  await expectNoSeriousViolations(host.page, "the Links sheet, two links");
+  await host.context.close();
+});
 
 // The comments on the Poster (ticket 06), with the host's announcement above them: locked for a
 // guest who has not replied, open with the form once they have, a guest's own deleted, and on a

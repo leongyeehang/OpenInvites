@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { arrange, chooseLayout, closeDesign, createDraft, createPublished, type DesignSheet, HOUR, itemFromNow, openDesign, openMore, openSettings, publishInEditor, savedAfter, setSchedule, utcFromNow } from "./events";
+import { arrange, arrangeWholePage, chooseLayout, closeDesign, createDraft, createPublished, type DesignSheet, HOUR, itemFromNow, openDesign, openArrange, openMore, openSettings, publishInEditor, savedAfter, setSchedule, utcFromNow } from "./events";
 import { openHome } from "./home";
 import { latestMailTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { expectStill } from "./still";
@@ -516,6 +516,44 @@ test("under reduced motion a collapsed section opened is still, in the Poster, t
     await expect(schedule).toContainText("Cake");
     await expectStill(page, `a collapsed schedule opened on the ${layout}`);
   }
+  await page.context().close();
+  await host.context.close();
+});
+
+// M8 ticket 31: a page arranged through every part of Arrange, in each layout, with its folded
+// Guestbook opened by a guest who has replied and the Countdown a section of its own; and the
+// editor with Arrange open and a row just moved.
+test("under reduced motion an arranged page is still, in the Poster, the Broadsheet and the Thread, and so is Arrange as a row moves", async ({
+  browser,
+  request,
+}) => {
+  test.setTimeout(240_000);
+  const host = await createPublished(browser, request, "still-arranged", { title: "Ada’s supper club", start: "2027-03-06T19:00", plusOnes: "0" });
+  const page = await stillGuest(browser);
+  await page.goto(host.link);
+  await page.getByRole("button", { name: "Going", exact: true }).click();
+  await page.getByLabel("Your name").fill("Priya Nair");
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+  await arrangeWholePage(host.page, "Comments");
+  for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
+    if (layout !== "Poster") {
+      await chooseLayout(host.page, host.link, layout);
+      await expect.poll(() => request.get(host.link).then((response) => response.text()), { timeout: 15_000 }).toContain(`data-layout="${layout.toLowerCase()}"`);
+    }
+    await page.goto(host.link);
+    await expect(page.locator('[data-section="countdown"]')).toBeVisible();
+    const guestbook = page.locator('details[data-slot="comments"]');
+    await guestbook.locator("summary").click();
+    await expect(guestbook).toHaveAttribute("open", "");
+    await expectStill(page, `an arranged ${layout}, its Guestbook opened`);
+  }
+
+  await host.page.emulateMedia({ reducedMotion: "reduce" });
+  const sheet = await openArrange(host.page);
+  await savedAfter(host.page, () => sheet.getByRole("button", { name: "Move Countdown down" }).click());
+  await expect(sheet.locator('[aria-live="polite"]')).toHaveText(/^Countdown, 4 of \d+$/);
+  await expectStill(host.page, "the Arrange sheet, a row just moved");
   await page.context().close();
   await host.context.close();
 });

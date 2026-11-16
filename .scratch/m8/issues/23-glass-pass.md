@@ -308,3 +308,6 @@ from Settings" (closed and the Turn off confirmation), every check kept.
 **For the maintainer (beyond the brief's list).** The verification banner's Resend button overlaps
 the end of the title's box on a phone (above). The dashboard's Edit and Share on Next up keep
 their hand-written edge until a secondary button's hover is proven in the scope.
+
+2026-11-16 (ticket 31, for the maintainer; no code change): a hovered default `Button` in the site
+scope shows the inset outline (the hovered edge) without the half-strength ring round it.

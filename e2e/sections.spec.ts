@@ -8,8 +8,10 @@ import {
   chooseLayout,
   closeSheets,
   createPublished,
+  editSettings,
   openArrange,
   openMore,
+  openRow,
   openSettings,
   savedAfter,
   saveStatus,
@@ -484,13 +486,6 @@ test("Schedule off leaves the Broadsheet and the Thread too", async ({ browser, 
 // guests read the host's heading in every layout, and a collapsed section is a native disclosure
 // showing its heading and how much it holds. The Countdown joins the sheet, and a placeholder in
 // the editor opens Arrange at its own row.
-
-// The open row of a section in Arrange, opened if it is not open yet.
-async function openRow(sheet: Locator, name: string) {
-  const options = sheet.getByRole("button", { name: `Options for ${name}` });
-  if ((await options.getAttribute("aria-expanded")) !== "true") await options.click();
-  await expect(options).toHaveAttribute("aria-expanded", "true");
-}
 
 // A section collapsed in Arrange, saved, and the sheet closed again.
 async function collapse(page: Page, name: string) {
@@ -1082,6 +1077,34 @@ test("the album as a mosaic and a strip", async ({ browser, request }) => {
   await Promise.all([host.context.close(), mei.context().close()]);
 });
 
+// From ticket 30's review: the mosaic's first picture fills its two rows, though the waiting items
+// beside it, with their note and a host's Approve and Delete under them, make those rows taller
+// than the picture is wide.
+test("the mosaic's first picture fills its two rows beside waiting items", async ({ browser, request }) => {
+  test.setTimeout(180_000);
+  const host = await createPublished(browser, request, "sections-mosaic-rows", STARTED);
+  const editor = host.page.url();
+  await host.page.goto(host.link);
+  await addPhotos(host.page, [await jpeg("lake.jpg", "#d07a3a")], 1);
+  await host.page.goto(editor);
+  await editSettings(host.page, (sheet) => sheet.getByRole("group", { name: "Album", exact: true }).getByLabel("Approve photos before they’re shown").check());
+  await chooseStyle(host.page, "Album", "Mosaic");
+  const mei = await guestGoing(browser, host.link, "Mei Nakamura");
+  await addPhotos(mei, [await jpeg("garden.jpg", "#2f6b3a"), await jpeg("cake.jpg", "#c0506a")], 3);
+
+  await host.page.goto(host.link);
+  const tiles = tilesOf(host.page);
+  await expect(tiles).toHaveCount(3);
+  await expect(section(host.page, "album").locator('ul[data-style="mosaic"]')).toBeVisible();
+  await expect(tiles.nth(1).getByText("Awaiting approval", { exact: true })).toBeVisible();
+  await expect(tiles.nth(2).getByRole("button", { name: /^Approve photo/ })).toBeVisible();
+  // The first picture's foot is level with the foot of the tile under the second.
+  const picture = (await tiles.nth(0).locator('button[id^="album-item-"]').boundingBox())!;
+  const below = (await tiles.nth(2).boundingBox())!;
+  expect(Math.abs(picture.y + picture.height - (below.y + below.height))).toBeLessThanOrEqual(2);
+  await Promise.all([host.context.close(), mei.context().close()]);
+});
+
 test("the vote control in every style", async ({ browser, request }) => {
   test.setTimeout(180_000);
   const host = await createPublished(browser, request, "sections-album-vote", STARTED);
@@ -1268,6 +1291,11 @@ test("a section just added waits for its add", async ({ browser, request }) => {
   await page.keyboard.press("Space");
   await expect(on).toBeChecked();
   expect((await rowNames(sheet)).at(-1)).toBe("Dress code");
+  // Its disclosure is unavailable too, and each looks it, dimmed as the Move buttons are (ticket
+  // 30's review).
+  const options = sheet.getByRole("button", { name: "Options for Dress code" });
+  await expect(options).toHaveAttribute("aria-disabled", "true");
+  for (const control of [up, options, on]) expect(Number(await control.evaluate((element) => getComputedStyle(element).opacity)), `${control}`).toBeLessThan(0.5);
 
   release();
   await expect(page.getByRole("dialog", { name: "Dress code" })).toBeVisible({ timeout: 15_000 });

@@ -13,6 +13,15 @@ import { cn } from "@/lib/utils";
 // the invitation shrinks above it to a live copy (globals.css, design-sheet), which a tap closes it
 // from: nothing dims it. Beside a panel, the invitation keeps its size and slides clear of it
 // (editor-sheet-open).
+//
+// One sheet may open in another's place: Arrange's Add a section and a row's Edit open a Note's or
+// Links' sheet, which goes back to Arrange as it closes (M8 ticket 29). The focus is in neither
+// sheet's opener then, so a sheet opened with the focus in a sheet, or nowhere, takes the opener of
+// the sheet it follows, and a sheet that closes while another is open leaves the focus there. At the
+// end of the chain the focus goes back to what opened the first (M8 ticket 31).
+const SHEETS = '[data-slot="editor-sheet"], [data-slot="design-sheet"]';
+let chainOpener: HTMLElement | null = null;
+
 export function EditorSheet({
   open,
   onOpenChange,
@@ -44,14 +53,20 @@ export function EditorSheet({
         <Dialog.Content
           data-slot={design ? "design-sheet" : "editor-sheet"}
           onCloseAutoFocus={(event) => {
-            if (!opener.current?.isConnected) return;
+            const followed = document.querySelector(`:is(${SHEETS})[data-state="open"]`) !== null;
+            if (followed || !opener.current?.isConnected) {
+              if (followed) event.preventDefault();
+              return;
+            }
             event.preventDefault();
             opener.current.focus();
             opener.current = null;
           }}
           onOpenAutoFocus={(event) => {
             event.preventDefault();
-            opener.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
+            const active = document.activeElement;
+            if (active instanceof HTMLElement && active !== document.body && !active.closest(SHEETS)) chainOpener = active;
+            opener.current = chainOpener;
             (event.currentTarget as HTMLElement).querySelector<HTMLElement>("[data-sheet-heading]")?.focus();
           }}
           className={cn(

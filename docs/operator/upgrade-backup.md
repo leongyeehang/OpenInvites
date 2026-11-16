@@ -40,7 +40,8 @@ Restore the backup you took instead.
 0.8 gives an album's videos several sizes and a player that picks among them, keeps an Android
 motion photo's few seconds as a live photo, lets a host keep when and with what each item was
 taken, lets whoever adds an item caption it, lets hosts run a vote on their album, and dresses
-every page in a poster. Ten migrations, `0054` to `0063`, run as the app starts. They add tables,
+every page in a poster, and lets hosts arrange their event pages. Eleven migrations, `0054` to
+`0064`, run as the app starts. They add tables,
 columns and enum values, carry each video's lighter copy and each event's choice of it over to the
 new sizes, and then drop the column that held it (`photo.copy`); nothing else is back-filled, and
 no existing event changes until its host chooses. A video's copies made by 0.7 stay as they were
@@ -84,6 +85,13 @@ standard-colour HDR copies and its frame rate only when **Make missing sizes** m
   there too. Migration `0063` adds the `host_look` table, which holds the poster a host picks in
   Account's Backdrop card; it starts empty, so every host is on Automatic, wearing their next
   event's poster.
+- **Every event page looks as it did until its host arranges it.** Migration `0064` adds
+  `event.sections`, the order and settings a host gives the page's sections in the editor's new
+  Arrange sheet, empty for every event, which draws each layout exactly as before; and
+  `event.album_enabled`, the event's own Album switch, on for every event. "Who can see the guest
+  list" and the Comments checkbox have moved from the editor's Settings sheet to Arrange, as the
+  switches of Who's coming and the Comments; "Only the hosts" is now Who's coming switched off.
+  Each event keeps what it had.
 
 No new environment variable is required (`RATE_LIMIT_VOTE` is optional), and `compose.yaml` gains
 no service.
