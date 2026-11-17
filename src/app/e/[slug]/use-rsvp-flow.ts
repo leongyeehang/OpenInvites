@@ -127,7 +127,12 @@ export function useRsvpFlow(
   const [refusal, setRefusal] = useState<RsvpRefusal>();
   // Why the guest's RSVP could not be removed just now, shown with their confirmation.
   const [withdrawRefusal, setWithdrawRefusal] = useState<"tooFast">();
-  const [working, startWorking] = useTransition();
+  // Two things go to the server from here, each with its own "on its way": an answer (or a code
+  // asked for again), and the saved RSVP's removal. They are kept apart because an answer's stays
+  // true past its confirmation being drawn, until the page behind it has been drawn again, and
+  // the confirmation's Remove is not to sit disabled through that.
+  const [sending, startSending] = useTransition();
+  const [withdrawing, startWithdrawing] = useTransition();
   const landing = useRef<Landing | null>(null);
   // Under the Confetti effect, how many answers saved here have made the guest Going: each one is
   // a fresh fall over the page.
@@ -233,7 +238,7 @@ export function useRsvpFlow(
       return;
     }
     setCheckPassed(false);
-    startWorking(async () => {
+    startSending(async () => {
       const result = await saveRsvpAction(slug, formData);
       setChecksSent((count) => count + 1);
       setRefusal(result.error);
@@ -265,7 +270,7 @@ export function useRsvpFlow(
   };
 
   const withdraw = () =>
-    startWorking(async () => {
+    startWithdrawing(async () => {
       const result = await removeRsvpAction(slug);
       setWithdrawRefusal(result.error);
       if (result.error) return;
@@ -320,7 +325,9 @@ export function useRsvpFlow(
     // The number a refusal's sentence counts: tries left on a code, or places left for a party.
     refusalCount: placesLeft ?? triesLeft ?? 0,
     withdrawRefusal,
-    working,
+    // Either is on its way; `withdrawing` is the removal alone, for the confirmation's Remove.
+    working: sending || withdrawing,
+    withdrawing,
     falls,
     fullNotice,
     turnstile,

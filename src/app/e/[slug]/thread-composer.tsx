@@ -242,7 +242,7 @@ export function ThreadComposer({ closedAs, ...props }: RsvpFlowProps & { closedA
           >
             {t("thread.edit")}
           </button>
-          <button type="button" onClick={flow.withdraw} disabled={working} className={chip()}>
+          <button type="button" onClick={flow.withdraw} disabled={flow.withdrawing} className={chip()}>
             {r("remove")}
           </button>
         </Chips>
