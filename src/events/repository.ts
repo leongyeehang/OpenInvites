@@ -6,6 +6,7 @@ import { hostedBy } from "@/hosts/repository";
 import { roleOf, type Role } from "@/hosts/role";
 import { isUuid } from "@/lib/uuid";
 import type { Locale } from "@/locale/resolve-locale";
+import { applyArrangementChange, parseArrangement, refusedBySwitches, switchesAfter, type ArrangementChange, type ArrangementError, type Switches } from "@/sections";
 import { DEFAULT_THEME, parseTheme, type Theme } from "@/themes/theme";
 import { approvePending, promoteWaitlist } from "@/rsvps/repository";
 import { removeItemFiles } from "@/album/files";
@@ -46,8 +47,15 @@ export type EventChanges = EventInput & { locale: Locale };
 
 // What a new event is made from: the form, and what the form does not carry: for a duplicate,
 // personal letters, which the copy keeps (M6 spec); and when to be reminded about the album, the
-// site's default for a new event and the source's for a copy (M7 ticket 09).
-export type NewEvent = MaybeDated<EventChanges> & Partial<Pick<Event, "lettersEnabled" | "albumReminderDays">>;
+// site's default for a new event and the source's for a copy (M7 ticket 09); and the album vote's
+// settings, which a copy keeps (M8 ticket 10); and the page's arrangement and whether its album is
+// on, which a copy keeps too (M8 ticket 25); and whether it takes comments and who sees Who's
+// coming, which Arrange switches and a copy keeps, and a new event leaves to the columns' defaults
+// (M8 ticket 26).
+export type NewEvent = MaybeDated<EventChanges> &
+  Partial<
+    Pick<Event, "lettersEnabled" | "albumReminderDays" | "albumVoters" | "albumUploaderNames" | "sections" | "albumEnabled" | "commentsEnabled" | "guestListVisibility">
+  >;
 
 // A new event starts with the Birthday template's theme (ticket 06), unless it is given one: a
 // duplicate starts with the theme of the event it copies.
@@ -153,6 +161,50 @@ export async function changeEventTheme(hostId: string, id: string, change: (them
     if (changed === current) return current;
     await tx.update(event).set({ theme: changed, updatedAt: new Date() }).where(eq(event.id, id));
     return changed;
+  });
+}
+
+// One change from the Arrange sheet (M8 ticket 25). The arrangement and the switches it turns are
+// read under the row lock and the change applied to them, not to what the host's sheet last
+// showed, so two hosts arranging at once each move from where the other left the page. A switch
+// whose truth is a column (comments, who sees the guest list, letters, the album) is written only
+// as switchesAfter turns it, in the same transaction as the order; the layout's default order
+// starts a page never arranged. A refusal writes nothing.
+export async function changeEventArrangement(
+  hostId: string,
+  id: string,
+  change: ArrangementChange,
+): Promise<{ ok: true } | { ok: false; error: ArrangementError } | undefined> {
+  return getDb().transaction(async (tx) => {
+    const [row] = await tx
+      .select({
+        sections: event.sections,
+        theme: event.theme,
+        lettersEnabled: event.lettersEnabled,
+        commentsEnabled: event.commentsEnabled,
+        guestListVisibility: event.guestListVisibility,
+        albumEnabled: event.albumEnabled,
+      })
+      .from(event)
+      .where(and(eq(event.id, id), hostedBy(hostId)))
+      // No key column is written, so replies, comments, photos and votes that reference the event
+      // are not held up meanwhile, as the album's and the vote's locks leave them.
+      .for("no key update");
+    if (!row) return undefined;
+    const before: Switches = { lettersEnabled: row.lettersEnabled, commentsEnabled: row.commentsEnabled, guestListVisibility: row.guestListVisibility, albumEnabled: row.albumEnabled };
+    // Who sees a guest list that is off, posted from a sheet opened before it was switched off, is
+    // refused rather than switching the list on (the Sections part's review, finding 1).
+    const refused = refusedBySwitches(before, change);
+    if (refused) return { ok: false, error: refused };
+    const applied = applyArrangementChange(parseArrangement(row.sections), parseTheme(row.theme).layout, change);
+    if (!applied.ok) return applied;
+    const after = switchesAfter(before, change);
+    const turned = Object.fromEntries(Object.entries(after).filter(([name, value]) => before[name as keyof Switches] !== value)) as Partial<Switches>;
+    await tx
+      .update(event)
+      .set({ sections: applied.arrangement, ...turned, updatedAt: new Date() })
+      .where(eq(event.id, id));
+    return { ok: true };
   });
 }
 
@@ -305,11 +357,12 @@ export async function removeEvents(which: SQL | undefined): Promise<void> {
   await Promise.all([removeRenditions(uploads), removeItemFiles(photos)]);
 }
 
-// The dashboard: the events a host owns and those they co-host, each with their role.
-export async function listHostEvents(hostId: string): Promise<HostEvent[]> {
+// The dashboard: the events a host owns and those they co-host, each with their role. Cached per
+// request, as the dashboard reads it and so does the look its frame wears (dashboard/host-look.ts).
+export const listHostEvents = cache(async (hostId: string): Promise<HostEvent[]> => {
   const events = await getDb().query.event.findMany({ where: hostedBy(hostId), orderBy: [asc(event.startsAt), desc(event.createdAt)] });
   return events.map((found) => ({ ...withTheme(found), role: roleOf(found, hostId) }));
-}
+});
 
 // The events this host owns, in any state; co-hosted events are not theirs. What the operator's
 // events-per-host limit counts.

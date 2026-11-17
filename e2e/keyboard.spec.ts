@@ -1,9 +1,25 @@
 import sharp from "sharp";
-import { closeDesign, createDraft, createPublished, type DraftFields, openDesign, openSettings, savedAfter, saveStatus, toEditor } from "./events";
+import {
+  addSection,
+  closeDesign,
+  closeSheets,
+  createDraft,
+  createPublished,
+  type DraftFields,
+  openArrange,
+  openDesign,
+  openSettings,
+  savedAfter,
+  saveStatus,
+  setSchedule,
+  toEditor,
+  writeLink,
+} from "./events";
+import { expectRingStandsOut } from "./contrast";
 import { hostWithShelves, SHELVES } from "./dashboard";
 import { expectVisibleFocus, tabTo } from "./focus";
 import { homeByKeyboard, openHome } from "./home";
-import { latestMailTo, mailCountTo, newHost, PASSWORD, signUpVerified } from "./hosts";
+import { latestMailTo, mailCountTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { clientAddress, expect, test, type Locator, type Page } from "./test";
 
 // Ticket 20: a guest can answer, and a host can design their invitation, with the keyboard alone.
@@ -264,8 +280,9 @@ test("a guest gives the phone number the host asked for by keyboard alone, on th
 });
 
 // Ticket 02 (M3): a guest reports an event page by keyboard alone, from the link in its footer to
-// the thanks and back to the page. The report page is a plain page, as the host's are: its form's
-// controls show their focus as the host's pages do, read as their ring's contrast is (below).
+// the thanks and back to the page. The report page wears the site's backdrop, never the event's
+// Theme (M8 ticket 18): its form's controls are ringed in the focus ring solved for that backdrop,
+// read as their ring's contrast is (e2e/contrast.ts).
 test("a guest reports an event page by keyboard alone", async ({ page, browser, request }) => {
   test.slow();
   const host = await createPublished(browser, request, "keyboard-report", { title: "Ada’s birthday", start: "2027-03-06T19:00" });
@@ -293,7 +310,7 @@ test("a guest reports an event page by keyboard alone", async ({ page, browser, 
   await host.context.close();
 });
 
-// Tab until `target` has the focus, on a plain page, whose rings expectRingStandsOut reads instead.
+// Tab until `target` has the focus, on the report page, whose rings expectRingStandsOut reads instead.
 async function tabUntil(page: Page, target: Locator) {
   for (let presses = 0; presses < 30; presses++) {
     await page.keyboard.press("Tab");
@@ -404,6 +421,236 @@ test("a host picks a poster, changes a knob, restores the poster's look and clos
   await host.context.close();
 });
 
+// M8 ticket 28: in Arrange, a row's disclosure, its Heading field and its Collapsed switch are
+// each a Tab away; on the guest's page the collapsed section's summary is a stop of its own, which
+// Enter and Space open and close.
+test("a host renames and collapses a section in Arrange, and a guest opens it, by keyboard alone", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-collapse", EVENT);
+  const page = host.page;
+  await setSchedule(page, [{ start: "20:00", title: "Cake" }]);
+  await tabTo(page, page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Arrange" }));
+  await page.keyboard.press("Enter");
+  const sheet = page.getByRole("dialog", { name: "Arrange" });
+  await expect(sheet.getByRole("heading", { name: "Arrange" })).toBeFocused();
+
+  const options = sheet.getByRole("button", { name: "Options for Schedule" });
+  await tabTo(page, options);
+  await page.keyboard.press("Enter");
+  await expect(options).toHaveAttribute("aria-expanded", "true");
+  await tabTo(page, sheet.getByRole("textbox", { name: "Heading" }));
+  await savedAfter(page, () => page.keyboard.type("Plan"));
+  await expect(sheet.getByRole("button", { name: "Options for Plan" })).toBeVisible();
+  const collapsed = sheet.getByRole("switch", { name: "Collapsed" });
+  await tabTo(page, collapsed);
+  await savedAfter(page, () => page.keyboard.press("Space"));
+  await expect(collapsed).toBeChecked();
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+
+  const guest = await (await browser.newContext()).newPage();
+  await guest.goto(host.link);
+  const schedule = guest.locator('details[data-slot="schedule"]');
+  const summary = schedule.locator("summary");
+  await expect(summary.getByRole("heading", { name: "Plan" })).toBeVisible();
+  await expect(schedule).not.toHaveAttribute("open");
+  await tabTo(guest, summary);
+  await guest.keyboard.press("Enter");
+  await expect(schedule).toHaveAttribute("open", "");
+  await expect(schedule).toContainText("Cake");
+  await guest.keyboard.press("Enter");
+  await expect(schedule).not.toHaveAttribute("open");
+  await guest.keyboard.press("Space");
+  await expect(schedule).toHaveAttribute("open", "");
+  await expectVisibleFocus(guest);
+  await Promise.all([host.context.close(), guest.context().close()]);
+});
+
+// M8 ticket 29: Links added from Arrange, its rows filled, moved and removed by keyboard alone. A
+// moved row's button keeps the focus; removing the last row gives it to "Add a link".
+test("a host adds Links, moves one and removes another, by keyboard alone", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-links", EVENT);
+  const page = host.page;
+  await tabTo(page, page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Arrange" }));
+  await page.keyboard.press("Enter");
+  const arrange = page.getByRole("dialog", { name: "Arrange" });
+  await expect(arrange.getByRole("heading", { name: "Arrange" })).toBeFocused();
+  await tabTo(page, arrange.getByRole("button", { name: "Registry", exact: true }));
+  await savedAfter(page, () => page.keyboard.press("Enter"));
+
+  const sheet = page.getByRole("dialog", { name: "Registry" });
+  await expect(sheet.getByRole("heading", { name: "Registry" })).toBeFocused();
+  const add = sheet.getByRole("button", { name: "Add a link" });
+  for (const [n, label, url] of [
+    [1, "Our list", "https://www.example.com/registry"],
+    [2, "Songs", "example.org/songs"],
+  ] as const) {
+    await tabTo(page, add);
+    await page.keyboard.press("Enter");
+    await expect(sheet.getByRole("textbox", { name: `Label of link ${n}`, exact: true })).toBeFocused();
+    await page.keyboard.type(label);
+    await page.keyboard.press("Tab");
+    await expect(sheet.getByRole("textbox", { name: `Address of link ${n}`, exact: true })).toBeFocused();
+    // An address is sent once its field is left (ticket 29's review).
+    await page.keyboard.type(url);
+    await savedAfter(page, () => page.keyboard.press("Tab"));
+  }
+
+  const up = sheet.getByRole("button", { name: "Move Songs up" });
+  await tabTo(page, up);
+  await savedAfter(page, () => page.keyboard.press("Enter"));
+  await expect(up).toBeFocused();
+  await expect(sheet.getByRole("textbox", { name: "Label of link 1", exact: true })).toHaveValue("Songs");
+  await expectVisibleFocus(page);
+
+  await tabTo(page, sheet.getByRole("button", { name: "Remove Our list" }));
+  await savedAfter(page, () => page.keyboard.press("Enter"));
+  await expect(sheet.getByRole("listitem")).toHaveCount(1);
+  await expect(add).toBeFocused();
+  await expectVisibleFocus(page);
+  await host.context.close();
+});
+
+// M8 ticket 31: the whole of Arrange without a pointer, from the toolbar and back to it: Schedule's
+// switch by Space, the Album moved up by Enter with the focus staying on its button and the live line
+// saying where it went, the Comments' row opened, renamed and collapsed by Space, a Dress code note
+// added and written in, Escape back to Arrange at the note's row, and Escape to the toolbar. Then
+// the guest, who replied before, opens the folded Guestbook by Enter and by Space, and Tabs to each
+// link of the Registry. The Registry and her reply are made first, by the usual helpers.
+test("a host arranges the whole page by keyboard alone, and a guest opens a folded section and reaches each link", async ({ browser, request }) => {
+  test.setTimeout(180_000);
+  const host = await createPublished(browser, request, "keyboard-arrange-all", { title: "Ada’s birthday", start: "2027-03-06T19:00", plusOnes: "0" });
+  const page = host.page;
+  await setSchedule(page, [{ start: "20:00", title: "Cake" }]);
+  const registry = await addSection(page, "Registry");
+  await writeLink(page, registry, 1, "Our list", "https://www.example.com/registry");
+  await writeLink(page, registry, 2, "Songs", "https://example.org/songs");
+  await closeSheets(page);
+  const guest = await (await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
+  await guest.goto(host.link);
+  await guest.getByRole("button", { name: "Going", exact: true }).click();
+  await guest.getByLabel("Your name").fill("Priya Nair");
+  await guest.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(guest.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+
+  // The host's keyboard starts from a page freshly opened.
+  await page.reload();
+  const toolbarArrange = page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Arrange" });
+  await tabTo(page, toolbarArrange);
+  await page.keyboard.press("Enter");
+  const sheet = page.getByRole("dialog", { name: "Arrange" });
+  await expect(sheet.getByRole("heading", { name: "Arrange" })).toBeFocused();
+  const live = sheet.locator('[aria-live="polite"]');
+
+  const schedule = sheet.getByRole("switch", { name: "Schedule" });
+  await tabTo(page, schedule);
+  await savedAfter(page, () => page.keyboard.press("Space"));
+  await expect(schedule).not.toBeChecked();
+
+  const up = sheet.getByRole("button", { name: "Move Album up" });
+  await tabTo(page, up);
+  await savedAfter(page, () => page.keyboard.press("Enter"));
+  await expect(up).toBeFocused();
+  await expect(live).toHaveText("Album, 6 of 9");
+  await expectVisibleFocus(page);
+
+  const options = sheet.getByRole("button", { name: "Options for Comments" });
+  await tabTo(page, options);
+  await page.keyboard.press("Enter");
+  await expect(options).toHaveAttribute("aria-expanded", "true");
+  await tabTo(page, sheet.getByRole("textbox", { name: "Heading" }));
+  await savedAfter(page, () => page.keyboard.type("Guestbook"));
+  const collapsed = sheet.getByRole("switch", { name: "Collapsed" });
+  await tabTo(page, collapsed);
+  await savedAfter(page, () => page.keyboard.press("Space"));
+  await expect(collapsed).toBeChecked();
+
+  await tabTo(page, sheet.getByRole("button", { name: "Dress code", exact: true }));
+  await savedAfter(page, () => page.keyboard.press("Enter"));
+  const note = page.getByRole("dialog", { name: "Dress code" });
+  await expect(note.getByRole("heading", { name: "Dress code" })).toBeFocused();
+  await tabTo(page, note.getByRole("textbox", { name: "Note" }));
+  await savedAfter(page, () => page.keyboard.type("Cocktail attire."));
+  await page.keyboard.press("Escape");
+  await expect(note).toBeHidden();
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Options for Dress code" })).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  await expect(toolbarArrange).toBeFocused();
+  await expectVisibleFocus(page);
+
+  // The guest's page, as arranged: the Guestbook folded, opened and closed by Enter and Space.
+  await guest.reload();
+  await expect(guest.locator('[data-section="schedule"]')).toHaveCount(0);
+  const guestbook = guest.locator('details[data-slot="comments"]');
+  const summary = guestbook.locator("summary");
+  await expect(summary.getByRole("heading", { name: "Guestbook" })).toBeVisible();
+  await expect(guestbook).not.toHaveAttribute("open");
+  await tabTo(guest, summary);
+  await guest.keyboard.press("Enter");
+  await expect(guestbook).toHaveAttribute("open", "");
+  await guest.keyboard.press("Enter");
+  await expect(guestbook).not.toHaveAttribute("open");
+  await guest.keyboard.press("Space");
+  await expect(guestbook).toHaveAttribute("open", "");
+  await expectVisibleFocus(guest);
+  // Each link of the Registry is a stop of its own, ringed (tabTo checks every stop).
+  for (const name of [/^Our list/, /^Songs/]) await tabTo(guest, guest.locator('[data-slot="links"]').getByRole("link", { name }));
+  await Promise.all([host.context.close(), guest.context().close()]);
+});
+
+// The Sections part's review, finding 2. A sheet opened with nothing focused, as Safari opens one
+// from a click (it focuses no button it clicks; the suite's Chrome does, so the click here is
+// dispatched without focus), has no opener: closing it moves the focus to no earlier sheet's.
+test("a sheet opened with nothing focused sends the focus to no earlier sheet's opener", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-no-opener", EVENT);
+  const page = host.page;
+  const toolbar = page.getByRole("navigation", { name: "Design the invitation" });
+  const when = page.getByRole("button", { name: /^When:/ });
+  await tabTo(page, when);
+  await page.keyboard.press("Enter");
+  const whenSheet = page.getByRole("dialog", { name: "When" });
+  await expect(whenSheet.getByRole("heading", { name: "When" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(whenSheet).toBeHidden();
+  await expect(when).toBeFocused();
+
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await toolbar.getByRole("button", { name: "Theme" }).dispatchEvent("click");
+  const theme = page.getByRole("dialog", { name: "Theme" });
+  await expect(theme.getByRole("heading", { name: "Theme" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(theme).toBeHidden();
+  // Once the page has run what the close queued, the focus is where it was as Theme opened.
+  await page.evaluate(() => new Promise((done) => setTimeout(done)));
+  await expect(when).not.toBeFocused();
+  expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+  await host.context.close();
+});
+
+// The same finding: a sheet whose opener has gone meanwhile, the Album's placeholder once the
+// Album is switched off, gives the focus to the toolbar's button for it rather than to nothing.
+test("a sheet whose opener has gone gives the focus to its toolbar button", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-gone-opener", EVENT);
+  const page = host.page;
+  const toolbar = page.getByRole("navigation", { name: "Design the invitation" });
+  await tabTo(page, page.getByRole("button", { name: "Photos and videos from the event, from its start." }));
+  await page.keyboard.press("Enter");
+  const arrange = page.getByRole("dialog", { name: "Arrange" });
+  await expect(arrange.getByRole("button", { name: "Options for Album" })).toHaveAttribute("aria-expanded", "true");
+  await savedAfter(page, () => arrange.getByRole("switch", { name: "Album" }).press("Space"));
+  await expect(page.locator('[data-section="album"]')).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(arrange).toBeHidden();
+  await expect(toolbar.getByRole("button", { name: "Arrange" })).toBeFocused();
+  await expectVisibleFocus(page);
+  await host.context.close();
+});
+
 // The host pages' rings, and the design sheets', are drawn at half strength over the page. On
 // screen, in the 12px to the left of each focused control, at half its height, some of the ring is
 // where the page was without the focus, and stands out at 3:1 or more both from what was there
@@ -440,6 +687,18 @@ for (const colorScheme of ["light", "dark"] as const) {
     await page.goto(`${manage}/share`);
     await expectRingStandsOut(page, page.getByRole("link", { name: "Back to the event" }));
 
+    // The header's bar of glass, and a field and its button on Account (M8 ticket 20).
+    await page.goto("/dashboard");
+    await expectRingStandsOut(page, page.getByRole("banner").getByRole("link", { name: "New event" }));
+    // The 12px read beside the initials reach into the New event pill, 8px off: the ring is drawn
+    // on the bar between them, so the pill is hidden while the bar is read (until the next page).
+    await page.getByRole("banner").getByRole("link", { name: "New event" }).evaluate((element) => ((element as HTMLElement).style.visibility = "hidden"));
+    await expectRingStandsOut(page, page.getByRole("banner").getByRole("button", { name: "Account menu" }));
+    await page.goto("/account");
+    const displayName = page.locator('[data-slot="card"]').filter({ has: page.getByRole("heading", { level: 2, name: "Display name" }) });
+    await expectRingStandsOut(page, displayName.getByLabel("Display name"));
+    await expectRingStandsOut(page, displayName.getByRole("button", { name: "Save" }));
+
     // The design sheets, over the live copy of the invitation.
     await page.goto(manage);
     let drawer = await openDesign(page, "Poster", "Gallery");
@@ -456,53 +715,65 @@ for (const colorScheme of ["light", "dark"] as const) {
     await closeDesign(page, "Poster");
     drawer = await openDesign(page, "Theme");
     await expectRingStandsOut(page, drawer.getByRole("group", { name: "Layout" }).getByRole("radio").first());
+    await closeDesign(page, "Theme");
+    // Arrange (M8 ticket 25): a row's Move button and its switch.
+    const arrangeSheet = await openArrange(page);
+    await expectRingStandsOut(page, arrangeSheet.getByRole("button", { name: "Move Album up" }));
+    await expectRingStandsOut(page, arrangeSheet.getByRole("switch", { name: "Schedule" }));
   });
 }
 
-// Focuses the control as the keyboard does (the last thing done was a key, so it shows its focus
-// as it does for Tab), and reads the strip beside it (or beside the tile it sits in) with the focus
-// and without.
-async function expectRingStandsOut(page: Page, control: Locator) {
-  const shown = control.locator("xpath=ancestor-or-self::label[1]").or(control).first();
-  await page.keyboard.press("Shift");
-  await control.focus();
-  expect(await control.evaluate((element) => element.matches(":focus-visible")), `${control} shows its focus`).toBe(true);
-  const focused = await stripBeside(page, shown);
-  await control.blur();
-  const unfocused = await stripBeside(page, shown);
-  const beyond = unfocused[0];
-  const standsOut = Math.max(...focused.map((pixel, at) => Math.min(contrast(pixel, unfocused[at]), contrast(pixel, beyond))));
-  expect(standsOut, `the ring round ${control}`).toBeGreaterThanOrEqual(3);
+// M8 ticket 23: every page outside an event page shows its focus on its poster. By Tab from the
+// top of the page, the first five stops are each marked, then each is ringed in turn and its ring
+// read against the poster and the glass round it (e2e/contrast.ts). The ring round the header's
+// initials is read with the New event pill hidden, as the 12px strip beside them reaches it.
+async function firstFiveStopsRinged(page: Page, where: string) {
+  await expect(page.locator(".site-page")).toHaveCount(1);
+  for (let stop = 1; stop <= 5; stop++) {
+    await page.keyboard.press("Tab");
+    const marked = await page.evaluate((at) => {
+      const focused = document.activeElement;
+      if (!focused || focused === document.body) return false;
+      focused.setAttribute("data-stop", String(at));
+      return true;
+    }, stop);
+    expect(marked, `${where}: Tab ${stop} reaches a control`).toBe(true);
+  }
+  // By its address, as hidden it has no role to be found by.
+  const pill = page.getByRole("banner").locator('a[href="/events/new"]');
+  for (let stop = 1; stop <= 5; stop++) {
+    const control = page.locator(`[data-stop="${stop}"]`);
+    const initials = await control.evaluate((element) => element.getAttribute("aria-label") === "Account menu");
+    if (initials) await pill.evaluate((element) => ((element as HTMLElement).style.visibility = "hidden"));
+    await test.step(`${where}: the ring at stop ${stop}`, () => expectRingStandsOut(page, control));
+    if (initials) await pill.evaluate((element) => (element as HTMLElement).style.removeProperty("visibility"));
+  }
 }
 
-// The 12px to the left of an element, at half its height, as it is on screen, once whatever is
-// fading in or out has finished.
-async function stripBeside(page: Page, element: Locator) {
-  await page.evaluate(() =>
-    Promise.all(
-      document
-        .getAnimations()
-        .filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity)
-        .map((animation) => animation.finished.catch(() => undefined)),
-    ),
-  );
-  await element.scrollIntoViewIfNeeded();
-  const box = (await element.boundingBox())!;
-  const clip = { x: Math.floor(box.x) - 12, y: Math.floor(box.y + box.height / 2), width: 12, height: 1 };
-  const { data, info } = await sharp(await page.screenshot({ clip })).raw().toBuffer({ resolveWithObject: true });
-  return Array.from({ length: info.width }, (_, at) => [0, 1, 2].map((channel) => data[at * info.channels + channel]));
-}
+test("every site page shows its focus on its poster", async ({ page, browser, request }) => {
+  test.slow();
+  await page.goto("/sign-in");
+  await firstFiveStopsRinged(page, "sign-in");
+  // The site's name above the card is where Tab starts.
+  await expect(page.locator('[data-stop="1"]')).toHaveAttribute("data-slot", "site-name");
+  await page.goto("/forgot-password");
+  await firstFiveStopsRinged(page, "forgot-password");
 
-// WCAG 2's contrast ratio, from sRGB channels 0 to 255.
-function contrast(a: number[], b: number[]) {
-  const luminance = (rgb: number[]) =>
-    rgb
-      .map((channel) => channel / 255)
-      .map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
-      .reduce((sum, c, at) => sum + c * [0.2126, 0.7152, 0.0722][at], 0);
-  const [lighter, darker] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (lighter + 0.05) / (darker + 0.05);
-}
+  const host = await createPublished(browser, request, "keyboard-site-pages", EVENT);
+  const editor = host.page.url();
+  await host.page.goto("/account");
+  await firstFiveStopsRinged(host.page, "account");
+  await host.page.goto(`${editor}/invites`);
+  await firstFiveStopsRinged(host.page, "invites");
+  await host.context.close();
+
+  const operator = await (await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
+  await signIn(operator, OPERATOR.email, PASSWORD);
+  await expect(operator).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
+  await operator.goto("/instance");
+  await firstFiveStopsRinged(operator, "instance");
+  await operator.context().close();
+});
 
 // The dashboard by keyboard (dashboard, ticket 05): from the header's New event and account menu to
 // Next up's poster and its three buttons, then a tile on every shelf, in that order, each ringed.
@@ -611,13 +882,13 @@ test("a host lists a schedule in its sheet by keyboard alone: adds items, fills 
 });
 
 // Tab until `target` has the focus, through date and time fields, each of which Chrome steps through
-// a part at a time (month, day, year; hour, minute, AM or PM). Every other stop shows its focus;
-// those fields are read where they are first reached, as reading a ring takes the focus away and
-// gives it back at the field's first part. Shift+Tab goes back the same way.
+// a part at a time (month, day, year; hour, minute, AM or PM; a date and time's both). Every other
+// stop shows its focus; those fields are read where they are first reached, as reading a ring takes
+// the focus away and gives it back at the field's first part. Shift+Tab goes back the same way.
 async function tabThroughFields(page: Page, target: Locator, key: "Tab" | "Shift+Tab" = "Tab") {
   for (let presses = 0; presses < 40; presses++) {
     await page.keyboard.press(key);
-    const inParts = await page.evaluate(() => ["date", "time"].includes((document.activeElement as HTMLInputElement | null)?.type ?? ""));
+    const inParts = await page.evaluate(() => ["date", "time", "datetime-local"].includes((document.activeElement as HTMLInputElement | null)?.type ?? ""));
     if (!inParts) await expectVisibleFocus(page, `Tab ${presses + 1} towards ${target}`);
     if (await target.evaluate((element) => element === document.activeElement)) return;
   }
@@ -823,5 +1094,146 @@ test("a host shares, sends, sends again and writes the letter of an invite, and 
   await expect(sendAll).toHaveAttribute("aria-disabled", "true");
   await expectVisibleFocus(page);
   await expect.poll(() => mailCountTo(request, kaiEmail), { timeout: 30_000 }).toBe(1);
+  await host.context.close();
+});
+
+// M8 ticket 16: the album vote by keyboard alone. In the Voting block the host starts voting, moves
+// an award up (the focus stays on the moved row's button) and turns voting off through its
+// confirmation; a guest reaches a star by Tab, votes with Space, moves the vote with Enter and takes
+// it back, the focus staying on the star; picks an award in the picker; and reaches the viewer's
+// star.
+test("the album vote by keyboard alone: the host's Voting block, a guest's stars, the award picker and the viewer's star", async ({ browser, request }) => {
+  test.setTimeout(240_000);
+  const host = await createPublished(browser, request, "keyboard-voting", { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" });
+  const editor = host.page.url();
+  const album = (on: Page) => on.locator('[data-slot="album"]');
+  const picture = async (name: string, background: string) => ({
+    name,
+    mimeType: "image/jpeg",
+    buffer: await sharp({ create: { width: 1200, height: 900, channels: 3, background } }).jpeg().toBuffer(),
+  });
+  await host.page.goto(host.link);
+  await album(host.page).getByLabel(/^Add photos/).setInputFiles([await picture("garden.jpg", "#2f6b3a"), await picture("cake.jpg", "#c0506a")]);
+  await expect(album(host.page).locator("li[data-item]")).toHaveCount(2, { timeout: 20_000 });
+  await host.page.goto(editor);
+
+  // The block, walked from its own fields (the sheet's other groups have tests of their own): Start
+  // voting, back from Who may vote, then a second award moved up, by keyboard.
+  const page = host.page;
+  const block = (await openSettings(page)).locator('[data-slot="voting-block"]');
+  await savedAfter(page, () => block.getByRole("button", { name: "Best photo", exact: true }).click());
+  const whoMayVote = block.getByLabel("Who may vote", { exact: true });
+  await whoMayVote.focus();
+  await tabThroughFields(page, block.getByRole("button", { name: "Start voting" }), "Shift+Tab");
+  await savedAfter(page, () => page.keyboard.press("Enter"));
+  await expect(block).toHaveAttribute("data-state", "open");
+  // Start voting gives way to Close voting; the walk goes on from Who may vote, through the
+  // closing time, to the awards.
+  await whoMayVote.focus();
+  await tabThroughFields(page, block.getByRole("button", { name: "Move Best photo up" }));
+  await savedAfter(page, () => page.keyboard.press("Enter"));
+  // First now, it cannot go further up: the focus is on its other move button.
+  await expect(block.getByRole("button", { name: "Move Best photo down" })).toBeFocused();
+  await expectVisibleFocus(page);
+
+  // A guest, at an address of their own: their numbers follow their own order.
+  const guest = await (await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
+  await guest.goto(host.link);
+  await guest.getByRole("button", { name: "Going" }).click();
+  await guest.getByLabel("Your name").fill("Ana Ruiz");
+  await guest.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(guest.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+  await guest.getByRole("dialog", { name: "Your RSVP" }).getByRole("button", { name: "Close" }).click();
+  const star = (n: number) => album(guest).getByRole("button", { name: `Vote for Photo ${n}`, exact: true });
+  const answered = () => guest.waitForResponse((response) => response.request().method() === "POST" && response.request().headers()["next-action"] !== undefined);
+
+  // Space gives the vote, Enter on another star moves it, Enter again takes it back.
+  await tabTo(guest, star(1));
+  let answer = answered();
+  await guest.keyboard.press("Space");
+  await answer;
+  await expect(star(1)).toHaveAttribute("aria-pressed", "true");
+  await expect(star(1)).toBeFocused();
+  await expectVisibleFocus(guest);
+  await tabTo(guest, star(2));
+  answer = answered();
+  await guest.keyboard.press("Enter");
+  await answer;
+  await expect(star(2)).toHaveAttribute("aria-pressed", "true");
+  await expect(star(1)).toHaveAttribute("aria-pressed", "false");
+  await expect(star(2)).toBeFocused();
+  await expectVisibleFocus(guest);
+  answer = answered();
+  await guest.keyboard.press("Enter");
+  await answer;
+  await expect(star(2)).toHaveAttribute("aria-pressed", "false");
+  await expect(star(2)).toBeFocused();
+  await expectVisibleFocus(guest);
+
+  // The picker, above the grid: Favourite, back by Shift+Tab, and Enter.
+  const picker = album(guest).getByRole("group", { name: "Awards", exact: true });
+  await tabThroughFields(guest, picker.getByRole("button", { name: "Favourite", exact: true }), "Shift+Tab");
+  await guest.keyboard.press("Enter");
+  await expect(picker.getByRole("button", { name: "Favourite", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expectVisibleFocus(guest);
+
+  // The viewer's star, by Tab.
+  await tabTo(guest, album(guest).getByRole("button", { name: "Photo 1", exact: true }));
+  await guest.keyboard.press("Enter");
+  const viewer = guest.getByRole("dialog", { name: "Photo 1 of 2" });
+  await expect(viewer).toBeVisible();
+  await tabTo(guest, viewer.getByRole("button", { name: "Vote for this photo" }));
+  answer = answered();
+  await guest.keyboard.press("Enter");
+  await answer;
+  await expect(viewer.getByRole("button", { name: "Vote for this photo" })).toHaveAttribute("aria-pressed", "true");
+  await guest.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+
+  // Turn off voting's confirmation, back from Who may vote by Tab and Enter, once the votes are
+  // counted.
+  await whoMayVote.focus();
+  await tabThroughFields(page, block.getByRole("button", { name: "Turn off voting" }), "Shift+Tab");
+  await page.keyboard.press("Enter");
+  const confirm = page.getByRole("alertdialog", { name: "Turn off voting?" });
+  await expect(confirm.getByRole("button", { name: "Turn it off" })).toBeEnabled();
+  await tabTo(page, confirm.getByRole("button", { name: "Turn it off" }));
+  await savedAfter(page, () => page.keyboard.press("Enter"));
+  await expect(confirm).toBeHidden();
+  await expect(block).toHaveAttribute("data-state", "off");
+  await Promise.all([guest.context().close(), host.context.close()]);
+});
+
+// M8 ticket 30: a row's styles are a radio group of swatches: Tab reaches the style chosen, and an
+// arrow moves to the next and chooses it, wrapping at the ends.
+test("a host chooses the album's style in Arrange by its swatches' arrows", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "keyboard-styles", EVENT);
+  const page = host.page;
+  await tabTo(page, page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Arrange" }));
+  await page.keyboard.press("Enter");
+  const sheet = page.getByRole("dialog", { name: "Arrange" });
+  await expect(sheet.getByRole("heading", { name: "Arrange" })).toBeFocused();
+  const options = sheet.getByRole("button", { name: "Options for Album" });
+  await tabTo(page, options);
+  await page.keyboard.press("Enter");
+  await expect(options).toHaveAttribute("aria-expanded", "true");
+
+  const styles = sheet.getByRole("radiogroup", { name: "Style" });
+  await tabTo(page, styles.getByRole("radio", { name: "Grid" }));
+  for (const [key, style] of [
+    ["ArrowRight", "Mosaic"],
+    ["ArrowRight", "Strip"],
+    ["ArrowRight", "Grid"],
+    ["ArrowLeft", "Strip"],
+  ] as const) {
+    await savedAfter(page, () => page.keyboard.press(key));
+    const radio = styles.getByRole("radio", { name: style });
+    await expect(radio).toBeFocused();
+    await expect(radio).toHaveAttribute("aria-checked", "true");
+    await expectVisibleFocus(page);
+  }
+  await page.keyboard.press("Escape");
+  await expect(page.locator('[data-section="album"] [data-slot="style-preview"]')).toHaveText("Strip");
   await host.context.close();
 });

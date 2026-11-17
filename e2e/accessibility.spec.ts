@@ -1,7 +1,29 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
 import { hostWithShelves } from "./dashboard";
-import { closeDesign, createDraft, createPublished, type DraftFields, openDesign, openMore, pickDesign, publishInEditor, toEditor } from "./events";
+import {
+  addSection,
+  arrange,
+  arrangeWholePage,
+  chooseLayout,
+  closeDesign,
+  closeSheets,
+  createDraft,
+  createPublished,
+  type DraftFields,
+  openDesign,
+  NOTE_LINK,
+  openArrange,
+  openMore,
+  openRow,
+  pickDesign,
+  publishInEditor,
+  sectionOrder,
+  setSchedule,
+  toEditor,
+  writeLink,
+  writeNote,
+} from "./events";
 import { homeBar, openHome } from "./home";
 import { latestMailTo, newHost, openAccountMenu, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { clientAddress, expect, test, type APIRequestContext, type Browser, type Locator, type Page } from "./test";
@@ -126,46 +148,32 @@ for (const poster of ["Balloons", "Disco"] as const) {
   });
 }
 
-test("a host's own pages: the dashboard, the editor and its sheets, the share screen and the guest list", async ({ page, browser, request }) => {
+test("a host's own pages: the dashboard, the account page and its menu, New event, the share screen and the guest list", async ({ page, browser, request }) => {
   test.slow();
   await signUpVerified(page, request, "a11y-host");
   await page.goto("/dashboard");
   await expectNoSeriousViolations(page, "the dashboard, empty");
   // The frame of every signed-in page (dashboard, ticket 02): another host page on the host
-  // ground, and the account menu open.
+  // ground, and the account menu open. Account's Backdrop card is on Automatic.
   await page.goto("/account");
   await expectNoSeriousViolations(page, "the account page");
   await openAccountMenu(page);
   await expectNoSeriousViolations(page, "the account menu, open");
   await page.keyboard.press("Escape");
 
-  // The editor (M4 ticket 05): a blank invitation, and each of its sheets open.
+  // New event as it stands before it opens the editor: it sends for its draft as soon as it is on
+  // screen, and that post is held unanswered (M8 ticket 20).
+  await page.route("**/events/new", async (route) => {
+    if (route.request().method() !== "POST") await route.continue();
+  });
   await page.goto("/events/new");
-  await expect(page.getByRole("textbox", { name: "Event title" })).toBeVisible({ timeout: 20_000 });
-  await expectNoSeriousViolations(page, "the editor, a blank invitation");
-  const sheets: [opener: Locator, name: string][] = [
-    [page.getByRole("button", { name: /^When:/ }), "When"],
-    [page.getByRole("button", { name: /^Where:/ }), "Where"],
-    [page.getByRole("button", { name: /^About:/ }), "About"],
-    [page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Settings" }), "Settings"],
-    [page.getByRole("button", { name: "More" }), "More"],
-  ];
-  for (const [opener, name] of sheets) {
-    await opener.click();
-    await expect(page.getByRole("dialog", { name })).toBeVisible();
-    if (name === "Settings") await page.getByRole("button", { name: "Add a question" }).click();
-    await expectNoSeriousViolations(page, `the editor's ${name} sheet`);
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog", { name })).toBeHidden();
-  }
-  await page.getByRole("button", { name: "Publish" }).click();
-  await expect(page.getByText("Add a title first.")).toBeVisible();
-  await expectNoSeriousViolations(page, "the editor, publishing refused");
+  await expect(page.getByText("Starting your invitation…")).toBeVisible();
+  await expectNoSeriousViolations(page, "New event, starting the invitation");
+  await page.unrouteAll({ behavior: "ignoreErrors" });
 
   const link = await createDraft(page, EVENT);
   await publishInEditor(page);
   const manage = page.url();
-  await expectNoSeriousViolations(page, "the editor, published");
 
   await page.goto("/dashboard");
   await expectNoSeriousViolations(page, "the dashboard, with an event");
@@ -193,6 +201,72 @@ test("a host's own pages: the dashboard, the editor and its sheets, the share sc
   await expectNoSeriousViolations(page, "the guest list");
   await page.getByRole("button", { name: "Edit" }).click();
   await expectNoSeriousViolations(page, "the guest list, editing a guest");
+});
+
+// The editor (M4 ticket 05): a blank invitation, each of its sheets open, publishing refused, and
+// published. Tests of their own, apart from the host's other pages above, as axe reads each sheet
+// over the event page's fixed backdrop a view at a time, the Settings sheet alone up to 35 s beside
+// another test (M8 tickets 21 and 23); one sheet a test, each with a host of its own, so that each
+// stays well inside its time beside another test (review of M8 ticket 25).
+test("the editor: a blank invitation, and publishing it refused", async ({ page, request }) => {
+  test.slow();
+  await signUpVerified(page, request, "a11y-editor");
+  await page.goto("/events/new");
+  await expect(page.getByRole("textbox", { name: "Event title" })).toBeVisible({ timeout: 20_000 });
+  await expectNoSeriousViolations(page, "the editor, a blank invitation");
+  await page.getByRole("button", { name: "Publish" }).click();
+  await expect(page.getByText("Add a title first.")).toBeVisible();
+  await expectNoSeriousViolations(page, "the editor, publishing refused");
+});
+
+const EDITOR_SHEETS: [name: string, opener: (page: Page) => Locator][] = [
+  ["When", (page) => page.getByRole("button", { name: /^When:/ })],
+  ["Where", (page) => page.getByRole("button", { name: /^Where:/ })],
+  ["About", (page) => page.getByRole("button", { name: /^About:/ })],
+  ["Settings", (page) => page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Settings" })],
+  ["More", (page) => page.getByRole("button", { name: "More" })],
+];
+
+for (const [name, opener] of EDITOR_SHEETS) {
+  test(`the editor's ${name} sheet, on a blank invitation`, async ({ page, request }) => {
+    test.slow();
+    await signUpVerified(page, request, `a11y-editor-${name.toLowerCase()}`);
+    await page.goto("/events/new");
+    await expect(page.getByRole("textbox", { name: "Event title" })).toBeVisible({ timeout: 20_000 });
+    await opener(page).click();
+    await expect(page.getByRole("dialog", { name })).toBeVisible();
+    if (name === "Settings") await page.getByRole("button", { name: "Add a question" }).click();
+    await expectNoSeriousViolations(page, `the editor's ${name} sheet`);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name })).toBeHidden();
+  });
+}
+
+test("the editor, published", async ({ page, request }) => {
+  test.slow();
+  await signUpVerified(page, request, "a11y-editor-published");
+  await createDraft(page, EVENT);
+  await publishInEditor(page);
+  await expectNoSeriousViolations(page, "the editor, published");
+});
+
+// M8 ticket 22: Account with its Backdrop card, a poster chosen and saved, so that the card's chosen
+// state and the confirmation are read too.
+test("the account page with the Backdrop card, a poster chosen", async ({ page, request }) => {
+  await signUpVerified(page, request, "a11y-backdrop");
+  await page.goto("/account");
+  const card = page.locator("#backdrop");
+  await card.getByText("Aurora", { exact: true }).click();
+  await expect(card.getByRole("radio", { name: "Aurora", exact: true })).toBeChecked();
+  await card.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(card.getByText("Backdrop saved.")).toBeVisible({ timeout: 15_000 });
+  await expectNoSeriousViolations(page, "the account page, a backdrop chosen");
+  // Account's two Saves, Display name's and the Backdrop card's, are told apart for a screen reader,
+  // each described by its card's title (M8 ticket 23).
+  const saves = page.getByRole("main").getByRole("button", { name: "Save", exact: true });
+  await expect(saves).toHaveCount(2);
+  await expect(saves.first()).toHaveAccessibleDescription("Display name");
+  await expect(card.getByRole("button", { name: "Save", exact: true })).toHaveAccessibleDescription("Backdrop");
 });
 
 // The dashboard with an event on every shelf (dashboard, ticket 05): Next up with a reply to approve,
@@ -228,20 +302,83 @@ test("the instance settings page, and its Limits card refusing a value and with 
   await expectNoSeriousViolations(page, "the Limits card, Keep forever ticked");
 });
 
-test("the editor's design sheets, each open, in both text tones", async ({ browser, request }) => {
+// M8 ticket 23: Site settings with a confirmation open, Clear the album on the Storage card, not
+// confirmed. A photo in an album of the test's own first, so that the card lists one to clear.
+test("Site settings with a confirmation open: clearing one of the biggest albums, not confirmed", async ({ page, browser, request }) => {
   test.slow();
-  // Bottom sheets over a live copy in the mobile project, side panels in the desktop one.
-  const host = await createPublished(browser, request, "a11y-drawer", EVENT);
-  for (const tone of ["Light", "Dark"] as const) {
-    await chooseTone(host.page, request, host.link, tone);
-    for (const [sheet, tab] of [["Poster", "Gallery"], ["Poster", "Emoji"], ["Poster", "Colour"], ["Poster", "Upload"], ["Title"], ["Theme"], ["Effect"]] as const) {
-      await openDesign(host.page, sheet, tab);
-      await expectNoSeriousViolations(host.page, `the ${sheet} sheet${tab ? `, ${tab}` : ""}, ${tone.toLowerCase()} tone`);
-      await closeDesign(host.page, sheet);
-    }
+  const host = await createPublished(browser, request, "a11y-album", { title: "Ada’s picnic", start: "2026-01-10T19:00" });
+  await host.page.goto(host.link);
+  const album = host.page.locator('[data-slot="album"]');
+  const photo = await sharp({ create: { width: 800, height: 600, channels: 3, background: "#2f6b3a" } }).jpeg().toBuffer();
+  await album.getByLabel(/^Add photos/).setInputFiles({ name: "one.jpg", mimeType: "image/jpeg", buffer: photo });
+  await expect(album.getByRole("button", { name: /^Photo 1 by / })).toBeVisible({ timeout: 30_000 });
+  await host.context.close();
+
+  await signIn(page, OPERATOR.email, PASSWORD);
+  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
+  await page.goto("/instance");
+  await page.locator("#storage").getByRole("button", { name: "Clear the album" }).first().click();
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog.getByRole("button", { name: "Delete them" })).toBeVisible();
+  await expectNoSeriousViolations(page, "Site settings, clearing an album to be confirmed");
+  await dialog.getByRole("button", { name: "Never mind" }).click();
+  await expect(dialog).toBeHidden();
+});
+
+// M8 ticket 23: the five pages where a host manages one event (ticket 21), on a gallery poster's
+// picture rather than a colour, each wearing it.
+test("an event's pages on a picture poster: its guest list, invites, share, hosts and announcements", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "a11y-event-pages", SIMPLE);
+  await pickDesign(host.page, "Poster", "Poster", "Disco", "Gallery");
+  const manage = host.page.url();
+  for (const [path, heading] of [
+    ["guests", "Guest list"],
+    ["invites", "Invites"],
+    ["share", "Share this event"],
+    ["hosts", "Hosts"],
+    ["announcements", "Announcements"],
+  ] as const) {
+    await host.page.goto(`${manage}/${path}`);
+    await expect(host.page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+    await expect(host.page.locator('[data-slot="backdrop"] [style*="disco-ball-copy"]')).toHaveCount(1);
+    await expectNoSeriousViolations(host.page, `the event's ${path} page, on the Disco poster`);
   }
   await host.context.close();
 });
+
+// M8 ticket 23: the notice a guest meets on a link the host has reset (M8 ticket 18).
+test("the page a link the host has reset leads to", async ({ page, browser, request }) => {
+  const host = await createPublished(browser, request, "a11y-retired", SIMPLE);
+  await host.page.goto(`${host.page.url()}/share`);
+  await host.page.getByRole("button", { name: "Reset the link" }).click();
+  await host.page.getByRole("button", { name: "Reset it" }).click();
+  await expect(host.page.getByText(host.link, { exact: true })).toHaveCount(0, { timeout: 15_000 });
+  await page.goto(host.link);
+  await expect(page.getByRole("heading", { level: 1, name: "This link is no longer valid" })).toBeVisible();
+  await expectNoSeriousViolations(page, "a link the host has reset");
+  await host.context.close();
+});
+
+// Bottom sheets over a live copy in the mobile project, side panels in the desktop one: each
+// design sheet, and each of the Poster's tabs, in each text tone, a test each with an event of its
+// own, so that each stays well inside its time beside another test (review of M8 ticket 25).
+const DESIGN_SHEETS = [["Poster", "Gallery"], ["Poster", "Emoji"], ["Poster", "Colour"], ["Poster", "Upload"], ["Title"], ["Theme"], ["Effect"]] as const;
+
+for (const tone of ["Light", "Dark"] as const) {
+  for (const [sheet, tab] of DESIGN_SHEETS) {
+    const where = `the ${sheet} sheet${tab ? `, ${tab}` : ""}, ${tone.toLowerCase()} tone`;
+    test(`the editor's design sheets: ${where}`, async ({ browser, request }) => {
+      test.slow();
+      const host = await createPublished(browser, request, `a11y-drawer-${sheet}${tab ?? ""}-${tone}`.toLowerCase(), EVENT);
+      await chooseTone(host.page, request, host.link, tone);
+      await openDesign(host.page, sheet, tab);
+      await expectNoSeriousViolations(host.page, where);
+      await closeDesign(host.page, sheet);
+      await host.context.close();
+    });
+  }
+}
 
 test("the event page with the host's picture as the poster, in both text tones, described", async ({ page, browser, request }) => {
   test.setTimeout(180_000);
@@ -457,7 +594,7 @@ test("the Thread layout: the event page, each turn of the conversation and the d
     await expect(page.getByLabel("Add a comment")).toBeVisible();
     await expectNoSeriousViolations(page, `${where}: the done bubble, who's coming and the comments`);
     await comment(page, "See you there!");
-    await deleteOwnComment(page, "See you there!", page.locator('[data-slot="comments"] summary'), where);
+    await deleteOwnComment(page, "See you there!", page.locator('[data-slot="comments"] summary h2'), where);
     await guest.close();
   }
 
@@ -472,6 +609,161 @@ test("the Thread layout: the event page, each turn of the conversation and the d
   await expect(page.getByText("This event is cancelled")).toBeVisible();
   await expectNoSeriousViolations(page, "the Thread, a cancelled event, dark tone");
   await visitor.close();
+  await host.context.close();
+});
+
+// The Broadsheet and the Thread in the host's order (M8 ticket 27), as the sections spec arranges
+// them: the Broadsheet with its Album moved above the comments, the Thread with its two
+// announcements moved above the schedule; each read by a guest who has not replied.
+test("the Broadsheet arranged, the Album above the comments", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "a11y-broadsheet-arranged", { ...EVENT, description: "Bring a jumper.", layout: "Broadsheet" });
+  await setSchedule(host.page, [{ start: "20:00", title: "Cake" }]);
+  await arrange(host.page, (sheet) => sheet.getByRole("button", { name: "Move Album up" }).click());
+  const guest = await browser.newContext();
+  const page = await guest.newPage();
+  await page.goto(host.link);
+  await expect(page.locator('[data-section="album"] + [data-section="comments"]')).toBeVisible();
+  await expectNoSeriousViolations(page, "the Broadsheet, arranged");
+  await guest.close();
+  await host.context.close();
+});
+
+test("the Thread arranged, its announcements above the schedule", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "a11y-thread-arranged", { ...EVENT, description: "Bring a jumper.", layout: "Thread" });
+  const manage = host.page.url();
+  await setSchedule(host.page, [{ start: "20:00", title: "Cake" }]);
+  await announce(host.page, manage, "The gate code is 1234.");
+  await announce(host.page, manage, "Parking is on Mill Lane.");
+  await host.page.goto(manage);
+  await arrange(host.page, async (sheet) => {
+    const up = sheet.getByRole("button", { name: "Move Announcements up" });
+    await up.click();
+    await expect(sheet.locator('[aria-live="polite"]')).toHaveText("Announcements, 4 of 8");
+    await up.click();
+    await expect(sheet.locator('[aria-live="polite"]')).toHaveText("Announcements, 3 of 8");
+  });
+  const guest = await browser.newContext();
+  const page = await guest.newPage();
+  await page.goto(host.link);
+  await expect(page.locator('[data-slot="announcement"] + [data-slot="announcement"] + [data-section="schedule"]')).toBeVisible();
+  await expectNoSeriousViolations(page, "the Thread, arranged");
+  await guest.close();
+  await host.context.close();
+});
+
+// A collapsed section in each layout (M8 ticket 28): the schedule, folded away, then opened by a
+// guest who has not replied. A test for each layout.
+for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
+  test(`the ${layout} with a collapsed section, closed and opened`, async ({ browser, request }) => {
+    test.slow();
+    const host = await createPublished(browser, request, `a11y-collapsed-${layout.toLowerCase()}`, { ...EVENT, layout: layout === "Poster" ? undefined : layout });
+    await setSchedule(host.page, [{ start: "20:00", title: "Cake" }]);
+    await arrange(host.page, async (sheet) => {
+      await sheet.getByRole("button", { name: "Options for Schedule" }).click();
+      await sheet.getByRole("switch", { name: "Collapsed" }).click();
+    });
+    const guest = await browser.newContext();
+    const page = await guest.newPage();
+    await page.goto(host.link);
+    const schedule = page.locator('details[data-slot="schedule"]');
+    await expect(schedule.locator('summary [data-slot="section-count"]')).toHaveText("1 item");
+    await expectNoSeriousViolations(page, `the ${layout}, the schedule collapsed`);
+    await schedule.locator("summary").click();
+    await expect(schedule).toContainText("Cake");
+    await expectNoSeriousViolations(page, `the ${layout}, the collapsed schedule opened`);
+    await guest.close();
+    await host.context.close();
+  });
+}
+
+// A guest's page with a Note and Links in each layout (M8 ticket 29), one link with no label of its
+// own, as a guest reads them who has not replied. A test for each layout.
+for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
+  test(`the ${layout} with a Note and Links`, async ({ browser, request }) => {
+    test.slow();
+    const host = await createPublished(browser, request, `a11y-note-links-${layout.toLowerCase()}`, { ...EVENT, layout: layout === "Poster" ? undefined : layout });
+    await writeNote(host.page, await addSection(host.page, "Dress code"), "Cocktail attire, ", "velvet");
+    await host.page.keyboard.press("Escape");
+    const links = await addSection(host.page, "Registry");
+    await writeLink(host.page, links, 1, "Our list", "https://www.example.com/registry");
+    await writeLink(host.page, links, 2, "", "example.org/songs");
+    await closeSheets(host.page);
+    const guest = await browser.newContext();
+    const page = await guest.newPage();
+    await page.goto(host.link);
+    await expect(page.locator('[data-slot="note"] strong')).toHaveText("velvet");
+    await expect(page.locator('[data-slot="links"]').getByRole("link")).toHaveCount(2);
+    await expectNoSeriousViolations(page, `the ${layout}, a Note and Links`);
+    await guest.close();
+    await host.context.close();
+  });
+}
+
+// A page arranged through every part of Arrange (M8 ticket 31), in each layout: the Album above
+// the Comments, the Comments renamed and collapsed, the Countdown on, a Note with a link and Links of
+// two. Read by a guest who has replied, so the Comments are hers to open (locked, they would be
+// drawn open): folded, then opened. She replies on the Poster, before the layout is chosen. A test
+// for each layout, two reads each.
+for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
+  test(`the ${layout} arranged in every way, its renamed Comments collapsed and then opened`, async ({ browser, request }) => {
+    test.slow();
+    const host = await createPublished(browser, request, `a11y-arranged-${layout.toLowerCase()}`, SIMPLE);
+    const guest = await newGuest(browser);
+    await replyGoing(guest, "Poster", host.link, "Priya Nair");
+    await expect(guest.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+    await arrangeWholePage(host.page, "Comments");
+    if (layout !== "Poster") await chooseLayout(host.page, host.link, layout);
+
+    await guest.goto(host.link);
+    await expect(guest.locator("[data-layout]")).toHaveAttribute("data-layout", layout.toLowerCase());
+    const order = await sectionOrder(guest);
+    expect(order.indexOf("album"), "the Album above the Comments").toBeLessThan(order.indexOf("comments"));
+    await expect(guest.locator('[data-section="countdown"]')).toBeVisible();
+    await expect(guest.locator('[data-slot="note"]').getByRole("link", { name: new RegExp(`^${NOTE_LINK.words}`) })).toBeVisible();
+    await expect(guest.locator('[data-slot="links"]').getByRole("link")).toHaveCount(2);
+    const comments = guest.locator('details[data-slot="comments"]');
+    await expect(comments.locator("summary").getByRole("heading", { name: "Guestbook" })).toBeVisible();
+    await expect(comments).not.toHaveAttribute("open");
+    await expectNoSeriousViolations(guest, `the ${layout} arranged, the Guestbook collapsed`);
+    await comments.locator("summary").click();
+    await expect(comments).toHaveAttribute("open", "");
+    await expect(comments.getByLabel("Add a comment")).toBeVisible();
+    await expectNoSeriousViolations(guest, `the ${layout} arranged, the Guestbook opened`);
+    await Promise.all([guest.context().close(), host.context.close()]);
+  });
+}
+
+// The editor's Arrange sheet open on the row with every field (M8 ticket 31): Who's coming, its
+// switch, who sees it, its heading, Collapsed and its styles; with Add a section at the sheet's foot.
+test("the editor's Arrange sheet open on Who's coming, with every field, and Add a section", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "a11y-arrange-every-field", SIMPLE);
+  const sheet = await openArrange(host.page);
+  await openRow(sheet, "Who’s coming");
+  await expect(sheet.getByRole("switch", { name: "Who’s coming" })).toBeChecked();
+  await expect(sheet.getByRole("radiogroup", { name: "Who sees it" })).toBeVisible();
+  await expect(sheet.getByRole("textbox", { name: "Heading" })).toBeVisible();
+  await expect(sheet.getByRole("switch", { name: "Collapsed" })).toBeVisible();
+  await expect(sheet.getByRole("radiogroup", { name: "Style" })).toBeVisible();
+  await expect(sheet.getByRole("region", { name: "Add a section" })).toBeVisible();
+  await expectNoSeriousViolations(host.page, "the Arrange sheet, Who’s coming open");
+  await host.context.close();
+});
+
+// The Note's sheet and the Links' sheet over the editor, each written in (M8 ticket 31).
+test("the editor's Note sheet and Links sheet, each written in", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "a11y-note-links-sheets", SIMPLE);
+  const note = await addSection(host.page, "Dress code");
+  await writeNote(host.page, note, "Cocktail attire, ", "velvet");
+  await expectNoSeriousViolations(host.page, "the Note sheet");
+  await host.page.keyboard.press("Escape");
+  const links = await addSection(host.page, "Registry");
+  await writeLink(host.page, links, 1, "Our list", "https://www.example.com/registry");
+  await writeLink(host.page, links, 2, "Songs", "https://example.org/songs");
+  await expectNoSeriousViolations(host.page, "the Links sheet, two links");
   await host.context.close();
 });
 

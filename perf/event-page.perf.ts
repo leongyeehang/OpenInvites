@@ -1,4 +1,4 @@
-import { createPublished, type DraftFields, openDesign, pickDesign } from "../e2e/events";
+import { arrangeWholePage, createPublished, type DraftFields, openDesign, pickDesign } from "../e2e/events";
 import { clientAddress, expect, test, type APIRequestContext, type Browser } from "../e2e/test";
 import { audit, describe, summarise, type Run } from "./lighthouse";
 import { fairPoster, gardenPhoto } from "./pictures";
@@ -43,6 +43,8 @@ const THEMES: Themed[] = [
   // The other two layouts, with a gallery poster.
   { name: "Gallery poster, Broadsheet layout", make: (browser, request) => withGalleryPoster(browser, request, "Candlelight", "Broadsheet") },
   { name: "Gallery poster, Thread layout", make: (browser, request) => withGalleryPoster(browser, request, "Balloons", "Thread") },
+  // A page the host has arranged (M8 ticket 31).
+  { name: "Arranged Poster: Countdown, a Note, Links and the album collapsed", make: arrangedPoster },
 ];
 
 async function published(browser: Browser, request: APIRequestContext, fields: DraftFields) {
@@ -64,6 +66,16 @@ async function withPicture(browser: Browser, request: APIRequestContext, as: "ph
   await drawer.getByLabel("Describe your picture").press("Enter");
   // The poster is an <img>, and carries its description as alt.
   await expect.poll(guestHtml, { timeout: 15_000 }).toContain(`alt="${alt}"`);
+  await host.context.close();
+  return host.link;
+}
+
+// The host arranges the Poster in Arrange: the Countdown on, a Note with a link, Links of two, and
+// the album folded away.
+async function arrangedPoster(browser: Browser, request: APIRequestContext) {
+  const host = await createPublished(browser, request, "perf", EVENT);
+  await arrangeWholePage(host.page, "Album");
+  await expect.poll(async () => (await request.get(host.link)).text(), { timeout: 15_000 }).toMatch(/<details[^>]*data-slot="album"/);
   await host.context.close();
   return host.link;
 }

@@ -46,11 +46,20 @@ const source: Event = {
   albumVideosAllowed: false,
   albumMaxVideoMinutes: 3,
   albumMaxVideoMb: 200,
-  albumCopyQuality: "720p",
+  albumCopySizes: ["720p"],
+  albumKeepTakenAt: true,
+  albumKeepCamera: true,
+  albumOrder: "taken",
   lettersEnabled: true,
   inviteOnly: true,
   albumReminderDays: 90,
   albumRemindedAt: new Date("2027-06-05T00:00:00Z"),
+  albumVoting: "closed",
+  albumVotingClosesAt: new Date("2027-05-09T12:00:00Z"),
+  albumVoters: "invited",
+  albumUploaderNames: "never",
+  sections: { sections: [{ kind: "album", collapsed: false, heading: "Photos", style: "grid" }] },
+  albumEnabled: false,
   createdAt: new Date("2026-12-01T00:00:00Z"),
   updatedAt: new Date("2026-12-02T00:00:00Z"),
 };
@@ -115,8 +124,14 @@ describe("duplicateInput", () => {
   });
 
   // M7 ticket 05: the video settings travel with the album's.
-  it("copies whether videos are allowed, their caps, and the lighter copy's quality", () => {
-    expect(copy.event).toMatchObject({ albumVideosAllowed: false, albumMaxVideoMinutes: 3, albumMaxVideoMb: 200, albumCopyQuality: "720p" });
+  // M8 ticket 02: the video sizes in place of the lighter copy's quality.
+  it("copies whether videos are allowed, their caps, and the video sizes", () => {
+    expect(copy.event).toMatchObject({ albumVideosAllowed: false, albumMaxVideoMinutes: 3, albumMaxVideoMb: 200, albumCopySizes: ["720p"] });
+  });
+
+  // M8 ticket 07: the details the host keeps, and the album's order.
+  it("copies whether the capture time and the camera are kept, and the album's order", () => {
+    expect(copy.event).toMatchObject({ albumKeepTakenAt: true, albumKeepCamera: true, albumOrder: "taken" });
   });
 
   // M7 ticket 09: when to be reminded about the album travels with the settings; the mark does not.
@@ -124,8 +139,20 @@ describe("duplicateInput", () => {
     expect(copy.event).toMatchObject({ albumReminderDays: 90 });
   });
 
+  // M8 ticket 10: the album vote's settings travel with the album's; the vote itself does not, so
+  // the copy starts with voting off (its awards are copied by duplicateEventAction).
+  it("copies who may vote and whether guests see who added each item", () => {
+    expect(copy.event).toMatchObject({ albumVoters: "invited", albumUploaderNames: "never" });
+  });
+
+  // M8 ticket 25: the page's arrangement and the album's own switch (spec, "A duplicated event
+  // copies its sections").
+  it("copies the sections as arranged and whether the album is on", () => {
+    expect(copy.event).toMatchObject({ sections: source.sections, albumEnabled: false });
+  });
+
   it("copies nothing that belongs to the source alone", () => {
-    for (const own of ["id", "hostId", "slug", "state", "publishedAt", "weekReminderSentAt", "dayReminderSentAt", "retentionWarnedAt", "pollOpenedAt", "pollClosedAt", "scheduleRefresh", "albumRemindedAt", "createdAt", "updatedAt"]) {
+    for (const own of ["id", "hostId", "slug", "state", "publishedAt", "weekReminderSentAt", "dayReminderSentAt", "retentionWarnedAt", "pollOpenedAt", "pollClosedAt", "scheduleRefresh", "albumRemindedAt", "albumVoting", "albumVotingClosesAt", "createdAt", "updatedAt"]) {
       expect(copy.event).not.toHaveProperty(own);
     }
   });

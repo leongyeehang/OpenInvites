@@ -11,7 +11,7 @@ import type en from "../../messages/en.json";
 //
 // `lightest` and `darkest` are what legibility.ts reads to keep every text tone readable: the
 // brightest point light text can meet on the page, and the darkest point dark text can meet. Each
-// is measured on the event page's own backdrop (themed-page.tsx: the blobs, the scrim over
+// is measured on the event page's own backdrop (backdrop.tsx: the blobs, the scrim over
 // scenes, the fade at the foot) with the page's content hidden, under a 24px backdrop blur (the
 // glass's own), at 360x740, 390x844, 768x1024, 1280x800 and 1920x1080, with the blobs at rest
 // and at the far end of their drift: the lightest pixel in the light tone with a white accent
@@ -20,7 +20,7 @@ import type en from "../../messages/en.json";
 // Re-measure when the backdrop changes.
 
 // What the page is painted on: a gradient, or the small copy of a picture poster (a gallery
-// poster, or the host's upload) blurred to a wash of its own colours behind it (themed-page.tsx).
+// poster, or the host's upload) blurred to a wash of its own colours behind it (backdrop.tsx).
 export type Background = {
   id: string;
   accent: string; // #rrggbb

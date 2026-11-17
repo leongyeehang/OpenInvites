@@ -1,9 +1,23 @@
 import sharp from "sharp";
 import { clientAddress, expect, test, type Browser, type Page } from "./test";
-import { createPublished, editSettings, HOUR, itemFromNow, savedAfter, setSchedule, utcFromNow } from "./events";
+import {
+  addSection,
+  arrange,
+  closeSheets,
+  createPublished,
+  editSettings,
+  HOUR,
+  itemFromNow,
+  openMore,
+  openRow,
+  savedAfter,
+  setSchedule,
+  utcFromNow,
+  writeLink,
+} from "./events";
 import { hostWithShelves } from "./dashboard";
 import { expectHomeIn, openHome } from "./home";
-import { latestMailTo, linkIn, mailCountTo, newHost, OPERATOR, PASSWORD, signIn } from "./hosts";
+import { latestMailTo, linkIn, mailCountTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { replyBar } from "./reply";
 
 // Ticket 20: the core guest flow (open the invitation, answer Going with a plus-one, see the
@@ -302,6 +316,74 @@ test("a host makes a personal invite link in Traditional Chinese", async ({ brow
   await host.context.close();
 });
 
+// M8 ticket 22: the Backdrop card in Account, in Traditional Chinese.
+test("a host reads the Backdrop card in Traditional Chinese", async ({ page, request }) => {
+  await signUpVerified(page, request, "locale-backdrop");
+  await page.goto("/account");
+  await page.getByRole("contentinfo").getByRole("form", { name: "Language" }).getByRole("button", { name: "繁體中文" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
+  const card = page.locator("#backdrop");
+  await expect(card.getByRole("heading", { level: 2, name: "頁面底圖" })).toBeVisible();
+  await expect(card.getByRole("radio", { name: "自動", exact: true })).toBeChecked();
+  // Its Save, described by the card's title (M8 ticket 23).
+  await expect(card.getByRole("button", { name: "儲存", exact: true })).toHaveAccessibleDescription("頁面底圖");
+});
+
+// M8 ticket 23: the signed-out screens and the notice pages, on their posters, in Traditional
+// Chinese: sign-in's card and the site's name above it, and an invite-only event's locked page.
+test("a visitor whose browser asks for zh-TW reads sign-in and the locked page in Traditional Chinese", async ({ browser, request }) => {
+  test.slow();
+  const page = await guestWithBrowserIn(browser, "zh-TW,zh;q=0.9");
+  await page.goto("/sign-in");
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
+  await expect(page.getByRole("heading", { level: 1, name: "登入" })).toBeVisible();
+  await expect(page.getByLabel("電子郵件", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "登入", exact: true })).toBeVisible();
+  await expect(page.locator('[data-slot="site-name"]')).toHaveText("OpenInvites");
+
+  const host = await createPublished(browser, request, "locale-locked", EVENT);
+  await editSettings(host.page, (sheet) =>
+    sheet.getByRole("group", { name: "Guests", exact: true }).getByLabel("Invite-only: only people on the invite list can open the invitation", { exact: true }).check(),
+  );
+  await page.goto(host.link);
+  await expect(page.getByRole("heading", { level: 1, name: "一份私人邀請" })).toBeVisible();
+  await expect(page.locator(".site-page")).toHaveCount(1);
+  await page.context().close();
+  await host.context.close();
+});
+
+// M8 ticket 23: the pages a guest meets on their own, in Simplified Chinese: too fast, and the page
+// that stops email about an event, from the email cancelling it.
+test("a guest whose browser asks for zh-CN reads too fast and the stop-mail page in Simplified Chinese", async ({ browser, request }) => {
+  test.slow();
+  const page = await guestWithBrowserIn(browser, "zh-CN,zh;q=0.9");
+  await page.goto("/too-fast");
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hans");
+  await expect(page.getByRole("heading", { level: 1, name: "操作太频繁了" })).toBeVisible();
+
+  const host = await createPublished(browser, request, "locale-stop-mail", { ...EVENT, plusOnes: "0", askEmail: true });
+  const email = newHost("locale-stop-mail-guest").email;
+  const guest = await (await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": clientAddress() } })).newPage();
+  await guest.goto(host.link);
+  await guest.getByRole("button", { name: "Going", exact: true }).click();
+  await guest.getByLabel("Your name").fill("Priya Nair");
+  await guest.getByLabel("Email").fill(email);
+  await guest.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(guest.getByText(`We’ll reach you at ${email}.`)).toBeVisible({ timeout: 15_000 });
+  await guest.context().close();
+  await openMore(host.page);
+  await host.page.getByRole("button", { name: "Cancel event" }).click();
+  await host.page.getByRole("button", { name: "Cancel the event" }).click();
+  await expect(host.page.getByText("Cancelled", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => mailCountTo(request, email), { timeout: 30_000, message: `an email to ${email}` }).toBe(1);
+
+  await page.goto((await latestMailTo(request, email)).match(/https?:\/\/\S+\/m\/[A-Za-z0-9]{24}/)![0]);
+  await expect(page.getByRole("button", { name: "不再接收这个活动的邮件" })).toBeVisible();
+  await expect(page.locator(".site-page")).toHaveCount(1);
+  await page.context().close();
+  await host.context.close();
+});
+
 // The interface says 本站 where it said 实例 (dashboard, ticket 04): the operator's account menu
 // offers 站点设置, and the page it opens is headed so too.
 test("the operator who switches to Simplified Chinese finds 站点设置 in their account menu", async ({ browser }) => {
@@ -485,4 +567,162 @@ test("an invitee whose browser asks for zh-TW opens an invite-only event, reads 
   await expect(album.getByText("等候核准", { exact: true })).toBeVisible({ timeout: 15_000 });
   await context.close();
   await host.context.close();
+});
+
+// M8 ticket 09: the album's media in Traditional Chinese, as a guest whose browser asks for zh-TW
+// meets them: a video's sizes, a live photo's mark, and a caption written while adding and opened
+// again in the viewer. The video and the live photo wait their turn in the queue.
+test("a guest whose browser asks for zh-TW opens a video's sizes, a live photo and a caption in Traditional Chinese", async ({ browser, request }) => {
+  test.setTimeout(480_000);
+  const host = await createPublished(browser, request, "locale-media", { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" });
+  const context = await browser.newContext({ locale: "zh-TW", extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
+  const page = await context.newPage();
+  await page.goto(host.link);
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
+  await page.getByRole("button", { name: "參加", exact: true }).click();
+  await page.getByLabel("你的名字").fill("Priya Nair");
+  await page.getByRole("button", { name: "送出回覆" }).click();
+  await expect(page.getByText("期待你的到來！")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("dialog", { name: "你的回覆" }).getByRole("button", { name: "關閉" }).click();
+
+  const album = page.locator('[data-slot="album"]');
+  await album.getByLabel("新增照片和影片").setInputFiles(["e2e/fixtures/motion-photo.jpg", "e2e/fixtures/clip-hevc-1080p.mp4"]);
+  const lines = album.getByRole("status").last();
+  await expect(lines).toContainText("motion-photo.jpg：已新增", { timeout: 30_000 });
+  await album.getByLabel("motion-photo.jpg 的說明").fill("湖邊的夕陽");
+  await album.getByRole("button", { name: "儲存" }).first().click();
+  await expect(lines).toContainText("motion-photo.jpg：說明已儲存");
+
+  // Both ready: the photo live, the video with its first copy.
+  await expect(album.locator('li[data-item="photo"] [data-slot="live-mark"]')).toHaveText("原況", { timeout: 300_000 });
+  await expect(album.locator('li[data-item="video"][data-state="ready"]')).toBeVisible({ timeout: 300_000 });
+  await page.reload();
+
+  await album.getByRole("button", { name: /^Priya Nair 的第 \d 張照片：湖邊的夕陽/ }).click();
+  let viewer = page.getByRole("dialog", { name: /^第 \d 張，共 2 張$/ });
+  await expect(viewer.getByRole("button", { name: "播放原況照片" })).toHaveText("原況");
+  await expect(viewer.locator('[data-slot="caption"]')).toHaveText("湖邊的夕陽");
+  await viewer.getByRole("button", { name: "編輯說明" }).click();
+  await expect(viewer.getByLabel("說明", { exact: true })).toHaveValue("湖邊的夕陽");
+  await expect(viewer.getByRole("button", { name: "儲存" })).toBeVisible();
+  await viewer.getByRole("button", { name: "取消" }).click();
+  await expect(viewer.getByRole("button", { name: "編輯說明" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+
+  await album.getByRole("button", { name: /^Priya Nair 的第 \d 段影片/ }).click();
+  viewer = page.getByRole("dialog", { name: /^第 \d 段影片，共 2 項$/ });
+  const group = viewer.getByRole("radiogroup", { name: "尺寸" });
+  await expect(group.getByRole("radio").first()).toHaveText(/^自動 · \d+p$/);
+  await expect(viewer.getByRole("button", { name: "新增說明" })).toBeVisible();
+  await Promise.all([host.context.close(), context.close()]);
+});
+
+// M8 ticket 16: the album vote in Traditional Chinese: a host whose browser asks for zh-TW reads the
+// Voting block's title and Start voting; a guest whose browser asks for it reads the head, a star's
+// name and the award picker.
+test("a host and a guest whose browsers ask for zh-TW start and read the album vote in Traditional Chinese", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "locale-voting", { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" });
+  const editor = host.page.url();
+  await host.page.goto(host.link);
+  const photo = await sharp({ create: { width: 1200, height: 900, channels: 3, background: "#2f6b3a" } }).jpeg().toBuffer();
+  await host.page.locator('[data-slot="album"]').getByLabel(/^Add photos/).setInputFiles([{ name: "garden.jpg", mimeType: "image/jpeg", buffer: photo }]);
+  await expect(host.page.locator('[data-slot="album"] li[data-item]')).toHaveCount(1, { timeout: 20_000 });
+
+  // The host, in Traditional Chinese: the Voting block, an award suggested, and Start voting.
+  const hostContext = await browser.newContext({ locale: "zh-TW", storageState: await host.context.storageState() });
+  const page = await hostContext.newPage();
+  await page.goto(editor);
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
+  await page.getByRole("navigation", { name: "設計邀請" }).getByRole("button", { name: "設定" }).click();
+  const block = page.getByRole("dialog", { name: "設定" }).getByRole("group", { name: "相簿投票", exact: true });
+  await expect(block).toHaveAttribute("data-slot", "voting-block");
+  await savedAfter(page, () => block.getByRole("group", { name: "獎項", exact: true }).getByRole("button", { name: "最佳照片", exact: true }).click());
+  await savedAfter(page, () => block.getByRole("button", { name: "開始投票" }).click());
+  await expect(block).toContainText("投票進行中");
+
+  // A guest, in Traditional Chinese: the head, a star's name and the picker.
+  const context = await browser.newContext({ locale: "zh-TW", extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
+  const guest = await context.newPage();
+  await guest.goto(host.link);
+  await expect(guest.locator("html")).toHaveAttribute("lang", "zh-Hant");
+  await guest.getByRole("button", { name: "參加", exact: true }).click();
+  await guest.getByLabel("你的名字").fill("Priya Nair");
+  await guest.getByRole("button", { name: "送出回覆" }).click();
+  await expect(guest.getByText("期待你的到來！")).toBeVisible({ timeout: 15_000 });
+  await guest.getByRole("dialog", { name: "你的回覆" }).getByRole("button", { name: "關閉" }).click();
+  const head = guest.locator('[data-slot="album-voting"]');
+  await expect(head).toContainText("投票進行中");
+  await expect(head.getByRole("status")).toHaveText("點星星，為「最愛」投票。");
+  await expect(head).toContainText("投票結束前不顯示票數。");
+  await expect(guest.locator('[data-slot="album"]').getByRole("button", { name: "投票給 第 1 張照片", exact: true })).toBeVisible();
+  const picker = head.getByRole("group", { name: "獎項", exact: true });
+  await expect(picker.getByRole("button", { name: "最愛", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await picker.getByRole("button", { name: "最佳照片", exact: true }).click();
+  await expect(head.getByText("這個獎項只評選照片。")).toBeVisible();
+  await Promise.all([context.close(), hostContext.close(), host.context.close()]);
+});
+
+// M8 ticket 30: the styles each row of Arrange offers, named in Traditional Chinese.
+test("a host whose browser asks for zh-TW reads the sections' styles in Arrange in Traditional Chinese", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "locale-styles", { title: "Ada’s birthday", start: "2027-05-08T19:00" });
+  const context = await browser.newContext({ locale: "zh-TW", storageState: await host.context.storageState() });
+  const page = await context.newPage();
+  await page.goto(host.page.url());
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
+  await page.getByRole("navigation", { name: "設計邀請" }).getByRole("button", { name: "排列" }).click();
+  const sheet = page.getByRole("dialog", { name: "排列" });
+  for (const [row, styles] of [
+    ["相簿", ["網格", "拼貼", "橫排"]],
+    ["留言", ["清單", "氣泡"]],
+    ["誰會來", ["名字", "頭像"]],
+  ] as const) {
+    await sheet.getByRole("button", { name: `${row}的選項` }).click();
+    await expect(sheet.getByRole("radiogroup", { name: "樣式" }).getByRole("radio")).toHaveText([...styles]);
+  }
+  await Promise.all([context.close(), host.context.close()]);
+});
+
+// M8 ticket 31: Arrange in Traditional Chinese for a host whose browser asks for zh-TW (its rows'
+// names, a row's Move buttons and Add a section), and an arranged page in Simplified Chinese for a
+// guest whose browser asks for zh-CN (a folded section's count, and a link's "opens in a new tab").
+test("a zh-TW host reads Arrange in Traditional Chinese, and a zh-CN guest reads an arranged page in Simplified Chinese", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "locale-arrange", { title: "Ada’s birthday", start: "2027-05-08T19:00" });
+  const editor = host.page.url();
+  await setSchedule(host.page, [{ start: "20:00", title: "Cake" }]);
+  await arrange(host.page, async (sheet) => {
+    await openRow(sheet, "Schedule");
+    await sheet.getByRole("switch", { name: "Collapsed" }).click();
+  });
+  const registry = await addSection(host.page, "Registry");
+  await writeLink(host.page, registry, 1, "Our list", "https://www.example.com/registry");
+  await closeSheets(host.page);
+
+  const context = await browser.newContext({ locale: "zh-TW", storageState: await host.context.storageState() });
+  const page = await context.newPage();
+  await page.goto(editor);
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
+  await page.getByRole("navigation", { name: "設計邀請" }).getByRole("button", { name: "排列" }).click();
+  const sheet = page.getByRole("dialog", { name: "排列" });
+  // The host's own heading, given in English, is the Registry's name in any language.
+  const rows = await sheet.getByRole("list", { name: "區塊" }).getByRole("listitem").allInnerTexts();
+  expect(rows.map((text) => text.split("\n")[0].trim())).toEqual(["專屬信件", "詳情", "日程", "誰會來", "公告", "留言", "相簿", "倒數", "Registry"]);
+  await expect(sheet.getByRole("button", { name: "將相簿上移" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "將相簿下移" })).toBeVisible();
+  const add = sheet.getByRole("region", { name: "新增區塊" });
+  await expect(add.getByRole("button", { name: "服裝要求", exact: true })).toBeVisible();
+  await expect(add.getByRole("button", { name: "歌單", exact: true })).toBeVisible();
+
+  const guestContext = await browser.newContext({ locale: "zh-CN", extraHTTPHeaders: { "x-forwarded-for": clientAddress() } });
+  const guest = await guestContext.newPage();
+  await guest.goto(host.link);
+  await expect(guest.locator("html")).toHaveAttribute("lang", "zh-Hans");
+  const schedule = guest.locator('details[data-slot="schedule"]');
+  await expect(schedule.locator("summary").getByRole("heading", { name: "日程" })).toBeVisible();
+  await expect(schedule.locator('summary [data-slot="section-count"]')).toHaveText("1 项");
+  await expect(guest.locator('[data-slot="links"]').getByRole("link")).toHaveAccessibleName(/^Our list.*（在新标签页中打开）$/);
+  await Promise.all([guestContext.close(), context.close(), host.context.close()]);
 });

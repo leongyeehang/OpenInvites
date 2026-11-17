@@ -1,7 +1,8 @@
 import { sql } from "drizzle-orm";
 import { bigint, boolean, check, date, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, time, timestamp, unique, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { ALBUM_VISIBILITIES, PHOTO_STATUSES } from "../album/visibility";
-import { PHOTO_KINDS, VIDEO_QUALITIES } from "../album/video";
+import { PHOTO_KINDS, VIDEO_QUALITIES, VIDEO_WORKS } from "../album/video";
+import { ALBUM_ORDERS, type ItemDetails } from "../album/details";
 import { DEFAULT_REGISTRATION_MODE, REGISTRATION_MODES } from "../instance/registration";
 import { HOME_POSTER_MODES } from "../instance/home";
 import { DEFAULT_LIMITS } from "../instance/limits";
@@ -109,6 +110,18 @@ export const passkey = pgTable(
   (table) => [index("passkey_user_id_idx").on(table.userId)],
 );
 
+// The poster a host picked in Account's Backdrop card to wear behind their own pages (M8 ticket 22,
+// hosts/look.ts): a gallery poster's id, or null for Automatic, their next event's poster or one of
+// the site's. A row of its own rather than a column on `user`, whose shape is Better Auth's; it goes
+// with the account.
+export const hostLook = pgTable("host_look", {
+  hostId: uuid("host_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  poster: text("poster"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const registrationMode = pgEnum("registration_mode", REGISTRATION_MODES);
 
 // The instance's own settings, which its operator edits on the instance settings page (spec,
@@ -142,6 +155,9 @@ export const instanceSettings = pgTable(
     albumReminderDefaultDays: integer("album_reminder_default_days").default(60),
     // Whether a lighter copy is made of videos that need one (M7 ticket 03, the Storage card).
     videoProcessing: boolean("video_processing").notNull().default(true),
+    // Whether a 4K original that is not H.264 also gets a 4K H.264 copy that plays everywhere (M8
+    // ticket 04, the Storage card); off by default, as it costs disk and hours of CPU.
+    videoFourKCopy: boolean("video_4k_copy").notNull().default(false),
     // When the worker container, if the processing was moved to one, last reported (ticket 08).
     videoWorkerSeenAt: timestamp("video_worker_seen_at", { withTimezone: true }),
     // Whether MAX_UPLOAD_MB has been read once into Largest photo (instance/upload-limit.ts).
@@ -164,6 +180,16 @@ export const instanceSettings = pgTable(
     check("instance_settings_home_posters", sql`${table.homePosters} in (${sql.raw(HOME_POSTER_MODES.map((mode) => `'${mode}'`).join(", "))})`),
   ],
 );
+
+// The operator's feature switches (M8 ticket 01, features/features.ts): one row per feature the
+// operator has saved, keyed by its id, which the code checks; a feature with no row is on. Rows
+// of their own rather than columns on the settings row, so a feature added later brings its switch
+// without touching that row.
+export const instanceFeature = pgTable("instance_feature", {
+  id: text("id").primaryKey(),
+  enabled: boolean("enabled").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 // A host invitation (CONTEXT.md): the operator's permission for one person to become a host,
 // carried by a single-use link. Only the hash of the link's token is kept, so a copy of the
@@ -190,9 +216,21 @@ export const contactField = pgEnum("contact_field", CONTACT_FIELDS);
 export const scheduleRefresh = pgEnum("schedule_refresh", SCHEDULE_REFRESH);
 
 export const albumVisibility = pgEnum("album_visibility", ALBUM_VISIBILITIES);
-// An album item's kind and the lighter copy's quality (M7 ticket 05; album/video.ts).
+// An album item's kind (M7 ticket 05) and the sizes a video's copies are kept at (M8 ticket 02;
+// album/video.ts).
 export const photoKind = pgEnum("photo_kind", PHOTO_KINDS);
-export const videoQuality = pgEnum("video_quality", VIDEO_QUALITIES);
+export const videoSize = pgEnum("video_size", VIDEO_QUALITIES);
+// How an album is ordered (M8 ticket 07; album/details.ts): by when items were added, or taken.
+export const albumOrder = pgEnum("album_order", ALBUM_ORDERS);
+
+// The album vote (M8 ticket 10; src/voting): its lists, written out here since the schema does
+// not import the module (ADR-0008), and checked against voting/voting.ts by its tests. The vote's
+// state, who may vote, whether guests see who added each item, and what an award takes votes for.
+// Its tables, album_award and album_vote, are at the end of this file.
+export const albumVotingState = pgEnum("album_voting_state", ["off", "open", "closed"]);
+export const albumVoters = pgEnum("album_voters", ["album", "going", "invited"]);
+export const albumUploaderNames = pgEnum("album_uploader_names", ["always", "afterVoting", "never"]);
+export const albumAwardScope = pgEnum("album_award_scope", ["all", "photos", "videos"]);
 
 // An event belongs to one host. Its time is an instant plus the event's own IANA zone; all-day
 // events store midnight in that zone with the flag set. A draft may have no date yet (M4 spec, "A
@@ -284,11 +322,18 @@ export const event = pgTable(
     albumApprovalRequired: boolean("album_approval_required").notNull().default(false),
     notifyOnPhoto: boolean("notify_on_photo").notNull().default(true),
     // Videos in the album (M7 ticket 05): whether the event takes them, the host's caps under the
-    // site's (null: the site's; album/video.ts, effectiveVideoCaps), and the lighter copy's quality.
+    // site's (null: the site's; album/video.ts, effectiveVideoCaps), and the sizes the host ticks
+    // for its videos, largest first, both by default (M8 ticket 02).
     albumVideosAllowed: boolean("album_videos_allowed").notNull().default(true),
     albumMaxVideoMb: integer("album_max_video_mb"),
     albumMaxVideoMinutes: integer("album_max_video_minutes"),
-    albumCopyQuality: videoQuality("album_copy_quality").notNull().default("1080p"),
+    albumCopySizes: videoSize("album_copy_sizes").array().notNull().default(sql`'{1080p,720p}'`),
+    // The details the host keeps of each item as it is added (M8 ticket 07; album/details.ts): when
+    // it was taken, and the camera with its lens and exposure, both off by default; and whether the
+    // album is ordered by when items were taken, which applies only while the time is kept.
+    albumKeepTakenAt: boolean("album_keep_taken_at").notNull().default(false),
+    albumKeepCamera: boolean("album_keep_camera").notNull().default(false),
+    albumOrder: albumOrder("album_order").notNull().default("added"),
     // Whether the host writes each invited guest a letter (M6 spec, "Personal letters"). Set only
     // from the Invites page, never by the Settings sheet, whose every save posts every setting.
     lettersEnabled: boolean("letters_enabled").notNull().default(false),
@@ -300,6 +345,21 @@ export const event = pgTable(
     // is on the Settings sheet's form, which posts every field on every change (plan ruling 9).
     albumReminderDays: integer("album_reminder_days"),
     albumRemindedAt: timestamp("album_reminded_at", { withTimezone: true }),
+    // The album vote (M8 ticket 10; voting/voting.ts): off until a host starts it, then open or
+    // closed; when it closes by itself, read as closed once passed, since no timer writes it; who
+    // may vote; and whether guests see who added each item.
+    albumVoting: albumVotingState("album_voting").notNull().default("off"),
+    albumVotingClosesAt: timestamp("album_voting_closes_at", { withTimezone: true }),
+    albumVoters: albumVoters("album_voters").notNull().default("album"),
+    albumUploaderNames: albumUploaderNames("album_uploader_names").notNull().default("afterVoting"),
+    // How the host arranged the event page's sections (M8 ticket 25; src/sections): their order and,
+    // per section, what the Arrange sheet changed. Read only through parseArrangement, which takes
+    // the empty default, and anything it cannot read, as never arranged: each layout's own order.
+    sections: jsonb("sections").$type<unknown>().notNull().default(sql`'{}'::jsonb`),
+    // Whether the event has an album, the host's switch in Arrange (M8 spec, "One switch, one
+    // truth"): off, guests see none and its actions refuse (album/album.ts, albumState), and
+    // nothing in it is deleted. On for every event, as the album was before.
+    albumEnabled: boolean("album_enabled").notNull().default(true),
     ...timestamps,
   },
   (table) => [
@@ -729,15 +789,29 @@ export const photo = pgTable(
     // before 0.7 until the one-time measuring records what is stored (storage/measure.ts).
     bytes: bigint("bytes", { mode: "number" }),
     // A photo or a video (M7 ticket 05); a video's length, its original's codec string (RFC 6381,
-    // for the player's canPlayType), and the lighter copy it has, if one was needed.
+    // for the player's canPlayType), and the sizes it has copies at, largest first (M8 ticket 02).
     kind: photoKind("kind").notNull().default("photo"),
     durationMs: integer("duration_ms"),
     codec: text("codec"),
-    copy: videoQuality("copy"),
+    copies: videoSize("copies").array().notNull().default(sql`'{}'`),
     status: photoStatus("status").notNull().default("approved"),
     // Why a video could not be processed (album/jobs.ts, failJob): "tooLong" for one over the
     // length cap once measured, which its tile names; anything else shows as plain failure.
     failure: text("failure"),
+    // What processing learned of the item beyond the columns above (album/details.ts, M8 ticket
+    // 05): a video's HDR kind and frame rate. The stored files keep none of it, since processing
+    // drops their metadata, so this is where the player and the technical line read it.
+    details: jsonb("details").$type<ItemDetails>().notNull().default({}),
+    // When the item was taken, read as it was processed while the host kept capture times (M8
+    // ticket 07); null otherwise, and for anything with no time a camera could have set.
+    takenAt: timestamp("taken_at", { withTimezone: true }),
+    // A live photo (M8 ticket 08): a photo whose motion the video queue has made and stored beside
+    // its files (album/files.ts, motionKey). False until then, and for every other item.
+    live: boolean("live").notNull().default(false),
+    // Its caption (M8 ticket 09): plain text on one line, written by whoever added it or a host,
+    // at most 140 characters as char_length counts them (album/album.ts, parseCaption); null for
+    // none.
+    caption: text("caption"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -745,18 +819,25 @@ export const photo = pgTable(
     index("photo_rsvp_id_idx").on(table.rsvpId),
     index("photo_host_id_idx").on(table.hostId),
     check("photo_one_owner", sql`(${table.rsvpId} is null) <> (${table.hostId} is null)`),
+    check("photo_caption_length", sql`char_length(${table.caption}) <= 140`),
   ],
 );
 
+// What a queued job does (M8 ticket 03; album/video.ts): process a clip, make the sizes a ready
+// item lacks, or a live photo's motion (ticket 08).
+export const videoWork = pgEnum("video_work", VIDEO_WORKS);
+
 // A video's place in the processing queue (M7 ticket 06): one per item while it is processed,
-// taken under a lease that a crashed processor's hour lets lapse, and tried three times
-// (album/jobs.ts). Goes with the item.
+// taken under a lease that a crashed processor's ten minutes let lapse, and tried three times
+// (album/jobs.ts), then, once the item is ready, while it lacks a size its event asks for (M8
+// ticket 03). Goes with the item.
 export const videoJob = pgTable("video_job", {
   id: id(),
   photoId: uuid("photo_id")
     .notNull()
     .unique()
     .references(() => photo.id, { onDelete: "cascade" }),
+  work: videoWork("work").notNull().default("process"),
   attempts: integer("attempts").notNull().default(0),
   leasedAt: timestamp("leased_at", { withTimezone: true }),
   leasedBy: text("leased_by"),
@@ -819,5 +900,62 @@ export const commentReaction = pgTable(
     unique("comment_reaction_once_by_guest").on(table.commentId, table.rsvpId, table.emoji),
     unique("comment_reaction_once_by_host").on(table.commentId, table.hostId, table.emoji),
     check("comment_reaction_one_reactor", sql`(${table.rsvpId} is null) <> (${table.hostId} is null)`),
+  ],
+);
+
+// The album vote (M8 ticket 10; src/voting), continued: an event's awards, and the votes given in
+// them. An award has a name of at most 40 characters as char_length counts them, null for the
+// translated "Favourite"; what it takes votes for; its place in the list; the round being or last
+// voted in, 1 or a tie-break's; `finalists`, every tie-break round's finalists held so far in turn,
+// one list after another, which voting.ts's tiebreakRounds splits back into rounds, added to only
+// by voting/repository.ts's startTiebreak and emptied when the vote is reopened or turned off (M8
+// ticket 15); whether the last tie-break is open; and whether the host settled on a shared first.
+// An event has none until a host starts a vote or changes an award (voting/repository.ts,
+// ensureAwards). It goes with the event.
+export const albumAward = pgTable(
+  "album_award",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    name: text("name"),
+    scope: albumAwardScope("scope").notNull().default("all"),
+    position: integer("position").notNull(),
+    round: integer("round").notNull().default(1),
+    finalists: uuid("finalists").array().notNull().default(sql`'{}'`),
+    tiebreakOpen: boolean("tiebreak_open").notNull().default(false),
+    sharedFirst: boolean("shared_first").notNull().default(false),
+  },
+  (table) => [index("album_award_event_id_idx").on(table.eventId), check("album_award_name_length", sql`char_length(${table.name}) <= 40`)],
+);
+
+// A vote in an award's round for one album item, given by a guest through their RSVP or by a host,
+// as a reaction is given: whoever gives it has one vote in each round of each award, which a
+// second tap moves. It goes with the award, the item, the RSVP and the host's account.
+export const albumVote = pgTable(
+  "album_vote",
+  {
+    id: id(),
+    awardId: uuid("award_id")
+      .notNull()
+      .references(() => albumAward.id, { onDelete: "cascade" }),
+    round: integer("round").notNull(),
+    photoId: uuid("photo_id")
+      .notNull()
+      .references(() => photo.id, { onDelete: "cascade" }),
+    rsvpId: uuid("rsvp_id").references(() => rsvp.id, { onDelete: "cascade" }),
+    hostId: uuid("host_id").references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("album_vote_photo_id_idx").on(table.photoId),
+    index("album_vote_rsvp_id_idx").on(table.rsvpId),
+    index("album_vote_host_id_idx").on(table.hostId),
+    // Nulls are distinct, so a guest's votes meet only the first and a host's only the second;
+    // both lead with the award, which is how they are read.
+    unique("album_vote_once_by_guest").on(table.awardId, table.round, table.rsvpId),
+    unique("album_vote_once_by_host").on(table.awardId, table.round, table.hostId),
+    check("album_vote_one_voter", sql`(${table.rsvpId} is null) <> (${table.hostId} is null)`),
   ],
 );

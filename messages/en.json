@@ -256,6 +256,15 @@
       "keep": "Keep it",
       "removed": "Passkey removed."
     },
+    "backdrop": {
+      "title": "Backdrop",
+      "description": "The picture behind your dashboard, this page and New event. Each event’s own pages wear that event’s poster.",
+      "automatic": "Automatic",
+      "automaticHint": "The poster of your next event, or of another of your events when none is coming up, or one of this site’s.",
+      "submit": "Save",
+      "saved": "Backdrop saved.",
+      "unknown": "Choose Automatic or one of the gallery’s posters."
+    },
     "delete": {
       "title": "Delete account",
       "description": "Removes your account, your events, and every guest’s data. This cannot be undone.",
@@ -350,6 +359,20 @@
       "retentionDaysInvalid": "Enter a whole number of days from 30 to 3,650 to keep events for, or tick Keep forever.",
       "albumReminderDefaultDaysInvalid": "Enter a whole number of days from 1 to 3,650 to remind hosts after, or tick Never."
     },
+    "features": {
+      "title": "Features",
+      "description": "Switch parts of the site on or off for every event. Nothing is deleted: switching one back on brings back what it held.",
+      "album": "Album",
+      "albumHint": "Guests and hosts add photos to an event’s page. Off: no event shows its album or takes photos; the photos stay and still count toward storage.",
+      "videos": "Videos",
+      "videosHint": "Albums take videos as well as photos. Off: no new videos; the ones added still play.",
+      "voting": "Voting",
+      "votingHint": "Hosts may run a vote on their album’s photos and videos. Off: no event shows a vote; votes already given are kept.",
+      "needsAlbum": "Needs the album.",
+      "videosNoFfmpeg": "This server has no usable ffmpeg, so videos stay off whatever this says.",
+      "submit": "Save",
+      "saved": "Saved."
+    },
     "storage": {
       "title": "Storage",
       "description": "What the site’s uploads take, counted as uploaded: the photos and videos in albums, and hosts’ pictures. The limits are on the Limits card.",
@@ -365,12 +388,21 @@
       "none": "No album holds anything yet.",
       "use": "{size}, {count, plural, one {# item} other {# items}}",
       "processVideos": "Process videos for playback",
-      "processVideosHint": "On, a lighter copy is made of every video that needs one, so it plays on slow connections and in every browser. Off, videos are kept as sent and play where the browser can.",
+      "processVideosHint": "On, each video gets the sizes its event asks for when it needs them, so it plays on slow connections and in every browser. Off, videos are kept as sent and play where the browser can.",
+      "fourK": "Also make a 4K copy that plays everywhere",
+      "fourKHint": "For 4K videos that are not H.264, such as an iPhone’s, which some browsers cannot play. Each gets one more file of up to about 115 MB a minute of video, which the storage limits do not count, and on a small server it can take many times the video’s length to make. Without it, those browsers play the largest copy the event keeps.",
+      "missingSizes": "{count, plural, =0 {Every video has the sizes its event asks for.} one {# video lacks a size its event asks for.} other {# videos lack a size their events ask for.}}",
+      "makeMissingSizes": "Make missing sizes",
+      "makeMissingSizesHint": "They are made one at a time, behind new uploads, and the videos stay in their albums meanwhile. Sizes an event no longer asks for are kept.",
+      "queued": "{count, plural, =0 {Nothing to make.} one {# video queued.} other {# videos queued.}}",
+      "sizesBeingMade": "{count, plural, one {# video is having sizes made.} other {# videos are having sizes made.}}",
       "submit": "Save",
       "saved": "Saved.",
       "videosAvailable": "Videos: available (ffmpeg {version}).",
       "videosOld": "Videos need ffmpeg 6 or later; this server has {version}.",
       "videosMissing": "Videos need ffmpeg, which this server does not have.",
+      "hdrConverted": "HDR videos: their copies are converted to standard colour, so they look natural on every screen.",
+      "hdrFlat": "HDR videos: this server’s ffmpeg lacks the zscale and tonemap filters, so their copies look flatter than the original.",
       "processedByApp": "Videos are processed by this site’s app.",
       "processedByWorker": "Videos are processed by the worker container, last seen {time}.",
       "processedByWorkerMissing": "Videos are processed by a worker container, which has not reported yet: check it is running.",
@@ -607,11 +639,6 @@
         "optional": "Optional",
         "required": "Required"
       },
-      "guestListVisibility": "Who can see the guest list",
-      "guestListAlways": "Everyone who opens the link",
-      "guestListAfterReply": "Guests who have replied",
-      "guestListHidden": "Only the hosts",
-      "guestListVisibilityHint": "The hosts always see the whole list.",
       "album": {
         "title": "Album",
         "visibility": "Who can see the album",
@@ -623,21 +650,27 @@
         "approvalHint": "New photos wait for a host. Turning this off shows every photo that is waiting.",
         "notify": "Email the hosts when photos need approval",
         "videos": "Allow videos",
-        "videosHint": "Guests add videos as they add photos. Every video is kept at original quality with the phone’s location and device details dropped.",
+        "videosHint": "Guests add videos as they add photos. Every video is kept at its original size, with the phone’s location and device details dropped.",
         "maxVideoMinutes": "Longest video (min)",
         "maxVideoMb": "Largest video (MB)",
         "videoCapsHint": "Blank means the site’s caps: up to {minutes} min and {mb} MB. A cap above the site’s counts as the site’s.",
-        "quality": "Lighter copy",
-        "quality1080": "1080p",
-        "quality720": "720p (saves space)",
-        "qualityHint": "A lighter copy plays on slow connections; guests can still choose the original.",
-        "videosUnavailable": "Videos need ffmpeg on this site, which it does not have yet; ask the site’s operator."
+        "sizes": "Video sizes",
+        "size1080": "1080p",
+        "size720": "720p",
+        "sizesHint": "Each video gets these sizes when it needs them, so it plays on slow connections and in every browser. A video never gets a size larger than itself. With neither ticked, a video not every browser plays still gets a 720p copy.",
+        "videosUnavailable": "Videos need ffmpeg on this site, which it does not have yet; ask the site’s operator.",
+        "keepTakenAt": "Keep when each photo and video was taken",
+        "keepTakenAtHint": "Read from the phone or camera as each is added, and shown under it.",
+        "keepCamera": "Keep the camera and its settings",
+        "keepCameraHint": "The camera, lens and exposure, for a party of photographers. Where a picture was taken is never kept.",
+        "order": "Order of the album",
+        "orderAdded": "When added",
+        "orderTaken": "When taken",
+        "orderHint": "When taken needs the time kept; anything without one sits by when it was added."
       },
       "notifyOnRsvp": "Email the hosts when a guest replies",
       "remindersEnabled": "Remind guests by email (a week before to Maybe, the day before to Going)",
       "askEmailHint": "Guests get email only if you ask for their email on the RSVP form.",
-      "commentsEnabled": "Comments",
-      "commentsEnabledHint": "Guests who have replied, and the hosts, can comment on the event page.",
       "notifyOnComment": "Email the hosts when a guest comments",
       "questions": "Questions",
       "questionsHint": "Asked while a guest replies. Only the hosts see their answers.",
@@ -675,7 +708,6 @@
       "plusOnesAllowedInvalid": "Choose a number of plus-ones between none and ten.",
       "capacityInvalid": "Enter a whole number from 1 to 5,000 for the capacity, or leave it empty to take everyone.",
       "contactFieldInvalid": "Choose how to ask for an email and a phone number.",
-      "guestListVisibilityInvalid": "Choose who can see the guest list.",
       "albumVisibilityInvalid": "Choose who can see the album.",
       "questionsInvalid": "Those questions could not be read. Try again.",
       "questionTypeInvalid": "Choose a kind for every question.",
@@ -707,7 +739,8 @@
       "scheduleInvalid": "The schedule couldn’t be read. Try again.",
       "albumMaxVideoMinutesInvalid": "Enter a whole number of minutes from 1 to 180 for the longest video, or leave it blank.",
       "albumMaxVideoMbInvalid": "Enter a whole number from 1 to 10,000 MB for the largest video, or leave it blank.",
-      "albumQualityInvalid": "Choose 1080p or 720p for the lighter copy."
+      "albumSizesInvalid": "Choose video sizes from 1080p and 720p.",
+      "albumOrderInvalid": "Choose how the album is ordered."
     },
     "manage": {
       "link": "Event link",
@@ -966,6 +999,11 @@
       "empty": "No photos yet. Add the first.",
       "add": "Add photos",
       "hint": "Up to ten at a time, each up to {max, number} MB.",
+      "keeps": {
+        "takenAt": "The host keeps when each photo or video was taken.",
+        "camera": "The host keeps the camera and settings each photo or video was taken with.",
+        "both": "The host keeps when each photo or video was taken, and the camera and settings it was taken with."
+      },
       "adding": "Adding {count, plural, one {# photo} other {# photos}}…",
       "added": "{name}: added",
       "addedPending": "{name}: added, awaiting approval",
@@ -993,7 +1031,8 @@
         "failed": "The photos didn’t upload. Try again.",
         "albumStorageFull": "This album is full: {limit}.",
         "siteFull": "The site is full: ask the hosts to clear an album.",
-        "diskFull": "The site’s disk is nearly full. Try again later."
+        "diskFull": "The site’s disk is nearly full. Try again later.",
+        "captionTooLong": "Captions can be up to 140 characters."
       },
       "open": "Photo {n} by {name}",
       "openPending": "Photo {n} by {name}, awaiting approval",
@@ -1015,6 +1054,8 @@
       "addVideos": "Add photos and videos",
       "openVideo": "Video {n} by {name}",
       "openVideoPending": "Video {n} by {name}, awaiting approval",
+      "openUnnamed": "Photo {n}",
+      "openVideoUnnamed": "Video {n}",
       "viewerVideo": "Video {n} of {count}",
       "processing": "Processing",
       "failedTooLong": "Couldn’t be processed: longer than {max}",
@@ -1023,11 +1064,30 @@
       "removeVideo": "Remove the video from {name}",
       "uploading": "{name}: uploading",
       "uploaded": "{name}: uploaded, processing",
-      "quality": "Quality",
-      "original": "Original quality",
-      "copy": "Lighter copy",
-      "originalUnplayable": "Original quality: not playable in this browser.",
-      "unplayable": "This browser cannot play this video. Download it to watch."
+      "sizes": "Size",
+      "sizeAuto": "Auto · {size}",
+      "sizeOriginal": "{size} · Original",
+      "sizeOriginalHdr": "{size} · <hdr>HDR</hdr> · Original",
+      "originalUnplayable": "Original: not playable in this browser.",
+      "unplayable": "This browser cannot play this video. Download it to watch.",
+      "live": "Live",
+      "strip": "Photos and videos, scrolling sideways",
+      "playLive": "Play live photo",
+      "livePhotoNote": "On an iPhone, a Live Photo is added as a photo. To keep its motion, choose Save as Video on it in Photos and add the video.",
+      "livePhotoNoteNoVideos": "On an iPhone, a Live Photo is added as a photo, without its motion.",
+      "details": {
+        "fps": "{fps} fps",
+        "hdr": "HDR",
+        "taken": "Taken {when}"
+      },
+      "withCaption": "{label}: {caption}",
+      "caption": "Caption",
+      "captionFor": "Caption for {name}",
+      "addCaption": "Add a caption",
+      "editCaption": "Edit caption",
+      "saveCaption": "Save",
+      "cancelCaption": "Cancel",
+      "captionSaved": "{name}: caption saved"
     },
     "letter": {
       "for": "For {name}"
@@ -1037,6 +1097,20 @@
       "now": "Now",
       "ended": "Ended",
       "inZone": "Times are in {zone}."
+    },
+    "sections": {
+      "countdown": "Countdown",
+      "note": "Note",
+      "links": "Links",
+      "count": {
+        "guests": "{count, plural, =0 {nobody yet} other {# expected}}",
+        "comments": "{count, plural, =0 {none yet} =1 {1 comment} other {# comments}}",
+        "album": "{count, plural, =0 {none yet} one {# photo or video} other {# photos and videos}}",
+        "announcements": "{count, plural, one {# message} other {# messages}}",
+        "schedule": "{count, plural, one {# item} other {# items}}",
+        "links": "{count, plural, one {# link} other {# links}}"
+      },
+      "newTab": "(opens in a new tab)"
     }
   },
   "Design": {
@@ -1146,7 +1220,8 @@
       "poster": "Poster",
       "title": "Title",
       "theme": "Theme",
-      "effect": "Effect"
+      "effect": "Effect",
+      "arrange": "Arrange"
     },
     "tabs": {
       "gallery": "Gallery",
@@ -1299,6 +1374,102 @@
       "pickConfirm": "Pick it",
       "pickKeep": "Not yet",
       "editCandidates": "Change the dates"
+    },
+    "arrange": {
+      "intro": "Put your page’s sections in order and switch off what guests don’t need.",
+      "list": "Sections",
+      "fixed": "The poster, the title, who’s hosting and the reply buttons stay where they are.",
+      "alwaysOn": "Always shown",
+      "moveUp": "Move {name} up",
+      "moveDown": "Move {name} down",
+      "position": "{name}, {position} of {count}",
+      "openHint": "Opens the Arrange sheet.",
+      "open": "Options for {name}",
+      "audience": "Who sees it",
+      "audienceAlways": "Everyone with the link",
+      "audienceAfterReply": "Guests who have replied",
+      "audienceHint": "The hosts always see the whole list.",
+      "letterHint": "Guests you invite personally read the letter you write them on the Invites page.",
+      "albumHint": "Off, guests see no album and can’t add to it. Nothing in it is deleted.",
+      "commentsHint": "Off, guests see no comments and can’t post one.",
+      "countdownHint": "On, the countdown leaves When and has a place of its own.",
+      "heading": "Heading",
+      "headingHint": "Leave it empty to keep “{name}”.",
+      "collapsed": "Collapsed",
+      "collapsedHint": "Guests see its heading, and open it with a tap.",
+      "style": "Style",
+      "styles": {
+        "grid": "Grid",
+        "mosaic": "Mosaic",
+        "strip": "Strip",
+        "list": "List",
+        "bubbles": "Bubbles",
+        "names": "Names",
+        "avatars": "Avatars"
+      },
+      "kinds": {
+        "letter": "Personal letter",
+        "details": "Details",
+        "schedule": "Schedule",
+        "guests": "Who’s coming",
+        "announcements": "Announcements",
+        "comments": "Comments",
+        "album": "Album",
+        "countdown": "Countdown",
+        "note": "Note",
+        "links": "Links"
+      },
+      "preview": {
+        "letter": "Each guest you invite personally reads your letter to them here.",
+        "schedule": "Your schedule, following each guest’s clock.",
+        "guestsAlways": "Who’s coming, for everyone with the link.",
+        "guestsAfterReply": "Who’s coming, for guests who have replied.",
+        "announcements": "What you send from Announcements appears here.",
+        "comments": "Guests who have replied talk here.",
+        "album": "Photos and videos from the event, from its start.",
+        "countdown": "A countdown to the start, in each guest’s own time.",
+        "noteEmpty": "Nothing written yet. Tap to write.",
+        "linksEmpty": "No links yet. Tap to add one."
+      },
+      "errors": {
+        "unreadable": "That change couldn’t be read. Try again.",
+        "unknownSection": "That section is no longer on the page. Reload to see it as it is.",
+        "notOffered": "That section can’t be changed that way.",
+        "tooManySections": "A page holds up to 10 Notes and Links sections.",
+        "headingTooLong": "Keep headings to 40 characters.",
+        "noteTooLong": "Keep a note to 2,000 characters.",
+        "tooManyLinks": "A Links section holds up to 6 links.",
+        "labelTooLong": "Keep a link’s label to 40 characters.",
+        "urlTooLong": "That address is too long.",
+        "urlInvalid": "That isn’t a web address. Try example.com/registry."
+      },
+      "add": "Add a section",
+      "addNote": "Note",
+      "addLinks": "Links",
+      "addHint": "A note says something in your words. Links are buttons to a registry, a playlist or a map.",
+      "full": "A page holds up to 10 Notes and Links sections.",
+      "suggestions": {
+        "dressCode": "Dress code",
+        "gettingThere": "Getting there",
+        "gifts": "Gifts",
+        "registry": "Registry",
+        "playlist": "Playlist"
+      },
+      "edit": "Edit",
+      "remove": "Remove",
+      "removeTitle": "Remove “{name}”?",
+      "removeText": "Guests will no longer see it, and what it says is deleted.",
+      "removeKeep": "Keep it",
+      "noteHint": "Up to {max, number} characters.",
+      "links": {
+        "labelOf": "Label of link {n}",
+        "urlOf": "Address of link {n}",
+        "add": "Add a link",
+        "moveUp": "Move {label} up",
+        "moveDown": "Move {label} down",
+        "remove": "Remove {label}",
+        "hint": "Each opens in a new tab. Up to 6."
+      }
     }
   },
   "Guests": {
@@ -1714,5 +1885,144 @@
     },
     "contact": "Questions? Contact whoever runs this site at <link>{email}</link>.",
     "contactUnknown": "Whoever runs this site has not given a contact address."
+  },
+  "Voting": {
+    "favourite": "Favourite",
+    "block": {
+      "title": "Album voting",
+      "intro": "Guests pick their favourite photos and videos. Each person has one vote in each award.",
+      "start": "Start voting",
+      "notYet": "Voting can start once the album opens, at the start of the event.",
+      "albumOff": "The album is switched off in Arrange.",
+      "open": "Voting is open",
+      "closed": "Voting closed",
+      "close": "Close voting",
+      "reopen": "Reopen voting",
+      "reopenTitle": "Reopen voting?",
+      "reopenText": "{count, plural, =0 {The tie-break ends. Nobody has voted in it yet.} one {The tie-break ends, and its # vote is deleted.} other {The tie-break ends, and its # votes are deleted.}} Votes from before the tie-break stay.",
+      "reopenConfirm": "Reopen it",
+      "reopenStale": "Since this page opened, a tie-break has started. Press Reopen voting again to see what it deletes.",
+      "turnOff": "Turn off voting",
+      "turnOffTitle": "Turn off voting?",
+      "turnOffText": "{count, plural, =0 {Nobody has voted yet.} one {Its # vote is deleted.} other {Its # votes are deleted.}} The awards and settings stay.",
+      "turnOffConfirm": "Turn it off",
+      "cancel": "Never mind",
+      "names": {
+        "title": "Who added each item",
+        "always": "Always shown",
+        "afterVoting": "Shown after voting closes",
+        "never": "Never shown to guests",
+        "hint": "Hosts and the person who added an item always see who did."
+      },
+      "who": {
+        "title": "Who may vote",
+        "album": "Everyone who sees the album",
+        "going": "Only guests who are going",
+        "invited": "Only guests invited personally",
+        "hint": "Hosts can always vote. Votes already given stay counted when you change this.",
+        "invitedHint": "“Tell guests voting is open” emails guests by their reply, not their invite: untick anyone who shouldn’t get it."
+      },
+      "closes": {
+        "label": "Close by itself at",
+        "hint": "Guests see this time. Times are in {zone}.",
+        "none": "No closing time",
+        "openUntil": "Voting is open · closes {time}",
+        "past": "Choose a time that hasn’t passed.",
+        "invalid": "That isn’t a date and time."
+      },
+      "announce": "Tell guests voting is open",
+      "failed": "That change didn’t go through. Reload the page and try again.",
+      "counting": "Counting the votes…",
+      "countFailed": "The votes couldn’t be counted. Close this and try again.",
+      "awards": {
+        "title": "Awards",
+        "hint": "Each person gets one vote in every award.",
+        "name": "Name of {award}",
+        "scope": "What {award} is for",
+        "scopes": {
+          "all": "Photos and videos",
+          "photos": "Photos",
+          "videos": "Videos"
+        },
+        "suggestions": {
+          "bestPhoto": "Best photo",
+          "bestVideo": "Best video",
+          "funniest": "Funniest",
+          "groupShot": "Best group shot"
+        },
+        "own": "Your own award",
+        "add": "Add",
+        "moveUp": "Move {award} up",
+        "moveDown": "Move {award} down",
+        "moved": "{award} is now {place} of {count}.",
+        "remove": "Remove {award}",
+        "removeTitle": "Remove {award}?",
+        "removeText": "{count, plural, =0 {Nobody has voted in it yet.} one {Its # vote is deleted.} other {Its # votes are deleted.}}",
+        "removeConfirm": "Remove it",
+        "full": "An event can have up to eight awards.",
+        "nameTooLong": "Award names can be up to 40 characters."
+      }
+    },
+    "album": {
+      "open": "Voting is open",
+      "closed": "Voting closed",
+      "closesAt": "closes {time}",
+      "onlyGoing": "Only guests who are going can vote.",
+      "onlyInvited": "Only guests the hosts invited personally can vote.",
+      "hint": "Counts stay hidden until voting closes.",
+      "tapToVote": "Tap a star to vote in {award}.",
+      "yourVote": "Your vote in {award} is in. Tap another star to move it, or yours to take it back.",
+      "voteFor": "Vote for",
+      "voteThis": "{kind, select, video {Vote for this video} other {Vote for this photo}}",
+      "votes": "{count, plural, one {# vote} other {# votes}}",
+      "place": "{place, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}",
+      "placeLabel": "{place, selectordinal, one {#st} two {#nd} few {#rd} other {#th}} place",
+      "hostsOnly": "Hosts only",
+      "soFar": "{count, plural, one {# vote} other {# votes}} so far in {award}",
+      "errors": {
+        "tooFast": "You’re going too fast. Try again shortly.",
+        "closed": "Voting has closed.",
+        "notAllowed": "You can’t vote for this one.",
+        "failed": "Your vote didn’t go through. Try again."
+      },
+      "picker": {
+        "label": "Awards",
+        "voted": "{award}, voted",
+        "forPhotos": "This award is for photos only.",
+        "forVideos": "This award is for videos only.",
+        "whole": "Whole album",
+        "rest": "To see the rest of the album, choose Whole album."
+      },
+      "tiebreak": {
+        "banner": "Tie-break · {award}",
+        "round": "round {round}",
+        "intro": "{count, plural, =0 {The items that shared first place are gone.} =1 {Only this one is left of those that shared first place.} other {These # shared first place. Vote again for one of them.}}",
+        "hint": "Counts stay hidden until the tie-break closes.",
+        "shared": "{count, plural, other {# items share first place in {award}.}}",
+        "stillLevel": "{count, plural, other {# items still share first place in {award} after the tie-break.}}",
+        "start": "Start a tie-break",
+        "again": "Start another round",
+        "keep": "Keep the shared first place",
+        "close": "Close the tie-break",
+        "inTiebreak": "{count, plural, one {# vote} other {# votes}} in the tie-break",
+        "countWith": "{votes}, {tiebreak}",
+        "gone": "The tie-break’s items are gone. Reopen voting to vote again."
+      },
+      "winners": {
+        "title": "Winners · {award}",
+        "none": "Nobody voted in {award}.",
+        "send": "Send the winners to guests",
+        "alt": "{place}: {label}"
+      }
+    }
+  },
+  "VotingDrafts": {
+    "voting": "Voting is open in the album for {title}. You have one vote in each award: {awards}.{closes, select, yes { Voting closes {time}.} other {}}\n\nOpen the album to vote:\n{url}",
+    "winners": "The votes are in for {title}.\n\n{lines}\n\nSee every count in the album:\n{url}",
+    "line": "{award}: {winners}, {count, plural, one {# vote} other {# votes}}{shared, select, yes { each} other {}}.",
+    "item": "{kind, select, video {a video} other {a photo}}{named, select, yes { by {name}} other {}}",
+    "noVotes": "{award}: nobody voted.",
+    "more": "{count, plural, other {# more}}",
+    "moreAwards": "{count, plural, one {And # more award.} other {And # more awards.}}"
   }
 }

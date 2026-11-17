@@ -42,6 +42,7 @@ services:
       RATE_LIMIT_PASSWORD_RESET: 5/1m
       RATE_LIMIT_MAIL: 5/1m
       RATE_LIMIT_REPORT: 5/1m
+      RATE_LIMIT_VOTE: 10/1m
       # Tiny upload parts, so a small test clip spans several and a dropped part can be tested (M7).
       UPLOAD_TEST_PART_BYTES: "65536"
     ports:
@@ -90,6 +91,10 @@ services:
       # siteverify accepts its token. Not keys for a real instance.
       TURNSTILE_SITE_KEY: 1x00000000000000000000AA
       TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
+      # It shares `app`'s database but not its uploads, so it must never take a video job: its
+      # queue would find no clip and fail the item, or drop a size (M8 ticket 06). No spec here
+      # processes a video, and no worker runs for it.
+      VIDEO_PROCESSING: worker
     volumes:
       - ./e2e/legal/terms.md:/legal/terms.md:ro
     ports:

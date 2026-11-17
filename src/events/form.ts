@@ -1,10 +1,10 @@
-import { VIDEO_QUALITIES, type VideoQuality } from "@/album/video";
+import { ALBUM_ORDERS, type AlbumOrder } from "@/album/details";
+import { EVENT_SIZES, VIDEO_QUALITIES, type VideoQuality } from "@/album/video";
 import { ALBUM_VISIBILITIES, type AlbumVisibility } from "@/album/visibility";
 import { VIDEO_MB, VIDEO_MINUTES } from "@/instance/limits";
 import { richTextToPlain, type RichText } from "@/rich-text/rich-text";
 import { CONTACT_FIELDS, type ContactField } from "@/rsvps/form";
-import { GUEST_LIST_VISIBILITIES, type GuestListVisibility } from "@/rsvps/visibility";
-import { isTimeZone, toInstant, toWallTime } from "./time";
+import { isTimeZone, parseWallTime } from "./time";
 
 // What a host fills in, once trusted. Times are instants; the form's wall-clock values are
 // converted with the event's zone below.
@@ -24,20 +24,22 @@ export type EventInput = {
   emailField: ContactField;
   phoneField: ContactField;
   verifyEmail: boolean;
-  guestListVisibility: GuestListVisibility;
   notifyOnRsvp: boolean;
   remindersEnabled: boolean;
-  commentsEnabled: boolean;
   notifyOnComment: boolean;
   albumVisibility: AlbumVisibility;
   albumApprovalRequired: boolean;
   notifyOnPhoto: boolean;
   // Videos in the album (M7 ticket 05): whether the event takes them, the host's caps (null: the
-  // site's), and the lighter copy's quality.
+  // site's), and the sizes its videos get, largest first (M8 ticket 02).
   albumVideosAllowed: boolean;
   albumMaxVideoMinutes: number | null;
   albumMaxVideoMb: number | null;
-  albumCopyQuality: VideoQuality;
+  albumCopySizes: VideoQuality[];
+  // The details kept of each item as it is added, and the album's order (M8 ticket 07).
+  albumKeepTakenAt: boolean;
+  albumKeepCamera: boolean;
+  albumOrder: AlbumOrder;
   // Only the people on the invite list open the invitation (M6 spec, "Invite-only events").
   inviteOnly: boolean;
 };
@@ -58,10 +60,8 @@ export type EventFormFields = {
   emailField: string;
   phoneField: string;
   verifyEmail: boolean;
-  guestListVisibility: string;
   notifyOnRsvp: boolean;
   remindersEnabled: boolean;
-  commentsEnabled: boolean;
   notifyOnComment: boolean;
   albumVisibility: string;
   albumApprovalRequired: boolean;
@@ -69,7 +69,10 @@ export type EventFormFields = {
   albumVideosAllowed: boolean;
   albumMaxVideoMinutes: string;
   albumMaxVideoMb: string;
-  albumCopyQuality: string;
+  albumCopySizes: string[];
+  albumKeepTakenAt: boolean;
+  albumKeepCamera: boolean;
+  albumOrder: string;
   inviteOnly: boolean;
 };
 
@@ -90,25 +93,16 @@ export type EventFormError =
   | "plusOnesAllowedInvalid"
   | "capacityInvalid"
   | "contactFieldInvalid"
-  | "guestListVisibilityInvalid"
   | "albumVisibilityInvalid"
   | "albumMaxVideoMinutesInvalid"
   | "albumMaxVideoMbInvalid"
-  | "albumQualityInvalid";
+  | "albumSizesInvalid"
+  | "albumOrderInvalid";
 
 export type ParsedEventForm = { ok: true; input: EventInput } | { ok: false; error: EventFormError };
 
-const WALL_TIME = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/;
-
-function parseWall(value: string, allDay: boolean, timeZone: string): Date | undefined {
-  if (!WALL_TIME.test(value)) return undefined;
-  // An all-day event keeps only the date, whatever the input sent.
-  const wall = allDay ? value.slice(0, 10) : value;
-  const instant = toInstant(wall, timeZone);
-  // Round-tripping catches what the pattern cannot: 30 February, 24:30, or a time the clocks skip.
-  if (Number.isNaN(instant.getTime()) || toWallTime(instant, timeZone, { dateOnly: allDay }) !== wall) return undefined;
-  return instant;
-}
+// An all-day event keeps only the date, whatever the input sent (time.ts, parseWallTime).
+const parseWall = (value: string, allDay: boolean, timeZone: string): Date | undefined => parseWallTime(value, timeZone, { dateOnly: allDay });
 
 // The rules of the event form (ticket 05): a title, a start, an end after the start, a real zone.
 export function parseEventForm(fields: EventFormFields): ParsedEventForm {
@@ -156,7 +150,8 @@ export function parseWhen(fields: WhenFields): { ok: true; when: EventWhen } | {
 }
 
 // Everything a guest does not see (M4 spec, "Settings sheet"): who may come and bring whom, what
-// they are asked, who sees the list and the album, and what is emailed.
+// they are asked, who sees the album, and what is emailed. Who sees the list and whether the event
+// takes comments are switched in Arrange with their sections (M8 ticket 26).
 export type EventSettings = Omit<EventInput, "title" | "startsAt" | "endsAt" | "allDay" | "timeZone" | "location" | "description" | "descriptionRich">;
 export type SettingsFields = Omit<EventFormFields, "title" | "allDay" | "start" | "end" | "timeZone" | "location" | "description">;
 
@@ -173,9 +168,6 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
   const phoneField = CONTACT_FIELDS.find((each) => each === fields.phoneField);
   if (!emailField || !phoneField) return { ok: false, error: "contactFieldInvalid" };
 
-  const guestListVisibility = GUEST_LIST_VISIBILITIES.find((each) => each === fields.guestListVisibility);
-  if (!guestListVisibility) return { ok: false, error: "guestListVisibilityInvalid" };
-
   const albumVisibility = ALBUM_VISIBILITIES.find((each) => each === fields.albumVisibility);
   if (!albumVisibility) return { ok: false, error: "albumVisibilityInvalid" };
 
@@ -185,8 +177,14 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
   if (albumMaxVideoMinutes === undefined) return { ok: false, error: "albumMaxVideoMinutesInvalid" };
   const albumMaxVideoMb = parseOptionalWhole(fields.albumMaxVideoMb, VIDEO_MB.min, VIDEO_MB.max);
   if (albumMaxVideoMb === undefined) return { ok: false, error: "albumMaxVideoMbInvalid" };
-  const albumCopyQuality = VIDEO_QUALITIES.find((each) => each === fields.albumCopyQuality);
-  if (!albumCopyQuality) return { ok: false, error: "albumQualityInvalid" };
+  // The video sizes (M8 ticket 02): any of the two a host may tick, none included, kept largest
+  // first and each once; 4K is not the host's to tick.
+  if (fields.albumCopySizes.some((each) => !EVENT_SIZES.some((size) => size === each))) return { ok: false, error: "albumSizesInvalid" };
+  const albumCopySizes = VIDEO_QUALITIES.filter((size) => fields.albumCopySizes.includes(size));
+  // The album's order (M8 ticket 07): saved as chosen, though "taken" applies only while the
+  // capture time is kept (album/details.ts, albumOrderFor).
+  const albumOrder = ALBUM_ORDERS.find((each) => each === fields.albumOrder);
+  if (!albumOrder) return { ok: false, error: "albumOrderInvalid" };
 
   return {
     ok: true,
@@ -198,10 +196,8 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
       emailField,
       phoneField,
       verifyEmail: fields.verifyEmail,
-      guestListVisibility,
       notifyOnRsvp: fields.notifyOnRsvp,
       remindersEnabled: fields.remindersEnabled,
-      commentsEnabled: fields.commentsEnabled,
       notifyOnComment: fields.notifyOnComment,
       albumVisibility,
       albumApprovalRequired: fields.albumApprovalRequired,
@@ -209,10 +205,42 @@ export function parseEventSettings(fields: SettingsFields): { ok: true; settings
       albumVideosAllowed: fields.albumVideosAllowed,
       albumMaxVideoMinutes,
       albumMaxVideoMb,
-      albumCopyQuality,
+      albumCopySizes,
+      albumKeepTakenAt: fields.albumKeepTakenAt,
+      albumKeepCamera: fields.albumKeepCamera,
+      albumOrder,
       inviteOnly: fields.inviteOnly,
     },
   };
+}
+
+// The album's settings, the videos' among them, which the Settings sheet leaves out while the
+// operator has the Album or Videos switched off (M8 ticket 01).
+const VIDEO_SETTINGS = ["albumVideosAllowed", "albumMaxVideoMinutes", "albumMaxVideoMb", "albumCopySizes"] as const;
+const ALBUM_SETTINGS = ["albumVisibility", "albumApprovalRequired", "notifyOnPhoto", ...VIDEO_SETTINGS, "albumKeepTakenAt", "albumKeepCamera", "albumOrder"] as const;
+type AlbumSettingsField = (typeof ALBUM_SETTINGS)[number];
+
+// The groups the Settings sheet drew, which it names in one hidden field, "drawnGroups", as
+// "album videos", "album" or nothing (the whole-branch review, finding 3).
+export type DrawnGroups = { album: boolean; videos: boolean };
+
+export function parseDrawnGroups(raw: string): DrawnGroups {
+  const named = raw.split(/\s+/);
+  return { album: named.includes("album"), videos: named.includes("videos") };
+}
+
+// What the sheet posted, with each group it left out taken from what the event has, written as the
+// sheet would post it, so that saving keeps the event's values for it. Otherwise saving with the
+// album off would turn its approval off, and with that approve every photo that waits. A group is
+// taken as posted only where the sheet drew it (`drawn`) and the site has it on as the save arrives
+// (`on`): a sheet drawn while the operator had Videos off, used after it is back on, posts none of
+// the video fields, which would otherwise read as Allow videos off and no sizes (the whole-branch
+// review, finding 3).
+export function keptSettings(posted: SettingsFields, stored: Pick<EventSettings, AlbumSettingsField>, on: { album: boolean; videos: boolean }, drawn: DrawnGroups): SettingsFields {
+  const album = on.album && drawn.album;
+  const kept = !album ? ALBUM_SETTINGS : !on.videos || !drawn.videos ? VIDEO_SETTINGS : [];
+  const asPosted = (value: string | number | boolean | null | readonly string[]) => (typeof value === "boolean" ? value : value === null ? "" : Array.isArray(value) ? [...value] : String(value));
+  return { ...posted, ...Object.fromEntries(kept.map((field) => [field, asPosted(stored[field])])) };
 }
 
 // A capacity is a whole number written in digits, within the range; empty is no capacity at all.

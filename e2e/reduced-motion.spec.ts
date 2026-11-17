@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { chooseLayout, closeDesign, createDraft, createPublished, type DesignSheet, HOUR, itemFromNow, openDesign, openMore, openSettings, publishInEditor, savedAfter, setSchedule, utcFromNow } from "./events";
+import { arrange, arrangeWholePage, chooseLayout, closeDesign, createDraft, createPublished, type DesignSheet, HOUR, itemFromNow, openDesign, openArrange, openMore, openSettings, publishInEditor, savedAfter, setSchedule, utcFromNow } from "./events";
 import { openHome } from "./home";
 import { latestMailTo, newHost, OPERATOR, PASSWORD, signIn, signUpVerified } from "./hosts";
 import { expectStill } from "./still";
@@ -13,7 +13,7 @@ test.use({ contextOptions: { reducedMotion: "reduce" } });
 
 test("under reduced motion nothing moves, on any page, whatever a person does", async ({ page, browser, request }) => {
   test.setTimeout(240_000);
-  for (const path of ["/", "/sign-up", "/sign-in", "/privacy", "/terms", "/too-fast", "/e/abcdefghij"]) {
+  for (const path of ["/", "/sign-up", "/sign-in", "/forgot-password", "/privacy", "/terms", "/too-fast", "/e/abcdefghij", "/no-such-page"]) {
     await page.goto(path);
     await expectStill(page, path);
   }
@@ -24,6 +24,8 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await signUpVerified(host, request, "still");
   await host.goto("/dashboard");
   await expectStill(host, "the dashboard");
+  await host.goto("/account");
+  await expectStill(host, "the account page");
   // The editor, and its Settings sheet opened with a question added.
   await host.goto("/events/new");
   await expect(host.getByRole("textbox", { name: "Event title" })).toBeVisible({ timeout: 20_000 });
@@ -173,6 +175,11 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await expectStill(host, "the guest list");
   await host.goto(`${manage}/share`);
   await expectStill(host, "the share screen");
+  // The event's other pages (M8 ticket 21), on its poster.
+  for (const path of ["invites", "hosts", "announcements"]) {
+    await host.goto(`${manage}/${path}`);
+    await expectStill(host, `the ${path} page`);
+  }
 
   // Called off: the page with its notice.
   await host.goto(manage);
@@ -190,6 +197,8 @@ test("under reduced motion nothing moves, on any page, whatever a person does", 
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
   await page.goto("/instance");
   await expectStill(page, "the instance settings");
+  await page.goto("/instance/reports");
+  await expectStill(page, "the reports page");
 });
 
 // A guest of their own, at an address of their own, whose device asks for reduced motion.
@@ -483,8 +492,74 @@ test("under reduced motion a guest's letter is still, in the Poster, the Broadsh
   await host.context.close();
 });
 
+// A collapsed section (M8 ticket 28), opened, in each layout: its chevron turns only where motion
+// is allowed, and nothing in it moves.
+test("under reduced motion a collapsed section opened is still, in the Poster, the Broadsheet and the Thread", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "still-collapsed", { title: "Ada’s supper club", start: "2027-03-06T19:00", plusOnes: "0" });
+  await setSchedule(host.page, [{ start: "20:00", title: "Cake" }]);
+  await arrange(host.page, async (sheet) => {
+    await sheet.getByRole("button", { name: "Options for Schedule" }).click();
+    await sheet.getByRole("switch", { name: "Collapsed" }).click();
+  });
+  const page = await stillGuest(browser);
+  await page.goto(host.link);
+  for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
+    if (layout !== "Poster") {
+      await chooseLayout(host.page, host.link, layout);
+      await expect.poll(() => request.get(host.link).then((response) => response.text()), { timeout: 15_000 }).toContain(`data-layout="${layout.toLowerCase()}"`);
+      await page.reload();
+    }
+    const schedule = page.locator('details[data-slot="schedule"]');
+    await schedule.locator("summary").click();
+    await expect(schedule).toHaveAttribute("open", "");
+    await expect(schedule).toContainText("Cake");
+    await expectStill(page, `a collapsed schedule opened on the ${layout}`);
+  }
+  await page.context().close();
+  await host.context.close();
+});
+
+// M8 ticket 31: a page arranged through every part of Arrange, in each layout, with its folded
+// Guestbook opened by a guest who has replied and the Countdown a section of its own; and the
+// editor with Arrange open and a row just moved.
+test("under reduced motion an arranged page is still, in the Poster, the Broadsheet and the Thread, and so is Arrange as a row moves", async ({
+  browser,
+  request,
+}) => {
+  test.setTimeout(240_000);
+  const host = await createPublished(browser, request, "still-arranged", { title: "Ada’s supper club", start: "2027-03-06T19:00", plusOnes: "0" });
+  const page = await stillGuest(browser);
+  await page.goto(host.link);
+  await page.getByRole("button", { name: "Going", exact: true }).click();
+  await page.getByLabel("Your name").fill("Priya Nair");
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+  await arrangeWholePage(host.page, "Comments");
+  for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
+    if (layout !== "Poster") {
+      await chooseLayout(host.page, host.link, layout);
+      await expect.poll(() => request.get(host.link).then((response) => response.text()), { timeout: 15_000 }).toContain(`data-layout="${layout.toLowerCase()}"`);
+    }
+    await page.goto(host.link);
+    await expect(page.locator('[data-section="countdown"]')).toBeVisible();
+    const guestbook = page.locator('details[data-slot="comments"]');
+    await guestbook.locator("summary").click();
+    await expect(guestbook).toHaveAttribute("open", "");
+    await expectStill(page, `an arranged ${layout}, its Guestbook opened`);
+  }
+
+  await host.page.emulateMedia({ reducedMotion: "reduce" });
+  const sheet = await openArrange(host.page);
+  await savedAfter(host.page, () => sheet.getByRole("button", { name: "Move Countdown down" }).click());
+  await expect(sheet.locator('[aria-live="polite"]')).toHaveText(/^Countdown, 4 of \d+$/);
+  await expectStill(host.page, "the Arrange sheet, a row just moved");
+  await page.context().close();
+  await host.context.close();
+});
+
 // The dashboard with an event on every shelf, still (dashboard, ticket 05): no tile lifts, nothing
-// fades in, and the glow behind it never moves.
+// fades in, and the poster behind it never moves.
 test("under reduced motion the dashboard with an event on every shelf is still", async ({ browser, request }) => {
   test.slow();
   const host = await hostWithShelves(browser, request, "still-shelves");
@@ -492,4 +567,89 @@ test("under reduced motion the dashboard with an event on every shelf is still",
   await host.page.getByRole("region", { name: "Coming up", exact: true }).getByRole("link").first().hover();
   await expectStill(host.page, "the dashboard, a tile hovered");
   await host.context.close();
+});
+
+// M8 ticket 16: the album vote under reduced motion: a guest's album while voting is open, with its
+// head and stars, a vote given, and the closed album with the Winners strip heading it.
+test("under reduced motion the album vote is still, while open and once closed with the Winners strip", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "still-voting", { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" });
+  const editor = host.page.url();
+  const album = (page: Page) => page.locator('[data-slot="album"]');
+  const photo = async (name: string, background: string) => ({
+    name,
+    mimeType: "image/jpeg",
+    buffer: await sharp({ create: { width: 1200, height: 900, channels: 3, background } }).jpeg().toBuffer(),
+  });
+  await host.page.goto(host.link);
+  await album(host.page).getByLabel(/^Add photos/).setInputFiles([await photo("garden.jpg", "#2f6b3a"), await photo("cake.jpg", "#c0506a")]);
+  await expect(album(host.page).locator("li[data-item]")).toHaveCount(2, { timeout: 20_000 });
+  await host.page.goto(editor);
+  const block = (await openSettings(host.page)).locator('[data-slot="voting-block"]');
+  await savedAfter(host.page, () => block.getByRole("button", { name: "Start voting" }).click());
+  await expect(block).toHaveAttribute("data-state", "open");
+
+  const guest = await stillGuest(browser);
+  await guest.goto(host.link);
+  await guest.getByRole("button", { name: "Going" }).click();
+  await guest.getByLabel("Your name").fill("Ana Ruiz");
+  await guest.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(guest.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+  await guest.getByRole("dialog", { name: "Your RSVP" }).getByRole("button", { name: "Close" }).click();
+  await expect(album(guest).locator('[data-slot="vote-star"]')).toHaveCount(2);
+  await expectStill(guest, "a guest's album while voting is open");
+  const star = album(guest).getByRole("button", { name: "Vote for Photo 1", exact: true });
+  const answered = guest.waitForResponse((response) => response.request().method() === "POST" && response.request().headers()["next-action"] !== undefined);
+  await star.click();
+  await answered;
+  await expect(star).toHaveAttribute("aria-pressed", "true");
+  await expectStill(guest, "a guest's album with a vote given");
+
+  await savedAfter(host.page, () => block.getByRole("button", { name: "Close voting" }).click());
+  await guest.reload();
+  await expect(album(guest).locator('[data-slot="winners-strip"]')).toContainText("1 vote");
+  await expectStill(guest, "the closed album with the Winners strip");
+  await Promise.all([guest.context().close(), host.context.close()]);
+});
+
+// M8 ticket 30: the album drawn as a mosaic and as a strip, which under reduced motion scrolls at
+// once rather than smoothly, is still.
+test("under reduced motion the album as a mosaic and a strip is still", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "still-album-styles", { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" });
+  const album = (page: Page) => page.locator('[data-slot="album"]');
+  const guest = await stillGuest(browser);
+  await guest.goto(host.link);
+  await guest.getByRole("button", { name: "Going" }).click();
+  await guest.getByLabel("Your name").fill("Ana Ruiz");
+  await guest.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(guest.getByText("You’re going!")).toBeVisible({ timeout: 15_000 });
+  await guest.getByRole("dialog", { name: "Your RSVP" }).getByRole("button", { name: "Close" }).click();
+  const photos = await Promise.all(
+    ["#2f6b3a", "#c0506a", "#d07a3a"].map(async (background, at) => ({
+      name: `photo-${at}.jpg`,
+      mimeType: "image/jpeg",
+      buffer: await sharp({ create: { width: 1200, height: 900, channels: 3, background } }).jpeg().toBuffer(),
+    })),
+  );
+  await album(guest).getByLabel(/^Add photos/).setInputFiles(photos);
+  await expect(album(guest).locator("li[data-item]")).toHaveCount(3, { timeout: 20_000 });
+
+  for (const style of ["Mosaic", "Strip"] as const) {
+    await arrange(host.page, async (sheet) => {
+      const options = sheet.getByRole("button", { name: "Options for Album" });
+      if ((await options.getAttribute("aria-expanded")) !== "true") await options.click();
+      await sheet.getByRole("radiogroup", { name: "Style" }).getByRole("radio", { name: style }).click();
+    });
+    await guest.reload();
+    await expect(album(guest).locator(`ul[data-style="${style.toLowerCase()}"]`)).toBeVisible();
+    await expectStill(guest, `the album as a ${style.toLowerCase()}`);
+  }
+  const strip = album(guest).getByRole("region", { name: "Photos and videos, scrolling sideways" });
+  await strip.focus();
+  await guest.keyboard.press("ArrowRight");
+  await expect.poll(() => strip.evaluate((region) => region.scrollLeft)).toBeGreaterThan(0);
+  expect(await strip.evaluate((region) => getComputedStyle(region).scrollBehavior)).toBe("auto");
+  await expectStill(guest, "the strip, scrolled");
+  await Promise.all([guest.context().close(), host.context.close()]);
 });

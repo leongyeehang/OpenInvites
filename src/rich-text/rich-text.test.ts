@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRichText, richTextToPlain, type RichText } from "./rich-text";
+import { clipRichText, MAX_HREF, parseRichText, richTextToPlain, safeHref, type RichText } from "./rich-text";
 
 const doc = (blocks: RichText["blocks"]): RichText => ({ blocks });
 
@@ -28,6 +28,17 @@ describe("parseRichText", () => {
     }
   });
 
+  // The part review's finding 8: an address is held to a Links section's (SECTION_LIMITS.url), so
+  // words cannot carry megabytes of addresses; the words stay, as for any link that is dropped.
+  it("drops a link whose address is longer than 2,000 characters, and keeps its words", () => {
+    const linked = (href: string) => ({ blocks: [{ type: "paragraph", spans: [{ text: "Map", href }] }] });
+    const longest = `https://example.test/${"a".repeat(MAX_HREF - "https://example.test/".length)}`;
+    expect(parseRichText(linked(longest))).toEqual({ ok: true, doc: linked(longest) });
+    expect(parseRichText(linked(`${longest}a`))).toEqual({ ok: true, doc: doc([{ type: "paragraph", spans: [{ text: "Map" }] }]) });
+    expect(safeHref(`${longest}a`)).toBeUndefined();
+    expect(MAX_HREF).toBe(2000);
+  });
+
   it("drops anything it does not recognise rather than trusting it", () => {
     const hostile = {
       blocks: [
@@ -52,12 +63,49 @@ describe("parseRichText", () => {
     expect(parseRichText(wordy)).toEqual({ ok: false, error: "descriptionTooLong" });
   });
 
+  it("holds a shorter document to the limit it is given, and to the description's without one", () => {
+    const of = (length: number) => doc([{ type: "paragraph", spans: [{ text: "x".repeat(length) }] }]);
+    expect(parseRichText(of(2_001), 2_000)).toEqual({ ok: false, error: "descriptionTooLong" });
+    expect(parseRichText(of(2_000), 2_000)).toEqual({ ok: true, doc: of(2_000) });
+    expect(parseRichText(of(10_000))).toEqual({ ok: true, doc: of(10_000) });
+    expect(parseRichText(of(10_001))).toEqual({ ok: false, error: "descriptionTooLong" });
+  });
+
   it("leaves out an empty paragraph and an empty bullet", () => {
     const gappy = doc([
       { type: "paragraph", spans: [{ text: "  " }] },
       { type: "bullets", items: [[{ text: "" }], [{ text: "Kept" }]] },
     ]);
     expect(parseRichText(gappy)).toEqual({ ok: true, doc: doc([{ type: "bullets", items: [[{ text: "Kept" }]] }]) });
+  });
+});
+
+describe("clipRichText", () => {
+  const href = "https://example.test/map";
+
+  it("keeps the blocks in order up to the limit and cuts the span that crosses it, marks and link kept", () => {
+    const long = doc([
+      { type: "paragraph", spans: [{ text: "a".repeat(1_000) }, { text: "b".repeat(500), marks: ["bold"] }] },
+      { type: "bullets", items: [[{ text: "c".repeat(400) }], [{ text: "d".repeat(300), marks: ["italic"], href }, { text: "e" }]] },
+      { type: "paragraph", spans: [{ text: "never reached" }] },
+    ]);
+    expect(clipRichText(long, 2_000)).toEqual(
+      doc([
+        { type: "paragraph", spans: [{ text: "a".repeat(1_000) }, { text: "b".repeat(500), marks: ["bold"] }] },
+        { type: "bullets", items: [[{ text: "c".repeat(400) }], [{ text: "d".repeat(100), marks: ["italic"], href }]] },
+      ]),
+    );
+  });
+
+  it("leaves a document within the limit as it was", () => {
+    const short = doc([{ type: "paragraph", spans: [{ text: "Bring ", marks: ["bold"] }, { text: "nothing", href }] }]);
+    expect(clipRichText(short, 2_000)).toEqual(short);
+  });
+
+  it("never cuts a character in half", () => {
+    // An emoji is two UTF-16 units, as the length is counted: one that does not fit whole goes.
+    const party = doc([{ type: "paragraph", spans: [{ text: "x🎉" }] }]);
+    expect(clipRichText(party, 2)).toEqual(doc([{ type: "paragraph", spans: [{ text: "x" }] }]));
   });
 });
 

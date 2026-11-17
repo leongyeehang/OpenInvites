@@ -1,6 +1,6 @@
 import { mkdirSync, readdirSync, readFileSync } from "node:fs";
 import sharp from "sharp";
-import { createDraft, openDesign, openMore, pickDesign, publishInEditor } from "../e2e/events";
+import { createDraft, openArrange, openDesign, openMore, openRow, pickDesign, publishInEditor } from "../e2e/events";
 import { OPERATOR, PASSWORD, signIn, submitSignUp, verifyEmail } from "../e2e/hosts";
 import { clientAddress, expect, test, type Browser, type BrowserContextOptions, type Page } from "../e2e/test";
 
@@ -69,6 +69,15 @@ const GUESTS = [
 
 test("README screenshots", async ({ browser }) => {
   mkdirSync(OUT, { recursive: true });
+  // Sign-in on a phone, as every signed-out screen looks (M8 ticket 23): one of the site's posters,
+  // held still behind glass, with the site's name above the card. Taken first, while the home page
+  // keeps its usual set of posters.
+  const visitor = await (await someone(browser, PHONE)).newPage();
+  await visitor.goto("/sign-in");
+  await expect(visitor.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
+  await save(visitor, "sign-in");
+  await visitor.context().close();
+
   const host = await (await someone(browser, DESKTOP)).newPage();
   await host.goto("/sign-up");
   await submitSignUp(host, HOST);
@@ -122,6 +131,23 @@ test("README screenshots", async ({ browser }) => {
   await save(phoneHost, "editor");
   await openDesign(phoneHost, "Poster", "Gallery");
   await save(phoneHost, "poster-sheet");
+  await phoneHost.keyboard.press("Escape");
+
+  // Arrange (M8 ticket 25) on the same phone: the sheet risen over the live copy, the Album's row
+  // open to its heading, Collapsed and its styles, scrolled to start at the row above it, so its
+  // name, its switch and its Move buttons are in sight.
+  const arrange = await openArrange(phoneHost);
+  await openRow(arrange, "Album");
+  await arrange.getByRole("button", { name: "Options for Album" }).evaluate((options) => {
+    // The sheet's own scroller alone, so the sheet keeps its heading in sight.
+    const above = options.closest("li")?.previousElementSibling;
+    const scroller = above?.closest<HTMLElement>(".overflow-y-auto");
+    if (above && scroller) scroller.scrollTop += above.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 12;
+    // Playwright's press scrolled the sheet itself to reach the row, which a person's tap does not.
+    const sheet = options.closest<HTMLElement>('[role="dialog"]');
+    if (sheet) sheet.scrollTop = 0;
+  });
+  await save(phoneHost, "arrange");
   await phoneHost.keyboard.press("Escape");
 
   // The picnic has happened: its album holds the day's pictures.
@@ -210,13 +236,21 @@ async function reply(browser: Browser, link: string, guest: (typeof GUESTS)[numb
   await context.close();
 }
 
-// What the screen shows once its pictures and fonts are in and anything rising has risen, with
-// the pointer off anything it would light up.
+// What the screen shows once its pictures, its backdrop's picture and fonts are in and anything
+// rising has risen, with the pointer off anything it would light up.
 async function save(page: Page, name: string) {
   await page.mouse.move(0, 0);
   await page.evaluate(async () => {
     await document.fonts.ready;
     await Promise.all([...document.images].map((image) => image.decode().catch(() => undefined)));
+    // The backdrop's picture is a CSS background, not an image of the page's (M8 ticket 18).
+    const backdrop = document.querySelector('[data-slot="backdrop"] [style*="url("]');
+    const url = backdrop && getComputedStyle(backdrop).backgroundImage.match(/url\("?([^")]+)"?\)/)?.[1];
+    if (url) {
+      const picture = new Image();
+      picture.src = url;
+      await picture.decode().catch(() => undefined);
+    }
   });
   const png = await page.screenshot({ animations: "disabled" });
   const file = `${OUT}/${name}.webp`;

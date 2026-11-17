@@ -147,6 +147,15 @@ settings, sets it. Changes show on the next visit.
   - **Show "Run by" with my display name**: off by default. When on, "Run by" and your display name
     stand under the welcome line, as "Hosted by" does on an event page.
 
+The posters chosen here dress more than the home page. Sign-in and the other signed-out screens
+(signing up, the password reset, the sign-in link, the co-host link), the notice pages a guest meets
+(the locked page of an invite-only event, the report form, a link the host has reset, an invitation
+not ready yet, and the page that stops email about an event), and Site settings with its reports
+each wear one of them, held still behind glass: the same poster for each of those areas on every
+visit, and the areas mostly apart. A new host's own pages wear one of them too, until they have an
+event or pick a poster in Account. The pages drawn without the database (not found, too fast, the
+privacy policy and the terms of use) wear one poster of the whole gallery, whatever is chosen here.
+
 The bar follows the registration mode: with **Open**, **Create an account** and **Sign in**; with
 **Invitation only**, **Sign in** alone, and the card tells would-be hosts that they join with an
 invitation from whoever runs the site. A host who is signed in and opens the address goes straight
@@ -160,22 +169,84 @@ dashboard, a welcome points to the name, registration and limits; it shows once 
 operator, so one who takes over with `OPERATOR_EMAIL` sees it once too. An instance upgraded from
 an earlier version does not greet the operator it already has.
 
+### Features
+
+Site settings' **Features** card (0.8) switches parts of the site on or off for every event at
+once ([ADR-0008](../adr/0008-features-are-modules.md)). Each is on until you switch it off, an
+upgraded site included.
+
+- **Album**: guests and hosts add photos to an event's page. Off, no event shows its album or
+  takes photos, the hosts' Settings sheet leaves out its Album group, album reminders wait, and
+  the photos and videos stay where they are and still count toward storage. While it is off nobody
+  but you can remove an item (the hosts' Empty album and every Delete refuse; **Clear the album**
+  on the Storage card still works), except that deleting the event, or a host deleting their
+  account, still removes its items; the files are still answered at their addresses.
+- **Videos**: albums take videos as well as photos. Off, albums take photos only; the videos
+  they hold still play, and a clip already sent is still processed. Videos need the album, and a
+  usable ffmpeg: without one they stay off whatever the switch says. A live photo is a photo, so
+  its motion is made on events whose host unticked **Allow videos** too; this switch is what stops
+  it.
+- **Voting**: hosts may run a vote on their album's photos and videos, from the Album voting block
+  in an event's Settings: up to eight awards, each for photos, videos or both, with one vote per
+  person in each; who may vote (everyone who sees the album, only guests who are going, or only
+  guests invited personally); an optional closing time, which guests see with its time zone named;
+  and whether guests see who added each item (always, once voting closes, or never). Until voting
+  closes, guests see no count, and they see who added an item only where the host chose to show
+  that always; under never, not even after it closes. Each guest sees the album in an order of
+  their own while it is open. An award for photos or videos alone, or one in a tie-break, lists
+  only its own items; the picker above the album then offers Whole album too, which shows every
+  item without stars, so nothing is out of reach. Once voting closes, every item shows its count,
+  the top three wear ribbons, a Winners strip heads the album, and the host can send the winners
+  to guests as an announcement already written; a first place shared can go to a tie-break among
+  the tied items. Reopening voting ends any tie-break and deletes its votes, after asking with
+  their number; the first round's votes stay. Off, no event shows a vote, nothing is deleted (the
+  votes, the awards and each event's choices are kept for when it is back on), and every album
+  shows who added each item, as before 0.8, whatever its event's choice. Voting needs the album.
+
+  A vote stays until whoever gave it takes it back, its item or that person's reply is deleted,
+  its award is removed, or the host turns voting off; reopening voting after a tie-break deletes
+  the tie-break's votes alone. Changing who may vote leaves the votes already given counted. A
+  vote belongs to a reply, so a person who replies twice under two names has two sets of votes.
+  Hosts who mind can approve each guest before they are on the list, or let only guests invited
+  personally vote, whose personal invite links tie each reply to one person. A reply made to vote
+  again is undone by removing it from the guest list, which removes its votes with it; declining
+  it does not, since a declined reply's votes stay counted.
+
+A feature that needs another is off while that one is. Nothing is deleted by switching a feature
+off: switching it back on brings back what it held, and an event's own settings for it (who sees
+the album, whether its photos wait for approval, its video caps) are kept as they were. The
+Storage card's **Process videos for playback** is not a feature switch, and is unchanged by these.
+
 ### Storage
 
 Site settings' **Storage** card (0.7) answers how full the site is: what albums and hosts'
-pictures take, counted as uploaded (a video's lighter copy, poster and thumbnail never count);
-on local disk, what the `uploads` volume really holds and how much of it is free; the five albums
-that take the most, each with its hosts; whether the server can process videos (its ffmpeg
+pictures take, counted as uploaded (a video's 4K, 1080p and 720p copies, poster and thumbnail never
+count); on local disk, what the `uploads` volume really holds and how much of it is free; the five
+albums that take the most, each with its hosts; whether the server can process videos (its ffmpeg
 version, or that it has none); and the switch **Process videos for playback**, on by default,
-which makes a lighter copy of every video that needs one. On S3 the card shows the counted use
-only. After upgrading to 0.7 the card says how many files from before the upgrade are still being
-measured, until that is done; a photo from before counts the size of the file the site stored,
-since the file as sent was never kept. Two albums uploading at the same moment can each overshoot
-Storage for the site by one batch, and on local disk every upload stops while the volume has
-under 1 GB free. An upload counts from the moment it is asked for, and the card shows what
+which gives each video the sizes its event asks for when it needs them. On S3 the card shows the
+counted use only. After upgrading to 0.7 the card says how many files from before the upgrade are
+still being measured, until that is done; a photo from before counts the size of the file the site
+stored, since the file as sent was never kept. Two albums uploading at the same moment can each
+overshoot Storage for the site by one batch, and on local disk every upload stops while the volume
+has under 1 GB free. An upload counts from the moment it is asked for, and the card shows what
 uploads in progress hold on a line of its own; a batch that receives nothing for an hour, or any
 upload not finished within a day, is dropped by the hourly sweep and its room released, so an
 upload that never started cannot hold the site.
+
+Beside **Process videos for playback**, the switch **Also make a 4K copy that plays everywhere**
+(0.8), off by default, gives a 4K video that is not H.264, such as an iPhone's, which some browsers
+cannot play, a 4K H.264 copy as well. It costs one more file of up to about 115 MB a minute of
+video, which the storage limits do not count, and on a small server it can take many times the
+video's length to make; it is made after the video is ready, never before. Without it, those
+browsers play the largest copy the event keeps. The switch counts for what is processed
+afterwards. Under the processing lines the card says how many ready videos lack a size their
+events ask for (an event's sizes changed since they were processed, the 4K switch turned on, or
+videos from before 0.8), and, while processing is on and ffmpeg is usable, offers **Make missing
+sizes**: it queues each of them, the copies are made one at a time behind new uploads, and the
+videos stay in their albums meanwhile. Until their copies are made the card says how many videos
+are having sizes made, on a line of its own, and says that every video has its sizes only once
+none lacks one and none is queued. Copies an event no longer asks for are kept.
 
 Videos are processed in the app's own container unless `VIDEO_PROCESSING=worker` moves the work
 to a **worker** container: the same image started as `node scripts/video-worker.mjs`, on the same
@@ -404,26 +475,93 @@ the photo's id: `<id>-photo.webp` (up to 2048 pixels, for the viewer and Downloa
 `<id>-photo-thumb.webp` (the album's square thumbnail). They are removed with the photo: when
 whoever may deletes it, or the event, the guest's reply or the host's account goes.
 
-A video added to an album (0.7) is kept as sent only until it is processed, which the queue does
-one clip at a time per container, within a minute of the upload. A clip ffmpeg cannot read, or
-one found over the event's length cap once measured (a browser cannot always read a clip's
-length before sending), is failed at once, and its tile tells its uploader and the hosts so, the
-length cap by name; a clip that fails for any other reason is tried three times and then failed,
-and one the processor itself did not survive (out of memory, say) is taken again an hour later
-and failed after its third claim, never retried for ever. Its files are named after the
-item's id: `<id>-video.mp4` (the clip at original quality, rewrapped as MP4 with its metadata
-dropped, so a phone's location and device details never reach a guest, and its index moved to the
-front, so playing starts at once); `<id>-video-1080p.mp4` or `<id>-video-720p.mp4` (the lighter
-H.264 copy at the quality the host chose, made only when the original is not H.264, larger than
-that quality or far above its bit rate, and only while **Process videos for playback** is on);
-`<id>-video-poster.webp` (the frame the player shows first) and `<id>-video-thumb.webp` (the
-album's square thumbnail). Only the original counts toward storage. They go with the item, as a
-photo's files do.
+An Android motion photo (Google's, the older MicroVideo, or Samsung's) carries a few seconds of
+video inside its JPEG. While the **Videos** feature is on and ffmpeg is usable, that clip, if it is
+no larger than 32 MB, is stored as sent as `<id>-motion-sent` and the video queue makes
+`<id>-motion.mp4` from it (0.8): its first three seconds, silent, H.264 at up to 720p, an HDR clip
+converted to standard colour. `<id>-motion-sent` is then deleted and the photo becomes a **live
+photo**, which plays while held or from its Live mark, never by itself. A clip ffmpeg cannot read,
+or one that fails three times, is dropped and the photo stays a still. The photo counts toward
+storage as sent, its clip included; both files go with it. An iPhone hands a web page only a Live
+Photo's still, so it is added as a photo, which the album tells iPhone guests.
+
+A video added to an album (0.7) is kept as sent only until it is processed, which the queue does one
+clip at a time per container: within a minute of the upload when the queue is idle, otherwise once
+the job in hand is done. A clip ffmpeg cannot read, or one found
+over the event's length cap once measured (a browser cannot always read a clip's length before
+sending), is failed at once, and its tile tells its uploader and the hosts so, the length cap by
+name; a clip that fails for any other reason is tried three times and then failed, and one the
+processor itself did not survive (out of memory, say) is taken again and failed after its third
+claim, never retried for ever. A job's lease is ten minutes, renewed every two while it runs (0.8),
+so a long encode keeps its job, a processor that dies is replaced ten minutes later, and when the
+item is deleted meanwhile its encode stops at the next renewal and what was stored for it is
+removed. Its files are named after the item's id: `<id>-video.mp4` (the clip at its original size,
+rewrapped as MP4 with its metadata dropped, so a phone's location and device details never reach a
+guest, and its index moved to the front, so playing starts at once); `<id>-video-1080p.mp4` and
+`<id>-video-720p.mp4` (H.264 copies, made at the sizes the host ticks for the event, each only when
+the original is not H.264, larger than that size or far above its bit rate, never larger than the
+original, and only while **Process videos for playback** is on); `<id>-video-2160p.mp4` (the 4K
+H.264 copy, made only when the operator's **Also make a 4K copy that plays everywhere** is on, off
+by default, and only of a 4K original that is not H.264); `<id>-video-poster.webp` (the frame the
+player shows first) and `<id>-video-thumb.webp` (the album's square thumbnail). Only the original
+counts toward storage. They go with the item, as a photo's files do.
+
+So a video may have up to three copies (4K, 1080p and 720p), and a size whose copy would come out
+the same as one already made (720p of a 640×480 clip, say) is skipped. Each copy is capped at a bit
+rate of its own, so a minute of video takes at most about 115 MB at 4K, 43 MB at 1080p and 21 MB at
+720p, none of which the storage limits count; a 4K copy can take many times the video's length to
+make on a small server. A video is ready, and plays, after at most one of them: an original that is
+not H.264 gets one copy, from the clip as sent, before it shows in the album, and an H.264 original
+none. The other sizes are made afterwards from the stored original, one at a time, smallest first,
+each behind every video uploaded meanwhile, so a new upload waits for no other video's copies but
+the one being encoded when it arrives, which may run to that copy's timeout (eight times its
+video's length at 1080p and 720p, thirty times at 4K, and never under an hour). A size that fails
+is dropped and logged (`Videos: making a size of item … failed, so it was dropped`), and the item
+stays as it is with the copies it has. On local disk a copy is not started while the `uploads`
+volume would be left with under 1 GB free, the floor uploads keep: the video's remaining sizes are
+dropped, not retried, with one line in the log (`Videos: the disk is too full to make the … copy
+of item …`), and **Make missing sizes** queues them again once there is room. A video that lacks a
+size its event asks for (one from before 0.8, an event's sizes changed, or the 4K switch turned
+on) gets it when the operator presses **Make missing sizes** on the Storage card (see Storage
+above). The player offers Auto, which picks a size for the guest's screen and connection and
+steps down when playing stalls, and every size the video has, its original included; a guest's
+pick is remembered on their device.
+
+A video recorded in HDR (HLG or PQ, as a recent phone records it) keeps its HDR in the original,
+which is a stream copy (0.8). Its copies, poster and thumbnail are converted to standard colour
+(BT.709) with ffmpeg's `zscale` and `tonemap` filters, so a guest on any screen sees natural colour
+rather than a flat, greyish picture. The app checks for those filters at start and logs the answer;
+an ffmpeg without them makes the copies as 0.7 did, which look flatter than the original, and the
+Storage card says "HDR videos: this server's ffmpeg lacks the zscale and tonemap filters". When the
+check itself fails (ffmpeg did not answer within five seconds, say), the log says so in a line of
+its own (`Videos: asking ffmpeg for its filters failed …`), the copies are made as without the
+filters, and a restart asks again. An iPhone's Dolby Vision clip is HLG underneath and is kept as
+HLG HDR; whether its Dolby Vision record survives the rewrap has not been checked yet. Each video's
+HDR kind and frame rate are recorded with the item, for the player and the item's details; a video
+from before 0.8 gains them when **Make missing sizes** reaches it.
+
+What an item's files keep of the camera is dropped, as above; what the album shows of it is kept in
+the database, at the host's choice (0.8). An open item shows a technical line (a photo's pixels, a
+video's size, frame rate, HDR and length, and the file's size); each event's Album settings may also
+keep **when each photo and video was taken** and **the camera and its settings** (make, model, lens
+and exposure), both off by default. They are read from the upload as it is added, only for the
+switches that are on, and stored with the item; turning one off hides it from every page without
+erasing it, and nothing is read from items added while it was off. Where a viewer is not shown
+who added an item (the host's choice for the album vote decides), the make, model and lens are
+left out for them, and so are the aperture and focal length, which are a lens's own figures; the
+shutter and ISO stay. Where a picture was taken is never read, under any setting: the GPS part of
+a photo's EXIF is never followed, and a video's location tag is never kept.
+
+Whoever added an item, and any host, may give it a **caption** (0.8) of up to 140 characters of
+plain text, while adding it or afterwards. It is kept in the database, shown under the item in the
+viewer and read as part of its name; no switch of the host's hides it. Writing or changing one
+counts against `RATE_LIMIT_COMMENT`.
 
 Processing needs ffmpeg 6 or later, which the image carries
 ([ADR-0007](../adr/0007-ffmpeg-in-the-image.md)); without a usable one the app starts, refuses
-videos, and the Storage card and the event's Album settings say so. A clip being processed takes
-about 300 MB of memory on top of the app's. The parts of an upload in progress and ffmpeg's
+videos, and the Storage card and the event's Album settings say so. A clip being processed into
+a 1080p copy took about 300 MB of memory on top of the app's when measured for 0.7; a 4K or HDR
+copy needs more, which has not been measured. The parts of an upload in progress and ffmpeg's
 scratch files live under `/tmp` in the container, which needs about three times the largest
 video free; the parts live on the container that took them, so the site runs one app container
 (the worker is a second container, but takes no uploads).
@@ -487,8 +625,9 @@ runs.
 | `RATE_LIMIT_SIGN_IN` | `10/15m` | Signing in, and everything else that checks a password (changing it, deleting an account), starting a Google or GitHub sign-in, signing in with a passkey, and opening a co-host link. |
 | `RATE_LIMIT_PASSWORD_RESET` | `10/1h` | Asking for a password reset link, and setting the new password. |
 | `RATE_LIMIT_MAIL` | `10/1h` | Every request that sends an account email: signing up with mail on, asking for the verification email again, changing an email, asking for a password reset, asking for a sign-in link, and the operator's emailed host invitations. Also each announcement a host emails to guests, counted once however many guests it reaches; each Send of an invitation from an invite list, and each "Send to everyone not yet sent", counted once however many it reaches; and each code sent to a guest to prove their email, and each ask for a code on an invite-only event's locked page, whether or not the address is on its invite list (so the answer never tells). |
-| `RATE_LIMIT_COMMENT` | `30/10m` | Posting a comment on an event page, and deleting one, by a guest or a host. This also bounds the emails that tell hosts about comments. |
+| `RATE_LIMIT_COMMENT` | `30/10m` | Posting a comment on an event page, and deleting one, by a guest or a host; and writing, changing or removing an album item's caption (0.8). This also bounds the emails that tell hosts about comments. |
 | `RATE_LIMIT_REPORT` | `5/1h` | Sending a report about an event page. This also bounds the emails that tell you about reports. |
+| `RATE_LIMIT_VOTE` | `600/10m` | Giving, moving or taking back a vote in an album. 600 in ten minutes, since a party often shares one address: forty guests at a venue voting in four awards pass 120. |
 
 Each limit is written `count/window`, the window in seconds, minutes or hours: `120/1m`,
 `60/10m`, `10/1h`. The defaults are for people, some of whom share an address (an office, a

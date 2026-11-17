@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { expectNoSeriousViolations } from "./axe";
-import { chooseLayout, createPublished, editSettings } from "./events";
+import { chooseLayout, createPublished, editSettings, openSettings } from "./events";
 import { latestMailTo, MAILPIT, mailCountTo } from "./hosts";
 import { closeReply } from "./reply";
 import { expect, test, type APIRequestContext, type Browser, type Locator, type Page } from "./test";
@@ -352,19 +352,21 @@ test("the album's own view in Traditional Chinese", async ({ browser, request })
 
 // M7 ticket 05: the event's video settings, in the Album group of the Settings sheet. Blank caps
 // mean the site's; a cap typed above the site's is kept as typed, since the effective cap is
-// decided when a clip is checked.
-test("the host allows videos, caps them under the site's, and picks the lighter copy's quality", async ({ browser, request }) => {
+// decided when a clip is checked. M8 ticket 02: the video sizes, both ticked by default.
+test("the host allows videos, caps them under the site's, and ticks the video sizes", async ({ browser, request }) => {
   const host = await createPublished(browser, request, "video-settings", PAST);
+  const sizes = (sheet: Locator) => albumGroup(sheet).getByRole("group", { name: "Video sizes" });
   await editSettings(host.page, async (sheet) => {
     const group = albumGroup(sheet);
     await expect(group.getByLabel("Allow videos")).toBeChecked();
     await expect(group.getByLabel("Longest video (min)")).toHaveValue("");
     await expect(group.getByLabel("Largest video (MB)")).toHaveValue("");
-    await expect(group.getByLabel("Lighter copy")).toHaveValue("1080p");
+    await expect(sizes(sheet).getByLabel("1080p", { exact: true })).toBeChecked();
+    await expect(sizes(sheet).getByLabel("720p", { exact: true })).toBeChecked();
     await expect(group.getByText(/Blank means the site’s caps: up to \d+ min and \d+ MB\./)).toBeVisible();
     await group.getByLabel("Longest video (min)").fill("2");
     await group.getByLabel("Largest video (MB)").fill("9000");
-    await group.getByLabel("Lighter copy").selectOption({ label: "720p (saves space)" });
+    await sizes(sheet).getByLabel("1080p", { exact: true }).uncheck();
     await group.getByLabel("Allow videos").uncheck();
   });
   await host.page.reload();
@@ -373,8 +375,10 @@ test("the host allows videos, caps them under the site's, and picks the lighter 
     await expect(group.getByLabel("Allow videos")).not.toBeChecked();
     await expect(group.getByLabel("Longest video (min)")).toHaveValue("2");
     await expect(group.getByLabel("Largest video (MB)")).toHaveValue("9000");
-    await expect(group.getByLabel("Lighter copy")).toHaveValue("720p");
+    await expect(sizes(sheet).getByLabel("1080p", { exact: true })).not.toBeChecked();
+    await expect(sizes(sheet).getByLabel("720p", { exact: true })).toBeChecked();
     await group.getByLabel("Largest video (MB)").fill("");
+    await sizes(sheet).getByLabel("1080p", { exact: true }).check();
     await group.getByLabel("Allow videos").check();
   });
   await host.page.reload();
@@ -382,7 +386,40 @@ test("the host allows videos, caps them under the site's, and picks the lighter 
   await editSettings(host.page, async (sheet) => {
     await expect(albumGroup(sheet).getByLabel("Largest video (MB)")).toHaveValue("");
     await expect(albumGroup(sheet).getByLabel("Allow videos")).toBeChecked();
+    await expect(sizes(sheet).getByLabel("1080p", { exact: true })).toBeChecked();
+    await expect(sizes(sheet).getByLabel("720p", { exact: true })).toBeChecked();
     await albumGroup(sheet).getByLabel("Longest video (min)").fill("");
   });
+  await host.context.close();
+});
+
+// M8 ticket 07: the details the host keeps of each item, and the album's order, in the Album group
+// of the Settings sheet: both switches off and the order by when added, until the host saves them.
+test("the host keeps capture times and cameras, and orders the album by when taken", async ({ browser, request }) => {
+  const host = await createPublished(browser, request, "details-settings", PAST);
+  const keepTaken = (sheet: Locator) => albumGroup(sheet).getByLabel("Keep when each photo and video was taken");
+  const keepCamera = (sheet: Locator) => albumGroup(sheet).getByLabel("Keep the camera and its settings");
+  const order = (sheet: Locator) => albumGroup(sheet).getByLabel("Order of the album");
+  await editSettings(host.page, async (sheet) => {
+    await expect(keepTaken(sheet)).not.toBeChecked();
+    await expect(keepCamera(sheet)).not.toBeChecked();
+    await expect(order(sheet)).toHaveValue("added");
+    await expect(albumGroup(sheet).getByText("Where a picture was taken is never kept.", { exact: false })).toBeVisible();
+    await keepTaken(sheet).check();
+    await keepCamera(sheet).check();
+    await order(sheet).selectOption({ label: "When taken" });
+  });
+  await host.page.reload();
+  await editSettings(host.page, async (sheet) => {
+    await expect(keepTaken(sheet)).toBeChecked();
+    await expect(keepCamera(sheet)).toBeChecked();
+    await expect(order(sheet)).toHaveValue("taken");
+    await keepCamera(sheet).uncheck();
+  });
+  await host.page.reload();
+  const sheet = await openSettings(host.page);
+  await expect(keepTaken(sheet)).toBeChecked();
+  await expect(keepCamera(sheet)).not.toBeChecked();
+  await expect(order(sheet)).toHaveValue("taken");
   await host.context.close();
 });

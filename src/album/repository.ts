@@ -4,6 +4,7 @@ import { getDb, type Db } from "@/db/client";
 import { albumUpload, event, photo, rsvp, user, videoJob } from "@/db/schema";
 import { eventAlbumBytes, reservedUploads, siteBytes } from "@/storage/usage";
 import { albumRoom, NO_ITEMS, type AlbumTotals, type Room } from "./album";
+import { readDetails, type AlbumOrder, type ItemDetails } from "./details";
 import { removeItemFiles } from "./files";
 import { removeDir, UPLOADS_ROOT } from "./tmp";
 import type { PhotoKind } from "./video";
@@ -11,23 +12,31 @@ import type { PhotoScope, PhotoStatus } from "./visibility";
 
 export type Photo = typeof photo.$inferSelect;
 
-// A photo with the name of whoever added it: the RSVP's name, or the host's display name.
-export type NamedPhoto = Photo & { name: string };
+// A photo with the name of whoever added it: the RSVP's name, or the host's display name; and
+// whether its live photo's motion is still being made (M8 ticket 08), a `motion` job waiting.
+type NamedPhoto = Photo & { name: string; motionPending: boolean };
 
 // Who added a photo: exactly one of an RSVP and a host.
 export type PhotoOwner = { rsvpId: string; hostId?: undefined } | { hostId: string; rsvpId?: undefined };
 
 // An event's album as one viewer may see it (album/visibility.ts, photoScope), oldest first: every
-// photo, the approved ones and the viewer's own, or the viewer's own alone.
-export async function listPhotos(eventId: string, scope: PhotoScope): Promise<NamedPhoto[]> {
+// photo, the approved ones and the viewer's own, or the viewer's own alone. Each comes with its
+// details as read back (details.ts, readDetails), for the player (M8 ticket 05). Ordered by when
+// taken (M8 ticket 07), an item with no capture time sits by when it was added. A photo whose
+// motion the queue is making says so (M8 ticket 08), so the page is drawn again once it is made.
+export async function listPhotos(eventId: string, scope: PhotoScope, order: AlbumOrder = "added"): Promise<NamedPhoto[]> {
   const rows = await getDb()
-    .select({ photo, name: sql<string>`coalesce(${rsvp.name}, ${user.name})` })
+    .select({
+      photo,
+      name: sql<string>`coalesce(${rsvp.name}, ${user.name})`,
+      motionPending: sql<boolean>`exists (select 1 from ${videoJob} where ${videoJob.photoId} = ${photo.id} and ${videoJob.work} = 'motion')`,
+    })
     .from(photo)
     .leftJoin(rsvp, eq(rsvp.id, photo.rsvpId))
     .leftJoin(user, eq(user.id, photo.hostId))
     .where(and(eq(photo.eventId, eventId), inScope(scope)))
-    .orderBy(asc(photo.createdAt), asc(photo.id));
-  return rows.map((row) => ({ ...row.photo, name: row.name }));
+    .orderBy(...(order === "taken" ? [asc(sql`coalesce(${photo.takenAt}, ${photo.createdAt})`)] : []), asc(photo.createdAt), asc(photo.id));
+  return rows.map((row) => ({ ...row.photo, details: readDetails(row.photo.details), name: row.name, motionPending: row.motionPending }));
 }
 
 function inScope(scope: PhotoScope): SQL | undefined {
@@ -96,6 +105,17 @@ export async function approvePhoto(eventId: string, id: string): Promise<boolean
     .where(and(eq(photo.id, id), eq(photo.eventId, eventId), eq(photo.status, "pending")))
     .returning({ id: photo.id });
   return approved.length > 0;
+}
+
+// A caption written, changed or removed (M8 ticket 09), scoped to the event: whether an item was
+// there to take it.
+export async function setCaption(eventId: string, id: string, caption: string | null): Promise<boolean> {
+  const changed = await getDb()
+    .update(photo)
+    .set({ caption })
+    .where(and(eq(photo.id, id), eq(photo.eventId, eventId)))
+    .returning({ id: photo.id });
+  return changed.length > 0;
 }
 
 // Approves every photo still waiting, inside the caller's transaction and under its lock on the
@@ -255,10 +275,12 @@ async function noPhotoLeftIn(batch: string, tx: Db): Promise<boolean> {
 // transaction under the event's lock, which also orders the finishes and refusals of a batch so
 // that the last of its photos knows it is the last and the hosts are emailed once (as one post
 // was, M6 ticket 04). Its status is decided as addPhotos decided it. Nothing when the upload is
-// gone: an emptied album.
+// gone: an emptied album. The item's details are the picture's size as added and what the host
+// keeps (M8 ticket 07), its capture time in a column of its own. A photo whose `motion` clip was
+// stored as sent gets a `motion` job beside it (M8 ticket 08), which makes it a live photo.
 export async function finishPhotoUpload(
   upload: AlbumUpload,
-  item: { id: string; width: number; height: number },
+  item: { id: string; width: number; height: number; takenAt: Date | null; details: ItemDetails; motion: boolean },
   statusFor: (locked: { albumApprovalRequired: boolean }) => PhotoStatus,
 ): Promise<{ status: PhotoStatus; lastPhotoOfBatch: boolean } | undefined> {
   return getDb().transaction(async (tx) => {
@@ -266,7 +288,20 @@ export async function finishPhotoUpload(
     const gone = await tx.delete(albumUpload).where(eq(albumUpload.id, upload.id)).returning({ id: albumUpload.id });
     if (gone.length === 0) return undefined;
     const status = statusFor(locked);
-    await tx.insert(photo).values({ id: item.id, eventId: upload.eventId, rsvpId: upload.rsvpId, hostId: upload.hostId, kind: "photo", width: item.width, height: item.height, bytes: upload.size, status });
+    await tx.insert(photo).values({
+      id: item.id,
+      eventId: upload.eventId,
+      rsvpId: upload.rsvpId,
+      hostId: upload.hostId,
+      kind: "photo",
+      width: item.width,
+      height: item.height,
+      bytes: upload.size,
+      takenAt: item.takenAt,
+      details: item.details,
+      status,
+    });
+    if (item.motion) await tx.insert(videoJob).values({ photoId: item.id, work: "motion" });
     return { status, lastPhotoOfBatch: await noPhotoLeftIn(upload.batch, tx) };
   });
 }

@@ -7,8 +7,8 @@
 @custom-variant design-sheet (body:has([data-slot="design-sheet"]) &);
 /* Any of the editor's sheets is open (src/editor/sheet.tsx): from lg the invitation and its toolbar slide clear of the side panel. */
 @custom-variant editor-sheet-open (body:has([data-slot="design-sheet"], [data-slot="editor-sheet"]) &);
-/* A themed event page is showing (src/themes/themed-page.tsx): it carries its own footer, so the plain one steps aside. */
-@custom-variant themed (body:has(.event-page) &);
+/* A themed event page or a site page is showing (src/themes/themed-page.tsx, site-page.tsx): it carries its own footer, so the plain one steps aside. */
+@custom-variant themed (body:has(.event-page, .site-page) &);
 /* The Thread layout is showing (src/themes/thread-layout.tsx): its composer holds the foot of the screen. */
 @custom-variant thread-page (body:has([data-layout="thread"]) &);
 /* The Broadsheet's labels (src/themes/broadsheet-layout.tsx): small spaced capitals in the mono face. */
@@ -111,13 +111,26 @@
   --sidebar-accent-foreground: var(--neutral-900);
   --sidebar-border: var(--neutral-200);
   --sidebar-ring: var(--neutral-400);
-  /* The signed-in pages (dashboard spec, "The frame of every signed-in page"): a soft, slightly
-     cool ground in place of white, and the two signals a host must notice at a glance, each a
-     text colour on its own soft fill at 4.5:1 or more. */
-  --host-ground: oklch(0.962 0.008 300);
+  /* The two signals a host must notice at a glance (dashboard spec, "The frame of every signed-in
+     page"), each a text colour on its own soft fill at 4.5:1 or more. */
   --attention: oklch(0.47 0.12 55);
   --attention-soft: oklch(0.95 0.045 75);
   --destructive-soft: oklch(0.95 0.03 15);
+  /* The chips on a poster tile (the dashboard's shelves): a chip sits on a picture, which is not
+     known, never on glass, so these keep their opaque colours where a site page's scope points the
+     soft fills at the glass (M8 ticket 20). Its words read at 4.5:1 or more on each. */
+  --chip: oklch(1 0 0 / 0.9);
+  --chip-ink: oklch(0.145 0 0);
+  --chip-attention: oklch(0.95 0.045 75);
+  --chip-attention-ink: oklch(0.47 0.12 55);
+  --chip-danger: oklch(0.95 0.03 15);
+  --chip-danger-ink: oklch(0.49 0.2 27.5);
+  /* The album vote's ribbons (M8 ticket 12), the same on every theme and in the viewer: gold,
+     silver and bronze, light enough that their dark ink reads at 7:1 or more on each. */
+  --ribbon-first: oklch(0.86 0.15 88);
+  --ribbon-second: oklch(0.88 0.01 260);
+  --ribbon-third: oklch(0.8 0.09 55);
+  --on-ribbon: oklch(0.2 0.02 60);
 }
 
 .dark {
@@ -199,10 +212,19 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --color-host-ground: var(--host-ground);
   --color-attention: var(--attention);
   --color-attention-soft: var(--attention-soft);
   --color-destructive-soft: var(--destructive-soft);
+  --color-chip: var(--chip);
+  --color-chip-ink: var(--chip-ink);
+  --color-chip-attention: var(--chip-attention);
+  --color-chip-attention-ink: var(--chip-attention-ink);
+  --color-chip-danger: var(--chip-danger);
+  --color-chip-danger-ink: var(--chip-danger-ink);
+  --color-ribbon-first: var(--ribbon-first);
+  --color-ribbon-second: var(--ribbon-second);
+  --color-ribbon-third: var(--ribbon-third);
+  --color-on-ribbon: var(--on-ribbon);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -215,6 +237,8 @@
   --color-theme-accent: var(--theme-accent);
   --color-theme-on-accent: var(--theme-on-accent);
   --color-theme-accent-ink: var(--theme-accent-ink);
+  --color-theme-danger-ink: var(--theme-danger-ink);
+  --color-theme-attention-ink: var(--theme-attention-ink);
   --color-theme-veil: var(--theme-veil);
   --color-theme-base: var(--theme-base);
   --color-theme-text: var(--theme-text);
@@ -327,12 +351,6 @@
   }
   body {
     @apply bg-background text-foreground;
-  }
-  /* Every page with the host header sits on the host ground, its footer too. On it the muted grey
-     takes the next step darker, so secondary text keeps 4.5:1 on the ground and not only on white. */
-  body:has([data-slot="host-header"]) {
-    --muted-foreground: var(--neutral-600);
-    @apply bg-host-ground;
   }
   html {
     @apply font-sans;
@@ -467,4 +485,91 @@
     mix-blend-mode: overlay;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.7 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
+}
+
+/* === 5. SITE PAGES === */
+/*
+  Every page that is not an event page wears a gallery poster or an event's theme, held still,
+  through src/themes/site-page.tsx (M8 spec, "Glass"). Its variables arrive inline on .site-page as
+  the event page's do, solved for a site page (src/themes/legibility.ts, SITE_SURFACES), and this
+  scope points shadcn's tokens at them: cards and alerts are glass, fields, a card's footer and an
+  outline button strong glass, text the tone's text and secondary text, and danger and attention
+  their inks, which read on every one of those surfaces. A fill shadcn would stack on a surface
+  legibility.ts does not prove is pointed at strong glass instead, and a link-variant button is set
+  in the accent ink, never the accent. A destructive button or badge fills with strong glass at
+  rest and hovered, never with its ink's own tint, on which no ink can read under light text; a
+  hovered one is edged in the danger ink. A default button keeps the whole accent hovered, where
+  shadcn would let 20% of what is behind it through, which no surface proves its words on, and is
+  edged inside its fill in its words' colour instead (tickets 19 and 23). An outline button, whose
+  own hover fill never shows over the strong glass, is edged in the tone's text when hovered, and a
+  ghost button fills with strong glass, never shadcn's half of it (ticket 20). The text tone is also there as
+  data-tone, and under light text the page is `dark` as well, so that shadcn's dark variants apply.
+
+  The scope is outside every layer, after .dark: shadcn's controls carry `outline-none`,
+  `bg-transparent` and `dark:bg-input/30` as utilities, which beat every rule in an earlier layer
+  whatever its specificity (as .event-page's focus ring is, in `components`), and only an
+  unlayered rule beats them; .dark sets the same tokens at the same specificity, so the scope
+  comes after it. Headings focused by script (tabindex -1) keep no
+  ring, as everywhere. Dialogs and menus are portalled to <body>, outside the scope, and stay
+  opaque.
+*/
+.site-page {
+  color-scheme: light;
+  --background: transparent;
+  --foreground: var(--theme-text);
+  --card: var(--theme-glass);
+  --card-foreground: var(--theme-text);
+  --primary: var(--theme-accent);
+  --primary-foreground: var(--theme-on-accent);
+  --secondary: var(--theme-glass-strong);
+  --secondary-foreground: var(--theme-text);
+  --muted: var(--theme-glass-strong);
+  --muted-foreground: var(--theme-text-muted);
+  --accent: var(--theme-glass-strong);
+  --accent-foreground: var(--theme-text);
+  --destructive: var(--theme-danger-ink);
+  --destructive-soft: var(--theme-glass-strong);
+  --attention: var(--theme-attention-ink);
+  --attention-soft: var(--theme-glass-strong);
+  --border: var(--theme-glass-border);
+  --input: var(--theme-text-faint);
+  --ring: var(--theme-focus-ring);
+}
+.site-page[data-tone="light"] {
+  color-scheme: dark;
+}
+.site-page :is([data-slot="card"], [data-slot="alert"]) {
+  backdrop-filter: blur(24px); /* the glass's blur, backdrop-blur-xl */
+  box-shadow: inset 0 0 0 1px var(--theme-glass-border), var(--shadow-glass);
+}
+.site-page :is([data-slot="input"], [data-slot="textarea"], [data-slot="native-select"], [data-slot="card-footer"], [data-slot="button"][data-variant="outline"]) {
+  background-color: var(--theme-glass-strong);
+}
+.site-page :is([data-slot="button"], [data-slot="badge"])[data-variant="destructive"] {
+  background-color: var(--destructive-soft);
+}
+.site-page :is([data-slot="button"]:hover, a[data-slot="badge"]:hover)[data-variant="destructive"] {
+  border-color: var(--theme-danger-ink);
+}
+.site-page [data-slot="button"][data-variant="default"] {
+  background-color: var(--primary);
+}
+/* Inside the fill, not in the border: the border is clipped out of the fill and shows the glass
+   behind, which under light text is as dark as the words' colour, so an edge there never showed
+   (M8 ticket 23). */
+.site-page [data-slot="button"][data-variant="default"]:hover {
+  box-shadow: inset 0 0 0 1px var(--primary-foreground);
+}
+.site-page [data-slot="button"][data-variant="outline"]:hover {
+  border-color: var(--theme-text);
+}
+.site-page [data-slot="button"][data-variant="ghost"]:hover {
+  background-color: var(--theme-glass-strong);
+}
+.site-page [data-slot="button"][data-variant="link"] {
+  color: var(--theme-accent-ink);
+}
+.site-page :focus-visible:not([tabindex="-1"]) {
+  outline: 2px solid var(--theme-focus-ring);
+  outline-offset: 2px;
 }

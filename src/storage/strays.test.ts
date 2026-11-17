@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { strayKeys } from "./strays";
+import { namedBy, strayKeys } from "./strays";
 
 // The stray-file check (M7 ticket 10; plan ruling 10): a file in storage that no photo, video or
 // host's picture names, old enough that no upload in progress could still be about to name it.
@@ -47,5 +47,16 @@ describe("strayKeys", () => {
 
   it("takes the age limit it is given", () => {
     expect(strayKeys([file(`${idMade(2 * HOUR)}-photo.webp`, ago(2 * HOUR))], named, NOW, 3 * HOUR)).toEqual([]);
+  });
+});
+
+// M8 ticket 08: a live photo keeps its motion beside its two files, and the clip as sent until the
+// motion is made.
+describe("namedBy", () => {
+  it("names a live photo's motion and the clip as sent among a photo's files", () => {
+    for (const file of ["photo.webp", "photo-thumb.webp", "motion.mp4", "motion-sent"]) expect(namedBy("photo", file)).toBe(true);
+    expect(namedBy("photo", "video.mp4")).toBe(false);
+    expect(namedBy("video", "motion.mp4")).toBe(false);
+    expect(namedBy("video", "video-sent")).toBe(true);
   });
 });

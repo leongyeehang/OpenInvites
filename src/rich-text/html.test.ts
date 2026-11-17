@@ -15,6 +15,13 @@ describe("richTextToHtml", () => {
     );
   });
 
+  // A description stored before addresses were bounded (the Sections part's review, finding 8) is
+  // still drawn: an address over the limit loses its link and keeps its words.
+  it("writes the words of a stored link whose address is over the limit, without the link", () => {
+    const href = `https://example.test/${"a".repeat(3000)}`;
+    expect(richTextToHtml({ blocks: [{ type: "paragraph", spans: [{ text: "The map", href, marks: ["bold"] }] }] })).toBe("<p><strong>The map</strong></p>");
+  });
+
   it("escapes every character that could become markup", () => {
     const written = richTextToHtml({
       blocks: [{ type: "paragraph", spans: [{ text: `<script>alert("x" & 'y')</script>` }] }],

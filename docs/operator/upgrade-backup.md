@@ -33,7 +33,79 @@ keep your `.env` and `compose.override.yaml`. `compose.yaml` pins a Postgres 18 
 a newer copy may move it to a later one: that needs nothing more than `docker compose up -d`.
 
 Going back to an older release after a newer one has migrated the database is not supported.
-Restore the backup you took instead.
+Restore the backup you took before upgrading instead, as in
+[Going back to an older release](#going-back-to-an-older-release).
+
+### Upgrading to 0.8
+
+0.8 gives an album's videos several sizes and a player that picks among them, keeps an Android
+motion photo's few seconds as a live photo, lets a host keep when and with what each item was
+taken, lets whoever adds an item caption it, lets hosts run a vote on their album, and dresses
+every page in a poster, and lets hosts arrange their event pages. Eleven migrations, `0054` to
+`0064`, run as the app starts. They add tables,
+columns and enum types (no value is added to an existing type), carry each video's lighter copy and
+each event's choice of it over to the new sizes, and then drop what held them: the column
+`photo.copy`, the column `event.album_copy_quality` and the type `video_quality`. Nothing else is
+back-filled, and no existing event changes until its host chooses. 0.7 cannot run on a database
+0.8 has migrated, since it reads the dropped columns on every album and event page. It looks
+healthy there (the health check and the home page answer) while every event page fails, so setting
+the image back alone is not a way back: to go back, restore the backup taken before upgrading, as
+in [Going back to an older release](#going-back-to-an-older-release). A video being processed as
+the app is replaced is taken again about ten minutes after the old app took it or last renewed its
+hold on it, give or take a minute, and processed from the clip as sent. A video's copies made
+by 0.7 stay as they were made: an HDR video's look flat, as they did in 0.7, and a video from
+before 0.8 gains standard-colour HDR copies and its frame rate only when **Make missing sizes**
+makes it a size.
+
+- **Stop the worker container before updating, and start it with the app on 0.8.** A site that
+  processes videos in a second container (`VIDEO_PROCESSING=worker`, see
+  [configuration.md](configuration.md#storage)) must not run a 0.7 worker beside the 0.8 app: it
+  would write the column 0.8 has dropped (`photo.copy`), so it fails the videos queued meanwhile,
+  and it deletes the jobs 0.8 adds, a video's further sizes and a live photo's motion.
+  With the stock `compose.yaml`, `docker compose up -d` replaces both within seconds of each other;
+  stopping the worker first (`docker compose stop worker`) leaves no overlap at all.
+- **Every feature is on.** Site settings' new **Features** card switches the album, videos and
+  voting off for every event at once; an upgraded site starts with all three on.
+- **Video sizes replace the lighter copy.** Each event's Album settings tick the sizes its videos
+  get, 1080p and 720p, both by default. An event that chose 720p in 0.7 keeps 720p alone; every
+  other event gets both. A video from before 0.8 keeps its one copy until you press **Make missing
+  sizes** on the Storage card, which gives every ready video the sizes its event asks for, one at
+  a time behind new uploads, while it stays in its album.
+- **A 4K copy is the operator's choice.** The Storage card's **Also make a 4K copy that plays
+  everywhere** is off after the upgrade; see [configuration.md](configuration.md#storage) for what
+  it costs.
+- **Details are off for every event.** Keeping when items were taken, and the camera with its
+  settings, are two switches in each event's Album settings, both off, and every album stays
+  ordered by when items were added. Nothing is read from items added before 0.8, whose files kept
+  nothing to read; where a picture was taken is never read, under any setting.
+- **Live photos and captions start from now.** No photo added before 0.8 kept its motion, so none
+  becomes live; a motion photo added from now on does, while Videos is on and ffmpeg is usable.
+  No item has a caption until someone writes one, which counts against `RATE_LIMIT_COMMENT`.
+- **Voting is off for every event, and names show as before.** The voting migration (`0062`) adds
+  the awards and votes tables and four columns to each event, with every existing event's vote
+  off, everyone who sees its album allowed to vote, and who added each item shown once voting
+  closes, which for an event that never votes is always, as in 0.7. Nothing changes on an album
+  until its host starts a vote from the Voting block in its Settings. Each press of a star counts
+  against `RATE_LIMIT_VOTE`, 600 in ten minutes by default, since a party often shares one
+  address; set it only to change that (see [configuration.md](configuration.md#rate-limits)).
+- **The home page's posters dress more pages.** The posters chosen on the Home page card now also
+  dress sign-in and the other signed-out screens, the notice pages a guest meets, and Site settings
+  (see [configuration.md](configuration.md#the-home-page)); a site that keeps one poster shows it
+  there too. Migration `0063` adds the `host_look` table, which holds the poster a host picks in
+  Account's Backdrop card; it starts empty, so every host is on Automatic, wearing their next
+  event's poster.
+- **Every event page keeps its order and everything on it until its host arranges it.**
+  Migration `0064` adds `event.sections`, the order and settings a host gives the page's sections
+  in the editor's new Arrange sheet, empty for every event, which keeps each layout's order and
+  everything on it (a few headings, and the Thread's folded comments, are drawn a little
+  differently; the release notes list them); and
+  `event.album_enabled`, the event's own Album switch, on for every event. "Who can see the guest
+  list" and the Comments checkbox have moved from the editor's Settings sheet to Arrange, as the
+  switches of Who's coming and the Comments; "Only the hosts" is now Who's coming switched off.
+  Each event keeps what it had.
+
+No new environment variable is required (`RATE_LIMIT_VOTE` is optional), and `compose.yaml` gains
+no service.
 
 ### Upgrading to 0.7
 
@@ -247,8 +319,23 @@ docker compose exec -T app tar -C /app -czf - uploads > backups/uploads-$(date +
 ```
 
 Both run while the instance is up. Take the dump first: a picture uploaded between the two
-commands is then only an extra file. For a pair that matches exactly, run
-`docker compose stop app` before them and `docker compose start app` after.
+commands is then only an extra file. For a pair that matches exactly, stop the app first. The
+pictures are then archived with `run` instead of `exec`, which needs the app running: with the app
+stopped, `exec` only prints `service "app" is not running`, and the redirect still leaves an empty
+archive.
+
+```sh
+mkdir -p backups
+docker compose stop app
+docker compose exec -T db pg_dump -U openinvites -d openinvites --format=custom > backups/openinvites-$(date +%F).dump
+docker compose run --rm --no-deps -T --entrypoint tar app -C /app -czf - uploads > backups/uploads-$(date +%F).tar.gz
+docker compose start app
+```
+
+If you run a worker container, stop and start it with the app (`docker compose stop app worker`,
+`docker compose start app worker`): it writes pictures and the database too.
+
+Either way, check that neither file is empty (`ls -l backups`) before you rely on it.
 
 Keep the files somewhere other than this machine. To run it every night, put those commands in a
 script and call it from cron.
@@ -280,6 +367,60 @@ On a fresh machine, or after losing the volumes:
 
 If the backup is from an older release than the image you now run, the app migrates the
 restored database as it starts, as in an upgrade.
+
+## Going back to an older release
+
+An older release cannot use a database a newer one has migrated, and loading the backup over it
+does not work either: the newer release's tables point at the older ones, so `pg_restore --clean`
+cannot drop them and fails part-way, leaving a database neither release can use. The database is
+emptied first, on the same machine. That removes the site as it is now, so the backup is checked
+before anything else:
+
+1. Stop the app (`docker compose stop app worker` if you run a worker container):
+   ```sh
+   docker compose stop app
+   ```
+2. Check the backup you are going back to, while nothing has been removed. Both files must be
+   there and not empty, and the dump must be one `pg_restore` can read:
+   ```sh
+   ls -l backups
+   docker compose exec -T db pg_restore --list < backups/openinvites-2026-09-24.dump > /dev/null && echo "The dump can be read."
+   ```
+   If the dump is missing or empty, or an error is printed in place of that line, stop here.
+   Without a good dump there is no way back, and the next step would leave you with no site at
+   all: start the app again (`docker compose start app`) and stay on the newer release. Then keep
+   a dump of the site as it is now, so that going back can itself be undone:
+   ```sh
+   docker compose exec -T db pg_dump -U openinvites -d openinvites --format=custom > backups/openinvites-before-going-back.dump
+   ```
+3. Set `OPENINVITES_IMAGE` in `.env` back to the release the backup was taken on (ending in
+   `:0.7.0`, say), with that release's deployment files if the upgrade changed them, and fetch it:
+   ```sh
+   docker compose pull
+   ```
+4. Empty the database, with only the database running:
+   ```sh
+   docker compose up -d --wait db
+   docker compose exec -T db sh -c 'dropdb -U openinvites --maintenance-db=postgres openinvites && createdb -U openinvites --maintenance-db=postgres openinvites'
+   ```
+5. Load the dump taken before upgrading. It must finish without `errors ignored on restore`; if it
+   says that, the database was not empty: go back to step 4.
+   ```sh
+   docker compose exec -T db pg_restore -U openinvites -d openinvites --clean --if-exists --no-owner < backups/openinvites-2026-09-24.dump
+   ```
+6. Put the pictures back into the `uploads` volume (with S3 storage, skip this: they are in the
+   bucket):
+   ```sh
+   docker compose run --rm --no-deps -T --entrypoint tar app -C /app -xzf - < backups/uploads-2026-09-24.tar.gz
+   ```
+7. Start everything:
+   ```sh
+   docker compose up -d --wait
+   ```
+
+The site is then as it was when the backup was taken: anything hosts and guests added after it
+(replies, comments, photos, votes) is lost. The files added to the `uploads` volume since then, by
+guests or by the newer release, stay in the volume; nothing in the restored site points at them.
 
 ## Resetting a host's password
 

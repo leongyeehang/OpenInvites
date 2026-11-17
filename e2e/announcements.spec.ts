@@ -132,10 +132,23 @@ test("“Send a reminder now” drafts a reminder the host can change and send, 
   expect(draft).toContain("Where: 12 Orchard Road");
   expect(draft).toContain(host.link);
 
-  // The host adds a line, and sends it as any announcement.
+  // A refusal leaves the message and the boxes as the host left them (flake fix, M8 ticket 14: the
+  // form's reset once ticked them again).
+  const audience = (name: string) => host.page.getByRole("checkbox", { name, exact: true });
+  for (const name of ["Going", "Maybe"]) await audience(name).click();
+  await host.page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(host.page.locator("form").getByRole("alert")).toHaveText("Choose who gets the email.", { timeout: 15_000 });
+  await expect(message).toHaveValue(draft);
+  for (const name of ["Going", "Maybe", "Can’t go", "Waitlist"]) await expect(audience(name)).not.toBeChecked();
+
+  // The host adds a line, ticks Going again, and sends it as any announcement; the form starts
+  // again empty, with its usual audience.
+  await audience("Going").click();
   await message.fill(`${draft}\n\nSee you there!`);
   await host.page.getByRole("button", { name: "Send", exact: true }).click();
   await expect(message).toHaveValue("", { timeout: 15_000 });
+  for (const name of ["Going", "Maybe"]) await expect(audience(name)).toBeChecked();
+  for (const name of ["Can’t go", "Waitlist"]) await expect(audience(name)).not.toBeChecked();
   await expect(host.page.getByRole("status")).toHaveText(
     "Posted to the event page. None of the guests you picked gave an email, so nobody was emailed.",
   );

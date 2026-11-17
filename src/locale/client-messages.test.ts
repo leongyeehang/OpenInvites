@@ -29,11 +29,46 @@ function code(path: string): string {
 }
 
 // Every module a module loads when it runs: static imports and re-exports (not type-only ones),
-// side-effect imports, and dynamic import().
-function imports(source: string): string[] {
-  const statics = [...source.matchAll(/(?:^|[\n;])\s*(?:import|export)\s+(?!type\s)(?:[^'";]*?\sfrom\s+)?["']([^"']+)["']/g)];
-  const dynamics = [...source.matchAll(/\bimport\(\s*["']([^"']+)["']\s*\)/g)];
-  return [...statics, ...dynamics].map((match) => match[1]);
+// side-effect imports, and dynamic import(); each with the names it takes where it takes only
+// named bindings (`import { a, b as c }`), which a module's entry is followed by (`through`).
+type Import = { specifier: string; names?: string[] };
+
+// The bindings of a `{ … }` clause, type-only ones left out: each as the module that exports it
+// calls it, then as the importer does (`["b", "c"]` for `b as c`).
+const bindings = (clause: string) =>
+  clause
+    .split(",")
+    .map((each) => each.trim())
+    .filter((each) => each !== "" && !each.startsWith("type "))
+    .map((each) => each.split(/\s+as\s+/));
+
+function imports(source: string): Import[] {
+  const statics = [...source.matchAll(/(?:^|[\n;])\s*(?:import|export)\s+(?!type\s)([^'";]*?\sfrom\s+)?["']([^"']+)["']/g)].map(([, clause, specifier]) => {
+    const braces = clause?.trim().match(/^\{([^}]*)\}\s+from$/);
+    return { specifier, names: braces ? bindings(braces[1]).map(([name]) => name) : undefined };
+  });
+  const dynamics = [...source.matchAll(/\bimport\(\s*["']([^"']+)["']\s*\)/g)].map(([, specifier]) => ({ specifier }));
+  return [...statics, ...dynamics];
+}
+
+// A module's entry (ADR-0008, `src/voting/index.ts`) is nothing but re-exports, and the bundler
+// takes from it only the files whose exports are used: an import of some names from it leads to
+// the files that export those names (and to every `export *`, which may), not to the rest. Any
+// other file, or an import of the whole module, is the file itself.
+const REEXPORT = /export\s+(\*|\{[^}]*\})\s+from\s+["']([^"']+)["'];?/g;
+
+function through(path: string, names: string[] | undefined): string[] {
+  const source = code(path);
+  if (names === undefined || source.replace(REEXPORT, "").trim() !== "") return [path];
+  return [...source.matchAll(REEXPORT)].flatMap(([, clause, specifier]) => {
+    const next = resolved(path, specifier);
+    if (!next) return [];
+    if (clause === "*") return through(next, names);
+    const taken = bindings(clause.slice(1, -1))
+      .filter((each) => names.includes(each.at(-1)!))
+      .map(([name]) => name);
+    return taken.length > 0 ? through(next, taken) : [];
+  });
 }
 
 // The project's own module an import names, or undefined for a package.
@@ -60,6 +95,10 @@ function walk(entry: string): Found {
     if (seen.has(key)) return;
     seen.add(key);
     const where = relative(SRC, path);
+    // A module of server actions renders nothing: a client component that imports one holds only a
+    // reference to each action, so what the actions import sends the browser no messages (M8
+    // ticket 10). Otherwise every page with a Duplicate button would send the album vote's.
+    if (/^\s*["']use server["']/.test(source)) return;
     if (client) {
       for (const [, argument] of source.matchAll(/\buseTranslations\(([^)]*)\)/g)) {
         const namespace = argument.trim().match(/^["']([^"']+)["']$/)?.[1];
@@ -72,9 +111,9 @@ function walk(entry: string): Found {
       if (lists.length !== uses) found.problems.push(`${where} passes <ClientMessages> namespaces that are not written out as a list`);
       for (const [, list] of lists) found.passed.push(...[...list.matchAll(/["']([^"']+)["']/g)].map((match) => match[1]));
     }
-    for (const specifier of imports(source)) {
+    for (const { specifier, names } of imports(source)) {
       const next = resolved(path, specifier);
-      if (next) visit(next, client);
+      if (next) for (const file of through(next, names)) visit(file, client);
     }
   };
   visit(entry, false);
@@ -108,5 +147,21 @@ describe("the messages each page sends to the browser", () => {
     ]);
     // The editor's design sheets read theirs, through the editor page.
     expect(walk(join(APP, "(editor)/events/[id]/page.tsx")).used.get("Design")).toEqual(expect.arrayContaining(["editor/design-sheets.tsx"]));
+  });
+
+  it("stops at a module of server actions", () => {
+    // The share page imports events/actions.ts, whose Duplicate imports the album vote's entry,
+    // which carries the Voting block: none of that reaches the browser through an action.
+    expect(walk(join(APP, "(host)/events/[id]/share/page.tsx")).used.has("Voting.block")).toBe(false);
+    expect(walk(join(APP, "(editor)/events/[id]/page.tsx")).used.get("Voting.block")).toEqual(["voting/voting-block.tsx", "voting/fresh-count.tsx", "voting/reopen-voting.tsx"]);
+  });
+
+  it("follows a module's entry only to the files whose exports are imported", () => {
+    // The event page imports albumVotingFor from the album vote's entry (M8 ticket 11), which also
+    // carries the Voting block: the page draws only the album's side of the vote, whose head reads
+    // the block's Close voting and Reopen voting too (ticket 12), with Reopen voting's confirmation
+    // (the voting part's review), never the block itself.
+    const used = walk(join(APP, "e/[slug]/page.tsx")).used;
+    expect(used.get("Voting.block")).toEqual(["voting/album-voting-head.tsx", "voting/reopen-voting.tsx", "voting/fresh-count.tsx"]);
   });
 });

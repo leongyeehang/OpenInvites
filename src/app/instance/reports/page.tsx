@@ -14,10 +14,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { eventPath } from "@/events/slug";
+import { posterPool } from "@/instance/home";
+import { homePage } from "@/instance/repository";
+import { areaLook } from "@/instance/site-look";
 import { deleteReportedEventAction, markReportHandledAction } from "@/reports/actions";
 import { listReports, type ReportListed } from "@/reports/repository";
-import { HostHeader } from "../../(host)/host-header";
-import { eventPath } from "@/events/slug";
+import { Glass } from "@/themes/glass";
+import { ManageIntro } from "../../(host)/events/[id]/manage-heading";
+import { HostFrame } from "../../(host)/host-frame";
 
 // The page's heading, where the focus goes once an event is deleted, since its Delete button goes
 // with it.
@@ -30,35 +35,41 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 // The reports inbox (spec, "Report an event"): every report, what is not handled first, then the
-// newest. Outside the host area's layout, like /instance, since it is the operator's alone.
+// newest. Outside the host area's layout, like /instance, since it is the operator's alone, and in
+// the same frame, wearing the site area's poster (M8 ticket 20): the heading and the words under it
+// on the veil, and the reports in one glass panel, divided by its edge's colour. One panel, not one
+// per report: an inbox can hold hundreds, and each panel is a blur to paint.
 export default async function ReportsPage() {
   const host = await requireOperator();
-  const [t, reports] = await Promise.all([getTranslations("Instance.reports"), listReports()]);
+  const [t, reports, home] = await Promise.all([getTranslations("Instance.reports"), listReports(), homePage()]);
 
   return (
-    <>
-      <HostHeader host={host} />
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8">
-        <div className="flex flex-col gap-1">
-          <Link href="/instance" className="text-sm text-muted-foreground hover:underline">
-            {t("back")}
-          </Link>
+    <HostFrame host={host} look={areaLook(posterPool(home), "site")}>
+      <ManageIntro
+        back="/instance"
+        label={t("back")}
+        heading={
           <h1 id={HEADING} tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
             {t("title")}
           </h1>
-        </div>
-        <p className="text-muted-foreground">{t("description")}</p>
-        {reports.length === 0 ? (
+        }
+      >
+        <p className="mt-1 text-muted-foreground">{t("description")}</p>
+      </ManageIntro>
+      {reports.length === 0 ? (
+        <Glass className="p-4">
           <p className="text-sm text-muted-foreground">{t("empty")}</p>
-        ) : (
-          <ul className="flex flex-col gap-3">
+        </Glass>
+      ) : (
+        <Glass>
+          <ul className="flex flex-col divide-y divide-theme-glass-border">
             {reports.map((each) => (
               <ReportRow key={each.id} report={each} />
             ))}
           </ul>
-        )}
-      </main>
-    </>
+        </Glass>
+      )}
+    </HostFrame>
   );
 }
 
@@ -71,7 +82,7 @@ async function ReportRow({ report }: { report: ReportListed }) {
   // refuses a time zone's name beside dateStyle and timeStyle.
   const sent = format.dateTime(report.createdAt, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC", timeZoneName: "short" });
   return (
-    <li className="flex flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+    <li className="flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="font-medium break-words">
           {eventExists ? (

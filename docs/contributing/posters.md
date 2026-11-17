@@ -88,7 +88,7 @@ It needs no app running, only Playwright's browser ([CONTRIBUTING](../../CONTRIB
 
 What it measured goes to `poster-files.ts`: the average luminance, which decides the automatic text tone, and the lightest and darkest points of the blurred copy as text on the page meets them, which [`legibility.ts`](../../src/themes/legibility.ts) solves the glass against. Files no poster names any more are removed. Commit everything it changed.
 
-Run it again whenever a drawing changes, or the page's backdrop behind a poster does ([`themed-page.tsx`](../../src/themes/themed-page.tsx)). The drawing's bytes change its file names, so the old ones are removed and the new ones are named in `poster-files.ts`.
+Run it again whenever a drawing changes, or the page's backdrop behind a poster does ([`backdrop.tsx`](../../src/themes/backdrop.tsx)). The drawing's bytes change its file names, so the old ones are removed and the new ones are named in `poster-files.ts`.
 
 ## Before you send it
 

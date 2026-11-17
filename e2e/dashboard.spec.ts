@@ -1,7 +1,8 @@
 import sharp from "sharp";
 import { createDraft, createPublished, openDesign, openMore, pickDesign, publishInEditor, toEditor } from "./events";
-import { worstContrast } from "./dashboard";
+import { worstContrast } from "./contrast";
 import { signUpVerified } from "./hosts";
+import { backdropPainted } from "./site-look";
 import { clientAddress, expect, test, type Page } from "./test";
 
 // The dashboard as a shelf of invitations (dashboard, ticket 03): the soonest published event is
@@ -160,9 +161,10 @@ test("a very long title stops at three lines on its tile, and takes the smaller 
   expect(nextUpSize).toBeLessThanOrEqual(30);
 });
 
-// The final review measured these by hand (dashboard, final review): the shelf labels over the glow
-// of a dark poster, and a tile's wrapped title on a light poster, each at 4.5:1 or more.
-test("over the glow of a dark poster the labels read, and a long title reads on a light poster's tile", async ({ page, request }) => {
+// The final review measured these by hand (dashboard, final review): the shelf labels over the
+// backdrop of a dark poster (M8 ticket 20: in glass), and a tile's wrapped title on a light
+// poster, each at 4.5:1 or more.
+test("over the backdrop of a dark poster the labels read, and a long title reads on a light poster's tile", async ({ page, request }) => {
   test.slow();
   await signUpVerified(page, request, "contrast");
   await createDraft(page, { title: "Disco night", start: "2027-03-06T21:00" });
@@ -173,8 +175,9 @@ test("over the glow of a dark poster the labels read, and a long title reads on 
   await publishInEditor(page);
 
   await page.goto("/dashboard");
-  await expect(page.locator('img[src*="disco-ball-copy"]')).toBeVisible();
+  await expect(page.locator('[data-slot="backdrop"] [style*="disco-ball-copy"]')).toHaveCount(1);
   await page.waitForLoadState("networkidle");
+  await backdropPainted(page);
   expect(await worstContrast(region(page, "Next up").getByRole("heading", { name: "Next up" }))).toBeGreaterThanOrEqual(4.5);
   expect(await worstContrast(page.getByRole("heading", { level: 1, name: "Your events" }))).toBeGreaterThanOrEqual(4.5);
   const title = region(page, "Coming up").getByText("A birthday cake for Grandma Ada’s ninetieth");

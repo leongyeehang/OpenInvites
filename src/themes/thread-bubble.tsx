@@ -31,10 +31,11 @@ export function GuestBubble({ className, ...props }: ComponentProps<"div">) {
 export const BUBBLE_CHIP =
   "inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-current/30 px-3.5 text-sm font-medium hover:border-current/60";
 
-// A host bubble's small heading: When, Where, Who's coming. `id` lets the bubble be named by it.
+// A host bubble's small heading: When, Where, Who's coming. `id` lets the bubble be named by it,
+// and the focus be sent to it once something under it is deleted, though it is never a stop for Tab.
 export function BubbleLabel({ icon: Icon, id, children }: { icon?: ComponentType<{ className?: string }>; id?: string; children: ReactNode }) {
   return (
-    <h2 id={id} className="mb-1.5 flex items-center gap-1.5 text-xs font-medium tracking-label text-theme-text-faint uppercase">
+    <h2 id={id} tabIndex={id ? -1 : undefined} className="mb-1.5 flex items-center gap-1.5 text-xs font-medium tracking-label text-theme-text-faint uppercase outline-none">
       {Icon && <Icon className="size-3.5" aria-hidden />}
       {children}
     </h2>

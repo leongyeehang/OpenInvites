@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseEventForm } from "./form";
+import { keptSettings, parseDrawnGroups, parseEventForm, type SettingsFields } from "./form";
 
 const valid = {
   title: "Ada’s birthday",
@@ -16,10 +16,8 @@ const valid = {
   emailField: "optional",
   phoneField: "none",
   verifyEmail: true,
-  guestListVisibility: "afterReply",
   notifyOnRsvp: true,
   remindersEnabled: true,
-  commentsEnabled: true,
   notifyOnComment: true,
   albumVisibility: "going",
   albumApprovalRequired: true,
@@ -27,7 +25,10 @@ const valid = {
   albumVideosAllowed: true,
   albumMaxVideoMinutes: "",
   albumMaxVideoMb: "",
-  albumCopyQuality: "1080p",
+  albumCopySizes: ["1080p", "720p"],
+  albumKeepTakenAt: true,
+  albumKeepCamera: false,
+  albumOrder: "taken",
   inviteOnly: true,
 };
 
@@ -52,10 +53,8 @@ describe("parseEventForm", () => {
         emailField: "optional",
         phoneField: "none",
         verifyEmail: true,
-        guestListVisibility: "afterReply",
         notifyOnRsvp: true,
         remindersEnabled: true,
-        commentsEnabled: true,
         notifyOnComment: true,
         albumVisibility: "going",
         albumApprovalRequired: true,
@@ -63,7 +62,10 @@ describe("parseEventForm", () => {
         albumVideosAllowed: true,
         albumMaxVideoMinutes: null,
         albumMaxVideoMb: null,
-        albumCopyQuality: "1080p",
+        albumCopySizes: ["1080p", "720p"],
+        albumKeepTakenAt: true,
+        albumKeepCamera: false,
+        albumOrder: "taken",
         inviteOnly: true,
       },
     });
@@ -97,13 +99,6 @@ describe("parseEventForm", () => {
     expect(parseEventForm({ ...valid, timeZone: "Mars/Olympus" })).toEqual({ ok: false, error: "timeZoneInvalid" });
   });
 
-  it("only takes a guest list visibility it knows", () => {
-    expect(parseEventForm({ ...valid, guestListVisibility: "sometimes" })).toEqual({
-      ok: false,
-      error: "guestListVisibilityInvalid",
-    });
-  });
-
   it("only takes an album visibility it knows", () => {
     for (const albumVisibility of ["replied", "going", "hosts"]) {
       const parsed = parseEventForm({ ...valid, albumVisibility });
@@ -114,21 +109,46 @@ describe("parseEventForm", () => {
 
   // M7 ticket 05: the video settings. Blank caps mean the site's; a cap above the site's is kept
   // as typed, since the effective cap is decided when a clip is checked (album/video.ts).
-  it("reads the video caps as whole numbers, blank for none, and the lighter copy's quality", () => {
-    const parsed = parseEventForm({ ...valid, albumVideosAllowed: false, albumMaxVideoMinutes: "2", albumMaxVideoMb: "9000", albumCopyQuality: "720p" });
-    expect(parsed.ok && parsed.input).toMatchObject({ albumVideosAllowed: false, albumMaxVideoMinutes: 2, albumMaxVideoMb: 9000, albumCopyQuality: "720p" });
+  it("reads the video caps as whole numbers, blank for none, and the video sizes", () => {
+    const parsed = parseEventForm({ ...valid, albumVideosAllowed: false, albumMaxVideoMinutes: "2", albumMaxVideoMb: "9000", albumCopySizes: ["720p"] });
+    expect(parsed.ok && parsed.input).toMatchObject({ albumVideosAllowed: false, albumMaxVideoMinutes: 2, albumMaxVideoMb: 9000, albumCopySizes: ["720p"] });
     const blank = parseEventForm({ ...valid, albumMaxVideoMinutes: " ", albumMaxVideoMb: "" });
     expect(blank.ok && blank.input).toMatchObject({ albumMaxVideoMinutes: null, albumMaxVideoMb: null });
   });
 
-  it("refuses a video cap outside its range or not a whole number, and an unknown quality, naming each", () => {
+  // M8 ticket 02: the sizes a host ticks, largest first, each once; none is allowed.
+  it("reads the ticked video sizes largest first, each once, and none as none", () => {
+    const sizes = (albumCopySizes: string[]) => {
+      const parsed = parseEventForm({ ...valid, albumCopySizes });
+      return parsed.ok && parsed.input.albumCopySizes;
+    };
+    expect(sizes(["720p", "1080p"])).toEqual(["1080p", "720p"]);
+    expect(sizes(["720p"])).toEqual(["720p"]);
+    expect(sizes([])).toEqual([]);
+    expect(sizes(["720p", "720p"])).toEqual(["720p"]);
+  });
+
+  // M8 ticket 07: the details a host keeps, and the album's order.
+  it("passes the two switches for details through, and reads the album's order", () => {
+    const parsed = parseEventForm({ ...valid, albumKeepTakenAt: false, albumKeepCamera: true, albumOrder: "added" });
+    expect(parsed.ok && parsed.input).toMatchObject({ albumKeepTakenAt: false, albumKeepCamera: true, albumOrder: "added" });
+    const taken = parseEventForm({ ...valid, albumOrder: "taken" });
+    expect(taken.ok && taken.input.albumOrder).toBe("taken");
+    for (const albumOrder of ["", "newest", "Taken"]) {
+      expect(parseEventForm({ ...valid, albumOrder })).toEqual({ ok: false, error: "albumOrderInvalid" });
+    }
+  });
+
+  it("refuses a video cap outside its range or not a whole number, and an unknown size, naming each", () => {
     for (const minutes of ["0", "181", "1.5", "two"]) {
       expect(parseEventForm({ ...valid, albumMaxVideoMinutes: minutes })).toEqual({ ok: false, error: "albumMaxVideoMinutesInvalid" });
     }
     for (const mb of ["0", "10001", "-5"]) {
       expect(parseEventForm({ ...valid, albumMaxVideoMb: mb })).toEqual({ ok: false, error: "albumMaxVideoMbInvalid" });
     }
-    expect(parseEventForm({ ...valid, albumCopyQuality: "4k" })).toEqual({ ok: false, error: "albumQualityInvalid" });
+    // 4K is the operator's to make (ticket 04), never a host's to tick.
+    expect(parseEventForm({ ...valid, albumCopySizes: ["4k"] })).toEqual({ ok: false, error: "albumSizesInvalid" });
+    expect(parseEventForm({ ...valid, albumCopySizes: ["2160p"] })).toEqual({ ok: false, error: "albumSizesInvalid" });
   });
 
   it("asks for an email and a phone number only in the three ways it knows", () => {
@@ -171,5 +191,120 @@ describe("parseEventForm with times that do not exist", () => {
       ok: false,
       error: "startInvalid",
     });
+  });
+});
+
+// M8 ticket 01: a group the operator's switches leave out of the Settings sheet is posted empty,
+// and saving keeps what the event had for it.
+describe("keptSettings", () => {
+  // What the sheet posts with the album's group left out: its boxes unticked, its fields empty.
+  const posted: SettingsFields = {
+    plusOnesAllowed: "1",
+    requirePlusOneNames: false,
+    capacity: "40",
+    approvalRequired: true,
+    emailField: "optional",
+    phoneField: "none",
+    verifyEmail: true,
+    notifyOnRsvp: true,
+    remindersEnabled: true,
+    notifyOnComment: true,
+    inviteOnly: true,
+    albumVisibility: "",
+    albumApprovalRequired: false,
+    notifyOnPhoto: false,
+    albumVideosAllowed: false,
+    albumMaxVideoMinutes: "",
+    albumMaxVideoMb: "",
+    albumCopySizes: [],
+    albumKeepTakenAt: false,
+    albumKeepCamera: false,
+    albumOrder: "",
+  };
+  const stored = {
+    albumVisibility: "hosts" as const,
+    albumApprovalRequired: true,
+    notifyOnPhoto: true,
+    albumVideosAllowed: true,
+    albumMaxVideoMinutes: 5,
+    albumMaxVideoMb: null,
+    albumCopySizes: ["720p" as const],
+    albumKeepTakenAt: true,
+    albumKeepCamera: true,
+    albumOrder: "taken" as const,
+  };
+
+  // A sheet drawn while the site had both groups on. The cases with a switch off post it so, as a
+  // sheet opened before the operator switched it off would, so that the site's switch as the save
+  // arrives is what keeps the fields (the last review, minor 4).
+  const BOTH = { album: true, videos: true };
+
+  it("keeps every album field as stored while the album is off, numbers as their digits and none as empty", () => {
+    expect(keptSettings(posted, stored, { album: false, videos: true }, BOTH)).toEqual({
+      ...posted,
+      albumVisibility: "hosts",
+      albumApprovalRequired: true,
+      notifyOnPhoto: true,
+      albumVideosAllowed: true,
+      albumMaxVideoMinutes: "5",
+      albumMaxVideoMb: "",
+      albumCopySizes: ["720p"],
+      albumKeepTakenAt: true,
+      albumKeepCamera: true,
+      albumOrder: "taken",
+    });
+  });
+
+  it("keeps the video fields as stored while videos are off, and takes the rest of the album's as posted", () => {
+    const shown = { ...posted, albumVisibility: "going", albumApprovalRequired: false, notifyOnPhoto: true };
+    expect(keptSettings(shown, stored, { album: true, videos: false }, BOTH)).toEqual({
+      ...shown,
+      albumVideosAllowed: true,
+      albumMaxVideoMinutes: "5",
+      albumMaxVideoMb: "",
+      albumCopySizes: ["720p"],
+    });
+  });
+
+  it("takes everything as posted while both are on", () => {
+    expect(keptSettings(posted, stored, BOTH, BOTH)).toEqual(posted);
+  });
+
+  // The whole-branch review, finding 3: a sheet drawn while the operator had a group off, used after
+  // it is back on, posts none of its fields; they keep what the event has, whatever the switches say.
+  it("keeps the video fields as stored when the sheet did not draw them, though videos are on for the site", () => {
+    const shown = { ...posted, albumVisibility: "going", albumApprovalRequired: false, notifyOnPhoto: true };
+    expect(keptSettings(shown, stored, BOTH, { album: true, videos: false })).toEqual({
+      ...shown,
+      albumVideosAllowed: true,
+      albumMaxVideoMinutes: "5",
+      albumMaxVideoMb: "",
+      albumCopySizes: ["720p"],
+    });
+  });
+
+  it("keeps every album field as stored when the sheet did not draw the album, though it is on for the site", () => {
+    expect(keptSettings(posted, stored, BOTH, { album: false, videos: false })).toEqual({
+      ...posted,
+      albumVisibility: "hosts",
+      albumApprovalRequired: true,
+      notifyOnPhoto: true,
+      albumVideosAllowed: true,
+      albumMaxVideoMinutes: "5",
+      albumMaxVideoMb: "",
+      albumCopySizes: ["720p"],
+      albumKeepTakenAt: true,
+      albumKeepCamera: true,
+      albumOrder: "taken",
+    });
+  });
+});
+
+describe("parseDrawnGroups", () => {
+  it("reads the groups the sheet names, and none from a post that names none", () => {
+    expect(parseDrawnGroups("album videos")).toEqual({ album: true, videos: true });
+    expect(parseDrawnGroups("album")).toEqual({ album: true, videos: false });
+    expect(parseDrawnGroups("")).toEqual({ album: false, videos: false });
+    expect(parseDrawnGroups("albums video")).toEqual({ album: false, videos: false });
   });
 });

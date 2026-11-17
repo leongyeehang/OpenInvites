@@ -1,183 +1,52 @@
-import { ChevronDown, Clock, Images, ListOrdered, Lock, MailOpen, MapPin, Megaphone, MessageCircle, Users } from "lucide-react";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { Fragment, type ReactNode } from "react";
-import type { CommentsShown } from "@/comments/visibility";
 import type { EventWithHost } from "@/events/repository";
-import { formatMoment, formatWhen, type Dated } from "@/events/time";
-import type { Letter } from "@/invites/invite";
+import { formatWhen, type Dated } from "@/events/time";
 import { cn } from "@/lib/utils";
-import { RichTextView } from "@/rich-text/rich-text-view";
-import type { Approval } from "@/rsvps/admission";
-import type { RsvpCounts } from "@/rsvps/counts";
-import type { PublicGuest } from "@/rsvps/repository";
+import type { ReadySection } from "@/sections";
 import { Glass } from "./glass";
 import { initialsOf } from "./poster-parts";
-import { ALBUM_HEADING } from "./sections/album-section";
-import { COMMENTS_HEADING, CommentsSection } from "./sections/comments-section";
-import type { ShownAnnouncement } from "./sections/announcements-section";
-import { LetterSection } from "./sections/letter-section";
+import { SectionSummary } from "./sections/section-summary";
 import { arriving, BubbleLabel, HOST_BUBBLE, HostBubble } from "./thread-bubble";
 import { ThreadCard } from "./thread-card";
 
-// The guest list as the event page may show it to this viewer (rsvps/visibility.ts): the names,
-// or, under "after you reply", only a promise of them. Hidden, there is none, nor any count.
-// `approval` is whether the host has approved the viewer's own reply, which says why it is locked.
-export type ThreadGuests = { view: "open" | "locked"; guests: PublicGuest[]; counts: RsvpCounts; you?: string; approval?: Approval };
-
-// The id of the schedule bubble's heading, which names the bubble.
-const SCHEDULE_HEADING = "schedule-heading";
-
 // The Thread layout (spec, "Thread", from the prototype's layout-thread.tsx): the invitation as a
 // chat with the host, in one column at most 28rem wide at every width. A header names the hosts.
-// Then the host's bubbles, in order: the invitation as a card, the host's letter to the guest, the
-// description, when, where, the schedule, who's coming, each announcement, the comments; then
-// `rsvp`, the conversation the guest has with the host (the RSVP flow as Thread presents it) and the
-// composer they answer in, which stays at the foot of the screen. It renders inside a ThemedPage,
-// which carries the theme and paints the backdrop; the layout paints none of its own, so the
-// effects show between the bubbles.
+// Then the host's bubbles: the invitation as a card, then the page's sections in the host's order
+// (M8 ticket 27; src/sections), each drawn as the Thread draws it; never arranged, the letter, the
+// details (the description, when and where), the schedule, who's coming, each announcement and
+// the comments, folded away, as before. Then `rsvp`, the conversation the guest has with the host
+// (the RSVP flow as Thread presents it) and the composer they answer in, which stays at the foot
+// of the screen. It renders inside a ThemedPage, which carries the theme and paints the backdrop;
+// the layout paints none of its own, so the effects show between the bubbles.
 //
 // Every word sits on a surface legibility.ts solves: the header and the composer are glass, the
 // host's bubbles strong glass (thread-bubble.tsx), the line that says when the invitation was sent
-// the veil. The comments bubble is glass, as the Poster's comments tile is, because the comment
-// box in it is strong glass, which is solved on glass.
+// the veil. A wide section (the schedule, the comments, the album) is the lighter glass, as the
+// Poster's panels are, because what is in it in strong glass (the comment box, the item that is
+// now) is solved on glass.
 export async function ThreadLayout({
   event,
   hosts,
-  announcements,
-  comments,
-  commentForm,
-  album,
-  schedule,
-  letter,
   notice,
   rsvp,
-  guests,
-  underWhen,
-  underWhere,
+  replies,
+  sections,
 }: {
   // Dated: an undated draft is shown its host in the Poster layout (app/e/[slug]/page.tsx).
   event: Dated<EventWithHost>;
   // Every host's display name, owner first, then co-hosts in the order they were added.
   hosts: string[];
-  // The host's announcements, newest first, which every viewer reads.
-  announcements: ShownAnnouncement[];
-  // The comments as this viewer may see them, absent when the host has turned them off; and the
-  // form that posts one, shown where they may.
-  comments?: CommentsShown;
-  commentForm?: ReactNode;
-  // The photo album (M4 ticket 11), as this viewer may see it: a glass bubble of its own.
-  album?: ReactNode;
-  // The host's schedule (M6 ticket 02), following the guest's clock: a bubble of its own, as wide
-  // as the album's.
-  schedule?: ReactNode;
-  // The host's letter to the guest the page is open for (M6 ticket 09), right after the card.
-  letter?: Letter;
   notice?: ReactNode;
   // The conversation and the composer: the RSVP flow as the Thread presents it.
   rsvp?: ReactNode;
-  // The guest list and its counts as this viewer may see them, absent when the host hides it.
-  guests?: ThreadGuests;
-  // What the guest's own device adds: their clock and the countdown on it, their maps app.
-  underWhen?: ReactNode;
-  underWhere?: ReactNode;
+  // How many have replied, a number the guest list's visibility gives away only with the list.
+  replies?: number;
+  // The page's sections, placed and made ready (themes/sections/drawings.ts).
+  sections: ReadySection[];
 }) {
   const [t, locale, format] = await Promise.all([getTranslations("EventPage"), getLocale(), getFormatter()]);
   const sent = format.dateTime(event.publishedAt ?? event.createdAt, { timeZone: event.timeZone, day: "numeric", month: "short" });
-  // How many have replied is a number the guest list's visibility gives away only with the list.
-  const replies = guests?.view === "open" ? guests.counts.going + guests.counts.maybe + guests.counts.cant : undefined;
-
-  // The host's bubbles in order, each given the classes that bring it in.
-  const bubbles: ((className: string) => ReactNode)[] = [
-    (className) => <ThreadCard title={event.title} invited={t("thread.invited")} when={formatWhen(event, locale)} className={className} />,
-  ];
-  if (letter) {
-    bubbles.push((className) => (
-      <HostBubble data-slot="letter" className={className}>
-        <BubbleLabel icon={MailOpen}>{t("letter.for", { name: letter.name })}</BubbleLabel>
-        <LetterSection body={letter.body} />
-      </HostBubble>
-    ));
-  }
-  if (event.descriptionRich.blocks.length > 0) {
-    bubbles.push((className) => (
-      <HostBubble data-slot="description" className={className}>
-        <RichTextView doc={event.descriptionRich} />
-      </HostBubble>
-    ));
-  }
-  bubbles.push((className) => (
-    <HostBubble className={className}>
-      <BubbleLabel icon={Clock}>{t("when")}</BubbleLabel>
-      <p className="font-medium">{formatWhen(event, locale)}</p>
-      {underWhen}
-    </HostBubble>
-  ));
-  if (event.location) {
-    bubbles.push((className) => (
-      <HostBubble className={className}>
-        <BubbleLabel icon={MapPin}>{t("where")}</BubbleLabel>
-        <p className="font-medium">{event.location}</p>
-        {underWhere}
-      </HostBubble>
-    ));
-  }
-  if (schedule) {
-    bubbles.push((className) => (
-      // Lighter glass than a host bubble's, as the album's, so the item that is now, in strong
-      // glass and the accent's ring, stands out from the rest.
-      <section data-slot="schedule" aria-labelledby={SCHEDULE_HEADING} className={cn(HOST_BUBBLE, "w-[85%] bg-theme-glass", className)}>
-        <BubbleLabel icon={ListOrdered} id={SCHEDULE_HEADING}>
-          {t("schedule.title")}
-        </BubbleLabel>
-        {schedule}
-      </section>
-    ));
-  }
-  if (guests) bubbles.push((className) => <WhoIsComing {...guests} className={className} />);
-  // In the order they were sent, as a conversation reads.
-  for (const each of [...announcements].reverse()) {
-    bubbles.push((className) => (
-      <HostBubble data-slot="announcement" className={className}>
-        <p className="flex items-center gap-1.5 text-xs text-theme-text-faint">
-          <Megaphone className="size-3.5" aria-hidden />
-          {t("announcements")} · <time dateTime={each.createdAt.toISOString()}>{formatMoment(each.createdAt, event.timeZone, locale)}</time>
-        </p>
-        <p className="mt-1 whitespace-pre-wrap">{each.body}</p>
-      </HostBubble>
-    ));
-  }
-  if (comments) {
-    const section = <CommentsSection comments={comments} form={commentForm} slug={event.slug} timeZone={event.timeZone} />;
-    bubbles.push((className) =>
-      // Only how many there are, to a guest who has not replied: nothing to open.
-      comments.view === "locked" ? (
-        <div data-slot="comments" className={cn(HOST_BUBBLE, "bg-theme-glass", className)}>
-          {section}
-        </div>
-      ) : (
-        <details data-slot="comments" className={cn(HOST_BUBBLE, "group w-[85%] bg-theme-glass", className)}>
-          <summary id={COMMENTS_HEADING} className="-mx-1 flex cursor-pointer list-none items-center gap-2 rounded-lg px-1 font-medium [&::-webkit-details-marker]:hidden">
-            <MessageCircle className="size-4 shrink-0" aria-hidden />
-            <span className="flex-1">{t("comments.count", { count: comments.comments.length })}</span>
-            <ChevronDown className="size-4 shrink-0 group-open:rotate-180" aria-hidden />
-          </summary>
-          <div className="mt-4">{section}</div>
-        </details>
-      ),
-    );
-  }
-
-  if (album) {
-    bubbles.push((className) => (
-      <section data-slot="album" aria-labelledby={ALBUM_HEADING} className={cn(HOST_BUBBLE, "w-[85%] bg-theme-glass", className)}>
-        <h2 id={ALBUM_HEADING} tabIndex={-1} className="mb-3 flex items-center gap-2 font-medium outline-none">
-          <Images className="size-4 shrink-0" aria-hidden />
-          {t("album.title")}
-        </h2>
-        {album}
-      </section>
-    ));
-  }
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4">
@@ -199,9 +68,12 @@ export async function ThreadLayout({
         {t("thread.sent", { date: sent })}
       </p>
 
+      {/* Each bubble a child of the column, so a section's bubbles sit in a row. The card arrives
+          first, then each section by its place among those drawn, its bubbles together. */}
       <div className="flex flex-col gap-2">
-        {bubbles.map((bubble, index) => (
-          <Fragment key={index}>{bubble(arriving(index))}</Fragment>
+        <ThreadCard title={event.title} invited={t("thread.invited")} when={formatWhen(event, locale)} className={arriving(0)} />
+        {sections.map((section, place) => (
+          <Fragment key={section.placed.key}>{threadSection(section, arriving(place + 1))}</Fragment>
         ))}
       </div>
       {rsvp}
@@ -209,57 +81,41 @@ export async function ThreadLayout({
   );
 }
 
-// Who's coming, as a host's bubble: everyone who has replied, with what they said, the viewer's
-// own line marked; or, before the guest has replied under "after you reply", a blurred pile and
-// the promise of the names, of which nothing reaches the browser.
-async function WhoIsComing({ view, guests, counts, you, approval, className }: ThreadGuests & { className: string }) {
-  const t = await getTranslations("EventPage");
+// One section as the Thread draws it. Collapsed, it is a native disclosure in the wide bubble,
+// its summary the heading and how much it holds; a section that frames itself draws its own
+// bubbles; a wide one is the lighter bubble, a region named by its heading; the rest a host's
+// bubble under a small heading.
+function threadSection(section: ReadySection, className: string): ReactNode {
+  const { placed } = section;
+  const wide = cn(HOST_BUBBLE, "w-[85%] bg-theme-glass", className);
+  if (placed.collapsed) {
+    return (
+      <details data-slot={placed.kind} data-section={placed.key} className={cn(wide, "group")}>
+        <SectionSummary section={section} />
+        <div className="mt-4">{section.body}</div>
+      </details>
+    );
+  }
+  if (section.whole) return section.whole(className);
+  // A wide section is a region, named by its heading, which needs an id to be named by.
+  const headingId = section.headingId ?? (section.wide ? `${placed.key}-heading` : undefined);
+  const label = section.heading !== null && (
+    <BubbleLabel icon={section.icon} id={headingId}>
+      {section.heading}
+    </BubbleLabel>
+  );
+  if (section.wide) {
+    return (
+      <section data-slot={placed.kind} data-section={placed.key} aria-labelledby={section.heading !== null ? headingId : undefined} className={wide}>
+        {label}
+        {section.body}
+      </section>
+    );
+  }
   return (
-    <HostBubble data-slot="guests" className={className}>
-      <BubbleLabel icon={Users}>{t("thread.guests")}</BubbleLabel>
-      {view === "locked" ? (
-        <div className="flex items-center gap-3">
-          <div aria-hidden className="flex -space-x-1.5 blur-[3px]">
-            {[0, 1, 2, 3].map((index) => (
-              <span key={index} className="size-6 rounded-full bg-current/25 ring-2 ring-theme-glass-border" />
-            ))}
-          </div>
-          <p className="inline-flex items-center gap-1 text-sm text-theme-text-faint">
-            <Lock className="size-3.5" aria-hidden />{" "}
-            {approval === "pending" ? t("lockedPending") : approval === "declined" ? t("lockedDeclined") : t("thread.locked")}
-          </p>
-        </div>
-      ) : guests.length === 0 ? (
-        <p>{t("nobodyYet")}</p>
-      ) : (
-        <>
-          <p className="font-medium">
-            {t("headcount", { count: counts.headcount })}
-            {counts.maybe > 0 && <span className="font-normal text-theme-text-faint"> · {t("alsoMaybe", { count: counts.maybe })}</span>}
-          </p>
-          <ul className="mt-2 flex flex-col gap-1.5">
-            {guests.map((guest) => (
-              <li key={guest.id} className="flex items-center gap-2">
-                <span
-                  aria-hidden
-                  className={cn(
-                    "grid size-7 shrink-0 place-items-center rounded-full text-[11px] font-medium",
-                    guest.id === you ? "bg-theme-accent text-theme-on-accent" : "ring-1 ring-current/30",
-                  )}
-                >
-                  {initialsOf(guest.name)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  {guest.name}
-                  {guest.id === you && <span className="text-theme-text-faint"> {t("thread.you")}</span>}
-                  {guest.plusOnes > 0 && <span className="text-theme-text-faint"> +{guest.plusOnes}</span>}
-                </span>
-                <span className="shrink-0 text-sm text-theme-text-faint">{t(`status.${guest.status}`)}</span>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+    <HostBubble data-slot={placed.kind} data-section={placed.key} className={className}>
+      {label}
+      {section.body}
     </HostBubble>
   );
 }

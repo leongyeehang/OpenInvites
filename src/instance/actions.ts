@@ -3,11 +3,16 @@
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { after } from "next/server";
+import { ffmpegStatus } from "@/album/ffmpeg";
 import { notifyHostsOfClearedAlbum } from "@/album/notify-hosts";
+import { kickVideoQueue } from "@/album/queue";
 import { emptyAlbum } from "@/album/repository";
+import { queueMissingSizes } from "@/album/sizes";
 import { requireOperator } from "@/auth/session";
 import { findEventById } from "@/events/repository";
 import { eventPaths } from "@/events/slug";
+import { FEATURES, setFeature } from "@/features";
 import type { FormState } from "@/lib/form-state";
 import { isUuid } from "@/lib/uuid";
 import { isMailConfigured } from "@/mail/config";
@@ -18,7 +23,7 @@ import { generateHostInvitationToken, hashHostInvitationToken, hostInvitationLin
 import { parseHomePage, type HomePageField } from "./home";
 import { parseLimits } from "./limits";
 import { isRegistrationMode } from "./registration";
-import { createHostInvitation, markOperatorWelcomed, revokeHostInvitation, setHomePage, setInstanceLimits, setRegistrationMode, setVideoProcessing } from "./repository";
+import { createHostInvitation, markOperatorWelcomed, revokeHostInvitation, setHomePage, setInstanceLimits, setRegistrationMode, setVideoFourKCopy, setVideoProcessing, videoProcessing } from "./repository";
 
 // Every action here is the operator's alone; anyone else is told the page does not exist.
 
@@ -96,13 +101,39 @@ export async function setInstanceLimitsAction(_: FormState, formData: FormData):
   return { success: t("saved") };
 }
 
-// The Storage card's switch (M7 ticket 03), read when a video is processed, so a change counts for
-// the next clip.
+// The Storage card's switches (M7 ticket 03; the 4K copy, M8 ticket 04), read when a video is
+// processed, so a change counts for the next clip; Make missing sizes brings older videos up to it.
 export async function setVideoProcessingAction(_: FormState, formData: FormData): Promise<FormState> {
   await requireOperator();
   const t = await getTranslations("Instance.storage");
   await setVideoProcessing(formData.get("videoProcessing") === "on");
+  await setVideoFourKCopy(formData.get("videoFourKCopy") === "on");
   revalidatePath("/instance");
+  return { success: t("saved") };
+}
+
+// Make missing sizes (M8 ticket 04): how many videos were queued for the sizes they lack. Nothing
+// is queued while processing is off or this server has no usable ffmpeg, as the button is then
+// not offered.
+type MissingSizesState = { queued: number } | undefined;
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- the form's action, which takes the state and the form, carries nothing to read
+export async function queueMissingSizesAction(_: MissingSizesState, _formData: FormData): Promise<MissingSizesState> {
+  await requireOperator();
+  if (!(await videoProcessing()) || !ffmpegStatus().available) return { queued: 0 };
+  const queued = await queueMissingSizes();
+  after(() => void kickVideoQueue());
+  revalidatePath("/instance");
+  return { queued };
+}
+
+// The Features card (M8 ticket 01): each feature's switch, read wherever the feature shows or acts,
+// so every page the site draws may change: all of them are refreshed.
+export async function setFeaturesAction(_: FormState, formData: FormData): Promise<FormState> {
+  await requireOperator();
+  const t = await getTranslations("Instance.features");
+  for (const id of FEATURES) await setFeature(id, formData.get(id) === "on");
+  revalidatePath("/", "layout");
   return { success: t("saved") };
 }
 

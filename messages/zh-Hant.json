@@ -256,6 +256,15 @@
       "keep": "保留",
       "removed": "已移除通行密鑰。"
     },
+    "backdrop": {
+      "title": "頁面底圖",
+      "description": "「我的活動」、本頁和「新增活動」背後的圖片。每個活動自己的頁面使用該活動的海報。",
+      "automatic": "自動",
+      "automaticHint": "你下一個活動的海報；沒有即將舉行的活動時，用你另一個活動的海報，或本站的一張海報。",
+      "submit": "儲存",
+      "saved": "頁面底圖已儲存。",
+      "unknown": "請選擇「自動」或圖庫中的一張海報。"
+    },
     "delete": {
       "title": "刪除帳號",
       "description": "將刪除你的帳號、你的活動，以及每位賓客的資料。這個動作無法復原。",
@@ -350,6 +359,20 @@
       "retentionDaysInvalid": "請為活動保留天數填寫 30 到 3,650 之間的整數，或勾選「永久保留」。",
       "albumReminderDefaultDaysInvalid": "請填寫 1 到 3,650 之間的整數天數，或勾選「從不」。"
     },
+    "features": {
+      "title": "功能",
+      "description": "為所有活動開啟或關閉本站的部分功能。關閉不會刪除任何內容：重新開啟後，原有的內容都會回來。",
+      "album": "相簿",
+      "albumHint": "賓客和主辦人可以在活動頁面上新增照片。關閉後：所有活動都不顯示相簿，也不接受照片；已有的照片保留，並繼續計入儲存空間。",
+      "videos": "影片",
+      "videosHint": "相簿除了照片也接受影片。關閉後：不再接受新影片；已新增的影片仍可播放。",
+      "voting": "投票",
+      "votingHint": "主辦人可以就相簿中的照片和影片發起投票。關閉後：所有活動都不顯示投票；已投的票會保留。",
+      "needsAlbum": "需要開啟相簿。",
+      "videosNoFfmpeg": "本伺服器沒有可用的 ffmpeg，因此無論這裡如何設定，影片功能都保持關閉。",
+      "submit": "儲存",
+      "saved": "已儲存。"
+    },
     "storage": {
       "title": "儲存空間",
       "description": "本站的上傳內容佔用的空間，按上傳時的大小計算：相簿中的照片和影片，以及主辦人的圖片。上限在「上限」卡片中設定。",
@@ -365,12 +388,21 @@
       "none": "還沒有相簿存有內容。",
       "use": "{size}，{count, plural, other {# 項}}",
       "processVideos": "為播放處理影片",
-      "processVideosHint": "開啟後，需要的影片都會產生一個較小的副本，以便在網速慢的情況下和各種瀏覽器中播放。關閉後，影片按原樣保存，能否播放取決於瀏覽器。",
+      "processVideosHint": "開啟後，每部影片會在需要時產生其活動要求的尺寸，以便在網速慢的情況下和各種瀏覽器中播放。關閉後，影片按原樣保存，能否播放取決於瀏覽器。",
+      "fourK": "另外產生一份到處都能播放的 4K 副本",
+      "fourKHint": "適用於非 H.264 編碼的 4K 影片（例如 iPhone 拍攝的影片），有些瀏覽器無法播放這類影片。每部影片會多出一個檔案，每分鐘影片最多約 115 MB，且不計入儲存上限；在小型伺服器上，產生它可能需要影片長度的許多倍。不開啟時，這些瀏覽器播放活動保留的最大副本。",
+      "missingSizes": "{count, plural, =0 {每部影片都有其活動要求的尺寸。} other {# 部影片缺少其活動要求的尺寸。}}",
+      "makeMissingSizes": "產生缺少的尺寸",
+      "makeMissingSizesHint": "它們會排在新上傳的內容之後逐一產生，期間影片仍留在各自的相簿中。活動不再要求的尺寸會保留。",
+      "queued": "{count, plural, =0 {沒有需要產生的。} other {已將 # 部影片加入佇列。}}",
+      "sizesBeingMade": "{count, plural, other {正在為 # 部影片產生尺寸。}}",
       "submit": "儲存",
       "saved": "已儲存。",
       "videosAvailable": "影片：可用（ffmpeg {version}）。",
       "videosOld": "影片功能需要 ffmpeg 6 或更高版本；本伺服器的版本是 {version}。",
       "videosMissing": "影片功能需要 ffmpeg，本伺服器尚未安裝。",
+      "hdrConverted": "HDR 影片：其副本會轉換為標準色彩，在任何螢幕上都顯得自然。",
+      "hdrFlat": "HDR 影片：本伺服器的 ffmpeg 缺少 zscale 與 tonemap 濾鏡，因此其副本會比原片顯得平淡。",
       "processedByApp": "影片由本站的應用程式自行處理。",
       "processedByWorker": "影片由工作容器處理，最近一次回報：{time}。",
       "processedByWorkerMissing": "影片由工作容器處理，但它尚未回報：請檢查它是否正在執行。",
@@ -607,11 +639,6 @@
         "optional": "選填",
         "required": "必填"
       },
-      "guestListVisibility": "誰可以看到賓客名單",
-      "guestListAlways": "所有開啟連結的人",
-      "guestListAfterReply": "已回覆的賓客",
-      "guestListHidden": "只有主辦人",
-      "guestListVisibilityHint": "主辦人永遠都能看到完整名單。",
       "album": {
         "title": "相簿",
         "visibility": "誰可以看到相簿",
@@ -623,21 +650,27 @@
         "approvalHint": "新照片會等候主辦人核准。關閉此項，所有等候中的照片都會顯示。",
         "notify": "有照片等候核准時寄電子郵件給主辦人",
         "videos": "允許影片",
-        "videosHint": "賓客可以像新增照片一樣新增影片。每段影片都以原始畫質保存，並移除手機記錄的位置和裝置資訊。",
+        "videosHint": "賓客可以像新增照片一樣新增影片。每段影片都保留原片尺寸，並移除手機記錄的位置和裝置資訊。",
         "maxVideoMinutes": "最長影片（分鐘）",
         "maxVideoMb": "最大影片（MB）",
         "videoCapsHint": "留空即採用本站的上限：最長 {minutes} 分鐘、最大 {mb} MB。高於本站上限的值按本站上限計。",
-        "quality": "輕量副本",
-        "quality1080": "1080p",
-        "quality720": "720p（更省空間）",
-        "qualityHint": "輕量副本便於在網速慢時播放；賓客仍可選擇原始畫質。",
-        "videosUnavailable": "影片功能需要本站安裝 ffmpeg，目前尚未安裝；請聯絡本站營運者。"
+        "sizes": "影片尺寸",
+        "size1080": "1080p",
+        "size720": "720p",
+        "sizesHint": "每段影片在需要時會產生這些尺寸，以便在網速慢時和任何瀏覽器中都能播放。影片不會產生比自身更大的尺寸。兩項都不勾選時，並非所有瀏覽器都能播放的影片仍會產生一份 720p 副本。",
+        "videosUnavailable": "影片功能需要本站安裝 ffmpeg，目前尚未安裝；請聯絡本站營運者。",
+        "keepTakenAt": "保留每張照片和每段影片的拍攝時間",
+        "keepTakenAtHint": "在新增時從手機或相機讀取，並顯示在其下方。",
+        "keepCamera": "保留相機及其設定",
+        "keepCameraHint": "相機、鏡頭和曝光參數，適合攝影愛好者的聚會。照片的拍攝地點從不保留。",
+        "order": "相簿排序",
+        "orderAdded": "按新增時間",
+        "orderTaken": "按拍攝時間",
+        "orderHint": "按拍攝時間排序需要保留拍攝時間；沒有拍攝時間的按新增時間排列。"
       },
       "notifyOnRsvp": "有賓客回覆時寄電子郵件給主辦人",
       "remindersEnabled": "寄電子郵件提醒賓客（提前一週提醒待定的賓客，提前一天提醒參加的賓客）",
       "askEmailHint": "只有你在回覆表單中請賓客留下電子郵件，賓客才會收到郵件。",
-      "commentsEnabled": "留言",
-      "commentsEnabledHint": "已回覆的賓客和主辦人可以在活動頁面上留言。",
       "notifyOnComment": "有賓客留言時寄電子郵件給主辦人",
       "questions": "問題",
       "questionsHint": "賓客回覆時作答，只有主辦人看得到答案。",
@@ -675,7 +708,6 @@
       "plusOnesAllowedInvalid": "請選擇 0 到 10 之間的同伴人數。",
       "capacityInvalid": "請為人數上限填寫 1 到 5,000 之間的整數，或留空表示不設上限。",
       "contactFieldInvalid": "請選擇如何詢問電子郵件和電話號碼。",
-      "guestListVisibilityInvalid": "請選擇誰可以看到賓客名單。",
       "albumVisibilityInvalid": "請選擇誰可以看到相簿。",
       "questionsInvalid": "無法讀取這些問題，請再試一次。",
       "questionTypeInvalid": "請為每個問題選擇類型。",
@@ -707,7 +739,8 @@
       "scheduleInvalid": "無法讀取日程，請再試一次。",
       "albumMaxVideoMinutesInvalid": "請為最長影片填寫 1 到 180 之間的整數分鐘數，或留空。",
       "albumMaxVideoMbInvalid": "請為最大影片填寫 1 到 10,000 之間的整數（MB），或留空。",
-      "albumQualityInvalid": "請為輕量副本選擇 1080p 或 720p。"
+      "albumSizesInvalid": "請從 1080p 和 720p 中選擇影片尺寸。",
+      "albumOrderInvalid": "請選擇相簿的排序方式。"
     },
     "manage": {
       "link": "活動連結",
@@ -966,6 +999,11 @@
       "empty": "還沒有照片，來新增第一張吧。",
       "add": "新增照片",
       "hint": "每次最多十張，每張不超過 {max, number} MB。",
+      "keeps": {
+        "takenAt": "主辦人會保留每張照片或每段影片的拍攝時間。",
+        "camera": "主辦人會保留拍攝每張照片或每段影片所用的相機及其設定。",
+        "both": "主辦人會保留每張照片或每段影片的拍攝時間，以及拍攝所用的相機及其設定。"
+      },
       "adding": "正在新增 {count, plural, other {# 張照片}}…",
       "added": "{name}：已新增",
       "addedPending": "{name}：已新增，等候核准",
@@ -993,7 +1031,8 @@
         "failed": "照片未能上傳，請再試一次。",
         "albumStorageFull": "相簿已滿：{limit}。",
         "siteFull": "本站空間已滿，請聯絡主辦人清理相簿。",
-        "diskFull": "本站磁碟空間即將用盡，請稍後再試。"
+        "diskFull": "本站磁碟空間即將用盡，請稍後再試。",
+        "captionTooLong": "說明請控制在 140 個字元以內。"
       },
       "open": "{name} 的第 {n} 張照片",
       "openPending": "{name} 的第 {n} 張照片，等候核准",
@@ -1015,6 +1054,8 @@
       "addVideos": "新增照片和影片",
       "openVideo": "{name} 的第 {n} 段影片",
       "openVideoPending": "{name} 的第 {n} 段影片，等候核准",
+      "openUnnamed": "第 {n} 張照片",
+      "openVideoUnnamed": "第 {n} 段影片",
       "viewerVideo": "第 {n} 段影片，共 {count} 項",
       "processing": "處理中",
       "failedTooLong": "無法處理：超過 {max}",
@@ -1023,11 +1064,30 @@
       "removeVideo": "移除 {name} 的影片",
       "uploading": "{name}：上傳中",
       "uploaded": "{name}：已上傳，處理中",
-      "quality": "畫質",
-      "original": "原始畫質",
-      "copy": "輕量副本",
-      "originalUnplayable": "原始畫質：此瀏覽器無法播放。",
-      "unplayable": "此瀏覽器無法播放這段影片，請下載後觀看。"
+      "sizes": "尺寸",
+      "sizeAuto": "自動 · {size}",
+      "sizeOriginal": "{size} · 原片",
+      "sizeOriginalHdr": "{size} · <hdr>HDR</hdr> · 原片",
+      "originalUnplayable": "原片：此瀏覽器無法播放。",
+      "unplayable": "此瀏覽器無法播放這段影片，請下載後觀看。",
+      "live": "原況",
+      "strip": "照片和影片，左右滑動查看",
+      "playLive": "播放原況照片",
+      "livePhotoNote": "在 iPhone 上，原況照片會以照片形式新增。若要保留其動態，請在「照片」中對它選擇「儲存為影片」，再新增該影片。",
+      "livePhotoNoteNoVideos": "在 iPhone 上，原況照片會以照片形式新增，不含其動態。",
+      "details": {
+        "fps": "{fps} 幀/秒",
+        "hdr": "HDR",
+        "taken": "拍攝於 {when}"
+      },
+      "withCaption": "{label}：{caption}",
+      "caption": "說明",
+      "captionFor": "{name} 的說明",
+      "addCaption": "新增說明",
+      "editCaption": "編輯說明",
+      "saveCaption": "儲存",
+      "cancelCaption": "取消",
+      "captionSaved": "{name}：說明已儲存"
     },
     "letter": {
       "for": "致 {name}"
@@ -1037,6 +1097,20 @@
       "now": "進行中",
       "ended": "已結束",
       "inZone": "時間均依 {zone} 時區顯示。"
+    },
+    "sections": {
+      "countdown": "倒數",
+      "note": "備註",
+      "links": "連結",
+      "count": {
+        "guests": "{count, plural, =0 {還沒有人} other {預計 # 人}}",
+        "comments": "{count, plural, =0 {還沒有} other {# 則留言}}",
+        "album": "{count, plural, =0 {還沒有} other {# 張照片和影片}}",
+        "announcements": "{count, plural, other {# 則訊息}}",
+        "schedule": "{count, plural, other {# 項}}",
+        "links": "{count, plural, other {# 個連結}}"
+      },
+      "newTab": "（在新分頁中開啟）"
     }
   },
   "Design": {
@@ -1146,7 +1220,8 @@
       "poster": "海報",
       "title": "標題",
       "theme": "主題",
-      "effect": "特效"
+      "effect": "特效",
+      "arrange": "排列"
     },
     "tabs": {
       "gallery": "圖庫",
@@ -1299,6 +1374,102 @@
       "pickConfirm": "選定",
       "pickKeep": "再等等",
       "editCandidates": "修改日期"
+    },
+    "arrange": {
+      "intro": "為頁面上的各個區塊排好順序，關掉賓客用不著的區塊。",
+      "list": "區塊",
+      "fixed": "海報、標題、主辦人和回覆按鈕的位置不變。",
+      "alwaysOn": "一律顯示",
+      "moveUp": "將{name}上移",
+      "moveDown": "將{name}下移",
+      "position": "{name}，第 {position} 個，共 {count} 個",
+      "openHint": "開啟「排列」面板。",
+      "open": "{name}的選項",
+      "audience": "誰能看到",
+      "audienceAlways": "所有持有連結的人",
+      "audienceAfterReply": "已回覆的賓客",
+      "audienceHint": "主辦人永遠都能看到完整名單。",
+      "letterHint": "你親自邀請的賓客，會讀到你在「專屬邀請」頁面上寫給他們的信。",
+      "albumHint": "關閉後，賓客看不到相簿，也無法新增內容。相簿裡的內容不會被刪除。",
+      "commentsHint": "關閉後，賓客看不到留言，也無法發表留言。",
+      "countdownHint": "開啟後，倒數不再顯示在「時間」下，而是單獨成為一個區塊。",
+      "heading": "區塊標題",
+      "headingHint": "留空則保留「{name}」。",
+      "collapsed": "摺疊",
+      "collapsedHint": "賓客會看到區塊標題，點一下即可展開。",
+      "style": "樣式",
+      "styles": {
+        "grid": "網格",
+        "mosaic": "拼貼",
+        "strip": "橫排",
+        "list": "清單",
+        "bubbles": "氣泡",
+        "names": "名字",
+        "avatars": "頭像"
+      },
+      "kinds": {
+        "letter": "專屬信件",
+        "details": "詳情",
+        "schedule": "日程",
+        "guests": "誰會來",
+        "announcements": "公告",
+        "comments": "留言",
+        "album": "相簿",
+        "countdown": "倒數",
+        "note": "備註",
+        "links": "連結"
+      },
+      "preview": {
+        "letter": "你親自邀請的每位賓客會在這裡讀到你寫給他們的信。",
+        "schedule": "你的日程，依每位賓客所在的時區顯示。",
+        "guestsAlways": "誰會來，所有持有連結的人都能看到。",
+        "guestsAfterReply": "誰會來，已回覆的賓客能看到。",
+        "announcements": "你在「公告」中發出的內容會顯示在這裡。",
+        "comments": "已回覆的賓客在這裡交流。",
+        "album": "活動的照片和影片，從活動開始時起。",
+        "countdown": "距活動開始的倒數，依每位賓客自己的時間顯示。",
+        "noteEmpty": "還沒有寫內容。點一下即可書寫。",
+        "linksEmpty": "還沒有連結。點一下即可新增。"
+      },
+      "errors": {
+        "unreadable": "無法讀取這項變更，請再試一次。",
+        "unknownSection": "這個區塊已不在頁面上。請重新載入以查看目前的頁面。",
+        "notOffered": "這個區塊不能這樣變更。",
+        "tooManySections": "一個頁面最多可有 10 個備註和連結區塊。",
+        "headingTooLong": "區塊標題請不超過 40 個字。",
+        "noteTooLong": "備註請不超過 2,000 個字。",
+        "tooManyLinks": "一個連結區塊最多可放 6 個連結。",
+        "labelTooLong": "連結名稱請不超過 40 個字。",
+        "urlTooLong": "這個網址太長了。",
+        "urlInvalid": "這不是網址。可以試試 example.com/registry。"
+      },
+      "add": "新增區塊",
+      "addNote": "備註",
+      "addLinks": "連結",
+      "addHint": "備註用你自己的話說明一件事。連結是通往禮物清單、歌單或地圖的按鈕。",
+      "full": "一個頁面最多可有 10 個備註和連結區塊。",
+      "suggestions": {
+        "dressCode": "服裝要求",
+        "gettingThere": "交通指引",
+        "gifts": "禮物",
+        "registry": "禮物清單",
+        "playlist": "歌單"
+      },
+      "edit": "編輯",
+      "remove": "刪除",
+      "removeTitle": "刪除「{name}」？",
+      "removeText": "賓客將不再看到它，其中的內容也會被刪除。",
+      "removeKeep": "保留",
+      "noteHint": "最多 {max, number} 個字。",
+      "links": {
+        "labelOf": "第 {n} 個連結的名稱",
+        "urlOf": "第 {n} 個連結的網址",
+        "add": "新增連結",
+        "moveUp": "將{label}上移",
+        "moveDown": "將{label}下移",
+        "remove": "刪除{label}",
+        "hint": "每個連結都在新分頁中開啟。最多 6 個。"
+      }
     }
   },
   "Guests": {
@@ -1714,5 +1885,144 @@
     },
     "contact": "有疑問嗎？請寄信至 <link>{email}</link>，聯絡本站營運者。",
     "contactUnknown": "本站營運者沒有提供聯絡地址。"
+  },
+  "Voting": {
+    "favourite": "最愛",
+    "block": {
+      "title": "相簿投票",
+      "intro": "賓客選出最喜歡的照片和影片。每人在每個獎項中各有一票。",
+      "start": "開始投票",
+      "notYet": "活動開始、相簿開放後，才能開始投票。",
+      "albumOff": "相簿已在「排列」中關閉。",
+      "open": "投票進行中",
+      "closed": "投票已結束",
+      "close": "結束投票",
+      "reopen": "重新開放投票",
+      "reopenTitle": "重新開放投票？",
+      "reopenText": "{count, plural, =0 {決勝投票會結束，目前還沒有人在其中投票。} other {決勝投票會結束，其中的 # 票會被刪除。}}決勝投票之前的票會保留。",
+      "reopenConfirm": "重新開放",
+      "reopenStale": "這個頁面開啟後，決勝投票已經開始。請再按一次「重新開放投票」，看看會刪除什麼。",
+      "turnOff": "停用投票",
+      "turnOffTitle": "停用投票？",
+      "turnOffText": "{count, plural, =0 {還沒有人投票。} other {已投的 # 票都會刪除。}}獎項和設定會保留。",
+      "turnOffConfirm": "停用",
+      "cancel": "算了",
+      "names": {
+        "title": "每項由誰新增",
+        "always": "一律顯示",
+        "afterVoting": "投票結束後顯示",
+        "never": "永不向賓客顯示",
+        "hint": "主辦人和新增者本人一律看得到是誰新增的。"
+      },
+      "who": {
+        "title": "誰可以投票",
+        "album": "看得到相簿的所有人",
+        "going": "僅限回覆參加的賓客",
+        "invited": "僅限有專屬邀請的賓客",
+        "hint": "主辦人一律可以投票。變更此項後，已投的票仍然計數。",
+        "invitedHint": "「告訴賓客投票已開始」依回覆狀態寄電子郵件，不依專屬邀請：請取消勾選不該收到的賓客。"
+      },
+      "closes": {
+        "label": "自動結束時間",
+        "hint": "賓客會看到這個時間。時間均依 {zone} 時區顯示。",
+        "none": "不設結束時間",
+        "openUntil": "投票進行中 · {time} 結束",
+        "past": "請選擇一個還沒過去的時間。",
+        "invalid": "這不是有效的日期和時間。"
+      },
+      "announce": "告訴賓客投票已開始",
+      "failed": "這項變更沒有成功。請重新載入頁面後再試。",
+      "counting": "正在統計票數…",
+      "countFailed": "票數沒能統計出來。請關閉後再試。",
+      "awards": {
+        "title": "獎項",
+        "hint": "每人在每個獎項中各有一票。",
+        "name": "「{award}」的名稱",
+        "scope": "「{award}」評選什麼",
+        "scopes": {
+          "all": "照片和影片",
+          "photos": "照片",
+          "videos": "影片"
+        },
+        "suggestions": {
+          "bestPhoto": "最佳照片",
+          "bestVideo": "最佳影片",
+          "funniest": "最爆笑",
+          "groupShot": "最佳合照"
+        },
+        "own": "自訂獎項",
+        "add": "新增",
+        "moveUp": "上移「{award}」",
+        "moveDown": "下移「{award}」",
+        "moved": "「{award}」現在是第 {place} 個，共 {count} 個。",
+        "remove": "移除「{award}」",
+        "removeTitle": "移除「{award}」？",
+        "removeText": "{count, plural, =0 {還沒有人在這個獎項中投票。} other {其中的 # 票會被刪除。}}",
+        "removeConfirm": "移除",
+        "full": "一個活動最多可以有八個獎項。",
+        "nameTooLong": "獎項名稱最多 40 個字。"
+      }
+    },
+    "album": {
+      "open": "投票進行中",
+      "closed": "投票已結束",
+      "closesAt": "{time} 結束",
+      "onlyGoing": "只有回覆參加的賓客可以投票。",
+      "onlyInvited": "只有收到專屬邀請的賓客可以投票。",
+      "hint": "投票結束前不顯示票數。",
+      "tapToVote": "點星星，為「{award}」投票。",
+      "yourVote": "你已為「{award}」投票。點另一顆星星可改投，點你投的那顆可收回。",
+      "voteFor": "投票給",
+      "voteThis": "{kind, select, video {投票給這段影片} other {投票給這張照片}}",
+      "votes": "{count, plural, other {# 票}}",
+      "place": "{place, selectordinal, other {第 # 名}}",
+      "placeLabel": "{place, selectordinal, other {第 # 名}}",
+      "hostsOnly": "僅主辦人可見",
+      "soFar": "「{award}」目前共 {count, plural, other {# 票}}",
+      "errors": {
+        "tooFast": "操作太頻繁了，請稍後再試。",
+        "closed": "投票已結束。",
+        "notAllowed": "你不能為這一項投票。",
+        "failed": "投票沒有成功，請再試一次。"
+      },
+      "picker": {
+        "label": "獎項",
+        "voted": "「{award}」，已投票",
+        "forPhotos": "這個獎項只評選照片。",
+        "forVideos": "這個獎項只評選影片。",
+        "whole": "整個相簿",
+        "rest": "要查看相簿裡的其他內容，請選擇「整個相簿」。"
+      },
+      "tiebreak": {
+        "banner": "決勝投票 · {award}",
+        "round": "第 {round} 輪",
+        "intro": "{count, plural, =0 {並列第一的各項都已刪除。} =1 {並列第一的只剩這一項了。} other {這 # 項並列第一。請從中再投一票。}}",
+        "hint": "決勝投票結束前不顯示票數。",
+        "shared": "{count, plural, other {「{award}」有 # 項並列第一。}}",
+        "stillLevel": "{count, plural, other {決勝投票後，「{award}」仍有 # 項並列第一。}}",
+        "start": "開始決勝投票",
+        "again": "再投一輪",
+        "keep": "保留並列第一",
+        "close": "結束決勝投票",
+        "inTiebreak": "{count, plural, other {決勝投票 # 票}}",
+        "countWith": "{votes}，{tiebreak}",
+        "gone": "決勝投票中的各項都已刪除。要再次投票，請重新開放投票。"
+      },
+      "winners": {
+        "title": "得獎作品 · {award}",
+        "none": "沒有人在「{award}」中投票。",
+        "send": "把得獎結果告訴賓客",
+        "alt": "{place}：{label}"
+      }
+    }
+  },
+  "VotingDrafts": {
+    "voting": "「{title}」的相簿投票開始了。每個獎項你都有一票：{awards}。{closes, select, yes {投票將於 {time} 結束。} other {}}\n\n打開相簿投票：\n{url}",
+    "winners": "「{title}」的投票結果出爐了。\n\n{lines}\n\n在相簿裡查看全部票數：\n{url}",
+    "line": "{award}：{winners}，{shared, select, yes {各 } other {}}{count, plural, other {# 票}}。",
+    "item": "{named, select, yes {{name} 的} other {}}{kind, select, video {一段影片} other {一張照片}}",
+    "noVotes": "{award}：沒有人投票。",
+    "more": "{count, plural, other {另外 # 個獎項}}",
+    "moreAwards": "{count, plural, other {另外還有 # 個獎項。}}"
   }
 }

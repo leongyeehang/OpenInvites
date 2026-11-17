@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eventEnd, formatDay, formatWhenBrief, formatWhen, isTimeZone, partitionByEnd, timeZones, toInstant, toWallTime } from "./time";
+import { eventEnd, formatDay, formatMoment, formatWhenBrief, formatWhen, isTimeZone, parseWallTime, partitionByEnd, timeZones, toInstant, toWallTime } from "./time";
 
 describe("toInstant", () => {
   it("reads a wall-clock time in the event's zone", () => {
@@ -19,6 +19,66 @@ describe("toInstant", () => {
     const instant = toInstant("2026-10-03T19:30", "America/New_York");
     expect(toWallTime(instant, "America/New_York")).toBe("2026-10-03T19:30");
     expect(toWallTime(instant, "America/New_York", { dateOnly: true })).toBe("2026-10-03");
+  });
+});
+
+// A date and time typed in the event's zone, as the event form and the album vote's closing time
+// read it (the voting part's review, test gap 2).
+describe("parseWallTime", () => {
+  it("reads a time in a zone west of UTC and one east of it", () => {
+    expect(parseWallTime("2026-11-20T18:00", "America/New_York")?.toISOString()).toBe("2026-11-20T23:00:00.000Z");
+    expect(parseWallTime("2026-07-20T18:00", "America/Los_Angeles")?.toISOString()).toBe("2026-07-21T01:00:00.000Z");
+    expect(parseWallTime("2026-11-20T18:00", "Asia/Tokyo")?.toISOString()).toBe("2026-11-20T09:00:00.000Z");
+  });
+
+  it("reads a zone with an odd offset", () => {
+    expect(parseWallTime("2026-11-20T18:00", "Asia/Kathmandu")?.toISOString()).toBe("2026-11-20T12:15:00.000Z");
+    expect(parseWallTime("2026-11-20T18:00", "Asia/Kolkata")?.toISOString()).toBe("2026-11-20T12:30:00.000Z");
+    expect(parseWallTime("2026-11-20T18:00", "Australia/Lord_Howe")?.toISOString()).toBe("2026-11-20T07:00:00.000Z");
+  });
+
+  it("refuses an hour the clocks skip", () => {
+    expect(parseWallTime("2027-03-14T02:30", "America/New_York")).toBeUndefined();
+    expect(parseWallTime("2027-03-28T01:30", "Europe/London")).toBeUndefined();
+    expect(parseWallTime("2027-03-14T03:30", "America/New_York")?.toISOString()).toBe("2027-03-14T07:30:00.000Z");
+  });
+
+  // Re-review follow-up: a wall time the clocks skip resolves forward, by the offset before the
+  // change, for callers that do not refuse it; parseWallTime refuses one with a time.
+  it("reads a skipped time forward, and accepts a day whose midnight is skipped as its first hour", () => {
+    expect(toInstant("2027-03-14T02:30", "America/New_York").toISOString()).toBe("2027-03-14T07:30:00.000Z");
+    const day = parseWallTime("2026-09-06", "America/Santiago", { dateOnly: true });
+    expect(day?.toISOString()).toBe("2026-09-06T04:00:00.000Z");
+    expect(toWallTime(day!, "America/Santiago")).toBe("2026-09-06T01:00");
+    expect(parseWallTime("2026-09-06T00:30", "America/Santiago")).toBeUndefined();
+  });
+
+  it("takes the first of an hour that comes twice", () => {
+    expect(parseWallTime("2027-11-07T01:30", "America/New_York")?.toISOString()).toBe("2027-11-07T05:30:00.000Z");
+    expect(parseWallTime("2027-10-31T01:30", "Europe/London")?.toISOString()).toBe("2027-10-31T00:30:00.000Z");
+    expect(parseWallTime("2027-04-04T02:30", "Pacific/Auckland")?.toISOString()).toBe("2027-04-03T13:30:00.000Z");
+  });
+
+  it("refuses what is not a date and time, and a date alone unless a date is asked for", () => {
+    for (const wall of ["", "soon", "2026-02-30T10:00", "2026-11-20T24:30", "2026-11-20T18:00:00", "2026-11-20 18:00"]) {
+      expect(parseWallTime(wall, "America/New_York")).toBeUndefined();
+    }
+    expect(parseWallTime("2026-11-20", "America/New_York")).toBeUndefined();
+    expect(parseWallTime("2026-11-20", "America/New_York", { dateOnly: true })?.toISOString()).toBe("2026-11-20T05:00:00.000Z");
+    expect(parseWallTime("2026-11-20T18:00", "America/New_York", { dateOnly: true })?.toISOString()).toBe("2026-11-20T05:00:00.000Z");
+  });
+});
+
+describe("formatMoment", () => {
+  const at = new Date("2026-11-20T23:00:00Z");
+
+  it("writes a moment in the event's zone", () => {
+    expect(formatMoment(at, "America/New_York", "en")).toBe("Nov 20, 6:00 PM");
+  });
+
+  it("names the zone when asked, for a guest who may be elsewhere (the voting part's review)", () => {
+    expect(formatMoment(at, "America/New_York", "en", { zone: true })).toBe("Nov 20, 6:00 PM EST");
+    expect(formatMoment(new Date("2026-07-20T23:00:00Z"), "America/New_York", "en", { zone: true })).toBe("Jul 20, 7:00 PM EDT");
   });
 });
 

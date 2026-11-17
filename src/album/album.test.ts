@@ -1,20 +1,42 @@
 import { describe, expect, it } from "vitest";
 import { MIN_FREE_BYTES } from "@/lib/sizes";
-import { albumRoom, albumState, mayAddPhotos, mayApprovePhoto, mayDeletePhoto, storageRoom } from "./album";
+import { albumRoom, albumState, albumSwitchedOn, MAX_CAPTION, mayAddPhotos, mayApprovePhoto, mayCaption, mayDeletePhoto, parseCaption, seesProcessing, shownIndex, storageRoom } from "./album";
 
 const START = new Date("2027-05-08T11:00:00Z");
 
 describe("albumState", () => {
   it("opens at the event's start, and not before", () => {
-    expect(albumState({ state: "published", startsAt: START }, new Date("2027-05-08T10:59:59Z"))).toBe("notYet");
-    expect(albumState({ state: "published", startsAt: START }, START)).toBe("open");
-    expect(albumState({ state: "published", startsAt: START }, new Date("2028-01-01T00:00:00Z"))).toBe("open");
+    expect(albumState({ state: "published", startsAt: START, albumEnabled: true }, new Date("2027-05-08T10:59:59Z"), true)).toBe("notYet");
+    expect(albumState({ state: "published", startsAt: START, albumEnabled: true }, START, true)).toBe("open");
+    expect(albumState({ state: "published", startsAt: START, albumEnabled: true }, new Date("2028-01-01T00:00:00Z"), true)).toBe("open");
   });
 
   it("is none for a draft, a cancelled event, or one with no date yet", () => {
-    expect(albumState({ state: "draft", startsAt: START }, START)).toBe("none");
-    expect(albumState({ state: "cancelled", startsAt: START }, START)).toBe("none");
-    expect(albumState({ state: "published", startsAt: null }, START)).toBe("none");
+    expect(albumState({ state: "draft", startsAt: START, albumEnabled: true }, START, true)).toBe("none");
+    expect(albumState({ state: "cancelled", startsAt: START, albumEnabled: true }, START, true)).toBe("none");
+    expect(albumState({ state: "published", startsAt: null, albumEnabled: true }, START, true)).toBe("none");
+  });
+
+  // M8 ticket 01: the operator's Album switch.
+  it("is none for every event while the operator has the album switched off", () => {
+    expect(albumState({ state: "published", startsAt: START, albumEnabled: true }, START, false)).toBe("none");
+    expect(albumState({ state: "published", startsAt: START, albumEnabled: true }, new Date("2027-05-08T10:59:59Z"), false)).toBe("none");
+  });
+
+  // M8 ticket 25: the host's own switch for the event's album, beside the operator's.
+  it("is none for an event whose host has switched its album off, with the site's album on", () => {
+    expect(albumState({ state: "published", startsAt: START, albumEnabled: false }, START, true)).toBe("none");
+    expect(albumState({ state: "published", startsAt: START, albumEnabled: false }, new Date("2028-01-01T00:00:00Z"), true)).toBe("none");
+  });
+});
+
+// M8 ticket 25: the one rule every album action asks before anything else.
+describe("albumSwitchedOn", () => {
+  it("is on only while both the operator and the event's host have the album on", () => {
+    expect(albumSwitchedOn({ albumEnabled: true }, true)).toBe(true);
+    expect(albumSwitchedOn({ albumEnabled: false }, true)).toBe(false);
+    expect(albumSwitchedOn({ albumEnabled: true }, false)).toBe(false);
+    expect(albumSwitchedOn({ albumEnabled: false }, false)).toBe(false);
   });
 });
 
@@ -88,5 +110,91 @@ describe("albumRoom", () => {
   it("then checks the site's storage and the disk", () => {
     expect(albumRoom({ ...held, siteBytes: 995 * MB }, { items: 1, bytes: 6 * MB }, caps)).toEqual({ ok: false, error: "siteFull", left: 300, limit: 1000 * MB });
     expect(albumRoom({ ...held, freeBytes: MIN_FREE_BYTES }, { items: 1, bytes: 1 }, caps)).toEqual({ ok: false, error: "diskFull", left: 300, limit: MIN_FREE_BYTES });
+  });
+});
+
+// M8 ticket 09: a caption is plain text of at most 140 characters, counted as Postgres counts them.
+describe("parseCaption", () => {
+  it("trims the caption", () => {
+    expect(parseCaption("  Sunset over the lake  ")).toEqual({ ok: true, caption: "Sunset over the lake" });
+  });
+
+  it("makes each line break one space", () => {
+    expect(parseCaption("a\r\nb\nc")).toEqual({ ok: true, caption: "a b c" });
+    expect(parseCaption("a\u2028b\u2029c")).toEqual({ ok: true, caption: "a b c" });
+  });
+
+  it("makes a tab and other control characters spaces, and runs of spaces one", () => {
+    expect(parseCaption("a\tb\u0000c\u007fd\u0085e   f")).toEqual({ ok: true, caption: "a b c d e f" });
+  });
+
+  it("drops the bidi and zero-width characters plainText drops", () => {
+    expect(parseCaption("a\u202eb\u200bc\ufeffd")).toEqual({ ok: true, caption: "abcd" });
+  });
+
+  it("removes the caption when nothing is left", () => {
+    expect(parseCaption("")).toEqual({ ok: true, caption: null });
+    expect(parseCaption("   ")).toEqual({ ok: true, caption: null });
+    expect(parseCaption("\n\t\u200b")).toEqual({ ok: true, caption: null });
+  });
+
+  it("takes 140 characters and refuses 141", () => {
+    expect(MAX_CAPTION).toBe(140);
+    expect(parseCaption("a".repeat(140))).toEqual({ ok: true, caption: "a".repeat(140) });
+    expect(parseCaption("a".repeat(141))).toEqual({ ok: false, error: "captionTooLong" });
+  });
+
+  it("counts by code point, so 140 emoji pass", () => {
+    expect(parseCaption("🌅".repeat(140))).toEqual({ ok: true, caption: "🌅".repeat(140) });
+    expect(parseCaption("🌅".repeat(141))).toEqual({ ok: false, error: "captionTooLong" });
+  });
+});
+
+describe("mayCaption", () => {
+  it("is a host for any item", () => {
+    expect(mayCaption({ kind: "host", hostId: "h1" }, { rsvpId: "r1" })).toBe(true);
+    expect(mayCaption({ kind: "host", hostId: "h1" }, { rsvpId: null })).toBe(true);
+  });
+
+  it("is a guest for an item their RSVP added, and nobody else", () => {
+    const guest = (rsvpId: string) => ({ kind: "guest" as const, rsvpId, approval: "approved" as const, status: "going" as const, name: "Priya Nair" });
+    expect(mayCaption(guest("r1"), { rsvpId: "r1" })).toBe(true);
+    expect(mayCaption(guest("r2"), { rsvpId: "r1" })).toBe(false);
+    expect(mayCaption(guest("r2"), { rsvpId: null })).toBe(false);
+    expect(mayCaption({ kind: "visitor" }, { rsvpId: "r1" })).toBe(false);
+  });
+});
+
+// Whose page follows an item's processing (media part review): the hosts, and the guest who added
+// it, as a processing video is shown to them alone; any other guest's page never refreshes for it.
+describe("seesProcessing", () => {
+  const guest = (rsvpId: string) => ({ kind: "guest" as const, rsvpId, approval: "approved" as const, status: "going" as const, name: "Priya Nair" });
+
+  it("is a host for any item, and a guest for their own", () => {
+    expect(seesProcessing({ kind: "host", hostId: "h1" }, { rsvpId: "r1" })).toBe(true);
+    expect(seesProcessing({ kind: "host", hostId: "h1" }, { rsvpId: null })).toBe(true);
+    expect(seesProcessing(guest("r1"), { rsvpId: "r1" })).toBe(true);
+  });
+
+  it("is never another guest, nor a visitor", () => {
+    expect(seesProcessing(guest("r2"), { rsvpId: "r1" })).toBe(false);
+    expect(seesProcessing(guest("r2"), { rsvpId: null })).toBe(false);
+    expect(seesProcessing({ kind: "visitor" }, { rsvpId: "r1" })).toBe(false);
+  });
+});
+
+// The viewer follows the item it opened, not a place in the list (media part review): wherever a
+// refresh moves it, it is found by its id, and once it is gone the viewer closes.
+describe("shownIndex", () => {
+  it("is where the open item now is", () => {
+    expect(shownIndex(["a", "b", "c"], "b")).toBe(1);
+    expect(shownIndex(["b", "c"], "b")).toBe(0);
+    expect(shownIndex(["x", "a", "b", "c"], "b")).toBe(2);
+  });
+
+  it("is closed when nothing is open, or the open item has gone", () => {
+    expect(shownIndex(["a", "b"], undefined)).toBeUndefined();
+    expect(shownIndex(["a", "c"], "b")).toBeUndefined();
+    expect(shownIndex([], "b")).toBeUndefined();
   });
 });

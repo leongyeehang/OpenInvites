@@ -4,13 +4,16 @@ import { safeHref, type RichText, type Span } from "./rich-text";
 
 // The description on the invitation. React escapes every string it renders, so a document can
 // only ever become the elements named here, whatever a host once pasted into the editor.
-function span(run: Span, key: number): ReactNode {
+function spanOf(run: Span, key: number, linked: boolean): ReactNode {
   let node: ReactNode = run.text;
   if (run.marks?.includes("bold")) node = <strong>{node}</strong>;
   if (run.marks?.includes("italic")) node = <em>{node}</em>;
   // Checked again here, not only when it was saved.
   const href = safeHref(run.href);
-  if (href) {
+  // Unlinked, a link's words keep its underline and go nowhere: the editor draws a Note under the
+  // button that opens its sheet (M8 ticket 29), where a link of its own could not be pressed.
+  if (href && !linked) node = <span className="underline decoration-theme-accent underline-offset-4">{node}</span>;
+  else if (href) {
     node = (
       <a
         key={key}
@@ -26,7 +29,8 @@ function span(run: Span, key: number): ReactNode {
   return <span key={key}>{node}</span>;
 }
 
-export function RichTextView({ doc, className }: { doc: RichText; className?: string }) {
+export function RichTextView({ doc, className, linked = true }: { doc: RichText; className?: string; linked?: boolean }) {
+  const span = (run: Span, key: number) => spanOf(run, key, linked);
   return (
     <div className={cn("whitespace-pre-line", className)}>
       {doc.blocks.map((block, index) =>

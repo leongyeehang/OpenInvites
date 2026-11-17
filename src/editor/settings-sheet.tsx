@@ -1,12 +1,13 @@
 "use client";
 
-import { ImageIcon, Palette, SlidersHorizontal, Sparkles, Type } from "lucide-react";
+import { ImageIcon, Palette, Rows3, SlidersHorizontal, Sparkles, Type } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { QuestionsEditor } from "@/app/(host)/events/questions-editor";
 import type { AlbumTotals } from "@/album/album";
-import { VIDEO_QUALITIES } from "@/album/video";
+import { ALBUM_ORDERS } from "@/album/details";
+import { EVENT_SIZES } from "@/album/video";
 import { ALBUM_VISIBILITIES } from "@/album/visibility";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
@@ -18,24 +19,23 @@ import { VIDEO_MB, VIDEO_MINUTES } from "@/instance/limits";
 import { cn } from "@/lib/utils";
 import type { QuestionDraft } from "@/questions/question";
 import { CONTACT_FIELDS, type ContactField } from "@/rsvps/form";
-import { GUEST_LIST_VISIBILITIES } from "@/rsvps/visibility";
 import { AlbumBlock } from "./album-block";
 import { EditorSheet } from "./sheet";
 import { useEditor } from "./status";
-
-const GUEST_LIST_LABELS = { always: "guestListAlways", afterReply: "guestListAfterReply", hidden: "guestListHidden" } as const;
 
 // A change is saved this long after the host's last one, so typing a capacity sends it once.
 const DEBOUNCE = 600;
 
 // The editor's toolbar (M4 spec, "The toolbar"), fixed to the foot of the screen: Poster, Title,
-// Theme and Effect, each a design sheet over a live copy of the invitation, and Settings. Each
-// button says whether its sheet is open, and has the focus back when it closes.
+// Theme, Effect and Arrange (M8 ticket 25), each a design sheet over a live copy of the
+// invitation, and Settings. Each button says whether its sheet is open, and has the focus back
+// when it closes.
 const TOOLS = [
   { sheet: "poster", icon: ImageIcon },
   { sheet: "title", icon: Type },
   { sheet: "theme", icon: Palette },
   { sheet: "effect", icon: Sparkles },
+  { sheet: "arrange", icon: Rows3 },
   { sheet: "settings", icon: SlidersHorizontal },
 ] as const;
 
@@ -46,8 +46,10 @@ export function EditorToolbar({ sheets }: { sheets: ReactNode }) {
   return (
     <>
       <nav
+        // Where a sheet whose opener has gone gives the focus back (sheet.tsx).
+        data-slot="editor-toolbar"
         aria-label={t("toolbar")}
-        className="dark fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 mx-auto grid max-w-[26rem] grid-cols-5 gap-1 rounded-[1.6rem] border bg-popover/90 p-1.5 text-popover-foreground shadow-xl backdrop-blur-xl transition-transform duration-300 ease-out motion-reduce:transition-none editor-sheet-open:lg:translate-x-[min(0px,calc(50vw-40rem))]"
+        className="dark fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 mx-auto grid max-w-[26rem] grid-cols-6 gap-1 rounded-[1.6rem] border bg-popover/90 p-1.5 text-popover-foreground shadow-xl backdrop-blur-xl transition-transform duration-300 ease-out motion-reduce:transition-none editor-sheet-open:lg:translate-x-[min(0px,calc(50vw-40rem))]"
       >
         {TOOLS.map(({ sheet: name, icon: Icon }) => (
           <button
@@ -73,14 +75,19 @@ export function EditorToolbar({ sheets }: { sheets: ReactNode }) {
 // Everything a guest does not see (M4 spec, "Settings sheet"), with 0.4's defaults, so a host can
 // publish without opening it. Each change is saved as it is made, the whole sheet at once, through
 // the rules the 0.4 form followed (events/form.ts); a refusal says why at the top of the sheet.
+// Who sees the guest list and whether the event takes comments are not here: they are switched in
+// Arrange with their sections (M8 ticket 26), and this sheet, which posts every field, never posts
+// either.
 export function SettingsSheet({
   eventId,
   settings,
   mail,
   maxReplies,
   siteVideo,
+  features,
   album,
   reminderDays,
+  voting,
   questions,
   answerCounts,
 }: {
@@ -97,6 +104,13 @@ export function SettingsSheet({
   // The site's video caps, which the event's caps hint names, and whether the site can process
   // videos at all (M7 ticket 05).
   siteVideo: { maxMinutes: number; maxMb: number; available: boolean };
+  // What the operator has switched on (M8 ticket 01): with the album off its group and the block
+  // after the form are left out, and with videos off the video controls. Saving then keeps what
+  // the event had for them (events/form.ts, keptSettings).
+  features: { album: boolean; videos: boolean };
+  // The album vote's block (M8 ticket 10; voting/voting-settings.tsx), drawn below the album's and,
+  // like it, outside the form; the module leaves it empty while Voting is off for the site.
+  voting?: ReactNode;
   questions: QuestionDraft[];
   answerCounts: Record<string, number>;
 }) {
@@ -144,6 +158,9 @@ export function SettingsSheet({
   return (
     <EditorSheet open={sheet === "settings"} onOpenChange={(open) => openSheet(open ? "settings" : null)} title={editor("settings")} description={editor("settingsIntro")} tall>
       <form ref={form} onChange={soon} onInput={soon} onClick={soon} onSubmit={(event) => event.preventDefault()}>
+        {/* The groups this sheet draws, so that a sheet drawn before the operator switched one back
+            on keeps what the event has for it (the whole-branch review; events/form.ts, keptSettings). */}
+        <input type="hidden" name="drawnGroups" value={[features.album && "album", features.album && features.videos && "videos"].filter(Boolean).join(" ")} />
         {error && !error.field && (
           <p role="alert" className="mb-4 rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">
             {error.message}
@@ -262,99 +279,121 @@ export function SettingsSheet({
             </Field>
           </FieldSet>
 
-          <Field>
-            <FieldLabel htmlFor={`${id}-guest-list`}>{t("guestListVisibility")}</FieldLabel>
-            <NativeSelect id={`${id}-guest-list`} name="guestListVisibility" defaultValue={settings.guestListVisibility}>
-              {GUEST_LIST_VISIBILITIES.map((visibility) => (
-                <NativeSelectOption key={visibility} value={visibility}>
-                  {t(GUEST_LIST_LABELS[visibility])}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            <FieldDescription>{t("guestListVisibilityHint")}</FieldDescription>
-          </Field>
-
-          <FieldSet className="gap-3">
-            <FieldLegend variant="label">{t("album.title")}</FieldLegend>
-            <Field>
-              <FieldLabel htmlFor={`${id}-album`}>{t("album.visibility")}</FieldLabel>
-              <NativeSelect id={`${id}-album`} name="albumVisibility" defaultValue={settings.albumVisibility} aria-describedby={`${id}-album-hint`}>
-                {ALBUM_VISIBILITIES.map((visibility) => (
-                  <NativeSelectOption key={visibility} value={visibility}>
-                    {t(`album.${visibility}`)}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-              <FieldDescription id={`${id}-album-hint`}>{t("album.visibilityHint")}</FieldDescription>
-            </Field>
-            <Field orientation="horizontal">
-              <Checkbox
-                id={`${id}-album-approval`}
-                name="albumApprovalRequired"
-                defaultChecked={settings.albumApprovalRequired}
-                aria-describedby={`${id}-album-approval-hint`}
-              />
-              <FieldContent>
-                <FieldLabel htmlFor={`${id}-album-approval`}>{t("album.approval")}</FieldLabel>
-                <FieldDescription id={`${id}-album-approval-hint`}>{t("album.approvalHint")}</FieldDescription>
-              </FieldContent>
-            </Field>
-            <Field orientation="horizontal">
-              <Checkbox id={`${id}-photo-mail`} name="notifyOnPhoto" defaultChecked={settings.notifyOnPhoto} />
-              <FieldLabel htmlFor={`${id}-photo-mail`}>{t("album.notify")}</FieldLabel>
-            </Field>
-            {/* Videos (M7 ticket 05). The controls stay enabled without ffmpeg: this form posts every
-                field on every change, and a disabled box would be saved as off. */}
-            <Field orientation="horizontal">
-              <Checkbox id={`${id}-videos`} name="albumVideosAllowed" defaultChecked={settings.albumVideosAllowed} aria-describedby={`${id}-videos-hint`} />
-              <FieldContent>
-                <FieldLabel htmlFor={`${id}-videos`}>{t("album.videos")}</FieldLabel>
-                <FieldDescription id={`${id}-videos-hint`}>{siteVideo.available ? t("album.videosHint") : t("album.videosUnavailable")}</FieldDescription>
-              </FieldContent>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor={`${id}-video-minutes`}>{t("album.maxVideoMinutes")}</FieldLabel>
-              <Input
-                id={`${id}-video-minutes`}
-                name="albumMaxVideoMinutes"
-                type="number"
-                inputMode="numeric"
-                min={VIDEO_MINUTES.min}
-                max={VIDEO_MINUTES.max}
-                step={1}
-                defaultValue={settings.albumMaxVideoMinutes ?? ""}
-                placeholder={String(siteVideo.maxMinutes)}
-                aria-describedby={`${id}-video-caps-hint`}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor={`${id}-video-mb`}>{t("album.maxVideoMb")}</FieldLabel>
-              <Input
-                id={`${id}-video-mb`}
-                name="albumMaxVideoMb"
-                type="number"
-                inputMode="numeric"
-                min={VIDEO_MB.min}
-                max={VIDEO_MB.max}
-                step={1}
-                defaultValue={settings.albumMaxVideoMb ?? ""}
-                placeholder={String(siteVideo.maxMb)}
-                aria-describedby={`${id}-video-caps-hint`}
-              />
-              <FieldDescription id={`${id}-video-caps-hint`}>{t("album.videoCapsHint", { minutes: siteVideo.maxMinutes, mb: siteVideo.maxMb })}</FieldDescription>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor={`${id}-video-quality`}>{t("album.quality")}</FieldLabel>
-              <NativeSelect id={`${id}-video-quality`} name="albumCopyQuality" defaultValue={settings.albumCopyQuality} aria-describedby={`${id}-video-quality-hint`}>
-                {VIDEO_QUALITIES.map((quality) => (
-                  <NativeSelectOption key={quality} value={quality}>
-                    {t(quality === "1080p" ? "album.quality1080" : "album.quality720")}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-              <FieldDescription id={`${id}-video-quality-hint`}>{t("album.qualityHint")}</FieldDescription>
-            </Field>
-          </FieldSet>
+          {features.album && (
+            <FieldSet className="gap-3">
+              <FieldLegend variant="label">{t("album.title")}</FieldLegend>
+              <Field>
+                <FieldLabel htmlFor={`${id}-album`}>{t("album.visibility")}</FieldLabel>
+                <NativeSelect id={`${id}-album`} name="albumVisibility" defaultValue={settings.albumVisibility} aria-describedby={`${id}-album-hint`}>
+                  {ALBUM_VISIBILITIES.map((visibility) => (
+                    <NativeSelectOption key={visibility} value={visibility}>
+                      {t(`album.${visibility}`)}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+                <FieldDescription id={`${id}-album-hint`}>{t("album.visibilityHint")}</FieldDescription>
+              </Field>
+              <Field orientation="horizontal">
+                <Checkbox
+                  id={`${id}-album-approval`}
+                  name="albumApprovalRequired"
+                  defaultChecked={settings.albumApprovalRequired}
+                  aria-describedby={`${id}-album-approval-hint`}
+                />
+                <FieldContent>
+                  <FieldLabel htmlFor={`${id}-album-approval`}>{t("album.approval")}</FieldLabel>
+                  <FieldDescription id={`${id}-album-approval-hint`}>{t("album.approvalHint")}</FieldDescription>
+                </FieldContent>
+              </Field>
+              <Field orientation="horizontal">
+                <Checkbox id={`${id}-photo-mail`} name="notifyOnPhoto" defaultChecked={settings.notifyOnPhoto} />
+                <FieldLabel htmlFor={`${id}-photo-mail`}>{t("album.notify")}</FieldLabel>
+              </Field>
+              {/* Videos (M7 ticket 05). The controls stay enabled without ffmpeg: this form posts every
+                  field on every change, and a disabled box would be saved as off. */}
+              {features.videos && (
+                <>
+                  <Field orientation="horizontal">
+                    <Checkbox id={`${id}-videos`} name="albumVideosAllowed" defaultChecked={settings.albumVideosAllowed} aria-describedby={`${id}-videos-hint`} />
+                    <FieldContent>
+                      <FieldLabel htmlFor={`${id}-videos`}>{t("album.videos")}</FieldLabel>
+                      <FieldDescription id={`${id}-videos-hint`}>{siteVideo.available ? t("album.videosHint") : t("album.videosUnavailable")}</FieldDescription>
+                    </FieldContent>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor={`${id}-video-minutes`}>{t("album.maxVideoMinutes")}</FieldLabel>
+                    <Input
+                      id={`${id}-video-minutes`}
+                      name="albumMaxVideoMinutes"
+                      type="number"
+                      inputMode="numeric"
+                      min={VIDEO_MINUTES.min}
+                      max={VIDEO_MINUTES.max}
+                      step={1}
+                      defaultValue={settings.albumMaxVideoMinutes ?? ""}
+                      placeholder={String(siteVideo.maxMinutes)}
+                      aria-describedby={`${id}-video-caps-hint`}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor={`${id}-video-mb`}>{t("album.maxVideoMb")}</FieldLabel>
+                    <Input
+                      id={`${id}-video-mb`}
+                      name="albumMaxVideoMb"
+                      type="number"
+                      inputMode="numeric"
+                      min={VIDEO_MB.min}
+                      max={VIDEO_MB.max}
+                      step={1}
+                      defaultValue={settings.albumMaxVideoMb ?? ""}
+                      placeholder={String(siteVideo.maxMb)}
+                      aria-describedby={`${id}-video-caps-hint`}
+                    />
+                    <FieldDescription id={`${id}-video-caps-hint`}>{t("album.videoCapsHint", { minutes: siteVideo.maxMinutes, mb: siteVideo.maxMb })}</FieldDescription>
+                  </Field>
+                  {/* The sizes a video gets (M8 ticket 02): any of the two, or neither. */}
+                  <FieldSet className="gap-3" aria-describedby={`${id}-video-sizes-hint`}>
+                    <FieldLegend variant="label">{t("album.sizes")}</FieldLegend>
+                    {EVENT_SIZES.map((size) => (
+                      <Field key={size} orientation="horizontal">
+                        <Checkbox id={`${id}-video-size-${size}`} name="albumCopySizes" value={size} defaultChecked={settings.albumCopySizes.includes(size)} />
+                        <FieldLabel htmlFor={`${id}-video-size-${size}`}>{t(size === "1080p" ? "album.size1080" : "album.size720")}</FieldLabel>
+                      </Field>
+                    ))}
+                    <FieldDescription id={`${id}-video-sizes-hint`}>{t("album.sizesHint")}</FieldDescription>
+                  </FieldSet>
+                </>
+              )}
+              {/* The details kept of each item, and the album's order (M8 ticket 07). The order is
+                  never disabled, since a disabled control is not posted; "When taken" applies only
+                  while the time is kept. */}
+              <Field orientation="horizontal">
+                <Checkbox id={`${id}-keep-taken`} name="albumKeepTakenAt" defaultChecked={settings.albumKeepTakenAt} aria-describedby={`${id}-keep-taken-hint`} />
+                <FieldContent>
+                  <FieldLabel htmlFor={`${id}-keep-taken`}>{t("album.keepTakenAt")}</FieldLabel>
+                  <FieldDescription id={`${id}-keep-taken-hint`}>{t("album.keepTakenAtHint")}</FieldDescription>
+                </FieldContent>
+              </Field>
+              <Field orientation="horizontal">
+                <Checkbox id={`${id}-keep-camera`} name="albumKeepCamera" defaultChecked={settings.albumKeepCamera} aria-describedby={`${id}-keep-camera-hint`} />
+                <FieldContent>
+                  <FieldLabel htmlFor={`${id}-keep-camera`}>{t("album.keepCamera")}</FieldLabel>
+                  <FieldDescription id={`${id}-keep-camera-hint`}>{t("album.keepCameraHint")}</FieldDescription>
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor={`${id}-album-order`}>{t("album.order")}</FieldLabel>
+                <NativeSelect id={`${id}-album-order`} name="albumOrder" defaultValue={settings.albumOrder} aria-describedby={`${id}-album-order-hint`}>
+                  {ALBUM_ORDERS.map((order) => (
+                    <NativeSelectOption key={order} value={order}>
+                      {t(order === "added" ? "album.orderAdded" : "album.orderTaken")}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+                <FieldDescription id={`${id}-album-order-hint`}>{t("album.orderHint")}</FieldDescription>
+              </Field>
+            </FieldSet>
+          )}
 
           <FieldSet className="gap-3">
             <FieldLegend variant="label">{editor("emailsAndComments")}</FieldLegend>
@@ -375,20 +414,14 @@ export function SettingsSheet({
               </FieldContent>
             </Field>
             <Field orientation="horizontal">
-              <Checkbox id={`${id}-comments`} name="commentsEnabled" defaultChecked={settings.commentsEnabled} aria-describedby={`${id}-comments-hint`} />
-              <FieldContent>
-                <FieldLabel htmlFor={`${id}-comments`}>{t("commentsEnabled")}</FieldLabel>
-                <FieldDescription id={`${id}-comments-hint`}>{t("commentsEnabledHint")}</FieldDescription>
-              </FieldContent>
-            </Field>
-            <Field orientation="horizontal">
               <Checkbox id={`${id}-comment-mail`} name="notifyOnComment" defaultChecked={settings.notifyOnComment} />
               <FieldLabel htmlFor={`${id}-comment-mail`}>{t("notifyOnComment")}</FieldLabel>
             </Field>
           </FieldSet>
         </FieldGroup>
       </form>
-      <AlbumBlock key={String(reminderDays)} eventId={eventId} album={album} reminderDays={reminderDays} />
+      {features.album && <AlbumBlock key={String(reminderDays)} eventId={eventId} album={album} reminderDays={reminderDays} />}
+      {voting}
     </EditorSheet>
   );
 }

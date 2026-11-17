@@ -256,6 +256,15 @@
       "keep": "保留",
       "removed": "已移除通行密钥。"
     },
+    "backdrop": {
+      "title": "页面底图",
+      "description": "“我的活动”、本页和“新建活动”背后的图片。每个活动自己的页面使用该活动的海报。",
+      "automatic": "自动",
+      "automaticHint": "你下一个活动的海报；没有即将举行的活动时，用你另一个活动的海报，或本站的一张海报。",
+      "submit": "保存",
+      "saved": "页面底图已保存。",
+      "unknown": "请选择“自动”或图库中的一张海报。"
+    },
     "delete": {
       "title": "删除账号",
       "description": "将删除你的账号、你的活动，以及每位宾客的资料。此操作无法撤销。",
@@ -350,6 +359,20 @@
       "retentionDaysInvalid": "请为活动保留天数填写 30 到 3,650 之间的整数，或勾选“永久保留”。",
       "albumReminderDefaultDaysInvalid": "请填写 1 到 3,650 之间的整数天数，或勾选“从不”。"
     },
+    "features": {
+      "title": "功能",
+      "description": "为所有活动开启或关闭本站的部分功能。关闭不会删除任何内容：重新开启后，原有的内容都会回来。",
+      "album": "相册",
+      "albumHint": "宾客和主办人可以在活动页面上添加照片。关闭后：所有活动都不显示相册，也不接受照片；已有的照片保留，并继续计入存储空间。",
+      "videos": "视频",
+      "videosHint": "相册除了照片也接受视频。关闭后：不再接受新视频；已添加的视频仍可播放。",
+      "voting": "投票",
+      "votingHint": "主办人可以就相册中的照片和视频发起投票。关闭后：所有活动都不显示投票；已投的票会保留。",
+      "needsAlbum": "需要开启相册。",
+      "videosNoFfmpeg": "本服务器没有可用的 ffmpeg，因此无论这里如何设置，视频功能都保持关闭。",
+      "submit": "保存",
+      "saved": "已保存。"
+    },
     "storage": {
       "title": "存储空间",
       "description": "本站的上传内容占用的空间，按上传时的大小计算：相册中的照片和视频，以及主办人的图片。上限在“上限”卡片中设置。",
@@ -365,12 +388,21 @@
       "none": "还没有相册存有内容。",
       "use": "{size}，{count, plural, other {# 项}}",
       "processVideos": "为播放处理视频",
-      "processVideosHint": "开启后，需要的视频都会生成一个较小的副本，以便在网速慢的情况下和各种浏览器中播放。关闭后，视频按原样保存，能否播放取决于浏览器。",
+      "processVideosHint": "开启后，每个视频会在需要时生成其活动要求的尺寸，以便在网速慢的情况下和各种浏览器中播放。关闭后，视频按原样保存，能否播放取决于浏览器。",
+      "fourK": "另外生成一份到处都能播放的 4K 副本",
+      "fourKHint": "适用于非 H.264 编码的 4K 视频（例如 iPhone 拍摄的视频），有些浏览器无法播放这类视频。每个视频会多出一个文件，每分钟视频最多约 115 MB，且不计入存储上限；在小型服务器上，生成它可能需要视频时长的许多倍。不开启时，这些浏览器播放活动保留的最大副本。",
+      "missingSizes": "{count, plural, =0 {每个视频都有其活动要求的尺寸。} other {# 个视频缺少其活动要求的尺寸。}}",
+      "makeMissingSizes": "生成缺少的尺寸",
+      "makeMissingSizesHint": "它们会排在新上传的内容之后逐个生成，期间视频仍留在各自的相册中。活动不再要求的尺寸会保留。",
+      "queued": "{count, plural, =0 {没有需要生成的。} other {已将 # 个视频加入队列。}}",
+      "sizesBeingMade": "{count, plural, other {正在为 # 个视频生成尺寸。}}",
       "submit": "保存",
       "saved": "已保存。",
       "videosAvailable": "视频：可用（ffmpeg {version}）。",
       "videosOld": "视频功能需要 ffmpeg 6 或更高版本；本服务器的版本是 {version}。",
       "videosMissing": "视频功能需要 ffmpeg，本服务器尚未安装。",
+      "hdrConverted": "HDR 视频：其副本会转换为标准色彩，在任何屏幕上都显得自然。",
+      "hdrFlat": "HDR 视频：本服务器的 ffmpeg 缺少 zscale 和 tonemap 滤镜，因此其副本会比原片显得平淡。",
       "processedByApp": "视频由本站的应用自行处理。",
       "processedByWorker": "视频由工作容器处理，最近一次报告：{time}。",
       "processedByWorkerMissing": "视频由工作容器处理，但它尚未报告：请检查它是否在运行。",
@@ -607,11 +639,6 @@
         "optional": "选填",
         "required": "必填"
       },
-      "guestListVisibility": "谁可以看到宾客名单",
-      "guestListAlways": "所有打开链接的人",
-      "guestListAfterReply": "已回复的宾客",
-      "guestListHidden": "只有主办人",
-      "guestListVisibilityHint": "主办人始终能看到完整名单。",
       "album": {
         "title": "相册",
         "visibility": "谁可以看到相册",
@@ -623,21 +650,27 @@
         "approvalHint": "新照片会等待主办人批准。关闭此项，所有等待中的照片都会显示。",
         "notify": "有照片等待批准时给主办人发邮件",
         "videos": "允许视频",
-        "videosHint": "宾客可以像添加照片一样添加视频。每段视频都以原始画质保存，并去除手机记录的位置和设备信息。",
+        "videosHint": "宾客可以像添加照片一样添加视频。每段视频都保留原片尺寸，并去除手机记录的位置和设备信息。",
         "maxVideoMinutes": "最长视频（分钟）",
         "maxVideoMb": "最大视频（MB）",
         "videoCapsHint": "留空即采用本站的上限：最长 {minutes} 分钟、最大 {mb} MB。高于本站上限的值按本站上限计。",
-        "quality": "轻量副本",
-        "quality1080": "1080p",
-        "quality720": "720p（更省空间）",
-        "qualityHint": "轻量副本便于在网速慢时播放；宾客仍可选择原始画质。",
-        "videosUnavailable": "视频功能需要本站安装 ffmpeg，目前尚未安装；请联系本站运营者。"
+        "sizes": "视频尺寸",
+        "size1080": "1080p",
+        "size720": "720p",
+        "sizesHint": "每段视频在需要时会生成这些尺寸，以便在网速慢时和任何浏览器中都能播放。视频不会生成比自身更大的尺寸。两项都不勾选时，并非所有浏览器都能播放的视频仍会生成一份 720p 副本。",
+        "videosUnavailable": "视频功能需要本站安装 ffmpeg，目前尚未安装；请联系本站运营者。",
+        "keepTakenAt": "保留每张照片和每段视频的拍摄时间",
+        "keepTakenAtHint": "在添加时从手机或相机读取，并显示在其下方。",
+        "keepCamera": "保留相机及其设置",
+        "keepCameraHint": "相机、镜头和曝光参数，适合摄影爱好者的聚会。照片的拍摄地点从不保留。",
+        "order": "相册排序",
+        "orderAdded": "按添加时间",
+        "orderTaken": "按拍摄时间",
+        "orderHint": "按拍摄时间排序需要保留拍摄时间；没有拍摄时间的按添加时间排列。"
       },
       "notifyOnRsvp": "有宾客回复时给主办人发邮件",
       "remindersEnabled": "发邮件提醒宾客（提前一周提醒待定的宾客，提前一天提醒参加的宾客）",
       "askEmailHint": "只有你在回复表单中请宾客留下邮箱，宾客才会收到邮件。",
-      "commentsEnabled": "留言",
-      "commentsEnabledHint": "已回复的宾客和主办人可以在活动页面上留言。",
       "notifyOnComment": "有宾客留言时给主办人发邮件",
       "questions": "问题",
       "questionsHint": "宾客回复时作答，只有主办人能看到答案。",
@@ -675,7 +708,6 @@
       "plusOnesAllowedInvalid": "请选择 0 到 10 之间的同伴人数。",
       "capacityInvalid": "请为人数上限填写 1 到 5,000 之间的整数，或留空表示不设上限。",
       "contactFieldInvalid": "请选择如何询问邮箱和电话号码。",
-      "guestListVisibilityInvalid": "请选择谁可以看到宾客名单。",
       "albumVisibilityInvalid": "请选择谁可以看到相册。",
       "questionsInvalid": "无法读取这些问题，请重试。",
       "questionTypeInvalid": "请为每个问题选择类型。",
@@ -707,7 +739,8 @@
       "scheduleInvalid": "无法读取日程，请重试。",
       "albumMaxVideoMinutesInvalid": "请为最长视频填写 1 到 180 之间的整数分钟数，或留空。",
       "albumMaxVideoMbInvalid": "请为最大视频填写 1 到 10,000 之间的整数（MB），或留空。",
-      "albumQualityInvalid": "请为轻量副本选择 1080p 或 720p。"
+      "albumSizesInvalid": "请从 1080p 和 720p 中选择视频尺寸。",
+      "albumOrderInvalid": "请选择相册的排序方式。"
     },
     "manage": {
       "link": "活动链接",
@@ -966,6 +999,11 @@
       "empty": "还没有照片，来添加第一张吧。",
       "add": "添加照片",
       "hint": "每次最多十张，每张不超过 {max, number} MB。",
+      "keeps": {
+        "takenAt": "主办人会保留每张照片或每段视频的拍摄时间。",
+        "camera": "主办人会保留拍摄每张照片或每段视频所用的相机及其设置。",
+        "both": "主办人会保留每张照片或每段视频的拍摄时间，以及拍摄所用的相机及其设置。"
+      },
       "adding": "正在添加 {count, plural, other {# 张照片}}…",
       "added": "{name}：已添加",
       "addedPending": "{name}：已添加，等待批准",
@@ -993,7 +1031,8 @@
         "failed": "照片未能上传，请再试一次。",
         "albumStorageFull": "相册已满：{limit}。",
         "siteFull": "本站空间已满，请联系主办人清理相册。",
-        "diskFull": "本站磁盘空间即将用尽，请稍后再试。"
+        "diskFull": "本站磁盘空间即将用尽，请稍后再试。",
+        "captionTooLong": "说明请控制在 140 个字符以内。"
       },
       "open": "{name} 的第 {n} 张照片",
       "openPending": "{name} 的第 {n} 张照片，等待批准",
@@ -1015,6 +1054,8 @@
       "addVideos": "添加照片和视频",
       "openVideo": "{name} 的第 {n} 段视频",
       "openVideoPending": "{name} 的第 {n} 段视频，等待批准",
+      "openUnnamed": "第 {n} 张照片",
+      "openVideoUnnamed": "第 {n} 段视频",
       "viewerVideo": "第 {n} 段视频，共 {count} 项",
       "processing": "处理中",
       "failedTooLong": "无法处理：超过 {max}",
@@ -1023,11 +1064,30 @@
       "removeVideo": "移除 {name} 的视频",
       "uploading": "{name}：上传中",
       "uploaded": "{name}：已上传，处理中",
-      "quality": "画质",
-      "original": "原始画质",
-      "copy": "轻量副本",
-      "originalUnplayable": "原始画质：此浏览器无法播放。",
-      "unplayable": "此浏览器无法播放这段视频，请下载后观看。"
+      "sizes": "尺寸",
+      "sizeAuto": "自动 · {size}",
+      "sizeOriginal": "{size} · 原片",
+      "sizeOriginalHdr": "{size} · <hdr>HDR</hdr> · 原片",
+      "originalUnplayable": "原片：此浏览器无法播放。",
+      "unplayable": "此浏览器无法播放这段视频，请下载后观看。",
+      "live": "实况",
+      "strip": "照片和视频，左右滑动查看",
+      "playLive": "播放实况照片",
+      "livePhotoNote": "在 iPhone 上，实况照片会作为照片添加。若要保留其动态，请在“照片”中对它选择“存储为视频”，再添加该视频。",
+      "livePhotoNoteNoVideos": "在 iPhone 上，实况照片会作为照片添加，不含其动态。",
+      "details": {
+        "fps": "{fps} 帧/秒",
+        "hdr": "HDR",
+        "taken": "拍摄于 {when}"
+      },
+      "withCaption": "{label}：{caption}",
+      "caption": "说明",
+      "captionFor": "{name} 的说明",
+      "addCaption": "添加说明",
+      "editCaption": "编辑说明",
+      "saveCaption": "保存",
+      "cancelCaption": "取消",
+      "captionSaved": "{name}：说明已保存"
     },
     "letter": {
       "for": "致 {name}"
@@ -1037,6 +1097,20 @@
       "now": "进行中",
       "ended": "已结束",
       "inZone": "时间均按 {zone} 时区显示。"
+    },
+    "sections": {
+      "countdown": "倒计时",
+      "note": "备注",
+      "links": "链接",
+      "count": {
+        "guests": "{count, plural, =0 {还没有人} other {预计 # 人}}",
+        "comments": "{count, plural, =0 {还没有} other {# 条留言}}",
+        "album": "{count, plural, =0 {还没有} other {# 张照片和视频}}",
+        "announcements": "{count, plural, other {# 条消息}}",
+        "schedule": "{count, plural, other {# 项}}",
+        "links": "{count, plural, other {# 个链接}}"
+      },
+      "newTab": "（在新标签页中打开）"
     }
   },
   "Design": {
@@ -1146,7 +1220,8 @@
       "poster": "海报",
       "title": "标题",
       "theme": "主题",
-      "effect": "特效"
+      "effect": "特效",
+      "arrange": "排列"
     },
     "tabs": {
       "gallery": "图库",
@@ -1299,6 +1374,102 @@
       "pickConfirm": "选定",
       "pickKeep": "再等等",
       "editCandidates": "修改日期"
+    },
+    "arrange": {
+      "intro": "为页面上的各个板块排好顺序，关掉宾客用不着的板块。",
+      "list": "板块",
+      "fixed": "海报、标题、主办人和回复按钮的位置不变。",
+      "alwaysOn": "始终显示",
+      "moveUp": "将{name}上移",
+      "moveDown": "将{name}下移",
+      "position": "{name}，第 {position} 个，共 {count} 个",
+      "openHint": "打开“排列”面板。",
+      "open": "{name}的选项",
+      "audience": "谁能看到",
+      "audienceAlways": "所有持有链接的人",
+      "audienceAfterReply": "已回复的宾客",
+      "audienceHint": "主办人始终能看到完整名单。",
+      "letterHint": "你亲自邀请的宾客，会读到你在“专属邀请”页面上写给他们的信。",
+      "albumHint": "关闭后，宾客看不到相册，也无法添加内容。相册里的内容不会被删除。",
+      "commentsHint": "关闭后，宾客看不到留言，也无法发表留言。",
+      "countdownHint": "开启后，倒计时不再显示在“时间”下，而是单独成为一个板块。",
+      "heading": "板块标题",
+      "headingHint": "留空则保留“{name}”。",
+      "collapsed": "折叠",
+      "collapsedHint": "宾客会看到板块标题，点按即可展开。",
+      "style": "样式",
+      "styles": {
+        "grid": "网格",
+        "mosaic": "拼贴",
+        "strip": "横排",
+        "list": "列表",
+        "bubbles": "气泡",
+        "names": "名字",
+        "avatars": "头像"
+      },
+      "kinds": {
+        "letter": "专属信件",
+        "details": "详情",
+        "schedule": "日程",
+        "guests": "谁会来",
+        "announcements": "公告",
+        "comments": "留言",
+        "album": "相册",
+        "countdown": "倒计时",
+        "note": "备注",
+        "links": "链接"
+      },
+      "preview": {
+        "letter": "你亲自邀请的每位宾客会在这里读到你写给他们的信。",
+        "schedule": "你的日程，按每位宾客所在的时区显示。",
+        "guestsAlways": "谁会来，所有持有链接的人都能看到。",
+        "guestsAfterReply": "谁会来，已回复的宾客能看到。",
+        "announcements": "你在“公告”中发出的内容会显示在这里。",
+        "comments": "已回复的宾客在这里交流。",
+        "album": "活动的照片和视频，从活动开始时起。",
+        "countdown": "距活动开始的倒计时，按每位宾客自己的时间显示。",
+        "noteEmpty": "还没有写内容。点按即可书写。",
+        "linksEmpty": "还没有链接。点按即可添加。"
+      },
+      "errors": {
+        "unreadable": "无法读取这项更改，请重试。",
+        "unknownSection": "这个板块已不在页面上。请重新加载以查看当前页面。",
+        "notOffered": "这个板块不能这样更改。",
+        "tooManySections": "一个页面最多可有 10 个备注和链接板块。",
+        "headingTooLong": "板块标题请不超过 40 个字。",
+        "noteTooLong": "备注请不超过 2,000 个字。",
+        "tooManyLinks": "一个链接板块最多可放 6 个链接。",
+        "labelTooLong": "链接名称请不超过 40 个字。",
+        "urlTooLong": "这个网址太长了。",
+        "urlInvalid": "这不是网址。可以试试 example.com/registry。"
+      },
+      "add": "添加板块",
+      "addNote": "备注",
+      "addLinks": "链接",
+      "addHint": "备注用你自己的话说明一件事。链接是通往礼物清单、歌单或地图的按钮。",
+      "full": "一个页面最多可有 10 个备注和链接板块。",
+      "suggestions": {
+        "dressCode": "着装要求",
+        "gettingThere": "交通指引",
+        "gifts": "礼物",
+        "registry": "礼物清单",
+        "playlist": "歌单"
+      },
+      "edit": "编辑",
+      "remove": "删除",
+      "removeTitle": "删除“{name}”？",
+      "removeText": "宾客将不再看到它，其中的内容也会被删除。",
+      "removeKeep": "保留",
+      "noteHint": "最多 {max, number} 个字。",
+      "links": {
+        "labelOf": "第 {n} 个链接的名称",
+        "urlOf": "第 {n} 个链接的网址",
+        "add": "添加链接",
+        "moveUp": "将{label}上移",
+        "moveDown": "将{label}下移",
+        "remove": "删除{label}",
+        "hint": "每个链接都在新标签页中打开。最多 6 个。"
+      }
     }
   },
   "Guests": {
@@ -1714,5 +1885,144 @@
     },
     "contact": "有疑问？请发邮件至 <link>{email}</link>，联系本站运营者。",
     "contactUnknown": "本站运营者没有提供联系地址。"
+  },
+  "Voting": {
+    "favourite": "最爱",
+    "block": {
+      "title": "相册投票",
+      "intro": "宾客选出最喜欢的照片和视频。每人在每个奖项中各有一票。",
+      "start": "开始投票",
+      "notYet": "活动开始、相册开放后，才能开始投票。",
+      "albumOff": "相册已在“排列”中关闭。",
+      "open": "投票进行中",
+      "closed": "投票已结束",
+      "close": "结束投票",
+      "reopen": "重新开放投票",
+      "reopenTitle": "重新开放投票？",
+      "reopenText": "{count, plural, =0 {决胜投票会结束，目前还没有人在其中投票。} other {决胜投票会结束，其中的 # 票会被删除。}}决胜投票之前的票会保留。",
+      "reopenConfirm": "重新开放",
+      "reopenStale": "这个页面打开后，决胜投票已经开始。请再按一次“重新开放投票”，看看会删除什么。",
+      "turnOff": "停用投票",
+      "turnOffTitle": "停用投票？",
+      "turnOffText": "{count, plural, =0 {还没有人投票。} other {已投的 # 票都会删除。}}奖项和设置会保留。",
+      "turnOffConfirm": "停用",
+      "cancel": "算了",
+      "names": {
+        "title": "每项由谁添加",
+        "always": "始终显示",
+        "afterVoting": "投票结束后显示",
+        "never": "从不向宾客显示",
+        "hint": "主办人和添加者本人始终能看到是谁添加的。"
+      },
+      "who": {
+        "title": "谁可以投票",
+        "album": "能看到相册的所有人",
+        "going": "仅限回复参加的宾客",
+        "invited": "仅限有专属邀请的宾客",
+        "hint": "主办人始终可以投票。更改此项后，已投的票仍然计数。",
+        "invitedHint": "“告诉宾客投票已开始”按回复状态发邮件，不按专属邀请：请取消勾选不该收到的宾客。"
+      },
+      "closes": {
+        "label": "自动结束时间",
+        "hint": "宾客会看到这个时间。时间均按 {zone} 时区显示。",
+        "none": "不设结束时间",
+        "openUntil": "投票进行中 · {time} 结束",
+        "past": "请选择一个还没过去的时间。",
+        "invalid": "这不是有效的日期和时间。"
+      },
+      "announce": "告诉宾客投票已开始",
+      "failed": "这项更改没有成功。请重新加载页面后再试。",
+      "counting": "正在统计票数…",
+      "countFailed": "票数没能统计出来。请关闭后再试。",
+      "awards": {
+        "title": "奖项",
+        "hint": "每人在每个奖项中各有一票。",
+        "name": "“{award}”的名称",
+        "scope": "“{award}”评选什么",
+        "scopes": {
+          "all": "照片和视频",
+          "photos": "照片",
+          "videos": "视频"
+        },
+        "suggestions": {
+          "bestPhoto": "最佳照片",
+          "bestVideo": "最佳视频",
+          "funniest": "最搞笑",
+          "groupShot": "最佳合照"
+        },
+        "own": "自定奖项",
+        "add": "添加",
+        "moveUp": "上移“{award}”",
+        "moveDown": "下移“{award}”",
+        "moved": "“{award}”现在是第 {place} 个，共 {count} 个。",
+        "remove": "删除“{award}”",
+        "removeTitle": "删除“{award}”？",
+        "removeText": "{count, plural, =0 {还没有人在这个奖项中投票。} other {其中的 # 票会被删除。}}",
+        "removeConfirm": "删除",
+        "full": "一个活动最多可以有八个奖项。",
+        "nameTooLong": "奖项名称最多 40 个字。"
+      }
+    },
+    "album": {
+      "open": "投票进行中",
+      "closed": "投票已结束",
+      "closesAt": "{time} 结束",
+      "onlyGoing": "只有回复参加的宾客可以投票。",
+      "onlyInvited": "只有收到专属邀请的宾客可以投票。",
+      "hint": "投票结束前不显示票数。",
+      "tapToVote": "点星星，为“{award}”投票。",
+      "yourVote": "你已为“{award}”投票。点另一颗星星可改投，点你投的那颗可收回。",
+      "voteFor": "投票给",
+      "voteThis": "{kind, select, video {投票给这段视频} other {投票给这张照片}}",
+      "votes": "{count, plural, other {# 票}}",
+      "place": "{place, selectordinal, other {第 # 名}}",
+      "placeLabel": "{place, selectordinal, other {第 # 名}}",
+      "hostsOnly": "仅主办人可见",
+      "soFar": "“{award}”目前共 {count, plural, other {# 票}}",
+      "errors": {
+        "tooFast": "操作太频繁了，请稍后再试。",
+        "closed": "投票已结束。",
+        "notAllowed": "你不能为这一项投票。",
+        "failed": "投票没有成功，请再试一次。"
+      },
+      "picker": {
+        "label": "奖项",
+        "voted": "“{award}”，已投票",
+        "forPhotos": "这个奖项只评选照片。",
+        "forVideos": "这个奖项只评选视频。",
+        "whole": "整个相册",
+        "rest": "要查看相册里的其他内容，请选择“整个相册”。"
+      },
+      "tiebreak": {
+        "banner": "决胜投票 · {award}",
+        "round": "第 {round} 轮",
+        "intro": "{count, plural, =0 {并列第一的各项都已删除。} =1 {并列第一的只剩这一项了。} other {这 # 项并列第一。请从中再投一票。}}",
+        "hint": "决胜投票结束前不显示票数。",
+        "shared": "{count, plural, other {“{award}”有 # 项并列第一。}}",
+        "stillLevel": "{count, plural, other {决胜投票后，“{award}”仍有 # 项并列第一。}}",
+        "start": "开始决胜投票",
+        "again": "再投一轮",
+        "keep": "保留并列第一",
+        "close": "结束决胜投票",
+        "inTiebreak": "{count, plural, other {决胜投票 # 票}}",
+        "countWith": "{votes}，{tiebreak}",
+        "gone": "决胜投票中的各项都已删除。要再次投票，请重新开放投票。"
+      },
+      "winners": {
+        "title": "获奖作品 · {award}",
+        "none": "没有人在“{award}”中投票。",
+        "send": "把获奖结果告诉宾客",
+        "alt": "{place}：{label}"
+      }
+    }
+  },
+  "VotingDrafts": {
+    "voting": "“{title}”的相册投票开始了。每个奖项你都有一票：{awards}。{closes, select, yes {投票将于 {time} 结束。} other {}}\n\n打开相册投票：\n{url}",
+    "winners": "“{title}”的投票结果出炉了。\n\n{lines}\n\n在相册里查看全部票数：\n{url}",
+    "line": "{award}：{winners}，{shared, select, yes {各 } other {}}{count, plural, other {# 票}}。",
+    "item": "{named, select, yes {{name} 的} other {}}{kind, select, video {一段视频} other {一张照片}}",
+    "noVotes": "{award}：没有人投票。",
+    "more": "{count, plural, other {另外 # 个奖项}}",
+    "moreAwards": "{count, plural, other {另外还有 # 个奖项。}}"
   }
 }

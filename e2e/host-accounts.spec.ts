@@ -43,6 +43,39 @@ test("the verification banner lines up with the header", async ({ page }) => {
   expect(Math.abs(bannerBox!.x + bannerBox!.width - (menuBox!.x + menuBox!.width))).toBeLessThanOrEqual(1);
 });
 
+// M8 ticket 31, from the glass part's review: the banner's Resend never sits over its words, before
+// it is pressed or after, when what it says has joined it, in each of the three languages. At a
+// phone's width it is below them; wider, beside them.
+const BANNER = [
+  { lang: "en", language: "English", title: "Verify your email", resend: "Resend email", sent: "Sent. Check your inbox." },
+  { lang: "zh-Hans", language: "简体中文", title: "验证你的邮箱", resend: "重新发送邮件", sent: "已发送，请查收。" },
+  { lang: "zh-Hant", language: "繁體中文", title: "驗證你的電子郵件", resend: "重新寄送郵件", sent: "已寄出，請查看收件匣。" },
+] as const;
+
+test("the verification banner's Resend sits clear of its words in every language, before and after it is pressed", async ({ page }) => {
+  await signUp(page, newHost("banner-clear"));
+  for (const { lang, language, title, resend, sent } of BANNER) {
+    if (lang !== "en") await page.getByRole("contentinfo").getByRole("button", { name: language }).click();
+    await expect(page.locator("html")).toHaveAttribute("lang", lang);
+    const banner = page.getByRole("alert").filter({ hasText: title });
+    const action = banner.locator('[data-slot="alert-action"]');
+    // Every box the action draws (its button, and what it says once pressed) against the title's
+    // and the words' boxes.
+    const overlaps = () =>
+      banner.evaluate((alert) => {
+        const boxes = (selector: string) => [...alert.querySelectorAll(selector)].map((element) => element.getBoundingClientRect());
+        const words = boxes('[data-slot="alert-title"], [data-slot="alert-description"]');
+        return boxes('[data-slot="alert-action"] form > *').flatMap((drawn) =>
+          words.filter((box) => drawn.left < box.right && box.left < drawn.right && drawn.top < box.bottom && box.top < drawn.bottom).map(() => `${Math.round(drawn.width)}px at ${Math.round(drawn.left)}`),
+        );
+      });
+    expect(await overlaps(), `${lang}, before Resend`).toEqual([]);
+    await banner.getByRole("button", { name: resend }).click();
+    await expect(action.getByRole("status")).toHaveText(sent, { timeout: 15_000 });
+    expect(await overlaps(), `${lang}, after Resend`).toEqual([]);
+  }
+});
+
 test("the banner resends the verification email", async ({ page, request }) => {
   const host = newHost("resend");
   await signUp(page, host);
@@ -81,7 +114,8 @@ test("a host changes their display name and sees it in the header", async ({ pag
   await expect(page).toHaveURL(/\/account$/);
 
   await page.getByLabel("Display name").fill("Grace Hopper");
-  await page.getByRole("button", { name: "Save" }).click();
+  // Its own card's Save: the Backdrop card has one too (M8 ticket 22).
+  await page.locator('[data-slot="card"]').filter({ has: page.getByLabel("Display name") }).getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Display name saved.")).toBeVisible();
   await expect((await openAccountMenu(page)).getByText("Grace Hopper")).toBeVisible();
   await page.keyboard.press("Escape");
@@ -189,6 +223,11 @@ test("a host deletes their account after confirming with their password", async 
   const host = newHost("delete");
   await signUp(page, host);
   await page.goto("/account");
+  // A backdrop saved first (M8 ticket 22): its row goes with the account and holds nothing up.
+  const backdrop = page.locator("#backdrop");
+  await backdrop.getByText("Aurora", { exact: true }).click();
+  await backdrop.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(backdrop.getByText("Backdrop saved.")).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Delete account" }).click();
 
   const dialog = page.getByRole("alertdialog");

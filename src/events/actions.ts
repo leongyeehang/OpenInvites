@@ -10,6 +10,7 @@ import { listQuestions, saveQuestions } from "@/questions/repository";
 import { notifyGuestsOfCancellation } from "@/rsvps/notify-cancellation";
 import { copyPicture } from "@/uploads/copy";
 import { findEventUpload } from "@/uploads/repository";
+import { copyAwards } from "@/voting";
 import { duplicateInput } from "./duplicate";
 import { eventsOwnedAtLimit } from "./limit";
 import { cancelEvent, createEvent, CUSTOM_SLUG_TAKEN, deleteEvent, findHostEvent, resetEventLink, setCustomSlug } from "./repository";
@@ -73,9 +74,9 @@ function refreshLinkPages(before: { id: string; slug: string; customSlug: string
   revalidatePath(`/events/${before.id}/share`);
 }
 
-// A new draft with the same details, look, questions, settings and picture, owned by the host who
-// asks, who is taken to its manage page, which names the event it came from. A host at the
-// operator's limit is told so instead.
+// A new draft with the same details, look, questions, settings and picture, and the album vote's
+// awards (M8 ticket 10), owned by the host who asks, who is taken to its manage page, which names
+// the event it came from. A host at the operator's limit is told so instead.
 export async function duplicateEventAction(id: string): Promise<FormState> {
   const host = await requireHost();
   const source = await findHostEvent(host.id, id);
@@ -90,6 +91,7 @@ export async function duplicateEventAction(id: string): Promise<FormState> {
     await saveQuestions(created.id, questions);
     const picture = await findEventUpload(id);
     if (picture) await copyPicture(picture, host.id, created.id);
+    await copyAwards(id, created.id);
   } catch (error) {
     // Nothing half-made is left in the host's dashboard; the host can try again.
     await deleteEvent(host.id, created.id);

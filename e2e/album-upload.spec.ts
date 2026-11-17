@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import sharp from "sharp";
 import { createPublished, editSettings } from "./events";
+import { probeServed, probeServedTags } from "./instances";
 import { closeReply } from "./reply";
 import { clientAddress, expect, test, type APIRequestContext, type Browser, type Page } from "./test";
 
@@ -11,7 +12,12 @@ import { clientAddress, expect, test, type APIRequestContext, type Browser, type
 const PAST = { title: "Ada’s garden party", start: "2026-01-10T16:00", plusOnes: "0" };
 const H264 = readFileSync("e2e/fixtures/clip-h264.mp4");
 const HEVC = readFileSync("e2e/fixtures/clip-hevc.mov");
+const HEVC_1080 = readFileSync("e2e/fixtures/clip-hevc-1080p.mp4");
+const HDR = readFileSync("e2e/fixtures/clip-hdr.mp4");
 const LONG = readFileSync("e2e/fixtures/clip-long.mp4");
+// clip-hevc-1080p.mp4 and a motion photo's clip with a phone's tags (fixtures/README.md).
+const HEVC_TAGGED = readFileSync("e2e/fixtures/clip-hevc-tagged.mov");
+const MOTION_TAGGED = readFileSync("e2e/fixtures/motion-photo-tagged.jpg");
 const TEST_PART = 65536;
 
 // A guest of their own, on an address of their own (the upload limit counts per address).
@@ -88,6 +94,7 @@ test("an H.264 clip goes up in parts, is finished, processed, and served at orig
   // The clip as sent is never served, and an H.264 clip at 640x480 needs no lighter copy.
   expect((await request.get(`${files}/video-sent`)).status()).toBe(404);
   expect((await request.get(`${files}/video-1080p.mp4`)).status()).toBe(404);
+  expect((await request.get(`${files}/video-720p.mp4`)).status()).toBe(404);
   await Promise.all([host.context.close(), priya.context().close()]);
 });
 
@@ -102,10 +109,104 @@ test("an HEVC clip held portrait gets a lighter copy, an upright poster, and los
   const copy = await servedWithin(request, `${files}/video-1080p.mp4`, 120_000);
   expect(copy.length).toBeGreaterThan(10_000);
   const original = await servedWithin(request, `${files}/video.mp4`, 30_000);
+  // M8 ticket 03: a 720p copy of a 640x480 clip would be 480 on its short side, as the 1080p one is.
+  expect((await request.get(`${files}/video-720p.mp4`)).status()).toBe(404);
   expect(original.includes("+35.6895+139.6917")).toBe(false);
   expect(original.includes("6895")).toBe(false);
-  const poster = await sharp(await (await request.get(`${files}/video-poster.webp`)).body()).metadata();
+  // The poster is made from the stored original, so it is stored after it: waited for, not read
+  // at once (M8 ticket 09, a flake of the media pass).
+  const poster = await sharp(await servedWithin(request, `${files}/video-poster.webp`, 30_000)).metadata();
   expect(poster.height!).toBeGreaterThan(poster.width!);
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+// The whole-branch review, finding 4: what guests are told the stored files keep is nothing of the
+// phone's. A copy made from the clip as sent, one made from the stored original, the original
+// itself, and a live photo's motion carry no tag beyond the container's own: no location, make,
+// model or creation time, and no Apple or Android key.
+const CONTAINER_TAGS = new Set(["major_brand", "minor_version", "compatible_brands", "encoder", "handler_name", "vendor_id", "language"]);
+
+// Where both tagged fixtures say they were taken, as their own bytes spell it.
+const FIXTURE_LOCATION = "+35.6895+139.6917";
+
+function expectNoPhoneTags(bytes: Buffer, file: string) {
+  const { format, streams } = probeServedTags(bytes);
+  // The probe read the file: every MP4 names its brand.
+  expect(format.major_brand, file).toBeTruthy();
+  for (const tags of [format, ...streams]) expect(Object.keys(tags).filter((key) => !CONTAINER_TAGS.has(key)), file).toEqual([]);
+  // Nor anywhere else in the file, outside any tag the probe reads (the last review, minor 5).
+  expect(bytes.includes(FIXTURE_LOCATION), file).toBe(false);
+}
+
+test("a video's copies, its original and a live photo's motion keep no tag of the phone's", async ({ browser, request }) => {
+  test.setTimeout(360_000);
+  expect(HEVC_TAGGED.includes("com.apple.quicktime.model")).toBe(true);
+  expect(HEVC_TAGGED.includes(FIXTURE_LOCATION)).toBe(true);
+  expect(MOTION_TAGGED.includes("com.android.model")).toBe(true);
+  expect(MOTION_TAGGED.includes(FIXTURE_LOCATION)).toBe(true);
+  const host = await createPublished(browser, request, "video-tags", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  const api = apiOf(priya, host.link);
+  const clip = await uploadWhole(api, "clip-hevc-tagged.mov", "video/quicktime", HEVC_TAGGED, 2000);
+  const files = `${api.origin}/uploads/${clip.item.id}`;
+  // The 1080p copy is made from the clip as sent, the 720p one after it from the stored original.
+  expectNoPhoneTags(await servedWithin(request, `${files}/video-1080p.mp4`, 120_000), "video-1080p.mp4");
+  expectNoPhoneTags(await servedWithin(request, `${files}/video.mp4`, 30_000), "video.mp4");
+  expectNoPhoneTags(await servedWithin(request, `${files}/video-720p.mp4`, 120_000), "video-720p.mp4");
+
+  const live = await uploadWhole(api, "motion-photo-tagged.jpg", "image/jpeg", MOTION_TAGGED);
+  expect(live.item).toMatchObject({ kind: "photo" });
+  expectNoPhoneTags(await servedWithin(request, `${api.origin}/uploads/${live.item.id}/motion.mp4`, 150_000), "motion.mp4");
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+// M8 ticket 03: a video is ready once it plays everywhere, with the one copy an HEVC original
+// needs; the event's other sizes follow from the stored original.
+test("a 1080p HEVC clip is ready with its 1080p copy, and its 720p copy follows", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "video-sizes", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  const api = apiOf(priya, host.link);
+  const { item } = await uploadWhole(api, "clip-hevc-1080p.mp4", "video/mp4", HEVC_1080, 2000);
+  const files = `${api.origin}/uploads/${item.id}`;
+  await servedWithin(request, `${files}/video.mp4`, 120_000);
+  const large = await request.get(`${files}/video-1080p.mp4`);
+  expect(large.status()).toBe(200);
+  const small = await servedWithin(request, `${files}/video-720p.mp4`, 120_000);
+  expect(probeServed(await large.body())).toMatchObject({ codec_name: "h264", width: 1920, height: 1080 });
+  expect(probeServed(small)).toMatchObject({ codec_name: "h264", width: 1280, height: 720 });
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+test("an event that asks for 720p only gives a 1080p HEVC clip a 720p copy and no 1080p one", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "video-720", PAST);
+  await editSettings(host.page, (sheet) => sheet.getByRole("group", { name: "Album", exact: true }).getByRole("group", { name: "Video sizes" }).getByLabel("1080p", { exact: true }).uncheck());
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  const api = apiOf(priya, host.link);
+  const { item } = await uploadWhole(api, "clip-hevc-1080p.mp4", "video/mp4", HEVC_1080, 2000);
+  const files = `${api.origin}/uploads/${item.id}`;
+  await servedWithin(request, `${files}/video.mp4`, 120_000);
+  expect((await request.get(`${files}/video-720p.mp4`)).status()).toBe(200);
+  expect((await request.get(`${files}/video-1080p.mp4`)).status()).toBe(404);
+  await Promise.all([host.context.close(), priya.context().close()]);
+});
+
+// M8 ticket 05: an HDR original keeps its HDR, and its copies are tone-mapped to standard colour.
+test("an HDR clip keeps HLG in its original, and its copies come out in standard colour", async ({ browser, request }) => {
+  test.slow();
+  const host = await createPublished(browser, request, "video-hdr", PAST);
+  const priya = await guestGoing(browser, host.link, "Priya Nair");
+  const api = apiOf(priya, host.link);
+  const { item } = await uploadWhole(api, "clip-hdr.mp4", "video/mp4", HDR, 2000);
+  const files = `${api.origin}/uploads/${item.id}`;
+  const original = await servedWithin(request, `${files}/video.mp4`, 120_000);
+  expect(probeServed(original)).toMatchObject({ color_transfer: "arib-std-b67", color_primaries: "bt2020" });
+  const standard = { codec_name: "h264", pix_fmt: "yuv420p", color_transfer: "bt709", color_primaries: "bt709" };
+  const large = await request.get(`${files}/video-1080p.mp4`);
+  expect(large.status()).toBe(200);
+  expect(probeServed(await large.body())).toMatchObject(standard);
+  expect(probeServed(await servedWithin(request, `${files}/video-720p.mp4`, 120_000))).toMatchObject(standard);
   await Promise.all([host.context.close(), priya.context().close()]);
 });
 

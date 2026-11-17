@@ -1,4 +1,4 @@
-import { createPublished, editSettings, openMore, openSettings } from "./events";
+import { arrange, createPublished, openArrange, openMore } from "./events";
 import { MAILPIT, latestMailTo, mailCountTo } from "./hosts";
 import { closeReply } from "./reply";
 import { expect, test, type APIRequestContext, type Page } from "./test";
@@ -158,9 +158,7 @@ test("comments turned off take the section off the page, for guests and hosts al
   await page.goto(host.link);
   await expect(page.getByText("No comments yet", { exact: true })).toBeVisible();
 
-  await editSettings(host.page, async () => {
-    await host.page.getByLabel("Comments", { exact: true }).uncheck();
-  });
+  await arrange(host.page, (sheet) => sheet.getByRole("switch", { name: "Comments" }).click());
 
   await page.reload();
   await expect(page.getByRole("heading", { name: "Ada’s birthday" })).toBeVisible();
@@ -170,9 +168,9 @@ test("comments turned off take the section off the page, for guests and hosts al
   await expect(host.page.getByRole("heading", { name: "Ada’s birthday" })).toBeVisible();
   await expect(host.page.getByRole("heading", { name: "Comments" })).toHaveCount(0);
 
-  // The setting is kept as the host left it.
+  // The switch is kept as the host left it.
   await host.page.goto(manage);
-  await expect((await openSettings(host.page)).getByLabel("Comments", { exact: true })).not.toBeChecked();
+  await expect((await openArrange(host.page)).getByRole("switch", { name: "Comments" })).not.toBeChecked();
 
   await host.context.close();
 });

@@ -15,6 +15,8 @@ let route: typeof import("./route");
 beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), "openinvites-route-"));
   await writeFile(join(dir, `${ID}-photo.webp`), BYTES);
+  await writeFile(join(dir, `${ID}-motion.mp4`), BYTES);
+  await writeFile(join(dir, `${ID}-motion-sent`), BYTES);
   process.env.STORAGE_BACKEND = "local";
   process.env.UPLOADS_DIR = dir;
   route = await import("./route");
@@ -55,6 +57,17 @@ describe("the uploads route", () => {
     // A video's files are served by name once stored (ticket 05); the clip as sent never is.
     expect((await get("video.mp4")).status).toBe(404);
     expect((await get("photo.webp", {}, "not-a-uuid")).status).toBe(404);
+  });
+
+  // M8 ticket 08: a live photo's motion is served as a video, by range; the clip as sent never is.
+  it("serves a live photo's motion as video/mp4 with ranges, and never the clip as sent", async () => {
+    const whole = await get("motion.mp4");
+    expect(whole.status).toBe(200);
+    expect(whole.headers.get("content-type")).toBe("video/mp4");
+    const range = await get("motion.mp4", { Range: "bytes=0-99" });
+    expect(range.status).toBe(206);
+    expect(new Uint8Array(await range.arrayBuffer())).toEqual(BYTES.subarray(0, 100));
+    expect((await get("motion-sent")).status).toBe(404);
   });
 
   it("answers HEAD with the headers and no body", async () => {

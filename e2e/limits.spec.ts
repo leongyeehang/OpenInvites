@@ -342,17 +342,27 @@ test("the Storage card shows the site's use, the biggest albums, and the process
   await expect(rows.first()).toContainText(/Second party|First party/);
   await expect(rows.first()).toContainText(/Ada /);
 
-  // The switch is on by default, stays off once saved so, and comes back on.
+  // The switch is on by default, stays off once saved so, and comes back on. The 4K switch (M8
+  // ticket 04) is off by default, saved with it, and says what it costs.
   const form = card.locator("form");
+  const fourK = card.getByLabel("Also make a 4K copy that plays everywhere");
   await expect(card.getByLabel("Process videos for playback")).toBeChecked();
+  await expect(fourK).not.toBeChecked();
+  await expect(fourK).toHaveAccessibleDescription(/115 MB/);
   await card.getByLabel("Process videos for playback").uncheck();
+  await fourK.check();
   await form.getByRole("button", { name: "Save" }).click();
   await expect(form.getByText("Saved.")).toBeVisible();
   await operator.reload();
   await expect(card.getByLabel("Process videos for playback")).not.toBeChecked();
+  await expect(fourK).toBeChecked();
   await card.getByLabel("Process videos for playback").check();
+  await fourK.uncheck();
   await card.locator("form").getByRole("button", { name: "Save" }).click();
   await expect(card.locator("form").getByText("Saved.")).toBeVisible();
+  await operator.reload();
+  await expect(card.getByLabel("Process videos for playback")).toBeChecked();
+  await expect(fourK).not.toBeChecked();
 });
 
 // Review fix (I3): an upload counts from its ask, which the Storage card shows under "Uploads in

@@ -1,4 +1,4 @@
-import { PHOTO_FILES } from "@/album/files";
+import { MOTION_FILE, MOTION_SENT, PHOTO_FILES } from "@/album/files";
 import { SENT_FILE, VIDEO_FILES } from "@/album/video";
 import { getDb } from "@/db/client";
 import { photo, upload } from "@/db/schema";
@@ -41,11 +41,18 @@ export function strayKeys(
 
 type Kind = "photo" | "video" | "picture";
 
+// A photo's names include a live photo's motion and its clip as sent (M8 ticket 08), which only a
+// live photo, or one whose motion is being made, has.
 const NAMES: Record<Kind, Set<string>> = {
-  photo: new Set(Object.values(PHOTO_FILES).map(({ file }) => file)),
+  photo: new Set([...Object.values(PHOTO_FILES).map(({ file }) => file), MOTION_FILE.file, MOTION_SENT]),
   video: new Set([...Object.values(VIDEO_FILES).map(({ file }) => file), SENT_FILE]),
   picture: new Set(Object.values(RENDITIONS).map(({ file }) => file)),
 };
+
+// Whether an item or picture of `kind` names `file`.
+export function namedBy(kind: Kind, file: string): boolean {
+  return NAMES[kind].has(file);
+}
 
 // Every id storage may hold files under, with its kind: the album's items and the hosts' pictures.
 // An upload in progress has a token of its own that names no file (its parts are in a temporary
@@ -63,7 +70,7 @@ export async function findStrayFiles(now = new Date()): Promise<{ files: { key: 
   const known = await knownIds();
   const files: StoredFile[] = [];
   for await (const file of getStorage().list()) files.push(file);
-  const strays = strayKeys(files, (id, file) => known.has(id) && NAMES[known.get(id)!].has(file), now);
+  const strays = strayKeys(files, (id, file) => known.has(id) && namedBy(known.get(id)!, file), now);
   return { files: strays, total: strays.reduce((sum, { size }) => sum + size, 0) };
 }
 

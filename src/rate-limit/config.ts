@@ -2,8 +2,9 @@ import type { Rule } from "./window";
 
 // What the rate limits protect (spec, "Operator configuration"): every request under an event
 // link, RSVPs, uploads, signing up, signing in (and anything else that checks a password),
-// resetting a password, every request that sends someone an email, comments, and reports.
-export type LimitName = "eventPage" | "rsvp" | "upload" | "signUp" | "signIn" | "passwordReset" | "mail" | "comment" | "report";
+// resetting a password, every request that sends someone an email, comments, reports, and votes in
+// an album (M8 ticket 12).
+export type LimitName = "eventPage" | "rsvp" | "upload" | "signUp" | "signIn" | "passwordReset" | "mail" | "comment" | "report" | "vote";
 
 export type RateLimitConfig = { trustedProxyHops: number; rules: Record<LimitName, Rule> };
 
@@ -29,6 +30,10 @@ const LIMITS: Record<LimitName, { variable: string; default: Rule }> = {
   comment: { variable: "RATE_LIMIT_COMMENT", default: { limit: 30, windowMs: 10 * MINUTE } },
   // Sending a report about an event page, which emails the operator (spec, "Report an event").
   report: { variable: "RATE_LIMIT_REPORT", default: { limit: 5, windowMs: HOUR } },
+  // Giving, moving or taking back a vote in an album (M8 ticket 12): generous, since a party often
+  // shares one address; forty guests at a venue voting in four awards pass 120 (the whole-branch
+  // review).
+  vote: { variable: "RATE_LIMIT_VOTE", default: { limit: 600, windowMs: 10 * MINUTE } },
 };
 
 const UNITS: Record<string, number> = { s: SECOND, m: MINUTE, h: HOUR };

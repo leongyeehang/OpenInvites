@@ -12,10 +12,13 @@ import type { RichText } from "@/rich-text/rich-text";
 // The host writes the invitation here. The editable area is the browser's own, seeded once and
 // never re-rendered, so the cursor stays where the host put it; every keystroke is read back
 // into the document model and travels in the hidden field beside it. The server reads only the
-// model, so nothing pasted in can arrive as markup.
-export function DescriptionEditor({ doc }: { doc: RichText }) {
+// model, so nothing pasted in can arrive as markup. A Note is written here too (M8 ticket 29),
+// under its own `label` and over its own `hint` (its limit, the Sections part's review), and saved
+// as it is typed: `onChange` hears each model read back.
+export function DescriptionEditor({ doc, label, hint, onChange }: { doc: RichText; label?: string; hint?: string; onChange?: (doc: RichText) => void }) {
   const t = useTranslations("Events.form");
   const labelId = useId();
+  const hintId = useId();
   const editable = useRef<HTMLDivElement>(null);
   const [seeded] = useState(() => richTextToHtml(doc));
   const [value, setValue] = useState(() => JSON.stringify(doc));
@@ -23,7 +26,10 @@ export function DescriptionEditor({ doc }: { doc: RichText }) {
   const [on, setOn] = useState<Record<Toggle, boolean>>({ bold: false, italic: false, insertUnorderedList: false });
 
   const read = () => {
-    if (editable.current) setValue(JSON.stringify(readRichText(editable.current)));
+    if (!editable.current) return;
+    const model = readRichText(editable.current);
+    setValue(JSON.stringify(model));
+    onChange?.(model);
   };
 
   const readToggles = useCallback(() => {
@@ -76,7 +82,7 @@ export function DescriptionEditor({ doc }: { doc: RichText }) {
     <Field>
       {/* The editable area is not a form field, so the label names it and focuses it by hand. */}
       <FieldLabel id={labelId} onClick={() => editable.current?.focus()}>
-        {t("description")}
+        {label ?? t("description")}
       </FieldLabel>
       <div className="flex flex-wrap gap-1" onMouseDown={(pressed) => pressed.preventDefault()}>
         <Button type="button" variant="ghost" size="icon" aria-label={t("descriptionBold")} aria-pressed={on.bold} className="aria-pressed:bg-muted" onClick={() => command("bold")}>
@@ -106,7 +112,12 @@ export function DescriptionEditor({ doc }: { doc: RichText }) {
         role="textbox"
         aria-multiline="true"
         aria-labelledby={labelId}
+        aria-describedby={hintId}
         contentEditable
+        // Named outright: a sheet's focus trap (Radix) counts only what says it is in the Tab
+        // order, and in the Note's sheet, where this is the last stop, it would otherwise send Tab
+        // from Bullet list back to the top, never into the text (M8 ticket 31).
+        tabIndex={0}
         suppressContentEditableWarning
         onInput={read}
         onBlur={read}
@@ -121,7 +132,7 @@ export function DescriptionEditor({ doc }: { doc: RichText }) {
         dangerouslySetInnerHTML={{ __html: seeded }}
       />
       <input type="hidden" name="description" value={value} />
-      <FieldDescription>{t("descriptionHint")}</FieldDescription>
+      <FieldDescription id={hintId}>{hint ?? t("descriptionHint")}</FieldDescription>
     </Field>
   );
 }

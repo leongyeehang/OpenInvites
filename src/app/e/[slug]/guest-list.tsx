@@ -1,16 +1,17 @@
-import { Lock, Users } from "lucide-react";
+import { Lock } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { cn } from "@/lib/utils";
 import type { Approval } from "@/rsvps/admission";
 import type { RsvpCounts } from "@/rsvps/counts";
 import type { PublicGuest } from "@/rsvps/repository";
 import type { GuestListView } from "@/rsvps/visibility";
-import { initialsOf, SectionLabel } from "@/themes/poster-parts";
+import { initialsOf } from "@/themes/poster-parts";
 
 // The guest list as a guest sees it: a pile of who is coming, the headcount, then everyone as a
 // chip. When the host has made it a reward for answering, the pile is there but blurred and
 // empty of names, so nothing is given away to anyone who opens the page source; a guest whose
-// reply the host has not approved (`approval`) is told why it stays locked for them.
+// reply the host has not approved (`approval`) is told why it stays locked for them. The section's
+// frame heads it (M8 ticket 25).
 export async function GuestList({
   view,
   guests,
@@ -29,7 +30,6 @@ export async function GuestList({
   if (view === "locked") {
     return (
       <>
-        <SectionLabel icon={Users}>{t("guests")}</SectionLabel>
         <div aria-hidden className="flex -space-x-2.5 blur-[6px]">
           {[0, 1, 2, 3].map((index) => (
             <span key={index} className="size-9 rounded-full bg-theme-glass-strong ring-2 ring-theme-glass-border" />
@@ -47,7 +47,6 @@ export async function GuestList({
 
   return (
     <>
-      <SectionLabel icon={Users}>{t("guests")}</SectionLabel>
       {guests.length === 0 ? (
         <p className="text-sm text-theme-text-muted">{t("nobodyYet")}</p>
       ) : (

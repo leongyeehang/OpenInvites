@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { css, TONES } from "./legibility";
+import { css, TONES, toneTokens } from "./legibility";
 import { findGalleryPoster } from "./posters";
 import { posterTitleVariables, resolveTheme, sheetVariables, themeVariables, type ThemeUpload } from "./resolve";
 import { DEFAULT_THEME, type Theme } from "./theme";
@@ -197,6 +197,30 @@ describe("resolveTheme", () => {
       expect(variables[name], name).toMatch(/^(#[0-9a-f]{6}|rgb\(\d+ \d+ \d+ \/ [0-9.]+\))$/);
     }
     expect(themeVariables(resolveTheme({ ...DEFAULT_THEME, textTone: "dark" }))["--theme-text"]).toBe("#1a1030");
+  });
+
+  it("carries the danger and attention inks as CSS variables", () => {
+    const resolved = resolveTheme(DEFAULT_THEME);
+    const variables = themeVariables(resolved);
+    expect(variables["--theme-danger-ink"]).toBe(css(resolved.tokens.dangerInk));
+    expect(variables["--theme-attention-ink"]).toBe(css(resolved.tokens.attentionInk));
+    for (const name of ["--theme-danger-ink", "--theme-attention-ink"]) expect(variables[name], name).toMatch(/^#[0-9a-f]{6}$/);
+    // A site page's too (ticket 18), on a poster whose glass a site page tints further.
+    const site = resolveTheme(onGallery("aurora"), null, "site");
+    const onSite = themeVariables(site);
+    expect(onSite["--theme-danger-ink"]).toBe(css(site.tokens.dangerInk));
+    expect(onSite["--theme-attention-ink"]).toBe(css(site.tokens.attentionInk));
+    for (const name of ["--theme-danger-ink", "--theme-attention-ink"]) expect(onSite[name], name).toMatch(/^#[0-9a-f]{6}$/);
+  });
+
+  it("solves a site page with the surfaces only a site page stacks, and an event page without them", () => {
+    // Aurora's glass must be tinted further for glass on glass to read.
+    const aurora = findGalleryPoster("aurora")!;
+    const resolved = resolveTheme(onGallery("aurora"), null, "site");
+    expect(resolved.textTone).toBe("light");
+    expect(resolved.tokens).toEqual(toneTokens("light", aurora, aurora.accent, "poster", "site"));
+    expect(resolveTheme(onGallery("aurora")).tokens).toEqual(toneTokens("light", aurora, aurora.accent, "poster"));
+    expect(resolved.tokens.glass[3]).toBeGreaterThan(resolveTheme(onGallery("aurora")).tokens.glass[3]);
   });
 
   it("carries how guests answer: in the sheet or inline", () => {

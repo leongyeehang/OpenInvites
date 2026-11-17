@@ -98,7 +98,7 @@ describe("a picture's accent", () => {
 describe("the backdrop the glass sees on a picture", () => {
   // `measureBackdrop` is handed the picture already blurred, as the glass blurs a background or
   // as the page blurs the copy behind a poster; what it adds is the tone's scrim, which every
-  // picture wears there (themed-page.tsx), and the choice of extremes.
+  // picture wears there (backdrop.tsx), and the choice of extremes.
   const rgb = (hex: string): Rgb => hexToRgb(hex);
 
   it("is white and black under their scrims on a picture with both", () => {

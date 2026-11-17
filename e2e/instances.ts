@@ -17,3 +17,38 @@ export function exec(service: string, ...command: string[]): string {
   return execFileSync("docker", ["compose", "--profile", "test", "exec", "-T", service, ...command], { stdio: "pipe" }).toString();
 }
 
+// A photo's motion held as being made (media part review): a `motion` job on it under a lease that
+// no processor holds, which no queue claims for ten minutes (jobs.ts, LEASE_MS), so the pages that
+// follow it keep refreshing however busy or idle the queue is. Gives back its release.
+export function holdMotionPending(photoId: string): () => void {
+  if (!/^[0-9a-f-]{36}$/.test(photoId)) throw new Error(`not an item's id: ${photoId}`);
+  const sql = (statement: string) => exec("db", "psql", "-U", "openinvites", "-d", "openinvites", "-v", "ON_ERROR_STOP=1", "-c", statement);
+  sql(`insert into video_job (photo_id, work, leased_at, leased_by) values ('${photoId}', 'motion', now(), 'e2e')`);
+  return () => void sql(`delete from video_job where photo_id = '${photoId}' and leased_by = 'e2e'`);
+}
+
+// What ffprobe says of a served video's first video stream (M8 ticket 03), read in one of the
+// profile's containers, which carry ffmpeg where this machine may not, from the bytes on stdin.
+// ffprobe stops reading once it has the streams, so the rest of stdin is drained after it, or
+// sending it would break the pipe.
+export type ServedStream = { codec_name: string; width: number; height: number; pix_fmt: string; color_transfer?: string; color_primaries?: string; avg_frame_rate: string };
+
+export function probeServed(bytes: Buffer, service = "app"): ServedStream {
+  return (ffprobe(bytes, service, "-select_streams v:0 -show_streams") as { streams: ServedStream[] }).streams[0];
+}
+
+// The tags of a served file, the container's and each stream's (the whole-branch review, finding
+// 4), read as probeServed reads a stream: what a stored copy or a live photo's motion still says
+// of the clip it was made from.
+export type ServedTags = { format: Record<string, string>; streams: Record<string, string>[] };
+
+export function probeServedTags(bytes: Buffer, service = "app"): ServedTags {
+  const out = ffprobe(bytes, service, "-show_entries format_tags:stream_tags") as { format?: { tags?: Record<string, string> }; streams?: { tags?: Record<string, string> }[] };
+  return { format: out.format?.tags ?? {}, streams: (out.streams ?? []).map((stream) => stream.tags ?? {}) };
+}
+
+function ffprobe(bytes: Buffer, service: string, ask: string): unknown {
+  const probe = `ffprobe -v error ${ask} -of json -i pipe:0; status=$?; cat > /dev/null; exit $status`;
+  const out = execFileSync("docker", ["compose", "--profile", "test", "exec", "-T", service, "sh", "-c", probe], { input: bytes, stdio: "pipe" });
+  return JSON.parse(out.toString());
+}

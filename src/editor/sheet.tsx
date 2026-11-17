@@ -13,6 +13,21 @@ import { cn } from "@/lib/utils";
 // the invitation shrinks above it to a live copy (globals.css, design-sheet), which a tap closes it
 // from: nothing dims it. Beside a panel, the invitation keeps its size and slides clear of it
 // (editor-sheet-open).
+//
+// One sheet may open in another's place: Arrange's Add a section and a row's Edit open a Note's or
+// Links' sheet, which goes back to Arrange as it closes (M8 ticket 29). The focus is in neither
+// sheet's opener then, so a sheet opened while a chain of them is open (the focus in a sheet, or
+// nowhere, the sheet before having just gone) takes the opener of the sheet it follows, and a sheet
+// that closes while another is open leaves the focus there. At the end of the chain the focus goes
+// back to what opened the first (M8 ticket 31), and the chain is over: a sheet opened later with
+// nothing focused (Safari focuses no button it clicks) has no opener, and moves the focus nowhere
+// as it closes (the Sections part's review, finding 2). An opener that has gone meanwhile (the
+// Album's placeholder, once the Album is switched off) gives the focus to the toolbar's button for
+// the sheet instead, if it has one.
+const SHEETS = '[data-slot="editor-sheet"], [data-slot="design-sheet"]';
+const TOOL_OPEN = '[data-slot="editor-toolbar"] [aria-expanded="true"]';
+let chainOpener: HTMLElement | null = null;
+
 export function EditorSheet({
   open,
   onOpenChange,
@@ -37,6 +52,8 @@ export function EditorSheet({
   // What had the focus as the sheet opened (a toolbar button, a detail's row), which has it again
   // as the sheet closes: Radix gives it back only to a Dialog.Trigger, and these open from state.
   const opener = useRef<HTMLElement | null>(null);
+  // The toolbar's button that says this sheet is open, as it opens, for an opener that has gone.
+  const tool = useRef<HTMLElement | null>(null);
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -44,14 +61,24 @@ export function EditorSheet({
         <Dialog.Content
           data-slot={design ? "design-sheet" : "editor-sheet"}
           onCloseAutoFocus={(event) => {
-            if (!opener.current?.isConnected) return;
-            event.preventDefault();
-            opener.current.focus();
+            if (document.querySelector(`:is(${SHEETS})[data-state="open"]`) !== null) {
+              event.preventDefault();
+              return;
+            }
+            // The end of the chain.
+            chainOpener = null;
+            const back = opener.current?.isConnected ? opener.current : opener.current && tool.current?.isConnected ? tool.current : null;
             opener.current = null;
+            if (!back) return;
+            event.preventDefault();
+            back.focus();
           }}
           onOpenAutoFocus={(event) => {
             event.preventDefault();
-            opener.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
+            const active = document.activeElement;
+            if (active instanceof HTMLElement && active !== document.body && !active.closest(SHEETS)) chainOpener = active;
+            opener.current = chainOpener;
+            tool.current = document.querySelector<HTMLElement>(TOOL_OPEN);
             (event.currentTarget as HTMLElement).querySelector<HTMLElement>("[data-sheet-heading]")?.focus();
           }}
           className={cn(

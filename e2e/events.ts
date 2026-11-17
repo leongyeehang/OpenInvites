@@ -283,3 +283,132 @@ export async function expectReplies(card: Locator, going: number, maybe: number,
   await expect(card.getByText(`${maybe} maybe`, { exact: true })).toBeVisible();
   await expect(card.getByText(`${cant} can’t go`, { exact: true })).toBeVisible();
 }
+
+// The Arrange sheet (M8 ticket 25), from the toolbar: one row per section of the page, in order.
+export async function openArrange(page: Page) {
+  await page.getByRole("navigation", { name: "Design the invitation" }).getByRole("button", { name: "Arrange" }).click();
+  const sheet = page.getByRole("dialog", { name: "Arrange" });
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
+// One change in the Arrange sheet, saved, and the sheet closed again.
+export async function arrange(page: Page, change: (sheet: Locator) => Promise<void>) {
+  const sheet = await openArrange(page);
+  await savedAfter(page, () => change(sheet));
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+}
+
+// A row of the open Arrange sheet opened, for its heading, its Collapsed and its styles (M8 ticket
+// 28), unless it is open already.
+export async function openRow(sheet: Locator, name: string) {
+  const options = sheet.getByRole("button", { name: `Options for ${name}` });
+  if ((await options.getAttribute("aria-expanded")) !== "true") await options.click();
+  await expect(options).toHaveAttribute("aria-expanded", "true");
+}
+
+// Who sees Who's coming, in Arrange (M8 ticket 26): "hidden" is the row switched off; otherwise it
+// is switched on if it was off, which starts at guests who have replied, and its open row says who
+// sees it. Each change waits for its own save; the sheet is closed again.
+export async function setGuestList(page: Page, who: "always" | "afterReply" | "hidden") {
+  const sheet = await openArrange(page);
+  const on = sheet.getByRole("switch", { name: "Who’s coming" });
+  if ((await on.isChecked()) !== (who !== "hidden")) await savedAfter(page, () => on.click());
+  await expect(on).toBeChecked({ checked: who !== "hidden" });
+  if (who !== "hidden") {
+    const options = sheet.getByRole("button", { name: "Options for Who’s coming" });
+    if ((await options.getAttribute("aria-expanded")) !== "true") await options.click();
+    const choice = sheet.getByRole("radiogroup", { name: "Who sees it" }).getByRole("radio", { name: who === "always" ? "Everyone with the link" : "Guests who have replied" });
+    if (!(await choice.isChecked())) await savedAfter(page, () => choice.check());
+    await expect(choice).toBeChecked();
+  }
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+}
+
+// The sections of an event page, or of the editor's invitation, in the order they are drawn: each
+// one's `data-section`, a section drawn as several pieces in a row counted once.
+export async function sectionOrder(page: Page): Promise<string[]> {
+  const keys = await page.locator("[data-section]").evaluateAll((elements) => elements.map((element) => element.getAttribute("data-section") ?? ""));
+  return keys.filter((key, index) => key !== keys[index - 1]);
+}
+
+// Notes and Links (M8 ticket 29), added from Add a section at the foot of Arrange.
+export const arrangeSheet = (page: Page) => page.getByRole("dialog", { name: "Arrange" });
+
+// A section added from Arrange (opened if it is not open yet) by one of Add a section's buttons,
+// saved, and its own sheet, which opens over the invitation headed by its heading.
+export async function addSection(page: Page, button: string, heading = button) {
+  const sheet = (await arrangeSheet(page).isVisible()) ? arrangeSheet(page) : await openArrange(page);
+  await savedAfter(page, () => sheet.getByRole("button", { name: button, exact: true }).click());
+  const opened = page.getByRole("dialog", { name: heading });
+  await expect(opened).toBeVisible();
+  return opened;
+}
+
+// Words written in a Note's sheet, the last of them bold, until the editor draws them.
+export async function writeNote(page: Page, note: Locator, words: string, bold: string) {
+  await note.getByRole("textbox", { name: "Note" }).click();
+  await page.keyboard.type(words);
+  await note.getByRole("button", { name: "Bold" }).click();
+  await page.keyboard.type(bold);
+  await expect(page.locator('[data-section^="note:"] strong').filter({ hasText: bold })).toBeVisible({ timeout: 15_000 });
+}
+
+// A link written in a row of the Links sheet, added first, until it is saved: an address is sent
+// once its field is left (ticket 29's review).
+export async function writeLink(page: Page, links: Locator, n: number, label: string, url: string) {
+  await links.getByRole("button", { name: "Add a link" }).click();
+  await expect(links.getByRole("textbox", { name: `Label of link ${n}`, exact: true })).toBeFocused();
+  await links.getByRole("textbox", { name: `Label of link ${n}`, exact: true }).fill(label);
+  const address = links.getByRole("textbox", { name: `Address of link ${n}`, exact: true });
+  await savedAfter(page, async () => {
+    await address.fill(url);
+    await address.blur();
+  });
+}
+
+// A section's own sheet closed, which goes back to Arrange, and Arrange closed.
+export async function closeSheets(page: Page) {
+  await page.keyboard.press("Escape");
+  await expect(arrangeSheet(page)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+}
+
+// The Dress code note's linked words and their address (M8 ticket 31).
+export const NOTE_LINK = { words: "the shop", url: "https://shop.example.com/velvet" } as const;
+
+// A page arranged through every part of Arrange, as the Sections pass reads it (M8 ticket 31): the
+// Countdown on, a Dress code note whose last words are a link, and a Registry of two links; and
+// `collapse` folded away. With the Comments, the Album is moved above them first and they are
+// renamed "Guestbook". Every change is saved, and the sheets are closed again.
+export async function arrangeWholePage(page: Page, collapse: "Comments" | "Album") {
+  const sheet = await openArrange(page);
+  if (collapse === "Comments") {
+    await savedAfter(page, () => sheet.getByRole("button", { name: "Move Album up" }).click());
+    await openRow(sheet, "Comments");
+    await savedAfter(page, () => sheet.getByRole("textbox", { name: "Heading" }).fill("Guestbook"));
+  } else {
+    await openRow(sheet, "Album");
+  }
+  await savedAfter(page, () => sheet.getByRole("switch", { name: "Collapsed" }).click());
+  await savedAfter(page, () => sheet.getByRole("switch", { name: "Countdown" }).click());
+  const note = await addSection(page, "Dress code");
+  await writeNote(page, note, "Cocktail attire, ", "velvet");
+  await note.getByRole("button", { name: "Bold" }).click();
+  // The note's link, made as the About sheet makes one: the words chosen, then Add a link, which
+  // asks for the address.
+  await page.keyboard.type(` from ${NOTE_LINK.words}`);
+  for (let at = 0; at < NOTE_LINK.words.length; at++) await page.keyboard.press("Shift+ArrowLeft");
+  page.once("dialog", (dialog) => dialog.accept(NOTE_LINK.url));
+  await savedAfter(page, () => note.getByRole("button", { name: "Add a link" }).click());
+  await expect(note.getByRole("textbox", { name: "Note" }).locator("a")).toHaveText(NOTE_LINK.words);
+  await page.keyboard.press("Escape");
+  await expect(arrangeSheet(page)).toBeVisible();
+  const links = await addSection(page, "Registry");
+  await writeLink(page, links, 1, "Our list", "https://www.example.com/registry");
+  await writeLink(page, links, 2, "Songs", "https://example.org/songs");
+  await closeSheets(page);
+}

@@ -1,11 +1,12 @@
 "use server";
 
 import { getLocale, getTranslations } from "next-intl/server";
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { requireHost } from "@/auth/session";
 import { hostNeedsVerification } from "@/auth/verification";
+import { featureOn, siteFeatures } from "@/features";
 import { can } from "@/hosts/role";
 import type { FormState } from "@/lib/form-state";
 import { queueGuestMail } from "@/mail/queue-guest-mail";
@@ -16,13 +17,13 @@ import { countVoters, dropUnvotedPoll, findOption, openPoll, pickDate } from "@/
 import { parseQuestions } from "@/questions/question";
 import { saveQuestions } from "@/questions/repository";
 import { EMPTY_RICH_TEXT, parseRichText, richTextToPlain } from "@/rich-text/rich-text";
-import { DEFAULT_GUEST_LIST_VISIBILITY } from "@/rsvps/visibility";
+import { parseArrangementChange, sectionFeature, sectionId } from "@/sections";
 import { saveSchedule } from "@/schedule/repository";
 import { parseSchedule, parseScheduleRefresh } from "@/schedule/schedule";
-import { parseEventSettings, parseWhen, type WhenFields } from "./form";
+import { keptSettings, parseDrawnGroups, parseEventSettings, parseWhen, type SettingsFields, type WhenFields } from "./form";
 import { eventsOwnedAtLimit } from "./limit";
 import { missingToPublish } from "./publish";
-import { createEvent, findHostEvent, publishEvent, updateEvent, type Event, type EventChanges } from "./repository";
+import { changeEventArrangement, createEvent, findHostEvent, publishEvent, updateEvent, type Event, type EventChanges } from "./repository";
 import { eventPaths, eventUrl } from "./slug";
 import { formatWhen, isTimeZone } from "./time";
 
@@ -37,7 +38,9 @@ export type SaveResult = { saved: true } | { saved: false; error: string; field?
 // A new event: a draft with no title and no date, the settings 0.4's form started with, and the
 // look every event starts with (themes/theme.ts), dated later in the editor, which it opens in.
 // The zone is the host's device's, which the browser posts, until the date sheet says otherwise.
-// The operator's limit on events per host applies here, as the form's did.
+// The operator's limit on events per host applies here, as the form's did. Comments and who sees
+// Who's coming, which Arrange switches (M8 ticket 26), start as the columns' defaults: on, and
+// guests who have replied.
 export async function newEventAction(_: FormState, formData: FormData): Promise<FormState> {
   const host = await requireHost();
   const t = await getTranslations("Events");
@@ -62,10 +65,8 @@ export async function newEventAction(_: FormState, formData: FormData): Promise<
     emailField: "none",
     phoneField: "none",
     verifyEmail: false,
-    guestListVisibility: DEFAULT_GUEST_LIST_VISIBILITY,
     notifyOnRsvp: true,
     remindersEnabled: true,
-    commentsEnabled: true,
     notifyOnComment: true,
     albumVisibility: "replied",
     albumApprovalRequired: false,
@@ -73,7 +74,10 @@ export async function newEventAction(_: FormState, formData: FormData): Promise<
     albumVideosAllowed: true,
     albumMaxVideoMinutes: null,
     albumMaxVideoMb: null,
-    albumCopyQuality: "1080p",
+    albumCopySizes: ["1080p", "720p"],
+    albumKeepTakenAt: false,
+    albumKeepCamera: false,
+    albumOrder: "added",
     inviteOnly: false,
     // When to be reminded about the album, the site's default (M7 ticket 09).
     albumReminderDays: limits.albumReminderDefaultDays,
@@ -221,7 +225,10 @@ export async function saveDescriptionAction(id: string, posted: string): Promise
   return save(found.host.id, found.event, { description: richTextToPlain(description.doc), descriptionRich: description.doc });
 }
 
-// Everything a guest does not see, from the Settings sheet, which posts all of it at each change.
+// Everything a guest does not see, from the Settings sheet, which posts all of it at each change,
+// less the groups the operator's switches leave out, which keep what the event has (M8 ticket 01):
+// those off as the save arrives, and those the posting sheet did not draw, which it names (the
+// whole-branch review).
 export async function saveSettingsAction(id: string, formData: FormData): Promise<SaveResult> {
   const found = await editable(id);
   const t = await getTranslations("Events");
@@ -230,7 +237,7 @@ export async function saveSettingsAction(id: string, formData: FormData): Promis
     const value = formData.get(name);
     return typeof value === "string" ? value : "";
   };
-  const settings = parseEventSettings({
+  const fields: SettingsFields = {
     plusOnesAllowed: text("plusOnesAllowed"),
     requirePlusOneNames: formData.get("requirePlusOneNames") === "on",
     capacity: text("capacity"),
@@ -238,10 +245,8 @@ export async function saveSettingsAction(id: string, formData: FormData): Promis
     emailField: text("emailField"),
     phoneField: text("phoneField"),
     verifyEmail: formData.get("verifyEmail") === "on",
-    guestListVisibility: text("guestListVisibility"),
     notifyOnRsvp: formData.get("notifyOnRsvp") === "on",
     remindersEnabled: formData.get("remindersEnabled") === "on",
-    commentsEnabled: formData.get("commentsEnabled") === "on",
     notifyOnComment: formData.get("notifyOnComment") === "on",
     albumVisibility: text("albumVisibility"),
     albumApprovalRequired: formData.get("albumApprovalRequired") === "on",
@@ -249,9 +254,15 @@ export async function saveSettingsAction(id: string, formData: FormData): Promis
     albumVideosAllowed: formData.get("albumVideosAllowed") === "on",
     albumMaxVideoMinutes: text("albumMaxVideoMinutes"),
     albumMaxVideoMb: text("albumMaxVideoMb"),
-    albumCopyQuality: text("albumCopyQuality"),
+    albumCopySizes: formData.getAll("albumCopySizes").filter((each) => typeof each === "string"),
+    albumKeepTakenAt: formData.get("albumKeepTakenAt") === "on",
+    albumKeepCamera: formData.get("albumKeepCamera") === "on",
+    albumOrder: text("albumOrder"),
     inviteOnly: formData.get("inviteOnly") === "on",
-  });
+  };
+  const switches = await siteFeatures();
+  const on = { album: featureOn(switches, "album"), videos: featureOn(switches, "videos") };
+  const settings = parseEventSettings(keptSettings(fields, found.event, on, parseDrawnGroups(text("drawnGroups"))));
   if (!settings.ok) return { saved: false, error: t(`errors.${settings.error}`), field: settings.error === "capacityInvalid" ? "capacity" : undefined };
   let posted: unknown = [];
   const raw = text("questions");
@@ -267,6 +278,34 @@ export async function saveSettingsAction(id: string, formData: FormData): Promis
   const saved = await save(found.host.id, found.event, settings.settings);
   if (saved.saved) await saveQuestions(found.event.id, questions.questions);
   return saved;
+}
+
+// One change from the Arrange sheet (M8 ticket 25): a section moved, switched, or (later tickets)
+// renamed, collapsed, styled, added or written. Every co-host may, as every co-host designs the
+// page. Nothing posted is trusted beyond what parseArrangementChange reads, and the change is
+// applied under the event's row lock to the page as it stands (events/repository.ts). A Note or
+// Links added answers with its key, made here, so the sheet can open it. The page is then drawn
+// again, so the editor's invitation and every guest's page follow.
+export type ArrangeResult = { saved: true; key?: string } | { saved: false; error: string };
+
+export async function arrangeAction(eventId: string, posted: unknown): Promise<ArrangeResult> {
+  const host = await requireHost();
+  const event = await findHostEvent(host.id, eventId);
+  if (!event || !can(event.role, "design")) return { saved: false, error: (await getTranslations("Events"))("errors.notFound") };
+  const t = await getTranslations("Editor.arrange");
+  const parsed = parseArrangementChange(posted, sectionId);
+  if (!parsed.ok) return { saved: false, error: t(`errors.${parsed.error}`) };
+  // Where the site has a section's feature off (the Album), the sheet has no row for it, so nothing
+  // may change it (M8 ticket 27): not even a change posted by hand. The registry says which feature.
+  const feature = "key" in parsed.change ? sectionFeature(parsed.change.key) : undefined;
+  if (feature && !featureOn(await siteFeatures(), feature)) return { saved: false, error: t("errors.notOffered") };
+  const changed = await changeEventArrangement(host.id, event.id, parsed.change);
+  if (!changed) return { saved: false, error: (await getTranslations("Events"))("errors.notFound") };
+  if (!changed.ok) return { saved: false, error: t(`errors.${changed.error}`) };
+  for (const path of eventPaths(event)) revalidatePath(path);
+  refresh();
+  const { change } = parsed;
+  return change.type === "addNote" || change.type === "addLinks" ? { saved: true, key: `${change.type === "addNote" ? "note" : "links"}:${change.id}` } : { saved: true };
 }
 
 // Publishing needs a title and a date (M4 spec, "The editor"): which is missing is said, and the

@@ -8,8 +8,12 @@ import { Button } from "@/components/ui/button";
 import { findHostEvent } from "@/events/repository";
 import { coHostLinkState } from "@/hosts/co-host-link";
 import { findCoHostLink } from "@/hosts/repository";
-import { registrationMode } from "@/instance/repository";
+import { posterPool } from "@/instance/home";
+import { homePage, registrationMode } from "@/instance/repository";
+import { areaLook } from "@/instance/site-look";
 import { ClientMessages } from "@/locale/client-messages";
+import { Glass } from "@/themes/glass";
+import { SitePage } from "@/themes/site-page";
 import { ResendVerificationForm } from "../../(host)/resend-verification-form";
 import { AcceptForm } from "./accept-form";
 
@@ -26,10 +30,11 @@ export async function generateMetadata(): Promise<Metadata> {
 // and told that the link needs a host account here, which on an invitation-only instance takes a
 // host invitation first: the link admits nobody to the instance. On an instance with mail, a host must
 // have verified their email before accepting, as before creating an event: the event's mail to its
-// hosts goes to that address (auth/verification.ts).
+// hosts goes to that address (auth/verification.ts). It wears the welcome area's poster from the
+// site's set, as the sign-in screens it leads to do, never the event's Theme (M8 spec, "Glass").
 export default async function CoHostLinkPage({ params }: PageProps<"/co-host/[token]">) {
   const { token } = await params;
-  const [link, session, t] = await Promise.all([findCoHostLink(token), getSession(), getTranslations("CoHostLink")]);
+  const [link, session, t, page] = await Promise.all([findCoHostLink(token), getSession(), getTranslations("CoHostLink"), homePage()]);
   if (!link) notFound();
   // What the signed-in host already is to the event, through the one gate (events/repository.ts).
   const hosted = session ? await findHostEvent(session.user.id, link.event.id) : undefined;
@@ -38,36 +43,40 @@ export default async function CoHostLinkPage({ params }: PageProps<"/co-host/[to
   const state = coHostLinkState(link, new Date());
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-xl flex-col justify-center gap-4 px-4 py-12">
-      <h1 className="text-3xl font-semibold tracking-tight">{link.event.title}</h1>
-      {isOwner ? (
-        <>
-          <p className="text-muted-foreground">{t("owner")}</p>
-          <Button asChild className="self-start">
-            <Link href={`/events/${link.event.id}`}>{t("openEvent")}</Link>
-          </Button>
-        </>
-      ) : state !== "pending" ? (
-        <p className="text-muted-foreground">{t(state)}</p>
-      ) : session && hostNeedsVerification(session.user) ? (
-        <>
-          <p className="text-muted-foreground">{t("verify", { email: session.user.email })}</p>
-          <ResendVerificationForm label={t("resend")} />
-        </>
-      ) : session ? (
-        <ClientMessages namespaces={["CoHostLink"]}>
-          <AcceptForm token={token} />
-        </ClientMessages>
-      ) : (
-        <>
-          <Button asChild className="self-start">
-            <Link href={`/sign-in?next=${encodeURIComponent(`/co-host/${token}`)}`}>{t("signIn")}</Link>
-          </Button>
-          <p className="text-sm text-muted-foreground">
-            {(await registrationMode()) === "invitationOnly" ? t("needsInvitation") : t("needsAccount")}
-          </p>
-        </>
-      )}
-    </main>
+    <SitePage look={areaLook(posterPool(page), "welcome")}>
+      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-12">
+        <Glass className="flex flex-col gap-4 p-6">
+          <h1 className="text-3xl font-semibold tracking-tight">{link.event.title}</h1>
+          {isOwner ? (
+            <>
+              <p className="text-muted-foreground">{t("owner")}</p>
+              <Button asChild className="self-start">
+                <Link href={`/events/${link.event.id}`}>{t("openEvent")}</Link>
+              </Button>
+            </>
+          ) : state !== "pending" ? (
+            <p className="text-muted-foreground">{t(state)}</p>
+          ) : session && hostNeedsVerification(session.user) ? (
+            <>
+              <p className="text-muted-foreground">{t("verify", { email: session.user.email })}</p>
+              <ResendVerificationForm label={t("resend")} />
+            </>
+          ) : session ? (
+            <ClientMessages namespaces={["CoHostLink"]}>
+              <AcceptForm token={token} />
+            </ClientMessages>
+          ) : (
+            <>
+              <Button asChild className="self-start">
+                <Link href={`/sign-in?next=${encodeURIComponent(`/co-host/${token}`)}`}>{t("signIn")}</Link>
+              </Button>
+              <p className="text-sm text-muted-foreground">
+                {(await registrationMode()) === "invitationOnly" ? t("needsInvitation") : t("needsAccount")}
+              </p>
+            </>
+          )}
+        </Glass>
+      </main>
+    </SitePage>
   );
 }

@@ -18,9 +18,18 @@ const ALBUM_REMINDER_INSTANCE = /(^|\/)album-reminder\.spec\.ts$/;
 // The spec that takes `app-fresh` after the home page spec, with `worker-fresh` beside it: the
 // video processing moved to a worker container (M7 ticket 08).
 const WORKER_INSTANCE = /(^|\/)worker\.spec\.ts$/;
+// The spec that takes `app-fresh` and `worker-fresh` after the worker spec: the operator's feature
+// switches (M8 ticket 01), which change what every page of the site shows, so never on the shared
+// `app`.
+const FEATURES_INSTANCE = /(^|\/)features\.spec\.ts$/;
+// The spec that takes `app-fresh` and `worker-fresh` after the features spec: the operator's 4K
+// copy and Make missing sizes (M8 ticket 04), which change what the site's processing makes.
+const SIZES_INSTANCE = /(^|\/)video-sizes\.spec\.ts$/;
 
 export default defineConfig({
   testDir: "./e2e",
+  // Releases what a failed test may have left held in the shared database (e2e/teardown.ts).
+  globalTeardown: "./e2e/teardown.ts",
   fullyParallel: true,
   forbidOnly: isCI,
   // On CI a failed test runs once more, so that its trace is recorded (trace below), and the run
@@ -34,6 +43,11 @@ export default defineConfig({
     // machine running them speaks; e2e/locales.spec.ts asks for the other languages itself.
     locale: "en-US",
     trace: "on-first-retry",
+    // Chromium keeps its shared memory in /dev/shm, as it does outside Playwright. Playwright's
+    // default moves it to the temporary directory, for containers whose /dev/shm is tiny; the
+    // browsers here run on the machine itself, where /tmp may be a small tmpfs that other work
+    // fills, and a renderer that cannot get its shared memory crashes ("Target crashed").
+    launchOptions: { ignoreDefaultArgs: ["--disable-dev-shm-usage"] },
   },
   projects: [
     // The operator of `app` opens registration to everyone before the specs that sign up hosts.
@@ -45,13 +59,13 @@ export default defineConfig({
     {
       name: "mobile",
       dependencies: ["operator"],
-      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE, ALBUM_REMINDER_INSTANCE, HOME_INSTANCE, WORKER_INSTANCE],
+      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE, ALBUM_REMINDER_INSTANCE, HOME_INSTANCE, WORKER_INSTANCE, FEATURES_INSTANCE, SIZES_INSTANCE],
       use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
     },
     {
       name: "desktop",
       dependencies: ["operator"],
-      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE, ALBUM_REMINDER_INSTANCE, HOME_INSTANCE, WORKER_INSTANCE],
+      testIgnore: [FRESH_INSTANCE, LIMITS_INSTANCE, RETENTION_INSTANCE, ALBUM_REMINDER_INSTANCE, HOME_INSTANCE, WORKER_INSTANCE, FEATURES_INSTANCE, SIZES_INSTANCE],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } },
     },
     // One instance per spec, so one project: each spec's scenarios run in order and change what
@@ -99,6 +113,22 @@ export default defineConfig({
       name: "worker-instance",
       testMatch: WORKER_INSTANCE,
       dependencies: ["home-instance"],
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, baseURL: "http://localhost:3002" },
+    },
+    // After the worker spec, which leaves app-fresh and worker-fresh as it likes; this spec
+    // recreates both, with db-fresh.
+    {
+      name: "features-instance",
+      testMatch: FEATURES_INSTANCE,
+      dependencies: ["worker-instance"],
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, baseURL: "http://localhost:3002" },
+    },
+    // After the features spec, which leaves app-fresh and worker-fresh as it likes; this spec
+    // recreates both, with db-fresh.
+    {
+      name: "sizes-instance",
+      testMatch: SIZES_INSTANCE,
+      dependencies: ["features-instance"],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, baseURL: "http://localhost:3002" },
     },
   ],

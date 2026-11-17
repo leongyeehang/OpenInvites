@@ -1,6 +1,6 @@
 import { DEFAULT_BACKGROUND, findBackground, type Background } from "./backgrounds";
 import { TITLE_FONTS, type TitleFont } from "./fonts";
-import { css, GLOW, TONES, toneTokens, type ToneTokens } from "./legibility";
+import { css, GLOW, TONES, toneTokens, type PageKind, type ToneTokens } from "./legibility";
 import { findGalleryPoster, GALLERY_POSTER_SIZE, type GalleryPoster } from "./posters";
 import { OFFERED_LAYOUTS, type ButtonStyle, type Layout, type RsvpStyle, type Theme, type TitlePlacement } from "./theme";
 
@@ -62,7 +62,9 @@ export const TONE_TEXT = { light: css(TONES.light.text), dark: css(TONES.dark.te
 // Above this average luminance a background counts as light, so the text goes dark.
 const LIGHT_BACKGROUND = 0.6;
 
-export function resolveTheme(theme: Theme, upload: ThemeUpload | null = null): ResolvedTheme {
+// A site page (any page that is not an event page) is solved with the surfaces only it stacks
+// (legibility.ts, SITE_SURFACES); an event page, the default, without them.
+export function resolveTheme(theme: Theme, upload: ThemeUpload | null = null, page: PageKind = "event"): ResolvedTheme {
   // The poster is the event's picture when it is the upload and the event has one, a gallery
   // poster, or a colour (M4 spec, "The poster replaces the background"). A picture, the host's or
   // the gallery's, is the poster card, with its blurred copy behind it; until the poster-first page
@@ -99,7 +101,7 @@ export function resolveTheme(theme: Theme, upload: ThemeUpload | null = null): R
     rsvpStyle: theme.rsvpStyle,
     // The blurred copy behind a poster wears the poster's stronger scrim, under which its extremes
     // were measured.
-    tokens: toneTokens(textTone, background, accent, background.kind === "photo" ? "poster" : "background"),
+    tokens: toneTokens(textTone, background, accent, background.kind === "photo" ? "poster" : "background", page),
   };
 }
 
@@ -122,6 +124,8 @@ export function themeVariables({ accent, tokens }: ResolvedTheme): Record<string
     "--theme-accent": accent,
     "--theme-on-accent": css(tokens.onAccent),
     "--theme-accent-ink": css(tokens.accentInk),
+    "--theme-danger-ink": css(tokens.dangerInk),
+    "--theme-attention-ink": css(tokens.attentionInk),
     "--theme-base": css(tokens.base),
     "--theme-text": css(tokens.text),
     "--theme-text-muted": css(tokens.textMuted),

@@ -2,20 +2,27 @@ import { describe, expect, it } from "vitest";
 import { BACKGROUNDS } from "./backgrounds";
 import {
   AA,
+  ATTENTION,
   contrast,
+  DANGER,
   NON_TEXT,
   hexToRgb,
   over,
   POSTER_SURFACES,
   SHEET_SURFACES,
+  SITE_SURFACES,
   SURFACES,
   TONES as TONE_COLOURS,
   toneTokens,
   worstBackdrop,
   type Backdrop,
+  type BackdropUse,
+  type PageKind,
   type Rgb,
   type Rgba,
+  type Surface,
   type Tone,
+  type ToneTokens,
 } from "./legibility";
 import { GALLERY_POSTERS } from "./posters";
 import { SWATCHES } from "./swatches";
@@ -86,6 +93,8 @@ function expectEveryTextReads(tone: Tone, backdrop: Backdrop, accent: string, us
   for (const [surface, { layers }] of Object.entries(SURFACES(tokens))) {
     expect(contrast(tokens.focusRing, stack(layers, behind)), `focus ring, ${accent} accent, on ${surface}`).toBeGreaterThanOrEqual(NON_TEXT);
   }
+  // The danger and attention inks, wherever text can go.
+  expectInksRead(tokens, Object.entries(SURFACES(tokens)), behind, accent);
   // The RSVP sheet, which carries its own secondary strengths and accent ink.
   const { sheet } = tokens;
   for (const [surface, { layers, carries }] of Object.entries(SHEET_SURFACES(tone, tokens))) {
@@ -111,6 +120,17 @@ function expectEveryTextReads(tone: Tone, backdrop: Backdrop, accent: string, us
     expect(contrast(tokens.text, colour), `text, ${label}`).toBeGreaterThanOrEqual(AA);
     expect(contrast(ink(titleOnPoster.textMuted, colour), colour), `muted, ${label}`).toBeGreaterThanOrEqual(AA);
     expect(contrast(ink(titleOnPoster.textFaint, colour), colour), `faint, ${label}`).toBeGreaterThanOrEqual(AA);
+  }
+}
+
+// The danger and attention inks read at AA on each of these surfaces. They are proven alone: the
+// soft fills that would sit under them (shadcn's destructive button and badge) are strong glass on a
+// site page (ticket 18), never the ink's own tint, which no ink could read on under light text.
+function expectInksRead(tokens: ToneTokens, surfaces: [string, Surface][], behind: Rgb, label: string) {
+  for (const [surface, { layers }] of surfaces) {
+    const colour = stack(layers, behind);
+    expect(contrast(tokens.dangerInk, colour), `danger ink, ${label}, on ${surface}`).toBeGreaterThanOrEqual(AA);
+    expect(contrast(tokens.attentionInk, colour), `attention ink, ${label}, on ${surface}`).toBeGreaterThanOrEqual(AA);
   }
 }
 
@@ -284,6 +304,121 @@ describe("the RSVP sheet", () => {
     expect(tokens.textMuted[3]).toBe(0.75);
     expect(tokens.accentInk).toEqual(hexToRgb("#ffc36b"));
     expect(tokens.sheet.textMuted[3]).toBeGreaterThan(tokens.textMuted[3]);
+  });
+});
+
+// A site page (every page that is not an event page) stacks surfaces an event page does not: glass
+// on glass, and a control on the header's bar (SITE_SURFACES). It is solved with them, so all of its
+// text, both inks and the focus ring read on every backdrop it can wear.
+function expectSitePageReads(tone: Tone, backdrop: Backdrop, accent: string, use: BackdropUse = "background") {
+  const tokens = toneTokens(tone, backdrop, accent, use, "site");
+  const behind = worstBackdrop(tone, backdrop);
+  const surfaces = Object.entries({ ...SURFACES(tokens), ...SITE_SURFACES(tokens) });
+  for (const [surface, { layers, carries }] of surfaces) {
+    const colour = stack(layers, behind);
+    const label = `${accent} accent, on ${surface}`;
+    expect(contrast(tokens.focusRing, colour), `focus ring, ${label}`).toBeGreaterThanOrEqual(NON_TEXT);
+    if (carries === "accent") {
+      expect(contrast(tokens.accentInk, colour), `accent ink, ${label}`).toBeGreaterThanOrEqual(AA);
+      continue;
+    }
+    expect(contrast(tokens.text, colour), `text, ${label}`).toBeGreaterThanOrEqual(AA);
+    if (carries === "full strength") continue;
+    expect(contrast(ink(tokens.textMuted, colour), colour), `muted, ${label}`).toBeGreaterThanOrEqual(AA);
+    expect(contrast(ink(tokens.textFaint, colour), colour), `faint, ${label}`).toBeGreaterThanOrEqual(AA);
+  }
+  expectInksRead(tokens, surfaces, behind, `${accent} accent`);
+}
+
+describe("a site page", () => {
+  const grey = (value: number) => `#${value.toString(16).padStart(2, "0").repeat(3)}`;
+  const UPLOAD_ACCENTS = [...ACCENTS, "#b3b3b3", "#4d6b8a", "#c97a2e", "#1f3a1f", "#e8d0ff"];
+  for (const tone of TONES) {
+    it(`reads at AA on every gallery poster in the ${tone} tone`, () => {
+      for (const poster of GALLERY_POSTERS) {
+        for (const accent of [poster.accent, ...SWATCHES.map((swatch) => swatch.hex)]) expectSitePageReads(tone, poster, accent, "poster");
+      }
+    });
+
+    it(`reads at AA on every colour in the ${tone} tone`, () => {
+      for (const background of BACKGROUNDS) for (const accent of ACCENTS) expectSitePageReads(tone, background, accent);
+    });
+
+    it(`reads at AA in the ${tone} tone however bright or dark an upload or a poster is`, () => {
+      for (let value = 0; value <= 255; value += 15) {
+        const upload = { lightest: grey(Math.round(value * 0.75)), darkest: grey(Math.round(value * 0.75 + 63.75)) };
+        const poster = { lightest: grey(Math.round(value * 0.55)), darkest: grey(Math.round(value * 0.55 + 114.75)) };
+        for (const accent of UPLOAD_ACCENTS) {
+          expectSitePageReads(tone, upload, accent);
+          expectSitePageReads(tone, poster, accent, "poster");
+        }
+      }
+    });
+  }
+
+  it("site surfaces leave the event page alone", () => {
+    const golden = BACKGROUNDS[0];
+    const event = toneTokens("light", golden, "#ffc36b");
+    expect(toneTokens("light", golden, "#ffc36b", "background", "event")).toEqual(event);
+    const site = toneTokens("light", golden, "#ffc36b", "background", "site");
+    expect(site.glass[3]).toBeGreaterThanOrEqual(event.glass[3]);
+    expect(site.glassStrong[3]).toBeGreaterThanOrEqual(event.glassStrong[3]);
+  });
+
+  // The glass under light text on a gallery poster or a colour, by its id, on an event page or a
+  // site page.
+  const glassOf = (id: string, page: PageKind) => {
+    const poster = GALLERY_POSTERS.find((each) => each.id === id);
+    if (poster) return toneTokens("light", poster, poster.accent, "poster", page).glass[3];
+    const colour = BACKGROUNDS.find((each) => each.id === id)!;
+    return toneTokens("light", colour, colour.accent, "background", page).glass[3];
+  };
+
+  // The posters and colours on which a site page's glass is tinted furthest under light text, pinned
+  // as tickets 17 to 19 settled them: a surface added to SITE_SURFACES for one panel would make
+  // every site page's glass heavier (ticket 20's review found one moving 92 of 506 solves).
+  it("a site page's glass is settled", () => {
+    const settled = { aurora: 0.289, candlelight: 0.316, bokeh: 0.334, streamers: 0.325, midnight: 0.298, slate: 0.307, ink: 0.316 };
+    expect(Object.fromEntries(Object.keys(settled).map((id) => [id, glassOf(id, "site")]))).toEqual(settled);
+  });
+
+  // The event page's glass on the same seven, as it was before site pages were solved at all
+  // (b9d541d, before M8 ticket 17): what SITE_SURFACES adds is a site page's alone (the glass
+  // part's review).
+  it("an event page's glass is what it was before site pages", () => {
+    const before = { aurora: 0.244, candlelight: 0.307, bokeh: 0.325, streamers: 0.316, midnight: 0.262, slate: 0.289, ink: 0.298 };
+    expect(Object.fromEntries(Object.keys(before).map((id) => [id, glassOf(id, "event")]))).toEqual(before);
+  });
+});
+
+// The danger ink stays red and the attention ink amber, on an event page and a site page alike,
+// however far reading moves them towards the text.
+describe("the inks keep their colour", () => {
+  const BACKDROPS: [string, Backdrop, BackdropUse][] = [
+    ...GALLERY_POSTERS.map((poster): [string, Backdrop, BackdropUse] => [poster.id, poster, "poster"]),
+    ...BACKGROUNDS.map((background): [string, Backdrop, BackdropUse] => [background.id, background, "background"]),
+  ];
+
+  it("starts from red-600 and amber-600", () => {
+    expect(DANGER).toEqual(hexToRgb("#dc2626"));
+    expect(ATTENTION).toEqual(hexToRgb("#d97706"));
+  });
+
+  it("keeps danger red and attention amber on every gallery poster and every colour, in both tones", () => {
+    for (const [id, backdrop, use] of BACKDROPS) {
+      for (const tone of TONES) {
+        for (const page of ["event", "site"] as const) {
+          const { dangerInk, attentionInk } = toneTokens(tone, backdrop, "#ffc36b", use, page);
+          const label = `${id}, ${tone} tone, ${page} page`;
+          expect(dangerInk[0], `danger, ${label}`).toBeGreaterThan(Math.max(dangerInk[1], dangerInk[2]));
+          expect(attentionInk[0], `attention, ${label}`).toBeGreaterThan(Math.max(attentionInk[1], attentionInk[2]));
+          // Amber's green stays above its blue, but under dark text the ink moves towards the
+          // blue-heavy #1a1030, and on the brightest backdrops the two meet (about 68, 39, 39 on
+          // seven gallery posters): rounding may leave the blue a channel step above the green.
+          expect(attentionInk[1], `attention, ${label}`).toBeGreaterThanOrEqual(attentionInk[2] - 1);
+        }
+      }
+    }
   });
 });
 

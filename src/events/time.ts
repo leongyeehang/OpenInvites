@@ -28,6 +28,8 @@ export function timeZones(): string[] {
   return ["UTC", ...Intl.supportedValuesOf("timeZone")];
 }
 
+const DAY = 24 * 60 * 60_000;
+
 // Zone offset (wall clock minus UTC) at an instant, in milliseconds.
 function offsetAt(instant: Date, timeZone: string): number {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -51,10 +53,30 @@ export function toInstant(wall: string, timeZone: string): Date {
   const [year, month, day] = date.split("-").map(Number);
   const [hour, minute] = time.split(":").map(Number);
   const asUtc = Date.UTC(year, month - 1, day, hour, minute);
-  // The zone's offset depends on the instant, so guess, then correct once for a DST edge.
-  let instant = asUtc - offsetAt(new Date(asUtc), timeZone);
-  instant = asUtc - offsetAt(new Date(instant), timeZone);
-  return new Date(instant);
+  // The zone's offset depends on the instant. Around a clock change the wall time takes one of the
+  // offsets either side of it: those that hold at the instant they give are its occurrences, and
+  // the earlier is taken where the clocks go back over it (the voting part's review: the old guess
+  // took the later one east of UTC). Where the clocks skip it, none holds, and the instant given
+  // reads back as another wall time, which parseWallTime refuses.
+  const offsets = [offsetAt(new Date(asUtc - DAY), timeZone), offsetAt(new Date(asUtc + DAY), timeZone)];
+  const occurrences = offsets.map((offset) => asUtc - offset).filter((instant, at) => offsetAt(new Date(instant), timeZone) === offsets[at]);
+  return new Date(occurrences.length > 0 ? Math.min(...occurrences) : asUtc - offsets[0]);
+}
+
+// "2026-10-03T19:00", as a datetime-local field sends it, or "2026-10-03", as a date field does.
+const WALL_TIME = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/;
+
+// A date and time typed in the event's zone, or with `dateOnly` its date alone, whatever time came
+// with it: the event form's start and end, and the album vote's closing time (the voting part's
+// review moved it here from the event form, so that both read it one way). Round-tripping catches
+// what the pattern cannot: 30 February, 24:30, a time the clocks skip, and a date alone where a time
+// is asked for. An hour the clocks go back over is its first occurrence (toInstant).
+export function parseWallTime(value: string, timeZone: string, { dateOnly = false }: { dateOnly?: boolean } = {}): Date | undefined {
+  if (!WALL_TIME.test(value)) return undefined;
+  const wall = dateOnly ? value.slice(0, 10) : value;
+  const instant = toInstant(wall, timeZone);
+  if (Number.isNaN(instant.getTime()) || toWallTime(instant, timeZone, { dateOnly }) !== wall) return undefined;
+  return instant;
 }
 
 // The inverse, for filling a date input when editing.
@@ -120,13 +142,16 @@ export function formatDay(instant: Date, timeZone: string, locale: string): stri
 }
 
 // A moment on the host's guest list, shown in the event's own zone so every time on the page
-// belongs to the same clock: "3 Oct, 19:04".
-export function formatMoment(instant: Date, timeZone: string, locale: string): string {
+// belongs to the same clock: "3 Oct, 19:04". With `zone`, the zone's short name after it, "3 Oct,
+// 19:04 GMT+8", for a reader who may be on another clock: the album vote's closing time, which
+// guests read after the party, when those who travelled are home (the voting part's review).
+export function formatMoment(instant: Date, timeZone: string, locale: string, { zone = false }: { zone?: boolean } = {}): string {
   return new Intl.DateTimeFormat(locale, {
     timeZone,
     day: "numeric",
     month: "short",
     hour: "numeric",
     minute: "2-digit",
+    ...(zone && { timeZoneName: "short" as const }),
   }).format(instant);
 }

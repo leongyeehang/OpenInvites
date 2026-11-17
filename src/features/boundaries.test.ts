@@ -1,0 +1,85 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
+import { ESLint } from "eslint";
+import { describe, expect, it } from "vitest";
+
+// The rules that keep features apart (ADR-0008): nothing outside a module imports its other files,
+// which the lint rule in eslint.config.mjs enforces for the new folders, and the album's outside
+// dependents, which ADR-0008 counts, do not grow.
+
+const ROOT = fileURLToPath(new URL("../..", import.meta.url));
+
+// How many files outside src/album import its internals: 25 on 2026-11-11, as ADR-0008 first
+// recorded, and 24 since the event page's album moved into its section's drawing (M8 ticket 25).
+// Held exactly, so that it only ever goes down on purpose: a change that removes an importer
+// lowers this, and the ADR's figure with it; a change that would add one moves the code into
+// src/album instead. Never raise it.
+const ALBUM_DEPENDENTS = 24;
+const IMPORTS_ALBUM = /["'](@|\.\.?)\/(\.\.\/)*album\//;
+
+describe("the module boundaries", () => {
+  const eslint = new ESLint({ cwd: ROOT });
+  const restricted = async (code: string, file: string) => {
+    const [result] = await eslint.lintText(code, { filePath: join(ROOT, file) });
+    return result.messages.some((message) => message.ruleId === "no-restricted-imports");
+  };
+
+  it("lets the rest of the app import a module through its entry only, and a module its own files", async () => {
+    expect(await restricted('import { x } from "@/voting/rules";\nexport { x };\n', "src/app/x.ts")).toBe(true);
+    expect(await restricted('import { x } from "@/voting";\nexport { x };\n', "src/app/x.ts")).toBe(false);
+    expect(await restricted('import { x } from "../features/repository";\nexport { x };\n', "src/album/x.ts")).toBe(true);
+    expect(await restricted('import { x } from "@/voting/rules";\nexport { x };\n', "src/voting/x.ts")).toBe(false);
+    expect(await restricted('import { x } from "@/features/features";\nexport { x };\n', "src/voting/x.ts")).toBe(true);
+  }, 60_000);
+
+  // A relative path reaches a module only from the depth that climbs back to src/ (ticket 24): a
+  // file directly in src/ reaches src/sections by "./sections/…", and a file one folder further
+  // down than src/themes/ reaches the themes' own src/themes/sections by "../sections/…".
+  it("judges a relative path by where the importing file is", async () => {
+    const internal = 'import { x } from "SOURCE";\nexport { x };\n';
+    const imports = (source: string, file: string) => restricted(internal.replace("SOURCE", source), file);
+    expect(await imports("@/sections/arrangement", "src/app/x.ts")).toBe(true);
+    expect(await imports("@/sections", "src/app/x.ts")).toBe(false);
+    expect(await imports("./sections/arrangement", "src/instrumentation.ts")).toBe(true);
+    expect(await imports("./voting/rules", "src/proxy.ts")).toBe(true);
+    expect(await imports("./sections", "src/proxy.ts")).toBe(false);
+    expect(await imports("../sections/album", "src/themes/effects/x.tsx")).toBe(false);
+    expect(await imports("../sections/album-section", "src/themes/sections/x.tsx")).toBe(false);
+    expect(await imports("./sections/album-section", "src/themes/poster-layout.tsx")).toBe(false);
+    // From src/themes/ itself, "../sections/" is src/sections, the module.
+    expect(await imports("../sections/arrangement", "src/themes/poster-layout.tsx")).toBe(true);
+    expect(await imports("../../sections/arrangement", "src/themes/effects/x.tsx")).toBe(true);
+    expect(await imports("../../../features/repository", "src/app/(host)/events/x.tsx")).toBe(true);
+    expect(await imports("../../features/repository", "src/app/(host)/events/x.tsx")).toBe(false);
+  }, 60_000);
+
+  // The relative rule is written per depth, to depth 11; the alias needs no depth, so a file
+  // deeper than that is still held to it (ticket 25), inside a module and out.
+  it("refuses a module's files by the alias at any depth", async () => {
+    const internal = 'import { x } from "SOURCE";\nexport { x };\n';
+    const deep = `src/app/${"a/".repeat(14)}x.ts`;
+    expect(await restricted(internal.replace("SOURCE", "@/voting/rules"), deep)).toBe(true);
+    expect(await restricted(internal.replace("SOURCE", "@/sections/arrangement"), deep)).toBe(true);
+    expect(await restricted(internal.replace("SOURCE", "@/voting"), deep)).toBe(false);
+    const deepInVoting = `src/voting/${"a/".repeat(14)}x.ts`;
+    expect(await restricted(internal.replace("SOURCE", "@/features/features"), deepInVoting)).toBe(true);
+    expect(await restricted(internal.replace("SOURCE", "@/voting/rules"), deepInVoting)).toBe(false);
+  }, 60_000);
+
+  it("keeps the album's outside dependents at the number ADR-0008 records", () => {
+    const sources = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+        const path = join(dir, entry.name);
+        if (entry.isDirectory()) return sources(path);
+        return /\.tsx?$/.test(entry.name) ? [path] : [];
+      });
+    const dependents = sources(join(ROOT, "src"))
+      .filter((path) => !relative(ROOT, path).startsWith(join("src", "album") + "/"))
+      .filter((path) => IMPORTS_ALBUM.test(readFileSync(path, "utf8")));
+    expect(
+      dependents.length,
+      `Files outside src/album that import its internals. Fewer: lower ALBUM_DEPENDENTS, and ADR-0008's figure, to ${dependents.length}. More: move the code into src/album; never raise the number.`,
+    ).toBe(ALBUM_DEPENDENTS);
+  });
+});

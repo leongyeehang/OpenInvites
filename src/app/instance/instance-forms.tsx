@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { createHostInvitationAction, setHomePageAction, setInstanceLimitsAction, setRegistrationModeAction, setVideoProcessingAction } from "@/instance/actions";
+import type { FeatureSwitches } from "@/features";
+import { createHostInvitationAction, queueMissingSizesAction, setFeaturesAction, setHomePageAction, setInstanceLimitsAction, setRegistrationModeAction, setVideoProcessingAction } from "@/instance/actions";
 import { DEFAULT_HOME_PAGE, DEFAULT_INSTANCE_NAME, HOME_POSTER_MODES, type HomePage } from "@/instance/home";
 import { DEFAULT_LIMITS, LIMIT_MAX, LIMIT_MIN, PHOTO_MB, REMINDER_DAYS, STORAGE_GB, VIDEO_MB, VIDEO_MINUTES, type Limits } from "@/instance/limits";
 import { REGISTRATION_MODES, type RegistrationMode } from "@/instance/registration";
-import { GALLERY_POSTERS, OCCASIONS, type GalleryPosterId } from "@/themes/posters";
+import { PosterChoices } from "@/themes/poster-choices";
+import type { GalleryPosterId } from "@/themes/posters";
 import { DEFAULT_RETENTION_DAYS, RETENTION_MAX_DAYS, RETENTION_MIN_DAYS } from "@/retention/plan";
 
 // The name, the welcome line and, under More options, the posters and who runs the site. The fields
@@ -109,7 +111,7 @@ export function HomePageForm({ home }: { home: HomePage }) {
                 </Field>
               ))}
               {posters !== "all" && (
-                <PosterChoices mode={posters} ids={ids} onToggle={toggle} onPick={(id) => setIds([id])} />
+                <PosterChoices mode={posters} ids={ids} onToggle={toggle} onPick={(id) => setIds([id])} name="posterIds" idPrefix="home" />
               )}
               {error("posters") && <FieldError>{error("posters")}</FieldError>}
             </FieldSet>
@@ -130,57 +132,6 @@ export function HomePageForm({ home }: { home: HomePage }) {
         </Button>
       </FieldGroup>
     </form>
-  );
-}
-
-// The gallery as thumbnails, grouped by occasion as the editor's Poster sheet groups it: checkboxes
-// to pick several, radios to pick the one.
-function PosterChoices({
-  mode,
-  ids,
-  onToggle,
-  onPick,
-}: {
-  mode: "picked" | "one";
-  ids: GalleryPosterId[];
-  onToggle: (id: GalleryPosterId, on: boolean) => void;
-  onPick: (id: GalleryPosterId) => void;
-}) {
-  const names = useTranslations("Posters");
-  return (
-    <div className="flex flex-col gap-4">
-      {OCCASIONS.map((occasion) => (
-        <section key={occasion} aria-labelledby={`home-occasion-${occasion}`} className="flex flex-col gap-2">
-          <h3 id={`home-occasion-${occasion}`} className="text-xs font-medium text-muted-foreground">
-            {names(`occasions.${occasion}`)}
-          </h3>
-          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-            {GALLERY_POSTERS.filter((poster) => poster.occasion === occasion).map((poster) => {
-              const checked = ids.includes(poster.id);
-              const label = names(`names.${poster.id}`);
-              return (
-                <li key={poster.id}>
-                  <label className="relative block cursor-pointer overflow-hidden rounded-lg ring-1 ring-foreground/10 has-[:checked]:ring-2 has-[:checked]:ring-primary has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring">
-                    <input
-                      type={mode === "one" ? "radio" : "checkbox"}
-                      name="posterIds"
-                      value={poster.id}
-                      checked={checked}
-                      onChange={(event) => (mode === "one" ? onPick(poster.id) : onToggle(poster.id, event.target.checked))}
-                      aria-label={label}
-                      className="peer sr-only"
-                    />
-                    {/* eslint-disable-next-line @next/next/no-img-element -- the card is already made to size */}
-                    <img src={poster.card} alt="" loading="lazy" className="aspect-[4/5] w-full object-cover" />
-                    <span className="block truncate px-1.5 py-1 text-xs">{label}</span>
-                  </label>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
-    </div>
   );
 }
 
@@ -299,8 +250,56 @@ export function LimitsForm({ limits }: { limits: Limits }) {
   );
 }
 
-// The Storage card's one switch (M7 ticket 03): whether videos get a lighter copy for playback.
-export function StorageForm({ processing }: { processing: boolean }) {
+// The Features card (M8 ticket 01): one switch per feature, each saying what it does, what
+// switching it off means, and what it needs, each on a line of its own. The switches arrive as
+// props: the feature list's values are for server code alone.
+export function FeaturesForm({ switches, videosAvailable }: { switches: FeatureSwitches; videosAvailable: boolean }) {
+  const t = useTranslations("Instance.features");
+  const [state, action, pending] = useActionState(setFeaturesAction, undefined);
+  return (
+    <form action={action}>
+      <FieldGroup>
+        <Field orientation="horizontal">
+          <Checkbox id="feature-album" name="album" defaultChecked={switches.album} aria-describedby="feature-album-hint" />
+          <FieldContent>
+            <FieldLabel htmlFor="feature-album">{t("album")}</FieldLabel>
+            <FieldDescription id="feature-album-hint">{t("albumHint")}</FieldDescription>
+          </FieldContent>
+        </Field>
+        <Field orientation="horizontal">
+          <Checkbox id="feature-videos" name="videos" defaultChecked={switches.videos} aria-describedby="feature-videos-hint" />
+          <FieldContent>
+            <FieldLabel htmlFor="feature-videos">{t("videos")}</FieldLabel>
+            <FieldDescription id="feature-videos-hint">
+              <span className="block">{t("videosHint")}</span>
+              <span className="block">{t("needsAlbum")}</span>
+              {!videosAvailable && <span className="block">{t("videosNoFfmpeg")}</span>}
+            </FieldDescription>
+          </FieldContent>
+        </Field>
+        <Field orientation="horizontal">
+          <Checkbox id="feature-voting" name="voting" defaultChecked={switches.voting} aria-describedby="feature-voting-hint" />
+          <FieldContent>
+            <FieldLabel htmlFor="feature-voting">{t("voting")}</FieldLabel>
+            <FieldDescription id="feature-voting-hint">
+              <span className="block">{t("votingHint")}</span>
+              <span className="block">{t("needsAlbum")}</span>
+            </FieldDescription>
+          </FieldContent>
+        </Field>
+        <FormOutcome state={state} />
+        <Button type="submit" disabled={pending} className="self-start">
+          {t("submit")}
+        </Button>
+      </FieldGroup>
+    </form>
+  );
+}
+
+// The Storage card's switches: whether videos get the sizes their events ask for (M7 ticket 03),
+// and whether a 4K original that is not H.264 also gets a 4K copy, with what that costs (M8 ticket
+// 04).
+export function StorageForm({ processing, fourK }: { processing: boolean; fourK: boolean }) {
   const t = useTranslations("Instance.storage");
   const [state, action, pending] = useActionState(setVideoProcessingAction, undefined);
   return (
@@ -313,11 +312,45 @@ export function StorageForm({ processing }: { processing: boolean }) {
             <FieldDescription id="videoProcessing-hint">{t("processVideosHint")}</FieldDescription>
           </FieldContent>
         </Field>
+        <Field orientation="horizontal">
+          <Checkbox id="videoFourKCopy" name="videoFourKCopy" defaultChecked={fourK} aria-describedby="videoFourKCopy-hint" />
+          <FieldContent>
+            <FieldLabel htmlFor="videoFourKCopy">{t("fourK")}</FieldLabel>
+            <FieldDescription id="videoFourKCopy-hint">{t("fourKHint")}</FieldDescription>
+          </FieldContent>
+        </Field>
         <FormOutcome state={state} />
         <Button type="submit" disabled={pending} className="self-start">
           {t("submit")}
         </Button>
       </FieldGroup>
+    </form>
+  );
+}
+
+// Make missing sizes (M8 ticket 04), offered while processing is on and ffmpeg is usable: the
+// button while any video lacks a size, and what a press queued, which stays said after the page
+// is refreshed with nothing left to queue.
+export function MissingSizesForm({ count }: { count: number }) {
+  const t = useTranslations("Instance.storage");
+  const [state, action, pending] = useActionState(queueMissingSizesAction, undefined);
+  return (
+    <form action={action} className="flex flex-col gap-2">
+      {count > 0 && (
+        <>
+          <Button type="submit" variant="outline" disabled={pending} className="self-start" aria-describedby="missing-sizes-hint">
+            {t("makeMissingSizes")}
+          </Button>
+          <p id="missing-sizes-hint" className="text-sm text-muted-foreground">
+            {t("makeMissingSizesHint")}
+          </p>
+        </>
+      )}
+      {state && (
+        <p role="status" className="text-sm">
+          {t("queued", { count: state.queued })}
+        </p>
+      )}
     </form>
   );
 }
@@ -352,6 +385,8 @@ export function HostInvitationForm({ canSend }: { canSend: boolean }) {
   );
 }
 
+// The new invitation's link to copy, in a panel drawn by its edge alone, so that the field sits
+// on the card's glass as every other field does (legibility.ts, SURFACES.inset).
 function NewHostInvitation({ link, sentTo, notSent }: { link: string; sentTo?: string; notSent?: string }) {
   const t = useTranslations("Instance.invitations");
   const [copied, setCopied] = useState(false);
@@ -369,7 +404,7 @@ function NewHostInvitation({ link, sentTo, notSent }: { link: string; sentTo?: s
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl bg-muted/50 p-4">
+    <div className="flex flex-col gap-3 rounded-xl border border-theme-glass-border p-4">
       <p role="status" className="text-sm">
         {t("created")}
       </p>

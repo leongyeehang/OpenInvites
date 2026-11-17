@@ -8,7 +8,8 @@ import type { UploadProblem } from "@/uploads/validate";
 // finish, two files at a time, with a resume after a dropped connection. What each file became is
 // answered in the files' order, as the one post answered it.
 
-export type UploadOutcome = { name: string; ok: true; pending: boolean; kind: "photo" | "video" } | { name: string; ok: false; problem: UploadProblem; max?: number };
+// A file added carries its item's id (M8 ticket 09), so its status line can caption it.
+export type UploadOutcome = { name: string; ok: true; id: string; pending: boolean; kind: "photo" | "video" } | { name: string; ok: false; problem: UploadProblem; max?: number };
 export type UploadBatchResult = { error?: AlbumRefusal; left?: number; limit?: number; results?: UploadOutcome[] };
 
 // A file before it is sent: its length, when the browser could read it, and what is wrong with it
@@ -151,7 +152,7 @@ async function uploadOne(base: string, file: File, kind: "photo" | "video", uplo
   const finished = await fetch(`${base}/${upload.id}/finish`, { method: "POST" }).catch(() => undefined);
   const answer = (await finished?.json().catch(() => undefined)) as FinishResponse | undefined;
   if (!answer || !answer.ok) return { name: file.name, ok: false, problem: answer?.problem ?? "incomplete" };
-  return { name: file.name, ok: true, pending: answer.item.state === "pending", kind };
+  return { name: file.name, ok: true, id: answer.item.id, pending: answer.item.state === "pending", kind };
 }
 
 // The parts given, in order; true when one failed (the sending stops there).

@@ -1,4 +1,4 @@
-import { chooseLayout, createDraft, createPublished, type DraftFields, editSettings, openMore, pickDesign, publishInEditor } from "./events";
+import { chooseLayout, createDraft, createPublished, type DraftFields, openMore, pickDesign, publishInEditor, setGuestList } from "./events";
 import { signUpVerified } from "./hosts";
 import { expect, test, type APIRequestContext, type Browser, type Page } from "./test";
 
@@ -42,14 +42,6 @@ async function someoneElseReplies(browser: Browser, link: string, name: string, 
   const context = await browser.newContext();
   await reply(await context.newPage(), link, name, status);
   await context.close();
-}
-
-// In the editor's Settings sheet, which waits for this change's own save.
-async function setGuestListVisibility(hostPage: Page, who: "always" | "afterReply" | "hidden") {
-  await hostPage.reload();
-  await editSettings(hostPage, async () => {
-    await hostPage.getByLabel("Who can see the guest list").selectOption(who);
-  });
 }
 
 test("a guest replies on the ballot: Going, two named plus-ones and the host's questions, then a received stamp, the edit link and their line in the list", async ({
@@ -174,7 +166,7 @@ test("the Broadsheet's guest list follows the host's visibility setting, with ma
   await expect(page.getByText("2 people expected")).toBeVisible();
 
   // Shown to everyone: a visitor who has not replied sees it.
-  await setGuestListVisibility(host.page, "always");
+  await setGuestList(host.page, "always");
   const visitor = await browser.newContext();
   const visitorPage = await visitor.newPage();
   await visitorPage.goto(host.link);
@@ -183,7 +175,7 @@ test("the Broadsheet's guest list follows the host's visibility setting, with ma
   await visitor.close();
 
   // Hidden: nobody sees the list or the count, even a guest who has replied.
-  await setGuestListVisibility(host.page, "hidden");
+  await setGuestList(host.page, "hidden");
   await page.reload();
   await expect(page.getByRole("heading", { name: "You’re going!" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Guests" })).toHaveCount(0);
