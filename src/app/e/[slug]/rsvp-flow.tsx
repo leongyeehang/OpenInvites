@@ -106,7 +106,7 @@ export function RsvpFlow(props: RsvpFlowProps) {
       onChangeAnswer={flow.changeAnswer}
       onEditDetails={flow.editDetails}
       onRemove={flow.withdraw}
-      removing={working}
+      removing={flow.withdrawing}
       refusal={flow.withdrawRefusal && t(`errors.${flow.withdrawRefusal}`)}
       calendar={calendar}
       dismiss={

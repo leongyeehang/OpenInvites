@@ -19,6 +19,16 @@ async function collect(stream: ReadableStream<Uint8Array>): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
+// How the bytes read back differ from the bytes stored, for `toBe("the same")`. Not `toEqual`
+// on the arrays: it walks them an element at a time, two seconds and 200 MB of heap for every
+// megabyte, which ran the 9 MiB check out of time on CI and out of memory on a smaller machine.
+function difference(actual: Uint8Array | undefined, expected: Uint8Array): string {
+  if (!actual) return "nothing is stored";
+  if (actual.length !== expected.length) return `${actual.length} bytes, not ${expected.length}`;
+  if (Buffer.compare(actual, expected) === 0) return "the same";
+  return `the same length, differing from byte ${actual.findIndex((byte, at) => byte !== expected[at])}`;
+}
+
 // The one test at the storage interface (spec, "Testing Decisions"): the S3 implementation
 // against a real S3-compatible server, which checks every request's signature. The local-disk
 // implementation is exercised by the browser tests. vitest.s3.config.ts says how to run it.
@@ -31,7 +41,7 @@ describe("S3-compatible storage", () => {
     const picture = Uint8Array.from({ length: 300_000 }, (_, at) => (at * 31) % 256);
 
     await storage.put(key, picture);
-    expect(await storage.get(key)).toEqual(picture);
+    expect(difference(await storage.get(key), picture)).toBe("the same");
     // The listing names it, with its size and when it was written (M7 ticket 10).
     const listed: { key: string; size: number; modifiedAt: Date }[] = [];
     for await (const file of storage.list()) if (file.key === key) listed.push(file);
@@ -44,8 +54,8 @@ describe("S3-compatible storage", () => {
     // A copy under another key reads back the same, and the original stays.
     const copied = `smoke-${crypto.randomUUID()}-poster.webp`;
     await storage.copy(key, copied);
-    expect(await storage.get(copied)).toEqual(picture);
-    expect(await storage.get(key)).toEqual(picture);
+    expect(difference(await storage.get(copied), picture)).toBe("the same");
+    expect(difference(await storage.get(key), picture)).toBe("the same");
     await storage.delete(copied);
     await storage.delete(key);
     expect(await storage.get(key)).toBeUndefined();
@@ -56,8 +66,8 @@ describe("S3-compatible storage", () => {
     const pieces = Array.from({ length: 9 }, (_, index) => large.subarray(index * 1024 * 1024, (index + 1) * 1024 * 1024));
     await storage.putStream(streamed, fromPieces(pieces), large.length);
     expect(await storage.stat(streamed)).toEqual({ size: large.length });
-    expect(await collect((await storage.stream(streamed))!)).toEqual(Buffer.from(large));
-    expect(await collect((await storage.stream(streamed, { start: 1000, end: 1009 }))!)).toEqual(Buffer.from(large.subarray(1000, 1010)));
+    expect(difference(await collect((await storage.stream(streamed))!), large)).toBe("the same");
+    expect(difference(await collect((await storage.stream(streamed, { start: 1000, end: 1009 }))!), large.subarray(1000, 1010))).toBe("the same");
     expect(await storage.stream(`smoke-${crypto.randomUUID()}-video.mp4`)).toBeUndefined();
     await storage.delete(streamed);
     // Deleting what is already gone is not an error, as on local disk.

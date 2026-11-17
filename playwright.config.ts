@@ -32,10 +32,13 @@ export default defineConfig({
   globalTeardown: "./e2e/teardown.ts",
   fullyParallel: true,
   forbidOnly: isCI,
-  // On CI a failed test runs once more, so that its trace is recorded (trace below), and the run
-  // still fails if it passes then: a test that passes only sometimes is a failure too.
+  // On CI a failed test runs once more, with its trace recorded (trace below), and the run fails
+  // only if it fails again. One that passes then is still reported: the GitHub reporter annotates
+  // its first failure and counts it "flaky" in the run's summary, to be looked into. It does not
+  // fail the run, as it did up to 0.8.0: of some 1,200 tests on a shared runner about two a run
+  // passed only on their second try, different ones each time, so four of that release's six
+  // browser jobs failed and nothing was published.
   retries: isCI ? 1 : 0,
-  failOnFlakyTests: isCI,
   reporter: isCI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: "http://localhost:3000",

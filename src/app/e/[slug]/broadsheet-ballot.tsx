@@ -68,7 +68,7 @@ export function BroadsheetBallot(props: RsvpFlowProps) {
             onAmend={flow.editDetails}
             onChangeAnswer={flow.changeAnswer}
             onRemove={flow.withdraw}
-            removing={working}
+            removing={flow.withdrawing}
             refusal={flow.withdrawRefusal && t(`errors.${flow.withdrawRefusal}`)}
             calendar={calendar}
           />

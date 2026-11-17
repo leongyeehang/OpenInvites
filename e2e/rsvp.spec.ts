@@ -1,4 +1,4 @@
-import { expect, expectNotFoundAsSent, test } from "./test";
+import { expect, expectNotFoundAsSent, test, type Page } from "./test";
 import { createDraft, createPublished, editSettings, expectReplies, nextUp } from "./events";
 import { signUpVerified } from "./hosts";
 import { openMyReply, replyBar } from "./reply";
@@ -158,6 +158,52 @@ test("the edit link opens the RSVP on a device that has never seen the invitatio
   await elsewhere.close();
   await host.context.close();
 });
+
+// Notes how the confirmation's Remove stands the moment it is drawn, however soon that changes.
+async function watchForRemove(page: Page) {
+  await page.evaluate(() => {
+    const seen = window as unknown as { removeAsDrawn?: "enabled" | "disabled" };
+    new MutationObserver((_, observer) => {
+      const remove = [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Remove my RSVP");
+      if (!remove) return;
+      seen.removeAsDrawn = remove.disabled ? "disabled" : "enabled";
+      observer.disconnect();
+    }).observe(document.body, { subtree: true, childList: true });
+  });
+}
+
+// The confirmation is drawn as soon as the answer is saved, while the page behind it is still
+// being drawn again. Remove is for the RSVP just saved and nothing is being removed, so it is
+// there to be pressed from the start: drawn disabled until the page caught up, it was passed
+// over by a guest going on by keyboard (keyboard.spec.ts walks to it on each layout).
+const ANSWERS = {
+  Poster: { going: ["button", "Going"], send: "Send RSVP" },
+  Broadsheet: { going: ["radio", "I’ll be there"], send: "Post my reply" },
+  Thread: { going: ["button", "Going"], send: "Send" },
+} as const;
+
+for (const layout of ["Poster", "Broadsheet", "Thread"] as const) {
+  test(`a saved answer's confirmation offers Remove from the moment it is drawn, on the ${layout}`, async ({ page, browser, request }) => {
+    test.slow();
+    const host = await createPublished(browser, request, `rsvp-remove-ready-${layout.toLowerCase()}`, {
+      title: "Ada’s birthday",
+      start: "2027-03-06T19:00",
+      plusOnes: "0",
+      ...(layout === "Poster" ? {} : { layout }),
+    });
+    const { going, send } = ANSWERS[layout];
+
+    await page.goto(host.link);
+    await page.getByRole(going[0], { name: going[1], exact: true }).click();
+    await page.getByLabel("Your name").fill("Priya Nair");
+    await watchForRemove(page);
+    await page.getByRole("button", { name: send, exact: true }).click();
+
+    await expect(page.getByRole("button", { name: "Remove my RSVP" })).toBeEnabled({ timeout: 15_000 });
+    expect(await page.evaluate(() => (window as unknown as { removeAsDrawn?: string }).removeAsDrawn)).toBe("enabled");
+    await host.context.close();
+  });
+}
 
 test("a guest removes their RSVP and the event forgets them", async ({ page, browser, request }) => {
   test.slow();
